@@ -231,4 +231,63 @@ class DecisionTest < ActiveSupport::TestCase
     decision.unpin!(tenant: @tenant, collective: @collective, user: @user)
     assert_not decision.is_pinned?(tenant: @tenant, collective: @collective, user: @user)
   end
+
+  # Subtype tests
+
+  test "Decision defaults to vote subtype" do
+    decision = create_decision
+
+    assert_equal "vote", decision.subtype
+    assert decision.is_vote?
+    assert_not decision.is_lottery?
+    assert_not decision.is_log?
+  end
+
+  test "Decision can be created with explicit subtype" do
+    Decision::SUBTYPES.each do |subtype|
+      decision = Decision.create!(
+        tenant: @tenant,
+        collective: @collective,
+        created_by: @user,
+        updated_by: @user,
+        question: "#{subtype} decision",
+        description: "Test description",
+        deadline: 1.day.from_now,
+        subtype: subtype,
+      )
+
+      assert_equal subtype, decision.subtype
+    end
+  end
+
+  test "Decision rejects invalid subtype" do
+    decision = Decision.new(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      question: "Invalid subtype",
+      deadline: 1.day.from_now,
+      subtype: "invalid",
+    )
+
+    assert_not decision.valid?
+    assert_includes decision.errors[:subtype], "is not included in the list"
+  end
+
+  test "Decision api_json includes subtype" do
+    decision = Decision.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      question: "Lottery decision",
+      description: "Test description",
+      deadline: 1.day.from_now,
+      subtype: "lottery",
+    )
+
+    json = decision.api_json
+    assert_equal "lottery", json[:subtype]
+  end
 end

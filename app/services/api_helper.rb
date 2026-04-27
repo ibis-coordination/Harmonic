@@ -150,6 +150,7 @@ class ApiHelper
       note = Note.create!(
         title: params[:title],
         text: params[:text],
+        subtype: params[:subtype] || "text",
         deadline: Time.now,
         created_by: current_user,
         commentable: commentable,
@@ -174,6 +175,7 @@ class ApiHelper
       decision = Decision.create!(
         question: params[:question],
         description: params[:description],
+        subtype: params[:subtype] || "vote",
         options_open: params[:options_open] || true,
         deadline: params[:deadline],
         created_by: current_user,
@@ -197,6 +199,7 @@ class ApiHelper
       commitment = Commitment.create!(
         title: params[:title],
         description: params[:description],
+        subtype: params[:subtype] || "action",
         deadline: params[:deadline],
         critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
@@ -772,6 +775,7 @@ class ApiHelper
       new_decision = Decision.create!(
         question: "#{original.question} (copy)",
         description: original.description,
+        subtype: original.subtype,
         options_open: original.options_open,
         deadline: original.deadline,
         created_by: current_user,

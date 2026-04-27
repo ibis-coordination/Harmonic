@@ -12,6 +12,8 @@ class Decision < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
+  SUBTYPES = %w[vote lottery log].freeze
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -25,6 +27,22 @@ class Decision < ApplicationRecord
 
   validates :question, presence: true
   validates :deadline, presence: true
+  validates :subtype, inclusion: { in: SUBTYPES }
+
+  sig { returns(T::Boolean) }
+  def is_vote?
+    subtype == "vote"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_lottery?
+    subtype == "lottery"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_log?
+    subtype == "log"
+  end
 
   sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def self.api_json
@@ -36,6 +54,7 @@ class Decision < ApplicationRecord
     response = {
       id: id,
       truncated_id: truncated_id,
+      subtype: subtype,
       question: question,
       description: description,
       options_open: options_open,

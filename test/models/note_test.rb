@@ -782,4 +782,107 @@ class NoteTest < ActiveSupport::TestCase
     # The memoized value should be cleared again, so this should return 2
     assert_equal 2, note.confirmed_reads
   end
+
+  # Subtype tests
+
+  test "Note defaults to text subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Default subtype note",
+    )
+
+    assert_equal "text", note.subtype
+    assert note.is_text?
+    assert_not note.is_reminder?
+    assert_not note.is_table?
+  end
+
+  test "Note can be created with explicit subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    Note::SUBTYPES.each do |subtype|
+      note = Note.create!(
+        tenant: tenant,
+        collective: collective,
+        created_by: user,
+        updated_by: user,
+        text: "#{subtype} note",
+        subtype: subtype,
+      )
+
+      assert_equal subtype, note.subtype
+    end
+  end
+
+  test "Note comment must be text subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    parent = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Parent note",
+    )
+
+    comment = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "This is a comment",
+      subtype: "reminder",
+      commentable: parent,
+    )
+
+    assert_not comment.valid?
+    assert_includes comment.errors[:subtype], "must be text for comments"
+  end
+
+  test "Note rejects invalid subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Invalid subtype note",
+      subtype: "invalid",
+    )
+
+    assert_not note.valid?
+    assert_includes note.errors[:subtype], "is not included in the list"
+  end
+
+  test "Note api_json includes subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "API json note",
+      subtype: "reminder",
+    )
+
+    json = note.api_json
+    assert_equal "reminder", json[:subtype]
+  end
 end

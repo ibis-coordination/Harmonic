@@ -375,6 +375,9 @@ class Note
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_deleted_by(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -431,6 +434,12 @@ class Note
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_deleted_by(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_deleted_by!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
 
@@ -454,6 +463,18 @@ class Note
 
     sig { returns(T::Boolean) }
     def created_by_previously_changed?; end
+
+    sig { returns(T.nilable(::User)) }
+    def deleted_by; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def deleted_by=(value); end
+
+    sig { returns(T::Boolean) }
+    def deleted_by_changed?; end
+
+    sig { returns(T::Boolean) }
+    def deleted_by_previously_changed?; end
 
     sig { returns(T::Array[T.untyped]) }
     def link_ids; end
@@ -492,6 +513,9 @@ class Note
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
+    sig { returns(T.nilable(::User)) }
+    def reload_deleted_by; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -520,6 +544,9 @@ class Note
 
     sig { void }
     def reset_created_by; end
+
+    sig { void }
+    def reset_deleted_by; end
 
     sig { void }
     def reset_tenant; end
@@ -626,6 +653,9 @@ class Note
     def none(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def not_deleted(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def null_relation?(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -689,6 +719,9 @@ class Note
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def with(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_deleted(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def with_recursive(*args, &blk); end
@@ -968,6 +1001,96 @@ class Note
     sig { void }
     def deadline_will_change!; end
 
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def deleted_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def deleted_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def deleted_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def deleted_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def deleted_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def deleted_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def deleted_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def deleted_at_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def deleted_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def deleted_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def deleted_at_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def deleted_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def deleted_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def deleted_at_was; end
+
+    sig { void }
+    def deleted_at_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def deleted_by_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def deleted_by_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def deleted_by_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def deleted_by_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def deleted_by_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def deleted_by_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def deleted_by_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def deleted_by_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def deleted_by_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def deleted_by_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def deleted_by_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def deleted_by_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def deleted_by_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def deleted_by_id_was; end
+
+    sig { void }
+    def deleted_by_id_will_change!; end
+
     sig { returns(::String) }
     def id; end
 
@@ -1077,10 +1200,19 @@ class Note
     def restore_deadline!; end
 
     sig { void }
+    def restore_deleted_at!; end
+
+    sig { void }
+    def restore_deleted_by_id!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
     def restore_id_value!; end
+
+    sig { void }
+    def restore_subtype!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -1136,6 +1268,18 @@ class Note
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_deadline?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_deleted_at; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_deleted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_deleted_by_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_deleted_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
 
@@ -1147,6 +1291,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_subtype; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -1183,6 +1333,51 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_updated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(::String) }
+    def subtype; end
+
+    sig { params(value: ::String).returns(::String) }
+    def subtype=(value); end
+
+    sig { returns(T::Boolean) }
+    def subtype?; end
+
+    sig { returns(T.nilable(::String)) }
+    def subtype_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def subtype_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def subtype_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def subtype_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def subtype_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def subtype_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def subtype_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def subtype_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def subtype_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def subtype_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def subtype_was; end
+
+    sig { void }
+    def subtype_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1473,10 +1668,19 @@ class Note
     def will_save_change_to_deadline?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_deleted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_deleted_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
@@ -1571,6 +1775,9 @@ class Note
     def none(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def not_deleted(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def null_relation?(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -1634,6 +1841,9 @@ class Note
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def with(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_deleted(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def with_recursive(*args, &blk); end

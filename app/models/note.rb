@@ -13,6 +13,8 @@ class Note < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
+  SUBTYPES = %w[text reminder table].freeze
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -26,6 +28,8 @@ class Note < ApplicationRecord
 
   has_many :note_history_events, dependent: :destroy
   # validates :title, presence: true
+  validates :subtype, inclusion: { in: SUBTYPES }
+  validate :comments_must_be_text_subtype
 
   after_create do
     NoteHistoryEvent.create!(
@@ -43,6 +47,21 @@ class Note < ApplicationRecord
       event_type: "update",
       happened_at: updated_at
     )
+  end
+
+  sig { returns(T::Boolean) }
+  def is_text?
+    subtype == "text"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_reminder?
+    subtype == "reminder"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_table?
+    subtype == "table"
   end
 
   sig { returns(String) }
@@ -85,6 +104,7 @@ class Note < ApplicationRecord
     response = {
       id: id,
       truncated_id: truncated_id,
+      subtype: subtype,
       title: title,
       text: text,
       deadline: deadline,
@@ -233,6 +253,12 @@ class Note < ApplicationRecord
   end
 
   private
+
+  def comments_must_be_text_subtype
+    if is_comment? && !is_text?
+      errors.add(:subtype, "must be text for comments")
+    end
+  end
 
   def scrub_content!
     self.title = "[deleted]"
