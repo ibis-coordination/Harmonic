@@ -693,7 +693,8 @@ CREATE TABLE public.notes (
     commentable_id uuid,
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
-    subtype character varying DEFAULT 'text'::character varying NOT NULL
+    subtype character varying DEFAULT 'text'::character varying NOT NULL,
+    table_data jsonb
 );
 
 
@@ -8914,6 +8915,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260427205555'),
 ('20260427200746'),
 ('20260425000001'),
 ('20260424210631'),

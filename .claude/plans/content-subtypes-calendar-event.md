@@ -113,6 +113,12 @@ No new RSVP-specific logic needed — the commitment participant system is alrea
 - RSVP: joining/leaving works as usual, labels changed
 - Feed: event renders with date/time, location, RSVP button
 
+## Help Documentation
+
+After actions and interfaces are implemented:
+- Add help content explaining calendar events (RSVP flow, date/time, location)
+- Update any existing help pages that reference commitments
+
 ## Verification
 
 ```bash

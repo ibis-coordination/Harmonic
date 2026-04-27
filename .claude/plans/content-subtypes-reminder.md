@@ -97,6 +97,12 @@ The existing `ReminderDeliveryJob` (`app/jobs/reminder_delivery_job.rb`) needs a
 - Feed: reminder event appears in current cycle's feed
 - Controller: create reminder note with scheduled_for, show page displays status
 
+## Help Documentation
+
+After actions and interfaces are implemented:
+- Add help content explaining reminder notes (scheduling, how resurfacing works)
+- Update any existing help pages that reference notes
+
 ## Verification
 
 ```bash

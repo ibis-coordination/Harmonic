@@ -810,15 +810,19 @@ class NoteTest < ActiveSupport::TestCase
     collective = create_collective(tenant: tenant, created_by: user)
 
     Note::SUBTYPES.each do |subtype|
-      note = Note.create!(
+      attrs = {
         tenant: tenant,
         collective: collective,
         created_by: user,
         updated_by: user,
         text: "#{subtype} note",
         subtype: subtype,
-      )
+      }
+      if subtype == "table"
+        attrs[:table_data] = { "columns" => [], "rows" => [] }
+      end
 
+      note = Note.create!(attrs)
       assert_equal subtype, note.subtype
     end
   end
@@ -884,5 +888,159 @@ class NoteTest < ActiveSupport::TestCase
 
     json = note.api_json
     assert_equal "reminder", json[:subtype]
+  end
+
+  # Table note validation tests
+
+  test "table note requires table_data to be present" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "No table data",
+      text: "",
+      table_data: nil,
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("must be present") }
+  end
+
+  test "table note rejects more than 20 columns" do
+    columns = (1..21).map { |i| { "name" => "Col#{i}", "type" => "text" } }
+
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Too many columns",
+      text: "",
+      table_data: { "columns" => columns, "rows" => [] },
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("20 columns") }
+  end
+
+  test "table note rejects duplicate column names" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Duplicate columns",
+      text: "",
+      table_data: {
+        "columns" => [
+          { "name" => "Status", "type" => "text" },
+          { "name" => "Status", "type" => "text" },
+        ],
+        "rows" => [],
+      },
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("unique") }
+  end
+
+  test "table note rejects column names starting with underscore" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Reserved column",
+      text: "",
+      table_data: {
+        "columns" => [{ "name" => "_id", "type" => "text" }],
+        "rows" => [],
+      },
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("underscore") }
+  end
+
+  test "table note rejects column names with special characters" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Bad column name",
+      text: "",
+      table_data: {
+        "columns" => [{ "name" => "Status<script>", "type" => "text" }],
+        "rows" => [],
+      },
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("invalid characters") }
+  end
+
+  test "table note rejects invalid column type" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Bad type",
+      text: "",
+      table_data: {
+        "columns" => [{ "name" => "Col", "type" => "formula" }],
+        "rows" => [],
+      },
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("invalid column type") }
+  end
+
+  test "table note rejects cell values exceeding 1000 chars" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Long cell",
+      text: "",
+      table_data: {
+        "columns" => [{ "name" => "Data", "type" => "text" }],
+        "rows" => [{ "_id" => "abc1", "Data" => "x" * 1001 }],
+      },
+    )
+
+    assert_not note.valid?
+    assert note.errors[:table_data].any? { |e| e.include?("1000 characters") }
+  end
+
+  # Table soft delete test
+
+  test "soft deleting a table note scrubs table_data" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      subtype: "table", title: "Test Table", text: "",
+      table_data: { "columns" => [{ "name" => "Status", "type" => "text" }], "rows" => [] },
+    )
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done" }, created_by: user)
+
+    note.soft_delete!(by: note.created_by)
+
+    assert_equal "[deleted]", note.text
+    assert_nil note.table_data
   end
 end
