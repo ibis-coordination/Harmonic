@@ -84,6 +84,46 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Create notes"
   end
 
+  test "whoami shows pinned workspace notes for AI agent" do
+    @tenant.enable_api!
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "Test Agent",
+      user_type: "ai_agent",
+      parent_id: @alice.id,
+    )
+    @tenant.add_user!(agent)
+    workspace = agent.private_workspace
+
+    # Create and pin a note in the workspace
+    Collective.set_thread_context(workspace)
+    note = Note.create!(
+      tenant: @tenant,
+      collective: workspace,
+      created_by: agent,
+      text: "Important context to remember",
+    )
+    workspace.pin_item!(note)
+    assert workspace.has_pinned?(note), "Note should be pinned"
+    assert_equal 1, workspace.pinned_items.length, "Should have 1 pinned item"
+
+    api_token = ApiToken.create!(
+      user: agent,
+      tenant: @tenant,
+      name: "Agent Token",
+      scopes: %w[read:users],
+    )
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_includes response.body, "Pinned context"
+    assert_includes response.body, note.title
+    assert_includes response.body, note.path
+  end
+
   test "whoami does not show Your Memory section for human user" do
     @tenant.enable_api!
     api_token = ApiToken.create!(
