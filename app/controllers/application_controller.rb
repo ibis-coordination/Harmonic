@@ -607,7 +607,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)

@@ -106,8 +106,8 @@ describe("buildScratchpadPrompt", () => {
     expect(prompt).toContain("**Outcome**: completed");
     expect(prompt).toContain("**Summary**: All done");
     expect(prompt).toContain("**Steps taken**: 5");
-    expect(prompt).toContain("help your future self");
-    expect(prompt).toContain("Key learnings");
+    expect(prompt).toContain("Update your scratchpad for your future self");
+    expect(prompt).toContain("Active context");
     expect(prompt).toContain('{"scratchpad": "your updated scratchpad content"}');
     expect(prompt).toContain('{"scratchpad": null}');
   });

@@ -155,7 +155,10 @@ Rails.application.routes.draw do
   get 'settings' => 'users#redirect_to_settings'
 
   get 'about' => 'home#about'
-  get 'help' => 'home#help'
+  get 'help' => 'help#index'
+  %w[privacy collectives notes decisions commitments cycles search links agents api].each do |topic|
+    get "help/#{topic}" => "help##{topic}"
+  end
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
 

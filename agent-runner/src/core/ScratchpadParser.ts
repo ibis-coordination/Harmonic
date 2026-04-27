@@ -114,19 +114,21 @@ export function buildScratchpadPrompt(
 **Summary**: ${finalMessage}
 **Steps taken**: ${stepsCount}
 
-Please update your scratchpad with any context that would help your future self.
-This might include:
-- Key learnings from this task
-- Important context discovered
-- Work in progress or follow-ups needed
-- User preferences observed
+Update your scratchpad for your future self. Your scratchpad is injected into every task, so keep it focused and current. Prioritize:
+
+- **Active context**: Work in progress, follow-ups promised, deadlines
+- **User preferences**: Communication style, naming conventions, recurring requests
+- **Key facts**: Important information that isn't obvious from browsing
+- **Errors to avoid**: Actions that failed and why
+
+Remove information that's no longer relevant. 10,000 character limit — be concise and use clear headings.
 
 Respond with JSON:
 \`\`\`json
 {"scratchpad": "your updated scratchpad content"}
 \`\`\`
 
-If you have nothing to add, respond with:
+If nothing worth keeping, respond with:
 \`\`\`json
 {"scratchpad": null}
 \`\`\``;
