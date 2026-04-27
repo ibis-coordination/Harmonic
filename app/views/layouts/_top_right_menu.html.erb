@@ -72,6 +72,10 @@
             <span class="notification-badge-count" style="position:relative;top:-2px;margin-left:4px;"><%= pending_grants %></span>
           <% end %>
         </li>
+        <li>
+          <%= octicon 'question' %>
+          <a href="/help">Help</a>
+        </li>
         <% if @current_tenant.is_admin?(@current_user) %>
           <li>
             <a href="/admin">
