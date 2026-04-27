@@ -30,7 +30,7 @@ class SearchQueryParser
   OPERATORS = T.let({
     # Location scope
     "collective" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
-    "scope" => { values: ["public", "private"], multi: false },
+    "scope" => { values: ["public", "shared", "private"], multi: true },
 
     # User filters
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
@@ -303,8 +303,9 @@ class SearchQueryParser
     # Collective scope
     params[:collective_handle] = build_collective_param("collective")
 
-    # Scope filter (public/private)
+    # Scope filter (public/shared/private)
     params[:scope] = build_scope_param
+    params[:exclude_scope] = build_negated_scope_param
 
     params.compact
   end
@@ -487,12 +488,38 @@ class SearchQueryParser
     T.must(values.last)
   end
 
+  ALL_SCOPES = T.let(%w[public shared private].freeze, T::Array[String])
+
   sig { returns(T.nilable(String)) }
   def build_scope_param
-    values = @operators["scope"]
+    values = (@operators["scope"] || []).uniq
     return nil if values.blank?
 
-    # Last value wins
-    T.must(values.last)
+    # Single scope: use directly
+    return T.must(values.first) if values.length == 1
+
+    # All three scopes: no filter needed
+    return nil if values.length >= 3
+
+    # Two scopes: translate to exclude_scope of the missing one
+    # (handled by build_negated_scope_param)
+    nil
+  end
+
+  sig { returns(T.nilable(String)) }
+  def build_negated_scope_param
+    included = (@operators["scope"] || []).uniq
+    negated = (@negated_operators["scope"] || []).uniq
+
+    # Two included scopes → exclude the missing one
+    if included.length == 2
+      missing = (ALL_SCOPES - included).first
+      return missing
+    end
+
+    # Explicit negation
+    return T.must(negated.last) if negated.any?
+
+    nil
   end
 end

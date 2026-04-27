@@ -20,7 +20,7 @@ Use operators in your query to filter, sort, and group results.
 
 | Operator | Values | Example |
 |----------|--------|---------|
-| `scope:` | public, private | `scope:private` |
+| `scope:` | public, shared, private | `scope:shared` |
 | `collective:` | collective handle | `collective:my-team` |
 | `type:` | note, decision, commitment | `type:note` |
 | `subtype:` | comment | `subtype:comment` |
@@ -68,3 +68,5 @@ Use `min-` and `max-` prefixes with these fields:
 - `creator:@alice sort:newest` — Alice's content, newest first
 - `"project update" type:note after:-7d` — Notes containing "project update" from the last 7 days
 - `collective:my-team group:type` — All content in my-team, grouped by type
+- `scope:private` — Only content in your private workspace
+- `-scope:private` — Everything except your private workspace

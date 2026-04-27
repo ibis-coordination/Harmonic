@@ -588,6 +588,41 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "private", result[:scope]
   end
 
+  test "scope:shared sets scope" do
+    result = SearchQueryParser.new("scope:shared").parse
+    assert_equal "shared", result[:scope]
+  end
+
+  test "-scope:private sets exclude_scope" do
+    result = SearchQueryParser.new("-scope:private").parse
+    assert_equal "private", result[:exclude_scope]
+    assert_nil result[:scope]
+  end
+
+  test "scope:public,shared translates to exclude_scope:private" do
+    result = SearchQueryParser.new("scope:public scope:shared").parse
+    assert_nil result[:scope]
+    assert_equal "private", result[:exclude_scope]
+  end
+
+  test "scope:public,shared comma syntax translates to exclude_scope:private" do
+    result = SearchQueryParser.new("scope:public,shared").parse
+    assert_nil result[:scope]
+    assert_equal "private", result[:exclude_scope]
+  end
+
+  test "scope:shared,private translates to exclude_scope:public" do
+    result = SearchQueryParser.new("scope:shared scope:private").parse
+    assert_nil result[:scope]
+    assert_equal "public", result[:exclude_scope]
+  end
+
+  test "scope:public,shared,private means no filter" do
+    result = SearchQueryParser.new("scope:public scope:shared scope:private").parse
+    assert_nil result[:scope]
+    assert_nil result[:exclude_scope]
+  end
+
   test "invalid scope treated as search text" do
     result = SearchQueryParser.new("scope:invalid").parse
     assert_equal "scope:invalid", result[:q]

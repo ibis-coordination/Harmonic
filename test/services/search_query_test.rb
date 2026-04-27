@@ -730,12 +730,17 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, @note.id
   end
 
-  test "scope:private excludes main collective results" do
+  test "scope:private returns only workspace content" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_collective.add_user!(@user)
     main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
     SearchIndexer.reindex(main_note)
+
+    workspace = @user.private_workspace
+    Collective.set_thread_context(workspace)
+    workspace_note = create_note(tenant: @tenant, collective: workspace, created_by: @user, text: "private workspace memory")
+    SearchIndexer.reindex(workspace_note)
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
@@ -743,9 +748,84 @@ class SearchQueryTest < ActiveSupport::TestCase
     )
 
     result_ids = search.results.pluck(:item_id)
+    assert_includes result_ids, workspace_note.id
     assert_not_includes result_ids, main_note.id
-    # Should include items from non-main collectives the user is a member of
+    assert_not_includes result_ids, @note.id
+  end
+
+  test "scope:shared returns non-public non-workspace content" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    workspace = @user.private_workspace
+    Collective.set_thread_context(workspace)
+    workspace_note = create_note(tenant: @tenant, collective: workspace, created_by: @user, text: "private workspace memory")
+    SearchIndexer.reindex(workspace_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "scope:shared cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    # Should include shared collective content
     assert_includes result_ids, @note.id
+    # Should NOT include public or workspace content
+    assert_not_includes result_ids, main_note.id
+    assert_not_includes result_ids, workspace_note.id
+  end
+
+  test "-scope:private excludes workspace content" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    workspace = @user.private_workspace
+    Collective.set_thread_context(workspace)
+    workspace_note = create_note(tenant: @tenant, collective: workspace, created_by: @user, text: "private workspace memory")
+    SearchIndexer.reindex(workspace_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "-scope:private cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    # Should include public and shared content
+    assert_includes result_ids, main_note.id
+    assert_includes result_ids, @note.id
+    # Should NOT include workspace content
+    assert_not_includes result_ids, workspace_note.id
+  end
+
+  test "-scope:public excludes main collective content" do
+    @tenant.create_main_collective!(created_by: @user)
+    main_collective = @tenant.main_collective
+    main_collective.add_user!(@user)
+    main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public main content")
+    SearchIndexer.reindex(main_note)
+
+    workspace = @user.private_workspace
+    Collective.set_thread_context(workspace)
+    workspace_note = create_note(tenant: @tenant, collective: workspace, created_by: @user, text: "private workspace memory")
+    SearchIndexer.reindex(workspace_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "-scope:public cycle:all"
+    )
+
+    result_ids = search.results.pluck(:item_id)
+    # Should include shared and workspace content
+    assert_includes result_ids, @note.id
+    assert_includes result_ids, workspace_note.id
+    # Should NOT include public content
+    assert_not_includes result_ids, main_note.id
   end
 
   test "scope:public for unauthenticated user returns main collective results" do
