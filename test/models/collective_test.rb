@@ -607,7 +607,7 @@ class CollectiveTest < ActiveSupport::TestCase
     user = create_user
     Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
     tenant.add_user!(user)
-    collective = Collective.create!(
+    Collective.create!(
       tenant: tenant,
       created_by: user,
       name: "Visible Collective",

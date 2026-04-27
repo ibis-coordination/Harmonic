@@ -142,7 +142,7 @@ class User < ApplicationRecord
     return nil if collective_identity?
     return @private_workspace if defined?(@private_workspace)
 
-    @private_workspace = collectives.unscope_collective.find_by(collective_type: "private_workspace")
+    @private_workspace = Collective.find_by(created_by_id: id, collective_type: "private_workspace")
   end
 
   # Check if this user is authorized to use the given identity user.

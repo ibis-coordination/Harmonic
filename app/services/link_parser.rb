@@ -11,7 +11,7 @@ class LinkParser
     prefixes = models.keys.join
 
     # Pattern for full URLs: https://subdomain.hostname/collectives/handle/n/id (or /workspace/)
-    full_url_pattern = Regexp.new("https://#{Regexp.escape(subdomain.to_s)}\\.#{Regexp.escape(ENV['HOSTNAME'])}/#{scope_prefix}([#{prefixes}])/([0-9a-f-]+)")
+    full_url_pattern = Regexp.new("https://#{Regexp.escape(subdomain.to_s)}\\.#{Regexp.escape(T.must(ENV['HOSTNAME']))}/#{scope_prefix}([#{prefixes}])/([0-9a-f-]+)")
 
     # Pattern for path-only markdown links: [text](/collectives/handle/n/id) (or /workspace/)
     path_prefix = collective_handle ? "/#{scope_prefix}" : '/'

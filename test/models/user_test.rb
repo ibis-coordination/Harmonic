@@ -1134,7 +1134,7 @@ class UserTest < ActiveSupport::TestCase
     assert workspace, "Human user should have a private workspace"
     assert workspace.private_workspace?
     assert workspace.user_is_member?(user)
-    assert_equal "#{user.name}'s Workspace", workspace.name
+    assert_equal "Private Workspace", workspace.name
   end
 
   test "ai_agent gets private workspace when added to tenant" do
