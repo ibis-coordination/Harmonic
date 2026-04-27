@@ -31,3 +31,10 @@ Implementation order (simplest to most complex):
 5. [Lottery Decision](content-subtypes-lottery.md) — random draw from options
 6. [Reminder Note](content-subtypes-reminder.md) — resurface on schedule
 7. [Table Note](content-subtypes-data.md) — structured tabular data with row-level operations
+
+## Help Documentation
+
+Each subtype needs help docs added after its actions and interfaces are implemented. This includes:
+- User-facing help content explaining what the subtype is and how to use it
+- Agent-facing documentation so AI agents understand the subtype's capabilities and actions
+- Updates to any existing help pages that reference content types (notes, decisions, commitments)

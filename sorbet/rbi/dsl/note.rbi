@@ -1215,6 +1215,9 @@ class Note
     def restore_subtype!; end
 
     sig { void }
+    def restore_table_data!; end
+
+    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -1298,6 +1301,12 @@ class Note
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_table_data; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_table_data?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
@@ -1378,6 +1387,51 @@ class Note
 
     sig { void }
     def subtype_will_change!; end
+
+    sig { returns(T.untyped) }
+    def table_data; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def table_data=(value); end
+
+    sig { returns(T::Boolean) }
+    def table_data?; end
+
+    sig { returns(T.untyped) }
+    def table_data_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def table_data_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def table_data_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def table_data_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def table_data_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def table_data_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def table_data_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def table_data_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def table_data_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def table_data_previously_was; end
+
+    sig { returns(T.untyped) }
+    def table_data_was; end
+
+    sig { void }
+    def table_data_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1681,6 +1735,9 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_table_data?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

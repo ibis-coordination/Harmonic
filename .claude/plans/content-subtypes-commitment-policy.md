@@ -50,6 +50,12 @@ None — no extra columns needed. Uses existing Commitment schema.
 - Controller: create policy, show page renders without deadline/progress
 - Feed: policy renders correctly
 
+## Help Documentation
+
+After actions and interfaces are implemented:
+- Add help content explaining policies (what they are, when to use them vs actions)
+- Update any existing help pages that reference commitments
+
 ## Verification
 
 ```bash

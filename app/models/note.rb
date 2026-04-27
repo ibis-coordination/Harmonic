@@ -30,6 +30,7 @@ class Note < ApplicationRecord
   # validates :title, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }
   validate :comments_must_be_text_subtype
+  validate :validate_table_data, if: :should_validate_table_data?
 
   after_create do
     NoteHistoryEvent.create!(
@@ -254,6 +255,14 @@ class Note < ApplicationRecord
 
   private
 
+  def should_validate_table_data?
+    is_table? && !deleted_at?
+  end
+
+  def validate_table_data
+    NoteTableValidator.validate(table_data, errors)
+  end
+
   def comments_must_be_text_subtype
     if is_comment? && !is_text?
       errors.add(:subtype, "must be text for comments")
@@ -263,6 +272,7 @@ class Note < ApplicationRecord
   def scrub_content!
     self.title = "[deleted]"
     self.text = "[deleted]"
+    self.table_data = nil if is_table?
   end
 
   # When a comment is created/destroyed, reindex the parent to update comment_count.

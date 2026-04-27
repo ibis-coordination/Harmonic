@@ -45,6 +45,12 @@ None — no extra columns needed.
 - Controller: create lottery, show page has no vote UI, results show random order
 - Feed: lottery renders without vote button
 
+## Help Documentation
+
+After actions and interfaces are implemented:
+- Add help content explaining lotteries (how random selection works, when to use vs votes)
+- Update any existing help pages that reference decisions
+
 ## Verification
 
 ```bash

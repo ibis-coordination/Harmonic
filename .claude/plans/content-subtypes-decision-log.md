@@ -49,6 +49,12 @@ None — no extra columns needed. Uses existing Decision schema.
 - Controller: create log decision, show page renders without voting UI
 - Feed: log decision renders correctly in feed
 
+## Help Documentation
+
+After actions and interfaces are implemented:
+- Add help content explaining decision logs (what they are, when to use them vs votes)
+- Update any existing help pages that reference decisions
+
 ## Verification
 
 ```bash
