@@ -76,4 +76,36 @@
       </div>
     <% end %>
   </div>
+
+  <div style="padding: 0 16px 12px;"
+       data-controller="csv-import"
+       data-csv-import-action-url-value="<%= @note.path %>/actions/batch_table_update"
+       data-csv-import-columns-value="<%= table.column_names.to_json %>">
+    <button type="button" class="pulse-action-btn-secondary" data-action="csv-import#toggleImport" style="font-size: 13px;">
+      <%= octicon 'upload', height: 14 %> Import CSV
+    </button>
+
+    <div data-csv-import-target="importSection" style="display: none; margin-top: 12px;">
+      <div style="margin-bottom: 8px;">
+        <label style="font-size: 12px; color: var(--color-fg-muted); display: block; margin-bottom: 4px;">Paste CSV or upload a file</label>
+        <textarea data-csv-import-target="csvInput"
+                  class="pulse-form-textarea"
+                  rows="5"
+                  placeholder="Status,Due&#10;done,2026-05-01&#10;pending,2026-05-15"
+                  data-action="input->csv-import#parseFromTextarea"></textarea>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <input type="file" accept=".csv,text/csv" data-csv-import-target="fileInput" data-action="change->csv-import#parseFromFile" style="font-size: 13px;">
+      </div>
+      <div data-csv-import-target="errors"></div>
+      <div data-csv-import-target="preview"></div>
+      <button type="button"
+              class="pulse-action-btn"
+              data-csv-import-target="submitBtn"
+              data-action="csv-import#submitImport"
+              style="display: none; margin-top: 8px;">
+        Import Rows
+      </button>
+    </div>
+  </div>
 <% end %>

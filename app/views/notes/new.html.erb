@@ -39,34 +39,59 @@
         <label class="pulse-form-label">Description <span style="font-weight: normal; color: var(--color-fg-muted);">(optional)</span></label>
         <textarea name="table_description" placeholder="What is this table for?" class="pulse-form-textarea" rows="2"></textarea>
       </div>
-      <div class="pulse-form-group">
-        <label class="pulse-form-label">Columns</label>
-        <div data-columns>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" name="columns[0][name]" placeholder="Column name" class="pulse-form-input" style="flex: 2;">
-            <select name="columns[0][type]" class="pulse-form-input" style="flex: 1;">
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="boolean">Boolean</option>
-              <option value="date">Date</option>
-            </select>
-            <button type="button" class="pulse-action-btn-secondary" style="padding: 4px 8px;" data-action="note-subtype#removeColumn">✕</button>
-          </div>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" name="columns[1][name]" placeholder="Column name" class="pulse-form-input" style="flex: 2;">
-            <select name="columns[1][type]" class="pulse-form-input" style="flex: 1;">
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="boolean">Boolean</option>
-              <option value="date">Date</option>
-            </select>
-            <button type="button" class="pulse-action-btn-secondary" style="padding: 4px 8px;" data-action="note-subtype#removeColumn">✕</button>
-          </div>
-        </div>
-        <button type="button" class="pulse-action-btn-secondary" data-action="note-subtype#addColumn" style="margin-top: 4px;">
-          + Add Column
-        </button>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <button type="button" class="pulse-action-btn" data-action="note-subtype#selectManualColumns" data-note-subtype-target="manualColumnsBtn">Define columns</button>
+        <button type="button" class="pulse-action-btn-secondary" data-action="note-subtype#selectCsvImport" data-note-subtype-target="csvImportBtn">Import from CSV</button>
       </div>
+
+      <div data-note-subtype-target="manualColumnsSection">
+        <div class="pulse-form-group">
+          <div data-columns>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="text" name="columns[0][name]" placeholder="Column name" class="pulse-form-input" style="flex: 2;">
+              <select name="columns[0][type]" class="pulse-form-input" style="flex: 1;">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="boolean">Boolean</option>
+                <option value="date">Date</option>
+              </select>
+              <button type="button" class="pulse-action-btn-secondary" style="padding: 4px 8px;" data-action="note-subtype#removeColumn">✕</button>
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="text" name="columns[1][name]" placeholder="Column name" class="pulse-form-input" style="flex: 2;">
+              <select name="columns[1][type]" class="pulse-form-input" style="flex: 1;">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="boolean">Boolean</option>
+                <option value="date">Date</option>
+              </select>
+              <button type="button" class="pulse-action-btn-secondary" style="padding: 4px 8px;" data-action="note-subtype#removeColumn">✕</button>
+            </div>
+          </div>
+          <button type="button" class="pulse-action-btn-secondary" data-action="note-subtype#addColumn" style="margin-top: 4px;">
+            + Add Column
+          </button>
+        </div>
+      </div>
+
+      <div data-note-subtype-target="csvImportSection" style="display: none;">
+        <div class="pulse-form-group">
+          <label style="font-size: 12px; color: var(--color-fg-muted); display: block; margin-bottom: 4px;">Paste CSV or upload a file (first row becomes column names)</label>
+          <textarea data-note-subtype-target="csvInput"
+                    class="pulse-form-textarea"
+                    rows="5"
+                    placeholder="Name,Status,Due&#10;Task A,done,2026-05-01&#10;Task B,pending,2026-05-15"
+                    data-action="input->note-subtype#parseCsvFromTextarea"></textarea>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <input type="file" accept=".csv,text/csv" data-note-subtype-target="fileInput" data-action="change->note-subtype#parseCsvFromFile" style="font-size: 13px;">
+        </div>
+        <div data-note-subtype-target="csvErrors"></div>
+        <div data-note-subtype-target="csvPreview"></div>
+      </div>
+
+      <input type="hidden" name="initial_rows" value="" data-note-subtype-target="initialRowsInput">
+      <input type="hidden" name="table_creation_mode" value="manual" data-note-subtype-target="tableCreationModeInput">
     </div>
 
     <%= render 'shared/multi_file_select', form: form %>

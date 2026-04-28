@@ -1,17 +1,50 @@
 import { Controller } from "@hotwired/stimulus"
+import { parseCsv } from "../utils/csv_parser"
 
 export default class extends Controller {
-  static targets = ["textFields", "tableFields", "subtypeInput", "textBtn", "tableBtn"]
+  static targets = [
+    "textFields",
+    "tableFields",
+    "subtypeInput",
+    "textBtn",
+    "tableBtn",
+    "manualColumnsSection",
+    "csvImportSection",
+    "manualColumnsBtn",
+    "csvImportBtn",
+    "csvInput",
+    "fileInput",
+    "csvPreview",
+    "csvErrors",
+    "initialRowsInput",
+    "tableCreationModeInput",
+  ]
 
   declare textFieldsTarget: HTMLElement
   declare tableFieldsTarget: HTMLElement
   declare subtypeInputTarget: HTMLInputElement
   declare textBtnTarget: HTMLElement
   declare tableBtnTarget: HTMLElement
+  declare manualColumnsSectionTarget: HTMLElement
+  declare csvImportSectionTarget: HTMLElement
+  declare manualColumnsBtnTarget: HTMLElement
+  declare csvImportBtnTarget: HTMLElement
+  declare csvInputTarget: HTMLTextAreaElement
+  declare fileInputTarget: HTMLInputElement
+  declare csvPreviewTarget: HTMLElement
+  declare csvErrorsTarget: HTMLElement
+  declare initialRowsInputTarget: HTMLInputElement
+  declare tableCreationModeInputTarget: HTMLInputElement
+
+  declare hasManualColumnsSectionTarget: boolean
+  declare hasCsvImportSectionTarget: boolean
+  declare hasCsvInputTarget: boolean
 
   connect() {
     this.toggle()
   }
+
+  // Text/Table subtype toggle
 
   toggle() {
     const isTable = this.subtypeInputTarget.value === "table"
@@ -30,6 +63,40 @@ export default class extends Controller {
     this.subtypeInputTarget.value = "table"
     this.toggle()
   }
+
+  // Manual columns / CSV import toggle
+
+  selectManualColumns() {
+    if (!this.hasManualColumnsSectionTarget) return
+    this.manualColumnsSectionTarget.style.display = ""
+    this.csvImportSectionTarget.style.display = "none"
+    this.manualColumnsBtnTarget.className = "pulse-action-btn"
+    this.csvImportBtnTarget.className = "pulse-action-btn-secondary"
+    this.tableCreationModeInputTarget.value = "manual"
+    this.initialRowsInputTarget.value = ""
+    // Clear CSV hidden columns so they don't submit
+    const hiddenCols = this.csvImportSectionTarget.querySelector("[data-csv-columns]")
+    if (hiddenCols) hiddenCols.innerHTML = ""
+    // Re-enable manual column inputs
+    this.manualColumnsSectionTarget.querySelectorAll("input, select").forEach((el) => {
+      ;(el as HTMLInputElement).disabled = false
+    })
+  }
+
+  selectCsvImport() {
+    if (!this.hasCsvImportSectionTarget) return
+    this.manualColumnsSectionTarget.style.display = "none"
+    this.csvImportSectionTarget.style.display = ""
+    this.manualColumnsBtnTarget.className = "pulse-action-btn-secondary"
+    this.csvImportBtnTarget.className = "pulse-action-btn"
+    this.tableCreationModeInputTarget.value = "csv"
+    // Disable manual column inputs so they don't submit
+    this.manualColumnsSectionTarget.querySelectorAll("input, select").forEach((el) => {
+      ;(el as HTMLInputElement).disabled = true
+    })
+  }
+
+  // Column management
 
   addColumn() {
     const container = this.tableFieldsTarget.querySelector("[data-columns]")
@@ -54,5 +121,77 @@ export default class extends Controller {
   removeColumn(event: Event) {
     const button = event.currentTarget as HTMLElement
     button.closest("[data-columns] > div")?.remove()
+  }
+
+  // CSV import
+
+  parseCsvFromTextarea() {
+    if (!this.hasCsvInputTarget) return
+    this.parseCsvAndPreview(this.csvInputTarget.value)
+  }
+
+  async parseCsvFromFile() {
+    const file = this.fileInputTarget.files?.[0]
+    if (!file) return
+
+    const text = await file.text()
+    this.csvInputTarget.value = text
+    this.parseCsvAndPreview(text)
+  }
+
+  private parseCsvAndPreview(csv: string) {
+    const result = parseCsv(csv)
+
+    // Show errors
+    if (result.errors.length > 0) {
+      this.csvErrorsTarget.innerHTML = result.errors
+        .map((e) => `<p style="color: var(--color-danger-fg); font-size: 13px;">${this.escapeHtml(e)}</p>`)
+        .join("")
+    } else {
+      this.csvErrorsTarget.innerHTML = ""
+    }
+
+    if (result.headers.length === 0) {
+      this.csvPreviewTarget.innerHTML = ""
+      this.initialRowsInputTarget.value = ""
+      return
+    }
+
+    // Store columns as hidden fields so the form submits them
+    // We create a hidden columns container inside the CSV section
+    let hiddenCols = this.csvImportSectionTarget.querySelector("[data-csv-columns]") as HTMLElement
+    if (!hiddenCols) {
+      hiddenCols = document.createElement("div")
+      hiddenCols.setAttribute("data-csv-columns", "")
+      hiddenCols.style.display = "none"
+      this.csvImportSectionTarget.appendChild(hiddenCols)
+    }
+    hiddenCols.innerHTML = result.headers
+      .map(
+        (h, i) =>
+          `<input type="hidden" name="columns[csv${i}][name]" value="${this.escapeAttr(h)}">` +
+          `<input type="hidden" name="columns[csv${i}][type]" value="text">`
+      )
+      .join("")
+
+    // Store parsed rows
+    this.initialRowsInputTarget.value = JSON.stringify(result.rows)
+
+    // Show summary
+    const colList = result.headers.map((h) => this.escapeHtml(h)).join(", ")
+    this.csvPreviewTarget.innerHTML =
+      `<p style="font-size: 13px; color: var(--color-fg-default); margin: 8px 0;">` +
+      `<strong>${result.rows.length}</strong> rows, <strong>${result.headers.length}</strong> columns (${colList})` +
+      `</p>`
+  }
+
+  private escapeHtml(str: string): string {
+    const div = document.createElement("div")
+    div.textContent = str
+    return div.innerHTML
+  }
+
+  private escapeAttr(str: string): string {
+    return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   }
 }

@@ -34,6 +34,7 @@ import MoreButtonController from "./more_button_controller"
 import NavController from "./nav_controller"
 import NotificationActionsController from "./notification_actions_controller"
 import NotificationBadgeController from "./notification_badge_controller"
+import CsvImportController from "./csv_import_controller"
 import NoteController from "./note_controller"
 import NoteSubtypeController from "./note_subtype_controller"
 import OptionController from "./option_controller"
@@ -60,6 +61,7 @@ import KebabMenuController from "./kebab_menu_controller"
 // Register all controllers
 application.register("trio-chat", TrioChatController)
 application.register("clipboard", ClipboardController)
+application.register("csv-import", CsvImportController)
 application.register("collapseable-section", CollapsableSectionController)
 application.register("comments", CommentsController)
 application.register("comment-thread", CommentThreadController)

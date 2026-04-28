@@ -412,9 +412,17 @@ class NotesController < ApplicationController
         end
       end
     end
-    render_action_success({ action_name: "batch_table_update", resource: current_note, result: "#{operations.length} operations applied." })
+    respond_to do |format|
+      format.json { render json: { success: true, message: "#{operations.length} operations applied." } }
+      format.html { redirect_to current_note.path, notice: "#{operations.length} operations applied." }
+      format.md { render_action_success({ action_name: "batch_table_update", resource: current_note, result: "#{operations.length} operations applied." }) }
+    end
   rescue RuntimeError, ActiveRecord::RecordInvalid => e
-    render_action_error({ action_name: "batch_table_update", resource: current_note, error: e.message })
+    respond_to do |format|
+      format.json { render json: { success: false, error: e.message }, status: :unprocessable_entity }
+      format.html { redirect_to current_note.path, alert: e.message }
+      format.md { render_action_error({ action_name: "batch_table_update", resource: current_note, error: e.message }) }
+    end
   end
 
   def execute_delete_note
@@ -469,6 +477,18 @@ class NotesController < ApplicationController
       { "name" => c[:name], "type" => c[:type] || "text" }
     end
 
+    # Parse initial rows from CSV import (JSON array of hashes)
+    initial_rows = []
+    if params[:initial_rows].present?
+      parsed = JSON.parse(params[:initial_rows]) rescue []
+      col_names = columns.map { |c| c["name"] }
+      initial_rows = parsed.map do |row|
+        r = { "_id" => SecureRandom.hex(4), "_created_by" => @current_user.id, "_created_at" => Time.current.iso8601 }
+        col_names.each { |name| r[name] = row[name]&.to_s }
+        r
+      end
+    end
+
     helper_params = {
       title: params[:title].presence || "Table",
       text: "",
@@ -476,10 +496,15 @@ class NotesController < ApplicationController
       table_data: {
         "description" => params[:table_description].presence,
         "columns" => columns,
-        "rows" => [],
+        "rows" => initial_rows,
       },
     }
     @note = api_helper(params: helper_params).create_note
+    # Regenerate text from table data (includes initial rows)
+    if initial_rows.any?
+      @note.text = NoteTableFormatter.to_markdown(@note.table_data)
+      @note.save!
+    end
     redirect_to @note.path
   end
 
