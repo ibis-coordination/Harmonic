@@ -39,6 +39,13 @@
         <label class="pulse-form-label">Description <span style="font-weight: normal; color: var(--color-fg-muted);">(optional)</span></label>
         <textarea name="table_description" placeholder="What is this table for?" class="pulse-form-textarea" rows="2"></textarea>
       </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Who can edit rows?</label>
+        <select name="edit_access" class="pulse-form-input" style="max-width: 300px;">
+          <option value="owner">Only me (the table owner)</option>
+          <option value="members">Any collective member</option>
+        </select>
+      </div>
       <div style="display: flex; gap: 8px; margin-bottom: 12px;">
         <button type="button" class="pulse-action-btn" data-action="note-subtype#selectManualColumns" data-note-subtype-target="manualColumnsBtn">Define columns</button>
         <button type="button" class="pulse-action-btn-secondary" data-action="note-subtype#selectCsvImport" data-note-subtype-target="csvImportBtn">Import from CSV</button>

@@ -890,6 +890,50 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal "reminder", json[:subtype]
   end
 
+  # Edit access tests
+
+  test "edit_access defaults to owner" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+    note = Note.create!(tenant: tenant, collective: collective, created_by: user, updated_by: user, text: "test")
+
+    assert_equal "owner", note.edit_access
+  end
+
+  test "user_can_edit_content? returns true for any user when edit_access is members" do
+    tenant = create_tenant
+    user = create_user
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.create!(tenant: tenant, collective: collective, created_by: user, updated_by: user, text: "test", edit_access: "members")
+
+    assert note.user_can_edit_content?(other_user)
+  end
+
+  test "user_can_edit_content? returns false for non-owner when edit_access is owner" do
+    tenant = create_tenant
+    user = create_user
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.create!(tenant: tenant, collective: collective, created_by: user, updated_by: user, text: "test", edit_access: "owner")
+
+    assert_not note.user_can_edit_content?(other_user)
+    assert note.user_can_edit_content?(user)
+  end
+
+  test "edit_access rejects invalid values" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(tenant: tenant, collective: collective, created_by: user, updated_by: user, text: "test", edit_access: "invalid")
+    assert_not note.valid?
+    assert_includes note.errors[:edit_access], "is not included in the list"
+  end
+
   # Table note validation tests
 
   test "table note requires table_data to be present" do

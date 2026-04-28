@@ -58,6 +58,19 @@ class ActionsHelper
     T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
   )
 
+  # Authorization for table row operations — checks edit_access on the note.
+  # When edit_access is "members", any collective member can edit.
+  # When edit_access is "owner", only the note creator can edit.
+  TABLE_CONTENT_EDIT_AUTHORIZATION = T.let(
+    lambda { |user, context|
+      return false unless user
+      resource = context[:resource]
+      return false unless resource.is_a?(Note) && resource.is_table?
+      resource.user_can_edit_content?(user)
+    },
+    T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
+  )
+
   # Full action definitions with parameter details.
   # Each action has: description, params_string (for display), params (detailed param info),
   # and authorization (who can see/execute this action).
@@ -168,7 +181,7 @@ class ActionsHelper
       params: [
         { name: "values", type: "object", description: "Column name/value pairs, e.g. { \"Status\": \"done\", \"Due\": \"2026-05-01\" }" },
       ],
-      authorization: :collective_member,
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
     },
     "update_row" => {
       description: "Update a row in this table",
@@ -177,7 +190,7 @@ class ActionsHelper
         { name: "row_id", type: "string", description: "The _id of the row to update" },
         { name: "values", type: "object", description: "Column name/value pairs to update (partial update)" },
       ],
-      authorization: :collective_member,
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
     },
     "delete_row" => {
       description: "Delete a row from this table",
@@ -185,7 +198,7 @@ class ActionsHelper
       params: [
         { name: "row_id", type: "string", description: "The _id of the row to delete" },
       ],
-      authorization: :collective_member,
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
     },
     "add_table_column" => {
       description: "Add a column to this table",
@@ -240,7 +253,7 @@ class ActionsHelper
       params: [
         { name: "operations", type: "array", description: 'Array of operations, e.g. [{ "action": "add_row", "values": { "Status": "done" } }, { "action": "delete_row", "row_id": "abc123" }]. Valid actions: add_row, update_row, delete_row, add_table_column, remove_table_column, update_table_description' },
       ],
-      authorization: :collective_member,
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
     },
     "pin_note" => {
       description: "Pin this note to the collective homepage",

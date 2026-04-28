@@ -28,7 +28,10 @@ class Note < ApplicationRecord
 
   has_many :note_history_events, dependent: :destroy
   # validates :title, presence: true
+  EDIT_ACCESS_OPTIONS = %w[members owner].freeze
+
   validates :subtype, inclusion: { in: SUBTYPES }
+  validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
   validate :comments_must_be_text_subtype
   validate :validate_table_data, if: :should_validate_table_data?
 
@@ -63,6 +66,12 @@ class Note < ApplicationRecord
   sig { returns(T::Boolean) }
   def is_table?
     subtype == "table"
+  end
+
+  sig { params(user: User).returns(T::Boolean) }
+  def user_can_edit_content?(user)
+    return user_can_edit?(user) if edit_access == "owner"
+    true # "members" — any authenticated user can edit content
   end
 
   sig { returns(String) }
@@ -106,6 +115,7 @@ class Note < ApplicationRecord
       id: id,
       truncated_id: truncated_id,
       subtype: subtype,
+      edit_access: edit_access,
       title: title,
       text: text,
       deadline: deadline,

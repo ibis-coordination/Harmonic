@@ -1092,6 +1092,51 @@ class Note
     def deleted_by_id_will_change!; end
 
     sig { returns(::String) }
+    def edit_access; end
+
+    sig { params(value: ::String).returns(::String) }
+    def edit_access=(value); end
+
+    sig { returns(T::Boolean) }
+    def edit_access?; end
+
+    sig { returns(T.nilable(::String)) }
+    def edit_access_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def edit_access_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def edit_access_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def edit_access_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def edit_access_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def edit_access_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def edit_access_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def edit_access_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def edit_access_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def edit_access_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def edit_access_was; end
+
+    sig { void }
+    def edit_access_will_change!; end
+
+    sig { returns(::String) }
     def id; end
 
     sig { params(value: ::String).returns(::String) }
@@ -1206,6 +1251,9 @@ class Note
     def restore_deleted_by_id!; end
 
     sig { void }
+    def restore_edit_access!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1282,6 +1330,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_deleted_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_edit_access; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_edit_access?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -1726,6 +1780,9 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_deleted_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_edit_access?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

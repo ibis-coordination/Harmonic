@@ -16,7 +16,7 @@
           <% table.columns.each do |col| %>
             <th><%= col["name"] %> <span class="pulse-table-type-hint" style="font-weight: normal; font-size: 12px; color: var(--color-fg-subtle);"><%= col["type"] %></span></th>
           <% end %>
-          <% if @note.user_can_edit?(@current_user) %>
+          <% if @note.user_can_edit_content?(@current_user) %>
             <th style="width: 40px;"></th>
           <% end %>
         </tr>
@@ -27,7 +27,7 @@
             <% table.columns.each do |col| %>
               <td><%= row[col["name"]] %></td>
             <% end %>
-            <% if @note.user_can_edit?(@current_user) %>
+            <% if @note.user_can_edit_content?(@current_user) %>
               <td>
                 <%= form_with(
                   url: "#{@note.path}/actions/delete_row",
@@ -46,7 +46,7 @@
         <% end %>
         <% if table.rows.empty? %>
           <tr>
-            <td colspan="<%= table.columns.length + (@note.user_can_edit?(@current_user) ? 1 : 0) %>" style="text-align: center; color: var(--color-fg-muted); padding: 24px;">
+            <td colspan="<%= table.columns.length + (@note.user_can_edit_content?(@current_user) ? 1 : 0) %>" style="text-align: center; color: var(--color-fg-muted); padding: 24px;">
               No rows yet. Add a row to get started.
             </td>
           </tr>
@@ -60,7 +60,7 @@
   <% end %>
 </div>
 
-<% if @note.user_can_edit?(@current_user) && table.columns.any? %>
+<% if @note.user_can_edit_content?(@current_user) && table.columns.any? %>
   <div style="padding: 12px 16px;">
     <%= form_with(url: "#{@note.path}/actions/add_row", method: :post, class: "pulse-form") do |f| %>
       <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
