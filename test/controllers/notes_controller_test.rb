@@ -404,6 +404,34 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Keep", note.table_data["columns"].first["name"]
   end
 
+  test "creating a table note with initial rows from CSV import" do
+    sign_in_as(@user, tenant: @tenant)
+
+    initial_rows = [
+      { "Status" => "done", "Due" => "2026-05-01" },
+      { "Status" => "pending", "Due" => "2026-05-15" },
+    ]
+
+    post "/collectives/#{@collective.handle}/note",
+      params: {
+        subtype: "table",
+        title: "Imported Table",
+        columns: {
+          "0" => { name: "Status", type: "text" },
+          "1" => { name: "Due", type: "date" },
+        },
+        initial_rows: initial_rows.to_json,
+      }
+
+    assert_response :redirect
+    note = Note.last
+    assert_equal "table", note.subtype
+    assert_equal 2, note.table_data["rows"].length
+    assert_equal "done", note.table_data["rows"].first["Status"]
+    assert_includes note.text, "done"
+    assert_includes note.text, "pending"
+  end
+
   # === Table Note Show Page Tests ===
 
   test "table note show page renders HTML table" do
