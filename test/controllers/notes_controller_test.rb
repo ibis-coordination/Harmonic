@@ -814,6 +814,31 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to note.path
   end
 
+  test "creating a reminder note notifies mentioned users" do
+    sign_in_as(@user, tenant: @tenant)
+
+    mentioned_user = create_user(name: "Mentioned Person")
+    @tenant.add_user!(mentioned_user)
+    @collective.add_user!(mentioned_user)
+    mentioned_user.tenant_user.update!(handle: "mentioned-person")
+
+    scheduled_time = 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
+
+    post "/collectives/#{@collective.handle}/note",
+      params: {
+        subtype: "reminder",
+        text: "Hey @mentioned-person don't forget the meeting",
+        scheduled_for: scheduled_time,
+      }
+
+    note = Note.last
+    notification = note.reminder_notification
+    recipient_user_ids = notification.notification_recipients.map(&:user_id)
+
+    assert_includes recipient_user_ids, @user.id, "Author should be a recipient"
+    assert_includes recipient_user_ids, mentioned_user.id, "Mentioned user should be a recipient"
+  end
+
   test "creating a reminder note without scheduled_for falls back to text note" do
     sign_in_as(@user, tenant: @tenant)
 

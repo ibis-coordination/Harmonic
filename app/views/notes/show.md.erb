@@ -16,6 +16,7 @@ This <%= @note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the 
 <% if @note.reminder_scheduled_for -%>
 | reminder_scheduled_for | <%= @note.reminder_scheduled_for&.iso8601 %> |
 <% end -%>
+| reminder_notifies | author and @mentioned users |
 <% end -%>
 
 <%= render 'shared/automation_attribution', resource: @note %>

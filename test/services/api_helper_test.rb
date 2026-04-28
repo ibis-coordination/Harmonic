@@ -583,4 +583,79 @@ class ApiHelperTest < ActiveSupport::TestCase
       helper.add_table_column
     end
   end
+
+  # === create_reminder_note tests ===
+
+  test "create_reminder_note creates a reminder note with scheduled notification" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Don't forget the standup", title: "Standup Reminder" },
+    )
+
+    note = helper.create_reminder_note(scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+
+    assert note.persisted?
+    assert_equal "reminder", note.subtype
+    assert_equal "Don't forget the standup", note.text
+    assert_not_nil note.reminder_notification_id
+    assert_not_nil note.reminder_scheduled_for
+    assert note.reminder_pending?
+  end
+
+  test "create_reminder_note includes mentioned collective members as recipients" do
+    mentioned_user = create_user(name: "Mentioned")
+    @tenant.add_user!(mentioned_user)
+    @collective.add_user!(mentioned_user)
+    mentioned_user.tenant_user.update!(handle: "mentioned")
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Hey @mentioned check on the deploy", title: nil },
+    )
+
+    note = helper.create_reminder_note(scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+
+    recipient_user_ids = note.reminder_notification.notification_recipients.map(&:user_id)
+    assert_includes recipient_user_ids, @user.id
+    assert_includes recipient_user_ids, mentioned_user.id
+  end
+
+  test "create_reminder_note excludes mentioned non-members" do
+    non_member = create_user(name: "Outsider")
+    @tenant.add_user!(non_member)
+    non_member.tenant_user.update!(handle: "outsider")
+    # NOT added to @collective
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Hey @outsider secret info", title: nil },
+    )
+
+    note = helper.create_reminder_note(scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+
+    recipient_user_ids = note.reminder_notification.notification_recipients.map(&:user_id)
+    assert_includes recipient_user_ids, @user.id
+    refute_includes recipient_user_ids, non_member.id
+  end
+
+  test "create_reminder_note destroys note on scheduling failure" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Past time", title: nil },
+    )
+
+    assert_no_difference "Note.count" do
+      assert_raises(ReminderService::ReminderSchedulingError) do
+        helper.create_reminder_note(scheduled_for: 1.day.ago.in_time_zone("UTC"))
+      end
+    end
+  end
 end

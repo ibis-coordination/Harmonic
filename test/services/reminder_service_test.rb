@@ -40,6 +40,38 @@ class ReminderServiceTest < ActiveSupport::TestCase
     assert_equal "in_app", nr.channel
   end
 
+  test "create! adds additional recipients when provided" do
+    other_user = create_user(name: "Mentioned User")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Reminder with mentions",
+      scheduled_for: 1.day.from_now,
+      additional_recipients: [other_user],
+    )
+
+    recipients = notification.notification_recipients
+    user_ids = recipients.map(&:user_id)
+    assert_includes user_ids, @user.id
+    assert_includes user_ids, other_user.id
+    assert_equal 2, recipients.select { |r| r.channel == "in_app" }.count
+  end
+
+  test "create! does not duplicate author in additional recipients" do
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Self mention",
+      scheduled_for: 1.day.from_now,
+      additional_recipients: [@user],
+    )
+
+    recipients = notification.notification_recipients.where(user: @user)
+    # Should have exactly 1 recipient for the author, not 2
+    assert_equal 1, recipients.count
+  end
+
   test "create! creates notification without event" do
     notification = ReminderService.create!(
       user: @user,
