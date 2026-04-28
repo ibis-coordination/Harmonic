@@ -342,6 +342,51 @@ class ApiHelper
     T.must(note)
   end
 
+  sig { params(scheduled_for: ActiveSupport::TimeWithZone).returns(Note) }
+  def create_reminder_note(scheduled_for:)
+    note = T.let(nil, T.nilable(Note))
+    ActiveRecord::Base.transaction do
+      note = Note.create!(
+        title: params[:title],
+        text: params[:text],
+        subtype: "reminder",
+        deadline: Time.now,
+        created_by: current_user,
+      )
+      track_task_run_resource(note, action_type: "create")
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_reminder_note",
+          resource: note,
+        )
+      end
+    end
+    note = T.must(note)
+
+    mentioned_users = MentionParser.parse_for_notification(
+      note.text,
+      tenant_id: current_tenant.id,
+      collective: current_collective,
+    )
+
+    begin
+      notification = ReminderService.create!(
+        user: current_user,
+        title: note.title,
+        scheduled_for: scheduled_for,
+        url: note.path,
+        additional_recipients: mentioned_users,
+      )
+      note.update!(reminder_notification_id: notification.id, reminder_scheduled_for: scheduled_for)
+    rescue ReminderService::ReminderError
+      note.destroy!
+      raise
+    end
+
+    note
+  end
+
   # Table note operations
 
   sig { returns(NoteTableService) }

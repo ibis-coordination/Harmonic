@@ -20,9 +20,10 @@ class ReminderService
       scheduled_for: ActiveSupport::TimeWithZone,
       body: T.nilable(String),
       url: T.nilable(String),
+      additional_recipients: T::Array[User],
     ).returns(Notification)
   end
-  def self.create!(user:, title:, scheduled_for:, body: nil, url: nil)
+  def self.create!(user:, title:, scheduled_for:, body: nil, url: nil, additional_recipients: [])
     tenant = Tenant.find_by(id: Tenant.current_id)
     raise ArgumentError, "No current tenant" unless tenant
 
@@ -36,16 +37,20 @@ class ReminderService
       url: url,
     )
 
-    channels = user.tenant_user&.notification_channels_for("reminder") || ["in_app"]
+    # Collect all recipients: author + mentioned users (deduplicated)
+    all_recipients = ([user] + additional_recipients).uniq(&:id)
 
-    channels.each do |channel|
-      NotificationRecipient.create!(
-        notification: notification,
-        user: user,
-        channel: channel,
-        status: "pending",
-        scheduled_for: scheduled_for,
-      )
+    all_recipients.each do |recipient|
+      channels = recipient.tenant_user&.notification_channels_for("reminder") || ["in_app"]
+      channels.each do |channel|
+        NotificationRecipient.create!(
+          notification: notification,
+          user: recipient,
+          channel: channel,
+          status: "pending",
+          scheduled_for: scheduled_for,
+        )
+      end
     end
 
     notification

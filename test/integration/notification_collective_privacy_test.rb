@@ -624,6 +624,69 @@ class NotificationCollectivePrivacyTest < ActionDispatch::IntegrationTest
       "Members should receive notifications when mentioned in option titles"
   end
 
+  # === Reminder Note Tests ===
+  # Reminder notes schedule notifications for the author and @mentioned users.
+  # Non-members must NOT receive scheduled reminder notifications.
+
+  test "non-member should NOT receive scheduled reminder notification when mentioned in reminder note" do
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective_x.handle)
+
+    sign_in_as(@user_a, tenant: @tenant)
+
+    scheduled_time = 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
+
+    post "/collectives/collective-x/note",
+      params: {
+        subtype: "reminder",
+        text: "CONFIDENTIAL: @user_b needs to review the secret project",
+        scheduled_for: scheduled_time,
+      }
+
+    Collective.clear_thread_scope
+
+    note = Note.last
+    assert_equal "reminder", note.subtype
+    assert_not_nil note.reminder_notification_id
+
+    # User B should NOT be a recipient of the scheduled reminder notification
+    reminder_recipients = note.reminder_notification.notification_recipients
+    recipient_user_ids = reminder_recipients.map(&:user_id)
+
+    assert_includes recipient_user_ids, @user_a.id, "Author should be a recipient"
+    refute_includes recipient_user_ids, @user_b.id,
+      "Non-members should NOT receive scheduled reminder notifications — this would leak private content"
+  end
+
+  test "member should receive scheduled reminder notification when mentioned in reminder note" do
+    # Add User C as a member of Collective X
+    user_c = create_user(email: "user_c@example.com", name: "User C")
+    @tenant.add_user!(user_c)
+    user_c.tenant_user.update!(handle: "user_c")
+    @collective_x.add_user!(user_c)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective_x.handle)
+
+    sign_in_as(@user_a, tenant: @tenant)
+
+    scheduled_time = 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
+
+    post "/collectives/collective-x/note",
+      params: {
+        subtype: "reminder",
+        text: "Hey @user_c don't forget the team standup",
+        scheduled_for: scheduled_time,
+      }
+
+    Collective.clear_thread_scope
+
+    note = Note.last
+    reminder_recipients = note.reminder_notification.notification_recipients
+    recipient_user_ids = reminder_recipients.map(&:user_id)
+
+    assert_includes recipient_user_ids, @user_a.id, "Author should be a recipient"
+    assert_includes recipient_user_ids, user_c.id, "Members should receive scheduled reminder notifications when mentioned"
+  end
+
   test "member should receive notification when mentioned in option description" do
     # Add a third user who IS a member of Collective X
     user_c = create_user(email: "user_c@example.com", name: "User C")
