@@ -48,8 +48,6 @@ class NotificationDispatcher
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
-    # Filter out AI agents (they don't receive notifications, they use automation rules)
-    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -74,10 +72,8 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
-    # Notify the owner of the content being commented on (skip AI agents - they use automation rules)
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
-    return if owner.ai_agent?
 
     actor_name = event.actor&.display_name || "Someone"
     content_type = commentable.class.name.underscore.humanize.downcase
@@ -99,11 +95,9 @@ class NotificationDispatcher
     commentable = comment.commentable
     return unless commentable
 
-    # Only notify users who have access to the collective (skip AI agents - they use automation rules)
     owner = get_created_by(commentable)
     return if owner.nil? || owner.id == event.actor_id
     return unless user_can_access_collective?(event, owner)
-    return if owner.ai_agent?
 
     actor_name = event.actor&.display_name || "Someone"
     content_type = commentable.class.name.underscore.humanize.downcase
@@ -233,8 +227,6 @@ class NotificationDispatcher
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
-    # Filter out AI agents (they don't receive notifications, they use automation rules)
-    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -267,8 +259,6 @@ class NotificationDispatcher
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
-    # Filter out AI agents (they don't receive notifications, they use automation rules)
-    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -302,8 +292,6 @@ class NotificationDispatcher
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
-    # Filter out AI agents (they don't receive notifications, they use automation rules)
-    mentioned_users = mentioned_users.reject(&:ai_agent?)
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
