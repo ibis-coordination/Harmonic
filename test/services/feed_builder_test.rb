@@ -139,6 +139,86 @@ class FeedBuilderTest < ActiveSupport::TestCase
     assert_equal "Older", feed[1][:item].title
   end
 
+  test "includes reminder events in the feed" do
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+    )
+
+    NoteHistoryEvent.create!(
+      note: note,
+      user: @user,
+      event_type: "reminder",
+      happened_at: 30.minutes.ago,
+    )
+
+    feed = FeedBuilder.new(
+      notes_scope: Note.where(collective_id: @collective.id),
+      decisions_scope: Decision.where(collective_id: @collective.id),
+      commitments_scope: Commitment.where(collective_id: @collective.id),
+      reminder_events_scope: NoteHistoryEvent.where(event_type: "reminder", collective_id: @collective.id),
+    ).feed_items
+
+    types = feed.map { |item| item[:type] }
+    assert_includes types, "ReminderEvent"
+  end
+
+  test "reminder events are sorted chronologically with other items" do
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Old note",
+    )
+    note.update_column(:created_at, 2.hours.ago)
+
+    reminder_note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder",
+      subtype: "reminder",
+    )
+
+    NoteHistoryEvent.create!(
+      note: reminder_note,
+      user: @user,
+      event_type: "reminder",
+      happened_at: 1.hour.ago,
+    )
+
+    feed = FeedBuilder.new(
+      notes_scope: Note.where(collective_id: @collective.id),
+      decisions_scope: Decision.where(collective_id: @collective.id),
+      commitments_scope: Commitment.where(collective_id: @collective.id),
+      reminder_events_scope: NoteHistoryEvent.where(event_type: "reminder", collective_id: @collective.id),
+    ).feed_items
+
+    # Reminder note (most recent created_at) first, then reminder event, then old note
+    types = feed.map { |item| item[:type] }
+    reminder_event_idx = types.index("ReminderEvent")
+    old_note_idx = types.rindex("Note") # last Note is the old one
+    assert reminder_event_idx < old_note_idx, "Reminder event should appear before older note"
+  end
+
+  test "feed works without reminder_events_scope (backward compatible)" do
+    create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Just a note")
+
+    feed = FeedBuilder.new(
+      notes_scope: Note.where(collective_id: @collective.id),
+      decisions_scope: Decision.where(collective_id: @collective.id),
+      commitments_scope: Commitment.where(collective_id: @collective.id),
+    ).feed_items
+
+    assert_equal 1, feed.size
+  end
+
   test "works with tenant_scoped_only for cross-collective queries" do
     # Create a second collective with its own note
     collective2 = create_collective(tenant: @tenant, created_by: @user, name: "Second", handle: "second")

@@ -13,15 +13,18 @@ class FeedBuilder
       notes_scope: ActiveRecord::Relation,
       decisions_scope: ActiveRecord::Relation,
       commitments_scope: ActiveRecord::Relation,
+      reminder_events_scope: T.nilable(ActiveRecord::Relation),
       limit: Integer,
       proximity_scores: T.nilable(T::Hash[String, Float])
     ).void
   end
   def initialize(notes_scope:, decisions_scope:, commitments_scope:,
+                 reminder_events_scope: nil,
                  limit: DEFAULT_LIMIT, proximity_scores: nil)
     @notes_scope = notes_scope
     @decisions_scope = decisions_scope
     @commitments_scope = commitments_scope
+    @reminder_events_scope = reminder_events_scope
     @limit = limit
     @proximity_scores = proximity_scores
   end
@@ -62,7 +65,16 @@ class FeedBuilder
       .order(created_at: :desc).limit(limit)
       .map { |c| { type: "Commitment", item: c, created_at: c.created_at, created_by: c.created_by } }
 
-    (notes + decisions + commitments).sort_by { |item| -item[:created_at].to_i }
+    reminder_events = if @reminder_events_scope
+      @reminder_events_scope
+        .includes(note: :created_by)
+        .order(happened_at: :desc).limit(limit)
+        .map { |e| { type: "ReminderEvent", item: e, created_at: e.happened_at, created_by: e.note&.created_by } }
+    else
+      []
+    end
+
+    (notes + decisions + commitments + reminder_events).sort_by { |item| -item[:created_at].to_i }
   end
 
   sig { params(items: T::Array[T::Hash[Symbol, T.untyped]]).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
