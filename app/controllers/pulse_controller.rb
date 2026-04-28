@@ -76,44 +76,16 @@ class PulseController < ApplicationController
   end
 
   def build_unified_feed
-    # Filter for items created within the current cycle (not just deadline overlapping)
     cycle_start = @cycle.start_date
 
-    notes = @cycle.notes
-      .where("notes.created_at >= ?", cycle_start)
-      .includes(:created_by)
-      .limit(100)
-      .map do |note|
-      { type: "Note", item: note, created_at: note.created_at, created_by: note.created_by }
-    end
-
-    decisions = @cycle.decisions
-      .where("decisions.created_at >= ?", cycle_start)
-      .includes(:created_by)
-      .limit(100)
-      .map do |decision|
-      { type: "Decision", item: decision, created_at: decision.created_at, created_by: decision.created_by }
-    end
-
-    commitments = @cycle.commitments
-      .where("commitments.created_at >= ?", cycle_start)
-      .includes(:created_by)
-      .limit(100)
-      .map do |commitment|
-      { type: "Commitment", item: commitment, created_at: commitment.created_at, created_by: commitment.created_by }
-    end
-
-    # Reminder events — NoteHistoryEvents of type "reminder" that fired within the cycle
-    # Explicitly scoped to the current collective (matching the pattern of the other queries)
-    reminder_events = NoteHistoryEvent
-      .where(event_type: "reminder", collective_id: @current_collective.id)
-      .where("note_history_events.happened_at >= ?", cycle_start)
-      .includes(note: :created_by)
-      .limit(50)
-      .map do |event|
-      { type: "ReminderEvent", item: event, created_at: event.happened_at, created_by: event.note&.created_by }
-    end
-
-    @feed_items = (notes + decisions + commitments + reminder_events).sort_by { |item| -item[:created_at].to_i }
+    @feed_items = FeedBuilder.new(
+      notes_scope: @cycle.notes.where("notes.created_at >= ?", cycle_start),
+      decisions_scope: @cycle.decisions.where("decisions.created_at >= ?", cycle_start),
+      commitments_scope: @cycle.commitments.where("commitments.created_at >= ?", cycle_start),
+      reminder_events_scope: NoteHistoryEvent
+        .where(event_type: "reminder", collective_id: @current_collective.id)
+        .where("note_history_events.happened_at >= ?", cycle_start),
+      limit: 100,
+    ).feed_items
   end
 end
