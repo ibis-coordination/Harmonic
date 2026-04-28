@@ -360,7 +360,42 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, json_response["confirmed_reads"]
   end
 
-  # === Table Note Creation Tests ===
+  # === Table Note Agent Creation Tests ===
+
+  test "create_table_note action creates a table note via markdown UI" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_table_note",
+      params: {
+        title: "Agent Table",
+        columns: [
+          { name: "Status", type: "text" },
+          { name: "Due", type: "date" },
+        ],
+        description: "Created by agent",
+        edit_access: "members",
+      },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    note = Note.last
+    assert_equal "table", note.subtype
+    assert_equal "Agent Table", note.title
+    assert_equal "members", note.edit_access
+    assert_equal 2, note.table_data["columns"].length
+  end
+
+  test "create_table_note action appears on note creation page" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/note",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "create_table_note"
+  end
+
+  # === Table Note Form Creation Tests ===
 
   test "creating a table note via form" do
     sign_in_as(@user, tenant: @tenant)

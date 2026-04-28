@@ -292,6 +292,51 @@ class ApiHelper
     perform_soft_delete!(note)
   end
 
+  sig { returns(Note) }
+  def create_table_note
+    columns = (params[:columns] || []).map do |c|
+      c = c.respond_to?(:to_unsafe_h) ? c.to_unsafe_h : c.to_h
+      { "name" => c["name"] || c[:name], "type" => c["type"] || c[:type] || "text" }
+    end.select { |c| c["name"].present? }
+
+    col_names = columns.map { |c| c["name"] }
+    initial_rows = (params[:initial_rows] || []).map do |row|
+      row = row.respond_to?(:to_unsafe_h) ? row.to_unsafe_h : row.to_h
+      r = { "_id" => SecureRandom.hex(4), "_created_by" => current_user.id, "_created_at" => Time.current.iso8601 }
+      col_names.each { |name| r[name] = row[name.to_s]&.to_s || row[name.to_sym]&.to_s }
+      r
+    end
+
+    table_data = {
+      "description" => params[:description].presence,
+      "columns" => columns,
+      "rows" => initial_rows,
+    }
+
+    note = T.let(nil, T.nilable(Note))
+    ActiveRecord::Base.transaction do
+      text = NoteTableFormatter.to_markdown(table_data)
+      note = Note.create!(
+        title: params[:title].presence || "Table",
+        text: text,
+        subtype: "table",
+        edit_access: params[:edit_access].presence || "owner",
+        table_data: table_data,
+        deadline: Time.now,
+        created_by: current_user,
+      )
+      track_task_run_resource(note, action_type: "create")
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_table_note",
+          resource: note,
+        )
+      end
+    end
+    T.must(note)
+  end
+
   # Table note operations
 
   sig { returns(NoteTableService) }
