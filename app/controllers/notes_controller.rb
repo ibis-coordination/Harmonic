@@ -115,7 +115,7 @@ class NotesController < ApplicationController
         scheduled_for: scheduled_for,
         url: note.path,
       )
-      note.update!(reminder_notification_id: notification.id)
+      note.update!(reminder_notification_id: notification.id, reminder_scheduled_for: scheduled_for)
     rescue ReminderService::ReminderError => e
       note.destroy!
       return render_action_error({ action_name: "create_reminder_note", error: "Reminder scheduling failed: #{e.message}" })
@@ -634,7 +634,7 @@ class NotesController < ApplicationController
         scheduled_for: scheduled_for,
         url: @note.path,
       )
-      @note.update!(reminder_notification_id: notification.id)
+      @note.update!(reminder_notification_id: notification.id, reminder_scheduled_for: scheduled_for)
     rescue ReminderService::ReminderError => e
       @note.destroy!
       flash.now[:alert] = "Reminder scheduling failed: #{e.message}"

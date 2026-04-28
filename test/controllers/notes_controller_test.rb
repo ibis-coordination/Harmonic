@@ -848,6 +848,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       text: "Reminder content",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
@@ -874,6 +875,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       text: "Reminder content",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
@@ -909,6 +911,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       text: "Reminder content",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
@@ -941,6 +944,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       text: "Reminder content",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
@@ -970,6 +974,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       text: "Reminder content",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",

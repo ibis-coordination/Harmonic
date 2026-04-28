@@ -102,14 +102,15 @@
           <% end %>
         <% end %>
       <% elsif @note.reminder_delivered? %>
+        <% delivered_event = @note.note_history_events.find_by(event_type: "reminder") %>
         <span style="color: var(--color-fg-muted);">
           <%= octicon 'check-circle', height: 14 %>
-          Reminder delivered
+          Reminder delivered <% if delivered_event %><%= time_ago_in_words(delivered_event.happened_at) %> ago<% end %>
         </span>
       <% else %>
         <span style="color: var(--color-fg-muted);">
           <%= octicon 'clock', height: 14 %>
-          Reminder cancelled
+          Reminder cancelled<% if @note.reminder_scheduled_for %> (was scheduled for <%= @note.reminder_scheduled_for.strftime("%b %d, %Y at %I:%M %p %Z") %>)<% end %>
         </span>
       <% end %>
     </div>
