@@ -174,6 +174,18 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "create_table_note" => {
+      description: "Create a new table note with columns defined upfront",
+      params_string: "(title, columns, description, edit_access)",
+      params: [
+        { name: "title", type: "string", description: "The title of the table" },
+        { name: "columns", type: "array", description: 'Array of column definitions, e.g. [{ "name": "Status", "type": "text" }, { "name": "Due", "type": "date" }]. Types: text, number, boolean, date' },
+        { name: "initial_rows", type: "array", required: false, description: 'Array of row objects with column name/value pairs, e.g. [{ "Status": "done", "Due": "2026-05-01" }]' },
+        { name: "description", type: "string", required: false, description: "Description of what the table is for" },
+        { name: "edit_access", type: "string", required: false, description: "Who can edit rows: 'owner' (default) or 'members'" },
+      ],
+      authorization: :collective_member,
+    },
     # Table note actions
     "add_row" => {
       description: "Add a row to this table",
@@ -788,6 +800,7 @@ class ActionsHelper
       controller_actions: ["notes#new"],
       actions: [
         { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },
+        { name: "create_table_note", params_string: ACTION_DEFINITIONS["create_table_note"][:params_string], description: ACTION_DEFINITIONS["create_table_note"][:description] },
       ],
     },
     "/collectives/:collective_handle/n/:note_id" => {

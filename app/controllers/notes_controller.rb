@@ -85,6 +85,24 @@ class NotesController < ApplicationController
     render_action_description(ActionsHelper.action_description("create_note"))
   end
 
+  def create_table_note_action
+    note = api_helper.create_table_note
+    render_action_success({
+                            action_name: "create_table_note",
+                            resource: note,
+                            result: "Table note created.",
+                          })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({
+                          action_name: "create_table_note",
+                          error: e.message,
+                        })
+  end
+
+  def describe_create_table_note
+    render_action_description(ActionsHelper.action_description("create_table_note"))
+  end
+
   def update
     return render "404", status: :not_found unless current_note
     return render "shared/403", status: :forbidden unless current_note.user_can_edit?(@current_user)

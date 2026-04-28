@@ -353,6 +353,70 @@ class ApiHelperTest < ActiveSupport::TestCase
     )
   end
 
+  test "create_table_note creates a table note with columns" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {
+        title: "Agent Table",
+        columns: [
+          { "name" => "Task", "type" => "text" },
+          { "name" => "Done", "type" => "boolean" },
+        ],
+        description: "Agent task list",
+        edit_access: "members",
+      },
+    )
+
+    note = helper.create_table_note
+
+    assert note.persisted?
+    assert_equal "table", note.subtype
+    assert_equal "Agent Table", note.title
+    assert_equal "members", note.edit_access
+    assert_equal 2, note.table_data["columns"].length
+    assert_equal "Agent task list", note.table_data["description"]
+  end
+
+  test "create_table_note with initial_rows" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {
+        title: "Prepopulated",
+        columns: [{ "name" => "Task", "type" => "text" }],
+        initial_rows: [
+          { "Task" => "Do laundry" },
+          { "Task" => "Buy groceries" },
+        ],
+      },
+    )
+
+    note = helper.create_table_note
+
+    assert_equal 2, note.table_data["rows"].length
+    assert_equal "Do laundry", note.table_data["rows"].first["Task"]
+    assert_includes note.text, "Do laundry"
+    assert_includes note.text, "Buy groceries"
+  end
+
+  test "create_table_note defaults edit_access to owner" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {
+        title: "Locked Table",
+        columns: [{ "name" => "Col", "type" => "text" }],
+      },
+    )
+
+    note = helper.create_table_note
+    assert_equal "owner", note.edit_access
+  end
+
   test "add_row adds a row to table note" do
     note = create_table_note_for_api
     helper = table_api_helper(note, params: { values: { "Status" => "done", "Amount" => "42" } })

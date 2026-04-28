@@ -417,6 +417,8 @@ Rails.application.routes.draw do
     get "#{prefix}/note/actions" => 'notes#actions_index_new'
     get "#{prefix}/note/actions/create_note" => 'notes#describe_create_note'
     post "#{prefix}/note/actions/create_note" => 'notes#create_note'
+    get "#{prefix}/note/actions/create_table_note" => 'notes#describe_create_table_note'
+    post "#{prefix}/note/actions/create_table_note" => 'notes#create_table_note_action'
     resources :notes, only: [:show], path: "#{prefix}/n" do
       get '/report' => 'notes#report'
       get '/actions' => 'notes#actions_index_show'
