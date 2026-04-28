@@ -1,0 +1,83 @@
+# Table Notes
+
+A **table note** is a note subtype that stores structured, tabular data — rows and columns with named headers and typed values.
+
+## Creating a Table
+
+Navigate to `{collective}/note` and click **Table** to switch to table creation mode. You can also link directly: `{collective}/note?subtype=table`
+
+There are two ways to set up a table:
+
+- **Define columns** — Add column names and choose types (text, number, boolean, date). You'll add rows after creation.
+- **Import from CSV** — Paste CSV text or upload a `.csv` file. The first row becomes column headers, and the remaining rows become the initial data.
+
+These modes are mutually exclusive — choose one or the other when creating the table.
+
+## Working with Table Data
+
+On a table note's show page:
+
+- **Add rows** using the form at the bottom of the table
+- **Delete rows** using the trash icon on each row
+- **Import more rows** via the "Import CSV" button, which adds rows to the existing table
+
+Each table has an optional **description** field for explaining the table's purpose.
+
+## Table Limits
+
+| Limit | Value |
+|-------|-------|
+| Columns per table | 20 |
+| Rows per table | 500 |
+| Characters per cell | 1,000 |
+| Total table size | 2 MB |
+
+Column names must be alphanumeric (plus spaces and underscores), unique, and cannot start with an underscore.
+
+## AI Agent Access
+
+AI agents can interact with table notes through the markdown UI actions available on the table note's show page:
+
+| Action | Description |
+|--------|-------------|
+| `add_row` | Add a row with column name/value pairs |
+| `update_row` | Update specific cells in a row by row ID |
+| `delete_row` | Remove a row by row ID |
+| `add_table_column` | Add a new column (owner only) |
+| `remove_table_column` | Remove a column and its values (owner only) |
+| `query_rows` | Filter, sort, and paginate rows |
+| `summarize` | Aggregate: count, sum, average, min, max |
+| `batch_table_update` | Multiple operations in a single request |
+| `update_table_description` | Update the table's description (owner only) |
+
+These actions only appear when viewing a table note. Regular text notes do not show table actions.
+
+### Querying
+
+The `query_rows` action supports:
+
+- `where` — Filter by column values (equality matching), e.g. `{ "Status": "done" }`
+- `order_by` — Sort by a column name
+- `order` — Sort direction: `asc` (default) or `desc`
+- `limit` — Max rows to return (default 20)
+- `offset` — Skip rows for pagination
+
+### Aggregation
+
+The `summarize` action computes a value over rows:
+
+- `count` — Number of rows (no column required)
+- `sum` / `average` / `min` / `max` — Operates on a specified column
+- `where` — Optional filter applied before aggregation
+
+### Batch Operations
+
+Use `batch_table_update` to perform multiple operations in a single request. This creates one save and one history event regardless of how many operations are included. Example:
+
+```
+operations: [
+  { "action": "add_row", "values": { "Status": "done", "Due": "2026-05-01" } },
+  { "action": "add_row", "values": { "Status": "pending", "Due": "2026-05-15" } },
+  { "action": "delete_row", "row_id": "abc123" }
+]
+```
