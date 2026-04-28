@@ -72,11 +72,8 @@ class Note < ApplicationRecord
   end
 
   # Reminder helpers
-
-  sig { returns(T.nilable(ActiveSupport::TimeWithZone)) }
-  def reminder_scheduled_for
-    reminder_recipient&.scheduled_for
-  end
+  # `reminder_scheduled_for` is a database column — no override needed.
+  # The value is set on creation and preserved after cancellation.
 
   sig { returns(T::Boolean) }
   def reminder_pending?
@@ -170,6 +167,7 @@ class Note < ApplicationRecord
       commentable_type: commentable_type,
       commentable_id: commentable_id,
       reminder_notification_id: reminder_notification_id,
+      reminder_scheduled_for: reminder_scheduled_for,
     }
     response.merge!({ history_events: history_events.map(&:api_json) }) if include.include?("history_events")
     response.merge!({ backlinks: backlinks.map(&:api_json) }) if include.include?("backlinks")

@@ -696,7 +696,8 @@ CREATE TABLE public.notes (
     subtype character varying DEFAULT 'text'::character varying NOT NULL,
     table_data jsonb,
     edit_access character varying DEFAULT 'owner'::character varying NOT NULL,
-    reminder_notification_id uuid
+    reminder_notification_id uuid,
+    reminder_scheduled_for timestamp(6) without time zone
 );
 
 
@@ -8932,6 +8933,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260428175442'),
 ('20260428051604'),
 ('20260428024948'),
 ('20260427205555'),

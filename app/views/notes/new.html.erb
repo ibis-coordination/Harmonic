@@ -45,12 +45,12 @@
       </div>
       <div class="pulse-form-group">
         <label class="pulse-form-label">When</label>
+        <p class="pulse-form-hint">When should this reminder resurface?</p>
         <%= render DatetimeInputComponent.new(
           field_name: "scheduled_for",
           default_offset: "1d",
           require_future: true,
         ) %>
-        <p class="pulse-form-hint">When should this reminder resurface?</p>
       </div>
     </div>
 

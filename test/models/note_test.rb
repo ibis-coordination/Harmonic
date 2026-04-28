@@ -1109,6 +1109,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     assert note.is_reminder?
@@ -1134,22 +1135,16 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     assert_equal notification, note.reminder_notification
   end
 
-  test "reminder_scheduled_for returns the scheduled time" do
+  test "reminder_scheduled_for returns the stored column value" do
     tenant, collective, user = create_tenant_collective_user
 
-    Tenant.current_id = tenant.id
-
     scheduled_time = 1.day.from_now.in_time_zone("UTC")
-    notification = ReminderService.create!(
-      user: user,
-      title: "Test reminder",
-      scheduled_for: scheduled_time,
-    )
 
     note = Note.create!(
       tenant: tenant,
@@ -1158,7 +1153,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       text: "Remember to do the thing",
       subtype: "reminder",
-      reminder_notification_id: notification.id,
+      reminder_scheduled_for: scheduled_time,
     )
 
     assert_in_delta scheduled_time, note.reminder_scheduled_for, 1.second
@@ -1198,6 +1193,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     assert note.reminder_pending?
@@ -1222,6 +1218,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     # Simulate delivery
@@ -1249,6 +1246,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     assert_not note.reminder_delivered?
@@ -1269,6 +1267,7 @@ class NoteTest < ActiveSupport::TestCase
       scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
+    scheduled_time = 1.day.from_now.in_time_zone("UTC")
     note = Note.create!(
       tenant: tenant,
       collective: collective,
@@ -1277,12 +1276,15 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: scheduled_time,
     )
 
     note.cancel_reminder!
 
     assert_nil note.reload.reminder_notification_id
     assert_nil Notification.find_by(id: notification.id)
+    # Scheduled time is preserved after cancellation
+    assert_in_delta scheduled_time, note.reminder_scheduled_for, 1.second
   end
 
   test "soft deleting a reminder note cancels the pending reminder" do
@@ -1304,6 +1306,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     note.soft_delete!(by: user)

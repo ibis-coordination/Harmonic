@@ -23,7 +23,7 @@ Recurring reminders are out of scope for this iteration — the existing `Remind
 - **`ReminderDeliveryJob`** — cron job (every minute) finds due reminders, delivers them; uses `with_tenant_and_collective_context`
 - **`NotificationRecipient`** — has `scheduled_for`, scopes: `.scheduled`, `.due`; statuses: pending/delivered/dismissed/rate_limited
 - **Time parsing** — ISO 8601, unix timestamps, relative ("1h", "2d", "1w"), datetime-local
-- **Rate limits** — max 50 per user, 10 per hour, 90 days out
+- **Rate limits** — max 50 per user, 10 per hour
 - **NoteHistoryEvent** — existing model with types: "create", "update", "read_confirmation"
 - **Subtype selector** — creation form already has Text/Table toggle; Reminder would be a third option
 - **`edit_access` column** — exists on notes; reminder notes use "owner" (same as text notes)

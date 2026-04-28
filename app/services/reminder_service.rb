@@ -6,7 +6,6 @@ class ReminderService
   # Limits to prevent abuse
   MAX_REMINDERS_PER_USER = 50
   MAX_REMINDERS_PER_HOUR = 10
-  MAX_SCHEDULING_DAYS = 90
 
   # Custom error classes
   class ReminderError < StandardError; end
@@ -89,12 +88,6 @@ class ReminderService
       .count
     if recent_count >= MAX_REMINDERS_PER_HOUR
       raise ReminderRateLimitExceeded, "Maximum #{MAX_REMINDERS_PER_HOUR} reminders per hour"
-    end
-
-    # Check scheduling window
-    max_date = MAX_SCHEDULING_DAYS.days.from_now
-    if scheduled_time > max_date
-      raise ReminderSchedulingError, "Cannot schedule more than #{MAX_SCHEDULING_DAYS} days in future"
     end
 
     # Must be in the future

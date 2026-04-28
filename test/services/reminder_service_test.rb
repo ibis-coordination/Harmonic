@@ -204,12 +204,12 @@ class ReminderServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "create! raises ReminderSchedulingError when scheduling too far in future" do
-    assert_raises(ReminderService::ReminderSchedulingError) do
+  test "create! allows scheduling far in the future" do
+    assert_nothing_raised do
       ReminderService.create!(
         user: @user,
-        title: "Way too far",
-        scheduled_for: (ReminderService::MAX_SCHEDULING_DAYS + 1).days.from_now,
+        title: "Far future reminder",
+        scheduled_for: 365.days.from_now,
       )
     end
   end

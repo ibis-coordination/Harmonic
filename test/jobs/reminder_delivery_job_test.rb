@@ -195,6 +195,44 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     assert_equal "pending", nr.status
   end
 
+  test "reminders.delivered event is recorded in the note's collective, not user's first collective" do
+    # Create a second collective and add the user to it
+    second_collective = create_collective(tenant: @tenant, created_by: @user, name: "Second", handle: "second")
+    second_collective.add_user!(@user)
+
+    # Create the reminder in the SECOND collective's context
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: second_collective.handle)
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Second collective reminder",
+      scheduled_for: 1.day.from_now,
+    )
+    nr = notification.notification_recipients.first
+    nr.update!(scheduled_for: 1.minute.ago)
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: second_collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Remember this in second collective",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now,
+    )
+
+    Collective.clear_thread_scope
+
+    ReminderDeliveryJob.perform_now
+
+    # The event should be in the note's collective (second), not the user's first collective
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: second_collective.handle)
+    events = Event.where(event_type: "reminders.delivered")
+    assert_equal 1, events.count
+    assert_equal second_collective.id, events.first.collective_id
+  end
+
   test "creates NoteHistoryEvent when delivering a reminder linked to a note" do
     notification = ReminderService.create!(
       user: @user,
@@ -212,6 +250,7 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
       text: "Remember this",
       subtype: "reminder",
       reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
     Collective.clear_thread_scope
