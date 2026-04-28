@@ -28,7 +28,12 @@ export default class CountdownController extends Controller {
 
   updateCountdown(): void {
     const now = new Date()
-    const distance = Date.parse(this.endTimeValue) - now.getTime()
+    const parsed = Date.parse(this.endTimeValue)
+    if (isNaN(parsed)) {
+      this.timeTarget.innerText = "\u00A0" // non-breaking space to maintain height
+      return
+    }
+    const distance = parsed - now.getTime()
 
     const oneSecond = 1000
     const oneMinute = oneSecond * 60

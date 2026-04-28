@@ -2,7 +2,6 @@
 
 class NotesController < ApplicationController
   include AttachmentActions
-  include ParsesScheduledTime
 
   def show
     @note = current_note || find_deleted_note

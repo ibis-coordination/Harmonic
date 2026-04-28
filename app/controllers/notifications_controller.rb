@@ -1,7 +1,6 @@
 # typed: false
 
 class NotificationsController < ApplicationController
-  include ParsesScheduledTime
   before_action :require_user
 
   def index

@@ -1,6 +1,7 @@
 # typed: false
 
 class ApplicationController < ActionController::Base
+  include ParsesScheduledTime
   # Session timeout configuration (in seconds)
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
@@ -776,8 +777,8 @@ class ApplicationController < ActionController::Base
     if ["no_deadline", "close_at_critical_mass"].include?(deadline_option)
       100.years.from_now
     elsif deadline_option == "datetime" && params[:deadline]
-      utc_deadline_param = @current_collective.timezone.parse(params[:deadline]).utc
-      [utc_deadline_param, Time.current].max
+      utc_deadline = parse_scheduled_time(params[:deadline], timezone: params[:timezone])
+      utc_deadline ? [utc_deadline, Time.current].max : nil
     elsif deadline_option == "close_now"
       Time.current
     end

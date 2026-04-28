@@ -2405,6 +2405,13 @@ a.pulse-activity-title:hover {
   color: var(--color-fg-muted);
 }
 
+.pulse-datetime-error {
+  display: block;
+  font-size: 12px;
+  color: var(--color-danger-fg);
+  margin-top: 4px;
+}
+
 /* Input with prefix (e.g., @ for handles) */
 .pulse-input-prefix-wrapper {
   position: relative;
