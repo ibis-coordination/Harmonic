@@ -465,6 +465,7 @@ Rails.application.routes.draw do
       get '/attachments/:attachment_id/actions/remove_attachment' => 'notes#describe_remove_attachment'
       post '/attachments/:attachment_id/actions/remove_attachment' => 'notes#remove_attachment'
       get '/settings' => 'notes#settings'
+      post '/settings' => 'notes#update_settings'
       get '/settings/actions' => 'notes#actions_index_settings'
       get '/settings/actions/pin_note' => 'notes#describe_pin_note'
       post '/settings/actions/pin_note' => 'notes#pin_note_action'

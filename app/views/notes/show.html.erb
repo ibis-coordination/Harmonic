@@ -28,9 +28,16 @@
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
       <% if @note.user_can_edit?(@current_user) %>
-        <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
-          <%= octicon 'pencil', height: 14 %>
-          Edit
+        <% if @note.is_table? %>
+          <%= link_to "#{@note.path}/settings", class: 'pulse-action-btn' do %>
+            <%= octicon 'gear', height: 14 %>
+            Settings
+          <% end %>
+        <% else %>
+          <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
+            <%= octicon 'pencil', height: 14 %>
+            Edit
+          <% end %>
         <% end %>
       <% end %>
       <% show_pin = @current_user && !@current_collective.is_main_collective? %>

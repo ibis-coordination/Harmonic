@@ -360,6 +360,60 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, json_response["confirmed_reads"]
   end
 
+  # === Table Note Settings Tests ===
+
+  test "table note edit redirects to settings" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
+
+    assert_response :redirect
+    assert_redirected_to "#{note.path}/settings"
+  end
+
+  test "table note settings page shows table settings form" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/settings"
+
+    assert_response :success
+    assert_select "select[name='edit_access']"
+    assert_select "textarea[name='table_description']"
+    assert_select "textarea[name='text']", count: 0
+  end
+
+  test "table note settings updates title, description, and edit_access" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/settings",
+      params: { note: { title: "Updated Title" }, table_description: "New description", edit_access: "members" }
+
+    assert_response :redirect
+    note.reload
+    assert_equal "Updated Title", note.persisted_title
+    assert_equal "New description", note.table_data["description"]
+    assert_equal "members", note.edit_access
+  end
+
+  test "table note text cannot be edited directly" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+    original_text = note.text
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/settings",
+      params: { note: { title: "New Title", text: "hacked text" } }
+
+    assert_response :redirect
+    note.reload
+    assert_equal "New Title", note.persisted_title
+    assert_equal original_text, note.text
+  end
+
   # === Table Note Agent Creation Tests ===
 
   test "create_table_note action creates a table note via markdown UI" do
