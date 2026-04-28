@@ -1,9 +1,16 @@
-<%= render FeedItemComponent.new(
-  item: feed_item[:item],
-  type: feed_item[:type],
-  created_by: feed_item[:created_by],
-  created_at: feed_item[:created_at],
-  current_user: @current_user,
-  blocked_user_ids: blocked_user_ids,
-  block_related_user_ids: block_related_user_ids,
-) %>
+<% if feed_item[:type] == "ReminderEvent" %>
+  <%= render ReminderFeedItemComponent.new(
+    event: feed_item[:item],
+    current_user: @current_user,
+  ) %>
+<% else %>
+  <%= render FeedItemComponent.new(
+    item: feed_item[:item],
+    type: feed_item[:type],
+    created_by: feed_item[:created_by],
+    created_at: feed_item[:created_at],
+    current_user: @current_user,
+    blocked_user_ids: blocked_user_ids,
+    block_related_user_ids: block_related_user_ids,
+  ) %>
+<% end %>

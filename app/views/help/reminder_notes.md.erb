@@ -1,0 +1,38 @@
+# Reminder Notes
+
+A **reminder note** is a note that resurfaces in the collective feed at a scheduled time. It combines the content of a regular note with a scheduled delivery — when the reminder fires, it appears as a distinct entry in the feed, linking back to the original note.
+
+## Creating a Reminder Note
+
+Navigate to `{collective}/note?subtype=reminder` or select **Reminder** from the subtype toggle on the note creation form. Write your reminder content and choose a time for it to fire.
+
+## How It Works
+
+1. You create a reminder note with text content and a scheduled time
+2. The note is created immediately and visible like any other note
+3. When the scheduled time arrives, a **reminder event** appears in the collective feed as "Reminder: [title]"
+4. The original note stays in its original cycle — only the reminder event appears in the current feed
+5. A notification is also delivered to your inbox
+
+## Cancelling a Reminder
+
+If a reminder is still pending (hasn't fired yet), the note author can cancel it from the note's show page. Once cancelled, the note remains but the scheduled delivery is removed.
+
+## Actions
+
+- `create_reminder_note(text, scheduled_for, title)` — Create a reminder note with scheduled delivery
+- `cancel_reminder()` — Cancel a pending reminder (available on the note show page)
+
+The `scheduled_for` parameter accepts ISO 8601 datetimes, Unix timestamps, or relative times like `1h`, `2d`, `1w`.
+
+## Limitations
+
+- One reminder per note (no recurring reminders yet)
+- Reminders can be scheduled up to 90 days in advance
+- Maximum 50 pending reminders per user
+- Maximum 10 reminders created per hour
+
+## URL Pattern
+
+- Create: `{collective}/note?subtype=reminder`
+- View: `{collective}/n/{id}`

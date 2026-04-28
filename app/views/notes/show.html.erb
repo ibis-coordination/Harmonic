@@ -18,7 +18,7 @@
 <% else %>
 
 <article class="pulse-resource-detail">
-  <% note_type_label = @note.is_comment? ? "Comment" : (@note.is_table? ? "Table" : "Note") %>
+  <% note_type_label = @note.is_comment? ? "Comment" : (@note.is_table? ? "Table" : (@note.is_reminder? ? "Reminder" : "Note")) %>
   <%= render ResourceHeaderComponent.new(
     type_label: note_type_label,
     title: @note.persisted_title,
@@ -86,6 +86,34 @@
   <%= render 'shared/automation_attribution', resource: @note %>
 
   <%= render 'shared/pulse_attachments', resource: @note %>
+
+  <% if @note.is_reminder? && @note.reminder_notification_id.present? %>
+    <div class="pulse-resource-meta" style="margin-top: 12px;">
+      <% if @note.reminder_pending? %>
+        <span style="color: var(--color-fg-muted);">
+          <%= octicon 'clock', height: 14 %>
+          Reminder scheduled for <%= @note.reminder_scheduled_for&.strftime("%b %d, %Y at %I:%M %p %Z") %>
+        </span>
+        <% if @note.user_can_edit?(@current_user) %>
+          <%= button_to "#{@note.path}/actions/cancel_reminder", method: :post,
+              data: { turbo_confirm: "Cancel this reminder?" },
+              class: "pulse-action-btn-small pulse-action-btn-secondary", style: "margin-left: 8px;" do %>
+            <%= octicon 'x', height: 12 %> Cancel
+          <% end %>
+        <% end %>
+      <% elsif @note.reminder_delivered? %>
+        <span style="color: var(--color-fg-muted);">
+          <%= octicon 'check-circle', height: 14 %>
+          Reminder delivered
+        </span>
+      <% else %>
+        <span style="color: var(--color-fg-muted);">
+          <%= octicon 'clock', height: 14 %>
+          Reminder cancelled
+        </span>
+      <% end %>
+    </div>
+  <% end %>
 
   <% if @note.is_table? %>
     <%= render 'table' %>

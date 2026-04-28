@@ -775,4 +775,322 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_includes response.body, "Not a table note"
   end
+
+  # === Reminder Note Tests ===
+
+  test "new note form with subtype=reminder shows reminder fields and hides text fields" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/note?subtype=reminder"
+    assert_response :success
+    assert_includes response.body, "scheduled_for"
+    # Text fields should be hidden when reminder is selected
+    assert_select "[data-note-subtype-target='textFields'][style*='display: none']"
+    # Reminder fields should be visible
+    assert_select "[data-note-subtype-target='reminderFields']" do |elements|
+      # Should NOT have display:none
+      elements.each { |el| assert_not_includes(el["style"].to_s, "display: none") }
+    end
+  end
+
+  test "creating a reminder note schedules a reminder" do
+    sign_in_as(@user, tenant: @tenant)
+
+    scheduled_time = 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
+
+    assert_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note",
+        params: {
+          subtype: "reminder",
+          text: "Remember to review PR",
+          scheduled_for: scheduled_time,
+        }
+    end
+
+    note = Note.last
+    assert_equal "reminder", note.subtype
+    assert_equal "Remember to review PR", note.text
+    assert_not_nil note.reminder_notification_id
+    assert note.reminder_pending?
+    assert_redirected_to note.path
+  end
+
+  test "creating a reminder note without scheduled_for falls back to text note" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note",
+        params: {
+          subtype: "reminder",
+          text: "No time specified",
+        }
+    end
+
+    note = Note.last
+    assert_equal "text", note.subtype
+    assert_nil note.reminder_notification_id
+  end
+
+  test "reminder note show page displays reminder status" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+    assert_response :success
+    assert_includes response.body, "Reminder"
+    assert_includes response.body, "scheduled"
+  end
+
+  test "cancel_reminder action cancels a pending reminder" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "Reminder cancelled"
+
+    note.reload
+    assert_nil note.reminder_notification_id
+  end
+
+  test "cancel_reminder cannot be done by admin who is not the author" do
+    admin_user = create_user(name: "Admin User")
+    @tenant.add_user!(admin_user)
+    cm = @collective.add_user!(admin_user)
+    cm.add_role!("admin")
+
+    sign_in_as(admin_user, tenant: @tenant)
+
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "Not authorized"
+    note.reload
+    assert_not_nil note.reminder_notification_id
+  end
+
+  test "cancel_reminder requires being the note author" do
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+
+    sign_in_as(other_user, tenant: @tenant)
+
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
+      headers: { "Accept" => "text/markdown" }
+
+    # Should fail — not the author
+    assert_includes response.body, "Not authorized"
+    note.reload
+    assert_not_nil note.reminder_notification_id
+  end
+
+  test "reminder note markdown UI shows reminder status" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "reminder_status"
+    assert_includes response.body, "pending"
+  end
+
+  # === Agent create_reminder_note action ===
+
+  test "agent can create a reminder note via markdown action" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
+      params: {
+        text: "Don't forget the standup",
+        scheduled_for: 1.day.from_now.iso8601,
+      },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "Reminder note created"
+
+    note = Note.last
+    assert_equal "reminder", note.subtype
+    assert_equal "Don't forget the standup", note.text
+    assert_not_nil note.reminder_notification_id
+    assert note.reminder_pending?
+  end
+
+  test "agent create_reminder_note cleans up note on scheduling failure" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
+        params: {
+          text: "Should be cleaned up",
+          scheduled_for: 1.day.ago.iso8601, # Past time triggers ReminderSchedulingError
+        },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_includes response.body, "scheduling failed"
+  end
+
+  test "agent create_reminder_note requires text" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
+      params: { scheduled_for: 1.day.from_now.iso8601 },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "text is required"
+  end
+
+  test "agent create_reminder_note requires scheduled_for" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
+      params: { text: "Reminder" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "scheduled_for is required"
+  end
+
+  test "agent create_reminder_note accepts relative time" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
+      params: { text: "Check on deploy", scheduled_for: "2h" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "Reminder note created"
+
+    note = Note.last
+    nr = note.reminder_notification.notification_recipients.first
+    assert_in_delta 2.hours.from_now, nr.scheduled_for, 5.seconds
+  end
+
+  test "creating a reminder note with past scheduled_for does not create orphaned note" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Schedule past time to trigger ReminderSchedulingError
+    past_time = 1.day.ago.strftime("%Y-%m-%dT%H:%M")
+
+    assert_no_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note",
+        params: {
+          subtype: "reminder",
+          text: "This should not be created",
+          scheduled_for: past_time,
+        }
+    end
+
+    # Should re-render the form with an error
+    assert_response :success
+    assert_includes response.body, "scheduled_for"
+  end
+
+  test "creating a reminder note with timezone parses correctly" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Use a future time in Pacific timezone
+    future_time = 1.day.from_now.in_time_zone("Pacific Time (US & Canada)")
+    datetime_local = future_time.strftime("%Y-%m-%dT%H:%M")
+
+    assert_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note",
+        params: {
+          subtype: "reminder",
+          text: "Timezone reminder",
+          scheduled_for: datetime_local,
+          timezone: "Pacific Time (US & Canada)",
+        }
+    end
+
+    note = Note.last
+    assert_equal "reminder", note.subtype
+    assert_not_nil note.reminder_notification_id
+  end
 end

@@ -1087,4 +1087,246 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal "[deleted]", note.text
     assert_nil note.table_data
   end
+
+  # === Reminder Note Tests ===
+
+  test "reminder note can be created with reminder_notification_id" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    assert note.is_reminder?
+    assert_equal notification.id, note.reminder_notification_id
+  end
+
+  test "reminder_notification association loads the notification" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    assert_equal notification, note.reminder_notification
+  end
+
+  test "reminder_scheduled_for returns the scheduled time" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    scheduled_time = 1.day.from_now.in_time_zone("UTC")
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: scheduled_time,
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    assert_in_delta scheduled_time, note.reminder_scheduled_for, 1.second
+  end
+
+  test "reminder_scheduled_for returns nil for non-reminder notes" do
+    tenant, collective, user = create_tenant_collective_user
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Regular note",
+      subtype: "text",
+    )
+
+    assert_nil note.reminder_scheduled_for
+  end
+
+  test "reminder_pending? returns true for pending reminders" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    assert note.reminder_pending?
+  end
+
+  test "reminder_pending? returns false after delivery" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    # Simulate delivery
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    assert_not note.reminder_pending?
+  end
+
+  test "reminder_delivered? returns true after delivery" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    assert_not note.reminder_delivered?
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    assert note.reminder_delivered?
+  end
+
+  test "cancel_reminder! deletes the notification and clears the FK" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    note.cancel_reminder!
+
+    assert_nil note.reload.reminder_notification_id
+    assert_nil Notification.find_by(id: notification.id)
+  end
+
+  test "soft deleting a reminder note cancels the pending reminder" do
+    tenant, collective, user = create_tenant_collective_user
+
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Remember to do the thing",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    note.soft_delete!(by: user)
+
+    assert_equal "[deleted]", note.text
+    assert_nil note.reminder_notification_id
+    assert_nil Notification.find_by(id: notification.id)
+  end
+
+  test "api_json includes reminder_notification_id for reminder notes" do
+    tenant, collective, user = create_tenant_collective_user
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+    )
+
+    json = note.api_json
+    assert_equal "reminder", json[:subtype]
+    assert json.key?(:reminder_notification_id)
+  end
 end

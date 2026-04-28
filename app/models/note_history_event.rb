@@ -14,7 +14,7 @@ class NoteHistoryEvent < ApplicationRecord
   before_validation :set_collective_id
   belongs_to :note
   belongs_to :user
-  validates :event_type, presence: true, inclusion: { in: %w(create update read_confirmation) }
+  validates :event_type, presence: true, inclusion: { in: %w(create update read_confirmation reminder) }
   validates :happened_at, presence: true
   validate :validate_tenant_and_collective_id
 
@@ -60,6 +60,8 @@ class NoteHistoryEvent < ApplicationRecord
       'updated this note'
     when 'read_confirmation'
       "confirmed reading this note"
+    when 'reminder'
+      "reminder fired"
     else
       raise 'Unknown event type'
     end

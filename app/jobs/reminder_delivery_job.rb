@@ -104,6 +104,23 @@ class ReminderDeliveryJob < SystemJob
       reminders.each do |nr|
         NotificationDeliveryJob.perform_now(nr.id)
       end
+
+      # Create NoteHistoryEvent for reminder notes
+      # Use tenant_scoped_only because the note may be in a different collective
+      # than the one found by find_collective_for_user
+      note = Note.tenant_scoped_only(tenant.id).find_by(reminder_notification_id: notification.id)
+      if note
+        note_collective = Collective.find_by(id: note.collective_id)
+        event_user = note_collective&.identity_user || user
+        NoteHistoryEvent.create!(
+          note: note,
+          user: event_user,
+          tenant_id: note.tenant_id,
+          collective_id: note.collective_id,
+          event_type: "reminder",
+          happened_at: Time.current,
+        )
+      end
     end
   end
 

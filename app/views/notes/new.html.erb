@@ -11,11 +11,12 @@
     <input type="hidden" name="subtype" value="<%= @subtype %>" data-note-subtype-target="subtypeInput">
 
     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-      <button type="button" class="<%= @subtype == 'table' ? 'pulse-action-btn-secondary' : 'pulse-action-btn' %>" data-action="note-subtype#selectText" data-note-subtype-target="textBtn">Text</button>
+      <button type="button" class="<%= @subtype == 'text' || @subtype.nil? ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectText" data-note-subtype-target="textBtn">Text</button>
+      <button type="button" class="<%= @subtype == 'reminder' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectReminder" data-note-subtype-target="reminderBtn">Reminder</button>
       <button type="button" class="<%= @subtype == 'table' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectTable" data-note-subtype-target="tableBtn">Table</button>
     </div>
 
-    <div data-note-subtype-target="textFields"<%= ' style="display: none;"'.html_safe if @subtype == 'table' %>>
+    <div data-note-subtype-target="textFields"<%= ' style="display: none;"'.html_safe if @subtype != 'text' %>>
       <div class="pulse-form-group">
         <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
           <%= form.text_area :text,
@@ -27,6 +28,30 @@
               data: { mention_autocomplete_target: "input" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>
+      </div>
+    </div>
+
+    <div data-note-subtype-target="reminderFields"<%= ' style="display: none;"'.html_safe unless @subtype == 'reminder' %>>
+      <div class="pulse-form-group">
+        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
+          <%= form.text_area :text,
+              placeholder: "What should you be reminded about?",
+              value: @note.text,
+              class: "pulse-form-textarea",
+              rows: 4,
+              data: { mention_autocomplete_target: "input", note_subtype_target: "reminderTextInput" } %>
+          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+        </div>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">When</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="datetime-local" name="scheduled_for" class="pulse-form-input" style="flex: 1; min-width: 200px;" data-note-subtype-target="reminderScheduledFor">
+          <%= time_zone_select nil, :timezone, nil,
+              { default: @current_tenant&.timezone&.name || "UTC" },
+              { class: "pulse-form-input", style: "flex: 0 0 auto;" } %>
+        </div>
+        <p class="pulse-form-hint">When should this reminder resurface?</p>
       </div>
     </div>
 

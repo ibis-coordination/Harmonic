@@ -156,7 +156,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes table-notes decisions commitments cycles search links agents api].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions commitments cycles search links agents api].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
@@ -171,7 +171,6 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
-  get 'notifications/new' => 'notifications#new'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
@@ -180,10 +179,6 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss_all' => 'notifications#execute_dismiss_all'
   get 'notifications/actions/dismiss_for_collective' => 'notifications#describe_dismiss_for_collective'
   post 'notifications/actions/dismiss_for_collective' => 'notifications#execute_dismiss_for_collective'
-  get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
-  post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
-  get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'
-  post 'notifications/actions/delete_reminder' => 'notifications#execute_delete_reminder'
 
   get 'learn' => 'learn#index'
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
@@ -417,6 +412,8 @@ Rails.application.routes.draw do
     get "#{prefix}/note/actions" => 'notes#actions_index_new'
     get "#{prefix}/note/actions/create_note" => 'notes#describe_create_note'
     post "#{prefix}/note/actions/create_note" => 'notes#create_note'
+    get "#{prefix}/note/actions/create_reminder_note" => 'notes#describe_create_reminder_note'
+    post "#{prefix}/note/actions/create_reminder_note" => 'notes#create_reminder_note_action'
     get "#{prefix}/note/actions/create_table_note" => 'notes#describe_create_table_note'
     post "#{prefix}/note/actions/create_table_note" => 'notes#create_table_note_action'
     resources :notes, only: [:show], path: "#{prefix}/n" do
@@ -426,6 +423,9 @@ Rails.application.routes.draw do
       post '/actions/confirm_read' => 'notes#confirm_read'
       get '/actions/report_content' => 'notes#describe_report_content'
       post '/actions/report_content' => 'notes#report_content_action'
+      # Reminder note actions
+      get '/actions/cancel_reminder' => 'notes#describe_cancel_reminder'
+      post '/actions/cancel_reminder' => 'notes#execute_cancel_reminder'
       # Table note actions
       get '/actions/add_row' => 'notes#describe_add_row'
       post '/actions/add_row' => 'notes#execute_add_row'

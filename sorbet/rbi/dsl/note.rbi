@@ -378,6 +378,9 @@ class Note
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_deleted_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
+    def build_reminder_notification(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -439,6 +442,12 @@ class Note
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_deleted_by!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
+    def create_reminder_notification(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
+    def create_reminder_notification!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -516,11 +525,26 @@ class Note
     sig { returns(T.nilable(::User)) }
     def reload_deleted_by; end
 
+    sig { returns(T.nilable(::Notification)) }
+    def reload_reminder_notification; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
     sig { returns(T.nilable(::User)) }
     def reload_updated_by; end
+
+    sig { returns(T.nilable(::Notification)) }
+    def reminder_notification; end
+
+    sig { params(value: T.nilable(::Notification)).void }
+    def reminder_notification=(value); end
+
+    sig { returns(T::Boolean) }
+    def reminder_notification_changed?; end
+
+    sig { returns(T::Boolean) }
+    def reminder_notification_previously_changed?; end
 
     sig { returns(T::Array[T.untyped]) }
     def representation_session_event_ids; end
@@ -547,6 +571,9 @@ class Note
 
     sig { void }
     def reset_deleted_by; end
+
+    sig { void }
+    def reset_reminder_notification; end
 
     sig { void }
     def reset_tenant; end
@@ -1226,6 +1253,51 @@ class Note
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def reminder_notification_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def reminder_notification_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def reminder_notification_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def reminder_notification_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def reminder_notification_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def reminder_notification_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def reminder_notification_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def reminder_notification_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def reminder_notification_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def reminder_notification_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def reminder_notification_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def reminder_notification_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def reminder_notification_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def reminder_notification_id_was; end
+
+    sig { void }
+    def reminder_notification_id_will_change!; end
+
     sig { void }
     def restore_collective_id!; end
 
@@ -1258,6 +1330,9 @@ class Note
 
     sig { void }
     def restore_id_value!; end
+
+    sig { void }
+    def restore_reminder_notification_id!; end
 
     sig { void }
     def restore_subtype!; end
@@ -1348,6 +1423,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_reminder_notification_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_reminder_notification_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_subtype; end
@@ -1789,6 +1870,9 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_reminder_notification_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end

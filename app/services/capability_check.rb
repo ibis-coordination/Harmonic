@@ -81,8 +81,6 @@ module CapabilityCheck
     "unpin_commitment",
     "add_attachment",
     "remove_attachment",
-    "create_reminder",
-    "delete_reminder",
     # Trustee grant actions
     "accept_trustee_grant",
     "decline_trustee_grant",
