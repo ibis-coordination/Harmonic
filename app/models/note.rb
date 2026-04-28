@@ -26,6 +26,9 @@ class Note < ApplicationRecord
   # Commentable pattern - allows notes to be comments on other resources
   belongs_to :commentable, polymorphic: true, optional: true
 
+  # Reminder notes link to their scheduled notification
+  belongs_to :reminder_notification, class_name: "Notification", optional: true
+
   has_many :note_history_events, dependent: :destroy
   # validates :title, presence: true
   EDIT_ACCESS_OPTIONS = %w[members owner].freeze
@@ -66,6 +69,46 @@ class Note < ApplicationRecord
   sig { returns(T::Boolean) }
   def is_table?
     subtype == "table"
+  end
+
+  # Reminder helpers
+
+  sig { returns(T.nilable(ActiveSupport::TimeWithZone)) }
+  def reminder_scheduled_for
+    reminder_recipient&.scheduled_for
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_pending?
+    nr = reminder_recipient
+    nr.present? && nr.status == "pending"
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_delivered?
+    nr = reminder_recipient
+    nr.present? && nr.status == "delivered"
+  end
+
+  sig { returns(T.nilable(NotificationRecipient)) }
+  def reminder_recipient
+    return nil unless is_reminder? && reminder_notification_id.present?
+
+    reminder_notification&.notification_recipients&.first
+  end
+
+  sig { void }
+  def cancel_reminder!
+    return unless reminder_notification_id.present?
+
+    notification = reminder_notification
+    self.reminder_notification_id = nil
+    save!
+
+    if notification
+      notification.notification_recipients.destroy_all
+      notification.destroy!
+    end
   end
 
   sig { params(user: User).returns(T::Boolean) }
@@ -126,6 +169,7 @@ class Note < ApplicationRecord
       updated_by_id: updated_by_id,
       commentable_type: commentable_type,
       commentable_id: commentable_id,
+      reminder_notification_id: reminder_notification_id,
     }
     response.merge!({ history_events: history_events.map(&:api_json) }) if include.include?("history_events")
     response.merge!({ backlinks: backlinks.map(&:api_json) }) if include.include?("backlinks")
@@ -283,6 +327,7 @@ class Note < ApplicationRecord
     self.title = "[deleted]"
     self.text = "[deleted]"
     self.table_data = nil if is_table?
+    cancel_reminder! if is_reminder? && reminder_notification_id.present?
   end
 
   # When a comment is created/destroyed, reindex the parent to update comment_count.

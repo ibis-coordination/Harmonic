@@ -2,16 +2,6 @@
 
 Unread: <%= @unread_count %>
 
-<% if @scheduled_reminders.any? -%>
-## Scheduled Reminders
-
-| Scheduled For | Title | Body | Actions |
-|---------------|-------|------|---------|
-<% @scheduled_reminders.each do |nr| -%>
-| <%= nr.scheduled_for.strftime("%Y-%m-%d %H:%M") %> | <%= nr.notification.title %> | <%= nr.notification.body || "-" %> | [delete](/notifications/actions/delete_reminder?id=<%= nr.id %>) |
-<% end -%>
-
-<% end -%>
 <% if @notification_recipients.empty? -%>
 No notifications.
 <% else -%>

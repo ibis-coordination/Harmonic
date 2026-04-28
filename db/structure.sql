@@ -695,7 +695,8 @@ CREATE TABLE public.notes (
     deleted_by_id uuid,
     subtype character varying DEFAULT 'text'::character varying NOT NULL,
     table_data jsonb,
-    edit_access character varying DEFAULT 'owner'::character varying NOT NULL
+    edit_access character varying DEFAULT 'owner'::character varying NOT NULL,
+    reminder_notification_id uuid
 );
 
 
@@ -3821,6 +3822,13 @@ CREATE INDEX index_notes_on_created_by_id ON public.notes USING btree (created_b
 --
 
 CREATE INDEX index_notes_on_deleted_at ON public.notes USING btree (deleted_at);
+
+
+--
+-- Name: index_notes_on_reminder_notification_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notes_on_reminder_notification_id ON public.notes USING btree (reminder_notification_id) WHERE (reminder_notification_id IS NOT NULL);
 
 
 --
@@ -8126,6 +8134,14 @@ ALTER TABLE ONLY public.decision_participants
 
 
 --
+-- Name: notes fk_rails_31ef1a0de9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notes
+    ADD CONSTRAINT fk_rails_31ef1a0de9 FOREIGN KEY (reminder_notification_id) REFERENCES public.notifications(id);
+
+
+--
 -- Name: representation_sessions fk_rails_33f2d734e7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8916,6 +8932,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260428051604'),
 ('20260428024948'),
 ('20260427205555'),
 ('20260427200746'),

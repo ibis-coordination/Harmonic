@@ -11,6 +11,12 @@ This <%= @note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the 
 | created_at | <%= @note.created_at %> |
 | updated_at | <%= @note.updated_at %> |
 | deadline | <%= @note.deadline %> |
+<% if @note.is_reminder? -%>
+| reminder_status | <%= @note.reminder_pending? ? "pending" : (@note.reminder_delivered? ? "delivered" : "cancelled") %> |
+<% if @note.reminder_scheduled_for -%>
+| reminder_scheduled_for | <%= @note.reminder_scheduled_for&.iso8601 %> |
+<% end -%>
+<% end -%>
 
 <%= render 'shared/automation_attribution', resource: @note %>
 <% if @note.is_comment? && @note.commentable -%>

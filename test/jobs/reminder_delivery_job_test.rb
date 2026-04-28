@@ -195,6 +195,56 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     assert_equal "pending", nr.status
   end
 
+  test "creates NoteHistoryEvent when delivering a reminder linked to a note" do
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Note reminder",
+      scheduled_for: 1.day.from_now,
+    )
+    nr = notification.notification_recipients.first
+    nr.update!(scheduled_for: 1.minute.ago)
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Remember this",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+    )
+
+    Collective.clear_thread_scope
+
+    assert_difference "NoteHistoryEvent.count" do
+      ReminderDeliveryJob.perform_now
+    end
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+
+    event = note.note_history_events.find_by(event_type: "reminder")
+    assert_not_nil event
+    assert_equal "reminder", event.event_type
+    assert_equal @collective.identity_user.id, event.user_id
+  end
+
+  test "does not create NoteHistoryEvent for standalone reminders" do
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Standalone reminder",
+      scheduled_for: 1.day.from_now,
+    )
+    nr = notification.notification_recipients.first
+    nr.update!(scheduled_for: 1.minute.ago)
+
+    Collective.clear_thread_scope
+
+    # Only the "create" event from note creation should exist, not a reminder event
+    assert_no_difference -> { NoteHistoryEvent.where(event_type: "reminder").count } do
+      ReminderDeliveryJob.perform_now
+    end
+  end
+
   test "respects MAX_REMINDERS_PER_RUN limit" do
     # Create reminders directly in the database to bypass rate limit
     (ReminderDeliveryJob::MAX_REMINDERS_PER_RUN + 5).times do |i|

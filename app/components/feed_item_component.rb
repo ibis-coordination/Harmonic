@@ -46,6 +46,7 @@ class FeedItemComponent < ViewComponent::Base
   def display_type
     return "Comment" if is_comment?
     return "Table" if @type == "Note" && @item.is_a?(Note) && @item.is_table?
+    return "Reminder" if @type == "Note" && @item.is_a?(Note) && @item.is_reminder?
     @type
   end
 

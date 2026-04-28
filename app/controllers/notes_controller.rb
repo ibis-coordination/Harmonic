@@ -2,6 +2,7 @@
 
 class NotesController < ApplicationController
   include AttachmentActions
+  include ParsesScheduledTime
 
   def show
     @note = current_note || find_deleted_note
@@ -57,6 +58,8 @@ class NotesController < ApplicationController
   def create
     if params[:subtype] == "table"
       create_table_note
+    elsif params[:subtype] == "reminder"
+      create_reminder_note
     else
       create_text_note
     end
@@ -84,6 +87,48 @@ class NotesController < ApplicationController
 
   def describe_create_note
     render_action_description(ActionsHelper.action_description("create_note"))
+  end
+
+  def describe_create_reminder_note
+    render_action_description(ActionsHelper.action_description("create_reminder_note"))
+  end
+
+  def create_reminder_note_action
+    text = params[:text]
+    title = params[:title]
+    scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
+
+    if text.blank?
+      return render_action_error({ action_name: "create_reminder_note", error: "text is required" })
+    end
+
+    if scheduled_for.nil?
+      return render_action_error({ action_name: "create_reminder_note", error: "scheduled_for is required and must be a valid time" })
+    end
+
+    helper_params = { text: text, title: title, subtype: "reminder" }
+    note = api_helper(params: helper_params).create_note
+
+    begin
+      notification = ReminderService.create!(
+        user: @current_user,
+        title: note.title,
+        scheduled_for: scheduled_for,
+        url: note.path,
+      )
+      note.update!(reminder_notification_id: notification.id)
+    rescue ReminderService::ReminderError => e
+      note.destroy!
+      return render_action_error({ action_name: "create_reminder_note", error: "Reminder scheduling failed: #{e.message}" })
+    end
+
+    render_action_success({
+      action_name: "create_reminder_note",
+      resource: note,
+      result: "Reminder note created, scheduled for #{scheduled_for.strftime('%Y-%m-%d %H:%M %Z')}.",
+    })
+  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+    render_action_error({ action_name: "create_reminder_note", error: e.message })
   end
 
   def create_table_note_action
@@ -466,6 +511,28 @@ class NotesController < ApplicationController
     end
   end
 
+  # Reminder note actions
+
+  def describe_cancel_reminder
+    render_action_description(ActionsHelper.action_description("cancel_reminder", resource: current_note))
+  end
+
+  def execute_cancel_reminder
+    note = current_note
+    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not a reminder note" }) unless note&.is_reminder?
+    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not authorized" }) unless note.user_can_edit?(current_user)
+    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "No pending reminder" }) unless note.reminder_pending?
+
+    note.cancel_reminder!
+
+    respond_to do |format|
+      format.html { redirect_to note.path, notice: "Reminder cancelled." }
+      format.md { render_action_success({ action_name: "cancel_reminder", resource: note, result: "Reminder cancelled." }) }
+    end
+  rescue StandardError => e
+    render_action_error({ action_name: "cancel_reminder", resource: current_note, error: e.message })
+  end
+
   def execute_delete_note
     @note = current_note
     return render "404", status: :not_found unless @note
@@ -547,6 +614,37 @@ class NotesController < ApplicationController
       @note.text = NoteTableFormatter.to_markdown(@note.table_data)
       @note.save!
     end
+    redirect_to @note.path
+  end
+
+  def create_reminder_note
+    scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
+
+    if scheduled_for.nil?
+      # Fall back to creating a regular text note if no valid time
+      return create_text_note
+    end
+
+    helper_params = { title: model_params[:title], text: model_params[:text], subtype: "reminder" }
+    @note = api_helper(params: helper_params).create_note
+
+    begin
+      notification = ReminderService.create!(
+        user: @current_user,
+        title: @note.title,
+        scheduled_for: scheduled_for,
+        url: @note.path,
+      )
+      @note.update!(reminder_notification_id: notification.id)
+    rescue ReminderService::ReminderError => e
+      @note.destroy!
+      flash.now[:alert] = "Reminder scheduling failed: #{e.message}"
+      @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
+      @subtype = "reminder"
+      @note = Note.new(title: model_params[:title], text: model_params[:text])
+      return render :new
+    end
+
     redirect_to @note.path
   end
 

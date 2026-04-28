@@ -174,6 +174,22 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "create_reminder_note" => {
+      description: "Create a reminder note that resurfaces in the feed at a scheduled time",
+      params_string: "(text, scheduled_for, title)",
+      params: [
+        { name: "text", type: "string", required: true, description: "The reminder content" },
+        { name: "scheduled_for", type: "datetime", required: true, description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)" },
+        { name: "title", type: "string", required: false, description: "Optional title for the reminder note" },
+      ],
+      authorization: :collective_member,
+    },
+    "cancel_reminder" => {
+      description: "Cancel a pending reminder on this note",
+      params_string: "()",
+      params: [],
+      authorization: :owner,
+    },
     "create_table_note" => {
       description: "Create a new table note with columns defined upfront",
       params_string: "(title, columns, description, edit_access)",
@@ -551,27 +567,6 @@ class ActionsHelper
       authorization: :authenticated,
     },
 
-    # Reminder actions
-    "create_reminder" => {
-      description: "Schedule a reminder notification for your future self",
-      params_string: "(title, scheduled_for, body, url)",
-      params: [
-        { name: "title", type: "string", required: true, description: "The reminder text (max 255 chars)" },
-        { name: "scheduled_for", type: "datetime", required: true, description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)" },
-        { name: "body", type: "string", required: false, description: "Additional details (max 200 chars)" },
-        { name: "url", type: "string", required: false, description: "A URL to include with the reminder" },
-      ],
-      authorization: :authenticated,
-    },
-    "delete_reminder" => {
-      description: "Cancel a scheduled reminder before it triggers",
-      params_string: "(id)",
-      params: [
-        { name: "id", type: "string", required: true, description: "The ID of the notification recipient to delete" },
-      ],
-      authorization: :authenticated,
-    },
-
     # Webhook actions
     # Webhooks can be created for collectives (requires collective_admin) or users (requires self/representative).
     # Authorization is context-aware: checks collective context first, then falls back to user context.
@@ -703,6 +698,11 @@ class ActionsHelper
     resource.is_a?(Note) && resource.is_table?
   }
 
+  PENDING_REMINDER_CONDITION = ->(context) {
+    resource = context[:resource]
+    resource.is_a?(Note) && resource.is_reminder? && resource.reminder_pending?
+  }
+
   REPORT_CONTENT_CONDITION = ->(context) {
     user = context[:user]
     resource = context[:resource]
@@ -800,6 +800,7 @@ class ActionsHelper
       controller_actions: ["notes#new"],
       actions: [
         { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },
+        { name: "create_reminder_note", params_string: ACTION_DEFINITIONS["create_reminder_note"][:params_string], description: ACTION_DEFINITIONS["create_reminder_note"][:description] },
         { name: "create_table_note", params_string: ACTION_DEFINITIONS["create_table_note"][:params_string], description: ACTION_DEFINITIONS["create_table_note"][:description] },
       ],
     },
@@ -810,6 +811,12 @@ class ActionsHelper
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
       conditional_actions: [
+        {
+          name: "cancel_reminder",
+          params_string: ACTION_DEFINITIONS["cancel_reminder"][:params_string],
+          description: ACTION_DEFINITIONS["cancel_reminder"][:description],
+          condition: PENDING_REMINDER_CONDITION,
+        },
         {
           name: "report_content",
           params_string: ACTION_DEFINITIONS["report_content"][:params_string],
@@ -1025,8 +1032,6 @@ class ActionsHelper
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
         { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string], description: ACTION_DEFINITIONS["dismiss_all"][:description] },
         { name: "dismiss_for_collective", params_string: ACTION_DEFINITIONS["dismiss_for_collective"][:params_string], description: ACTION_DEFINITIONS["dismiss_for_collective"][:description] },
-        { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
-        { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
       ],
     },
     "/search" => {

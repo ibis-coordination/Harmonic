@@ -324,4 +324,16 @@ class FeedItemComponentTest < ViewComponent::TestCase
                   ))
     assert_selector ".pulse-feed-item-type span", text: "Note"
   end
+
+  test "renders Reminder type label for reminder notes" do
+    note = build_note(text: "Don't forget", subtype: "reminder")
+    user = build_user(display_name: "Bob")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 1.hour.ago,
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Reminder"
+  end
 end

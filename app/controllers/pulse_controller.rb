@@ -103,6 +103,17 @@ class PulseController < ApplicationController
       { type: "Commitment", item: commitment, created_at: commitment.created_at, created_by: commitment.created_by }
     end
 
-    @feed_items = (notes + decisions + commitments).sort_by { |item| -item[:created_at].to_i }
+    # Reminder events — NoteHistoryEvents of type "reminder" that fired within the cycle
+    # Explicitly scoped to the current collective (matching the pattern of the other queries)
+    reminder_events = NoteHistoryEvent
+      .where(event_type: "reminder", collective_id: @current_collective.id)
+      .where("note_history_events.happened_at >= ?", cycle_start)
+      .includes(note: :created_by)
+      .limit(50)
+      .map do |event|
+      { type: "ReminderEvent", item: event, created_at: event.happened_at, created_by: event.note&.created_by }
+    end
+
+    @feed_items = (notes + decisions + commitments + reminder_events).sort_by { |item| -item[:created_at].to_i }
   end
 end

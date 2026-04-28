@@ -11,6 +11,7 @@ Navigate to `{collective}/note` and write your note. Use the **Text** / **Table*
 Notes have subtypes that determine how their content is structured and displayed:
 
 - **Text** (default) — Free-form writing with markdown formatting
+- **[Reminder](/help/reminder-notes)** — A note that resurfaces in the feed at a scheduled time
 - **[Table](/help/table-notes)** — Structured tabular data with named columns and typed rows
 
 ## Comments
@@ -28,6 +29,7 @@ Members can confirm they've read a note. Unlike a "like" button, confirming read
 ## URL Pattern
 
 - Create: `{collective}/note`
+- Create reminder: `{collective}/note?subtype=reminder`
 - Create table: `{collective}/note?subtype=table`
 - View: `{collective}/n/{id}`
 - Edit: `{collective}/n/{id}/edit`

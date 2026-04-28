@@ -4,9 +4,11 @@ import { parseCsv } from "../utils/csv_parser"
 export default class extends Controller {
   static targets = [
     "textFields",
+    "reminderFields",
     "tableFields",
     "subtypeInput",
     "textBtn",
+    "reminderBtn",
     "tableBtn",
     "manualColumnsSection",
     "csvImportSection",
@@ -21,10 +23,15 @@ export default class extends Controller {
   ]
 
   declare textFieldsTarget: HTMLElement
+  declare reminderFieldsTarget: HTMLElement
   declare tableFieldsTarget: HTMLElement
   declare subtypeInputTarget: HTMLInputElement
   declare textBtnTarget: HTMLElement
+  declare reminderBtnTarget: HTMLElement
   declare tableBtnTarget: HTMLElement
+
+  declare hasReminderFieldsTarget: boolean
+  declare hasReminderBtnTarget: boolean
   declare manualColumnsSectionTarget: HTMLElement
   declare csvImportSectionTarget: HTMLElement
   declare manualColumnsBtnTarget: HTMLElement
@@ -44,18 +51,43 @@ export default class extends Controller {
     this.toggle()
   }
 
-  // Text/Table subtype toggle
+  // Text/Reminder/Table subtype toggle
 
   toggle() {
-    const isTable = this.subtypeInputTarget.value === "table"
-    this.textFieldsTarget.style.display = isTable ? "none" : ""
-    this.tableFieldsTarget.style.display = isTable ? "" : "none"
-    this.textBtnTarget.className = isTable ? "pulse-action-btn-secondary" : "pulse-action-btn"
-    this.tableBtnTarget.className = isTable ? "pulse-action-btn" : "pulse-action-btn-secondary"
+    const subtype = this.subtypeInputTarget.value
+
+    this.textFieldsTarget.style.display = subtype === "text" ? "" : "none"
+    if (this.hasReminderFieldsTarget) {
+      this.reminderFieldsTarget.style.display = subtype === "reminder" ? "" : "none"
+    }
+    this.tableFieldsTarget.style.display = subtype === "table" ? "" : "none"
+
+    // Disable inputs in hidden sections so they don't submit duplicate form values
+    this.setInputsDisabled(this.textFieldsTarget, subtype !== "text")
+    if (this.hasReminderFieldsTarget) {
+      this.setInputsDisabled(this.reminderFieldsTarget, subtype !== "reminder")
+    }
+
+    this.textBtnTarget.className = subtype === "text" ? "pulse-action-btn" : "pulse-action-btn-secondary"
+    if (this.hasReminderBtnTarget) {
+      this.reminderBtnTarget.className = subtype === "reminder" ? "pulse-action-btn" : "pulse-action-btn-secondary"
+    }
+    this.tableBtnTarget.className = subtype === "table" ? "pulse-action-btn" : "pulse-action-btn-secondary"
+  }
+
+  private setInputsDisabled(container: HTMLElement, disabled: boolean) {
+    container.querySelectorAll("textarea, input:not([type='hidden'])").forEach((el) => {
+      ;(el as HTMLInputElement | HTMLTextAreaElement).disabled = disabled
+    })
   }
 
   selectText() {
     this.subtypeInputTarget.value = "text"
+    this.toggle()
+  }
+
+  selectReminder() {
+    this.subtypeInputTarget.value = "reminder"
     this.toggle()
   }
 
