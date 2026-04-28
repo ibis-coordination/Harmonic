@@ -18,6 +18,7 @@ import CommentsController from "./comments_controller"
 import CommentThreadController from "./comment_thread_controller"
 import CommitmentController from "./commitment_controller"
 import CountdownController from "./countdown_controller"
+import DatetimeInputController from "./datetime_input_controller"
 import DeadlineOptionsController from "./deadline_options_controller"
 import DecisionController from "./decision_controller"
 import DecisionResultsController from "./decision_results_controller"
@@ -67,6 +68,7 @@ application.register("comments", CommentsController)
 application.register("comment-thread", CommentThreadController)
 application.register("commitment", CommitmentController)
 application.register("countdown", CountdownController)
+application.register("datetime-input", DatetimeInputController)
 application.register("deadline-options", DeadlineOptionsController)
 application.register("decision", DecisionController)
 application.register("decision-results", DecisionResultsController)

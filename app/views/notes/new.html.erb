@@ -45,12 +45,11 @@
       </div>
       <div class="pulse-form-group">
         <label class="pulse-form-label">When</label>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <input type="datetime-local" name="scheduled_for" class="pulse-form-input" style="flex: 1; min-width: 200px;" data-note-subtype-target="reminderScheduledFor">
-          <%= time_zone_select nil, :timezone, nil,
-              { default: @current_tenant&.timezone&.name || "UTC" },
-              { class: "pulse-form-input", style: "flex: 0 0 auto;" } %>
-        </div>
+        <%= render DatetimeInputComponent.new(
+          field_name: "scheduled_for",
+          default_offset: "1d",
+          require_future: true,
+        ) %>
         <p class="pulse-form-hint">When should this reminder resurface?</p>
       </div>
     </div>

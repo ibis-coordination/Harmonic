@@ -1,0 +1,31 @@
+<div data-controller="datetime-input"
+     data-datetime-input-default-offset-value="<%= @default_offset %>"
+     data-datetime-input-require-future-value="<%= @require_future %>">
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <input type="datetime-local"
+           name="<%= @field_name %>"
+           value="<%= @default_value %>"
+           class="pulse-form-input"
+           style="flex: 1; min-width: 200px;"
+           data-datetime-input-target="datetimeInput"
+           data-action="change->datetime-input#validate">
+    <%= helpers.time_zone_select nil, @timezone_field_name, nil,
+        { default: @default_timezone },
+        { class: "pulse-form-input",
+          style: "flex: 0 0 auto;",
+          data: { datetime_input_target: "timezoneSelect",
+                  action: "change->datetime-input#validate" } } %>
+  </div>
+  <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+    <span class="pulse-datetime-error"
+          data-datetime-input-target="error"
+          style="display: none;"></span>
+    <time data-datetime-input-target="countdown"
+          data-controller="countdown"
+          data-countdown-end-time-value=""
+          data-countdown-base-unit-value="seconds"
+          style="display: none;">
+      <span data-countdown-target="time" style="font-family: monospace; white-space: nowrap; font-size: 12px; color: var(--color-fg-muted);"></span>
+    </time>
+  </div>
+</div>
