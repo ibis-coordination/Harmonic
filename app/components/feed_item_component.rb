@@ -44,7 +44,9 @@ class FeedItemComponent < ViewComponent::Base
 
   sig { returns(String) }
   def display_type
-    is_comment? ? "Comment" : @type
+    return "Comment" if is_comment?
+    return "Table" if @type == "Note" && @item.is_a?(Note) && @item.is_table?
+    @type
   end
 
   sig { returns(T.nilable(String)) }

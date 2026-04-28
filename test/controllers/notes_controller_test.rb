@@ -360,6 +360,67 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, json_response["confirmed_reads"]
   end
 
+  # === Table Note Creation Tests ===
+
+  test "creating a table note via form" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note",
+      params: {
+        subtype: "table",
+        title: "My Table",
+        table_description: "Tracks tasks",
+        columns: {
+          "0" => { name: "Status", type: "text" },
+          "1" => { name: "Due", type: "date" },
+        },
+      }
+
+    assert_response :redirect
+    note = Note.last
+    assert_equal "table", note.subtype
+    assert_equal "My Table", note.title
+    assert_equal "Tracks tasks", note.table_data["description"]
+    assert_equal 2, note.table_data["columns"].length
+    assert_equal "Status", note.table_data["columns"].first["name"]
+  end
+
+  test "creating a table note skips empty column names" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/note",
+      params: {
+        subtype: "table",
+        title: "Sparse Table",
+        columns: {
+          "0" => { name: "Keep", type: "text" },
+          "1" => { name: "", type: "text" },
+        },
+      }
+
+    assert_response :redirect
+    note = Note.last
+    assert_equal 1, note.table_data["columns"].length
+    assert_equal "Keep", note.table_data["columns"].first["name"]
+  end
+
+  # === Table Note Show Page Tests ===
+
+  test "table note show page renders HTML table" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_select "table.pulse-table"
+    assert_select "th", text: /Status/
+    assert_select "td", text: "done"
+    assert_select ".pulse-resource-type-label", text: /Table/
+  end
+
   # === Table Note Action Tests ===
 
   def create_table_note
@@ -379,6 +440,34 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
         "rows" => [],
       },
     )
+  end
+
+  test "add_row via HTML form redirects back to note" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_row",
+      params: { values: { "Status" => "done", "Due" => "2026-05-01" } }
+
+    assert_response :redirect
+    assert_redirected_to note.path
+    note.reload
+    assert_equal 1, note.table_data["rows"].length
+  end
+
+  test "delete_row via HTML form redirects back to note" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/delete_row",
+      params: { row_id: row["_id"] }
+
+    assert_response :redirect
+    assert_redirected_to note.path
+    note.reload
+    assert_equal 0, note.table_data["rows"].length
   end
 
   test "add_row action adds a row to table note" do

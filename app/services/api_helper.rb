@@ -147,14 +147,16 @@ class ApiHelper
     note = T.let(nil, T.nilable(Note))
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(commentable) if commentable
-      note = Note.create!(
+      create_attrs = {
         title: params[:title],
         text: params[:text],
         subtype: params[:subtype] || "text",
         deadline: Time.now,
         created_by: current_user,
         commentable: commentable,
-      )
+      }
+      create_attrs[:table_data] = params[:table_data] if params[:table_data].present?
+      note = Note.create!(create_attrs)
       track_task_run_resource(note, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(

@@ -35,6 +35,7 @@ import NavController from "./nav_controller"
 import NotificationActionsController from "./notification_actions_controller"
 import NotificationBadgeController from "./notification_badge_controller"
 import NoteController from "./note_controller"
+import NoteSubtypeController from "./note_subtype_controller"
 import OptionController from "./option_controller"
 import PinController from "./pin_controller"
 import PulseActionController from "./pulse_action_controller"
@@ -81,6 +82,7 @@ application.register("nav", NavController)
 application.register("notification-actions", NotificationActionsController)
 application.register("notification-badge", NotificationBadgeController)
 application.register("note", NoteController)
+application.register("note-subtype", NoteSubtypeController)
 application.register("option", OptionController)
 application.register("pin", PinController)
 application.register("pulse-action", PulseActionController)

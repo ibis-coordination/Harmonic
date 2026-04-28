@@ -7,17 +7,65 @@
 
 <article class="pulse-resource-detail">
 
-  <%= form_with(url: "#{@current_collective.path}/note", class: "pulse-form") do |form| %>
-    <div class="pulse-form-group">
-      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-        <%= form.text_area :text,
-            placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
-            autofocus: true,
-            value: @note.text,
-            class: "pulse-form-textarea",
-            rows: 8,
-            data: { mention_autocomplete_target: "input" } %>
-        <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+  <%= form_with(url: "#{@current_collective.path}/note", class: "pulse-form", data: { controller: "note-subtype" }) do |form| %>
+    <input type="hidden" name="subtype" value="<%= @subtype %>" data-note-subtype-target="subtypeInput">
+
+    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+      <button type="button" class="<%= @subtype == 'table' ? 'pulse-action-btn-secondary' : 'pulse-action-btn' %>" data-action="note-subtype#selectText" data-note-subtype-target="textBtn">Text</button>
+      <button type="button" class="<%= @subtype == 'table' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectTable" data-note-subtype-target="tableBtn">Table</button>
+    </div>
+
+    <div data-note-subtype-target="textFields"<%= ' style="display: none;"'.html_safe if @subtype == 'table' %>>
+      <div class="pulse-form-group">
+        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
+          <%= form.text_area :text,
+              placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
+              autofocus: true,
+              value: @note.text,
+              class: "pulse-form-textarea",
+              rows: 8,
+              data: { mention_autocomplete_target: "input" } %>
+          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+        </div>
+      </div>
+    </div>
+
+    <div data-note-subtype-target="tableFields"<%= ' style="display: none;"'.html_safe unless @subtype == 'table' %>>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Title</label>
+        <input type="text" name="title" placeholder="Table title" class="pulse-form-input">
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Description <span style="font-weight: normal; color: var(--color-fg-muted);">(optional)</span></label>
+        <textarea name="table_description" placeholder="What is this table for?" class="pulse-form-textarea" rows="2"></textarea>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Columns</label>
+        <div data-columns>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" name="columns[0][name]" placeholder="Column name" class="pulse-form-input" style="flex: 2;">
+            <select name="columns[0][type]" class="pulse-form-input" style="flex: 1;">
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="boolean">Boolean</option>
+              <option value="date">Date</option>
+            </select>
+            <button type="button" class="pulse-action-btn-secondary" style="padding: 4px 8px;" data-action="note-subtype#removeColumn">✕</button>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" name="columns[1][name]" placeholder="Column name" class="pulse-form-input" style="flex: 2;">
+            <select name="columns[1][type]" class="pulse-form-input" style="flex: 1;">
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="boolean">Boolean</option>
+              <option value="date">Date</option>
+            </select>
+            <button type="button" class="pulse-action-btn-secondary" style="padding: 4px 8px;" data-action="note-subtype#removeColumn">✕</button>
+          </div>
+        </div>
+        <button type="button" class="pulse-action-btn-secondary" data-action="note-subtype#addColumn" style="margin-top: 4px;">
+          + Add Column
+        </button>
       </div>
     </div>
 

@@ -18,8 +18,9 @@
 <% else %>
 
 <article class="pulse-resource-detail">
+  <% note_type_label = @note.is_comment? ? "Comment" : (@note.is_table? ? "Table" : "Note") %>
   <%= render ResourceHeaderComponent.new(
-    type_label: @note.is_comment? ? "Comment" : "Note",
+    type_label: note_type_label,
     title: @note.persisted_title,
     icon_name: @note.is_comment? ? "comment" : nil,
     icon_class: @note.is_comment? ? nil : "note-icon",
@@ -79,15 +80,19 @@
 
   <%= render 'shared/pulse_attachments', resource: @note %>
 
-  <div class="pulse-resource-body">
-    <div class="pulse-markdown-content">
-      <% if @note.text.present? %>
-        <%= markdown(@note.text) %>
-      <% else %>
-        <p class="pulse-empty-content"><em>empty note</em></p>
-      <% end %>
+  <% if @note.is_table? %>
+    <%= render 'table' %>
+  <% else %>
+    <div class="pulse-resource-body">
+      <div class="pulse-markdown-content">
+        <% if @note.text.present? %>
+          <%= markdown(@note.text) %>
+        <% else %>
+          <p class="pulse-empty-content"><em>empty note</em></p>
+        <% end %>
+      </div>
     </div>
-  </div>
+  <% end %>
 
   <%# Confirmed Reads Section %>
   <div class="pulse-confirmed-section" data-note-target="confirmSection">

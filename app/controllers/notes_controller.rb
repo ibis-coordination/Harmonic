@@ -24,6 +24,7 @@ class NotesController < ApplicationController
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @sidebar_mode = "resource"
     @team = @current_collective.team
+    @subtype = Note::SUBTYPES.include?(params[:subtype]) ? params[:subtype] : "text"
     @note = Note.new(
       title: params[:title]
     )
@@ -53,18 +54,11 @@ class NotesController < ApplicationController
   end
 
   def create
-    # Build params for ApiHelper (HTML form uses model_params)
-    helper_params = { title: model_params[:title], text: model_params[:text] }
-    @note = api_helper(params: helper_params).create_note
-    # Handle file attachments separately (HTML form specific)
-    if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
-      @note.attach!(params[:files])
+    if params[:subtype] == "table"
+      create_table_note
+    else
+      create_text_note
     end
-    # Handle pinning (HTML form specific)
-    if params[:pinned] == "1" && current_collective.id != current_tenant.main_collective_id
-      api_helper.pin_resource(@note)
-    end
-    redirect_to @note.path
   rescue ActiveRecord::RecordInvalid => e
     e.record.errors.full_messages.each { |msg| flash.now[:alert] = msg }
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
@@ -289,9 +283,15 @@ class NotesController < ApplicationController
 
   def execute_add_row
     row = api_helper.add_row
-    render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_id']})." })
+    respond_to do |format|
+      format.html { redirect_to current_note.path, notice: "Row added." }
+      format.md { render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_id']})." }) }
+    end
   rescue RuntimeError, ActiveRecord::RecordInvalid => e
-    render_action_error({ action_name: "add_row", resource: current_note, error: e.message })
+    respond_to do |format|
+      format.html { redirect_to current_note.path, alert: e.message }
+      format.md { render_action_error({ action_name: "add_row", resource: current_note, error: e.message }) }
+    end
   end
 
   def describe_update_row
@@ -311,9 +311,15 @@ class NotesController < ApplicationController
 
   def execute_delete_row
     api_helper.delete_row
-    render_action_success({ action_name: "delete_row", resource: current_note, result: "Row deleted." })
+    respond_to do |format|
+      format.html { redirect_to current_note.path, notice: "Row deleted." }
+      format.md { render_action_success({ action_name: "delete_row", resource: current_note, result: "Row deleted." }) }
+    end
   rescue RuntimeError, ActiveRecord::RecordInvalid => e
-    render_action_error({ action_name: "delete_row", resource: current_note, error: e.message })
+    respond_to do |format|
+      format.html { redirect_to current_note.path, alert: e.message }
+      format.md { render_action_error({ action_name: "delete_row", resource: current_note, error: e.message }) }
+    end
   end
 
   def describe_add_table_column
@@ -444,6 +450,37 @@ class NotesController < ApplicationController
                           resource: current_note,
                           error: message,
                         })
+  end
+
+  def create_text_note
+    helper_params = { title: model_params[:title], text: model_params[:text] }
+    @note = api_helper(params: helper_params).create_note
+    if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
+      @note.attach!(params[:files])
+    end
+    if params[:pinned] == "1" && current_collective.id != current_tenant.main_collective_id
+      api_helper.pin_resource(@note)
+    end
+    redirect_to @note.path
+  end
+
+  def create_table_note
+    columns = (params[:columns] || {}).values.select { |c| c[:name].present? }.map do |c|
+      { "name" => c[:name], "type" => c[:type] || "text" }
+    end
+
+    helper_params = {
+      title: params[:title].presence || "Table",
+      text: "",
+      subtype: "table",
+      table_data: {
+        "description" => params[:table_description].presence,
+        "columns" => columns,
+        "rows" => [],
+      },
+    }
+    @note = api_helper(params: helper_params).create_note
+    redirect_to @note.path
   end
 
   def find_deleted_note

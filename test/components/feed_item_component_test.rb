@@ -300,4 +300,28 @@ class FeedItemComponentTest < ViewComponent::TestCase
                   ))
     assert_text "Anonymous"
   end
+
+  test "renders Table type label for table notes" do
+    note = build_note(text: "| A |\n| --- |\n| val |", subtype: "table")
+    user = build_user(display_name: "Alice")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 1.hour.ago,
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Table"
+  end
+
+  test "renders Note type label for regular notes (not Table)" do
+    note = build_note(text: "Regular note")
+    user = build_user(display_name: "Alice")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 1.hour.ago,
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Note"
+  end
 end
