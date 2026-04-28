@@ -457,6 +457,49 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert_equal "Updated description", table.description
   end
 
+  test "add_row is blocked when edit_access is owner and user is not owner" do
+    note = create_table_note_for_api
+    note.update!(edit_access: "owner")
+
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    @collective.add_user!(other_user)
+
+    helper = ApiHelper.new(
+      current_user: other_user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: { values: { "Status" => "done" } },
+    )
+
+    assert_raises(RuntimeError, "Unauthorized") do
+      helper.add_row
+    end
+  end
+
+  test "add_row is allowed when edit_access is members" do
+    note = create_table_note_for_api
+    note.update!(edit_access: "members") # default is "owner", override for this test
+
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    @collective.add_user!(other_user)
+
+    helper = ApiHelper.new(
+      current_user: other_user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: { values: { "Status" => "done" } },
+    )
+
+    row = helper.add_row
+    assert row["_id"].present?
+  end
+
   test "add_table_column requires resource owner" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
     @collective.add_user!(other_user)

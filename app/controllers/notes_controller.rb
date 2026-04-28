@@ -402,10 +402,13 @@ class NotesController < ApplicationController
         when "delete_row"
           t.delete_row!(op[:row_id])
         when "add_table_column"
+          raise "Unauthorized: only the table owner can add columns" unless current_note.user_can_edit?(@current_user)
           t.add_column!(op[:name], op[:type])
         when "remove_table_column"
+          raise "Unauthorized: only the table owner can remove columns" unless current_note.user_can_edit?(@current_user)
           t.remove_column!(op[:name])
         when "update_table_description"
+          raise "Unauthorized: only the table owner can update the description" unless current_note.user_can_edit?(@current_user)
           t.update_description!(op[:description])
         else
           raise "Unknown operation '#{op[:action]}'"
@@ -493,6 +496,7 @@ class NotesController < ApplicationController
       title: params[:title].presence || "Table",
       text: "",
       subtype: "table",
+      edit_access: params[:edit_access].presence || "owner",
       table_data: {
         "description" => params[:table_description].presence,
         "columns" => columns,

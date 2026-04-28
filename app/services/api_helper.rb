@@ -156,6 +156,7 @@ class ApiHelper
         commentable: commentable,
       }
       create_attrs[:table_data] = params[:table_data] if params[:table_data].present?
+      create_attrs[:edit_access] = params[:edit_access] if params[:edit_access].present?
       note = Note.create!(create_attrs)
       track_task_run_resource(note, action_type: "create")
       if current_representation_session
@@ -300,18 +301,21 @@ class ApiHelper
 
   sig { returns(T::Hash[String, T.untyped]) }
   def add_row
+    authorize_content_edit!
     table = table_service
     table.add_row!(hash_param(:values), created_by: current_user)
   end
 
   sig { returns(T::Hash[String, T.untyped]) }
   def update_row
+    authorize_content_edit!
     table = table_service
     table.update_row!(params[:row_id], hash_param(:values))
   end
 
   sig { void }
   def delete_row
+    authorize_content_edit!
     table = table_service
     table.delete_row!(params[:row_id])
   end
@@ -364,6 +368,7 @@ class ApiHelper
 
   sig { params(block: T.proc.params(arg0: NoteTableService).void).void }
   def batch_table_update(&block)
+    authorize_content_edit!
     table = table_service
     table.batch_update!(&block)
   end
@@ -889,6 +894,11 @@ class ApiHelper
     value = params[key]
     return {} if value.nil?
     value.respond_to?(:to_unsafe_h) ? value.to_unsafe_h : value.to_h
+  end
+
+  def authorize_content_edit!
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit_content?(current_user)
   end
 
   def authorize_delete!(content)
