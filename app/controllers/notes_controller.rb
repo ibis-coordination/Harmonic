@@ -45,11 +45,12 @@ class NotesController < ApplicationController
 
   def edit
     @note = current_note
-    @sidebar_mode = "resource"
-    @team = @current_collective.team
     return render "404", status: :not_found unless @note
+    return redirect_to("#{@note.path}/settings") if @note.is_table?
     return render "shared/403", status: :forbidden unless @note.user_can_edit?(@current_user)
 
+    @sidebar_mode = "resource"
+    @team = @current_collective.team
     @page_title = "Edit Note"
   end
 
@@ -109,6 +110,25 @@ class NotesController < ApplicationController
 
     @note = api_helper.update_note
     redirect_to @note.path
+  end
+
+  def update_settings
+    @note = current_note
+    return render "404", status: :not_found unless @note
+    return render "shared/403", status: :forbidden unless @note.user_can_edit?(@current_user)
+
+    # Build params that api_helper.update_note expects (it reads model_params)
+    update_params = (model_params.respond_to?(:to_unsafe_h) ? model_params.to_unsafe_h : model_params.to_h).symbolize_keys
+    update_params[:edit_access] = params[:edit_access] if params[:edit_access].present?
+    @note = api_helper(params: update_params).update_note
+
+    if @note.is_table? && params.key?(:table_description)
+      table = NoteTableService.new(@note)
+      table.update_description!(params[:table_description])
+    end
+    redirect_to @note.path, notice: "Settings saved."
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to "#{@note.path}/settings", alert: e.message
   end
 
   def update_note

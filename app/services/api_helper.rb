@@ -257,7 +257,12 @@ class ApiHelper
     note = T.must(current_note)
     raise 'Unauthorized' unless note.user_can_edit?(current_user)
     note.title = model_params[:title] if model_params[:title].present?
-    note.text = model_params[:text] if model_params[:text].present?
+    if model_params[:text].present? && !note.is_table?
+      note.text = model_params[:text]
+    end
+    if model_params[:edit_access].present? && Note::EDIT_ACCESS_OPTIONS.include?(model_params[:edit_access])
+      note.edit_access = model_params[:edit_access]
+    end
     note.deadline = model_params[:deadline] if model_params[:deadline].present?
     # Add files to note, but don't remove existing files
     if model_params[:files]
