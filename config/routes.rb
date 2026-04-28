@@ -156,8 +156,8 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes decisions commitments cycles search links agents api].each do |topic|
-    get "help/#{topic}" => "help##{topic}"
+  %w[privacy collectives notes table-notes decisions commitments cycles search links agents api].each do |topic|
+    get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
