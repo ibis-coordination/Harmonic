@@ -72,73 +72,33 @@ class Note < ApplicationRecord
     subtype == "table"
   end
 
-  # Reminder helpers
-  # `reminder_scheduled_for` is a database column — no override needed.
-  # The value is set on creation and preserved after cancellation.
+  # Reminder logic is in NoteReminderService. These delegates keep view/controller
+  # call sites concise. For multi-step operations, use reminder_service directly.
+  # `reminder_scheduled_for` is a database column — no delegate needed.
+
+  sig { returns(NoteReminderService) }
+  def reminder_service
+    @reminder_service ||= T.let(NoteReminderService.new(self), T.nilable(NoteReminderService))
+  end
 
   sig { returns(T::Boolean) }
   def reminder_pending?
-    nr = reminder_recipient
-    nr.present? && nr.status == "pending"
+    is_reminder? && reminder_service.pending?
   end
 
   sig { returns(T::Boolean) }
   def reminder_delivered?
-    nr = reminder_recipient
-    nr.present? && nr.status == "delivered"
+    is_reminder? && reminder_service.delivered?
   end
 
   sig { returns(T::Boolean) }
   def reminder_cancelled?
-    is_reminder? && reminder_notification_id.nil? && reminder_scheduled_for.present?
+    is_reminder? && reminder_service.cancelled?
   end
 
   sig { returns(T::Boolean) }
   def reminder_editable?
-    !is_reminder? || reminder_pending?
-  end
-
-  sig { returns(T.nilable(NotificationRecipient)) }
-  def reminder_recipient
-    return nil unless is_reminder? && reminder_notification_id.present?
-
-    reminder_notification&.notification_recipients&.first
-  end
-
-  sig { void }
-  def cancel_reminder!
-    return unless reminder_notification_id.present?
-
-    notification = reminder_notification
-    self.reminder_notification_id = nil
-    save!
-
-    if notification
-      notification.notification_recipients.destroy_all
-      notification.destroy!
-    end
-  end
-
-  sig { params(user: User).returns(NoteHistoryEvent) }
-  def acknowledge_reminder!(user)
-    existing = NoteHistoryEvent.find_by(
-      note: self,
-      user: user,
-      event_type: "reminder_acknowledged"
-    )
-    return existing if existing && T.must(existing.happened_at) > T.must(updated_at)
-
-    NoteHistoryEvent.create!(
-      note: self,
-      user: user,
-      event_type: "reminder_acknowledged",
-      happened_at: Time.current
-    )
-  end
-
-  sig { returns(Integer) }
-  def reminder_acknowledgments
-    note_history_events.where(event_type: "reminder_acknowledged").select(:user_id).distinct.count
+    !is_reminder? || reminder_service.editable?
   end
 
   sig { params(user: User).returns(T::Boolean) }
@@ -174,7 +134,7 @@ class Note < ApplicationRecord
 
   sig { returns(Integer) }
   def metric_value
-    is_reminder? && reminder_delivered? ? reminder_acknowledgments : confirmed_reads
+    is_reminder? && reminder_delivered? ? reminder_service.acknowledgments : confirmed_reads
   end
 
   sig { returns(String) }
@@ -358,7 +318,7 @@ class Note < ApplicationRecord
     self.title = "[deleted]"
     self.text = "[deleted]"
     self.table_data = nil if is_table?
-    cancel_reminder! if is_reminder? && reminder_notification_id.present?
+    reminder_service.cancel! if is_reminder? && reminder_notification_id.present?
   end
 
   # When a comment is created/destroyed, reindex the parent to update comment_count.

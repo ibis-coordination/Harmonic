@@ -1351,7 +1351,7 @@ class NoteTest < ActiveSupport::TestCase
       reminder_scheduled_for: scheduled_time,
     )
 
-    note.cancel_reminder!
+    note.reminder_service.cancel!
 
     assert_nil note.reload.reminder_notification_id
     assert_nil Notification.find_by(id: notification.id)
@@ -1414,7 +1414,7 @@ class NoteTest < ActiveSupport::TestCase
     # Simulate delivery
     notification.notification_recipients.each(&:mark_delivered!)
 
-    event = note.acknowledge_reminder!(user)
+    event = note.reminder_service.acknowledge!(user)
     assert event.persisted?
     assert_equal "reminder_acknowledged", event.event_type
     assert_equal user, event.user
@@ -1444,8 +1444,8 @@ class NoteTest < ActiveSupport::TestCase
 
     notification.notification_recipients.each(&:mark_delivered!)
 
-    note.acknowledge_reminder!(user)
-    event2 = note.acknowledge_reminder!(user)
+    note.reminder_service.acknowledge!(user)
+    event2 = note.reminder_service.acknowledge!(user)
 
     # Should return the existing acknowledgment, not create a new one
     assert_equal 1, note.note_history_events.where(event_type: "reminder_acknowledged", user: user).count
@@ -1474,9 +1474,9 @@ class NoteTest < ActiveSupport::TestCase
 
     notification.notification_recipients.each(&:mark_delivered!)
 
-    note.acknowledge_reminder!(user)
+    note.reminder_service.acknowledge!(user)
     note.update!(text: "Updated reminder note", updated_by: user)
-    note.acknowledge_reminder!(user)
+    note.reminder_service.acknowledge!(user)
 
     assert_equal 2, note.note_history_events.where(event_type: "reminder_acknowledged", user: user).count
   end
@@ -1506,10 +1506,93 @@ class NoteTest < ActiveSupport::TestCase
 
     notification.notification_recipients.each(&:mark_delivered!)
 
-    note.acknowledge_reminder!(user)
-    note.acknowledge_reminder!(user2)
+    note.reminder_service.acknowledge!(user)
+    note.reminder_service.acknowledge!(user2)
 
-    assert_equal 2, note.reminder_acknowledgments
+    assert_equal 2, note.reminder_service.acknowledgments
+  end
+
+  test "metric_name returns acknowledgments for delivered reminders" do
+    tenant, collective, user = create_tenant_collective_user
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    assert_equal "acknowledgments", note.metric_name
+    assert_equal "bell", note.octicon_metric_icon_name
+    assert_equal 0, note.metric_value
+  end
+
+  test "metric_name returns readers for pending reminders" do
+    tenant, collective, user = create_tenant_collective_user
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    assert_equal "readers", note.metric_name
+    assert_equal "book", note.octicon_metric_icon_name
+  end
+
+  test "metric_value returns acknowledgments count for delivered reminders" do
+    tenant, collective, user = create_tenant_collective_user
+    user2 = create_user(name: "User 2", email: "user2-#{SecureRandom.hex(4)}@example.com")
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      additional_recipients: [user2],
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+    note.reminder_service.acknowledge!(user)
+    note.reminder_service.acknowledge!(user2)
+
+    assert_equal 2, note.metric_value
   end
 
   test "api_json includes reminder_notification_id for reminder notes" do

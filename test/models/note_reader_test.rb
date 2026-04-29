@@ -50,7 +50,7 @@ class NoteReaderTest < ActiveSupport::TestCase
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
-    note.acknowledge_reminder!(user)
+    note.reminder_service.acknowledge!(user)
 
     reader = NoteReader.new(note: note, user: user)
     assert reader.acknowledged_reminder?
@@ -78,7 +78,7 @@ class NoteReaderTest < ActiveSupport::TestCase
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
-    note.acknowledge_reminder!(user)
+    note.reminder_service.acknowledge!(user)
     note.update!(text: "Updated reminder", updated_by: user)
 
     reader = NoteReader.new(note: note, user: user)
@@ -107,7 +107,7 @@ class NoteReaderTest < ActiveSupport::TestCase
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
-    note.acknowledge_reminder!(user)
+    note.reminder_service.acknowledge!(user)
 
     reader = NoteReader.new(note: note, user: user)
     assert_not reader.acknowledged_but_note_updated?

@@ -519,7 +519,7 @@ class NotesController < ApplicationController
 
     api_helper.acknowledge_reminder
     respond_to do |format|
-      format.json { render json: { success: true, reminder_acknowledgments: current_note.reminder_acknowledgments }, status: :ok }
+      format.json { render json: { success: true, reminder_acknowledgments: current_note.reminder_service.acknowledgments }, status: :ok }
       format.html { render_action_success({ action_name: "acknowledge_reminder", resource: current_note, result: "Reminder acknowledged." }) }
       format.md { render_action_success({ action_name: "acknowledge_reminder", resource: current_note, result: "Reminder acknowledged." }) }
     end
@@ -553,7 +553,7 @@ class NotesController < ApplicationController
     return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not authorized" }) unless note.user_can_edit?(current_user)
     return render_action_error({ action_name: "cancel_reminder", resource: note, error: "No pending reminder" }) unless note.reminder_pending?
 
-    note.cancel_reminder!
+    note.reminder_service.cancel!
 
     respond_to do |format|
       format.html { redirect_to note.path, notice: "Reminder cancelled." }

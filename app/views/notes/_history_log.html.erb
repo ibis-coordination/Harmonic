@@ -1,6 +1,6 @@
 <% is_delivered_reminder = @note.is_reminder? && @note.reminder_delivered? %>
 <% accordion_title = is_delivered_reminder ? 'Acknowledgments' : 'Confirmed Readers' %>
-<% accordion_count = is_delivered_reminder ? @note.reminder_acknowledgments : @note.confirmed_reads %>
+<% accordion_count = is_delivered_reminder ? @note.reminder_service.acknowledgments : @note.confirmed_reads %>
 <% event_type_filter = is_delivered_reminder ? 'reminder_acknowledged' : 'read_confirmation' %>
 <%= render 'shared/pulse_accordion', title: accordion_title, count: accordion_count do %>
   <div class="pulse-readers-list">

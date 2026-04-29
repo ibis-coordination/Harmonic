@@ -267,10 +267,11 @@ class ApiHelper
     end
     note.deadline = model_params[:deadline] if model_params[:deadline].present?
     # Cancel or reschedule pending reminder
-    cancel = params[:cancel_reminder] == "1" && note.is_reminder? && note.reminder_pending?
+    reminder = note.is_reminder? ? note.reminder_service : nil
+    cancel = params[:cancel_reminder] == "1" && reminder&.pending?
     if !cancel && params[:scheduled_for].present?
       scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
-      if scheduled_for && note.is_reminder? && note.reminder_pending?
+      if scheduled_for && reminder&.pending?
         note.reminder_scheduled_for = scheduled_for
       end
     end
@@ -285,8 +286,8 @@ class ApiHelper
       ActiveRecord::Base.transaction do
         note.save!
         if cancel
-          note.cancel_reminder!
-        elsif scheduled_for && note.is_reminder? && note.reminder_pending?
+          T.must(reminder).cancel!
+        elsif scheduled_for && reminder&.pending?
           note.reminder_notification&.notification_recipients&.each do |nr|
             nr.update!(scheduled_for: scheduled_for)
           end
@@ -539,7 +540,7 @@ class ApiHelper
     history_event = T.let(nil, T.nilable(NoteHistoryEvent))
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(note) if note.created_by
-      history_event = note.acknowledge_reminder!(current_user)
+      history_event = note.reminder_service.acknowledge!(current_user)
       track_task_run_resource(history_event, action_type: "acknowledge")
       if current_representation_session
         current_representation_session.record_event!(

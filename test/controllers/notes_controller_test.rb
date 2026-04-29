@@ -855,6 +855,96 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_nil note.reminder_notification_id
   end
 
+  test "delivered reminder show page shows acknowledge button instead of confirm read" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_includes response.body, "Acknowledge Reminder"
+    assert_includes response.body, "acknowledge.html"
+    refute_includes response.body, "Confirm Read"
+  end
+
+  test "delivered reminder show page shows Acknowledgments in history after acknowledging" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+    note.reminder_service.acknowledge!(@user)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_includes response.body, "Acknowledgments"
+    refute_includes response.body, "Confirmed Readers"
+  end
+
+  test "pending reminder show page shows confirm read not acknowledge" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_includes response.body, "Confirm Read"
+    refute_includes response.body, "Acknowledge Reminder"
+  end
+
   test "reminder note show page displays reminder status" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -933,7 +1023,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
-    note.cancel_reminder!
+    note.reminder_service.cancel!
     note.update!(updated_by: @user)
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
@@ -994,7 +1084,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
-    note.cancel_reminder!
+    note.reminder_service.cancel!
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
     assert_response :success
