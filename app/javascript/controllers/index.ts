@@ -18,6 +18,7 @@ import CommentsController from "./comments_controller"
 import CommentThreadController from "./comment_thread_controller"
 import CommitmentController from "./commitment_controller"
 import CountdownController from "./countdown_controller"
+import DatetimeInputController from "./datetime_input_controller"
 import DeadlineOptionsController from "./deadline_options_controller"
 import DecisionController from "./decision_controller"
 import DecisionResultsController from "./decision_results_controller"
@@ -34,7 +35,9 @@ import MoreButtonController from "./more_button_controller"
 import NavController from "./nav_controller"
 import NotificationActionsController from "./notification_actions_controller"
 import NotificationBadgeController from "./notification_badge_controller"
+import CsvImportController from "./csv_import_controller"
 import NoteController from "./note_controller"
+import NoteSubtypeController from "./note_subtype_controller"
 import OptionController from "./option_controller"
 import PinController from "./pin_controller"
 import PulseActionController from "./pulse_action_controller"
@@ -59,11 +62,13 @@ import KebabMenuController from "./kebab_menu_controller"
 // Register all controllers
 application.register("trio-chat", TrioChatController)
 application.register("clipboard", ClipboardController)
+application.register("csv-import", CsvImportController)
 application.register("collapseable-section", CollapsableSectionController)
 application.register("comments", CommentsController)
 application.register("comment-thread", CommentThreadController)
 application.register("commitment", CommitmentController)
 application.register("countdown", CountdownController)
+application.register("datetime-input", DatetimeInputController)
 application.register("deadline-options", DeadlineOptionsController)
 application.register("decision", DecisionController)
 application.register("decision-results", DecisionResultsController)
@@ -81,6 +86,7 @@ application.register("nav", NavController)
 application.register("notification-actions", NotificationActionsController)
 application.register("notification-badge", NotificationBadgeController)
 application.register("note", NoteController)
+application.register("note-subtype", NoteSubtypeController)
 application.register("option", OptionController)
 application.register("pin", PinController)
 application.register("pulse-action", PulseActionController)

@@ -320,4 +320,477 @@ class ApiHelperTest < ActiveSupport::TestCase
     end
   end
 
+  # === Table Note Operations ===
+
+  def create_table_note_for_api
+    Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      subtype: "table",
+      title: "API Test Table",
+      text: "",
+      table_data: {
+        "columns" => [
+          { "name" => "Status", "type" => "text" },
+          { "name" => "Amount", "type" => "number" },
+        ],
+        "rows" => [],
+      },
+    )
+  end
+
+  def table_api_helper(note, params: {})
+    ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: params,
+    )
+  end
+
+  test "create_table_note creates a table note with columns" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {
+        title: "Agent Table",
+        columns: [
+          { "name" => "Task", "type" => "text" },
+          { "name" => "Done", "type" => "boolean" },
+        ],
+        description: "Agent task list",
+        edit_access: "members",
+      },
+    )
+
+    note = helper.create_table_note
+
+    assert note.persisted?
+    assert_equal "table", note.subtype
+    assert_equal "Agent Table", note.title
+    assert_equal "members", note.edit_access
+    assert_equal 2, note.table_data["columns"].length
+    assert_equal "Agent task list", note.table_data["description"]
+  end
+
+  test "create_table_note with initial_rows" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {
+        title: "Prepopulated",
+        columns: [{ "name" => "Task", "type" => "text" }],
+        initial_rows: [
+          { "Task" => "Do laundry" },
+          { "Task" => "Buy groceries" },
+        ],
+      },
+    )
+
+    note = helper.create_table_note
+
+    assert_equal 2, note.table_data["rows"].length
+    assert_equal "Do laundry", note.table_data["rows"].first["Task"]
+    assert_includes note.text, "Do laundry"
+    assert_includes note.text, "Buy groceries"
+  end
+
+  test "create_table_note defaults edit_access to owner" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {
+        title: "Locked Table",
+        columns: [{ "name" => "Col", "type" => "text" }],
+      },
+    )
+
+    note = helper.create_table_note
+    assert_equal "owner", note.edit_access
+  end
+
+  test "add_row adds a row to table note" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note, params: { values: { "Status" => "done", "Amount" => "42" } })
+
+    row = helper.add_row
+
+    assert row["_id"].present?
+    assert_equal "done", row["Status"]
+    assert_equal "42", row["Amount"]
+    assert_equal 1, note.reload.table_data["rows"].length
+  end
+
+  test "update_row updates specific cells" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "pending", "Amount" => "10" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { row_id: row["_id"], values: { "Status" => "done" } })
+    updated = helper.update_row
+
+    assert_equal "done", updated["Status"]
+    assert_equal "10", updated["Amount"]
+  end
+
+  test "delete_row removes a row" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { row_id: row["_id"] })
+    helper.delete_row
+
+    assert_equal 0, note.reload.table_data["rows"].length
+  end
+
+  test "query_rows filters and paginates" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+    table.add_row!({ "Status" => "pending", "Amount" => "20" }, created_by: @user)
+    table.add_row!({ "Status" => "done", "Amount" => "30" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { where: { "Status" => "done" }, limit: 10 })
+    result = helper.query_rows
+
+    assert_equal 2, result[:total]
+    assert_equal 2, result[:rows].length
+  end
+
+  test "summarize_table computes aggregation" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+    table.add_row!({ "Status" => "done", "Amount" => "20" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { operation: "sum", column: "Amount" })
+    assert_equal 30.0, helper.summarize_table
+  end
+
+  test "batch_table_update applies multiple operations" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note)
+
+    helper.batch_table_update do |t|
+      t.add_row!({ "Status" => "a", "Amount" => "1" }, created_by: @user)
+      t.add_row!({ "Status" => "b", "Amount" => "2" }, created_by: @user)
+    end
+
+    assert_equal 2, note.reload.table_data["rows"].length
+    assert_equal 1, note.note_history_events.where(event_type: "update").count
+  end
+
+  test "add_table_column adds a column" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note, params: { name: "Priority", type: "text" })
+    helper.add_table_column
+
+    table = NoteTableService.new(note.reload)
+    assert_equal 3, table.columns.length
+    assert_includes table.column_names, "Priority"
+  end
+
+  test "remove_table_column removes a column" do
+    note = create_table_note_for_api
+    table = NoteTableService.new(note)
+    table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
+
+    helper = table_api_helper(note, params: { name: "Amount" })
+    helper.remove_table_column
+
+    table_after = NoteTableService.new(note.reload)
+    assert_equal 1, table_after.columns.length
+    refute_includes table_after.column_names, "Amount"
+  end
+
+  test "update_table_description updates description" do
+    note = create_table_note_for_api
+    helper = table_api_helper(note, params: { description: "Updated description" })
+    helper.update_table_description
+
+    table = NoteTableService.new(note.reload)
+    assert_equal "Updated description", table.description
+  end
+
+  test "add_row is blocked when edit_access is owner and user is not owner" do
+    note = create_table_note_for_api
+    note.update!(edit_access: "owner")
+
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    @collective.add_user!(other_user)
+
+    helper = ApiHelper.new(
+      current_user: other_user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: { values: { "Status" => "done" } },
+    )
+
+    assert_raises(RuntimeError, "Unauthorized") do
+      helper.add_row
+    end
+  end
+
+  test "add_row is allowed when edit_access is members" do
+    note = create_table_note_for_api
+    note.update!(edit_access: "members") # default is "owner", override for this test
+
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    @collective.add_user!(other_user)
+
+    helper = ApiHelper.new(
+      current_user: other_user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: { values: { "Status" => "done" } },
+    )
+
+    row = helper.add_row
+    assert row["_id"].present?
+  end
+
+  test "add_table_column requires resource owner" do
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    @collective.add_user!(other_user)
+    note = create_table_note_for_api
+
+    helper = ApiHelper.new(
+      current_user: other_user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource_model: Note,
+      current_resource: note,
+      current_note: note,
+      params: { name: "New Col", type: "text" },
+    )
+
+    assert_raises(RuntimeError, "Unauthorized") do
+      helper.add_table_column
+    end
+  end
+
+  # === create_reminder_note tests ===
+
+  test "create_reminder_note creates a reminder note with scheduled notification" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Don't forget the standup", title: "Standup Reminder" },
+    )
+
+    note = helper.create_reminder_note(scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+
+    assert note.persisted?
+    assert_equal "reminder", note.subtype
+    assert_equal "Don't forget the standup", note.text
+    assert_not_nil note.reminder_notification_id
+    assert_not_nil note.reminder_scheduled_for
+    assert note.reminder_pending?
+  end
+
+  test "create_reminder_note includes mentioned collective members as recipients" do
+    mentioned_user = create_user(name: "Mentioned")
+    @tenant.add_user!(mentioned_user)
+    @collective.add_user!(mentioned_user)
+    mentioned_user.tenant_user.update!(handle: "mentioned")
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Hey @mentioned check on the deploy", title: nil },
+    )
+
+    note = helper.create_reminder_note(scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+
+    recipient_user_ids = note.reminder_notification.notification_recipients.map(&:user_id)
+    assert_includes recipient_user_ids, @user.id
+    assert_includes recipient_user_ids, mentioned_user.id
+  end
+
+  test "create_reminder_note excludes mentioned non-members" do
+    non_member = create_user(name: "Outsider")
+    @tenant.add_user!(non_member)
+    non_member.tenant_user.update!(handle: "outsider")
+    # NOT added to @collective
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Hey @outsider secret info", title: nil },
+    )
+
+    note = helper.create_reminder_note(scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+
+    recipient_user_ids = note.reminder_notification.notification_recipients.map(&:user_id)
+    assert_includes recipient_user_ids, @user.id
+    refute_includes recipient_user_ids, non_member.id
+  end
+
+  test "acknowledge_reminder creates a reminder_acknowledged event" do
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource: note,
+      params: {},
+    )
+
+    event = helper.acknowledge_reminder
+    assert event.persisted?
+    assert_equal "reminder_acknowledged", event.event_type
+    assert_equal @user, event.user
+  end
+
+  test "update_note reschedules pending reminder when scheduled_for provided" do
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    new_time = 3.days.from_now.in_time_zone("UTC")
+    update_params = { text: "Updated text", scheduled_for: new_time.strftime("%Y-%m-%dT%H:%M"), timezone: "UTC" }
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_note: note,
+      model_params: update_params,
+      params: update_params,
+    )
+
+    result = helper.update_note
+    assert_equal "Updated text", result.text
+    assert_in_delta new_time, result.reminder_scheduled_for, 1.minute
+    nr = result.reminder_notification.notification_recipients.first
+    assert_in_delta new_time, nr.scheduled_for, 1.minute
+  end
+
+  test "update_note rejects updates to delivered reminders" do
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    update_params = { text: "Trying to edit after delivery" }
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_note: note,
+      model_params: update_params,
+      params: update_params,
+    )
+
+    assert_raises(RuntimeError, "This reminder can no longer be edited") do
+      helper.update_note
+    end
+  end
+
+  test "update_note ignores scheduled_for for non-reminder notes" do
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Regular note",
+    )
+
+    update_params = { text: "Updated text", scheduled_for: 1.day.from_now.strftime("%Y-%m-%dT%H:%M"), timezone: "UTC" }
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_note: note,
+      model_params: update_params,
+      params: update_params,
+    )
+
+    result = helper.update_note
+    assert_equal "Updated text", result.text
+    assert_nil result.reminder_scheduled_for
+  end
+
+  test "create_reminder_note destroys note on scheduling failure" do
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { text: "Past time", title: nil },
+    )
+
+    assert_no_difference "Note.count" do
+      assert_raises(ReminderService::ReminderSchedulingError) do
+        helper.create_reminder_note(scheduled_for: 1.day.ago.in_time_zone("UTC"))
+      end
+    end
+  end
 end

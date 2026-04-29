@@ -8,43 +8,11 @@
     <h1 class="pulse-page-title"><%= octicon 'inbox', height: 20 %> Notifications</h1>
   </header>
 
-  <% if @scheduled_reminders.any? %>
-    <section class="pulse-scheduled-reminders">
-      <h3><%= octicon 'clock', height: 16 %> Scheduled Reminders</h3>
-      <ul class="pulse-reminder-list">
-        <% @scheduled_reminders.each do |nr| %>
-          <li class="pulse-reminder-item">
-            <div class="pulse-reminder-content">
-              <div class="pulse-reminder-title"><%= nr.notification.title %></div>
-              <% if nr.notification.body.present? %>
-                <p class="pulse-reminder-body"><%= truncate(nr.notification.body, length: 150) %></p>
-              <% end %>
-              <span class="pulse-reminder-time">
-                <%= octicon 'calendar', height: 12 %>
-                <%= nr.scheduled_for.strftime("%b %d, %Y at %I:%M %p") %>
-              </span>
-            </div>
-            <div class="pulse-reminder-actions">
-              <%= button_to "Delete",
-                  notifications_actions_delete_reminder_path(id: nr.id),
-                  method: :post,
-                  class: "pulse-action-btn-small pulse-action-btn-danger",
-                  title: "Delete reminder",
-                  data: { confirm: "Delete this reminder?" } %>
-            </div>
-          </li>
-        <% end %>
-      </ul>
-    </section>
-  <% end %>
-
   <div data-controller="notification-actions">
     <% if @notification_recipients.empty? %>
-      <% unless @scheduled_reminders.any? %>
-        <div class="pulse-notifications-empty">
-          <p><em>All caught up!</em></p>
-        </div>
-      <% end %>
+      <div class="pulse-notifications-empty">
+        <p><em>All caught up!</em></p>
+      </div>
     <% else %>
       <div class="pulse-notifications-summary">
         <span class="pulse-notifications-count" data-notification-summary>

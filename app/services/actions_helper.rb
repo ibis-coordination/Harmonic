@@ -58,6 +58,19 @@ class ActionsHelper
     T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
   )
 
+  # Authorization for table row operations — checks edit_access on the note.
+  # When edit_access is "members", any collective member can edit.
+  # When edit_access is "owner", only the note creator can edit.
+  TABLE_CONTENT_EDIT_AUTHORIZATION = T.let(
+    lambda { |user, context|
+      return false unless user
+      resource = context[:resource]
+      return false unless resource.is_a?(Note) && resource.is_table?
+      resource.user_can_edit_content?(user)
+    },
+    T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
+  )
+
   # Full action definitions with parameter details.
   # Each action has: description, params_string (for display), params (detailed param info),
   # and authorization (who can see/execute this action).
@@ -160,6 +173,121 @@ class ActionsHelper
       params_string: "()",
       params: [],
       authorization: :collective_member,
+    },
+    "create_reminder_note" => {
+      description: "Create a reminder note that resurfaces in the feed at a scheduled time",
+      params_string: "(text, scheduled_for, title)",
+      params: [
+        { name: "text", type: "string", required: true, description: "The reminder content" },
+        { name: "scheduled_for", type: "datetime", required: true, description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)" },
+        { name: "title", type: "string", required: false, description: "Optional title for the reminder note" },
+      ],
+      authorization: :collective_member,
+    },
+    "cancel_reminder" => {
+      description: "Cancel a pending reminder on this note",
+      params_string: "()",
+      params: [],
+      authorization: :owner,
+    },
+    "acknowledge_reminder" => {
+      description: "Acknowledge that you have seen this reminder",
+      params_string: "()",
+      params: [],
+      authorization: :collective_member,
+    },
+    "create_table_note" => {
+      description: "Create a new table note with columns defined upfront",
+      params_string: "(title, columns, description, edit_access)",
+      params: [
+        { name: "title", type: "string", description: "The title of the table" },
+        { name: "columns", type: "array", description: 'Array of column definitions, e.g. [{ "name": "Status", "type": "text" }, { "name": "Due", "type": "date" }]. Types: text, number, boolean, date' },
+        { name: "initial_rows", type: "array", required: false, description: 'Array of row objects with column name/value pairs, e.g. [{ "Status": "done", "Due": "2026-05-01" }]' },
+        { name: "description", type: "string", required: false, description: "Description of what the table is for" },
+        { name: "edit_access", type: "string", required: false, description: "Who can edit rows: 'owner' (default) or 'members'" },
+      ],
+      authorization: :collective_member,
+    },
+    # Table note actions
+    "add_row" => {
+      description: "Add a row to this table",
+      params_string: "(column values)",
+      params: [
+        { name: "values", type: "object", description: "Column name/value pairs, e.g. { \"Status\": \"done\", \"Due\": \"2026-05-01\" }" },
+      ],
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+    },
+    "update_row" => {
+      description: "Update a row in this table",
+      params_string: "(row_id, column values)",
+      params: [
+        { name: "row_id", type: "string", description: "The _id of the row to update" },
+        { name: "values", type: "object", description: "Column name/value pairs to update (partial update)" },
+      ],
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+    },
+    "delete_row" => {
+      description: "Delete a row from this table",
+      params_string: "(row_id)",
+      params: [
+        { name: "row_id", type: "string", description: "The _id of the row to delete" },
+      ],
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+    },
+    "add_table_column" => {
+      description: "Add a column to this table",
+      params_string: "(name, type)",
+      params: [
+        { name: "name", type: "string", description: "Column name (alphanumeric, spaces, underscores)" },
+        { name: "type", type: "string", description: "Column type: text, number, boolean, or date" },
+      ],
+      authorization: :resource_owner,
+    },
+    "remove_table_column" => {
+      description: "Remove a column from this table (deletes all values in that column)",
+      params_string: "(name)",
+      params: [
+        { name: "name", type: "string", description: "Name of the column to remove" },
+      ],
+      authorization: :resource_owner,
+    },
+    "query_rows" => {
+      description: "Query rows in this table with optional filtering, sorting, and pagination",
+      params_string: "(where, order_by, order, limit, offset)",
+      params: [
+        { name: "where", type: "object", required: false, description: "Filter by column values, e.g. { \"Status\": \"done\" }" },
+        { name: "order_by", type: "string", required: false, description: "Column name to sort by" },
+        { name: "order", type: "string", required: false, description: "Sort direction: asc or desc (default: asc)" },
+        { name: "limit", type: "integer", required: false, description: "Max rows to return (default: 20)" },
+        { name: "offset", type: "integer", required: false, description: "Number of rows to skip (default: 0)" },
+      ],
+      authorization: :collective_member,
+    },
+    "summarize" => {
+      description: "Compute an aggregate over rows in this table",
+      params_string: "(operation, column, where)",
+      params: [
+        { name: "operation", type: "string", description: "Operation: count, sum, average, min, or max" },
+        { name: "column", type: "string", required: false, description: "Column to aggregate (required for sum/average/min/max)" },
+        { name: "where", type: "object", required: false, description: "Filter by column values before aggregating" },
+      ],
+      authorization: :collective_member,
+    },
+    "update_table_description" => {
+      description: "Update the description of this table",
+      params_string: "(description)",
+      params: [
+        { name: "description", type: "string", description: "New description text" },
+      ],
+      authorization: :resource_owner,
+    },
+    "batch_table_update" => {
+      description: "Perform multiple table operations in a single request (one save, one event)",
+      params_string: "(operations)",
+      params: [
+        { name: "operations", type: "array", description: 'Array of operations, e.g. [{ "action": "add_row", "values": { "Status": "done" } }, { "action": "delete_row", "row_id": "abc123" }]. Valid actions: add_row, update_row, delete_row, add_table_column, remove_table_column, update_table_description' },
+      ],
+      authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
     },
     "pin_note" => {
       description: "Pin this note to the collective homepage",
@@ -445,27 +573,6 @@ class ActionsHelper
       authorization: :authenticated,
     },
 
-    # Reminder actions
-    "create_reminder" => {
-      description: "Schedule a reminder notification for your future self",
-      params_string: "(title, scheduled_for, body, url)",
-      params: [
-        { name: "title", type: "string", required: true, description: "The reminder text (max 255 chars)" },
-        { name: "scheduled_for", type: "datetime", required: true, description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)" },
-        { name: "body", type: "string", required: false, description: "Additional details (max 200 chars)" },
-        { name: "url", type: "string", required: false, description: "A URL to include with the reminder" },
-      ],
-      authorization: :authenticated,
-    },
-    "delete_reminder" => {
-      description: "Cancel a scheduled reminder before it triggers",
-      params_string: "(id)",
-      params: [
-        { name: "id", type: "string", required: true, description: "The ID of the notification recipient to delete" },
-      ],
-      authorization: :authenticated,
-    },
-
     # Webhook actions
     # Webhooks can be created for collectives (requires collective_admin) or users (requires self/representative).
     # Authorization is context-aware: checks collective context first, then falls back to user context.
@@ -592,6 +699,28 @@ class ActionsHelper
 
   # Shared condition for report_content conditional action.
   # Shows the action only when the user is not the content author and hasn't already reported it.
+  TABLE_NOTE_CONDITION = ->(context) {
+    resource = context[:resource]
+    resource.is_a?(Note) && resource.is_table?
+  }
+
+  PENDING_REMINDER_CONDITION = ->(context) {
+    resource = context[:resource]
+    resource.is_a?(Note) && resource.is_reminder? && resource.reminder_pending?
+  }
+
+  DELIVERED_REMINDER_CONDITION = ->(context) {
+    resource = context[:resource]
+    resource.is_a?(Note) && resource.is_reminder? && resource.reminder_delivered?
+  }
+
+  # confirm_read is available for all notes EXCEPT delivered reminder notes
+  CONFIRM_READ_CONDITION = ->(context) {
+    resource = context[:resource]
+    return true unless resource.is_a?(Note)
+    !(resource.is_reminder? && resource.reminder_delivered?)
+  }
+
   REPORT_CONTENT_CONDITION = ->(context) {
     user = context[:user]
     resource = context[:resource]
@@ -689,20 +818,93 @@ class ActionsHelper
       controller_actions: ["notes#new"],
       actions: [
         { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },
+        { name: "create_reminder_note", params_string: ACTION_DEFINITIONS["create_reminder_note"][:params_string], description: ACTION_DEFINITIONS["create_reminder_note"][:description] },
+        { name: "create_table_note", params_string: ACTION_DEFINITIONS["create_table_note"][:params_string], description: ACTION_DEFINITIONS["create_table_note"][:description] },
       ],
     },
     "/collectives/:collective_handle/n/:note_id" => {
       controller_actions: ["notes#show"],
       actions: [
-        { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: ACTION_DEFINITIONS["confirm_read"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
       conditional_actions: [
+        {
+          name: "confirm_read",
+          params_string: ACTION_DEFINITIONS["confirm_read"][:params_string],
+          description: ACTION_DEFINITIONS["confirm_read"][:description],
+          condition: CONFIRM_READ_CONDITION,
+        },
+        {
+          name: "acknowledge_reminder",
+          params_string: ACTION_DEFINITIONS["acknowledge_reminder"][:params_string],
+          description: ACTION_DEFINITIONS["acknowledge_reminder"][:description],
+          condition: DELIVERED_REMINDER_CONDITION,
+        },
+        {
+          name: "cancel_reminder",
+          params_string: ACTION_DEFINITIONS["cancel_reminder"][:params_string],
+          description: ACTION_DEFINITIONS["cancel_reminder"][:description],
+          condition: PENDING_REMINDER_CONDITION,
+        },
         {
           name: "report_content",
           params_string: ACTION_DEFINITIONS["report_content"][:params_string],
           description: ACTION_DEFINITIONS["report_content"][:description],
           condition: REPORT_CONTENT_CONDITION,
+        },
+        {
+          name: "add_row",
+          params_string: ACTION_DEFINITIONS["add_row"][:params_string],
+          description: ACTION_DEFINITIONS["add_row"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "update_row",
+          params_string: ACTION_DEFINITIONS["update_row"][:params_string],
+          description: ACTION_DEFINITIONS["update_row"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "delete_row",
+          params_string: ACTION_DEFINITIONS["delete_row"][:params_string],
+          description: ACTION_DEFINITIONS["delete_row"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "add_table_column",
+          params_string: ACTION_DEFINITIONS["add_table_column"][:params_string],
+          description: ACTION_DEFINITIONS["add_table_column"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "remove_table_column",
+          params_string: ACTION_DEFINITIONS["remove_table_column"][:params_string],
+          description: ACTION_DEFINITIONS["remove_table_column"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "query_rows",
+          params_string: ACTION_DEFINITIONS["query_rows"][:params_string],
+          description: ACTION_DEFINITIONS["query_rows"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "summarize",
+          params_string: ACTION_DEFINITIONS["summarize"][:params_string],
+          description: ACTION_DEFINITIONS["summarize"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "update_table_description",
+          params_string: ACTION_DEFINITIONS["update_table_description"][:params_string],
+          description: ACTION_DEFINITIONS["update_table_description"][:description],
+          condition: TABLE_NOTE_CONDITION,
+        },
+        {
+          name: "batch_table_update",
+          params_string: ACTION_DEFINITIONS["batch_table_update"][:params_string],
+          description: ACTION_DEFINITIONS["batch_table_update"][:description],
+          condition: TABLE_NOTE_CONDITION,
         },
       ],
     },
@@ -859,8 +1061,6 @@ class ActionsHelper
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
         { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string], description: ACTION_DEFINITIONS["dismiss_all"][:description] },
         { name: "dismiss_for_collective", params_string: ACTION_DEFINITIONS["dismiss_for_collective"][:params_string], description: ACTION_DEFINITIONS["dismiss_for_collective"][:description] },
-        { name: "create_reminder", params_string: ACTION_DEFINITIONS["create_reminder"][:params_string], description: ACTION_DEFINITIONS["create_reminder"][:description] },
-        { name: "delete_reminder", params_string: ACTION_DEFINITIONS["delete_reminder"][:params_string], description: ACTION_DEFINITIONS["delete_reminder"][:description] },
       ],
     },
     "/search" => {

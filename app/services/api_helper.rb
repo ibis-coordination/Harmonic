@@ -2,6 +2,7 @@
 
 class ApiHelper
   extend T::Sig
+  include ParsesScheduledTime
 
   attr_reader :current_user, :current_collective, :current_tenant, :current_token,
               :current_representation_session, :current_resource_model,
@@ -147,13 +148,17 @@ class ApiHelper
     note = T.let(nil, T.nilable(Note))
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(commentable) if commentable
-      note = Note.create!(
+      create_attrs = {
         title: params[:title],
         text: params[:text],
+        subtype: commentable ? "comment" : (params[:subtype] || "text"),
         deadline: Time.now,
         created_by: current_user,
         commentable: commentable,
-      )
+      }
+      create_attrs[:table_data] = params[:table_data] if params[:table_data].present?
+      create_attrs[:edit_access] = params[:edit_access] if params[:edit_access].present?
+      note = Note.create!(create_attrs)
       track_task_run_resource(note, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
@@ -174,6 +179,7 @@ class ApiHelper
       decision = Decision.create!(
         question: params[:question],
         description: params[:description],
+        subtype: params[:subtype] || "vote",
         options_open: params[:options_open] || true,
         deadline: params[:deadline],
         created_by: current_user,
@@ -197,6 +203,7 @@ class ApiHelper
       commitment = Commitment.create!(
         title: params[:title],
         description: params[:description],
+        subtype: params[:subtype] || "action",
         deadline: params[:deadline],
         critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
@@ -250,24 +257,41 @@ class ApiHelper
   def update_note
     note = T.must(current_note)
     raise 'Unauthorized' unless note.user_can_edit?(current_user)
+    raise 'This reminder can no longer be edited' unless note.reminder_editable?
     note.title = model_params[:title] if model_params[:title].present?
-    note.text = model_params[:text] if model_params[:text].present?
+    if model_params[:text].present? && !note.is_table?
+      note.text = model_params[:text]
+    end
+    if model_params[:edit_access].present? && Note::EDIT_ACCESS_OPTIONS.include?(model_params[:edit_access])
+      note.edit_access = model_params[:edit_access]
+    end
     note.deadline = model_params[:deadline] if model_params[:deadline].present?
+    # Cancel or reschedule pending reminder
+    reminder = note.is_reminder? ? note.reminder_service : nil
+    cancel = params[:cancel_reminder] == "1" && reminder&.pending?
+    if !cancel && params[:scheduled_for].present?
+      scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
+      if scheduled_for && reminder&.pending?
+        note.reminder_scheduled_for = scheduled_for
+      end
+    end
     # Add files to note, but don't remove existing files
     if model_params[:files]
       model_params[:files].each do |file|
         T.unsafe(note).files.attach(file)
       end
     end
-    # note.deadline = Cycle.new_from_end_of_cycle_option(
-    #   end_of_cycle: params[:end_of_cycle],
-    #   tenant: current_tenant,
-    #   collective: current_collective,
-    # ).end_date
-    if note.changed? || T.unsafe(note).files_changed?
+    if note.changed? || cancel || T.unsafe(note).files_changed?
       note.updated_by = current_user
       ActiveRecord::Base.transaction do
         note.save!
+        if cancel
+          T.must(reminder).cancel!
+        elsif scheduled_for && reminder&.pending?
+          note.reminder_notification&.notification_recipients&.each do |nr|
+            nr.update!(scheduled_for: scheduled_for)
+          end
+        end
         if current_representation_session
           current_representation_session.record_event!(
             request: request,
@@ -284,6 +308,177 @@ class ApiHelper
     note = T.must(current_note)
     authorize_delete!(note)
     perform_soft_delete!(note)
+  end
+
+  sig { returns(Note) }
+  def create_table_note
+    columns = (params[:columns] || []).map do |c|
+      c = c.respond_to?(:to_unsafe_h) ? c.to_unsafe_h : c.to_h
+      { "name" => c["name"] || c[:name], "type" => c["type"] || c[:type] || "text" }
+    end.select { |c| c["name"].present? }
+
+    col_names = columns.map { |c| c["name"] }
+    initial_rows = (params[:initial_rows] || []).map do |row|
+      row = row.respond_to?(:to_unsafe_h) ? row.to_unsafe_h : row.to_h
+      r = { "_id" => SecureRandom.hex(4), "_created_by" => current_user.id, "_created_at" => Time.current.iso8601 }
+      col_names.each { |name| r[name] = row[name.to_s]&.to_s || row[name.to_sym]&.to_s }
+      r
+    end
+
+    table_data = {
+      "description" => params[:description].presence,
+      "columns" => columns,
+      "rows" => initial_rows,
+    }
+
+    note = T.let(nil, T.nilable(Note))
+    ActiveRecord::Base.transaction do
+      text = NoteTableFormatter.to_markdown(table_data)
+      note = Note.create!(
+        title: params[:title].presence || "Table",
+        text: text,
+        subtype: "table",
+        edit_access: params[:edit_access].presence || "owner",
+        table_data: table_data,
+        deadline: Time.now,
+        created_by: current_user,
+      )
+      track_task_run_resource(note, action_type: "create")
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_table_note",
+          resource: note,
+        )
+      end
+    end
+    T.must(note)
+  end
+
+  sig { params(scheduled_for: ActiveSupport::TimeWithZone).returns(Note) }
+  def create_reminder_note(scheduled_for:)
+    note = T.let(nil, T.nilable(Note))
+    ActiveRecord::Base.transaction do
+      note = Note.create!(
+        title: params[:title],
+        text: params[:text],
+        subtype: "reminder",
+        deadline: Time.now,
+        created_by: current_user,
+      )
+      track_task_run_resource(note, action_type: "create")
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "create_reminder_note",
+          resource: note,
+        )
+      end
+    end
+    note = T.must(note)
+
+    mentioned_users = MentionParser.parse_for_notification(
+      note.text,
+      tenant_id: current_tenant.id,
+      collective: current_collective,
+    )
+
+    begin
+      notification = ReminderService.create!(
+        user: current_user,
+        title: note.title,
+        scheduled_for: scheduled_for,
+        url: note.path,
+        additional_recipients: mentioned_users,
+      )
+      note.update!(reminder_notification_id: notification.id, reminder_scheduled_for: scheduled_for)
+    rescue ReminderService::ReminderError
+      note.destroy!
+      raise
+    end
+
+    note
+  end
+
+  # Table note operations
+
+  sig { returns(NoteTableService) }
+  def table_service
+    NoteTableService.new(T.must(current_note))
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def add_row
+    authorize_content_edit!
+    table = table_service
+    table.add_row!(hash_param(:values), created_by: current_user)
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def update_row
+    authorize_content_edit!
+    table = table_service
+    table.update_row!(params[:row_id], hash_param(:values))
+  end
+
+  sig { void }
+  def delete_row
+    authorize_content_edit!
+    table = table_service
+    table.delete_row!(params[:row_id])
+  end
+
+  sig { void }
+  def add_table_column
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    table = table_service
+    table.add_column!(params[:name], params[:type])
+  end
+
+  sig { void }
+  def remove_table_column
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    table = table_service
+    table.remove_column!(params[:name])
+  end
+
+  sig { returns(T::Hash[Symbol, T.untyped]) }
+  def query_rows
+    table = table_service
+    table.query_rows(
+      where: hash_param(:where),
+      order_by: params[:order_by],
+      order: params[:order] || "asc",
+      limit: (params[:limit] || 20).to_i,
+      offset: (params[:offset] || 0).to_i,
+    )
+  end
+
+  sig { returns(T.untyped) }
+  def summarize_table
+    table = table_service
+    table.summarize(
+      operation: params[:operation],
+      column: params[:column],
+      where: hash_param(:where),
+    )
+  end
+
+  sig { void }
+  def update_table_description
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    table = table_service
+    table.update_description!(params[:description])
+  end
+
+  sig { params(block: T.proc.params(arg0: NoteTableService).void).void }
+  def batch_table_update(&block)
+    authorize_content_edit!
+    table = table_service
+    table.batch_update!(&block)
   end
 
   def delete_decision
@@ -330,6 +525,27 @@ class ApiHelper
         current_representation_session.record_event!(
           request: request,
           action_name: "confirm_read",
+          resource: history_event,
+          context_resource: note
+        )
+      end
+    end
+    T.must(history_event)
+  end
+
+  sig { returns(NoteHistoryEvent) }
+  def acknowledge_reminder
+    note = current_resource
+    raise "Expected resource model Note, not #{note.class}" unless note.is_a?(Note)
+    history_event = T.let(nil, T.nilable(NoteHistoryEvent))
+    ActiveRecord::Base.transaction do
+      check_not_blocked_for_comment!(note) if note.created_by
+      history_event = note.reminder_service.acknowledge!(current_user)
+      track_task_run_resource(history_event, action_type: "acknowledge")
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "acknowledge_reminder",
           resource: history_event,
           context_resource: note
         )
@@ -772,6 +988,7 @@ class ApiHelper
       new_decision = Decision.create!(
         question: "#{original.question} (copy)",
         description: original.description,
+        subtype: original.subtype,
         options_open: original.options_open,
         deadline: original.deadline,
         created_by: current_user,
@@ -799,6 +1016,19 @@ class ApiHelper
   end
 
   private
+
+  # Safely converts an ActionController::Parameters value to a plain hash.
+  # Returns empty hash if the param is nil.
+  def hash_param(key)
+    value = params[key]
+    return {} if value.nil?
+    value.respond_to?(:to_unsafe_h) ? value.to_unsafe_h : value.to_h
+  end
+
+  def authorize_content_edit!
+    note = T.must(current_note)
+    raise "Unauthorized" unless note.user_can_edit_content?(current_user)
+  end
 
   def authorize_delete!(content)
     return if content.created_by_id == current_user.id

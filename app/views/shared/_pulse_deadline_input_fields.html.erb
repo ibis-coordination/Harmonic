@@ -24,8 +24,13 @@
       <%= form.radio_button :deadline_option, 'datetime', checked: !requires_manual_close && !closing_at_critical_mass, class: 'pulse-radio-input' %>
       <span class="pulse-deadline-datetime-wrapper">
         <% deadline_val = requires_manual_close ? current_time_in_zone : deadline %>
-        <%= form.datetime_local_field :deadline, value: deadline_val.strftime('%Y-%m-%dT%H:%M'), min: [deadline_val, current_time_in_zone].min.strftime('%Y-%m-%dT%H:%M'), class: 'pulse-form-input pulse-form-input-inline' %>
-        <span class="pulse-timezone-hint"><%= @current_collective.timezone %></span>
+        <%= render DatetimeInputComponent.new(
+          field_name: "deadline",
+          default_value: deadline_val.strftime('%Y-%m-%dT%H:%M'),
+          default_offset: "",
+          require_future: true,
+          default_timezone: @current_collective.timezone.name,
+        ) %>
       </span>
     </label>
     <% if close_now_option && !resource.closed? %>

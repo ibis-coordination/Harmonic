@@ -70,7 +70,8 @@ class SoftDeletableTest < ActiveSupport::TestCase
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
     comment = create_note(
       tenant: @tenant, collective: @collective, created_by: @admin,
-      text: "A comment", commentable: note
+      text: "A comment", subtype: "comment",
+      commentable: note
     )
 
     note.soft_delete!(by: @user)

@@ -16,11 +16,16 @@ export default class NoteController extends Controller {
     // connected
   }
 
+  countdownCompleted(): void {
+    window.location.reload()
+  }
+
   async confirm(event: Event): Promise<void> {
     event.preventDefault()
     if (this.editingName) return
 
-    this.confirmButtonTarget.innerHTML = "Confirming..."
+    const pendingMessage = this.confirmButtonTarget.dataset.pendingMessage || "Confirming..."
+    this.confirmButtonTarget.innerHTML = pendingMessage
     const url = this.confirmButtonTarget.dataset.url
     if (!url) return
 
@@ -37,7 +42,7 @@ export default class NoteController extends Controller {
       const mc = new Event("metricChange")
       document.dispatchEvent(mc)
     } catch (error) {
-      console.error("Error confirming read:", error)
+      console.error("Error:", error)
       this.confirmSectionTarget.innerHTML = "Something went wrong. Please refresh the page and try again."
     }
   }

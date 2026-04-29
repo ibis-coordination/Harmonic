@@ -75,13 +75,7 @@ module ApplicationHelper
   end
 
   def countdown(datetime, base_unit: 'seconds')
-    "<time
-      data-controller='countdown'
-      data-countdown-end-time-value='#{datetime.iso8601}'
-      data-countdown-base-unit-value='#{base_unit}'
-      >
-      <span data-countdown-target='time' style='font-family:monospace;white-space:nowrap;'>...</span>
-    </time>".html_safe
+    render(CountdownComponent.new(datetime: datetime, base_unit: base_unit))
   end
 
   def markdown(text, shift_headers: true)

@@ -107,12 +107,12 @@ You are a member of <%= user_collectives.count %> collective<%= user_collectives
 <% user_collectives.each do |collective| %>
 - [<%= collective.name %>](<%= collective.path %>)
 <% end -%>
-<% scheduled_reminders = ReminderService.scheduled_for(@current_user).limit(5) %>
-<% if scheduled_reminders.any? %>
+<% if @upcoming_reminders&.any? %>
+
 ## Upcoming Reminders
 
-<% scheduled_reminders.each do |nr| %>
-- **<%= nr.scheduled_for.strftime("%b %d at %H:%M") %>**: <%= nr.notification.title %>
+<% @upcoming_reminders.each do |note| %>
+- [<%= note.title %>](<%= note.path %>) — <%= time_ago_or_from_now(note.reminder_scheduled_for) %>
 <% end -%>
 
 [View all reminders](/notifications)

@@ -20,7 +20,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
   end
 
-  TOPICS = %w[privacy collectives notes decisions commitments cycles search links agents api].freeze
+  TOPICS = %w[privacy collectives notes reminder-notes table-notes decisions commitments cycles search links agents api].freeze
 
   # =========================================================================
   # HTML rendering

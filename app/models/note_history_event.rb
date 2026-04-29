@@ -14,7 +14,7 @@ class NoteHistoryEvent < ApplicationRecord
   before_validation :set_collective_id
   belongs_to :note
   belongs_to :user
-  validates :event_type, presence: true, inclusion: { in: %w(create update read_confirmation) }
+  validates :event_type, presence: true, inclusion: { in: %w(create update read_confirmation reminder reminder_acknowledged) }
   validates :happened_at, presence: true
   validate :validate_tenant_and_collective_id
 
@@ -60,6 +60,10 @@ class NoteHistoryEvent < ApplicationRecord
       'updated this note'
     when 'read_confirmation'
       "confirmed reading this note"
+    when 'reminder'
+      "reminder fired"
+    when 'reminder_acknowledged'
+      "acknowledged this reminder"
     else
       raise 'Unknown event type'
     end
@@ -74,6 +78,7 @@ class NoteHistoryEvent < ApplicationRecord
 
   # Only read_confirmation events affect the search index (reader_count)
   # Note create/update events don't change reader_count
+  # reminder_acknowledged events don't affect reader_count either
   def search_index_items
     return [] unless event_type == "read_confirmation"
 
@@ -82,7 +87,7 @@ class NoteHistoryEvent < ApplicationRecord
 
   # Track when a user confirms reading a note
   def user_item_status_updates
-    return [] unless event_type == "read_confirmation"
+    return [] unless event_type == "read_confirmation" || event_type == "reminder_acknowledged"
     return [] if user_id.blank?
 
     [

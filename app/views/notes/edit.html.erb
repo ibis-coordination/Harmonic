@@ -16,25 +16,57 @@
     <h1 class="pulse-resource-title">Edit Note</h1>
   </header>
 
-  <%= form_with(url: "#{@note.path}/edit", method: :post, class: "pulse-form") do |form| %>
-    <div class="pulse-form-group">
-      <label class="pulse-form-label">Content</label>
-      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-        <%= form.text_area :text,
-            placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
-            value: @note.text,
-            class: "pulse-form-textarea",
-            rows: 12,
-            data: { mention_autocomplete_target: "input" } %>
-        <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+  <% if @note.reminder_editable? %>
+    <%= form_with(url: "#{@note.path}/edit", method: :post, class: "pulse-form") do |form| %>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Content</label>
+        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
+          <%= form.text_area :text,
+              placeholder: @note.is_reminder? ? "What should you be reminded about?" : (@current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)"),
+              value: @note.text,
+              class: "pulse-form-textarea",
+              rows: @note.is_reminder? ? 4 : 12,
+              required: true,
+              data: { mention_autocomplete_target: "input" } %>
+          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+        </div>
+        <% if @note.is_reminder? %>
+          <p class="pulse-form-hint">You and anyone @mentioned will be notified when this reminder fires.</p>
+        <% else %>
+          <p class="pulse-form-hint">Update events will appear in note history.</p>
+        <% end %>
       </div>
-      <p class="pulse-form-hint">Update events will appear in note history.</p>
-    </div>
 
-    <div class="pulse-form-actions">
-      <%= form.submit 'Save Note', class: 'pulse-action-btn' %>
-      <%= link_to 'Cancel', @note.path, class: 'pulse-action-btn-secondary' %>
-    </div>
+      <% if @note.is_reminder? && @note.reminder_pending? %>
+        <div class="pulse-form-group">
+          <label class="pulse-form-label">When</label>
+          <p class="pulse-form-hint">When should this reminder resurface?</p>
+          <%= render DatetimeInputComponent.new(
+            field_name: "scheduled_for",
+            default_offset: "",
+            require_future: true,
+            utc_value: @note.reminder_scheduled_for&.iso8601,
+          ) %>
+        </div>
+        <div class="pulse-form-group">
+          <label class="pulse-form-label" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" name="cancel_reminder" value="1">
+            Cancel this reminder
+          </label>
+          <p class="pulse-form-hint">The note will be kept but the reminder will not fire.</p>
+        </div>
+      <% end %>
+
+      <div class="pulse-form-actions">
+        <%= form.submit 'Save Note', class: 'pulse-action-btn' %>
+        <%= link_to 'Cancel', @note.path, class: 'pulse-action-btn-secondary' %>
+      </div>
+    <% end %>
+  <% else %>
+    <p class="pulse-body-text-muted">
+      This reminder has been <%= @note.reminder_delivered? ? "delivered" : "cancelled" %> and can no longer be edited.
+    </p>
+    <%= link_to 'Back to note', @note.path, class: 'pulse-action-btn-secondary', style: 'margin-top: 12px; display: inline-block;' %>
   <% end %>
 
   <% if @current_user.id == @note.created_by_id || @current_user.collective_member&.is_admin? || @current_user.app_admin? %>

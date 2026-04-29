@@ -132,7 +132,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
     parent_search_index = SearchIndex.find_by(item_type: "Note", item_id: note.id)
     assert_not_includes parent_search_index.searchable_text, "First comment"
     assert_not_includes parent_search_index.searchable_text, "Second comment"
-    assert_nil parent_search_index.subtype
+    assert_equal "text", parent_search_index.subtype
 
     # Each comment has its own search index entry
     comment1_search_index = SearchIndex.find_by(item_type: "Note", item_id: comment1.id)
@@ -142,6 +142,56 @@ class SearchIndexerTest < ActiveSupport::TestCase
     comment2_search_index = SearchIndex.find_by(item_type: "Note", item_id: comment2.id)
     assert_includes comment2_search_index.searchable_text, "Second comment"
     assert_equal "comment", comment2_search_index.subtype
+  end
+
+  test "reindex stores note subtype for reminder notes" do
+    Tenant.current_id = @tenant.id
+    notification = ReminderService.create!(user: @user, title: "Test", scheduled_for: 1.day.from_now.in_time_zone("UTC"))
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Reminder", subtype: "reminder",
+      reminder_notification_id: notification.id, reminder_scheduled_for: 1.day.from_now,
+    )
+    SearchIndex.where(item_type: "Note", item_id: note.id).delete_all
+
+    SearchIndexer.reindex(note)
+
+    search_index = SearchIndex.find_by(item_type: "Note", item_id: note.id)
+    assert_equal "reminder", search_index.subtype
+  end
+
+  test "reindex stores note subtype for table notes" do
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      title: "Test Table", text: "", subtype: "table",
+      table_data: { "columns" => [{ "name" => "Col", "type" => "text" }], "rows" => [] },
+    )
+    SearchIndex.where(item_type: "Note", item_id: note.id).delete_all
+
+    SearchIndexer.reindex(note)
+
+    search_index = SearchIndex.find_by(item_type: "Note", item_id: note.id)
+    assert_equal "table", search_index.subtype
+  end
+
+  test "reindex stores decision subtype" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    SearchIndex.where(item_type: "Decision", item_id: decision.id).delete_all
+
+    SearchIndexer.reindex(decision)
+
+    search_index = SearchIndex.find_by(item_type: "Decision", item_id: decision.id)
+    assert_equal "vote", search_index.subtype
+  end
+
+  test "reindex stores commitment subtype" do
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
+    SearchIndex.where(item_type: "Commitment", item_id: commitment.id).delete_all
+
+    SearchIndexer.reindex(commitment)
+
+    search_index = SearchIndex.find_by(item_type: "Commitment", item_id: commitment.id)
+    assert_equal "action", search_index.subtype
   end
 
   test "reindex counts backlinks correctly" do

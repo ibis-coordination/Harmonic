@@ -156,8 +156,8 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes decisions commitments cycles search links agents api].each do |topic|
-    get "help/#{topic}" => "help##{topic}"
+  %w[privacy collectives notes reminder-notes table-notes decisions commitments cycles search links agents api].each do |topic|
+    get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
@@ -171,7 +171,6 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
-  get 'notifications/new' => 'notifications#new'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
@@ -180,10 +179,6 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss_all' => 'notifications#execute_dismiss_all'
   get 'notifications/actions/dismiss_for_collective' => 'notifications#describe_dismiss_for_collective'
   post 'notifications/actions/dismiss_for_collective' => 'notifications#execute_dismiss_for_collective'
-  get 'notifications/actions/create_reminder' => 'notifications#describe_create_reminder'
-  post 'notifications/actions/create_reminder' => 'notifications#execute_create_reminder'
-  get 'notifications/actions/delete_reminder' => 'notifications#describe_delete_reminder'
-  post 'notifications/actions/delete_reminder' => 'notifications#execute_delete_reminder'
 
   get 'learn' => 'learn#index'
   get 'learn/awareness-indicators' => 'learn#awareness_indicators'
@@ -417,6 +412,10 @@ Rails.application.routes.draw do
     get "#{prefix}/note/actions" => 'notes#actions_index_new'
     get "#{prefix}/note/actions/create_note" => 'notes#describe_create_note'
     post "#{prefix}/note/actions/create_note" => 'notes#create_note'
+    get "#{prefix}/note/actions/create_reminder_note" => 'notes#describe_create_reminder_note'
+    post "#{prefix}/note/actions/create_reminder_note" => 'notes#create_reminder_note_action'
+    get "#{prefix}/note/actions/create_table_note" => 'notes#describe_create_table_note'
+    post "#{prefix}/note/actions/create_table_note" => 'notes#create_table_note_action'
     resources :notes, only: [:show], path: "#{prefix}/n" do
       get '/report' => 'notes#report'
       get '/actions' => 'notes#actions_index_show'
@@ -424,6 +423,30 @@ Rails.application.routes.draw do
       post '/actions/confirm_read' => 'notes#confirm_read'
       get '/actions/report_content' => 'notes#describe_report_content'
       post '/actions/report_content' => 'notes#report_content_action'
+      # Reminder note actions
+      get '/actions/cancel_reminder' => 'notes#describe_cancel_reminder'
+      post '/actions/cancel_reminder' => 'notes#execute_cancel_reminder'
+      get '/actions/acknowledge_reminder' => 'notes#describe_acknowledge_reminder'
+      post '/actions/acknowledge_reminder' => 'notes#acknowledge_reminder'
+      # Table note actions
+      get '/actions/add_row' => 'notes#describe_add_row'
+      post '/actions/add_row' => 'notes#execute_add_row'
+      get '/actions/update_row' => 'notes#describe_update_row'
+      post '/actions/update_row' => 'notes#execute_update_row'
+      get '/actions/delete_row' => 'notes#describe_delete_row'
+      post '/actions/delete_row' => 'notes#execute_delete_row'
+      get '/actions/add_table_column' => 'notes#describe_add_table_column'
+      post '/actions/add_table_column' => 'notes#execute_add_table_column'
+      get '/actions/remove_table_column' => 'notes#describe_remove_table_column'
+      post '/actions/remove_table_column' => 'notes#execute_remove_table_column'
+      get '/actions/query_rows' => 'notes#describe_query_rows'
+      post '/actions/query_rows' => 'notes#execute_query_rows'
+      get '/actions/summarize' => 'notes#describe_summarize'
+      post '/actions/summarize' => 'notes#execute_summarize'
+      get '/actions/update_table_description' => 'notes#describe_update_table_description'
+      post '/actions/update_table_description' => 'notes#execute_update_table_description'
+      get '/actions/batch_table_update' => 'notes#describe_batch_table_update'
+      post '/actions/batch_table_update' => 'notes#execute_batch_table_update'
       get '/actions/add_comment' => 'notes#describe_add_comment'
       post '/actions/add_comment' => 'notes#add_comment'
       post '/comments' => 'notes#create_comment'
@@ -438,12 +461,14 @@ Rails.application.routes.draw do
       post '/edit' => 'notes#update'
       get '/history.html' => 'notes#history_log_partial'
       post '/confirm.html' => 'notes#confirm_and_return_partial'
+      post '/acknowledge.html' => 'notes#acknowledge_and_return_partial'
       put '/pin' => 'notes#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
       get '/attachments/:attachment_id/actions' => 'notes#actions_index_attachment'
       get '/attachments/:attachment_id/actions/remove_attachment' => 'notes#describe_remove_attachment'
       post '/attachments/:attachment_id/actions/remove_attachment' => 'notes#remove_attachment'
       get '/settings' => 'notes#settings'
+      post '/settings' => 'notes#update_settings'
       get '/settings/actions' => 'notes#actions_index_settings'
       get '/settings/actions/pin_note' => 'notes#describe_pin_note'
       post '/settings/actions/pin_note' => 'notes#pin_note_action'

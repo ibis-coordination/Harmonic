@@ -1,0 +1,16 @@
+<article class="pulse-feed-item" data-pulse-filter-target="feedItem" data-item-type="Reminder">
+  <div class="pulse-feed-item-header">
+    <div class="pulse-feed-item-type">
+      <%= helpers.octicon 'clock', height: 16 %>
+      <span>Reminder</span>
+    </div>
+    <div class="pulse-feed-item-meta">
+      <%= helpers.time_ago_in_words(happened_at) %> ago
+    </div>
+  </div>
+  <div class="pulse-feed-item-body">
+    <a href="<%= note_path %>" class="pulse-feed-item-link">
+      <strong><%= note_title %></strong>
+    </a>
+  </div>
+</article>

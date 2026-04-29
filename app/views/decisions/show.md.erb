@@ -14,9 +14,14 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
 
 <% if @decision.description.present? -%>
+<% truncated_description = truncate_content(@decision.description) %>
 ## Description
 
-<%= @decision.description %>
+```markdown
+<%= truncated_description.gsub(/```/, '\\`\\`\\`') %>
+```
+<% notice = markdown_truncation_notice(@decision.description, truncated_description, url: @decision.path) %>
+<%= notice if notice %>
 <% end -%>
 <% unless @decision.closed? -%>
 <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) -%>

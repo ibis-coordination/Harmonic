@@ -147,7 +147,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
-    ReminderService.create!(user: @user, title: "Upcoming reminder", scheduled_for: 1.day.from_now)
+    notification = ReminderService.create!(user: @user, title: "Upcoming reminder", scheduled_for: 1.day.from_now)
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Upcoming reminder", subtype: "reminder",
+      reminder_notification_id: notification.id, reminder_scheduled_for: 1.day.from_now,
+    )
     Collective.clear_thread_scope
 
     get "/whoami", headers: { "Accept" => "text/markdown" }
@@ -169,7 +174,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
 
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
-    ReminderService.create!(user: @user, title: "Test reminder", scheduled_for: 1.day.from_now)
+    notification = ReminderService.create!(user: @user, title: "Test reminder", scheduled_for: 1.day.from_now)
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Test reminder", subtype: "reminder",
+      reminder_notification_id: notification.id, reminder_scheduled_for: 1.day.from_now,
+    )
     Collective.clear_thread_scope
 
     get "/whoami", headers: { "Accept" => "text/markdown" }
@@ -183,7 +193,12 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     Tenant.current_id = @tenant.id
     7.times do |i|
-      ReminderService.create!(user: @user, title: "Reminder #{i}", scheduled_for: (i + 1).hours.from_now)
+      notification = ReminderService.create!(user: @user, title: "Reminder #{i}", scheduled_for: (i + 1).hours.from_now)
+      Note.create!(
+        tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+        text: "Reminder #{i}", subtype: "reminder",
+        reminder_notification_id: notification.id, reminder_scheduled_for: (i + 1).hours.from_now,
+      )
     end
     Collective.clear_thread_scope
 

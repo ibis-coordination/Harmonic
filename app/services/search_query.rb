@@ -484,19 +484,18 @@ class SearchQuery
 
   sig { void }
   def apply_subtype_filter
-    # subtype:comment - only show comments
+    # subtype:comment - only show items with matching subtype
     subtypes = Array(@params[:subtypes])
     @relation = T.must(@relation).where(subtype: subtypes) if subtypes.present?
 
-    # -subtype:comment - exclude comments (or other subtypes)
+    # -subtype:comment - exclude items with matching subtype
     exclude_subtypes = Array(@params[:exclude_subtypes])
     return if exclude_subtypes.blank?
 
-    # Must use explicit NULL handling: regular notes have subtype = NULL,
-    # and SQL's NULL != 'comment' returns NULL (not true), excluding those rows
-    exclude_subtypes.each do |subtype|
-      @relation = T.must(@relation).where("search_index.subtype IS NULL OR search_index.subtype != ?", subtype)
-    end
+    # Use NOT IN for exclusion. Handles NULL for backwards compat with
+    # any un-reindexed records that still have NULL subtype.
+    @relation = T.must(@relation).where.not(subtype: exclude_subtypes)
+      .or(T.must(@relation).where(subtype: nil))
   end
 
   sig { void }

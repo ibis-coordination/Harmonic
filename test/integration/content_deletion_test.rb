@@ -95,7 +95,8 @@ class ContentDeletionTest < ActionDispatch::IntegrationTest
   test "comment on deleted note still renders on its own show page" do
     parent = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Parent")
     comment = create_note(tenant: @tenant, collective: @collective, created_by: @other_user,
-                          text: "A comment", commentable: parent)
+                          text: "A comment", subtype: "comment",
+      commentable: parent)
     parent.soft_delete!(by: @user)
 
     get "/collectives/#{@collective.handle}/n/#{comment.truncated_id}",
@@ -109,7 +110,8 @@ class ContentDeletionTest < ActionDispatch::IntegrationTest
   test "pulse feed renders without error when comment parent is deleted" do
     parent = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Parent")
     create_note(tenant: @tenant, collective: @collective, created_by: @other_user,
-                text: "Orphaned comment", commentable: parent)
+                text: "Orphaned comment", subtype: "comment",
+      commentable: parent)
     parent.soft_delete!(by: @user)
 
     get "/collectives/#{@collective.handle}",
@@ -123,7 +125,8 @@ class ContentDeletionTest < ActionDispatch::IntegrationTest
   test "creator can delete their own comment" do
     parent = create_note(tenant: @tenant, collective: @collective, created_by: @other_user)
     comment = create_note(tenant: @tenant, collective: @collective, created_by: @user,
-                          text: "My comment", commentable: parent)
+                          text: "My comment", subtype: "comment",
+      commentable: parent)
 
     post "/collectives/#{@collective.handle}/n/#{comment.truncated_id}/settings/actions/delete_note",
          headers: { "HTTP_HOST" => "#{@tenant.subdomain}.#{ENV['HOSTNAME']}" }

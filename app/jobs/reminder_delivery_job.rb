@@ -70,8 +70,15 @@ class ReminderDeliveryJob < SystemJob
       return
     end
 
-    # Find a collective context for the user
-    collective = find_collective_for_user(user, tenant)
+    # If this reminder is linked to a note, use the note's collective for context.
+    # Otherwise fall back to find_collective_for_user (for any legacy standalone reminders).
+    note = Note.tenant_scoped_only(tenant.id).find_by(reminder_notification_id: notification.id)
+    collective = if note
+      Collective.find_by(id: note.collective_id)
+    else
+      find_collective_for_user(user, tenant)
+    end
+
     unless collective
       Rails.logger.warn("User #{user.id} has no collective membership in tenant #{tenant.id}, cannot deliver reminders")
       return
@@ -103,6 +110,19 @@ class ReminderDeliveryJob < SystemJob
       # Deliver each notification (in-app)
       reminders.each do |nr|
         NotificationDeliveryJob.perform_now(nr.id)
+      end
+
+      # Create NoteHistoryEvent for reminder notes
+      if note
+        event_user = collective.identity_user || user
+        NoteHistoryEvent.create!(
+          note: note,
+          user: event_user,
+          tenant_id: note.tenant_id,
+          collective_id: note.collective_id,
+          event_type: "reminder",
+          happened_at: Time.current,
+        )
       end
     end
   end

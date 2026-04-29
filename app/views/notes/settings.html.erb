@@ -1,0 +1,72 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  [@note.is_table? ? 'Table' : 'Note', @note.path],
+  'Settings'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <i class="note-icon icon-sm"></i>
+        <%= @note.is_table? ? "Table" : "Note" %>
+      </span>
+      <code class="pulse-resource-id"><%= @note.truncated_id %></code>
+    </div>
+    <h1 class="pulse-resource-title"><%= @note.is_table? ? "Table Settings" : "Note Settings" %></h1>
+  </header>
+
+  <% if @note.is_table? && @note.user_can_edit?(@current_user) %>
+    <%= form_with(url: "#{@note.path}/settings", method: :post, class: "pulse-form") do |form| %>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Title</label>
+        <%= form.text_field :title, value: @note.persisted_title, class: "pulse-form-input", placeholder: "Table title" %>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Description <span style="font-weight: normal; color: var(--color-fg-muted);">(optional)</span></label>
+        <textarea name="table_description" class="pulse-form-textarea" rows="3" placeholder="What is this table for?"><%= @note.table_data&.dig("description") %></textarea>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Who can edit rows?</label>
+        <select name="edit_access" class="pulse-form-input" style="max-width: 300px;">
+          <option value="owner" <%= "selected" if @note.edit_access == "owner" %>>Only me (the table owner)</option>
+          <option value="members" <%= "selected" if @note.edit_access == "members" %>>Any collective member</option>
+        </select>
+      </div>
+      <p class="pulse-form-hint">To edit table data (rows and columns), use the table on the <a href="<%= @note.path %>">show page</a>.</p>
+
+      <div class="pulse-form-actions">
+        <%= form.submit 'Save Settings', class: 'pulse-action-btn' %>
+        <%= link_to 'Cancel', @note.path, class: 'pulse-action-btn-secondary' %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%# Pin/Unpin %>
+  <% if @current_user && !@current_collective.is_main_collective? %>
+    <section class="pulse-settings-section" style="margin-top: 24px;">
+      <%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %>
+    </section>
+  <% end %>
+
+  <%# Delete %>
+  <% if @current_user.id == @note.created_by_id || @current_user.collective_member&.is_admin? || @current_user.app_admin? %>
+    <section class="pulse-settings-section" style="margin-top: 24px;">
+      <details>
+        <summary class="pulse-section-title" style="cursor: pointer; color: var(--color-danger-fg);">
+          <%= octicon 'trash', height: 14 %> Delete this <%= @note.is_table? ? "table" : (@note.is_comment? ? "comment" : "note") %>
+        </summary>
+        <div style="margin-top: 12px;">
+          <p class="pulse-body-text-muted" style="margin-bottom: 12px;">
+            This will permanently delete this <%= @note.is_table? ? "table and all its data" : (@note.is_comment? ? "comment" : "note") %>.
+          </p>
+          <%= button_to "#{@note.path}/settings/actions/delete_note", method: :post,
+              data: { turbo_confirm: "Delete this #{@note.is_table? ? 'table' : (@note.is_comment? ? 'comment' : 'note')}?" },
+              class: "pulse-action-btn pulse-action-btn-danger" do %>
+            <%= octicon 'trash', height: 14 %> Delete
+          <% end %>
+        </div>
+      </details>
+    </section>
+  <% end %>
+</article>

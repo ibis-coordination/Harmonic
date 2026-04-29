@@ -363,6 +363,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       collective: collective,
       created_by: replier,
       text: "This is a reply!",
+      subtype: "comment",
       commentable: original_note,
     )
 
@@ -401,6 +402,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       text: "Replying to myself",
+      subtype: "comment",
       commentable: original_note,
     )
 
@@ -431,6 +433,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       collective: collective,
       created_by: commenter,
       text: "Great decision!",
+      subtype: "comment",
       commentable: decision,
     )
 

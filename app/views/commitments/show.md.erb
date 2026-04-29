@@ -13,10 +13,15 @@ This commitment has been deleted<%= " by the author" if @commitment.deleted_by_i
 | deadline | <%= @commitment.deadline %> |
 | time remaining | <%= @commitment.deadline > Time.now ? distance_of_time_in_words(Time.now, @commitment.deadline) : 'Deadline passed' %> |
 <% if @commitment.description.present? %>
+<% truncated_description = truncate_content(@commitment.description) %>
 
 ## Description
 
-<%= @commitment.description %>
+```markdown
+<%= truncated_description.gsub(/```/, '\\`\\`\\`') %>
+```
+<% notice = markdown_truncation_notice(@commitment.description, truncated_description, url: @commitment.path) %>
+<%= notice if notice %>
 <% end %>
 
 ## Status

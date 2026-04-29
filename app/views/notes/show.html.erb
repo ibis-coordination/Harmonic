@@ -18,8 +18,9 @@
 <% else %>
 
 <article class="pulse-resource-detail">
+  <% note_type_label = @note.is_comment? ? "Comment" : (@note.is_table? ? "Table" : (@note.is_reminder? ? "Reminder" : "Note")) %>
   <%= render ResourceHeaderComponent.new(
-    type_label: @note.is_comment? ? "Comment" : "Note",
+    type_label: note_type_label,
     title: @note.persisted_title,
     icon_name: @note.is_comment? ? "comment" : nil,
     icon_class: @note.is_comment? ? nil : "note-icon",
@@ -27,9 +28,16 @@
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
       <% if @note.user_can_edit?(@current_user) %>
-        <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
-          <%= octicon 'pencil', height: 14 %>
-          Edit
+        <% if @note.is_table? %>
+          <%= link_to "#{@note.path}/settings", class: 'pulse-action-btn' do %>
+            <%= octicon 'gear', height: 14 %>
+            Settings
+          <% end %>
+        <% else %>
+          <%= link_to "#{@note.path}/edit", class: 'pulse-action-btn' do %>
+            <%= octicon 'pencil', height: 14 %>
+            Edit
+          <% end %>
         <% end %>
       <% end %>
       <% show_pin = @current_user && !@current_collective.is_main_collective? %>
@@ -79,15 +87,43 @@
 
   <%= render 'shared/pulse_attachments', resource: @note %>
 
-  <div class="pulse-resource-body">
-    <div class="pulse-markdown-content">
-      <% if @note.text.present? %>
-        <%= markdown(@note.text) %>
-      <% else %>
-        <p class="pulse-empty-content"><em>empty note</em></p>
-      <% end %>
+  <% if @note.reminder_pending? %>
+    <div class="pulse-resource-meta" style="margin-top: 12px;" data-action="countdown:completed->note#countdownCompleted">
+      <span style="color: var(--color-fg-muted);">
+        <%= octicon 'clock', height: 14 %>
+        <%= render CountdownComponent.new(datetime: @note.reminder_scheduled_for) %>
+      </span>
     </div>
-  </div>
+  <% elsif @note.reminder_delivered? %>
+    <div class="pulse-resource-meta" style="margin-top: 12px;">
+      <% delivered_event = @note.note_history_events.find_by(event_type: "reminder") %>
+      <span style="color: var(--color-fg-muted);">
+        <%= octicon 'check-circle', height: 14 %>
+        Reminder delivered <% if delivered_event %><%= time_ago_in_words(delivered_event.happened_at) %> ago<% end %>
+      </span>
+    </div>
+  <% elsif @note.reminder_cancelled? %>
+    <div class="pulse-resource-meta" style="margin-top: 12px;">
+      <span style="color: var(--color-fg-muted);">
+        <%= octicon 'x-circle', height: 14 %>
+        Reminder cancelled by <%= link_to @note.updated_by.display_name, @note.updated_by.path %> <%= time_ago_in_words(@note.updated_at) %> ago
+      </span>
+    </div>
+  <% end %>
+
+  <% if @note.is_table? %>
+    <%= render 'table' %>
+  <% else %>
+    <div class="pulse-resource-body">
+      <div class="pulse-markdown-content">
+        <% if @note.text.present? %>
+          <%= markdown(@note.text) %>
+        <% else %>
+          <p class="pulse-empty-content"><em>empty note</em></p>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
 
   <%# Confirmed Reads Section %>
   <div class="pulse-confirmed-section" data-note-target="confirmSection">

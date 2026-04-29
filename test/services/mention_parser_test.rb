@@ -86,6 +86,76 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_includes result, "bob-jones"
   end
 
+  # === parse_for_notification tests ===
+
+  test "parse_for_notification excludes the specified user" do
+    tenant, collective, user = create_tenant_collective_user
+    user.tenant_user.update!(handle: "alice")
+
+    result = MentionParser.parse_for_notification(
+      "Hello @alice",
+      tenant_id: tenant.id,
+      collective: collective,
+      exclude_user: user,
+    )
+
+    assert_empty result
+  end
+
+  test "parse_for_notification excludes non-members of the collective" do
+    tenant, collective, user = create_tenant_collective_user
+    user.tenant_user.update!(handle: "alice")
+
+    non_member = create_user(email: "outsider@example.com", name: "Outsider")
+    tenant.add_user!(non_member)
+    non_member.tenant_user.update!(handle: "outsider")
+    # outsider is NOT added to the collective
+
+    result = MentionParser.parse_for_notification(
+      "Hey @outsider check this out",
+      tenant_id: tenant.id,
+      collective: collective,
+      exclude_user: user,
+    )
+
+    assert_empty result
+  end
+
+  test "parse_for_notification returns valid collective members" do
+    tenant, collective, user = create_tenant_collective_user
+    user.tenant_user.update!(handle: "alice")
+
+    member = create_user(email: "bob@example.com", name: "Bob")
+    tenant.add_user!(member)
+    member.tenant_user.update!(handle: "bob")
+    collective.add_user!(member)
+
+    result = MentionParser.parse_for_notification(
+      "Hey @bob and @alice check this",
+      tenant_id: tenant.id,
+      collective: collective,
+      exclude_user: user,
+    )
+
+    assert_equal 1, result.size
+    assert_equal member.id, result.first.id
+  end
+
+  test "parse_for_notification returns empty for blank text" do
+    tenant, collective, user = create_tenant_collective_user
+
+    result = MentionParser.parse_for_notification(
+      "",
+      tenant_id: tenant.id,
+      collective: collective,
+      exclude_user: user,
+    )
+
+    assert_empty result
+  end
+
+  # === extract_handles tests ===
+
   test "extract_handles returns empty array for blank text" do
     assert_equal [], MentionParser.extract_handles(nil)
     assert_equal [], MentionParser.extract_handles("")

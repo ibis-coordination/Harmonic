@@ -17,6 +17,7 @@ class HomeController < ApplicationController
       notes_scope: Note.unscope_collective.where(collective_id: main_cid),
       decisions_scope: Decision.unscope_collective.where(collective_id: main_cid),
       commitments_scope: Commitment.unscope_collective.where(collective_id: main_cid),
+      reminder_events_scope: NoteHistoryEvent.where(event_type: "reminder", collective_id: main_cid),
       proximity_scores: scores,
     ).feed_items
   end

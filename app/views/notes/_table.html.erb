@@ -1,0 +1,111 @@
+<% table = NoteTableService.new(@note) %>
+
+<% if table.description.present? %>
+  <div class="pulse-resource-body" style="padding: 12px 16px 0;">
+    <div class="pulse-markdown-content">
+      <%= markdown(table.description) %>
+    </div>
+  </div>
+<% end %>
+
+<div class="pulse-table-wrapper" style="overflow-x: auto;">
+  <% if table.columns.any? %>
+    <table class="pulse-table">
+      <thead>
+        <tr>
+          <% table.columns.each do |col| %>
+            <th><%= col["name"] %> <span class="pulse-table-type-hint" style="font-weight: normal; font-size: 12px; color: var(--color-fg-subtle);"><%= col["type"] %></span></th>
+          <% end %>
+          <% if @note.user_can_edit_content?(@current_user) %>
+            <th style="width: 40px;"></th>
+          <% end %>
+        </tr>
+      </thead>
+      <tbody>
+        <% table.rows.each do |row| %>
+          <tr>
+            <% table.columns.each do |col| %>
+              <td><%= row[col["name"]] %></td>
+            <% end %>
+            <% if @note.user_can_edit_content?(@current_user) %>
+              <td>
+                <%= form_with(
+                  url: "#{@note.path}/actions/delete_row",
+                  method: :post,
+                  style: "display: inline;",
+                  data: { turbo_confirm: "Delete this row?" }
+                ) do |f| %>
+                  <%= f.hidden_field :row_id, value: row["_id"] %>
+                  <button type="submit" class="pulse-action-btn-secondary" style="padding: 2px 6px;" title="Delete row">
+                    <%= octicon 'trash', height: 12 %>
+                  </button>
+                <% end %>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+        <% if table.rows.empty? %>
+          <tr>
+            <td colspan="<%= table.columns.length + (@note.user_can_edit_content?(@current_user) ? 1 : 0) %>" style="text-align: center; color: var(--color-fg-muted); padding: 24px;">
+              No rows yet. Add a row to get started.
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <div style="padding: 24px; text-align: center; color: var(--color-fg-muted);">
+      No columns defined yet.
+    </div>
+  <% end %>
+</div>
+
+<% if @note.user_can_edit_content?(@current_user) && table.columns.any? %>
+  <div style="padding: 12px 16px;">
+    <%= form_with(url: "#{@note.path}/actions/add_row", method: :post, class: "pulse-form") do |f| %>
+      <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">
+        <% table.columns.each do |col| %>
+          <div style="flex: 1; min-width: 120px;">
+            <label style="font-size: 12px; color: var(--color-fg-muted);"><%= col["name"] %></label>
+            <%= f.text_field "values[#{col["name"]}]", placeholder: col["type"], class: "pulse-form-input", style: "width: 100%;" %>
+          </div>
+        <% end %>
+        <div>
+          <%= f.submit "Add Row", class: "pulse-action-btn" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div style="padding: 0 16px 12px;"
+       data-controller="csv-import"
+       data-csv-import-action-url-value="<%= @note.path %>/actions/batch_table_update"
+       data-csv-import-columns-value="<%= table.column_names.to_json %>">
+    <button type="button" class="pulse-action-btn-secondary" data-action="csv-import#toggleImport" style="font-size: 13px;">
+      <%= octicon 'upload', height: 14 %> Import CSV
+    </button>
+
+    <div data-csv-import-target="importSection" style="display: none; margin-top: 12px;">
+      <div style="margin-bottom: 8px;">
+        <label style="font-size: 12px; color: var(--color-fg-muted); display: block; margin-bottom: 4px;">Paste CSV or upload a file</label>
+        <textarea data-csv-import-target="csvInput"
+                  class="pulse-form-textarea"
+                  rows="5"
+                  placeholder="Status,Due&#10;done,2026-05-01&#10;pending,2026-05-15"
+                  data-action="input->csv-import#parseFromTextarea"></textarea>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <input type="file" accept=".csv,text/csv" data-csv-import-target="fileInput" data-action="change->csv-import#parseFromFile" style="font-size: 13px;">
+      </div>
+      <div data-csv-import-target="errors"></div>
+      <div data-csv-import-target="preview"></div>
+      <button type="button"
+              class="pulse-action-btn"
+              data-csv-import-target="submitBtn"
+              data-action="csv-import#submitImport"
+              style="display: none; margin-top: 8px;">
+        Import Rows
+      </button>
+    </div>
+  </div>
+<% end %>

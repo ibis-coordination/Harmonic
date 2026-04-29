@@ -42,7 +42,7 @@ class SearchQueryParser
 
     # Type filters
     "type" => { values: ["note", "decision", "commitment", "n", "d", "c"], multi: true },
-    "subtype" => { values: ["comment"], multi: true },
+    "subtype" => { values: Note::SUBTYPES + Decision::SUBTYPES + Commitment::SUBTYPES, multi: true },
     "status" => { values: ["open", "closed"], multi: false },
 
     # Boolean filters

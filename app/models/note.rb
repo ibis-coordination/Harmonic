@@ -13,6 +13,8 @@ class Note < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
+  SUBTYPES = %w[text reminder table comment].freeze
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -24,8 +26,18 @@ class Note < ApplicationRecord
   # Commentable pattern - allows notes to be comments on other resources
   belongs_to :commentable, polymorphic: true, optional: true
 
+  # Reminder notes link to their scheduled notification
+  belongs_to :reminder_notification, class_name: "Notification", optional: true
+
   has_many :note_history_events, dependent: :destroy
   # validates :title, presence: true
+  EDIT_ACCESS_OPTIONS = %w[members owner].freeze
+
+  validates :text, presence: true, unless: :is_table?
+  validates :subtype, inclusion: { in: SUBTYPES }
+  validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
+  validate :comments_must_be_comment_subtype
+  validate :validate_table_data, if: :should_validate_table_data?
 
   after_create do
     NoteHistoryEvent.create!(
@@ -43,6 +55,56 @@ class Note < ApplicationRecord
       event_type: "update",
       happened_at: updated_at
     )
+  end
+
+  sig { returns(T::Boolean) }
+  def is_text?
+    subtype == "text"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_reminder?
+    subtype == "reminder"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_table?
+    subtype == "table"
+  end
+
+  # Reminder logic is in NoteReminderService. These delegates keep view/controller
+  # call sites concise. For multi-step operations, use reminder_service directly.
+  # `reminder_scheduled_for` is a database column — no delegate needed.
+
+  sig { returns(NoteReminderService) }
+  def reminder_service
+    @reminder_service ||= T.let(NoteReminderService.new(self), T.nilable(NoteReminderService))
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_pending?
+    is_reminder? && reminder_service.pending?
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_delivered?
+    is_reminder? && reminder_service.delivered?
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_cancelled?
+    is_reminder? && reminder_service.cancelled?
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_editable?
+    !is_reminder? || reminder_service.editable?
+  end
+
+  sig { params(user: User).returns(T::Boolean) }
+  def user_can_edit_content?(user)
+    return user_can_edit?(user) if edit_access == "owner"
+    true # "members" — any authenticated user can edit content
   end
 
   sig { returns(String) }
@@ -67,17 +129,17 @@ class Note < ApplicationRecord
 
   sig { returns(String) }
   def metric_name
-    "readers"
+    is_reminder? && reminder_delivered? ? "acknowledgments" : "readers"
   end
 
   sig { returns(Integer) }
   def metric_value
-    confirmed_reads
+    is_reminder? && reminder_delivered? ? reminder_service.acknowledgments : confirmed_reads
   end
 
   sig { returns(String) }
   def octicon_metric_icon_name
-    "book"
+    is_reminder? && reminder_delivered? ? "bell" : "book"
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -85,6 +147,8 @@ class Note < ApplicationRecord
     response = {
       id: id,
       truncated_id: truncated_id,
+      subtype: subtype,
+      edit_access: edit_access,
       title: title,
       text: text,
       deadline: deadline,
@@ -95,6 +159,8 @@ class Note < ApplicationRecord
       updated_by_id: updated_by_id,
       commentable_type: commentable_type,
       commentable_id: commentable_id,
+      reminder_notification_id: reminder_notification_id,
+      reminder_scheduled_for: reminder_scheduled_for,
     }
     response.merge!({ history_events: history_events.map(&:api_json) }) if include.include?("history_events")
     response.merge!({ backlinks: backlinks.map(&:api_json) }) if include.include?("backlinks")
@@ -164,6 +230,11 @@ class Note < ApplicationRecord
   # Comment-related helper methods
   sig { returns(T::Boolean) }
   def is_comment?
+    subtype == "comment"
+  end
+
+  sig { returns(T::Boolean) }
+  def has_commentable?
     commentable_type.present? && commentable_id.present?
   end
 
@@ -234,9 +305,27 @@ class Note < ApplicationRecord
 
   private
 
+  def should_validate_table_data?
+    is_table? && !deleted_at?
+  end
+
+  def validate_table_data
+    NoteTableValidator.validate(table_data, errors)
+  end
+
+  def comments_must_be_comment_subtype
+    if has_commentable? && subtype != "comment"
+      errors.add(:subtype, "must be comment for comments")
+    elsif !has_commentable? && subtype == "comment"
+      errors.add(:subtype, "cannot be comment for standalone notes")
+    end
+  end
+
   def scrub_content!
     self.title = "[deleted]"
     self.text = "[deleted]"
+    self.table_data = nil if is_table?
+    reminder_service.cancel! if is_reminder? && reminder_notification_id.present?
   end
 
   # When a comment is created/destroyed, reindex the parent to update comment_count.
