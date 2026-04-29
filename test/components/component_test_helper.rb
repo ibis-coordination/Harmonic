@@ -20,14 +20,14 @@ module ComponentTestHelper
   # Build a Note instance usable as a comment or resource.
   def build_note(text: "Test note", title: nil, truncated_id: "abc12345", created_by: nil, created_at: 1.hour.ago, updated_at: nil,
                  is_comment: false, commentable: nil, **attrs)
-    note = Note.new(text: text, title: title, truncated_id: truncated_id, created_at: created_at, updated_at: updated_at || created_at, **attrs)
+    subtype = is_comment ? "comment" : (attrs[:subtype] || "text")
+    note = Note.new(text: text, title: title, truncated_id: truncated_id, subtype: subtype, created_at: created_at, updated_at: updated_at || created_at, **attrs.except(:subtype))
     note.define_singleton_method(:created_by) { created_by } if created_by
     note.define_singleton_method(:path) { "/n/#{truncated_id}" }
     note.define_singleton_method(:shareable_link) { "https://example.com/n/#{truncated_id}" }
     note.define_singleton_method(:confirmed_reads) { 0 }
     note.define_singleton_method(:user_has_read?) { |_user| false }
     if is_comment && commentable
-      note.define_singleton_method(:is_comment?) { true }
       note.define_singleton_method(:commentable) { commentable }
     end
     # Stub representation methods

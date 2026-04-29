@@ -240,6 +240,7 @@ class UserItemStatusTrackingTest < ActiveSupport::TestCase
       collective: @collective,
       created_by: @user,
       title: "Comment",
+      subtype: "comment",
       commentable: parent_note
     )
 

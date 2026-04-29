@@ -253,7 +253,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
         collective: @collective,
         created_by: @user,
         title: "Comment",
-        commentable: parent_note
+        subtype: "comment",
+      commentable: parent_note
       )
     end
   end
@@ -270,7 +271,8 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
         collective: @collective,
         created_by: @user,
         title: "Comment",
-        commentable: decision
+        subtype: "comment",
+      commentable: decision
       )
     end
   end
@@ -306,6 +308,7 @@ class InvalidatesSearchIndexTest < ActiveSupport::TestCase
       collective: @collective,
       created_by: @user,
       title: "Session comment",
+      subtype: "comment",
       commentable: session
     )
 

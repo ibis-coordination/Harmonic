@@ -286,6 +286,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       updated_by: @user,
       text: "Test comment",
+      subtype: "comment",
       commentable: note
     )
     Collective.clear_thread_scope

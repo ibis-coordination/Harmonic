@@ -151,7 +151,7 @@ class ApiHelper
       create_attrs = {
         title: params[:title],
         text: params[:text],
-        subtype: params[:subtype] || "text",
+        subtype: commentable ? "comment" : (params[:subtype] || "text"),
         deadline: Time.now,
         created_by: current_user,
         commentable: commentable,

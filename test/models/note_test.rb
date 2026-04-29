@@ -332,6 +332,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "First reply",
+      subtype: "comment",
       commentable: note
     )
 
@@ -341,6 +342,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Second reply",
+      subtype: "comment",
       commentable: note
     )
 
@@ -371,6 +373,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Level 1 reply",
+      subtype: "comment",
       commentable: note
     )
 
@@ -381,6 +384,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Level 2 reply",
+      subtype: "comment",
       commentable: level1
     )
 
@@ -391,6 +395,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Level 3 reply",
+      subtype: "comment",
       commentable: level2
     )
 
@@ -401,6 +406,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Level 4 reply",
+      subtype: "comment",
       commentable: level3
     )
 
@@ -433,6 +439,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "First reply (oldest)",
+      subtype: "comment",
       commentable: note,
       created_at: 3.hours.ago
     )
@@ -443,6 +450,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Second reply (middle)",
+      subtype: "comment",
       commentable: note,
       created_at: 2.hours.ago
     )
@@ -453,6 +461,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Third reply (newest)",
+      subtype: "comment",
       commentable: note,
       created_at: 1.hour.ago
     )
@@ -491,6 +500,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Reply to note 1",
+      subtype: "comment",
       commentable: note1
     )
 
@@ -501,6 +511,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Reply to note 2",
+      subtype: "comment",
       commentable: note2
     )
 
@@ -535,6 +546,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Reply in tenant 1",
+      subtype: "comment",
       commentable: note
     )
 
@@ -546,6 +558,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Note in tenant 2",
+      subtype: "comment",
       commentable_id: note.id,
       commentable_type: "Note"
     )
@@ -599,6 +612,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "First comment",
+      subtype: "comment",
       commentable: note
     )
 
@@ -608,6 +622,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Second comment",
+      subtype: "comment",
       commentable: note
     )
 
@@ -641,6 +656,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Top level comment",
+      subtype: "comment",
       commentable: note
     )
 
@@ -651,6 +667,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Reply to top level",
+      subtype: "comment",
       commentable: top_level
     )
 
@@ -661,6 +678,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Nested reply",
+      subtype: "comment",
       commentable: reply1
     )
 
@@ -696,6 +714,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "First comment (oldest)",
+      subtype: "comment",
       commentable: note,
       created_at: 3.hours.ago
     )
@@ -706,6 +725,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Second comment (middle)",
+      subtype: "comment",
       commentable: note,
       created_at: 2.hours.ago
     )
@@ -716,6 +736,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Third comment (newest)",
+      subtype: "comment",
       commentable: note,
       created_at: 1.hour.ago
     )
@@ -809,7 +830,7 @@ class NoteTest < ActiveSupport::TestCase
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
 
-    Note::SUBTYPES.each do |subtype|
+    (Note::SUBTYPES - ["comment"]).each do |subtype|
       attrs = {
         tenant: tenant,
         collective: collective,
@@ -827,7 +848,7 @@ class NoteTest < ActiveSupport::TestCase
     end
   end
 
-  test "Note comment must be text subtype" do
+  test "Note comment rejects non-comment subtype" do
     tenant = create_tenant
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
@@ -851,7 +872,55 @@ class NoteTest < ActiveSupport::TestCase
     )
 
     assert_not comment.valid?
-    assert_includes comment.errors[:subtype], "must be text for comments"
+    assert_includes comment.errors[:subtype], "must be comment for comments"
+  end
+
+  test "Note comment must have comment subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    parent = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Parent note",
+    )
+
+    comment = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "This is a comment",
+      subtype: "comment",
+      commentable: parent,
+    )
+
+    assert comment.valid?
+  end
+
+  test "Non-comment note cannot have comment subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Not a comment",
+      subtype: "comment",
+    )
+
+    assert_not note.valid?
+    assert note.errors[:subtype].any?
+  end
+
+  test "comment subtype is valid" do
+    assert_includes Note::SUBTYPES, "comment"
   end
 
   # === Text validation tests ===

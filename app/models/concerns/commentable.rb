@@ -31,6 +31,7 @@ module Commentable
     comments.create!(
       text: text,
       title: title,
+      subtype: "comment",
       created_by: created_by,
       updated_by: created_by,
       tenant_id: tenant_id,

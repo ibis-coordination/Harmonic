@@ -200,6 +200,7 @@ class NotificationCollectivePrivacyTest < ActionDispatch::IntegrationTest
       created_by: @user_a,
       updated_by: @user_a,
       text: "SECRET DECISION INFO: Hey @user_b, what do you think about this private matter?",
+      subtype: "comment",
       commentable: decision
     )
 
@@ -244,6 +245,7 @@ class NotificationCollectivePrivacyTest < ActionDispatch::IntegrationTest
       created_by: @user_a,
       updated_by: @user_a,
       text: "SECRET COMMITMENT INFO: @user_b should join this confidential initiative!",
+      subtype: "comment",
       commentable: commitment
     )
 
@@ -288,6 +290,7 @@ class NotificationCollectivePrivacyTest < ActionDispatch::IntegrationTest
       created_by: @user_a,
       updated_by: @user_a,
       text: "PRIVATE COMMENT: @user_b, this is confidential information!",
+      subtype: "comment",
       commentable: parent_note
     )
 
@@ -831,6 +834,7 @@ class NotificationCollectivePrivacyTest < ActionDispatch::IntegrationTest
       created_by: @user_a,
       updated_by: @user_a,
       text: "Thanks for the update!",
+      subtype: "comment",
       commentable: agent_note,
     )
 

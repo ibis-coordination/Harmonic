@@ -145,6 +145,8 @@ class SearchQueryTest < ActiveSupport::TestCase
   end
 
   test "-subtype:comment excludes comments and includes regular notes" do
+    # Reindex the note with new indexer (stores "text" subtype)
+    SearchIndexer.reindex(@note)
     comment = @note.add_comment(text: "This is a comment", created_by: @user)
     SearchIndexer.reindex(comment)
 
@@ -154,12 +156,12 @@ class SearchQueryTest < ActiveSupport::TestCase
     )
 
     results = search.results
-    # Should include regular notes (subtype is NULL)
+    # Should include regular notes (subtype is "text")
     assert_includes results.pluck(:item_id), @note.id
     # Should exclude comments
     assert_not_includes results.pluck(:item_id), comment.id
-    # All results should have nil subtype
-    assert results.all? { |r| r.subtype.nil? }
+    # All results should have non-comment subtype
+    assert results.none? { |r| r.subtype == "comment" }
   end
 
   # Time window tests

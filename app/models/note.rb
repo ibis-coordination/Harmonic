@@ -13,7 +13,7 @@ class Note < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
-  SUBTYPES = %w[text reminder table].freeze
+  SUBTYPES = %w[text reminder table comment].freeze
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -36,7 +36,7 @@ class Note < ApplicationRecord
   validates :text, presence: true, unless: :is_table?
   validates :subtype, inclusion: { in: SUBTYPES }
   validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
-  validate :comments_must_be_text_subtype
+  validate :comments_must_be_comment_subtype
   validate :validate_table_data, if: :should_validate_table_data?
 
   after_create do
@@ -230,6 +230,11 @@ class Note < ApplicationRecord
   # Comment-related helper methods
   sig { returns(T::Boolean) }
   def is_comment?
+    subtype == "comment"
+  end
+
+  sig { returns(T::Boolean) }
+  def has_commentable?
     commentable_type.present? && commentable_id.present?
   end
 
@@ -308,9 +313,11 @@ class Note < ApplicationRecord
     NoteTableValidator.validate(table_data, errors)
   end
 
-  def comments_must_be_text_subtype
-    if is_comment? && !is_text?
-      errors.add(:subtype, "must be text for comments")
+  def comments_must_be_comment_subtype
+    if has_commentable? && subtype != "comment"
+      errors.add(:subtype, "must be comment for comments")
+    elsif !has_commentable? && subtype == "comment"
+      errors.add(:subtype, "cannot be comment for standalone notes")
     end
   end
 

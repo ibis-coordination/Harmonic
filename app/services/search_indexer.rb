@@ -155,9 +155,7 @@ class SearchIndexer
 
   sig { returns(T.nilable(String)) }
   def subtype
-    return "comment" if @item.is_a?(Note) && @item.is_comment?
-
-    nil
+    @item.subtype
   end
 
   sig { returns(T.nilable(String)) }

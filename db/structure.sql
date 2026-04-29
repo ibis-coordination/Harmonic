@@ -8933,6 +8933,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260429170109'),
 ('20260428175442'),
 ('20260428051604'),
 ('20260428024948'),
