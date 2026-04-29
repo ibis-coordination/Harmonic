@@ -1514,7 +1514,7 @@ class NoteTest < ActiveSupport::TestCase
     notification.notification_recipients.each(&:mark_delivered!)
 
     note.reminder_service.acknowledge!(user)
-    event2 = note.reminder_service.acknowledge!(user)
+    note.reminder_service.acknowledge!(user)
 
     # Should return the existing acknowledgment, not create a new one
     assert_equal 1, note.note_history_events.where(event_type: "reminder_acknowledged", user: user).count

@@ -107,6 +107,16 @@ You are a member of <%= user_collectives.count %> collective<%= user_collectives
 <% user_collectives.each do |collective| %>
 - [<%= collective.name %>](<%= collective.path %>)
 <% end -%>
+<% if @upcoming_reminders&.any? %>
+
+## Upcoming Reminders
+
+<% @upcoming_reminders.each do |note| %>
+- [<%= note.title %>](<%= note.path %>) — <%= time_ago_or_from_now(note.reminder_scheduled_for) %>
+<% end -%>
+
+[View all reminders](/notifications)
+<% end -%>
 <% else -%>
 ## Not Logged In
 

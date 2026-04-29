@@ -211,7 +211,7 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     nr = notification.notification_recipients.first
     nr.update!(scheduled_for: 1.minute.ago)
 
-    note = Note.create!(
+    Note.create!(
       tenant: @tenant,
       collective: second_collective,
       created_by: @user,

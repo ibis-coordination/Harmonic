@@ -196,12 +196,12 @@ export function parseDatetimeInTimezone(datetimeLocal: string, railsTimezone: st
   const tzPart = parts.find((p) => p.type === "timeZoneName")
   if (!tzPart) return localDate
 
-  // Parse offset like "GMT-7", "GMT+5:30", "GMT+0"
-  const offsetMatch = tzPart.value.match(/GMT([+-]?)(\d+)(?::(\d+))?/)
+  // Parse offset like "GMT-7", "GMT+5:30", "GMT+0", or bare "GMT" (= UTC)
+  const offsetMatch = tzPart.value.match(/GMT([+-]?)(\d+)?(?::(\d+))?/)
   if (!offsetMatch) return localDate
 
   const sign = offsetMatch[1] === "-" ? -1 : 1
-  const hours = parseInt(offsetMatch[2], 10)
+  const hours = parseInt(offsetMatch[2] || "0", 10)
   const minutes = parseInt(offsetMatch[3] || "0", 10)
   const targetOffsetMs = sign * (hours * 60 + minutes) * 60_000
 

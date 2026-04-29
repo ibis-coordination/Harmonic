@@ -54,8 +54,13 @@ describe("DatetimeInputController", () => {
   // --- Timezone autodetection ---
 
   it("autodetects browser timezone and sets the select value", async () => {
+    const OriginalDTF = Intl.DateTimeFormat
     vi.spyOn(Intl, "DateTimeFormat").mockImplementation(
-      () => ({ resolvedOptions: () => ({ timeZone: "America/New_York" }) }) as Intl.DateTimeFormat
+      function (...args: ConstructorParameters<typeof Intl.DateTimeFormat>) {
+        const instance = new OriginalDTF(...args)
+        instance.resolvedOptions = () => ({ ...new OriginalDTF().resolvedOptions(), timeZone: "America/New_York" })
+        return instance
+      } as unknown as typeof Intl.DateTimeFormat
     )
 
     renderInput()
@@ -66,8 +71,13 @@ describe("DatetimeInputController", () => {
   })
 
   it("leaves select unchanged for unknown IANA timezone", async () => {
+    const OriginalDTF = Intl.DateTimeFormat
     vi.spyOn(Intl, "DateTimeFormat").mockImplementation(
-      () => ({ resolvedOptions: () => ({ timeZone: "Mars/Olympus_Mons" }) }) as Intl.DateTimeFormat
+      function (...args: ConstructorParameters<typeof Intl.DateTimeFormat>) {
+        const instance = new OriginalDTF(...args)
+        instance.resolvedOptions = () => ({ ...new OriginalDTF().resolvedOptions(), timeZone: "Mars/Olympus_Mons" })
+        return instance
+      } as unknown as typeof Intl.DateTimeFormat
     )
 
     renderInput()
@@ -164,7 +174,8 @@ describe("DatetimeInputController", () => {
 
   it("updates countdown end-time attribute for future datetime", async () => {
     const future = new Date(Date.now() + 3 * 86_400_000)
-    renderInput({ value: future.toISOString().slice(0, 16) })
+    // Use only UTC timezone to avoid autodetection changing the selected timezone
+    renderInput({ value: future.toISOString().slice(0, 16), timezoneOptions: ["UTC"] })
     await waitForController()
 
     const input = document.querySelector("[data-datetime-input-target='datetimeInput']") as HTMLInputElement

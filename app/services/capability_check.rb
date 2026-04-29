@@ -82,6 +82,20 @@ module CapabilityCheck
     "unpin_commitment",
     "add_attachment",
     "remove_attachment",
+    # Reminder actions
+    "create_reminder_note",
+    "cancel_reminder",
+    # Table actions
+    "create_table_note",
+    "add_row",
+    "update_row",
+    "delete_row",
+    "add_table_column",
+    "remove_table_column",
+    "query_rows",
+    "summarize",
+    "update_table_description",
+    "batch_table_update",
     # Trustee grant actions
     "accept_trustee_grant",
     "decline_trustee_grant",

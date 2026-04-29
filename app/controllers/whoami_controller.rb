@@ -4,6 +4,15 @@ class WhoamiController < ApplicationController
   def index
     @page_title = "Who Am I?"
     @sidebar_mode = "minimal"
+    if current_user
+      @upcoming_reminders = Note
+        .tenant_scoped_only(Tenant.current_id)
+        .where(created_by: current_user, subtype: "reminder")
+        .where.not(reminder_notification_id: nil)
+        .where("reminder_scheduled_for > ?", Time.current)
+        .order(:reminder_scheduled_for)
+        .limit(5)
+    end
     respond_to do |format|
       format.html do
         render inline: page_html, layout: true
