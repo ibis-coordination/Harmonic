@@ -25,6 +25,7 @@
               value: @note.text,
               class: "pulse-form-textarea",
               rows: 8,
+              required: true,
               data: { mention_autocomplete_target: "input" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>
@@ -39,6 +40,7 @@
               value: @note.text,
               class: "pulse-form-textarea",
               rows: 4,
+              required: true,
               data: { mention_autocomplete_target: "input", note_subtype_target: "reminderTextInput" } %>
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>

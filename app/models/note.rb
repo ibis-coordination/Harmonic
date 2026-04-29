@@ -33,6 +33,7 @@ class Note < ApplicationRecord
   # validates :title, presence: true
   EDIT_ACCESS_OPTIONS = %w[members owner].freeze
 
+  validates :text, presence: true, unless: :is_table?
   validates :subtype, inclusion: { in: SUBTYPES }
   validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
   validate :comments_must_be_text_subtype
@@ -85,6 +86,16 @@ class Note < ApplicationRecord
   def reminder_delivered?
     nr = reminder_recipient
     nr.present? && nr.status == "delivered"
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_cancelled?
+    is_reminder? && reminder_notification_id.nil? && reminder_scheduled_for.present?
+  end
+
+  sig { returns(T::Boolean) }
+  def reminder_editable?
+    !is_reminder? || reminder_pending?
   end
 
   sig { returns(T.nilable(NotificationRecipient)) }

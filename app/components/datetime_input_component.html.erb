@@ -1,6 +1,7 @@
 <div data-controller="datetime-input"
      data-datetime-input-default-offset-value="<%= @default_offset %>"
-     data-datetime-input-require-future-value="<%= @require_future %>">
+     data-datetime-input-require-future-value="<%= @require_future %>"
+     <% if @utc_value %>data-datetime-input-utc-value-value="<%= @utc_value %>"<% end %>>
   <div style="display: flex; gap: 8px; flex-wrap: wrap;">
     <input type="datetime-local"
            name="<%= @field_name %>"

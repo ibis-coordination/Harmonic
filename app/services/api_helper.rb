@@ -2,6 +2,7 @@
 
 class ApiHelper
   extend T::Sig
+  include ParsesScheduledTime
 
   attr_reader :current_user, :current_collective, :current_tenant, :current_token,
               :current_representation_session, :current_resource_model,
@@ -256,6 +257,7 @@ class ApiHelper
   def update_note
     note = T.must(current_note)
     raise 'Unauthorized' unless note.user_can_edit?(current_user)
+    raise 'This reminder can no longer be edited' unless note.reminder_editable?
     note.title = model_params[:title] if model_params[:title].present?
     if model_params[:text].present? && !note.is_table?
       note.text = model_params[:text]
@@ -264,21 +266,31 @@ class ApiHelper
       note.edit_access = model_params[:edit_access]
     end
     note.deadline = model_params[:deadline] if model_params[:deadline].present?
+    # Cancel or reschedule pending reminder
+    cancel = params[:cancel_reminder] == "1" && note.is_reminder? && note.reminder_pending?
+    if !cancel && params[:scheduled_for].present?
+      scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
+      if scheduled_for && note.is_reminder? && note.reminder_pending?
+        note.reminder_scheduled_for = scheduled_for
+      end
+    end
     # Add files to note, but don't remove existing files
     if model_params[:files]
       model_params[:files].each do |file|
         T.unsafe(note).files.attach(file)
       end
     end
-    # note.deadline = Cycle.new_from_end_of_cycle_option(
-    #   end_of_cycle: params[:end_of_cycle],
-    #   tenant: current_tenant,
-    #   collective: current_collective,
-    # ).end_date
-    if note.changed? || T.unsafe(note).files_changed?
+    if note.changed? || cancel || T.unsafe(note).files_changed?
       note.updated_by = current_user
       ActiveRecord::Base.transaction do
         note.save!
+        if cancel
+          note.cancel_reminder!
+        elsif scheduled_for && note.is_reminder? && note.reminder_pending?
+          note.reminder_notification&.notification_recipients&.each do |nr|
+            nr.update!(scheduled_for: scheduled_for)
+          end
+        end
         if current_representation_session
           current_representation_session.record_event!(
             request: request,

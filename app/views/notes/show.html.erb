@@ -87,32 +87,27 @@
 
   <%= render 'shared/pulse_attachments', resource: @note %>
 
-  <% if @note.is_reminder? && @note.reminder_notification_id.present? %>
+  <% if @note.reminder_pending? %>
     <div class="pulse-resource-meta" style="margin-top: 12px;" data-action="countdown:completed->note#countdownCompleted">
-      <% if @note.reminder_pending? %>
-        <span style="color: var(--color-fg-muted);">
-          <%= octicon 'clock', height: 14 %>
-          <%= render CountdownComponent.new(datetime: @note.reminder_scheduled_for) %>
-        </span>
-        <% if @note.user_can_edit?(@current_user) %>
-          <%= button_to "#{@note.path}/actions/cancel_reminder", method: :post,
-              data: { turbo_confirm: "Cancel this reminder?" },
-              class: "pulse-action-btn-small pulse-action-btn-secondary", style: "margin-left: 8px;" do %>
-            <%= octicon 'x', height: 12 %> Cancel
-          <% end %>
-        <% end %>
-      <% elsif @note.reminder_delivered? %>
-        <% delivered_event = @note.note_history_events.find_by(event_type: "reminder") %>
-        <span style="color: var(--color-fg-muted);">
-          <%= octicon 'check-circle', height: 14 %>
-          Reminder delivered <% if delivered_event %><%= time_ago_in_words(delivered_event.happened_at) %> ago<% end %>
-        </span>
-      <% else %>
-        <span style="color: var(--color-fg-muted);">
-          <%= octicon 'clock', height: 14 %>
-          Reminder cancelled<% if @note.reminder_scheduled_for %> (was scheduled for <%= @note.reminder_scheduled_for.strftime("%b %d, %Y at %I:%M %p %Z") %>)<% end %>
-        </span>
-      <% end %>
+      <span style="color: var(--color-fg-muted);">
+        <%= octicon 'clock', height: 14 %>
+        <%= render CountdownComponent.new(datetime: @note.reminder_scheduled_for) %>
+      </span>
+    </div>
+  <% elsif @note.reminder_delivered? %>
+    <div class="pulse-resource-meta" style="margin-top: 12px;">
+      <% delivered_event = @note.note_history_events.find_by(event_type: "reminder") %>
+      <span style="color: var(--color-fg-muted);">
+        <%= octicon 'check-circle', height: 14 %>
+        Reminder delivered <% if delivered_event %><%= time_ago_in_words(delivered_event.happened_at) %> ago<% end %>
+      </span>
+    </div>
+  <% elsif @note.reminder_cancelled? %>
+    <div class="pulse-resource-meta" style="margin-top: 12px;">
+      <span style="color: var(--color-fg-muted);">
+        <%= octicon 'x-circle', height: 14 %>
+        Reminder cancelled by <%= link_to @note.updated_by.display_name, @note.updated_by.path %> <%= time_ago_in_words(@note.updated_at) %> ago
+      </span>
     </div>
   <% end %>
 

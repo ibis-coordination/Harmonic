@@ -6,6 +6,7 @@ export default class DatetimeInputController extends Controller {
   static values = {
     defaultOffset: { type: String, default: "7d" },
     requireFuture: { type: Boolean, default: true },
+    utcValue: { type: String, default: "" },
   }
 
   declare datetimeInputTarget: HTMLInputElement
@@ -18,9 +19,11 @@ export default class DatetimeInputController extends Controller {
 
   declare defaultOffsetValue: string
   declare requireFutureValue: boolean
+  declare utcValueValue: string
 
   connect() {
     this.autodetectTimezone()
+    this.convertUtcToLocal()
     this.prefillDefault()
     this.setMinAttribute()
     this.updateCountdown()
@@ -65,6 +68,15 @@ export default class DatetimeInputController extends Controller {
     } catch {
       // Intl API not available — leave at server default
     }
+  }
+
+  private convertUtcToLocal() {
+    if (!this.utcValueValue) return
+
+    const utcDate = new Date(this.utcValueValue)
+    if (isNaN(utcDate.getTime())) return
+
+    this.datetimeInputTarget.value = this.formatDatetimeLocal(utcDate)
   }
 
   private prefillDefault() {

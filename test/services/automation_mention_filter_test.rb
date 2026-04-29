@@ -208,7 +208,8 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
   end
 
   test "handles subject with empty text" do
-    note = create_note(text: "")
+    note = create_note(text: "temp")
+    note.update_column(:text, "")
     event = create_event_for_note(note)
 
     assert_not AutomationMentionFilter.matches?(event, @ai_agent, "self")

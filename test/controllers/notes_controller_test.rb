@@ -880,6 +880,186 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "data-controller=\"countdown\""
     assert_includes response.body, "countdown:completed->note#countdownCompleted"
+    # Cancel button should NOT be on the show page
+    refute_includes response.body, "cancel_reminder"
+  end
+
+  test "edit page shows cancel reminder checkbox for pending reminders" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
+
+    assert_response :success
+    assert_includes response.body, "cancel_reminder"
+    assert_includes response.body, 'type="checkbox"'
+  end
+
+  test "show page displays cancellation info for cancelled reminders" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note.cancel_reminder!
+    note.update!(updated_by: @user)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_includes response.body, "cancelled"
+    assert_includes response.body, @user.display_name
+  end
+
+  test "edit page for delivered reminder shows delete but no edit form" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
+    assert_response :success
+    assert_includes response.body, "can no longer be edited"
+    assert_includes response.body, "delete_note"
+    refute_includes response.body, "Save Note"
+  end
+
+  test "edit page for cancelled reminder shows delete but no edit form" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note.cancel_reminder!
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
+    assert_response :success
+    assert_includes response.body, "can no longer be edited"
+    assert_includes response.body, "delete_note"
+    refute_includes response.body, "Save Note"
+  end
+
+  test "show page still shows edit button for delivered reminder notes" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_includes response.body, "/edit"
+  end
+
+  test "updating with cancel_reminder checked cancels the reminder" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit",
+      params: { text: "Reminder content", cancel_reminder: "1" }
+
+    assert_response :redirect
+    note.reload
+    assert_nil note.reminder_notification_id
+    assert_not note.reminder_pending?
   end
 
   test "cancel_reminder action cancels a pending reminder" do
@@ -1282,6 +1462,129 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/acknowledge.html"
 
     assert_response :success
+  end
+
+  # === Empty text validation tests ===
+
+  test "creating a text note with empty text re-renders form" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note",
+        params: { text: "", subtype: "text" }
+    end
+  end
+
+  test "creating a reminder note with empty text re-renders form" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference "Note.count" do
+      post "/collectives/#{@collective.handle}/note",
+        params: {
+          text: "",
+          subtype: "reminder",
+          scheduled_for: 1.day.from_now.strftime("%Y-%m-%dT%H:%M"),
+          timezone: "UTC",
+        }
+    end
+  end
+
+  # === Edit Reminder Note Tests ===
+
+  test "edit page shows reminder fields for pending reminder notes" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
+
+    assert_response :success
+    assert_includes response.body, "datetime-local"
+    assert_includes response.body, "scheduled_for"
+    assert_includes response.body, "@mentioned"
+  end
+
+  test "edit page pre-fills scheduled time as ISO 8601 UTC for JS conversion" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    scheduled_time = 2.hours.from_now.in_time_zone("UTC")
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: scheduled_time,
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: scheduled_time,
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit"
+
+    assert_response :success
+    # The datetime value should be passed as a UTC ISO 8601 data attribute
+    # so that JS can convert it to the browser's local timezone
+    assert_includes response.body, scheduled_time.iso8601
+  end
+
+  test "updating a pending reminder reschedules the reminder" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    new_time = 2.days.from_now.in_time_zone("UTC")
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit",
+      params: {
+        text: "Updated reminder content",
+        scheduled_for: new_time.strftime("%Y-%m-%dT%H:%M"),
+        timezone: "UTC",
+      }
+
+    assert_response :redirect
+    note.reload
+    assert_equal "Updated reminder content", note.text
+    assert_in_delta new_time, note.reminder_scheduled_for, 1.minute
+    nr = note.reminder_notification.notification_recipients.first
+    assert_in_delta new_time, nr.scheduled_for, 1.minute
   end
 
   test "creating a reminder note with timezone parses correctly" do

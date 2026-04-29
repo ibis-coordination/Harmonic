@@ -11,6 +11,7 @@ class DatetimeInputComponent < ViewComponent::Base
       default_offset: String,
       require_future: T::Boolean,
       default_timezone: T.nilable(String),
+      utc_value: T.nilable(String),
     ).void
   end
   def initialize(
@@ -19,7 +20,8 @@ class DatetimeInputComponent < ViewComponent::Base
     default_value: nil,
     default_offset: "7d",
     require_future: true,
-    default_timezone: nil
+    default_timezone: nil,
+    utc_value: nil
   )
     super()
     @field_name = field_name
@@ -28,5 +30,6 @@ class DatetimeInputComponent < ViewComponent::Base
     @default_offset = default_offset
     @require_future = require_future
     @default_timezone = default_timezone || "UTC"
+    @utc_value = utc_value
   end
 end

@@ -854,6 +854,78 @@ class NoteTest < ActiveSupport::TestCase
     assert_includes comment.errors[:subtype], "must be text for comments"
   end
 
+  # === Text validation tests ===
+
+  test "Note rejects nil text" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: nil,
+    )
+
+    assert_not note.valid?
+    assert note.errors[:text].any?
+  end
+
+  test "Note rejects empty string text" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "",
+    )
+
+    assert_not note.valid?
+    assert note.errors[:text].any?
+  end
+
+  test "Note rejects whitespace-only text" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "   \n  ",
+    )
+
+    assert_not note.valid?
+    assert note.errors[:text].any?
+  end
+
+  test "Note allows blank text for table subtype" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      subtype: "table",
+      title: "Test table",
+      text: "",
+      table_data: { "columns" => [{ "name" => "Col", "type" => "text" }], "rows" => [] },
+    )
+
+    assert note.valid?
+  end
+
   test "Note rejects invalid subtype" do
     tenant = create_tenant
     user = create_user

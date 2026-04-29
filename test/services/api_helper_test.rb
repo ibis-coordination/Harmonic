@@ -680,6 +680,105 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert_equal @user, event.user
   end
 
+  test "update_note reschedules pending reminder when scheduled_for provided" do
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    new_time = 3.days.from_now.in_time_zone("UTC")
+    update_params = { text: "Updated text", scheduled_for: new_time.strftime("%Y-%m-%dT%H:%M"), timezone: "UTC" }
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_note: note,
+      model_params: update_params,
+      params: update_params,
+    )
+
+    result = helper.update_note
+    assert_equal "Updated text", result.text
+    assert_in_delta new_time, result.reminder_scheduled_for, 1.minute
+    nr = result.reminder_notification.notification_recipients.first
+    assert_in_delta new_time, nr.scheduled_for, 1.minute
+  end
+
+  test "update_note rejects updates to delivered reminders" do
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    update_params = { text: "Trying to edit after delivery" }
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_note: note,
+      model_params: update_params,
+      params: update_params,
+    )
+
+    assert_raises(RuntimeError, "This reminder can no longer be edited") do
+      helper.update_note
+    end
+  end
+
+  test "update_note ignores scheduled_for for non-reminder notes" do
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Regular note",
+    )
+
+    update_params = { text: "Updated text", scheduled_for: 1.day.from_now.strftime("%Y-%m-%dT%H:%M"), timezone: "UTC" }
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_note: note,
+      model_params: update_params,
+      params: update_params,
+    )
+
+    result = helper.update_note
+    assert_equal "Updated text", result.text
+    assert_nil result.reminder_scheduled_for
+  end
+
   test "create_reminder_note destroys note on scheduling failure" do
     helper = ApiHelper.new(
       current_user: @user,
