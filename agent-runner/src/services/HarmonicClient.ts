@@ -25,6 +25,7 @@ import { RailsHttp } from "./RailsHttp.js";
 export interface NavigateResult {
   readonly content: string;
   readonly availableActions: readonly string[];
+  readonly resolvedPath: string;
 }
 
 export interface ActionResult {
@@ -117,25 +118,46 @@ export const HarmonicClientLive = Layer.effect(
     const navigate: HarmonicClientService["navigate"] = (path, token, subdomain) =>
       Effect.tryPromise({
         try: async () => {
-          const response = await railsHttp.request({
-            method: "GET",
-            subdomain,
-            path,
-            headers: {
-              "X-Forwarded-Proto": "https",
-              "Accept": "text/markdown",
-              "Authorization": `Bearer ${token}`,
-            },
-            timeoutMs: 30_000,
-          });
+          let currentPath = path;
+          const maxRedirects = 5;
 
-          const content = await response.text();
-          if (response.statusCode < 200 || response.statusCode >= 300) {
-            throw new Error(`Navigate to ${path} failed: HTTP ${response.statusCode} - ${content.slice(0, 500)}`);
+          for (let i = 0; i <= maxRedirects; i++) {
+            const response = await railsHttp.request({
+              method: "GET",
+              subdomain,
+              path: currentPath,
+              headers: {
+                "X-Forwarded-Proto": "https",
+                "Accept": "text/markdown",
+                "Authorization": `Bearer ${token}`,
+              },
+              timeoutMs: 30_000,
+            });
+
+            // Follow redirects (3xx with Location header)
+            if (response.statusCode >= 300 && response.statusCode < 400) {
+              const location = response.headers["location"];
+              if (typeof location === "string") {
+                // Drain the redirect response body to release the socket
+                await response.text();
+                currentPath = location.startsWith("http")
+                  ? new URL(location).pathname
+                  : location;
+                continue;
+              }
+              // 3xx without Location — fall through to error handling
+            }
+
+            const content = await response.text();
+            if (response.statusCode < 200 || response.statusCode >= 300) {
+              throw new Error(`Navigate to ${currentPath} failed: HTTP ${response.statusCode} - ${content.slice(0, 500)}`);
+            }
+
+            const availableActions = parseAvailableActions(content);
+            return { content, availableActions, resolvedPath: currentPath };
           }
-          const availableActions = parseAvailableActions(content);
 
-          return { content, availableActions };
+          throw new Error(`Navigate to ${path} failed: too many redirects`);
         },
         catch: (error) =>
           new HarmonicApiError({

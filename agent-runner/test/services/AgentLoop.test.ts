@@ -7,7 +7,7 @@ import { HarmonicClient } from "../../src/services/HarmonicClient.js";
 import { TaskReporter } from "../../src/services/TaskReporter.js";
 import { Config } from "../../src/config/Config.js";
 import { LLMError, HarmonicApiError } from "../../src/errors/Errors.js";
-import type { TaskPayload } from "../../src/core/PromptBuilder.js";
+import type { Message, TaskPayload } from "../../src/core/PromptBuilder.js";
 import type { StepRecord } from "../../src/core/StepBuilder.js";
 import { createCipheriv, hkdfSync } from "node:crypto";
 
@@ -15,14 +15,14 @@ import { createCipheriv, hkdfSync } from "node:crypto";
 
 const TEST_SECRET = "test-secret";
 const HKDF_INFO = "agent-runner-token-encryption";
-const PLAINTEXT_TOKEN = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+const TEST_BEARER_VALUE = "test-value-not-a-real-token-abc123";
 
 function encryptTestToken(): string {
   const key = Buffer.from(hkdfSync("sha256", TEST_SECRET, "", HKDF_INFO, 32));
   const iv = Buffer.alloc(12, 1);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   cipher.setAAD(Buffer.alloc(0));
-  const encrypted = Buffer.concat([cipher.update(PLAINTEXT_TOKEN, "utf8"), cipher.final()]);
+  const encrypted = Buffer.concat([cipher.update(TEST_BEARER_VALUE, "utf8"), cipher.final()]);
   const authTag = cipher.getAuthTag();
   return Buffer.concat([iv, authTag, encrypted]).toString("base64");
 }
@@ -83,8 +83,10 @@ interface MockState {
   scratchpadContent: string | null;
   navigatePaths: string[];
   executeActions: string[];
+  executeActionPaths: string[];
   llmCallCount: number;
   cancellationStatus: string;
+  llmMessages: Message[][];
 }
 
 function createMockState(): MockState {
@@ -99,13 +101,15 @@ function createMockState(): MockState {
     scratchpadContent: null,
     navigatePaths: [],
     executeActions: [],
+    executeActionPaths: [],
     llmCallCount: 0,
     cancellationStatus: "running",
+    llmMessages: [],
   };
 }
 
 interface MockOptions {
-  readonly navigateResults?: Record<string, { content: string; availableActions: readonly string[] }>;
+  readonly navigateResults?: Record<string, { content: string; availableActions: readonly string[]; resolvedPath?: string }>;
   readonly executeResults?: Record<string, { content: string; success: boolean }>;
   readonly navigateErrors?: Record<string, string>;  // path → error message
   readonly llmErrorOnCall?: number;  // fail on the Nth LLM call (0-indexed)
@@ -133,7 +137,8 @@ function buildTestLayers(
 
   let llmCallIndex = 0;
   const LLMClientTest = Layer.succeed(LLMClient, {
-    chat: () => {
+    chat: (messages: readonly Message[]) => {
+      state.llmMessages.push([...messages]);
       const callIndex = llmCallIndex;
       state.llmCallCount++;
       llmCallIndex++;
@@ -154,10 +159,12 @@ function buildTestLayers(
         return Effect.fail(new HarmonicApiError({ message: navErrors[path], path }));
       }
       const result = (options?.navigateResults ?? navigateResults)?.[path] ?? defaultNavigate;
-      return Effect.succeed(result);
+      const resolvedPath: string = (result as { resolvedPath?: string }).resolvedPath ?? path;
+      return Effect.succeed({ content: result.content, availableActions: result.availableActions, resolvedPath });
     },
-    executeAction: (_path: string, action: string, _params: Record<string, unknown> | undefined) => {
+    executeAction: (path: string, action: string, _params: Record<string, unknown> | undefined) => {
       state.executeActions.push(action);
+      state.executeActionPaths.push(path);
       const result = (options?.executeResults ?? executeResults)?.[action] ?? { content: "Action completed", success: true };
       return Effect.succeed(result);
     },
@@ -769,6 +776,92 @@ describe("AgentLoop", () => {
     const brokenNav = navSteps.find((s) => s.detail["path"] === "/broken-page");
     expect(brokenNav).toBeDefined();
     expect(brokenNav?.detail["error"]).toContain("Connection refused");
+  });
+
+  it("Bug 1b: navigation error message is visible to the LLM in tool results", async () => {
+    const state = createMockState();
+    await runWithMocks(
+      makeTask(),
+      state,
+      [
+        // LLM says navigate to a path that will fail
+        makeLLMResponse({
+          content: null,
+          toolCalls: [makeNavigateToolCall("/broken-page")],
+          finishReason: "tool_calls",
+        }),
+        // LLM sees error and decides to stop
+        makeLLMResponse({ content: "Could not reach the page", toolCalls: [], finishReason: "stop" }),
+        // Scratchpad
+        makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+      ],
+      undefined,
+      undefined,
+      { navigateErrors: { "/broken-page": "Connection refused" } },
+    );
+
+    // The LLM's second call should include a tool result with the error message
+    // (call 0 = whoami, call 1 = after navigate error, call 2 = after done, call 3 = scratchpad)
+    expect(state.llmMessages.length).toBeGreaterThanOrEqual(2);
+    const messagesAfterNav = state.llmMessages[1]!;
+    const toolResultMsg = messagesAfterNav.find(
+      (m) => m.role === "tool" && typeof m.content === "string" && m.content.includes("Error"),
+    );
+    expect(toolResultMsg).toBeDefined();
+    expect(toolResultMsg!.content).toContain("Connection refused");
+    expect(toolResultMsg!.content).toContain("/broken-page");
+  });
+
+  it("Bug 1c: executeAction uses resolved path after redirect", async () => {
+    const state = createMockState();
+    const WORKSPACE_CONTENT = "---\nactions:\n  - name: create_note\n---\n# Workspace";
+
+    await runWithMocks(
+      makeTask(),
+      state,
+      [
+        // LLM navigates to /workspace (which "redirects" to /workspace/abc123)
+        makeLLMResponse({
+          content: null,
+          toolCalls: [makeNavigateToolCall("/workspace")],
+          finishReason: "tool_calls",
+        }),
+        // LLM executes create_note (should POST to /workspace/abc123, not /workspace)
+        makeLLMResponse({
+          content: null,
+          toolCalls: [makeExecuteToolCall("create_note", { text: "hello" })],
+          finishReason: "tool_calls",
+        }),
+        // LLM done
+        makeLLMResponse({ content: "Created note", toolCalls: [], finishReason: "stop" }),
+        // Scratchpad
+        makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+      ],
+      undefined,
+      undefined,
+      {
+        navigateResults: {
+          "/workspace": {
+            content: WORKSPACE_CONTENT,
+            availableActions: ["create_note"],
+            resolvedPath: "/workspace/abc123",
+          },
+        },
+      },
+    );
+
+    expect(state.completeCalled).toBe(true);
+    expect(state.executeActions).toContain("create_note");
+
+    // executeAction should have been called with the resolved path, not the original
+    expect(state.executeActionPaths).toContain("/workspace/abc123");
+    expect(state.executeActionPaths).not.toContain("/workspace");
+
+    // The navigate step should record the resolved path
+    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const workspaceNav = navSteps.find((s) => s.detail["path"] === "/workspace");
+    expect(workspaceNav).toBeDefined();
+    expect(workspaceNav!.detail["resolved_path"]).toBe("/workspace/abc123");
   });
 
   it("Bug 2: LLM error records think step with llm_error and fails gracefully", async () => {

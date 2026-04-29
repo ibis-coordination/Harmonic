@@ -39,6 +39,7 @@ import { Config } from "../config/Config.js";
 
 export interface RailsResponse {
   readonly statusCode: number;
+  readonly headers: Record<string, string | string[] | undefined>;
   readonly text: () => Promise<string>;
 }
 
@@ -89,6 +90,7 @@ export const RailsHttpLive = Layer.effect(
       const res: Dispatcher.ResponseData = await railsClient.request(requestOpts);
       return {
         statusCode: res.statusCode,
+        headers: res.headers as Record<string, string | string[] | undefined>,
         text: () => res.body.text(),
       };
     };
