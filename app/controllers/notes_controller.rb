@@ -151,7 +151,7 @@ class NotesController < ApplicationController
     return render "shared/403", status: :forbidden unless @note.user_can_edit?(@current_user)
 
     # Build params that api_helper.update_note expects (it reads model_params)
-    update_params = (model_params.respond_to?(:to_unsafe_h) ? model_params.to_unsafe_h : model_params.to_h).symbolize_keys
+    update_params = model_params.permit(:title, :text, :edit_access, :deadline, files: []).to_h.symbolize_keys
     update_params[:edit_access] = params[:edit_access] if params[:edit_access].present?
     @note = api_helper(params: update_params).update_note
 
