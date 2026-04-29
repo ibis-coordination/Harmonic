@@ -12,6 +12,8 @@ describe("CountdownController", () => {
   })
 
   afterEach(() => {
+    application.stop()
+    document.body.innerHTML = ""
     vi.useRealTimers()
   })
 
@@ -73,6 +75,59 @@ describe("CountdownController", () => {
 
     await vi.advanceTimersByTimeAsync(0)
 
+    const timeElement = document.querySelector("[data-countdown-target='time']") as HTMLElement
+    expect(timeElement?.innerText).toBe("0")
+  })
+
+  it("does not dispatch completed when countdown is already expired on load", async () => {
+    vi.setSystemTime(new Date("2024-01-01T12:00:00Z"))
+
+    // End time is in the past — page loaded after expiry
+    const endTime = new Date("2024-01-01T11:00:00Z").toISOString()
+
+    document.body.innerHTML = `
+      <div data-controller="countdown"
+           data-countdown-end-time-value="${endTime}"
+           data-countdown-base-unit-value="seconds">
+        <span data-countdown-target="time"></span>
+      </div>
+    `
+
+    const completedHandler = vi.fn()
+    document.querySelector("[data-controller='countdown']")!
+      .addEventListener("countdown:completed", completedHandler)
+
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(completedHandler).not.toHaveBeenCalled()
+  })
+
+  it("dispatches completed when countdown reaches zero during page lifetime", async () => {
+    vi.setSystemTime(new Date("2024-01-01T12:00:00Z"))
+
+    // End time is 3 seconds from now
+    const endTime = new Date("2024-01-01T12:00:03Z").toISOString()
+
+    document.body.innerHTML = `
+      <div data-controller="countdown"
+           data-countdown-end-time-value="${endTime}"
+           data-countdown-base-unit-value="seconds">
+        <span data-countdown-target="time"></span>
+      </div>
+    `
+
+    const completedHandler = vi.fn()
+    document.querySelector("[data-controller='countdown']")!
+      .addEventListener("countdown:completed", completedHandler)
+
+    // Connect controller
+    await vi.advanceTimersByTimeAsync(0)
+    expect(completedHandler).not.toHaveBeenCalled()
+
+    // Tick past expiry
+    vi.advanceTimersByTime(4000)
+
+    expect(completedHandler).toHaveBeenCalledTimes(1)
     const timeElement = document.querySelector("[data-countdown-target='time']") as HTMLElement
     expect(timeElement?.innerText).toBe("0")
   })

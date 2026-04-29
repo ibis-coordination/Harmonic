@@ -262,10 +262,17 @@ class NotesController < ApplicationController
     @note = current_note
     @page_title = "Actions | #{@note.title}"
     route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/n/:note_id")
+    context = { collective: @current_collective, resource: @note }
     actions = (route_info&.dig(:actions) || []).select do |action|
-      ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @note })
+      ActionAuthorization.authorized?(action[:name], @current_user, context)
     end
-    render_actions_index({ actions: actions })
+    # Include conditional actions whose conditions are met
+    conditional_actions = (route_info&.dig(:conditional_actions) || []).select do |ca|
+      condition = ca[:condition]
+      condition.respond_to?(:call) && condition.call(context) &&
+        ActionAuthorization.authorized?(ca[:name], @current_user, context)
+    end
+    render_actions_index({ actions: actions + conditional_actions })
   end
 
   def settings
@@ -500,6 +507,41 @@ class NotesController < ApplicationController
   end
 
   # Reminder note actions
+
+  def describe_acknowledge_reminder
+    render_action_description(ActionsHelper.action_description("acknowledge_reminder", resource: current_note))
+  end
+
+  def acknowledge_reminder
+    note = current_note
+    return render_action_error({ action_name: "acknowledge_reminder", resource: note, error: "Not a reminder note" }) unless note&.is_reminder?
+    return render_action_error({ action_name: "acknowledge_reminder", resource: note, error: "Reminder has not fired yet" }) unless note.reminder_delivered?
+
+    api_helper.acknowledge_reminder
+    respond_to do |format|
+      format.json { render json: { success: true, reminder_acknowledgments: current_note.reminder_acknowledgments }, status: :ok }
+      format.html { render_action_success({ action_name: "acknowledge_reminder", resource: current_note, result: "Reminder acknowledged." }) }
+      format.md { render_action_success({ action_name: "acknowledge_reminder", resource: current_note, result: "Reminder acknowledged." }) }
+    end
+  rescue ActiveRecord::RecordInvalid => e
+    respond_to do |format|
+      format.json { render json: { success: false, error: e.message }, status: :unprocessable_entity }
+      format.html { render_action_error({ action_name: "acknowledge_reminder", resource: current_note, error: e.message }) }
+      format.md { render_action_error({ action_name: "acknowledge_reminder", resource: current_note, error: e.message }) }
+    end
+  end
+
+  def acknowledge_and_return_partial
+    return render message: "You must be logged in.", status: :unauthorized unless current_user
+
+    @note = current_note
+    return render plain: "Not a reminder note", status: :unprocessable_entity unless @note&.is_reminder?
+    return render plain: "Reminder has not fired yet", status: :unprocessable_entity unless @note.reminder_delivered?
+
+    @note_reader = NoteReader.new(note: @note, user: current_user)
+    api_helper.acknowledge_reminder
+    render partial: "confirm"
+  end
 
   def describe_cancel_reminder
     render_action_description(ActionsHelper.action_description("cancel_reminder", resource: current_note))

@@ -108,6 +108,28 @@ class Note < ApplicationRecord
     end
   end
 
+  sig { params(user: User).returns(NoteHistoryEvent) }
+  def acknowledge_reminder!(user)
+    existing = NoteHistoryEvent.find_by(
+      note: self,
+      user: user,
+      event_type: "reminder_acknowledged"
+    )
+    return existing if existing && T.must(existing.happened_at) > T.must(updated_at)
+
+    NoteHistoryEvent.create!(
+      note: self,
+      user: user,
+      event_type: "reminder_acknowledged",
+      happened_at: Time.current
+    )
+  end
+
+  sig { returns(Integer) }
+  def reminder_acknowledgments
+    note_history_events.where(event_type: "reminder_acknowledged").select(:user_id).distinct.count
+  end
+
   sig { params(user: User).returns(T::Boolean) }
   def user_can_edit_content?(user)
     return user_can_edit?(user) if edit_access == "owner"
@@ -136,17 +158,17 @@ class Note < ApplicationRecord
 
   sig { returns(String) }
   def metric_name
-    "readers"
+    is_reminder? && reminder_delivered? ? "acknowledgments" : "readers"
   end
 
   sig { returns(Integer) }
   def metric_value
-    confirmed_reads
+    is_reminder? && reminder_delivered? ? reminder_acknowledgments : confirmed_reads
   end
 
   sig { returns(String) }
   def octicon_metric_icon_name
-    "book"
+    is_reminder? && reminder_delivered? ? "bell" : "book"
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }

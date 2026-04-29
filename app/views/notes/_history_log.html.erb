@@ -1,7 +1,10 @@
-<%# Confirmed Readers Section %>
-<%= render 'shared/pulse_accordion', title: 'Confirmed Readers', count: @note.confirmed_reads do %>
+<% is_delivered_reminder = @note.is_reminder? && @note.reminder_delivered? %>
+<% accordion_title = is_delivered_reminder ? 'Acknowledgments' : 'Confirmed Readers' %>
+<% accordion_count = is_delivered_reminder ? @note.reminder_acknowledgments : @note.confirmed_reads %>
+<% event_type_filter = is_delivered_reminder ? 'reminder_acknowledged' : 'read_confirmation' %>
+<%= render 'shared/pulse_accordion', title: accordion_title, count: accordion_count do %>
   <div class="pulse-readers-list">
-    <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| %>
+    <% @note.history_events.where(event_type: event_type_filter).includes(:user).order(happened_at: :desc).each do |event| %>
       <div class="pulse-reader-item">
         <div class="pulse-author-avatar">
           <% if event.user.image.attached? %>

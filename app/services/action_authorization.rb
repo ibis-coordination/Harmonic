@@ -131,7 +131,7 @@ module ActionAuthorization
   # Actions that require interaction with a resource author and should
   # be denied when a block exists between the user and the author.
   BLOCK_CHECKED_ACTIONS = T.let(%w[
-    confirm_read add_comment
+    confirm_read acknowledge_reminder add_comment
     vote add_options
     join_commitment
   ].freeze, T::Array[String])

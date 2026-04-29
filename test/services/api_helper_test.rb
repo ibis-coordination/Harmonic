@@ -644,6 +644,42 @@ class ApiHelperTest < ActiveSupport::TestCase
     refute_includes recipient_user_ids, non_member.id
   end
 
+  test "acknowledge_reminder creates a reminder_acknowledged event" do
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_resource: note,
+      params: {},
+    )
+
+    event = helper.acknowledge_reminder
+    assert event.persisted?
+    assert_equal "reminder_acknowledged", event.event_type
+    assert_equal @user, event.user
+  end
+
   test "create_reminder_note destroys note on scheduling failure" do
     helper = ApiHelper.new(
       current_user: @user,

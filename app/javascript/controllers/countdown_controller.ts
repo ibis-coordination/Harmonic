@@ -13,6 +13,8 @@ export default class CountdownController extends Controller {
   declare baseUnitValue: string
 
   private interval: ReturnType<typeof setInterval> | null = null
+  private wasPositive = false
+  private completed = false
 
   connect(): void {
     this.startCountdown()
@@ -27,6 +29,7 @@ export default class CountdownController extends Controller {
   }
 
   updateCountdown(): void {
+    if (this.completed) return
     const now = new Date()
     const parsed = Date.parse(this.endTimeValue)
     if (isNaN(parsed)) {
@@ -34,6 +37,10 @@ export default class CountdownController extends Controller {
       return
     }
     const distance = parsed - now.getTime()
+
+    if (distance > 0) {
+      this.wasPositive = true
+    }
 
     const oneSecond = 1000
     const oneMinute = oneSecond * 60
@@ -62,8 +69,13 @@ export default class CountdownController extends Controller {
     if (distance < 0) {
       if (this.interval) {
         clearInterval(this.interval)
+        this.interval = null
       }
       this.timeTarget.innerText = "0"
+      this.completed = true
+      if (this.wasPositive) {
+        this.dispatch("completed")
+      }
     }
   }
 

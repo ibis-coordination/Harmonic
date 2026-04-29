@@ -431,6 +431,17 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("add_options", @user, context)
   end
 
+  test "acknowledge_reminder denied when block exists" do
+    author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+    note = create_note(text: "Reminder note", created_by: author)
+    UserBlock.create!(blocker: @user, blocked: author, tenant: @tenant)
+
+    context = { collective: @collective, resource: note }
+    refute ActionAuthorization.authorized?("acknowledge_reminder", @user, context)
+  end
+
   test "create_note NOT denied when block exists (creation actions unaffected)" do
     author = create_user(email: "author-#{SecureRandom.hex(4)}@example.com", name: "Author")
     @tenant.add_user!(author)

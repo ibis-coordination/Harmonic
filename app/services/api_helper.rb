@@ -520,6 +520,27 @@ class ApiHelper
     T.must(history_event)
   end
 
+  sig { returns(NoteHistoryEvent) }
+  def acknowledge_reminder
+    note = current_resource
+    raise "Expected resource model Note, not #{note.class}" unless note.is_a?(Note)
+    history_event = T.let(nil, T.nilable(NoteHistoryEvent))
+    ActiveRecord::Base.transaction do
+      check_not_blocked_for_comment!(note) if note.created_by
+      history_event = note.acknowledge_reminder!(current_user)
+      track_task_run_resource(history_event, action_type: "acknowledge")
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "acknowledge_reminder",
+          resource: history_event,
+          context_resource: note
+        )
+      end
+    end
+    T.must(history_event)
+  end
+
   # Backwards-compatible method for REST API v1 (creates single option from params[:title])
   sig { returns(Option) }
   def create_decision_option

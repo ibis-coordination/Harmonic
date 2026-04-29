@@ -88,11 +88,11 @@
   <%= render 'shared/pulse_attachments', resource: @note %>
 
   <% if @note.is_reminder? && @note.reminder_notification_id.present? %>
-    <div class="pulse-resource-meta" style="margin-top: 12px;">
+    <div class="pulse-resource-meta" style="margin-top: 12px;" data-action="countdown:completed->note#countdownCompleted">
       <% if @note.reminder_pending? %>
         <span style="color: var(--color-fg-muted);">
           <%= octicon 'clock', height: 14 %>
-          Reminder scheduled for <%= @note.reminder_scheduled_for&.strftime("%b %d, %Y at %I:%M %p %Z") %>
+          <%= render CountdownComponent.new(datetime: @note.reminder_scheduled_for) %>
         </span>
         <% if @note.user_can_edit?(@current_user) %>
           <%= button_to "#{@note.path}/actions/cancel_reminder", method: :post,

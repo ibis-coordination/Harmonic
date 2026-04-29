@@ -426,6 +426,8 @@ Rails.application.routes.draw do
       # Reminder note actions
       get '/actions/cancel_reminder' => 'notes#describe_cancel_reminder'
       post '/actions/cancel_reminder' => 'notes#execute_cancel_reminder'
+      get '/actions/acknowledge_reminder' => 'notes#describe_acknowledge_reminder'
+      post '/actions/acknowledge_reminder' => 'notes#acknowledge_reminder'
       # Table note actions
       get '/actions/add_row' => 'notes#describe_add_row'
       post '/actions/add_row' => 'notes#execute_add_row'
@@ -459,6 +461,7 @@ Rails.application.routes.draw do
       post '/edit' => 'notes#update'
       get '/history.html' => 'notes#history_log_partial'
       post '/confirm.html' => 'notes#confirm_and_return_partial'
+      post '/acknowledge.html' => 'notes#acknowledge_and_return_partial'
       put '/pin' => 'notes#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
       get '/attachments/:attachment_id/actions' => 'notes#actions_index_attachment'

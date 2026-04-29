@@ -2,15 +2,68 @@
   <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
     <%= octicon 'blocked', height: 14 %>
     <% if @current_user.blocked?(@note.created_by) %>
-      Confirm read and commenting are unavailable because you have blocked the author of this note.
+      <% if @note.is_reminder? && @note.reminder_delivered? %>
+        Acknowledgment and commenting are unavailable because you have blocked the author of this note.
+      <% else %>
+        Confirm read and commenting are unavailable because you have blocked the author of this note.
+      <% end %>
     <% else %>
-      Confirm read and commenting are unavailable because you have been blocked by the author of this note.
+      <% if @note.is_reminder? && @note.reminder_delivered? %>
+        Acknowledgment and commenting are unavailable because you have been blocked by the author of this note.
+      <% else %>
+        Confirm read and commenting are unavailable because you have been blocked by the author of this note.
+      <% end %>
     <% end %>
   </p>
   <%= render 'shared/pulse_comments', commentable: @note %>
   <%= render 'shared/pulse_backlinks', resource: @note %>
 <% elsif @current_user %>
-  <% if @note_reader.confirmed_read_but_note_updated? %>
+  <% if @note.is_reminder? && @note.reminder_delivered? %>
+    <%# Delivered reminder: show acknowledge UI instead of confirm read %>
+    <% if @note_reader.acknowledged_but_note_updated? %>
+      <div class="pulse-section-label">
+        <%= octicon 'bell', height: 14 %>
+        Acknowledge Reminder
+      </div>
+      <p class="pulse-confirm-message">
+        Note updated since you last acknowledged. Re-acknowledge to confirm.
+      </p>
+      <div class="pulse-confirm-action">
+        <button
+          class="pulse-action-btn"
+          data-action="click->note#confirm mouseenter->note#confirmButtonMouseEnter mouseleave->note#confirmButtonMouseLeave"
+          data-note-target="confirmButton"
+          data-url="<%= @note.path + '/acknowledge.html' %>"
+          data-pending-message="Acknowledging..."
+          >
+          <%= octicon 'bell', height: 14 %>
+          <span data-note-target="confirmButtonMessage">Acknowledge Reminder</span>
+        </button>
+      </div>
+    <% elsif @note_reader.acknowledged_reminder? %>
+      <%= render 'history' %>
+    <% else %>
+      <div class="pulse-section-label">
+        <%= octicon 'bell', height: 14 %>
+        Acknowledge Reminder
+      </div>
+      <p class="pulse-confirm-message">
+        This reminder has fired. Acknowledge to confirm you've seen it.
+      </p>
+      <div class="pulse-confirm-action">
+        <button
+          class="pulse-action-btn"
+          data-action="click->note#confirm mouseenter->note#confirmButtonMouseEnter mouseleave->note#confirmButtonMouseLeave"
+          data-note-target="confirmButton"
+          data-url="<%= @note.path + '/acknowledge.html' %>"
+          data-pending-message="Acknowledging..."
+          >
+          <%= octicon 'bell', height: 14 %>
+          <span data-note-target="confirmButtonMessage">Acknowledge Reminder</span>
+        </button>
+      </div>
+    <% end %>
+  <% elsif @note_reader.confirmed_read_but_note_updated? %>
     <div class="pulse-section-label">
       <%= octicon 'book', height: 14 %>
       Confirm Read
@@ -52,11 +105,21 @@
     </div>
   <% end %>
 <% else %>
-  <div class="pulse-section-label">
-    <%= octicon 'book', height: 14 %>
-    Confirm Read
-  </div>
-  <div class="pulse-auth-required">
-    <%= link_to 'Log in', '/login', data: { redirect_to_resource: @note.path }, class: 'pulse-action-btn-secondary' %> to confirm reading this note.
-  </div>
+  <% if @note.is_reminder? && @note.reminder_delivered? %>
+    <div class="pulse-section-label">
+      <%= octicon 'bell', height: 14 %>
+      Acknowledge Reminder
+    </div>
+    <div class="pulse-auth-required">
+      <%= link_to 'Log in', '/login', data: { redirect_to_resource: @note.path }, class: 'pulse-action-btn-secondary' %> to acknowledge this reminder.
+    </div>
+  <% else %>
+    <div class="pulse-section-label">
+      <%= octicon 'book', height: 14 %>
+      Confirm Read
+    </div>
+    <div class="pulse-auth-required">
+      <%= link_to 'Log in', '/login', data: { redirect_to_resource: @note.path }, class: 'pulse-action-btn-secondary' %> to confirm reading this note.
+    </div>
+  <% end %>
 <% end %>

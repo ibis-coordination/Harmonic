@@ -1316,6 +1316,130 @@ class NoteTest < ActiveSupport::TestCase
     assert_nil Notification.find_by(id: notification.id)
   end
 
+  # === Reminder Acknowledgment Tests ===
+
+  test "acknowledge_reminder! creates a reminder_acknowledged event" do
+    tenant, collective, user = create_tenant_collective_user
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    # Simulate delivery
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    event = note.acknowledge_reminder!(user)
+    assert event.persisted?
+    assert_equal "reminder_acknowledged", event.event_type
+    assert_equal user, event.user
+    assert_equal note, event.note
+  end
+
+  test "acknowledge_reminder! skips if already acknowledged and note not updated" do
+    tenant, collective, user = create_tenant_collective_user
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    note.acknowledge_reminder!(user)
+    event2 = note.acknowledge_reminder!(user)
+
+    # Should return the existing acknowledgment, not create a new one
+    assert_equal 1, note.note_history_events.where(event_type: "reminder_acknowledged", user: user).count
+  end
+
+  test "acknowledge_reminder! re-acknowledges after note update" do
+    tenant, collective, user = create_tenant_collective_user
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    note.acknowledge_reminder!(user)
+    note.update!(text: "Updated reminder note", updated_by: user)
+    note.acknowledge_reminder!(user)
+
+    assert_equal 2, note.note_history_events.where(event_type: "reminder_acknowledged", user: user).count
+  end
+
+  test "reminder_acknowledgments counts distinct users" do
+    tenant, collective, user = create_tenant_collective_user
+    user2 = create_user(name: "Second User", email: "user2-#{SecureRandom.hex(4)}@example.com")
+    Tenant.current_id = tenant.id
+
+    notification = ReminderService.create!(
+      user: user,
+      title: "Test reminder",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      additional_recipients: [user2],
+    )
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      text: "Reminder note",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    note.acknowledge_reminder!(user)
+    note.acknowledge_reminder!(user2)
+
+    assert_equal 2, note.reminder_acknowledgments
+  end
+
   test "api_json includes reminder_notification_id for reminder notes" do
     tenant, collective, user = create_tenant_collective_user
 

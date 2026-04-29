@@ -76,8 +76,8 @@ export default class extends Controller {
   }
 
   private setInputsDisabled(container: HTMLElement, disabled: boolean) {
-    container.querySelectorAll("textarea, input:not([type='hidden'])").forEach((el) => {
-      ;(el as HTMLInputElement | HTMLTextAreaElement).disabled = disabled
+    container.querySelectorAll("textarea, input:not([type='hidden']), select").forEach((el) => {
+      ;(el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).disabled = disabled
     })
   }
 

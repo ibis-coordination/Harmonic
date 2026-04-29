@@ -878,8 +878,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
     assert_response :success
-    assert_includes response.body, "Reminder"
-    assert_includes response.body, "scheduled"
+    assert_includes response.body, "data-controller=\"countdown\""
+    assert_includes response.body, "countdown:completed->note#countdownCompleted"
   end
 
   test "cancel_reminder action cancels a pending reminder" do
@@ -1100,6 +1100,188 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     # Should re-render the form with an error
     assert_response :success
     assert_includes response.body, "scheduled_for"
+  end
+
+  # === Acknowledge Reminder Tests ===
+
+  test "markdown UI shows acknowledge_reminder and hides confirm_read for delivered reminders" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "acknowledge_reminder"
+    refute_includes response.body, "confirm_read"
+  end
+
+  test "markdown UI shows confirm_read and hides acknowledge_reminder for pending reminders" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "confirm_read"
+    refute_includes response.body, "acknowledge_reminder"
+  end
+
+  test "acknowledge_reminder rejects non-reminder notes" do
+    sign_in_as(@user, tenant: @tenant)
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Regular note",
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/acknowledge_reminder",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "Not a reminder note"
+  end
+
+  test "acknowledge_reminder rejects pending reminders" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/acknowledge_reminder",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "Reminder has not fired yet"
+  end
+
+  test "acknowledge_reminder creates a reminder_acknowledged event" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/acknowledge_reminder",
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "acknowledged"
+
+    assert_equal 1, note.note_history_events.where(event_type: "reminder_acknowledged").count
+  end
+
+  test "acknowledge_and_return_partial rejects non-reminder notes" do
+    sign_in_as(@user, tenant: @tenant)
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Regular note",
+    )
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/acknowledge.html"
+
+    assert_response :unprocessable_entity
+  end
+
+  test "acknowledge_reminder returns partial for HTML confirm button" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.current_id = @tenant.id
+
+    notification = ReminderService.create!(
+      user: @user,
+      title: "Test",
+      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      text: "Reminder content",
+      subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    notification.notification_recipients.each(&:mark_delivered!)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/acknowledge.html"
+
+    assert_response :success
   end
 
   test "creating a reminder note with timezone parses correctly" do

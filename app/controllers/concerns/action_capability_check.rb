@@ -38,6 +38,7 @@ module ActionCapabilityCheck
     "notes#update" => "update_note",
     "notes#create_comment" => "add_comment",
     "notes#confirm_and_return_partial" => "confirm_read",
+    "notes#acknowledge_and_return_partial" => "acknowledge_reminder",
     "notes#pin" => "pin_note",
 
     # Notes - API v1 routes

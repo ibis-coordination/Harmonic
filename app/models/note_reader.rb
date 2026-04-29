@@ -39,6 +39,30 @@ class NoteReader
     last_read_at.present?
   end
 
+  # Reminder acknowledgment state
+
+  sig { returns(T::Boolean) }
+  def acknowledged_reminder?
+    last_acknowledged_at.present?
+  end
+
+  sig { returns(T::Boolean) }
+  def acknowledged_but_note_updated?
+    acknowledged_reminder? && T.must(last_acknowledged_at) < T.must(@note).updated_at
+  end
+
+  sig { returns(T.nilable(ActiveSupport::TimeWithZone)) }
+  def last_acknowledged_at
+    return @last_acknowledged_at if defined?(@last_acknowledged_at)
+    @last_acknowledged_at = T.let(
+      T.must(note).history_events.where(
+        user: @user,
+        event_type: "reminder_acknowledged"
+      ).order(:happened_at).last&.happened_at,
+      T.nilable(ActiveSupport::TimeWithZone)
+    )
+  end
+
   sig { returns(String) }
   def name
     @user.name

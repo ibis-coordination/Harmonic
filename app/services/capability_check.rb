@@ -65,6 +65,7 @@ module CapabilityCheck
     "pin_note",
     "unpin_note",
     "confirm_read",
+    "acknowledge_reminder",
     "add_comment",
     "create_decision",
     "update_decision_settings",

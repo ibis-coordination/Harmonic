@@ -190,6 +190,12 @@ class ActionsHelper
       params: [],
       authorization: :owner,
     },
+    "acknowledge_reminder" => {
+      description: "Acknowledge that you have seen this reminder",
+      params_string: "()",
+      params: [],
+      authorization: :collective_member,
+    },
     "create_table_note" => {
       description: "Create a new table note with columns defined upfront",
       params_string: "(title, columns, description, edit_access)",
@@ -703,6 +709,18 @@ class ActionsHelper
     resource.is_a?(Note) && resource.is_reminder? && resource.reminder_pending?
   }
 
+  DELIVERED_REMINDER_CONDITION = ->(context) {
+    resource = context[:resource]
+    resource.is_a?(Note) && resource.is_reminder? && resource.reminder_delivered?
+  }
+
+  # confirm_read is available for all notes EXCEPT delivered reminder notes
+  CONFIRM_READ_CONDITION = ->(context) {
+    resource = context[:resource]
+    return true unless resource.is_a?(Note)
+    !(resource.is_reminder? && resource.reminder_delivered?)
+  }
+
   REPORT_CONTENT_CONDITION = ->(context) {
     user = context[:user]
     resource = context[:resource]
@@ -807,10 +825,21 @@ class ActionsHelper
     "/collectives/:collective_handle/n/:note_id" => {
       controller_actions: ["notes#show"],
       actions: [
-        { name: "confirm_read", params_string: ACTION_DEFINITIONS["confirm_read"][:params_string], description: ACTION_DEFINITIONS["confirm_read"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
       ],
       conditional_actions: [
+        {
+          name: "confirm_read",
+          params_string: ACTION_DEFINITIONS["confirm_read"][:params_string],
+          description: ACTION_DEFINITIONS["confirm_read"][:description],
+          condition: CONFIRM_READ_CONDITION,
+        },
+        {
+          name: "acknowledge_reminder",
+          params_string: ACTION_DEFINITIONS["acknowledge_reminder"][:params_string],
+          description: ACTION_DEFINITIONS["acknowledge_reminder"][:description],
+          condition: DELIVERED_REMINDER_CONDITION,
+        },
         {
           name: "cancel_reminder",
           params_string: ACTION_DEFINITIONS["cancel_reminder"][:params_string],
