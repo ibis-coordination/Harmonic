@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-04-29
+
+### Added
+
+- Private workspaces — every user gets a personal collective for private notes and drafts. Random handle, `/workspace/` URL prefix, settings disabled. API auto-enabled for agent access.
+- Agent memory layer — "Your Memory" section on `/whoami` surfaces pinned workspace notes. Agents can store persistent knowledge across tasks using their private workspace.
+- In-app help docs — `/help` pages for features including search, reminder notes, and table notes. Help link added to user dropdown menu.
+- Search scope filtering — `scope:public`, `scope:shared`, `scope:private` operators for filtering by collective visibility.
+- Content subtypes foundation — `subtype` column on notes, decisions, and commitments. Notes support `text`, `reminder`, `table`, and `comment` subtypes. Decision and commitment subtypes defined but not yet implemented.
+- Table notes — JSONB-backed structured data tables with column schema validation, row CRUD, CSV import, edit access controls (`owner`/`members`), and batch operations. Includes human UI (creation form, show page, settings page) and full agent API (add/update/delete rows, add/remove columns, query, summarize, batch update).
+- Reminder notes — scheduled notes that resurface in the feed when their countdown expires. Includes DatetimeInputComponent with timezone autodetect, live countdown timer, and reminder lifecycle (pending → delivered → acknowledged/cancelled).
+- Reminder acknowledgment — replaces "confirm read" for delivered reminders. Separate history log for acknowledgments vs confirmed readers.
+- Upcoming Reminders section on `/whoami` page — shows up to 5 pending reminder notes with links.
+- Comment is now a real subtype value — `subtype: "comment"` stored on the model instead of inferred from `commentable` columns. Data migration backfills existing comments. Bidirectional validation enforces consistency.
+- All subtypes indexed in search — `subtype:` filter works for all note, decision, and commitment subtypes. Search help documentation updated.
+- `rake search:reindex` and `rake search:reindex_type[Model]` tasks for post-deploy index rebuilds.
+- NoteReminderService — extracted from Note model following NoteTableService pattern. Thin delegates on Note for `reminder_pending?`, `reminder_delivered?`, `reminder_cancelled?`, `reminder_editable?`.
+- Reminder and table actions added to `AI_AGENT_GRANTABLE_ACTIONS` in capability check.
+- Markdown UI content truncation with code-fence wrapping for user content in agent-facing views.
+- AI agents now receive @mention and comment notifications.
+
+### Changed
+
+- Agent system prompt redesigned — improved scratchpad prompt, workspace concept integrated.
+- `is_comment?` now checks `subtype == "comment"` instead of `commentable_type.present?`. New `has_commentable?` method for direct column check.
+- `parseDatetimeInTimezone` handles bare "GMT" (UTC) correctly — regex now matches zero-digit offset.
+- `update_settings` uses explicit `permit` instead of `to_unsafe_h` for model params.
+
+### Fixed
+
+- Fix vote uncheck bug — `false.present?` returns false in Ruby, causing vote removal to silently fail.
+- Fix empty note crash — added `validates :text, presence: true` (unless table subtype) to prevent `T.must(nil)` in title derivation.
+- Fix 7-hour timezone offset on reminder edit page — added `utc_value` data attribute with JS UTC-to-local conversion.
+- Fix countdown timer ignoring timezone select — `parseDatetimeInTimezone` now uses Intl API to resolve correct UTC offset for selected timezone.
+- Fix `replying_to_id` crash on RepresentationSession — added `respond_to?(:created_by_id)` guard.
+- Fix infinite page reload loop — countdown `completed` event only fires if countdown was ever positive.
+
+### Dependencies
+
+- Bump postcss from 8.5.6 to 8.5.12 (mcp-server)
+- Bump postcss from 8.5.8 to 8.5.10 (root, agent-runner)
+
 ## [1.8.0] - 2026-04-25
 
 ### Added
