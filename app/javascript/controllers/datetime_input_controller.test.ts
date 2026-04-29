@@ -172,7 +172,11 @@ describe("DatetimeInputController", () => {
 
     const countdownEl = document.querySelector("[data-datetime-input-target='countdown']") as HTMLElement
     expect(countdownEl.style.display).not.toBe("none")
-    expect(countdownEl.getAttribute("data-countdown-end-time-value")).toBe(future.toISOString().slice(0, 16))
+    // Countdown receives a full ISO 8601 UTC string (timezone-aware)
+    const endTime = countdownEl.getAttribute("data-countdown-end-time-value")!
+    const parsedEnd = new Date(endTime)
+    // Should be within 1 minute of the intended future date (rounding from datetime-local truncation)
+    expect(Math.abs(parsedEnd.getTime() - future.getTime())).toBeLessThan(60_000)
   })
 
   it("hides countdown for past datetime", async () => {

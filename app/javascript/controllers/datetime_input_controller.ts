@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { ianaToRailsTimezone } from "../utils/timezone_mapping"
+import { ianaToRailsTimezone, parseDatetimeInTimezone } from "../utils/timezone_mapping"
 
 export default class DatetimeInputController extends Controller {
   static targets = ["datetimeInput", "timezoneSelect", "error", "countdown"]
@@ -37,7 +37,7 @@ export default class DatetimeInputController extends Controller {
       return
     }
 
-    const selected = new Date(value)
+    const selected = this.selectedDateAsUtc()
     const isFuture = selected.getTime() > Date.now()
 
     if (this.requireFutureValue && !isFuture) {
@@ -117,6 +117,13 @@ export default class DatetimeInputController extends Controller {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
   }
 
+  private selectedDateAsUtc(): Date {
+    const value = this.datetimeInputTarget.value
+    if (!value) return new Date(NaN)
+    if (!this.hasTimezoneSelectTarget) return new Date(value)
+    return parseDatetimeInTimezone(value, this.timezoneSelectTarget.value)
+  }
+
   private updateCountdown() {
     if (!this.hasCountdownTarget) return
 
@@ -126,13 +133,13 @@ export default class DatetimeInputController extends Controller {
       return
     }
 
-    const selected = new Date(value)
+    const selected = this.selectedDateAsUtc()
     if (selected.getTime() <= Date.now()) {
       this.hideCountdown()
       return
     }
 
-    this.countdownTarget.setAttribute("data-countdown-end-time-value", value)
+    this.countdownTarget.setAttribute("data-countdown-end-time-value", selected.toISOString())
     this.countdownTarget.style.display = ""
   }
 

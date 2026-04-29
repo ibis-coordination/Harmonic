@@ -140,6 +140,11 @@ const IANA_TO_RAILS: Record<string, string> = {
   "Pacific/Tongatapu": "Nuku'alofa",
 }
 
+// Reverse mapping: Rails timezone names to IANA identifiers
+const RAILS_TO_IANA: Record<string, string> = Object.fromEntries(
+  Object.entries(IANA_TO_RAILS).map(([iana, rails]) => [rails, iana])
+)
+
 /**
  * Maps an IANA timezone identifier (from the browser) to a Rails timezone name
  * (used by time_zone_select). Returns null if no mapping exists.
@@ -147,4 +152,63 @@ const IANA_TO_RAILS: Record<string, string> = {
 export function ianaToRailsTimezone(iana: string): string | null {
   if (!iana) return null
   return IANA_TO_RAILS[iana] ?? null
+}
+
+/**
+ * Maps a Rails timezone name to an IANA timezone identifier.
+ * Returns null if no mapping exists.
+ */
+export function railsToIanaTimezone(rails: string): string | null {
+  if (!rails) return null
+  return RAILS_TO_IANA[rails] ?? null
+}
+
+/**
+ * Parses a datetime-local string (e.g. "2026-04-29T22:05") in a specific
+ * Rails timezone and returns a Date object representing that moment in UTC.
+ * Falls back to browser local time if timezone can't be resolved.
+ */
+export function parseDatetimeInTimezone(datetimeLocal: string, railsTimezone: string): Date {
+  const iana = railsToIanaTimezone(railsTimezone)
+  if (!iana) return new Date(datetimeLocal)
+
+  // Build an ISO-ish string and use the Intl API to find the UTC offset
+  // for this specific datetime in this timezone
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: iana,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "shortOffset",
+  })
+
+  // Parse the datetime-local as if it were in the target timezone by computing
+  // the offset. We create a date in local time first, then adjust.
+  const localDate = new Date(datetimeLocal)
+  if (isNaN(localDate.getTime())) return localDate
+
+  // Format a known date in the target timezone to extract the offset
+  const parts = formatter.formatToParts(localDate)
+  const tzPart = parts.find((p) => p.type === "timeZoneName")
+  if (!tzPart) return localDate
+
+  // Parse offset like "GMT-7", "GMT+5:30", "GMT+0"
+  const offsetMatch = tzPart.value.match(/GMT([+-]?)(\d+)(?::(\d+))?/)
+  if (!offsetMatch) return localDate
+
+  const sign = offsetMatch[1] === "-" ? -1 : 1
+  const hours = parseInt(offsetMatch[2], 10)
+  const minutes = parseInt(offsetMatch[3] || "0", 10)
+  const targetOffsetMs = sign * (hours * 60 + minutes) * 60_000
+
+  // Browser's local offset for this date
+  const localOffsetMs = -localDate.getTimezoneOffset() * 60_000
+
+  // Adjust: the datetime-local value was interpreted as browser local time,
+  // but we want it in the target timezone
+  return new Date(localDate.getTime() - targetOffsetMs + localOffsetMs)
 }
