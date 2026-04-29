@@ -163,6 +163,7 @@ class SearchIndexer
     return nil unless @item.is_a?(Note) && @item.is_comment?
 
     # Get the created_by_id of the commentable (the item being replied to)
-    @item.commentable&.created_by_id
+    commentable = @item.commentable
+    commentable.respond_to?(:created_by_id) ? commentable&.created_by_id : nil
   end
 end
