@@ -403,6 +403,16 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               toolResults.push(lastActionResult ?? "");
               break;
             }
+            case "search": {
+              yield* navigateTo(`/search?q=${encodeURIComponent(action.query)}`);
+              toolResults.push(truncateContent(currentContent ?? ""));
+              break;
+            }
+            case "get_help": {
+              yield* navigateTo(`/help/${encodeURIComponent(action.topic)}`);
+              toolResults.push(truncateContent(currentContent ?? ""));
+              break;
+            }
             case "error": {
               yield* addStep(errorStep({ message: action.message }, new Date()));
               finalMessage = action.message;

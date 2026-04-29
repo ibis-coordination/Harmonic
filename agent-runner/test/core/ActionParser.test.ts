@@ -103,6 +103,92 @@ describe("parseToolCalls", () => {
     );
     expect(result[0]?.type).toBe("error");
   });
+
+  it("parses search tool call", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_7",
+        type: "function",
+        function: {
+          name: "search",
+          arguments: '{"query": "type:note status:open"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result).toEqual([{ type: "search", query: "type:note status:open" }]);
+  });
+
+  it("returns error for search without query", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_8",
+        type: "function",
+        function: { name: "search", arguments: "{}" },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+    if (result[0]?.type === "error") {
+      expect(result[0].message).toContain("search");
+      expect(result[0].message).toContain("query");
+    }
+  });
+
+  it("returns error for search with empty query", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_9",
+        type: "function",
+        function: { name: "search", arguments: '{"query": ""}' },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+  });
+
+  it("parses get_help tool call", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_10",
+        type: "function",
+        function: {
+          name: "get_help",
+          arguments: '{"topic": "decisions"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result).toEqual([{ type: "get_help", topic: "decisions" }]);
+  });
+
+  it("returns error for get_help without topic", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_11",
+        type: "function",
+        function: { name: "get_help", arguments: "{}" },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+    if (result[0]?.type === "error") {
+      expect(result[0].message).toContain("get_help");
+      expect(result[0].message).toContain("topic");
+    }
+  });
+
+  it("returns error for get_help with empty topic", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_12",
+        type: "function",
+        function: { name: "get_help", arguments: '{"topic": ""}' },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+  });
 });
 
 describe("validateAction", () => {

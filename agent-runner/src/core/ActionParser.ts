@@ -7,6 +7,8 @@ import type { ToolCall } from "./PromptBuilder.js";
 export type AgentAction =
   | { readonly type: "navigate"; readonly path: string }
   | { readonly type: "execute_action"; readonly action: string; readonly params: Record<string, unknown> | undefined }
+  | { readonly type: "search"; readonly query: string }
+  | { readonly type: "get_help"; readonly topic: string }
   | { readonly type: "respond_to_human"; readonly message: string }
   | { readonly type: "done"; readonly content: string }
   | { readonly type: "error"; readonly message: string };
@@ -53,6 +55,20 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
         ? args["params"] as Record<string, unknown>
         : undefined;
       return { type: "execute_action", action, params };
+    }
+    case "search": {
+      const query = args["query"];
+      if (typeof query !== "string" || query === "") {
+        return { type: "error", message: "search requires a non-empty 'query' string" };
+      }
+      return { type: "search", query };
+    }
+    case "get_help": {
+      const topic = args["topic"];
+      if (typeof topic !== "string" || topic === "") {
+        return { type: "error", message: "get_help requires a non-empty 'topic' string" };
+      }
+      return { type: "get_help", topic };
     }
     case "respond_to_human": {
       const message = args["message"];

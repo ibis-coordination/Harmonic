@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { handleNavigate, handleExecuteAction, createState, type Config } from "./handlers.js";
+import { handleNavigate, handleExecuteAction, handleSearch, handleGetHelp, createState, type Config } from "./handlers.js";
 import { CONTEXT_MARKDOWN } from "./context.js";
 
 // Configuration from environment
@@ -54,6 +54,36 @@ server.registerTool(
     },
   },
   async ({ action, params }) => handleExecuteAction(action, params as Record<string, unknown> | undefined, config, state)
+);
+
+// Register search tool
+server.registerTool(
+  "search",
+  {
+    description:
+      "Search Harmonic for notes, decisions, commitments, and people.",
+    inputSchema: {
+      query: z.string().describe(
+        "Search query. Supports filters: type:note, type:decision, type:commitment, status:open, cycle:current, creator:@handle, collective:handle"
+      ),
+    },
+  },
+  async ({ query }) => handleSearch(query, config, state)
+);
+
+// Register get_help tool
+server.registerTool(
+  "get_help",
+  {
+    description:
+      "Read Harmonic documentation for a topic.",
+    inputSchema: {
+      topic: z.string().describe(
+        "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, commitments, cycles, search, links, agents, api, privacy"
+      ),
+    },
+  },
+  async ({ topic }) => handleGetHelp(topic, config, state)
 );
 
 // Register context resource

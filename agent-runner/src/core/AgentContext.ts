@@ -60,6 +60,44 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "search",
+      description:
+        "Search Harmonic for notes, decisions, commitments, and people.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Search query. Supports filters: type:note, type:decision, type:commitment, status:open, cycle:current, creator:@handle, collective:handle",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_help",
+      description:
+        "Read Harmonic documentation for a topic.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: {
+            type: "string",
+            description:
+              "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, commitments, cycles, search, links, agents, api, privacy",
+          },
+        },
+        required: ["topic"],
+      },
+    },
+  },
 ] as const;
 
 /**
@@ -123,19 +161,23 @@ const NAVIGATION = `## Navigation
 
 const TASK_TOOLS = `## Tools
 
-You have two tools: \`navigate\` and \`execute_action\`.
+You have four tools: \`navigate\`, \`execute_action\`, \`search\`, and \`get_help\`.
 
 Use \`navigate\` to view any page. The response includes markdown content and a list of available actions.
 Use \`execute_action\` to perform an action on the current page. Only actions listed for the current page will work.
+Use \`search\` to find notes, decisions, commitments, and people across your collectives.
+Use \`get_help\` to read documentation about any Harmonic concept before acting.
 
 Always navigate before executing actions. After each action, check the result. If your task is complete, stop calling tools.`;
 
 const CHAT_TOOLS = `## Tools
 
-You have three tools: \`navigate\`, \`execute_action\`, and \`respond_to_human\`.
+You have five tools: \`navigate\`, \`execute_action\`, \`search\`, \`get_help\`, and \`respond_to_human\`.
 
 Use \`navigate\` to view any page. The response includes markdown content and a list of available actions.
 Use \`execute_action\` to perform an action on the current page. Only actions listed for the current page will work.
+Use \`search\` to find notes, decisions, commitments, and people across your collectives.
+Use \`get_help\` to read documentation about any Harmonic concept before acting.
 Use \`respond_to_human\` to send a message to the human. This ends your turn — the human will see your message and can reply.
 
 Always navigate before executing actions. You can chain multiple navigations and actions before responding. When you're done or need input, call \`respond_to_human\`.`;
