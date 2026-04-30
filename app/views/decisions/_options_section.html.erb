@@ -4,25 +4,39 @@
       <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @decision.path } %> to participate.
     </div>
   <% else %>
-    <span class="pulse-section-hint" data-decision-target="votingHint" style="<%= @decision.options.empty? ? 'display: none;' : '' %>">Check all options you would accept. Star options you prefer.</span>
-    <%= render 'acceptance_voting_tooltip' unless @decision.options.empty? %>
-
-    <%= form_with url: "#{@decision.path}/submit_votes", method: :post, data: { decision_target: "voteForm" } do |form| %>
+    <% if @decision.is_executive? %>
+      <%# Executive: read-only options list + add option %>
       <ul class="pulse-options-list">
         <span data-decision-target="list">
-          <%= render 'options_list_items' %>
+          <% @decision.options.order(:created_at).each do |option| %>
+            <li class="pulse-option-item" data-option-id="<%= option.id %>" style="padding: 4px 0;">
+              <%= markdown_inline(option.title) %>
+            </li>
+          <% end %>
         </span>
       </ul>
-      <div class="pulse-vote-submit-row" data-decision-target="submitRow" style="margin-top: 8px;<%= @decision.options.empty? ? ' display: none;' : '' %>">
-        <span style="position: relative; display: inline-block;">
-          <button type="submit" class="pulse-action-btn pulse-action-btn-primary" data-decision-target="submitButton" disabled>
-            <%= @votes.any? { |v| v.accepted == 1 } ? 'Update Vote' : 'Submit Vote' %>
-          </button>
-          <span class="pulse-body-text-muted" style="font-size: 0.85em; display: none; position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); white-space: nowrap;" data-decision-target="voteNotice">
-            <%= @current_collective.id == @current_tenant.main_collective_id ? 'Your vote will be publicly visible.' : 'Your vote will be visible to all members of this collective.' %>
+    <% else %>
+      <%# Vote: checkboxes + submit button %>
+      <span class="pulse-section-hint" data-decision-target="votingHint" style="<%= @decision.options.empty? ? 'display: none;' : '' %>">Check all options you would accept. Star options you prefer.</span>
+      <%= render 'acceptance_voting_tooltip' unless @decision.options.empty? %>
+
+      <%= form_with url: "#{@decision.path}/submit_votes", method: :post, data: { decision_target: "voteForm" } do |form| %>
+        <ul class="pulse-options-list">
+          <span data-decision-target="list">
+            <%= render 'options_list_items' %>
           </span>
-        </span>
-      </div>
+        </ul>
+        <div class="pulse-vote-submit-row" data-decision-target="submitRow" style="margin-top: 8px;<%= @decision.options.empty? ? ' display: none;' : '' %>">
+          <span style="position: relative; display: inline-block;">
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary" data-decision-target="submitButton" disabled>
+              <%= @votes.any? { |v| v.accepted == 1 } ? 'Update Vote' : 'Submit Vote' %>
+            </button>
+            <span class="pulse-body-text-muted" style="font-size: 0.85em; display: none; position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); white-space: nowrap;" data-decision-target="voteNotice">
+              <%= @current_collective.id == @current_tenant.main_collective_id ? 'Your vote will be publicly visible.' : 'Your vote will be visible to all members of this collective.' %>
+            </span>
+          </span>
+        </div>
+      <% end %>
     <% end %>
 
     <% if @decision.can_add_options?(@participant) %>

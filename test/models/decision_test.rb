@@ -240,7 +240,7 @@ class DecisionTest < ActiveSupport::TestCase
     assert_equal "vote", decision.subtype
     assert decision.is_vote?
     assert_not decision.is_lottery?
-    assert_not decision.is_log?
+    assert_not decision.is_executive?
   end
 
   test "Decision can be created with explicit subtype" do
@@ -323,6 +323,78 @@ class DecisionTest < ActiveSupport::TestCase
       deadline: Time.current,
     )
     assert_equal statement, decision.reload.statement
+  end
+
+  # === Executive Decision Tests ===
+
+  test "is_executive? predicate" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Executive test?", description: "", deadline: 1.day.from_now,
+      subtype: "executive",
+    )
+    assert decision.is_executive?
+    assert_not decision.is_vote?
+  end
+
+  test "effective_decision_maker defaults to creator" do
+    decision = create_decision
+    assert_equal @user, decision.effective_decision_maker
+  end
+
+  test "effective_decision_maker returns designated decision maker" do
+    other_user = User.create!(name: "Boss", email: "boss-#{SecureRandom.hex(8)}@example.com", user_type: "human")
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Who decides?", description: "", deadline: 1.day.from_now,
+      subtype: "executive", decision_maker: other_user,
+    )
+    assert_equal other_user, decision.effective_decision_maker
+  end
+
+  test "executive decision: decision maker can close" do
+    other_user = User.create!(name: "Boss", email: "boss-close-#{SecureRandom.hex(8)}@example.com", user_type: "human")
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Boss decides", description: "", deadline: 1.day.from_now,
+      subtype: "executive", decision_maker: other_user,
+    )
+    assert decision.can_close?(other_user)
+    assert_not decision.can_close?(@user)
+  end
+
+  test "executive decision: decision maker can write statement" do
+    other_user = User.create!(name: "Boss", email: "boss-stmt-#{SecureRandom.hex(8)}@example.com", user_type: "human")
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Boss decides", description: "", deadline: 1.day.from_now,
+      subtype: "executive", decision_maker: other_user,
+    )
+    assert decision.can_write_statement?(other_user)
+    assert_not decision.can_write_statement?(@user)
+  end
+
+  test "executive decision: creator retains settings access" do
+    other_user = User.create!(name: "Boss", email: "boss-settings-#{SecureRandom.hex(8)}@example.com", user_type: "human")
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Boss decides", description: "", deadline: 1.day.from_now,
+      subtype: "executive", decision_maker: other_user,
+    )
+    assert decision.can_edit_settings?(@user)
+    assert_not decision.can_edit_settings?(other_user)
+  end
+
+  test "vote decision: can_close still uses creator" do
+    decision = create_decision
+    assert decision.can_close?(@user)
+    other_user = User.create!(name: "Other", email: "other-close-#{SecureRandom.hex(8)}@example.com", user_type: "human")
+    assert_not decision.can_close?(other_user)
   end
 
   test "decision can only have one statement" do

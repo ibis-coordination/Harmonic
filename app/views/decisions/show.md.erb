@@ -6,10 +6,13 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 | created_by | @<%= @decision.created_by.handle %> |
 | created_at | <%= @decision.created_at %> |
 <% else %>
-# Decision: <%= @decision.question %>
+# <%= @decision.is_executive? ? 'Executive Decision' : 'Decision' %>: <%= @decision.question %>
 
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
+<% if @decision.is_executive? -%>
+| decision_maker | @<%= @decision.effective_decision_maker.handle %> |
+<% end -%>
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
 
@@ -23,6 +26,23 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <% notice = markdown_truncation_notice(@decision.description, truncated_description, url: @decision.path) %>
 <%= notice if notice %>
 <% end -%>
+<% if @decision.is_executive? -%>
+## Options
+
+<% if @decision.options.empty? -%>
+No options yet.
+<% else -%>
+<% @decision.options.order(:created_at).each do |option| -%>
+* <%= option.title %>
+<% end -%>
+<% end -%>
+<% if @decision.statement.present? -%>
+
+## Final Statement
+
+<%= @decision.statement.text %>
+<% end -%>
+<% else -%>
 <% unless @decision.closed? -%>
 <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) -%>
 *Voting is unavailable because <% if @current_user.blocked?(@decision.created_by) %>you have blocked the author<% else %>you have been blocked by the author<% end %> of this decision.*
@@ -64,6 +84,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 <% else -%>
 
 Submit your vote to see results. Votes are not anonymous — individual votes are visible on the voters page after you vote.
+<% end -%>
 <% end -%>
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>

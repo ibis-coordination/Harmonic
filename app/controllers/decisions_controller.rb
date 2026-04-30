@@ -17,11 +17,14 @@ class DecisionsController < ApplicationController
   def create
     begin
       # Build params for ApiHelper
+      decision_nested = params[:decision] || {}
       helper_params = {
-        question: decision_params[:question],
-        description: decision_params[:description],
-        options_open: decision_params[:options_open],
+        question: params[:question] || decision_nested[:question],
+        description: params[:description] || decision_nested[:description],
+        options_open: params[:options_open] || decision_nested[:options_open],
         deadline: deadline_from_params,
+        subtype: decision_nested[:subtype],
+        decision_maker_id: decision_nested[:decision_maker_id],
       }
       @decision = @current_decision = api_helper(params: helper_params).create_decision
       # Handle file attachments separately (HTML form specific)
@@ -81,10 +84,17 @@ class DecisionsController < ApplicationController
     return if @decision.deleted?
 
     @participant = current_decision_participant
-    @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
-    @votes = current_votes
-    @current_user_has_voted = @votes.any? { |v| v.accepted == 1 || v.preferred == 1 }
-    @show_results = @decision.closed? || @current_user_has_voted
+    if @decision.is_executive?
+      @options_header = @decision.can_add_options?(@participant) ? 'Add Options' : 'Options'
+      @votes = Vote.none
+      @current_user_has_voted = false
+      @show_results = false
+    else
+      @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
+      @votes = current_votes
+      @current_user_has_voted = @votes.any? { |v| v.accepted == 1 || v.preferred == 1 }
+      @show_results = @decision.closed? || @current_user_has_voted
+    end
     set_results_view_vars
     set_pin_vars
     set_report_vars(@decision)
@@ -275,6 +285,10 @@ class DecisionsController < ApplicationController
       redirect_to @decision.path, alert: "This decision is closed and no longer accepting votes."
       return
     end
+    if @decision.is_executive?
+      redirect_to @decision.path, alert: "Executive decisions do not accept votes."
+      return
+    end
 
     raw_votes = params[:votes]
     votes_list = if raw_votes.is_a?(ActionController::Parameters)
@@ -368,6 +382,7 @@ class DecisionsController < ApplicationController
     @page_title = "Actions | #{@decision.question}"
     route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/d/:decision_id")
     actions = (route_info&.dig(:actions) || []).select do |action|
+      next false if @decision.is_executive? && action[:name] == "vote"
       ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @decision })
     end
     render_actions_index({ actions: actions })
@@ -430,7 +445,7 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
     return render 'shared/403', status: 403 unless @decision.can_write_statement?(@current_user)
 
-    unless @decision.closed?
+    unless @decision.closed? || @decision.is_executive?
       respond_to do |format|
         format.html { redirect_to @decision.path, alert: "Decision must be closed to add a statement." }
         format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: "Decision must be closed to add a statement." }) }
@@ -481,7 +496,8 @@ class DecisionsController < ApplicationController
   def decision_params
     model_params.permit(
       :question, :description, :options_open,
-      :duration, :duration_unit, :files
+      :duration, :duration_unit, :files,
+      :subtype, :decision_maker_id
     )
   end
 

@@ -656,6 +656,132 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
   end
 
+  # === Executive Decision Tests ===
+
+  test "executive decision show page hides voting UI" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/Executive Decision/, response.body)
+    assert_select "button[data-decision-target='submitButton']", count: 0
+    assert_select "table.pulse-results-table", count: 0
+  end
+
+  test "cannot submit votes on executive decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: { votes: [{ option_title: "Option A", accepted: "1", preferred: "0" }] }
+
+    assert_response :redirect
+    assert_match(/Executive/, flash[:alert])
+  end
+
+  test "cannot vote via API on executive decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
+      params: { votes: [{ option_title: "Option A", accept: true }] }
+
+    assert_response :success
+    assert_match(/Executive/i, response.body)
+  end
+
+  test "decision maker can close executive decision" do
+    unique_id = SecureRandom.hex(8)
+    decision_maker = User.create!(name: "Boss", email: "boss-#{unique_id}@example.com", user_type: "human")
+    @tenant.add_user!(decision_maker)
+    @collective.add_user!(decision_maker)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(decision_maker, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { final_statement: "I've decided on Option A." }
+
+    @decision.reload
+    assert @decision.closed?
+    assert_equal "I've decided on Option A.", @decision.statement&.text
+  end
+
+  test "creator cannot close executive decision when decision maker is set" do
+    unique_id = SecureRandom.hex(8)
+    decision_maker = User.create!(name: "Boss", email: "boss-creator-#{unique_id}@example.com", user_type: "human")
+    @tenant.add_user!(decision_maker)
+    @collective.add_user!(decision_maker)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision"
+
+    @decision.reload
+    assert_not @decision.closed?
+  end
+
+  test "submitting statement on open executive decision auto-closes it" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    assert_not @decision.closed?
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "I've decided on Option A." }
+
+    @decision.reload
+    assert @decision.closed?, "Executive decision should auto-close when statement is submitted"
+    assert_equal "I've decided on Option A.", @decision.statement&.text
+  end
+
+  test "submitting statement on open vote decision is rejected" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_not @decision.closed?
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Premature statement" }
+
+    @decision.reload
+    assert_not @decision.closed?
+    assert_nil @decision.statement
+  end
+
   test "cannot submit votes on closed decision" do
     sign_in_as(@user, tenant: @tenant)
 

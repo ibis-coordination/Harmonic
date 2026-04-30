@@ -176,14 +176,18 @@ class ApiHelper
   def create_decision
     decision = T.let(nil, T.nilable(Decision))
     ActiveRecord::Base.transaction do
-      decision = Decision.create!(
+      create_attrs = {
         question: params[:question],
         description: params[:description],
         subtype: params[:subtype] || "vote",
         options_open: params[:options_open] || true,
         deadline: params[:deadline],
         created_by: current_user,
-      )
+      }
+      if params[:decision_maker_id].present?
+        create_attrs[:decision_maker] = User.find(params[:decision_maker_id])
+      end
+      decision = Decision.create!(create_attrs)
       track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
@@ -643,6 +647,7 @@ class ApiHelper
     raise ArgumentError, "votes parameter is required" if votes_param.blank?
     raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
     raise ArgumentError, "This decision is closed and no longer accepting votes." if T.must(current_decision).closed?
+    raise ArgumentError, "Executive decisions do not accept votes." if T.must(current_decision).is_executive?
     check_not_blocked!(T.must(current_decision), action: "vote on")
 
     votes = T.let([], T::Array[Vote])
@@ -877,6 +882,9 @@ class ApiHelper
         decision.options_open = params[:options_open]
       end
       decision.deadline = params[:deadline] if params[:deadline].present?
+      if params.has_key?(:decision_maker_id)
+        decision.decision_maker = params[:decision_maker_id].present? ? User.find(params[:decision_maker_id]) : nil
+      end
 
       decision.save!
 
@@ -917,7 +925,14 @@ class ApiHelper
   def add_statement
     decision = T.must(current_decision)
     raise 'Unauthorized' unless decision.can_write_statement?(current_user)
-    raise 'Decision must be closed to add a statement' unless decision.closed?
+
+    # For executive decisions, submitting a statement also closes the decision
+    if !decision.closed? && decision.is_executive?
+      decision.deadline = Time.current
+      decision.save!
+    elsif !decision.closed?
+      raise 'Decision must be closed to add a statement'
+    end
 
     statement = create_or_update_statement!(decision, params[:text])
 

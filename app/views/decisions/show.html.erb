@@ -14,7 +14,7 @@
 
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
-    type_label: "Decision",
+    type_label: @decision.is_executive? ? "Executive Decision" : "Decision",
     title: @decision.question,
     icon_class: "decision-icon",
     status: @decision.closed? ? "closed" : "open",
@@ -30,11 +30,19 @@
           <dialog data-dialog-target="dialog" class="pulse-dialog">
             <%= form_with url: "#{@decision.path}/actions/close_decision", method: :post, class: "pulse-form" do |form| %>
               <h2 style="margin: 0 0 12px 0; font-size: 1.25em;">Close Decision</h2>
-              <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. You can optionally add a final statement explaining the outcome.</p>
-              <div style="margin-bottom: 20px;">
-                <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement (optional)</label>
-                <%= form.text_area :final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
-              </div>
+              <% if @decision.is_executive? %>
+                <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">This will close the decision. No further options can be added.</p>
+                <div style="margin-bottom: 20px;">
+                  <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement</label>
+                  <%= form.text_area :final_statement, placeholder: "What is your decision?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
+                </div>
+              <% else %>
+                <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. You can optionally add a final statement explaining the outcome.</p>
+                <div style="margin-bottom: 20px;">
+                  <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement (optional)</label>
+                  <%= form.text_area :final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
+                </div>
+              <% end %>
               <div style="display: flex; gap: 8px; justify-content: flex-end;">
                 <button type="button" class="pulse-action-btn-secondary" data-action="click->dialog#close">Cancel</button>
                 <%= form.submit 'Close Decision', class: "pulse-action-btn pulse-action-btn-primary" %>
@@ -79,6 +87,11 @@
 
   <div class="pulse-resource-meta">
     <%= render 'shared/pulse_author', resource: @decision %>
+    <% if @decision.is_executive? %>
+      <div class="pulse-deadline-info">
+        Decision maker: <%= link_to @decision.effective_decision_maker.display_name, @decision.effective_decision_maker.path %>
+      </div>
+    <% end %>
     <div class="pulse-deadline-info">
       <%= render 'shared/deadline_display', resource: @decision %>
     </div>
@@ -96,62 +109,105 @@
     </div>
   <% end %>
 
-  <%# Voting Options Section (shown when decision is open) %>
-  <% unless @decision.closed? %>
-    <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) %>
-      <div class="pulse-acceptance-voting-section">
-        <p class="pulse-body-text-muted" style="padding: 12px 0;">
-          <%= octicon 'blocked', height: 14 %>
-          <% if @current_user.blocked?(@decision.created_by) %>
-            Voting is unavailable because you have blocked the author of this decision.
-          <% else %>
-            Voting is unavailable because you have been blocked by the author of this decision.
-          <% end %>
-        </p>
-      </div>
-    <% else %>
+  <% if @decision.is_executive? %>
+    <%# Executive Decision: options list (read-only) + add options %>
+    <% unless @decision.closed? %>
       <div class="pulse-acceptance-voting-section">
         <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
           <%= render 'options_section' %>
         <% end %>
       </div>
     <% end %>
-  <% end %>
 
-  <% if @show_results %>
-    <%# Results Section %>
-    <span
-      data-controller="decision-results"
-      data-decision-results-url-value="<%= @decision.path %>/results.html"
-      >
-      <div class="pulse-results-table-section">
-        <%= render 'shared/pulse_accordion', title: @results_header, open: true, title_data: { 'decision-results-target': 'header' } do %>
-          <span data-decision-results-target="content">
-            <%= render 'results' %>
-          </span>
-        <% end %>
+    <%# Options display when closed %>
+    <% if @decision.closed? && @decision.options.any? %>
+      <div style="margin-top: 12px;">
+        <h3>Options</h3>
+        <ul class="pulse-options-list">
+          <% @decision.options.order(:created_at).each do |option| %>
+            <li class="pulse-option-item" style="padding: 4px 0;"><%= markdown_inline(option.title) %></li>
+          <% end %>
+        </ul>
       </div>
-    </span>
+    <% end %>
 
-    <%# Voters Link %>
-    <div style="margin-top: 8px;">
-      <%= link_to "#{@decision.path}/voters", class: 'pulse-body-text-muted' do %>
-        <%= octicon 'check-circle', height: 14 %>
-        <%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes
+    <%# Final Statement Section %>
+    <div style="margin-top: 16px;">
+      <h3>Final Statement</h3>
+      <% if @decision.statement.present? %>
+        <%= render StatementEmbedComponent.new(statement: @decision.statement, current_user: @current_user) %>
+      <% elsif @current_user && @decision.can_write_statement?(@current_user) && !@decision.closed? %>
+        <%= form_with url: "#{@decision.path}/actions/add_statement", method: :post, class: "pulse-form" do |form| %>
+          <p class="pulse-body-text-muted" style="margin-bottom: 8px;">Review the options above and issue your final statement to close this decision.</p>
+          <%= form.text_area :text, placeholder: "What is your decision?", class: "pulse-form-input", rows: 3 %>
+          <div style="margin-top: 8px;">
+            <%= form.submit 'Submit Final Statement', class: "pulse-action-btn pulse-action-btn-primary" %>
+          </div>
+        <% end %>
+      <% else %>
+        <p class="pulse-body-text-muted">
+          <%= @decision.effective_decision_maker.display_name %>'s final statement will appear here when the decision is made.
+        </p>
       <% end %>
     </div>
-
-    <%# Statement Section %>
-    <% if @decision.statement.present? %>
-      <h3 style="margin-top: 16px; margin-bottom: 0;">Final Statement</h3>
-      <%= render StatementEmbedComponent.new(statement: @decision.statement, current_user: @current_user) %>
-    <% end %>
   <% else %>
-    <div class="pulse-results-table-section">
-      <p class="pulse-body-text-muted" style="padding: 12px 0;">
-        Submit your vote to see results.
-      </p>
-    </div>
+    <%# Vote Decision: voting UI + results %>
+    <% unless @decision.closed? %>
+      <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) %>
+        <div class="pulse-acceptance-voting-section">
+          <p class="pulse-body-text-muted" style="padding: 12px 0;">
+            <%= octicon 'blocked', height: 14 %>
+            <% if @current_user.blocked?(@decision.created_by) %>
+              Voting is unavailable because you have blocked the author of this decision.
+            <% else %>
+              Voting is unavailable because you have been blocked by the author of this decision.
+            <% end %>
+          </p>
+        </div>
+      <% else %>
+        <div class="pulse-acceptance-voting-section">
+          <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
+            <%= render 'options_section' %>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+
+    <% if @show_results %>
+      <%# Results Section %>
+      <span
+        data-controller="decision-results"
+        data-decision-results-url-value="<%= @decision.path %>/results.html"
+        >
+        <div class="pulse-results-table-section">
+          <%= render 'shared/pulse_accordion', title: @results_header, open: true, title_data: { 'decision-results-target': 'header' } do %>
+            <span data-decision-results-target="content">
+              <%= render 'results' %>
+            </span>
+          <% end %>
+        </div>
+      </span>
+
+      <%# Voters Link %>
+      <div style="margin-top: 8px;">
+        <%= link_to "#{@decision.path}/voters", class: 'pulse-body-text-muted' do %>
+          <%= octicon 'check-circle', height: 14 %>
+          <%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes
+        <% end %>
+      </div>
+
+      <%# Statement Section %>
+      <% if @decision.statement.present? %>
+        <h3 style="margin-top: 16px; margin-bottom: 0;">Final Statement</h3>
+        <%= render StatementEmbedComponent.new(statement: @decision.statement, current_user: @current_user) %>
+      <% end %>
+    <% else %>
+      <div class="pulse-results-table-section">
+        <p class="pulse-body-text-muted" style="padding: 12px 0;">
+          Submit your vote to see results.
+        </p>
+      </div>
+    <% end %>
   <% end %>
 
   <%= render 'shared/pulse_comments', commentable: @decision %>

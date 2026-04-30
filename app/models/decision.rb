@@ -13,7 +13,7 @@ class Decision < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   include Statementable
-  SUBTYPES = %w[vote lottery log].freeze
+  SUBTYPES = %w[vote lottery executive].freeze
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -22,6 +22,7 @@ class Decision < ApplicationRecord
   before_validation :set_collective_id
   belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
   belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
+  belongs_to :decision_maker, class_name: 'User', optional: true
   has_many :decision_participants, dependent: :destroy
   has_many :options, dependent: :destroy
   has_many :votes # dependent: :destroy through options
@@ -41,8 +42,13 @@ class Decision < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def is_log?
-    subtype == "log"
+  def is_executive?
+    subtype == "executive"
+  end
+
+  sig { returns(User) }
+  def effective_decision_maker
+    T.must(decision_maker || created_by)
   end
 
   sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
@@ -62,6 +68,7 @@ class Decision < ApplicationRecord
       deadline: deadline,
       created_at: created_at,
       updated_at: updated_at,
+      decision_maker_id: decision_maker&.id,
       voter_count: voter_count,
       # participants: decision_participants.map(&:api_json),
       # options: options.map(&:api_json),
@@ -126,7 +133,21 @@ class Decision < ApplicationRecord
 
   sig { params(participant_or_user: T.any(DecisionParticipant, User)).returns(T::Boolean) }
   def can_close?(participant_or_user)
-    can_edit_settings?(participant_or_user)
+    if is_executive?
+      user_id = participant_or_user.is_a?(DecisionParticipant) ? participant_or_user.user_id : participant_or_user.id
+      user_id == effective_decision_maker.id
+    else
+      can_edit_settings?(participant_or_user)
+    end
+  end
+
+  sig { override.params(user: User).returns(T::Boolean) }
+  def can_write_statement?(user)
+    if is_executive?
+      user.id == effective_decision_maker.id
+    else
+      user.id == created_by_id
+    end
   end
 
   sig { returns(T::Boolean) }

@@ -5,9 +5,37 @@
 
 <%= render 'shared/pulse_create_tabs', current: :decision %>
 
-<article class="pulse-resource-detail">
+<article class="pulse-resource-detail" data-controller="decision-subtype">
 
+  <% initial_subtype = params[:subtype] || "vote" %>
   <%= form_with(url: "#{@current_collective.path}/decide", class: "pulse-form") do |form| %>
+    <input type="hidden" name="decision[subtype]" value="<%= initial_subtype %>" data-decision-subtype-target="subtypeInput">
+
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Type</label>
+      <div style="display: flex; gap: 4px;">
+        <button type="button" class="<%= initial_subtype == 'vote' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-decision-subtype-target="voteBtn" data-action="click->decision-subtype#selectVote">Vote</button>
+        <button type="button" class="<%= initial_subtype == 'executive' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-decision-subtype-target="executiveBtn" data-action="click->decision-subtype#selectExecutive">Executive</button>
+      </div>
+    </div>
+
+    <div class="pulse-form-group" data-decision-subtype-target="decisionMakerSection" style="<%= initial_subtype == 'executive' ? '' : 'display: none;' %>">
+      <label class="pulse-form-label">Decision Maker</label>
+      <div data-controller="member-select"
+           data-member-select-collective-path-value="/collectives/<%= @current_collective.handle %>"
+           data-member-select-field-name-value="decision[decision_maker_id]"
+           data-member-select-selected-id-value="<%= @current_user.id %>"
+           data-member-select-selected-name-value="<%= @current_user.display_name %>"
+           data-member-select-selected-handle-value="<%= @current_user.handle %>"
+           data-member-select-selected-avatar-url-value="<%= @current_user.image_url %>"
+           data-member-select-required-value="true"
+           style="position: relative;">
+        <input type="hidden" data-member-select-target="hiddenInput">
+        <div data-member-select-target="display"></div>
+        <div data-member-select-target="dropdown" class="mention-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100;"></div>
+      </div>
+    </div>
+
     <div class="pulse-form-group">
       <label class="pulse-form-label">Question</label>
       <%= form.text_field :question,
@@ -47,7 +75,7 @@
 
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Deadline</h2>
-      <p class="pulse-section-description">When should voting close?</p>
+      <p class="pulse-section-description" data-decision-subtype-target="deadlineLabel"><%= initial_subtype == 'executive' ? 'When should this decision close?' : 'When should voting close?' %></p>
       <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week %>
     </section>
 

@@ -1,12 +1,18 @@
 <% @decision.options.order(:created_at).each_with_index do |option, index| %>
-  <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) %>
-  <li class="pulse-option-item" data-option-id="<%= option.id %>">
-    <input type="hidden" name="votes[<%= index %>][option_title]" value="<%= option.title %>">
-    <input type="hidden" name="votes[<%= index %>][accepted]" value="0">
-    <input type="checkbox" class="pulse-acceptance-checkbox" id="option<%= option.id %>" name="votes[<%= index %>][accepted]" value="1" <%= vote.accepted == 1 ? 'checked' : '' %>/>
-    <input type="hidden" name="votes[<%= index %>][preferred]" value="0">
-    <input type="checkbox" class="pulse-star-checkbox" id="star-option<%= option.id %>" name="votes[<%= index %>][preferred]" value="1" <%= vote.preferred == 1 ? 'checked' : '' %>/>
-    <label for="star-option<%= option.id %>" class="pulse-star-label"></label>
-    <label for="option<%= option.id %>" class="pulse-option-label" id="option-label<%= option.id %>"><%= markdown_inline(option.title) %></label>
-  </li>
+  <% if @decision.is_executive? %>
+    <li class="pulse-option-item" data-option-id="<%= option.id %>" style="padding: 4px 0;">
+      <%= markdown_inline(option.title) %>
+    </li>
+  <% else %>
+    <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) %>
+    <li class="pulse-option-item" data-option-id="<%= option.id %>">
+      <input type="hidden" name="votes[<%= index %>][option_title]" value="<%= option.title %>">
+      <input type="hidden" name="votes[<%= index %>][accepted]" value="0">
+      <input type="checkbox" class="pulse-acceptance-checkbox" id="option<%= option.id %>" name="votes[<%= index %>][accepted]" value="1" <%= vote.accepted == 1 ? 'checked' : '' %>/>
+      <input type="hidden" name="votes[<%= index %>][preferred]" value="0">
+      <input type="checkbox" class="pulse-star-checkbox" id="star-option<%= option.id %>" name="votes[<%= index %>][preferred]" value="1" <%= vote.preferred == 1 ? 'checked' : '' %>/>
+      <label for="star-option<%= option.id %>" class="pulse-star-label"></label>
+      <label for="option<%= option.id %>" class="pulse-option-label" id="option-label<%= option.id %>"><%= markdown_inline(option.title) %></label>
+    </li>
+  <% end %>
 <% end %>

@@ -583,7 +583,8 @@ CREATE TABLE public.decisions (
     collective_id uuid,
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
-    subtype character varying DEFAULT 'vote'::character varying NOT NULL
+    subtype character varying DEFAULT 'vote'::character varying NOT NULL,
+    decision_maker_id uuid
 );
 
 
@@ -8272,6 +8273,14 @@ ALTER TABLE ONLY public.ai_agent_task_runs
 
 
 --
+-- Name: decisions fk_rails_5340de9a9f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.decisions
+    ADD CONSTRAINT fk_rails_5340de9a9f FOREIGN KEY (decision_maker_id) REFERENCES public.users(id);
+
+
+--
 -- Name: collective_members fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8942,6 +8951,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260430190112'),
 ('20260430173704'),
 ('20260430173024'),
 ('20260430025502'),

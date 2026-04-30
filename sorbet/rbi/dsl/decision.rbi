@@ -376,6 +376,9 @@ class Decision
     def build_created_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_decision_maker(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_deleted_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
@@ -426,6 +429,12 @@ class Decision
     def create_created_by!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_decision_maker(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_decision_maker!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_deleted_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
@@ -460,6 +469,18 @@ class Decision
 
     sig { returns(T::Boolean) }
     def created_by_previously_changed?; end
+
+    sig { returns(T.nilable(::User)) }
+    def decision_maker; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def decision_maker=(value); end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_changed?; end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_previously_changed?; end
 
     sig { returns(T::Array[T.untyped]) }
     def decision_participant_ids; end
@@ -522,6 +543,9 @@ class Decision
     def reload_created_by; end
 
     sig { returns(T.nilable(::User)) }
+    def reload_decision_maker; end
+
+    sig { returns(T.nilable(::User)) }
     def reload_deleted_by; end
 
     sig { returns(T.nilable(::Note)) }
@@ -552,6 +576,9 @@ class Decision
 
     sig { void }
     def reset_created_by; end
+
+    sig { void }
+    def reset_decision_maker; end
 
     sig { void }
     def reset_deleted_by; end
