@@ -334,6 +334,59 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
   end
 
   # =========================================================================
+  # Multi-tenant workspace creation
+  # =========================================================================
+
+  test "user has separate private workspaces on each tenant" do
+    # Create a second tenant
+    tenant2 = create_tenant(subdomain: "pw-test2-#{SecureRandom.hex(4)}")
+    tenant2.create_main_collective!(created_by: @alice)
+    tenant2.add_user!(@alice)
+
+    # Alice should have a workspace on each tenant
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace1 = @alice.private_workspace
+    assert workspace1, "Alice should have a workspace on tenant 1"
+    assert_equal @tenant.id, workspace1.tenant_id
+
+    @alice.reload
+    Tenant.scope_thread_to_tenant(subdomain: tenant2.subdomain)
+    workspace2 = @alice.private_workspace
+    assert workspace2, "Alice should have a workspace on tenant 2"
+    assert_equal tenant2.id, workspace2.tenant_id
+
+    refute_equal workspace1.id, workspace2.id, "Workspaces should be different collectives"
+  end
+
+  test "navigating to /workspace/ on second tenant loads that tenant's workspace" do
+    tenant2 = create_tenant(subdomain: "pw-test2-#{SecureRandom.hex(4)}")
+    tenant2.create_main_collective!(created_by: @alice)
+    tenant2.add_user!(@alice)
+    tenant2.enable_api!
+
+    @alice.reload
+    Tenant.scope_thread_to_tenant(subdomain: tenant2.subdomain)
+    workspace2 = @alice.private_workspace
+    assert workspace2, "Alice should have a workspace on tenant 2"
+    workspace2.enable_api!
+
+    api_token = ApiToken.create!(
+      user: @alice,
+      tenant: tenant2,
+      name: "Tenant2 Token",
+      scopes: ApiToken.valid_scopes,
+    )
+
+    host! "#{tenant2.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+    get workspace2.path, headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+    assert_includes response.body, workspace2.name
+  end
+
+  # =========================================================================
   # Commitment critical mass enforcement
   # =========================================================================
 

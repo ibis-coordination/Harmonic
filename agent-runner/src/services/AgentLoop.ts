@@ -134,21 +134,24 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
             Effect.succeed({
               content: "",
               availableActions: [] as readonly string[],
+              resolvedPath: path,
               _error: err.message,
             }),
           ),
         );
 
-        currentPath = path;
-        currentContent = result.content;
+        currentPath = result.resolvedPath;
         currentActions = result.availableActions;
         lastActionResult = null; // Cleared on navigate, matching Ruby
 
         const navError = "_error" in result ? (result as { _error: string })._error : null;
+        currentContent = navError
+          ? `Error navigating to ${path}: ${navError}`
+          : result.content;
 
         yield* addStep(navigateStep({
           path,
-          resolvedPath: path,
+          resolvedPath: result.resolvedPath,
           contentPreview: result.content,
           availableActions: [...result.availableActions],
           error: navError,
@@ -398,6 +401,16 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
             case "execute_action": {
               yield* executeAction(action.action, action.params ?? {});
               toolResults.push(lastActionResult ?? "");
+              break;
+            }
+            case "search": {
+              yield* navigateTo(`/search?q=${encodeURIComponent(action.query)}`);
+              toolResults.push(truncateContent(currentContent ?? ""));
+              break;
+            }
+            case "get_help": {
+              yield* navigateTo(`/help/${encodeURIComponent(action.topic)}`);
+              toolResults.push(truncateContent(currentContent ?? ""));
               break;
             }
             case "error": {

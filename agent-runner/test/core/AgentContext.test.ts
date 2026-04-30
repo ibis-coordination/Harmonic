@@ -53,6 +53,9 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt("", undefined);
     expect(prompt).toContain("navigate");
     expect(prompt).toContain("execute_action");
+    expect(prompt).toContain("search");
+    expect(prompt).toContain("get_help");
+    expect(prompt).toContain("four tools");
   });
 
   it("includes boundaries with hierarchy", () => {
@@ -105,7 +108,7 @@ describe("buildChatSystemPrompt", () => {
   it("includes chat tools with respond_to_human", () => {
     const prompt = buildChatSystemPrompt("", undefined, undefined);
     expect(prompt).toContain("respond_to_human");
-    expect(prompt).toContain("three tools");
+    expect(prompt).toContain("five tools");
   });
 
   it("includes time context when provided", () => {
@@ -121,9 +124,11 @@ describe("buildChatSystemPrompt", () => {
 });
 
 describe("AGENT_TOOLS", () => {
-  it("has navigate and execute_action tools", () => {
-    expect(AGENT_TOOLS.length).toBe(2);
-    expect(AGENT_TOOLS.map((t) => t.function.name)).toEqual(["navigate", "execute_action"]);
+  it("has all four tools", () => {
+    expect(AGENT_TOOLS.length).toBe(4);
+    expect(AGENT_TOOLS.map((t) => t.function.name)).toEqual([
+      "navigate", "execute_action", "search", "get_help",
+    ]);
   });
 
   it("navigate has path parameter", () => {
@@ -139,5 +144,19 @@ describe("AGENT_TOOLS", () => {
     const properties = props["properties"] as Record<string, unknown>;
     expect(properties["action"]).toBeDefined();
     expect(properties["params"]).toBeDefined();
+  });
+
+  it("search has query parameter", () => {
+    const search = AGENT_TOOLS[2];
+    const props = search?.function.parameters as Record<string, unknown>;
+    const properties = props["properties"] as Record<string, unknown>;
+    expect(properties["query"]).toBeDefined();
+  });
+
+  it("get_help has topic parameter", () => {
+    const help = AGENT_TOOLS[3];
+    const props = help?.function.parameters as Record<string, unknown>;
+    const properties = props["properties"] as Record<string, unknown>;
+    expect(properties["topic"]).toBeDefined();
   });
 });

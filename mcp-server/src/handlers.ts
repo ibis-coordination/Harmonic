@@ -68,6 +68,26 @@ export async function handleNavigate(
   }
 }
 
+// Search handler — delegates to navigate with a search URL
+export async function handleSearch(
+  query: string,
+  config: Config,
+  state: State,
+  fetchFn: typeof fetch = fetch
+): Promise<ToolResult> {
+  return handleNavigate(`/search?q=${encodeURIComponent(query)}`, config, state, fetchFn);
+}
+
+// Get help handler — delegates to navigate with a help URL
+export async function handleGetHelp(
+  topic: string,
+  config: Config,
+  state: State,
+  fetchFn: typeof fetch = fetch
+): Promise<ToolResult> {
+  return handleNavigate(`/help/${encodeURIComponent(topic)}`, config, state, fetchFn);
+}
+
 // Execute action handler
 export async function handleExecuteAction(
   action: string,

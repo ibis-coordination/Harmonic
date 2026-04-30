@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handleNavigate, handleExecuteAction, createState, type Config, type State } from "./handlers.js";
+import { handleNavigate, handleExecuteAction, handleSearch, handleGetHelp, createState, type Config, type State } from "./handlers.js";
 
 // Helper to create a mock fetch response
 function mockFetch(status: number, body: string): typeof fetch {
@@ -191,6 +191,90 @@ describe("handleExecuteAction", () => {
       "http://localhost:3000/notifications/actions/mark_read",
       expect.anything()
     );
+  });
+});
+
+describe("handleSearch", () => {
+  let config: Config;
+  let state: State;
+
+  beforeEach(() => {
+    config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
+    state = createState();
+  });
+
+  it("delegates to navigate with search URL", async () => {
+    const mockFn = mockFetch(200, "# Search Results\n\n- Note: Test note");
+    const result = await handleSearch("type:note status:open", config, state, mockFn);
+
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/search?q=type%3Anote%20status%3Aopen",
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain("Search Results");
+  });
+
+  it("updates currentPath to search URL", async () => {
+    const mockFn = mockFetch(200, "results");
+    await handleSearch("test query", config, state, mockFn);
+
+    expect(state.currentPath).toBe("/search?q=test%20query");
+  });
+
+  it("passes through errors from navigate", async () => {
+    config.apiToken = undefined;
+    const result = await handleSearch("test", config, state);
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("HARMONIC_API_TOKEN");
+  });
+});
+
+describe("handleGetHelp", () => {
+  let config: Config;
+  let state: State;
+
+  beforeEach(() => {
+    config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
+    state = createState();
+  });
+
+  it("delegates to navigate with help URL", async () => {
+    const mockFn = mockFetch(200, "# Decisions\n\nAcceptance voting...");
+    const result = await handleGetHelp("decisions", config, state, mockFn);
+
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/help/decisions",
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain("Decisions");
+  });
+
+  it("encodes topic with special characters", async () => {
+    const mockFn = mockFetch(200, "# Help");
+    await handleGetHelp("reminder-notes", config, state, mockFn);
+
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/help/reminder-notes",
+      expect.anything()
+    );
+  });
+
+  it("updates currentPath to help URL", async () => {
+    const mockFn = mockFetch(200, "help content");
+    await handleGetHelp("agents", config, state, mockFn);
+
+    expect(state.currentPath).toBe("/help/agents");
+  });
+
+  it("passes through errors from navigate", async () => {
+    const mockFn = mockFetch(404, "Not found");
+    const result = await handleGetHelp("nonexistent", config, state, mockFn);
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("HTTP 404");
   });
 });
 
