@@ -41,6 +41,7 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 <% end -%>
 <% end -%>
 <% end -%>
+<% if @show_results -%>
 ## <%= @decision.closed? ? "Final" : "Current" %> Results
 
 Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
@@ -54,14 +55,15 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
 <% end -%>
 
-## Voters (<%= @decision.voters.count %>)
+<% if @decision.final_statement.present? -%>
+## Final Statement
 
-<% if @decision.voters.empty? -%>
-No voters yet.
-<% else -%>
-<% @decision.voters.each do |voter| -%>
-* <%= user_link_md(voter) %>
+<%= @decision.final_statement %>
 <% end -%>
+[<%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes](<%= @decision.path %>/voters)
+<% else -%>
+
+Submit your vote to see results. Votes are not anonymous — individual votes are visible on the voters page after you vote.
 <% end -%>
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>

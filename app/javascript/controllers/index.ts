@@ -58,6 +58,8 @@ import TrioLogoController from "./trio_logo_controller"
 import AutoSubmitController from "./auto_submit_controller"
 import CheckboxGroupController from "./checkbox_group_controller"
 import KebabMenuController from "./kebab_menu_controller"
+import DialogController from "./dialog_controller"
+import TabsController from "./tabs_controller"
 
 // Register all controllers
 application.register("trio-chat", TrioChatController)
@@ -107,5 +109,7 @@ application.register("trio-logo", TrioLogoController)
 application.register("auto-submit", AutoSubmitController)
 application.register("checkbox-group", CheckboxGroupController)
 application.register("kebab-menu", KebabMenuController)
+application.register("dialog", DialogController)
+application.register("tabs", TabsController)
 
 export { application }

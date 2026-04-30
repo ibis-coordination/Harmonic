@@ -61,6 +61,7 @@ class Decision < ApplicationRecord
       deadline: deadline,
       created_at: created_at,
       updated_at: updated_at,
+      final_statement: final_statement,
       voter_count: voter_count,
       # participants: decision_participants.map(&:api_json),
       # options: options.map(&:api_json),
@@ -197,7 +198,7 @@ class Decision < ApplicationRecord
   end
 
   def content_snapshot
-    { question: question, description: description }
+    { question: question, description: description, final_statement: final_statement }
   end
 
   private

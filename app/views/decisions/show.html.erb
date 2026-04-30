@@ -21,21 +21,45 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <% if @decision.can_edit_settings?(@current_user) %>
-        <%= link_to "#{@decision.path}/settings", class: 'pulse-action-btn' do %>
-          <%= octicon 'gear', height: 14 %>
-          Settings
-        <% end %>
+      <% if @decision.can_close?(@current_user) && !@decision.closed? %>
+        <span data-controller="dialog">
+          <button type="button" class="pulse-action-btn" data-action="click->dialog#open">
+            <%= octicon 'issue-closed', height: 14 %>
+            Close Decision
+          </button>
+          <dialog data-dialog-target="dialog" class="pulse-dialog">
+            <%= form_with url: "#{@decision.path}/actions/close_decision", method: :post, class: "pulse-form" do |form| %>
+              <h2 style="margin: 0 0 12px 0; font-size: 1.25em;">Close Decision</h2>
+              <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. You can optionally add a final statement explaining the outcome.</p>
+              <div style="margin-bottom: 20px;">
+                <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement (optional)</label>
+                <%= form.text_area :final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
+              </div>
+              <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="button" class="pulse-action-btn-secondary" data-action="click->dialog#close">Cancel</button>
+                <%= form.submit 'Close Decision', class: "pulse-action-btn pulse-action-btn-primary" %>
+              </div>
+            <% end %>
+          </dialog>
+        </span>
       <% end %>
+      <% show_settings = @decision.can_edit_settings?(@current_user) %>
       <% show_pin = @current_user %>
       <% show_report = @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
-      <% if show_pin || show_report %>
+      <% if show_settings || show_pin || show_report %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
+              <% if show_settings %>
+                <li>
+                  <%= link_to "#{@decision.path}/settings" do %>
+                    <%= octicon 'gear', height: 14 %> Settings
+                  <% end %>
+                </li>
+              <% end %>
               <% if show_pin %>
                 <li><%= render 'shared/pulse_pin_button', resource: @decision, is_pinned: @is_pinned %></li>
               <% end %>
@@ -94,27 +118,69 @@
     <% end %>
   <% end %>
 
-  <%# Results Section %>
-  <span
-    data-controller="decision-results"
-    data-decision-results-url-value="<%= @decision.path %>/results.html"
-    >
-    <div class="pulse-results-table-section">
-      <%= render 'shared/pulse_accordion', title: @results_header, open: @decision.closed?, title_data: { 'decision-results-target': 'header' } do %>
-        <span data-decision-results-target="content">
-          <%= render 'results' %>
-        </span>
+  <% if @show_results %>
+    <%# Results Section %>
+    <span
+      data-controller="decision-results"
+      data-decision-results-url-value="<%= @decision.path %>/results.html"
+      >
+      <div class="pulse-results-table-section">
+        <%= render 'shared/pulse_accordion', title: @results_header, open: true, title_data: { 'decision-results-target': 'header' } do %>
+          <span data-decision-results-target="content">
+            <%= render 'results' %>
+          </span>
+        <% end %>
+      </div>
+    </span>
+
+    <%# Voters Link %>
+    <div style="margin-top: 8px;">
+      <%= link_to "#{@decision.path}/voters", class: 'pulse-body-text-muted' do %>
+        <%= octicon 'check-circle', height: 14 %>
+        <%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes
       <% end %>
     </div>
-  </span>
 
-  <%# Voters Section %>
-  <span
-    data-controller="decision-voters"
-    data-decision-voters-url-value="<%= @decision.path %>/voters.html"
-    >
-    <%= render 'voters' %>
-  </span>
+    <%# Final Statement Section %>
+    <% can_edit = @decision.closed? && @decision.can_edit_settings?(@current_user) %>
+    <% if @decision.final_statement.present? || can_edit %>
+      <div style="margin-top: 16px;" data-controller="tabs">
+        <% if @decision.final_statement.present? %>
+          <div data-tabs-target="panel">
+            <h3 style="display: inline;">Final Statement</h3>
+            <% if can_edit %>
+              <button type="button" class="pulse-action-btn-secondary" style="padding: 2px 6px; margin-left: 4px;" data-tabs-target="tab" data-action="click->tabs#show" data-tabs-index-param="1">
+                <%= octicon 'pencil', height: 14 %>
+              </button>
+            <% end %>
+            <div class="pulse-markdown-content" style="margin-top: 4px;">
+              <%= markdown(@decision.final_statement) %>
+            </div>
+          </div>
+        <% end %>
+        <% if can_edit %>
+          <div data-tabs-target="panel" style="<%= @decision.final_statement.present? ? 'display: none;' : '' %>">
+            <%= form_with url: "#{@decision.path}/final_statement", method: :post, class: "pulse-form" do |form| %>
+              <label for="final_statement" class="pulse-label"><%= @decision.final_statement.present? ? 'Edit Final Statement' : 'Add Final Statement' %></label>
+              <%= form.text_area :final_statement, value: @decision.final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3 %>
+              <div style="margin-top: 8px; display: flex; gap: 8px;">
+                <%= form.submit 'Save', class: "pulse-action-btn pulse-action-btn-primary" %>
+                <% if @decision.final_statement.present? %>
+                  <button type="button" class="pulse-action-btn-secondary" data-tabs-target="tab" data-action="click->tabs#show" data-tabs-index-param="0">Cancel</button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  <% else %>
+    <div class="pulse-results-table-section">
+      <p class="pulse-body-text-muted" style="padding: 12px 0;">
+        Submit your vote to see results.
+      </p>
+    </div>
+  <% end %>
 
   <%= render 'shared/pulse_comments', commentable: @decision %>
   <%= render 'shared/pulse_backlinks', resource: @decision %>

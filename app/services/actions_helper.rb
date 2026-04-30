@@ -369,6 +369,22 @@ class ActionsHelper
       params: [],
       authorization: :collective_member,
     },
+    "close_decision" => {
+      description: "Close this decision immediately, ending voting. Optionally include a final statement explaining the outcome.",
+      params_string: "(final_statement)",
+      params: [
+        { name: "final_statement", type: "string", required: false, description: "Optional final statement explaining the outcome" },
+      ],
+      authorization: :resource_owner,
+    },
+    "update_final_statement" => {
+      description: "Add or update the final statement — the owner's interpretation of the results (only available after the decision is closed)",
+      params_string: "(final_statement)",
+      params: [
+        { name: "final_statement", type: "string", description: "The final statement text" },
+      ],
+      authorization: :resource_owner,
+    },
     "delete_decision" => {
       description: "Delete this decision. Votes and comments from others will be preserved.",
       params_string: "()",
@@ -937,6 +953,8 @@ class ActionsHelper
         { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string], description: ACTION_DEFINITIONS["add_options"][:description] },
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
+        { name: "close_decision", params_string: ACTION_DEFINITIONS["close_decision"][:params_string], description: ACTION_DEFINITIONS["close_decision"][:description] },
+        { name: "update_final_statement", params_string: ACTION_DEFINITIONS["update_final_statement"][:params_string], description: ACTION_DEFINITIONS["update_final_statement"][:description] },
       ],
       conditional_actions: [
         {

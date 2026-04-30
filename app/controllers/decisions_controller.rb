@@ -83,6 +83,8 @@ class DecisionsController < ApplicationController
     @participant = current_decision_participant
     @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
     @votes = current_votes
+    @current_user_has_voted = @votes.any? { |v| v.accepted == 1 || v.preferred == 1 }
+    @show_results = @decision.closed? || @current_user_has_voted
     set_results_view_vars
     set_pin_vars
     set_report_vars(@decision)
@@ -266,10 +268,89 @@ class DecisionsController < ApplicationController
     end
   end
 
+  def submit_votes
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    if @decision.closed?
+      redirect_to @decision.path, alert: "This decision is closed and no longer accepting votes."
+      return
+    end
+
+    raw_votes = params[:votes]
+    votes_list = if raw_votes.is_a?(ActionController::Parameters)
+      raw_votes.values
+    else
+      raw_votes || []
+    end
+
+    votes_data = votes_list.map do |vote_params|
+      {
+        option_title: vote_params[:option_title],
+        accept: vote_params[:accepted] == "1",
+        prefer: vote_params[:preferred] == "1",
+      }
+    end
+
+    if votes_data.any?
+      begin
+        api_helper(params: { votes: votes_data }).create_votes
+        redirect_to @decision.path, notice: "Vote submitted."
+      rescue StandardError => e
+        redirect_to @decision.path, alert: e.message
+      end
+    else
+      redirect_to @decision.path
+    end
+  end
+
   def results_partial
     @decision = current_decision
     set_results_view_vars
     render partial: 'results'
+  end
+
+  def voters_page
+    @decision = current_decision || find_deleted_decision
+    return render '404', status: 404 unless @decision
+    return render '404', status: 404 if @decision.deleted?
+    if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by)
+      return render 'shared/403', status: 403
+    end
+
+    @page_title = "Voters | #{@decision.question}"
+    @sidebar_mode = 'resource'
+
+    all_votes = @decision.votes.includes(:option, decision_participant: :user)
+    results = @decision.results
+    result_option_ids = results.map(&:option_id)
+    # Use results order; append any options not yet in results (no votes yet)
+    all_options = @decision.options.order(:created_at)
+    options_by_id = all_options.index_by(&:id)
+    sorted_options = result_option_ids.filter_map { |id| options_by_id[id] }
+    remaining = all_options.reject { |o| result_option_ids.include?(o.id) }
+    sorted_options += remaining
+
+    @votes_by_option = sorted_options.map do |option|
+      option_votes = all_votes.select { |v| v.option_id == option.id }
+      accepted_votes = option_votes.select { |v| v.accepted == 1 }
+      {
+        option: option,
+        accepted_and_preferred: accepted_votes.select { |v| v.preferred == 1 }.map { |v| v.decision_participant.user }.compact.sort_by { |u| u.display_name.downcase },
+        accepted_only: accepted_votes.select { |v| v.preferred != 1 }.map { |v| v.decision_participant.user }.compact.sort_by { |u| u.display_name.downcase },
+      }
+    end
+
+    @votes_by_voter = @decision.voters.sort_by { |u| u.display_name.downcase }.map do |voter|
+      voter_votes = all_votes.select { |v| v.decision_participant&.user_id == voter.id && v.accepted == 1 }
+      # Sort accepted options in results order
+      options_with_status = voter_votes.map do |v|
+        { option: v.option, preferred: v.preferred == 1 }
+      end.sort_by { |entry| result_option_ids.index(entry[:option].id) || Float::INFINITY }
+      {
+        voter: voter,
+        options: options_with_status,
+      }
+    end
   end
 
   def voters_partial
@@ -314,6 +395,60 @@ class DecisionsController < ApplicationController
     respond_to do |format|
       format.html { redirect_to current_decision.path, alert: e.record.errors.full_messages.join(", ") }
       format.md { render_action_error({ action_name: "report_content", resource: current_decision, error: e.message }) }
+    end
+  end
+
+  def describe_close_decision
+    render_action_description(ActionsHelper.action_description("close_decision", resource: current_decision))
+  end
+
+  def close_decision_action
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    return render 'shared/403', status: 403 unless @decision.can_close?(@current_user)
+
+    begin
+      api_helper(params: { final_statement: params[:final_statement] }).close_decision
+      respond_to do |format|
+        format.html { redirect_to @decision.path, notice: "Decision closed." }
+        format.md { render_action_success({ action_name: 'close_decision', resource: @decision, result: "Decision closed." }) }
+      end
+    rescue StandardError => e
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: e.message }
+        format.md { render_action_error({ action_name: 'close_decision', resource: @decision, error: e.message }) }
+      end
+    end
+  end
+
+  def describe_update_final_statement
+    render_action_description(ActionsHelper.action_description("update_final_statement", resource: current_decision))
+  end
+
+  def update_final_statement
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
+
+    unless @decision.closed?
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: "Decision must be closed to set final statement." }
+        format.md { render_action_error({ action_name: 'update_final_statement', resource: @decision, error: "Decision must be closed to set final statement." }) }
+      end
+      return
+    end
+
+    begin
+      api_helper(params: { final_statement: params[:final_statement] }).update_final_statement
+      respond_to do |format|
+        format.html { redirect_to @decision.path, notice: "Final statement updated." }
+        format.md { render_action_success({ action_name: 'update_final_statement', resource: @decision, result: "Final statement updated." }) }
+      end
+    rescue StandardError => e
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: e.message }
+        format.md { render_action_error({ action_name: 'update_final_statement', resource: @decision, error: e.message }) }
+      end
     end
   end
 

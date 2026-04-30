@@ -1,0 +1,43 @@
+# Voters: <%= @decision.question %>
+
+<%= @decision.voter_count %> <%= @decision.voter_count == 1 ? 'voter' : 'voters' %>
+
+<% if @decision.voters.empty? -%>
+No one has voted yet.
+<% else -%>
+
+## By Voter
+
+<% @votes_by_voter.each do |entry| -%>
+### <%= user_link_md(entry[:voter]) %>
+
+<% if entry[:options].any? -%>
+<% entry[:options].each do |opt| -%>
+* <%= opt[:preferred] ? '✅ ⭐' : '✅' %> <%= opt[:option].title %>
+<% end -%>
+<% else -%>
+*Did not accept any options*
+<% end -%>
+
+<% end -%>
+## By Option
+
+<% @votes_by_option.each do |entry| -%>
+### <%= entry[:option].title %>
+
+<% if entry[:accepted_and_preferred].any? -%>
+✅ ⭐ <%= entry[:accepted_and_preferred].map { |u| user_link_md(u) }.join(", ") %>
+<% end -%>
+<% if entry[:accepted_only].any? -%>
+✅ <%= entry[:accepted_only].map { |u| user_link_md(u) }.join(", ") %>
+<% end -%>
+<% if entry[:accepted_and_preferred].empty? && entry[:accepted_only].empty? -%>
+*No one accepted this option*
+<% end -%>
+
+<% end -%>
+<% end -%>
+
+---
+
+[Back to decision](<%= @decision.path %>)

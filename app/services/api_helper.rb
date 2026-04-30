@@ -642,6 +642,7 @@ class ApiHelper
     votes_param = params[:votes]
     raise ArgumentError, "votes parameter is required" if votes_param.blank?
     raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
+    raise ArgumentError, "This decision is closed and no longer accepting votes." if T.must(current_decision).closed?
     check_not_blocked!(T.must(current_decision), action: "vote on")
 
     votes = T.let([], T::Array[Vote])
@@ -886,6 +887,42 @@ class ApiHelper
           resource: decision
         )
       end
+    end
+    decision
+  end
+
+  def close_decision
+    decision = T.must(current_decision)
+    raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
+
+    decision.deadline = Time.current
+    decision.final_statement = params[:final_statement] if params[:final_statement].present?
+    decision.save!
+
+    if current_representation_session
+      current_representation_session.record_event!(
+        request: request,
+        action_name: "close_decision",
+        resource: decision,
+      )
+    end
+    decision
+  end
+
+  def update_final_statement
+    decision = T.must(current_decision)
+    raise 'Unauthorized: only creator can update final statement' unless decision.can_edit_settings?(current_user)
+    raise 'Decision must be closed to set final statement' unless decision.closed?
+
+    decision.final_statement = params[:final_statement]
+    decision.save!
+
+    if current_representation_session
+      current_representation_session.record_event!(
+        request: request,
+        action_name: "update_final_statement",
+        resource: decision,
+      )
     end
     decision
   end
