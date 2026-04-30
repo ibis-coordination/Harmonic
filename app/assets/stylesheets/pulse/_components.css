@@ -3410,3 +3410,34 @@ dialog.pulse-dialog::backdrop {
 dialog.pulse-dialog form {
   display: block;
 }
+
+/* Statement Embed */
+.pulse-statement-embed {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-statement-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+  color: var(--color-fg-muted);
+}
+
+.pulse-statement-header a {
+  color: var(--color-fg-default);
+}
+
+.pulse-statement-body {
+  margin-bottom: 12px;
+}
+
+.pulse-statement-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

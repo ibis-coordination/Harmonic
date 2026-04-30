@@ -448,6 +448,9 @@ class RepresentationSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_representative_user(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_statement(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -492,6 +495,12 @@ class RepresentationSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_representative_user!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
 
@@ -523,6 +532,9 @@ class RepresentationSession
 
     sig { returns(T.nilable(::User)) }
     def reload_representative_user; end
+
+    sig { returns(T.nilable(::Note)) }
+    def reload_statement; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -563,10 +575,19 @@ class RepresentationSession
     def reset_representative_user; end
 
     sig { void }
+    def reset_statement; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_trustee_grant; end
+
+    sig { returns(T.nilable(::Note)) }
+    def statement; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def statement=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end

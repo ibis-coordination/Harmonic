@@ -7,6 +7,7 @@ class RepresentationSession < ApplicationRecord
   include Commentable
   include HasTruncatedId
   include MightNotBelongToCollective
+  include Statementable
 
   belongs_to :tenant
   belongs_to :collective, optional: true
@@ -15,6 +16,10 @@ class RepresentationSession < ApplicationRecord
   has_many :representation_session_events, dependent: :destroy
 
   validates :began_at, presence: true
+
+  def can_write_statement?(user)
+    user.id == representative_user_id
+  end
   validates :confirmed_understanding, inclusion: { in: [true] }
   validate :collective_presence_matches_session_type
 

@@ -290,4 +290,64 @@ class DecisionTest < ActiveSupport::TestCase
     json = decision.api_json
     assert_equal "lottery", json[:subtype]
   end
+
+  # === Statementable Tests ===
+
+  test "decision is statementable" do
+    decision = create_decision
+    assert decision.respond_to?(:statement)
+    assert decision.respond_to?(:can_write_statement?)
+  end
+
+  test "creator can write statement" do
+    decision = create_decision
+    assert decision.can_write_statement?(@user)
+  end
+
+  test "non-creator cannot write statement" do
+    decision = create_decision
+    other_user = User.create!(name: "Other", email: "other-stmt-#{SecureRandom.hex(8)}@example.com", user_type: "human")
+    assert_not decision.can_write_statement?(other_user)
+  end
+
+  test "decision can have one statement" do
+    decision = create_decision
+    statement = Note.create!(
+      subtype: "statement",
+      text: "We decided to go with Option A.",
+      statementable: decision,
+      created_by: @user,
+      updated_by: @user,
+      tenant: @tenant,
+      collective: @collective,
+      deadline: Time.current,
+    )
+    assert_equal statement, decision.reload.statement
+  end
+
+  test "decision can only have one statement" do
+    decision = create_decision
+    Note.create!(
+      subtype: "statement",
+      text: "First statement",
+      statementable: decision,
+      created_by: @user,
+      updated_by: @user,
+      tenant: @tenant,
+      collective: @collective,
+      deadline: Time.current,
+    )
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      Note.create!(
+        subtype: "statement",
+        text: "Second statement",
+        statementable: decision,
+        created_by: @user,
+        updated_by: @user,
+        tenant: @tenant,
+        collective: @collective,
+        deadline: Time.current,
+      )
+    end
+  end
 end

@@ -377,11 +377,11 @@ class ActionsHelper
       ],
       authorization: :resource_owner,
     },
-    "update_final_statement" => {
-      description: "Add or update the final statement — the owner's interpretation of the results (only available after the decision is closed)",
-      params_string: "(final_statement)",
+    "add_statement" => {
+      description: "Add or update the statement on this decision (only available after the decision is closed)",
+      params_string: "(text)",
       params: [
-        { name: "final_statement", type: "string", description: "The final statement text" },
+        { name: "text", type: "string", description: "The statement text" },
       ],
       authorization: :resource_owner,
     },
@@ -954,7 +954,7 @@ class ActionsHelper
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
         { name: "close_decision", params_string: ACTION_DEFINITIONS["close_decision"][:params_string], description: ACTION_DEFINITIONS["close_decision"][:description] },
-        { name: "update_final_statement", params_string: ACTION_DEFINITIONS["update_final_statement"][:params_string], description: ACTION_DEFINITIONS["update_final_statement"][:description] },
+        { name: "add_statement", params_string: ACTION_DEFINITIONS["add_statement"][:params_string], description: ACTION_DEFINITIONS["add_statement"][:description] },
       ],
       conditional_actions: [
         {

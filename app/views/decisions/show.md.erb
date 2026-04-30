@@ -55,10 +55,10 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
 <% end -%>
 
-<% if @decision.final_statement.present? -%>
+<% if @decision.statement.present? -%>
 ## Final Statement
 
-<%= @decision.final_statement %>
+<%= @decision.statement.text %>
 <% end -%>
 [<%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes](<%= @decision.path %>/voters)
 <% else -%>

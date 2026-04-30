@@ -830,7 +830,7 @@ class NoteTest < ActiveSupport::TestCase
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
 
-    (Note::SUBTYPES - ["comment"]).each do |subtype|
+    (Note::SUBTYPES - ["comment", "statement"]).each do |subtype|
       attrs = {
         tenant: tenant,
         collective: collective,
@@ -1679,5 +1679,93 @@ class NoteTest < ActiveSupport::TestCase
     json = note.api_json
     assert_equal "reminder", json[:subtype]
     assert json.key?(:reminder_notification_id)
+  end
+
+  # === Statement Subtype Tests ===
+
+  test "statement note requires statementable" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      subtype: "statement",
+      text: "A statement without a parent",
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current,
+    )
+    assert_not note.valid?
+    assert note.errors[:subtype].any?
+  end
+
+  test "statement note is valid with statementable" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    decision = Decision.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      question: "Test?",
+      description: "",
+      deadline: 1.day.from_now,
+    )
+
+    note = Note.new(
+      subtype: "statement",
+      text: "We decided X.",
+      statementable: decision,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current,
+    )
+    assert note.valid?
+  end
+
+  test "non-statement note cannot have statementable" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    decision = Decision.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      question: "Test?",
+      description: "",
+      deadline: 1.day.from_now,
+    )
+
+    note = Note.new(
+      subtype: "text",
+      text: "A regular note",
+      statementable: decision,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+    )
+    assert_not note.valid?
+    assert note.errors[:subtype].any?
+  end
+
+  test "is_statement? predicate" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(subtype: "statement", tenant: tenant, collective: collective, created_by: user, updated_by: user)
+    assert note.is_statement?
+
+    note2 = Note.new(subtype: "text", tenant: tenant, collective: collective, created_by: user, updated_by: user)
+    assert_not note2.is_statement?
   end
 end

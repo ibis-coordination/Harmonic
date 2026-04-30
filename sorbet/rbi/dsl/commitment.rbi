@@ -428,6 +428,9 @@ class Commitment
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_deleted_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_statement(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -477,6 +480,12 @@ class Commitment
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_deleted_by!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -551,6 +560,9 @@ class Commitment
     sig { returns(T.nilable(::User)) }
     def reload_deleted_by; end
 
+    sig { returns(T.nilable(::Note)) }
+    def reload_statement; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -581,10 +593,19 @@ class Commitment
     def reset_deleted_by; end
 
     sig { void }
+    def reset_statement; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_updated_by; end
+
+    sig { returns(T.nilable(::Note)) }
+    def statement; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def statement=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end

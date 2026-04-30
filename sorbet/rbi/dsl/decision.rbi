@@ -378,6 +378,9 @@ class Decision
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_deleted_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_statement(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -427,6 +430,12 @@ class Decision
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_deleted_by!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -515,6 +524,9 @@ class Decision
     sig { returns(T.nilable(::User)) }
     def reload_deleted_by; end
 
+    sig { returns(T.nilable(::Note)) }
+    def reload_statement; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -545,10 +557,19 @@ class Decision
     def reset_deleted_by; end
 
     sig { void }
+    def reset_statement; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_updated_by; end
+
+    sig { returns(T.nilable(::Note)) }
+    def statement; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def statement=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -1056,51 +1077,6 @@ class Decision
     sig { void }
     def description_will_change!; end
 
-    sig { returns(T.nilable(::String)) }
-    def final_statement; end
-
-    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
-    def final_statement=(value); end
-
-    sig { returns(T::Boolean) }
-    def final_statement?; end
-
-    sig { returns(T.nilable(::String)) }
-    def final_statement_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def final_statement_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def final_statement_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def final_statement_change; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def final_statement_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def final_statement_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def final_statement_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def final_statement_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def final_statement_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def final_statement_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def final_statement_was; end
-
-    sig { void }
-    def final_statement_will_change!; end
-
     sig { returns(::String) }
     def id; end
 
@@ -1303,9 +1279,6 @@ class Decision
     def restore_description!; end
 
     sig { void }
-    def restore_final_statement!; end
-
-    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1373,12 +1346,6 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_description?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
-    def saved_change_to_final_statement; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_final_statement?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -1679,9 +1646,6 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_description?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_final_statement?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

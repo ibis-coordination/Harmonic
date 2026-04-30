@@ -256,7 +256,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     @decision.reload
     assert @decision.closed?
-    assert_equal "We chose Option A.", @decision.final_statement
+    assert_equal "We chose Option A.", @decision.statement&.text
   end
 
   test "creator can close decision via markdown action" do
@@ -307,42 +307,68 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
   # === Final Statement Tests ===
 
-  test "creator can update final statement on closed decision" do
+  test "creator can add statement on closed decision" do
     sign_in_as(@user, tenant: @tenant)
 
-    # Close the decision first
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     @decision.update!(deadline: Time.current)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/final_statement",
-      params: { final_statement: "We decided to go with Option A." }
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "We decided to go with Option A." }
 
     @decision.reload
-    assert_equal "We decided to go with Option A.", @decision.final_statement
+    assert_equal "We decided to go with Option A.", @decision.statement&.text
     assert_response :redirect
   end
 
-  test "creator cannot update final statement on open decision" do
-    sign_in_as(@user, tenant: @tenant)
-
-    assert_not @decision.closed?
-
-    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/final_statement",
-      params: { final_statement: "Premature statement" }
-
-    @decision.reload
-    assert_nil @decision.final_statement
-  end
-
-  test "final statement is displayed on show page when present" do
+  test "creator can update existing statement" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(deadline: Time.current, final_statement: "We chose Option A.")
+    @decision.update!(deadline: Time.current)
+    Note.create!(
+      subtype: "statement", text: "First draft.",
+      statementable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner",
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Updated statement." }
+
+    @decision.reload
+    assert_equal "Updated statement.", @decision.statement&.text
+    assert_response :redirect
+  end
+
+  test "creator cannot add statement on open decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_not @decision.closed?
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Premature statement" }
+
+    @decision.reload
+    assert_nil @decision.statement
+  end
+
+  test "statement is displayed on show page when present" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: Time.current)
+    Note.create!(
+      subtype: "statement", text: "We chose Option A.",
+      statementable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner",
+    )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -351,26 +377,38 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/We chose Option A/, response.body)
   end
 
-  test "final statement edit form is shown to creator on closed decision" do
+  test "statement embed is shown on closed decision with statement" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     @decision.update!(deadline: Time.current)
+    Note.create!(
+      subtype: "statement", text: "The final word.",
+      statementable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner",
+    )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
     assert_response :success
-    assert_match(/final_statement/, response.body)
+    assert_match(/pulse-statement-embed/, response.body)
+    assert_match(/The final word/, response.body)
+    assert_match(/added this statement/, response.body)
   end
 
-  test "final statement is displayed in markdown view" do
+  test "statement is displayed in markdown view" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(deadline: Time.current, final_statement: "We chose Option A.")
+    @decision.update!(deadline: Time.current)
+    Note.create!(
+      subtype: "statement", text: "We chose Option A.",
+      statementable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner",
+    )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -380,17 +418,16 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/We chose Option A/, response.body)
   end
 
-  test "non-creator cannot update final statement" do
+  test "non-creator cannot add statement" do
     unique_id = SecureRandom.hex(8)
     other_user = User.create!(
       name: "Other User",
-      email: "final-stmt-#{unique_id}@example.com",
+      email: "stmt-#{unique_id}@example.com",
       user_type: "human"
     )
     @tenant.add_user!(other_user)
     @collective.add_user!(other_user)
 
-    # Close the decision
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     @decision.update!(deadline: Time.current)
@@ -398,11 +435,11 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(other_user, tenant: @tenant)
-    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/final_statement",
-      params: { final_statement: "Unauthorized statement" }
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Unauthorized statement" }
 
     @decision.reload
-    assert_nil @decision.final_statement
+    assert_nil @decision.statement
   end
 
   # === Voting Tests ===

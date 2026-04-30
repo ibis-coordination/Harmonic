@@ -895,36 +895,63 @@ class ApiHelper
     decision = T.must(current_decision)
     raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
 
-    decision.deadline = Time.current
-    decision.final_statement = params[:final_statement] if params[:final_statement].present?
-    decision.save!
+    ActiveRecord::Base.transaction do
+      decision.deadline = Time.current
+      decision.save!
 
-    if current_representation_session
-      current_representation_session.record_event!(
-        request: request,
-        action_name: "close_decision",
-        resource: decision,
-      )
+      if params[:final_statement].present?
+        create_or_update_statement!(decision, params[:final_statement])
+      end
+
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "close_decision",
+          resource: decision,
+        )
+      end
     end
     decision
   end
 
-  def update_final_statement
+  def add_statement
     decision = T.must(current_decision)
-    raise 'Unauthorized: only creator can update final statement' unless decision.can_edit_settings?(current_user)
-    raise 'Decision must be closed to set final statement' unless decision.closed?
+    raise 'Unauthorized' unless decision.can_write_statement?(current_user)
+    raise 'Decision must be closed to add a statement' unless decision.closed?
 
-    decision.final_statement = params[:final_statement]
-    decision.save!
+    statement = create_or_update_statement!(decision, params[:text])
 
     if current_representation_session
       current_representation_session.record_event!(
         request: request,
-        action_name: "update_final_statement",
-        resource: decision,
+        action_name: "add_statement",
+        resource: statement,
+        context_resource: decision,
       )
     end
-    decision
+    statement
+  end
+
+  private def create_or_update_statement!(statementable, text)
+    existing = statementable.statement
+    if existing
+      existing.text = text
+      existing.updated_by = current_user
+      existing.save!
+      existing
+    else
+      Note.create!(
+        subtype: "statement",
+        text: text,
+        statementable: statementable,
+        created_by: current_user,
+        updated_by: current_user,
+        tenant: current_tenant,
+        collective: current_collective,
+        deadline: Time.current,
+        edit_access: "owner",
+      )
+    end
   end
 
   sig { returns(Commitment) }

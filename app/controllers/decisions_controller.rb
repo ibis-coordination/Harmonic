@@ -421,33 +421,33 @@ class DecisionsController < ApplicationController
     end
   end
 
-  def describe_update_final_statement
-    render_action_description(ActionsHelper.action_description("update_final_statement", resource: current_decision))
+  def describe_add_statement
+    render_action_description(ActionsHelper.action_description("add_statement", resource: current_decision))
   end
 
-  def update_final_statement
+  def add_statement_action
     @decision = current_decision
     return render '404', status: 404 unless @decision
-    return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
+    return render 'shared/403', status: 403 unless @decision.can_write_statement?(@current_user)
 
     unless @decision.closed?
       respond_to do |format|
-        format.html { redirect_to @decision.path, alert: "Decision must be closed to set final statement." }
-        format.md { render_action_error({ action_name: 'update_final_statement', resource: @decision, error: "Decision must be closed to set final statement." }) }
+        format.html { redirect_to @decision.path, alert: "Decision must be closed to add a statement." }
+        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: "Decision must be closed to add a statement." }) }
       end
       return
     end
 
     begin
-      api_helper(params: { final_statement: params[:final_statement] }).update_final_statement
+      api_helper(params: { text: params[:text] || params[:final_statement] }).add_statement
       respond_to do |format|
-        format.html { redirect_to @decision.path, notice: "Final statement updated." }
-        format.md { render_action_success({ action_name: 'update_final_statement', resource: @decision, result: "Final statement updated." }) }
+        format.html { redirect_to @decision.path, notice: "Statement saved." }
+        format.md { render_action_success({ action_name: 'add_statement', resource: @decision, result: "Statement saved." }) }
       end
     rescue StandardError => e
       respond_to do |format|
         format.html { redirect_to @decision.path, alert: e.message }
-        format.md { render_action_error({ action_name: 'update_final_statement', resource: @decision, error: e.message }) }
+        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: e.message }) }
       end
     end
   end

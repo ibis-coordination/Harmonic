@@ -141,38 +141,10 @@
       <% end %>
     </div>
 
-    <%# Final Statement Section %>
-    <% can_edit = @decision.closed? && @decision.can_edit_settings?(@current_user) %>
-    <% if @decision.final_statement.present? || can_edit %>
-      <div style="margin-top: 16px;" data-controller="tabs">
-        <% if @decision.final_statement.present? %>
-          <div data-tabs-target="panel">
-            <h3 style="display: inline;">Final Statement</h3>
-            <% if can_edit %>
-              <button type="button" class="pulse-action-btn-secondary" style="padding: 2px 6px; margin-left: 4px;" data-tabs-target="tab" data-action="click->tabs#show" data-tabs-index-param="1">
-                <%= octicon 'pencil', height: 14 %>
-              </button>
-            <% end %>
-            <div class="pulse-markdown-content" style="margin-top: 4px;">
-              <%= markdown(@decision.final_statement) %>
-            </div>
-          </div>
-        <% end %>
-        <% if can_edit %>
-          <div data-tabs-target="panel" style="<%= @decision.final_statement.present? ? 'display: none;' : '' %>">
-            <%= form_with url: "#{@decision.path}/final_statement", method: :post, class: "pulse-form" do |form| %>
-              <label for="final_statement" class="pulse-label"><%= @decision.final_statement.present? ? 'Edit Final Statement' : 'Add Final Statement' %></label>
-              <%= form.text_area :final_statement, value: @decision.final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3 %>
-              <div style="margin-top: 8px; display: flex; gap: 8px;">
-                <%= form.submit 'Save', class: "pulse-action-btn pulse-action-btn-primary" %>
-                <% if @decision.final_statement.present? %>
-                  <button type="button" class="pulse-action-btn-secondary" data-tabs-target="tab" data-action="click->tabs#show" data-tabs-index-param="0">Cancel</button>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
-      </div>
+    <%# Statement Section %>
+    <% if @decision.statement.present? %>
+      <h3 style="margin-top: 16px; margin-bottom: 0;">Final Statement</h3>
+      <%= render StatementEmbedComponent.new(statement: @decision.statement, current_user: @current_user) %>
     <% end %>
   <% else %>
     <div class="pulse-results-table-section">

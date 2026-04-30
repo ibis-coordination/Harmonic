@@ -583,8 +583,7 @@ CREATE TABLE public.decisions (
     collective_id uuid,
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
-    subtype character varying DEFAULT 'vote'::character varying NOT NULL,
-    final_statement text
+    subtype character varying DEFAULT 'vote'::character varying NOT NULL
 );
 
 
@@ -698,7 +697,9 @@ CREATE TABLE public.notes (
     table_data jsonb,
     edit_access character varying DEFAULT 'owner'::character varying NOT NULL,
     reminder_notification_id uuid,
-    reminder_scheduled_for timestamp(6) without time zone
+    reminder_scheduled_for timestamp(6) without time zone,
+    statementable_type character varying,
+    statementable_id uuid
 );
 
 
@@ -3831,6 +3832,13 @@ CREATE INDEX index_notes_on_deleted_at ON public.notes USING btree (deleted_at);
 --
 
 CREATE INDEX index_notes_on_reminder_notification_id ON public.notes USING btree (reminder_notification_id) WHERE (reminder_notification_id IS NOT NULL);
+
+
+--
+-- Name: index_notes_on_statementable_type_and_statementable_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_notes_on_statementable_type_and_statementable_id ON public.notes USING btree (statementable_type, statementable_id);
 
 
 --
@@ -8934,6 +8942,8 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260430173704'),
+('20260430173024'),
 ('20260430025502'),
 ('20260429170109'),
 ('20260428175442'),
