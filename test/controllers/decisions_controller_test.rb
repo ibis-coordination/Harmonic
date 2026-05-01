@@ -1113,7 +1113,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
-    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
     @decision.update!(deadline: Time.current)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope

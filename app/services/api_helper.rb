@@ -987,15 +987,21 @@ class ApiHelper
       raise ArgumentError, "Unknown option(s): #{invalid_titles.map { |t| "'#{t}'" }.join(', ')}"
     end
 
-    decision.options.each do |option|
-      associations = {
+    options = decision.options.to_a
+    existing_votes = Vote.where(
+      decision: decision,
+      decision_participant: participant,
+      option_id: options.map(&:id),
+    ).index_by(&:option_id)
+
+    options.each do |option|
+      vote = existing_votes[option.id] || Vote.new(
         tenant: current_tenant,
         collective: current_collective,
         decision: decision,
         option: option,
         decision_participant: participant,
-      }
-      vote = Vote.find_by(associations) || Vote.new(associations)
+      )
       vote.accepted = selected_titles.include?(option.title) ? 1 : 0
       vote.preferred = 0
       vote.save!
