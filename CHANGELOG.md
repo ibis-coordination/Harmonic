@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-05-01
+
+### Added
+
+- Decision subtypes — decisions now support `vote` (default), `executive`, and `lottery` modes, sharing the same underlying infrastructure but with distinct behavior.
+- Executive decisions — a designated decision maker reviews options and selects the outcome. Includes option selection UI, final statement, and help page.
+- Lottery decisions — entries are ranked by verifiable randomness from the drand distributed beacon. No voting, results hidden until the lottery closes.
+- Verifiable lottery randomness — lottery outcomes are independently verifiable. The beacon round is deterministically derived from the deadline (not choosable), sort keys are computed as `SHA256(beacon_randomness || NFC(option_title))` in the PostgreSQL `decision_results` view, and a verification page at `/d/:id/verify` shows the full derivation with reproducible Python code.
+- Multi-relay cross-verification — drand randomness is fetched from 3 independent relays and compared; disagreement raises an error.
+- Configurable randomness provider via `LOTTERY_RANDOMNESS_PROVIDER` env var for self-hosted instances.
+- Verification page (`/d/:id/verify`) — shows beacon round derivation, beacon data, formula, every entry's sort key, and code to reproduce the results.
+- Statementable concern — final statements extracted into statement-subtype notes with embedded inline display. Replaces the `final_statement` text column.
+- Batch voting UI — accept/prefer multiple options and submit once.
+- Results visible after voting (no longer requires decision to close).
+- Voters page — shows individual votes per option at `/d/:id/voters`.
+- Help pages for executive decisions and lottery decisions.
+- Agent/MCP support for executive and lottery subtypes.
+- `search` and `get_help` tools added to agent-runner and MCP server.
+
+### Changed
+
+- Agent-runner `navigate` follows redirects, surfaces errors, and tracks resolved path.
+- `decision_results` SQL view now joins the `decisions` table and includes `lottery_sort_key` column. Sorting works for both vote and lottery decisions in a single view.
+- `pgcrypto` extension enabled for SHA256 computation in the database view.
+- Help controller dynamically generates actions for all help topics (executive and lottery decisions no longer 404 in HTML format).
+- Executive selection query optimized — prefetches existing votes instead of N+1 `find_by` in loop.
+
 ## [1.9.0] - 2026-04-29
 
 ### Added
