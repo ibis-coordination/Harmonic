@@ -965,6 +965,142 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
   end
 
+  # === Lottery Decision Tests ===
+
+  test "open lottery hides voting UI and results" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/Lottery/, response.body)
+    # No voting UI
+    assert_select "input.pulse-acceptance-checkbox", count: 0
+    assert_select "input.pulse-star-checkbox", count: 0
+    assert_select "button[data-decision-target='submitButton']", count: 0
+    # Results hidden until closed
+    assert_select "table.pulse-results-table", count: 0
+  end
+
+  test "closed lottery shows results" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery", deadline: 1.hour.ago)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_select "table.pulse-results-table"
+  end
+
+  test "cannot submit votes on lottery decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: { votes: [{ option_title: "Option A", accepted: "1", preferred: "0" }] }
+
+    assert_response :redirect
+    assert_match(/Lottery/i, flash[:alert])
+  end
+
+  test "cannot vote via API on lottery decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
+      params: { votes: [{ option_title: "Option A", accept: true }] }
+
+    assert_response :success
+    assert_match(/Lottery/i, response.body)
+  end
+
+  # === Closed Decision Tests ===
+
+  test "cannot change deadline on closed decision via settings" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: 1.hour.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    assert @decision.closed?
+    original_deadline = @decision.deadline
+
+    # HTML form won't include deadline for closed decisions
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+      params: { question: "Updated question" }
+
+    @decision.reload
+    assert @decision.closed?, "Decision should still be closed"
+    assert_equal original_deadline.to_i, @decision.deadline.to_i
+    assert_equal "Updated question", @decision.question
+  end
+
+  test "cannot change deadline on closed decision via API" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: 1.hour.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    assert @decision.closed?
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
+      params: { deadline: 1.week.from_now },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_match(/Cannot change deadline/i, response.body)
+    @decision.reload
+    assert @decision.closed?
+  end
+
+  test "settings page hides deadline section for closed decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: 1.hour.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings"
+    assert_response :success
+    assert_select "h2", text: "Deadline", count: 0
+  end
+
   test "cannot submit votes on closed decision" do
     sign_in_as(@user, tenant: @tenant)
 

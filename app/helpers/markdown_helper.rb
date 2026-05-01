@@ -22,7 +22,7 @@ module MarkdownHelper
     all_actions = all_actions.select do |action|
       # Executive decisions exclude the vote action
       decision = context[:resource]
-      next false if decision.is_a?(Decision) && decision.is_executive? && action[:name] == "vote"
+      next false if decision.is_a?(Decision) && (decision.is_executive? || decision.is_lottery?) && action[:name] == "vote"
 
       ActionAuthorization.authorized?(action[:name], current_user, context)
     end

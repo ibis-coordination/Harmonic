@@ -4,24 +4,28 @@
       <tr>
         <th title="place"></th>
         <th title="option"></th>
-        <th title="acceptances">✅</th>
-        <th title="preferences">⭐</th>
+        <% unless @decision.is_lottery? %>
+          <th title="acceptances">✅</th>
+          <th title="preferences">⭐</th>
+        <% end %>
         <th title="random digits">🎲</th>
       </tr>
     </thead>
     <tbody>
       <% if @decision.results.empty? %>
         <tr>
-          <td colspan="5">Add options to see results.</td>
+          <td colspan="<%= @decision.is_lottery? ? 3 : 5 %>">Add <%= @decision.is_lottery? ? 'entries' : 'options' %> to see results.</td>
         </tr>
       <% end %>
       <% ([nil] + @decision.results + [nil]).each_cons(3).with_index do |(prev_result, result, next_result), index| %>
         <tr class="<%= (index == 0 && @decision.closed?) ? 'pulse-results-winner' : '' %>">
           <td><%= index + 1 %></td>
           <td><%= markdown_inline(result.option_title) %></td>
-          <td style="opacity:<%= (result.accepted_yes || 0) > 0 ? 1 : 0.2 %>;"><%= (result.accepted_yes || 0) %></td>
-          <td style="opacity:<%= (result.preferred || 0) > 0 ? 1 : 0.2 %>;"><%= (result.preferred || 0) %></td>
-          <% random_id_is_relevant = result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
+          <% unless @decision.is_lottery? %>
+            <td style="opacity:<%= (result.accepted_yes || 0) > 0 ? 1 : 0.2 %>;"><%= (result.accepted_yes || 0) %></td>
+            <td style="opacity:<%= (result.preferred || 0) > 0 ? 1 : 0.2 %>;"><%= (result.preferred || 0) %></td>
+          <% end %>
+          <% random_id_is_relevant = @decision.is_lottery? || result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
           <% random_id = result.random_id %>
           <td class="pulse-results-random" title="<%= random_id %>"><%= random_id_is_relevant ? (random_id.slice(0, 3) + "...") : "" %></td>
         </tr>
@@ -29,6 +33,10 @@
     </tbody>
   </table>
   <p class="pulse-results-explanation">
-    Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
+    <% if @decision.is_lottery? %>
+      Entries are sorted by random digits 🎲.
+    <% else %>
+      Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
+    <% end %>
   </p>
 </span>

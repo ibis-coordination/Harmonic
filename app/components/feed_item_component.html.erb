@@ -46,7 +46,7 @@
     <%# Type-specific content %>
     <% case @type %>
     <% when 'Decision' %>
-      <% if T.unsafe(@item).is_executive? %>
+      <% if T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
         <% options = T.unsafe(@item).options.order(:created_at).first(5) %>
         <% if options.any? %>
           <div class="pulse-decision-options">
@@ -113,7 +113,7 @@
     <% when 'Decision' %>
       <% if @item.closed? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check-circle' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
-      <% elsif T.unsafe(@item).is_executive? %>
+      <% elsif T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
         <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> View</a>
       <% else %>
         <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> Vote</a>

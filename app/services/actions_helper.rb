@@ -327,7 +327,7 @@ class ActionsHelper
         { name: "description", type: "string", description: "Additional context for the decision" },
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", description: "When the decision closes" },
-        { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default) or 'executive'" },
+        { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default), 'executive', or 'lottery'" },
         { name: "decision_maker", type: "string", required: false, description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)" },
       ],
       authorization: :collective_member,

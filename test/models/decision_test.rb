@@ -390,6 +390,20 @@ class DecisionTest < ActiveSupport::TestCase
     assert_not decision.can_edit_settings?(other_user)
   end
 
+  # === Lottery Decision Tests ===
+
+  test "is_lottery? predicate" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Lottery test?", description: "", deadline: 1.day.from_now,
+      subtype: "lottery",
+    )
+    assert decision.is_lottery?
+    assert_not decision.is_vote?
+    assert_not decision.is_executive?
+  end
+
   test "vote decision: can_close still uses creator" do
     decision = create_decision
     assert decision.can_close?(@user)

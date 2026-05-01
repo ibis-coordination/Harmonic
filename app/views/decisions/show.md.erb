@@ -6,7 +6,7 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 | created_by | @<%= @decision.created_by.handle %> |
 | created_at | <%= @decision.created_at %> |
 <% else %>
-# <%= @decision.is_executive? ? 'Executive Decision' : 'Decision' %>: <%= @decision.question %>
+# <%= @decision.is_executive? ? 'Executive Decision' : @decision.is_lottery? ? 'Lottery' : 'Decision' %>: <%= @decision.question %>
 
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
@@ -26,7 +26,38 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <% notice = markdown_truncation_notice(@decision.description, truncated_description, url: @decision.path) %>
 <%= notice if notice %>
 <% end -%>
-<% if @decision.is_executive? -%>
+<% if @decision.is_lottery? -%>
+## Entries
+
+<% if @decision.options.empty? -%>
+No entries yet.
+<% else -%>
+<% @decision.options.order(:created_at).each do |option| -%>
+* <%= option.title %>
+<% end -%>
+<% end -%>
+<% if @show_results -%>
+
+## <%= @decision.closed? ? "Final" : "Current" %> Results
+
+Entries are sorted by random digits 🎲.
+
+|   |   | 🎲 |
+|---|---|---|
+<% if @decision.results.empty? -%>
+| 0 | Add entries to see results. | 0 |
+<% end -%>
+<% @decision.results.each.with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | <%= result.random_id.slice(0, 3) + "..." %> |
+<% end -%>
+<% end -%>
+<% if @decision.statement.present? -%>
+
+## [Final Statement](<%= @decision.statement.path %>)
+
+<%= @decision.statement.text %>
+<% end -%>
+<% elsif @decision.is_executive? -%>
 <% if @decision.closed? -%>
 ## Selection
 

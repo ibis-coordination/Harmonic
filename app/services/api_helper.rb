@@ -649,6 +649,7 @@ class ApiHelper
     raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
     raise ArgumentError, "This decision is closed and no longer accepting votes." if T.must(current_decision).closed?
     raise ArgumentError, "Executive decisions do not accept votes." if T.must(current_decision).is_executive?
+    raise ArgumentError, "Lottery decisions do not accept votes." if T.must(current_decision).is_lottery?
     check_not_blocked!(T.must(current_decision), action: "vote on")
 
     votes = T.let([], T::Array[Vote])
@@ -880,9 +881,13 @@ class ApiHelper
       decision.description = params[:description] if params[:description].present?
       # options_open is a boolean, so we need to check has_key? AND the value is not nil
       if params.has_key?(:options_open) && !params[:options_open].nil?
+        raise 'Cannot change options policy on a closed decision' if decision.closed?
         decision.options_open = params[:options_open]
       end
-      decision.deadline = params[:deadline] if params[:deadline].present?
+      if params[:deadline].present?
+        raise 'Cannot change deadline on a closed decision' if decision.closed?
+        decision.deadline = params[:deadline]
+      end
       dm_param_key = params.has_key?(:decision_maker) ? :decision_maker : :decision_maker_id
       if params.has_key?(dm_param_key)
         decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil

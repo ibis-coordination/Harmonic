@@ -92,6 +92,11 @@ class DecisionsController < ApplicationController
       if @decision.closed?
         @executive_selections = @decision.votes.where(accepted: 1).pluck(:option_id).to_set
       end
+    elsif @decision.is_lottery?
+      @options_header = @decision.can_add_options?(@participant) ? 'Add Entries' : 'Entries'
+      @votes = Vote.none
+      @current_user_has_voted = false
+      @show_results = @decision.closed?
     else
       @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
       @votes = current_votes
@@ -135,13 +140,15 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
     return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
 
-    # Build params for ApiHelper
+    # Build params for ApiHelper — only include mutable fields
     helper_params = {
       question: decision_params[:question],
       description: decision_params[:description],
-      options_open: decision_params[:options_open],
-      deadline: deadline_from_params,
     }
+    unless @decision.closed?
+      helper_params[:options_open] = decision_params[:options_open]
+      helper_params[:deadline] = deadline_from_params
+    end
     @decision = api_helper(params: helper_params).update_decision_settings
     redirect_to @decision.path
   end
@@ -292,6 +299,10 @@ class DecisionsController < ApplicationController
       redirect_to @decision.path, alert: "Executive decisions do not accept votes."
       return
     end
+    if @decision.is_lottery?
+      redirect_to @decision.path, alert: "Lottery decisions do not accept votes."
+      return
+    end
 
     raw_votes = params[:votes]
     votes_list = if raw_votes.is_a?(ActionController::Parameters)
@@ -385,7 +396,7 @@ class DecisionsController < ApplicationController
     @page_title = "Actions | #{@decision.question}"
     route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/d/:decision_id")
     actions = (route_info&.dig(:actions) || []).select do |action|
-      next false if @decision.is_executive? && action[:name] == "vote"
+      next false if (@decision.is_executive? || @decision.is_lottery?) && action[:name] == "vote"
       ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @decision })
     end
     render_actions_index({ actions: actions })

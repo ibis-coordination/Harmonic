@@ -9,13 +9,14 @@
 
   <% initial_subtype = params[:subtype] || "vote" %>
   <%= form_with(url: "#{@current_collective.path}/decide", class: "pulse-form") do |form| %>
-    <input type="hidden" name="subtype" value="<%= initial_subtype %>" data-decision-subtype-target="subtypeInput">
+    <input type="hidden" name="decision[subtype]" value="<%= initial_subtype %>" data-decision-subtype-target="subtypeInput">
 
     <div class="pulse-form-group">
       <label class="pulse-form-label">Type</label>
       <div style="display: flex; gap: 4px;">
         <button type="button" class="<%= initial_subtype == 'vote' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-decision-subtype-target="voteBtn" data-action="click->decision-subtype#selectVote">Vote</button>
         <button type="button" class="<%= initial_subtype == 'executive' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-decision-subtype-target="executiveBtn" data-action="click->decision-subtype#selectExecutive">Executive</button>
+        <button type="button" class="<%= initial_subtype == 'lottery' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-decision-subtype-target="lotteryBtn" data-action="click->decision-subtype#selectLottery">Lottery</button>
       </div>
     </div>
 
@@ -75,7 +76,7 @@
 
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Deadline</h2>
-      <p class="pulse-section-description" data-decision-subtype-target="deadlineLabel"><%= initial_subtype == 'executive' ? 'When should this decision close?' : 'When should voting close?' %></p>
+      <p class="pulse-section-description" data-decision-subtype-target="deadlineLabel"><%= initial_subtype == 'vote' ? 'When should voting close?' : initial_subtype == 'lottery' ? 'When should the lottery be drawn?' : 'When should this decision close?' %></p>
       <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week %>
     </section>
 

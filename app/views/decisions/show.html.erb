@@ -14,7 +14,7 @@
 
 <article class="pulse-resource-detail">
   <%= render ResourceHeaderComponent.new(
-    type_label: @decision.is_executive? ? "Executive Decision" : "Decision",
+    type_label: @decision.is_executive? ? "Executive Decision" : @decision.is_lottery? ? "Lottery" : "Decision",
     title: @decision.question,
     icon_class: "decision-icon",
     status: @decision.closed? ? "closed" : "open",
@@ -29,16 +29,25 @@
           </button>
           <dialog data-dialog-target="dialog" class="pulse-dialog">
             <%= form_with url: "#{@decision.path}/actions/close_decision", method: :post, class: "pulse-form" do |form| %>
-              <h2 style="margin: 0 0 12px 0; font-size: 1.25em;">Close Decision</h2>
-              <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. You can optionally add a final statement explaining the outcome.</p>
-              <div style="margin-bottom: 20px;">
-                <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement (optional)</label>
-                <%= form.text_area :final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
-              </div>
-              <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button type="button" class="pulse-action-btn-secondary" data-action="click->dialog#close">Cancel</button>
-                <%= form.submit 'Close Decision', class: "pulse-action-btn pulse-action-btn-primary" %>
-              </div>
+              <% if @decision.is_lottery? %>
+                <h2 style="margin: 0 0 12px 0; font-size: 1.25em;">Close Lottery</h2>
+                <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">This will finalize the lottery. No more entries can be added.</p>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                  <button type="button" class="pulse-action-btn-secondary" data-action="click->dialog#close">Cancel</button>
+                  <%= form.submit 'Close Lottery', class: "pulse-action-btn pulse-action-btn-primary" %>
+                </div>
+              <% else %>
+                <h2 style="margin: 0 0 12px 0; font-size: 1.25em;">Close Decision</h2>
+                <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. You can optionally add a final statement explaining the outcome.</p>
+                <div style="margin-bottom: 20px;">
+                  <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement (optional)</label>
+                  <%= form.text_area :final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                  <button type="button" class="pulse-action-btn-secondary" data-action="click->dialog#close">Cancel</button>
+                  <%= form.submit 'Close Decision', class: "pulse-action-btn pulse-action-btn-primary" %>
+                </div>
+              <% end %>
             <% end %>
           </dialog>
         </span>
@@ -101,7 +110,47 @@
     </div>
   <% end %>
 
-  <% if @decision.is_executive? %>
+  <% if @decision.is_lottery? %>
+    <%# Lottery: add entries + results (no voting) %>
+    <% unless @decision.closed? %>
+      <div class="pulse-acceptance-voting-section">
+        <%= render 'shared/pulse_accordion', title: @options_header, open: true do %>
+          <%= render 'options_section' %>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if @show_results %>
+      <span
+        data-controller="decision-results"
+        data-decision-results-url-value="<%= @decision.path %>/results.html"
+        >
+        <div class="pulse-results-table-section">
+          <%= render 'shared/pulse_accordion', title: @results_header, open: true, title_data: { 'decision-results-target': 'header' } do %>
+            <span data-decision-results-target="content">
+              <%= render 'results' %>
+            </span>
+          <% end %>
+        </div>
+      </span>
+    <% end %>
+
+    <% if @decision.closed? %>
+      <div style="margin-top: 16px;">
+        <h3>Final Statement</h3>
+        <% if @decision.statement.present? %>
+          <%= render StatementEmbedComponent.new(statement: @decision.statement, current_user: @current_user) %>
+        <% elsif @current_user && @decision.can_write_statement?(@current_user) %>
+          <%= form_with url: "#{@decision.path}/actions/add_statement", method: :post, class: "pulse-form" do |form| %>
+            <%= form.text_area :text, placeholder: "How do you interpret these results?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
+            <div style="margin-top: 8px;">
+              <%= form.submit 'Submit Final Statement', class: "pulse-action-btn pulse-action-btn-primary" %>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+  <% elsif @decision.is_executive? %>
     <% if @decision.closed? %>
       <%# Closed executive: show selected options with checkmarks %>
       <% if @decision.options.any? %>

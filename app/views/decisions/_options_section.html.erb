@@ -15,8 +15,11 @@
           </span>
         </ul>
       <% end %>
-    <% elsif @decision.is_executive? %>
-      <%# Executive non-decision-maker: read-only options list %>
+    <% elsif @decision.is_executive? || @decision.is_lottery? %>
+      <%# Read-only options list (executive non-decision-maker or lottery) %>
+      <% if @decision.is_lottery? %>
+        <span class="pulse-section-hint">Entries will be sorted randomly when the decision has closed.</span>
+      <% end %>
       <ul class="pulse-options-list">
         <span data-decision-target="list">
           <% @decision.options.order(:created_at).each do |option| %>
@@ -53,7 +56,7 @@
     <% if @decision.can_add_options?(@participant) %>
       <div class="pulse-add-option-section" style="margin-top: 12px;">
         <form style="display:flex; align-items:center; gap:8px;" data-action="submit->decision#add">
-          <input type="text" class="pulse-add-option-input" data-decision-target="input" data-decision-id="<%= @decision.id %>" placeholder="Add an option" style="flex:1;">
+          <input type="text" class="pulse-add-option-input" data-decision-target="input" data-decision-id="<%= @decision.id %>" placeholder="Add an <%= @decision.is_lottery? ? 'entry' : 'option' %>" style="flex:1;">
           <button type="submit" class="pulse-action-btn-small">Add</button>
         </form>
       </div>
