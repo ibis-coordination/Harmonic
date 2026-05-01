@@ -739,6 +739,51 @@ class DecisionResult
     def id_will_change!; end
 
     sig { returns(T.nilable(::String)) }
+    def lottery_sort_key; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def lottery_sort_key=(value); end
+
+    sig { returns(T::Boolean) }
+    def lottery_sort_key?; end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_sort_key_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def lottery_sort_key_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def lottery_sort_key_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_sort_key_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_sort_key_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_sort_key_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_sort_key_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_sort_key_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_sort_key_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_sort_key_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_sort_key_was; end
+
+    sig { void }
+    def lottery_sort_key_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
     def option_id; end
 
     sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
@@ -931,6 +976,9 @@ class DecisionResult
     def restore_id!; end
 
     sig { void }
+    def restore_lottery_sort_key!; end
+
+    sig { void }
     def restore_option_id!; end
 
     sig { void }
@@ -971,6 +1019,12 @@ class DecisionResult
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_lottery_sort_key; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_lottery_sort_key?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_option_id; end
@@ -1109,6 +1163,9 @@ class DecisionResult
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_lottery_sort_key?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_option_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

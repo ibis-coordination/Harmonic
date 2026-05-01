@@ -91,7 +91,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
           topic: {
             type: "string",
             description:
-              "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, commitments, cycles, search, links, agents, api, privacy",
+              "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, executive-decisions, lottery-decisions, commitments, cycles, search, links, agents, api, privacy",
           },
         },
         required: ["topic"],

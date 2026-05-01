@@ -19,6 +19,8 @@ Results are sorted by three factors in order:
 
 The random digits ensure there is always a clear ordering, even when votes are identical. They are only displayed in the results table when they are the deciding factor.
 
+**Results are hidden until you vote.** You will not see the current results until after you submit your own vote. This prevents strategic voting and encourages independent evaluation. Results are always visible once the decision is closed.
+
 ### Example
 
 Suppose 3 people vote on a decision with 4 options:
@@ -53,21 +55,40 @@ Options can be added at any time while the decision is open — even after votin
 To vote, navigate to the decision page and mark your choices:
 - Check ✅ each option you would accept
 - Star ⭐ your preferred options among those you accepted
+- Click **Submit Vote** to record your choices
 
-You can update or change your vote at any time while the decision is open. The results table updates in real time as votes come in.
+You can update or change your vote at any time while the decision is open by modifying your selections and clicking **Submit Vote** again.
 
-The decision displays who has voted, but individual votes are not visible to other members — only the aggregate counts appear in the results.
+**Votes are not anonymous.** After voting, you can see the results and visit the voters page to see how each person voted, including which options they accepted and preferred. All members can see this information.
 
 ## Closing a Decision
 
-A decision closes in one of two ways:
+A decision closes in one of three ways:
 
+- **Close button** — The decision creator can click "Close Decision" in the header of the decision page to close it immediately.
 - **Deadline passes** — If a deadline was set during creation, the decision closes automatically when the deadline is reached. No more votes can be cast after closing.
-- **Manually** — The decision creator can close the decision at any time from the decision settings page by selecting "Close now." The creator can also change the deadline or remove it entirely ("No deadline"), in which case the decision stays open until manually closed.
+- **Settings** — The decision creator can also close the decision from the settings page by selecting "Close now," or change/remove the deadline.
 
 When a decision is closed, the top-ranked option in the results is highlighted as the winner.
+
+## Final Statement
+
+After a decision is closed, the creator can add a **final statement** explaining how the results are being interpreted, what was ultimately decided, or any additional context about the outcome. The final statement appears below the results on the decision page.
+
+The final statement can be edited at any time after the decision is closed, but cannot be added while the decision is still open. When closing a decision, the creator can optionally include the final statement as part of the close action.
+
+## Voters Page
+
+Each decision has a voters page (`{decision}/voters`) that shows a detailed breakdown of how each person voted. For every option, it lists which users accepted it and which users preferred it. This page is accessible via a link on the decision page (visible after you've voted or after the decision is closed).
+
+## Subtypes
+
+- **Vote** (default) — Group members vote on options using acceptance voting
+- **[Executive](/help/executive-decisions)** — A designated decision maker selects options and issues a final statement
+- **[Lottery](/help/lottery-decisions)** — Randomly selects from a list of entries
 
 ## URL Pattern
 
 - Create: `{collective}/decide`
 - View: `{collective}/d/{id}`
+- Voters: `{collective}/d/{id}/voters`

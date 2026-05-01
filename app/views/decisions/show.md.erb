@@ -6,10 +6,13 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 | created_by | @<%= @decision.created_by.handle %> |
 | created_at | <%= @decision.created_at %> |
 <% else %>
-# Decision: <%= @decision.question %>
+# <%= @decision.is_executive? ? 'Executive Decision' : @decision.is_lottery? ? 'Lottery' : 'Decision' %>: <%= @decision.question %>
 
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
+<% if @decision.is_executive? && @decision.decision_maker_id.present? && @decision.decision_maker_id != @decision.created_by_id -%>
+| decision_maker | [@<%= @decision.effective_decision_maker.handle %>](<%= @decision.effective_decision_maker.path %>) |
+<% end -%>
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
 
@@ -23,6 +26,81 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <% notice = markdown_truncation_notice(@decision.description, truncated_description, url: @decision.path) %>
 <%= notice if notice %>
 <% end -%>
+<% if @decision.is_lottery? -%>
+## Entries
+
+<% if @decision.options.empty? -%>
+No entries yet.
+<% else -%>
+<% @decision.options.order(:created_at).each do |option| -%>
+* <%= option.title %>
+<% end -%>
+<% end -%>
+<% if @decision.lottery_drawn? -%>
+
+## Final Results
+
+Results are sorted by [verifiably random](<%= @decision.path %>/verify) values 🎲.
+
+|   |   | 🎲 |
+|---|---|---|
+<% @decision.results.each.with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | `<%= result.lottery_sort_key&.slice(0, 3) %>...` |
+<% end -%>
+<% elsif @show_results -%>
+
+## <%= @decision.closed? ? "Final" : "Current" %> Results
+
+<% if @decision.closed? && !@decision.lottery_drawn? -%>
+Drawing... Fetching verifiable randomness.
+<% else -%>
+Entries are sorted by random digits 🎲. Final order will be determined by verifiable randomness when the lottery closes.
+
+|   |   | 🎲 |
+|---|---|---|
+<% if @decision.results.empty? -%>
+| 0 | Add entries to see results. | 0 |
+<% end -%>
+<% @decision.results.each.with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | <%= result.random_id.slice(0, 3) + "..." %> |
+<% end -%>
+<% end -%>
+<% end -%>
+<% if @decision.statement.present? -%>
+
+## [Final Statement](<%= @decision.statement.path %>)
+
+<%= @decision.statement.text %>
+<% end -%>
+<% elsif @decision.is_executive? -%>
+<% if @decision.closed? -%>
+## Selection
+
+<% if @decision.options.empty? -%>
+No options.
+<% else -%>
+<% @decision.options.order(:created_at).each do |option| -%>
+* [<%= @executive_selections&.include?(option.id) ? '✅' : ' ' %>] <%= option.title %>
+<% end -%>
+<% end -%>
+<% else -%>
+## Options
+
+<% if @decision.options.empty? -%>
+No options yet.
+<% else -%>
+<% @decision.options.order(:created_at).each do |option| -%>
+* <%= option.title %>
+<% end -%>
+<% end -%>
+<% end -%>
+<% if @decision.statement.present? -%>
+
+## [Final Statement](<%= @decision.statement.path %>)
+
+<%= @decision.statement.text %>
+<% end -%>
+<% else -%>
 <% unless @decision.closed? -%>
 <% if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by) -%>
 *Voting is unavailable because <% if @current_user.blocked?(@decision.created_by) %>you have blocked the author<% else %>you have been blocked by the author<% end %> of this decision.*
@@ -41,6 +119,7 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 <% end -%>
 <% end -%>
 <% end -%>
+<% if @show_results -%>
 ## <%= @decision.closed? ? "Final" : "Current" %> Results
 
 Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
@@ -54,13 +133,15 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
 <% end -%>
 
-## Voters (<%= @decision.voters.count %>)
+<% if @decision.statement.present? -%>
+## [Final Statement](<%= @decision.statement.path %>)
 
-<% if @decision.voters.empty? -%>
-No voters yet.
+<%= @decision.statement.text %>
+<% end -%>
+[<%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes](<%= @decision.path %>/voters)
 <% else -%>
-<% @decision.voters.each do |voter| -%>
-* <%= user_link_md(voter) %>
+
+Submit your vote to see results. Votes are not anonymous — individual votes are visible on the voters page after you vote.
 <% end -%>
 <% end -%>
 <%= render 'shared/backlinks', resource: @decision %>

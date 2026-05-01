@@ -29,6 +29,7 @@ import HeartbeatController from "./heartbeat_controller"
 import HelloController from "./hello_controller"
 import ImageCropperController from "./image_cropper_controller"
 import LogoutController from "./logout_controller"
+import MemberSelectController from "./member_select_controller"
 import MentionAutocompleteController from "./mention_autocomplete_controller"
 import MetricController from "./metric_controller"
 import MoreButtonController from "./more_button_controller"
@@ -58,6 +59,9 @@ import TrioLogoController from "./trio_logo_controller"
 import AutoSubmitController from "./auto_submit_controller"
 import CheckboxGroupController from "./checkbox_group_controller"
 import KebabMenuController from "./kebab_menu_controller"
+import DecisionSubtypeController from "./decision_subtype_controller"
+import DialogController from "./dialog_controller"
+import TabsController from "./tabs_controller"
 
 // Register all controllers
 application.register("trio-chat", TrioChatController)
@@ -71,6 +75,7 @@ application.register("countdown", CountdownController)
 application.register("datetime-input", DatetimeInputController)
 application.register("deadline-options", DeadlineOptionsController)
 application.register("decision", DecisionController)
+application.register("decision-subtype", DecisionSubtypeController)
 application.register("decision-results", DecisionResultsController)
 application.register("form-tracker", FormTrackerController)
 application.register("decision-voters", DecisionVotersController)
@@ -79,6 +84,7 @@ application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
 application.register("image-cropper", ImageCropperController)
 application.register("logout", LogoutController)
+application.register("member-select", MemberSelectController)
 application.register("mention-autocomplete", MentionAutocompleteController)
 application.register("metric", MetricController)
 application.register("more-button", MoreButtonController)
@@ -107,5 +113,7 @@ application.register("trio-logo", TrioLogoController)
 application.register("auto-submit", AutoSubmitController)
 application.register("checkbox-group", CheckboxGroupController)
 application.register("kebab-menu", KebabMenuController)
+application.register("dialog", DialogController)
+application.register("tabs", TabsController)
 
 export { application }

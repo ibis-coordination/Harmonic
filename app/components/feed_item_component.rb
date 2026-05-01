@@ -45,8 +45,11 @@ class FeedItemComponent < ViewComponent::Base
   sig { returns(String) }
   def display_type
     return "Comment" if is_comment?
+    return "Statement" if @type == "Note" && @item.is_a?(Note) && @item.is_statement?
     return "Table" if @type == "Note" && @item.is_a?(Note) && @item.is_table?
     return "Reminder" if @type == "Note" && @item.is_a?(Note) && @item.is_reminder?
+    return "Executive Decision" if @type == "Decision" && @item.is_a?(Decision) && @item.is_executive?
+    return "Lottery" if @type == "Decision" && @item.is_a?(Decision) && @item.is_lottery?
     @type
   end
 

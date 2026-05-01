@@ -11,7 +11,7 @@ The app has three content types — Note, Decision, Commitment — each as a sep
 | Note | `table` | Structured tabular data with named columns and typed rows |
 | Decision | `vote` (default) | Current behavior, unchanged |
 | Decision | `lottery` | Random selection from options instead of voting |
-| Decision | `log` | Record of a decision already made — no voting UI |
+| Decision | `executive` | Creator decides after reviewing collaboratively-gathered options — no voting |
 | Commitment | `action` (default) | Current behavior, unchanged |
 | Commitment | `calendar_event` | Date/time/location + RSVP instead of "Join" |
 | Commitment | `policy` | Ongoing rule — no deadline, "Sign" instead of "Join" |
@@ -25,8 +25,9 @@ Subtypes share 90%+ behavior with their parent. A simple string column with vali
 Implementation order (simplest to most complex):
 
 1. [Foundation](content-subtypes-foundation.md) — add `subtype` column + model infrastructure
-2. [Decision Log](content-subtypes-decision-log.md) — no voting, just a record
-3. [Commitment Policy](content-subtypes-commitment-policy.md) — ongoing rules, no deadline
+2. [Statementable](statementable.md) — statement-as-note concern for decisions, commitments, representation sessions
+3. [Executive Decision](content-subtypes-decision-executive.md) — designated decision maker, no voting
+4. [Commitment Policy](content-subtypes-commitment-policy.md) — ongoing rules, no deadline
 4. [Calendar Event](content-subtypes-calendar-event.md) — date/time/location + RSVP
 5. [Lottery Decision](content-subtypes-lottery.md) — random draw from options
 6. [Reminder Note](content-subtypes-reminder.md) — resurface on schedule

@@ -156,7 +156,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions commitments cycles search links agents api].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents api].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
@@ -492,6 +492,8 @@ Rails.application.routes.draw do
       post '/actions/vote' => 'decisions#vote'
       get '/actions/add_comment' => 'decisions#describe_add_comment'
       post '/actions/add_comment' => 'decisions#add_comment'
+      get '/actions/close_decision' => 'decisions#describe_close_decision'
+      post '/actions/close_decision' => 'decisions#close_decision_action'
       get '/actions/report_content' => 'decisions#describe_report_content'
       post '/actions/report_content' => 'decisions#report_content_action'
       post '/comments' => 'decisions#create_comment'
@@ -500,12 +502,17 @@ Rails.application.routes.draw do
       get '/results.html' => 'decisions#results_partial'
       get '/options.html' => 'decisions#options_partial'
       post '/options.html' => 'decisions#create_option_and_return_options_partial'
+      get '/voters' => 'decisions#voters_page'
       get '/voters.html' => 'decisions#voters_partial'
       put '/pin' => 'decisions#pin'
       get '/attachments/:attachment_id' => 'attachments#show'
       get '/attachments/:attachment_id/actions' => 'decisions#actions_index_attachment'
       get '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#describe_remove_attachment'
       post '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#remove_attachment'
+      post '/submit_votes' => 'decisions#submit_votes'
+      get '/verify' => 'decisions#verify'
+      get '/actions/add_statement' => 'decisions#describe_add_statement'
+      post '/actions/add_statement' => 'decisions#add_statement_action'
       post '/duplicate' => 'decisions#duplicate'
       get '/settings' => 'decisions#settings'
       post '/settings' => 'decisions#update_settings'

@@ -1,0 +1,48 @@
+<div class="pulse-statement-embed">
+  <div class="pulse-statement-header">
+    <%= render AvatarComponent.new(user: author) %>
+    <div>
+      <a href="<%= author.path %>"><strong><%= author.display_name %></strong></a>
+      <%= verb %>
+      <a href="<%= @statement.path %>" class="pulse-timestamp"><%= helpers.timeago(updated? ? @statement.updated_at : @statement.created_at) %></a>
+    </div>
+  </div>
+
+  <div class="pulse-statement-body pulse-markdown-content">
+    <%= helpers.markdown(@statement.text) %>
+  </div>
+
+  <div class="pulse-statement-footer">
+    <% if @current_user %>
+      <% if user_has_read? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled>
+          <%= helpers.octicon 'book', height: 14 %> Confirmed
+        </button>
+      <% else %>
+        <div data-controller="pulse-action"
+             data-pulse-action-url-value="<%= @statement.path %>/actions/confirm_read"
+             data-pulse-action-loading-text-value="Confirming..."
+             data-pulse-action-confirmed-text-value="Confirmed">
+          <button type="button" class="pulse-feed-action-btn"
+                  data-pulse-action-target="button"
+                  data-action="click->pulse-action#performAction">
+            <%= helpers.octicon 'book', height: 14 %> Confirm read
+          </button>
+        </div>
+      <% end %>
+      <% if read_count > 0 %>
+        <div class="pulse-confirmed-reads">
+          <div class="pulse-confirmed-avatars">
+            <% read_confirmations_scope.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
+              <%= render "shared/avatar", user: event.user, css_class: "pulse-confirmed-avatar" %>
+            <% end %>
+            <% if read_count > 3 %>
+              <div class="pulse-confirmed-avatar">+<%= read_count - 3 %></div>
+            <% end %>
+          </div>
+          <span><%= read_count %> confirmed</span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

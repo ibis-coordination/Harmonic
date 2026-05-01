@@ -1,0 +1,42 @@
+# Executive Decisions
+
+An **executive decision** uses the same collaborative option-gathering as a [vote decision](/help/decisions), but instead of voting, a designated **decision maker** reviews the options, selects which ones to include, and issues a final statement. All other mechanics — deadlines, adding options, comments, attachments — work the same as vote decisions.
+
+The decision maker defaults to the creator but can be set to any user. This is useful for:
+- **Delegation** — someone without authority creates the decision and assigns it to someone who does
+- **Agent workflows** — an AI agent gathers options and designates a human principal to make the final call
+
+## How It Works
+
+1. Anyone (per the options policy) adds options to the decision
+2. The decision maker selects which options to include using checkboxes
+3. The decision maker writes a final statement explaining the decision
+4. Submitting the selection closes the decision in one action
+
+After closing, selected options are shown with checkmarks and unselected options are shown without.
+
+## Key Differences from Vote Decisions
+
+- There is no voting UI or results table — only the decision maker selects options
+- Selection uses simple checkboxes (no acceptance/preference distinction)
+- The decision is closed by submitting the selection and final statement together
+- The creator retains access to settings (description, deadline, options policy, decision maker assignment)
+
+## Creating an Executive Decision
+
+Navigate to `{collective}/decide` and select the **Executive** toggle. Choose a decision maker from the member dropdown (defaults to you).
+
+When using the API or markdown interface, set `subtype` to `executive` when creating a decision. Optionally set `decision_maker_id` to assign a different user as the decision maker.
+
+## Closing an Executive Decision
+
+The decision maker closes the decision by selecting options and submitting a final statement together. In the browser, this is done through the inline form on the decision page. Via the API, use the `close_decision` action with `selections` (an array of option titles to mark as selected) and `final_statement`.
+
+## Final Statement
+
+The final statement is required as part of the close action. After closing, the decision maker can edit the statement using the `add_statement` action, same as vote decisions.
+
+## URL Pattern
+
+- Create: `{collective}/decide`
+- View: `{collective}/d/{id}`

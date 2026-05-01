@@ -376,7 +376,13 @@ class Decision
     def build_created_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_decision_maker(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_deleted_by(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_statement(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
@@ -423,10 +429,22 @@ class Decision
     def create_created_by!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_decision_maker(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_decision_maker!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_deleted_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_deleted_by!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_statement!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -451,6 +469,18 @@ class Decision
 
     sig { returns(T::Boolean) }
     def created_by_previously_changed?; end
+
+    sig { returns(T.nilable(::User)) }
+    def decision_maker; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def decision_maker=(value); end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_changed?; end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_previously_changed?; end
 
     sig { returns(T::Array[T.untyped]) }
     def decision_participant_ids; end
@@ -513,7 +543,13 @@ class Decision
     def reload_created_by; end
 
     sig { returns(T.nilable(::User)) }
+    def reload_decision_maker; end
+
+    sig { returns(T.nilable(::User)) }
     def reload_deleted_by; end
+
+    sig { returns(T.nilable(::Note)) }
+    def reload_statement; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -542,13 +578,25 @@ class Decision
     def reset_created_by; end
 
     sig { void }
+    def reset_decision_maker; end
+
+    sig { void }
     def reset_deleted_by; end
+
+    sig { void }
+    def reset_statement; end
 
     sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_updated_by; end
+
+    sig { returns(T.nilable(::Note)) }
+    def statement; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def statement=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -921,6 +969,51 @@ class Decision
     sig { void }
     def deadline_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def decision_maker_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def decision_maker_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def decision_maker_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def decision_maker_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def decision_maker_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def decision_maker_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def decision_maker_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_was; end
+
+    sig { void }
+    def decision_maker_id_will_change!; end
+
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
     def deleted_at; end
 
@@ -1146,6 +1239,96 @@ class Decision
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def lottery_beacon_randomness=(value); end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_randomness?; end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def lottery_beacon_randomness_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_randomness_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_beacon_randomness_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_beacon_randomness_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_randomness_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_beacon_randomness_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_randomness_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_was; end
+
+    sig { void }
+    def lottery_beacon_randomness_will_change!; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def lottery_beacon_round=(value); end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_round?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def lottery_beacon_round_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_round_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def lottery_beacon_round_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def lottery_beacon_round_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_round_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def lottery_beacon_round_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_round_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_was; end
+
+    sig { void }
+    def lottery_beacon_round_will_change!; end
+
     sig { returns(T::Boolean) }
     def options_open; end
 
@@ -1249,6 +1432,9 @@ class Decision
     def restore_deadline!; end
 
     sig { void }
+    def restore_decision_maker_id!; end
+
+    sig { void }
     def restore_deleted_at!; end
 
     sig { void }
@@ -1262,6 +1448,12 @@ class Decision
 
     sig { void }
     def restore_id_value!; end
+
+    sig { void }
+    def restore_lottery_beacon_randomness!; end
+
+    sig { void }
+    def restore_lottery_beacon_round!; end
 
     sig { void }
     def restore_options_open!; end
@@ -1308,6 +1500,12 @@ class Decision
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_deadline?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_decision_maker_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_decision_maker_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_deleted_at; end
 
@@ -1337,6 +1535,18 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_lottery_beacon_randomness; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_lottery_beacon_randomness?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_lottery_beacon_round; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_lottery_beacon_round?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_options_open; end
@@ -1618,6 +1828,9 @@ class Decision
     def will_save_change_to_deadline?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_decision_maker_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_deleted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1631,6 +1844,12 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_lottery_beacon_randomness?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_lottery_beacon_round?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_options_open?(from: T.unsafe(nil), to: T.unsafe(nil)); end

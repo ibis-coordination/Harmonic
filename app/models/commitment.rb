@@ -12,6 +12,7 @@ class Commitment < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
+  include Statementable
   SUBTYPES = %w[action calendar_event policy].freeze
 
   self.implicit_order_column = "created_at"

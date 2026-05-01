@@ -13,7 +13,7 @@ class Note < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
-  SUBTYPES = %w[text reminder table comment].freeze
+  SUBTYPES = %w[text reminder table comment statement].freeze
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -26,6 +26,9 @@ class Note < ApplicationRecord
   # Commentable pattern - allows notes to be comments on other resources
   belongs_to :commentable, polymorphic: true, optional: true
 
+  # Statementable pattern - allows notes to be statements on statementable resources
+  belongs_to :statementable, polymorphic: true, optional: true
+
   # Reminder notes link to their scheduled notification
   belongs_to :reminder_notification, class_name: "Notification", optional: true
 
@@ -37,6 +40,7 @@ class Note < ApplicationRecord
   validates :subtype, inclusion: { in: SUBTYPES }
   validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
   validate :comments_must_be_comment_subtype
+  validate :statements_must_be_statement_subtype
   validate :validate_table_data, if: :should_validate_table_data?
 
   after_create do
@@ -159,6 +163,8 @@ class Note < ApplicationRecord
       updated_by_id: updated_by_id,
       commentable_type: commentable_type,
       commentable_id: commentable_id,
+      statementable_type: statementable_type,
+      statementable_id: statementable_id,
       reminder_notification_id: reminder_notification_id,
       reminder_scheduled_for: reminder_scheduled_for,
     }
@@ -229,6 +235,11 @@ class Note < ApplicationRecord
 
   # Comment-related helper methods
   sig { returns(T::Boolean) }
+  def is_statement?
+    subtype == "statement"
+  end
+
+  sig { returns(T::Boolean) }
   def is_comment?
     subtype == "comment"
   end
@@ -245,8 +256,13 @@ class Note < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
+  def has_statementable?
+    statementable_type.present? && statementable_id.present?
+  end
+
+  sig { returns(T::Boolean) }
   def standalone_note?
-    !is_comment?
+    !is_comment? && !is_statement?
   end
 
   # Returns all descendants (replies, replies to replies, etc.) chronologically
@@ -318,6 +334,14 @@ class Note < ApplicationRecord
       errors.add(:subtype, "must be comment for comments")
     elsif !has_commentable? && subtype == "comment"
       errors.add(:subtype, "cannot be comment for standalone notes")
+    end
+  end
+
+  def statements_must_be_statement_subtype
+    if has_statementable? && subtype != "statement"
+      errors.add(:subtype, "must be statement for statementable notes")
+    elsif !has_statementable? && subtype == "statement"
+      errors.add(:subtype, "cannot be statement without a statementable parent")
     end
   end
 

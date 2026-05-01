@@ -320,13 +320,15 @@ class ActionsHelper
 
     # Decision actions
     "create_decision" => {
-      description: "Create a new decision",
-      params_string: "(question, description, options_open, deadline)",
+      description: "Create a new decision. Use subtype 'executive' for executive decisions where a designated decision maker selects options and issues a final statement instead of group voting.",
+      params_string: "(question, description, options_open, deadline, subtype, decision_maker)",
       params: [
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", description: "When the decision closes" },
+        { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default), 'executive', or 'lottery'" },
+        { name: "decision_maker", type: "string", required: false, description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)" },
       ],
       authorization: :collective_member,
     },
@@ -368,6 +370,23 @@ class ActionsHelper
       params_string: "()",
       params: [],
       authorization: :collective_member,
+    },
+    "close_decision" => {
+      description: "Close this decision immediately, ending voting. Optionally include a final statement explaining the outcome. For executive decisions, include selections to indicate which options were selected.",
+      params_string: "(final_statement, selections)",
+      params: [
+        { name: "final_statement", type: "string", required: false, description: "Optional final statement explaining the outcome" },
+        { name: "selections", type: "array", required: false, description: "For executive decisions: array of option titles to mark as selected" },
+      ],
+      authorization: :resource_owner,
+    },
+    "add_statement" => {
+      description: "Add or update the final statement on this decision. Only available after the decision is closed.",
+      params_string: "(text)",
+      params: [
+        { name: "text", type: "string", description: "The statement text" },
+      ],
+      authorization: :resource_owner,
     },
     "delete_decision" => {
       description: "Delete this decision. Votes and comments from others will be preserved.",
@@ -937,6 +956,8 @@ class ActionsHelper
         { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string], description: ACTION_DEFINITIONS["add_options"][:description] },
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
+        { name: "close_decision", params_string: ACTION_DEFINITIONS["close_decision"][:params_string], description: ACTION_DEFINITIONS["close_decision"][:description] },
+        { name: "add_statement", params_string: ACTION_DEFINITIONS["add_statement"][:params_string], description: ACTION_DEFINITIONS["add_statement"][:description] },
       ],
       conditional_actions: [
         {

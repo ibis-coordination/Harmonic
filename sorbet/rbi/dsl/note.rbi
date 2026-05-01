@@ -528,6 +528,9 @@ class Note
     sig { returns(T.nilable(::Notification)) }
     def reload_reminder_notification; end
 
+    sig { returns(T.untyped) }
+    def reload_statementable; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -576,10 +579,25 @@ class Note
     def reset_reminder_notification; end
 
     sig { void }
+    def reset_statementable; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
     def reset_updated_by; end
+
+    sig { returns(T.untyped) }
+    def statementable; end
+
+    sig { params(value: T.untyped).void }
+    def statementable=(value); end
+
+    sig { returns(T::Boolean) }
+    def statementable_changed?; end
+
+    sig { returns(T::Boolean) }
+    def statementable_previously_changed?; end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -1383,6 +1401,12 @@ class Note
     def restore_reminder_scheduled_for!; end
 
     sig { void }
+    def restore_statementable_id!; end
+
+    sig { void }
+    def restore_statementable_type!; end
+
+    sig { void }
     def restore_subtype!; end
 
     sig { void }
@@ -1484,6 +1508,18 @@ class Note
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_reminder_scheduled_for?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_statementable_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_statementable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_statementable_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_statementable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_subtype; end
 
@@ -1531,6 +1567,96 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_updated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def statementable_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def statementable_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def statementable_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def statementable_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def statementable_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def statementable_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def statementable_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def statementable_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def statementable_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_id_was; end
+
+    sig { void }
+    def statementable_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_type; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def statementable_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def statementable_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def statementable_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def statementable_type_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def statementable_type_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def statementable_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def statementable_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_type_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def statementable_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def statementable_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def statementable_type_was; end
+
+    sig { void }
+    def statementable_type_will_change!; end
 
     sig { returns(::String) }
     def subtype; end
@@ -1930,6 +2056,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_reminder_scheduled_for?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_statementable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_statementable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end

@@ -1,0 +1,103 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  ['Decision', @decision.path],
+  'Voters'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <i class="decision-icon icon-sm"></i>
+        Decision
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><%= @decision.question %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @decision.voters.empty? %>
+      <p><em>No one has voted yet.</em></p>
+    <% else %>
+      <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
+        <%= @decision.voter_count %> <%= @decision.voter_count == 1 ? 'voter' : 'voters' %>
+      </p>
+
+      <div data-controller="tabs">
+        <div style="margin-bottom: 16px; display: flex; gap: 4px;">
+          <button class="pulse-action-btn pulse-action-btn-primary" data-tabs-target="tab" data-action="click->tabs#show" data-tabs-index-param="0">
+            By voter
+          </button>
+          <button class="pulse-action-btn-secondary" data-tabs-target="tab" data-action="click->tabs#show" data-tabs-index-param="1">
+            By option
+          </button>
+        </div>
+
+        <%# === By Voter === %>
+        <div data-tabs-target="panel">
+          <% @votes_by_voter.each do |entry| %>
+            <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border-muted);">
+              <div class="pulse-body-text-muted" style="font-size: 0.8em; margin-bottom: 2px;">Voter</div>
+              <h3 style="margin-bottom: 8px;">
+                <a href="<%= "/u/#{entry[:voter].handle}" %>" style="display: inline-flex; align-items: center; gap: 4px;">
+                  <%= profile_pic(entry[:voter], size: 20) %>
+                  <%= entry[:voter].display_name %>
+                </a>
+              </h3>
+              <% if entry[:options].any? %>
+                <% entry[:options].each do |opt| %>
+                  <div style="margin-bottom: 2px; display: flex; align-items: center; gap: 6px;">
+                    <span>✅</span>
+                    <% if opt[:preferred] %>
+                      <span>⭐</span>
+                    <% else %>
+                      <span style="visibility: hidden;">⭐</span>
+                    <% end %>
+                    <span><%= markdown_inline(opt[:option].title) %></span>
+                  </div>
+                <% end %>
+              <% else %>
+                <div class="pulse-body-text-muted"><em>Did not accept any options</em></div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <%# === By Option === %>
+        <div data-tabs-target="panel" style="display: none;">
+          <% @votes_by_option.each do |entry| %>
+            <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border-muted);">
+              <div class="pulse-body-text-muted" style="font-size: 0.8em; margin-bottom: 2px;">Option</div>
+              <h3 style="margin-bottom: 8px;"><%= markdown_inline(entry[:option].title) %></h3>
+              <% if entry[:accepted_and_preferred].any? %>
+                <div style="margin-bottom: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+                  <span>✅</span><span>⭐</span>
+                  <% entry[:accepted_and_preferred].each_with_index do |user, i| %>
+                    <% if i > 0 %><span>,</span><% end %>
+                    <a href="<%= "/u/#{user.handle}" %>" style="display: inline-flex; align-items: center; gap: 3px;">
+                      <%= profile_pic(user, size: 16) %> <%= user.display_name %>
+                    </a>
+                  <% end %>
+                </div>
+              <% end %>
+              <% if entry[:accepted_only].any? %>
+                <div style="margin-bottom: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+                  <span>✅</span><span style="visibility: hidden;">⭐</span>
+                  <% entry[:accepted_only].each_with_index do |user, i| %>
+                    <% if i > 0 %><span>,</span><% end %>
+                    <a href="<%= "/u/#{user.handle}" %>" style="display: inline-flex; align-items: center; gap: 3px;">
+                      <%= profile_pic(user, size: 16) %> <%= user.display_name %>
+                    </a>
+                  <% end %>
+                </div>
+              <% end %>
+              <% if entry[:accepted_and_preferred].empty? && entry[:accepted_only].empty? %>
+                <div class="pulse-body-text-muted"><em>No one accepted this option</em></div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</article>

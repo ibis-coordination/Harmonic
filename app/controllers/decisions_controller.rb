@@ -17,11 +17,14 @@ class DecisionsController < ApplicationController
   def create
     begin
       # Build params for ApiHelper
+      decision_nested = params[:decision] || {}
       helper_params = {
-        question: decision_params[:question],
-        description: decision_params[:description],
-        options_open: decision_params[:options_open],
+        question: params[:question] || decision_nested[:question],
+        description: params[:description] || decision_nested[:description],
+        options_open: params[:options_open] || decision_nested[:options_open],
         deadline: deadline_from_params,
+        subtype: decision_nested[:subtype],
+        decision_maker_id: decision_nested[:decision_maker_id],
       }
       @decision = @current_decision = api_helper(params: helper_params).create_decision
       # Handle file attachments separately (HTML form specific)
@@ -48,7 +51,7 @@ class DecisionsController < ApplicationController
 
   def create_decision
     begin
-      @decision = api_helper.create_decision
+      @decision = api_helper(params: params).create_decision
       render_action_success({
         action_name: 'create_decision',
         resource: @decision,
@@ -81,8 +84,25 @@ class DecisionsController < ApplicationController
     return if @decision.deleted?
 
     @participant = current_decision_participant
-    @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
-    @votes = current_votes
+    if @decision.is_executive?
+      @options_header = @decision.can_add_options?(@participant) ? 'Add Options' : 'Options'
+      @votes = Vote.none
+      @current_user_has_voted = false
+      @show_results = false
+      if @decision.closed?
+        @executive_selections = @decision.votes.where(accepted: 1).pluck(:option_id).to_set
+      end
+    elsif @decision.is_lottery?
+      @options_header = @decision.can_add_options?(@participant) ? 'Add Entries' : 'Entries'
+      @votes = Vote.none
+      @current_user_has_voted = false
+      @show_results = @decision.closed?
+    else
+      @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
+      @votes = current_votes
+      @current_user_has_voted = @votes.any? { |v| v.accepted == 1 || v.preferred == 1 }
+      @show_results = @decision.closed? || @current_user_has_voted
+    end
     set_results_view_vars
     set_pin_vars
     set_report_vars(@decision)
@@ -120,13 +140,15 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
     return render 'shared/403', status: 403 unless @decision.can_edit_settings?(@current_user)
 
-    # Build params for ApiHelper
+    # Build params for ApiHelper — only include mutable fields
     helper_params = {
       question: decision_params[:question],
       description: decision_params[:description],
-      options_open: decision_params[:options_open],
-      deadline: deadline_from_params,
     }
+    unless @decision.closed?
+      helper_params[:options_open] = decision_params[:options_open]
+      helper_params[:deadline] = deadline_from_params
+    end
     @decision = api_helper(params: helper_params).update_decision_settings
     redirect_to @decision.path
   end
@@ -266,10 +288,97 @@ class DecisionsController < ApplicationController
     end
   end
 
+  def submit_votes
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    if @decision.closed?
+      redirect_to @decision.path, alert: "This decision is closed and no longer accepting votes."
+      return
+    end
+    if @decision.is_executive?
+      redirect_to @decision.path, alert: "Executive decisions do not accept votes."
+      return
+    end
+    if @decision.is_lottery?
+      redirect_to @decision.path, alert: "Lottery decisions do not accept votes."
+      return
+    end
+
+    raw_votes = params[:votes]
+    votes_list = if raw_votes.is_a?(ActionController::Parameters)
+      raw_votes.values
+    else
+      raw_votes || []
+    end
+
+    votes_data = votes_list.map do |vote_params|
+      {
+        option_title: vote_params[:option_title],
+        accept: vote_params[:accepted] == "1",
+        prefer: vote_params[:preferred] == "1",
+      }
+    end
+
+    if votes_data.any?
+      begin
+        api_helper(params: { votes: votes_data }).create_votes
+        redirect_to @decision.path, notice: "Vote submitted."
+      rescue StandardError => e
+        redirect_to @decision.path, alert: e.message
+      end
+    else
+      redirect_to @decision.path
+    end
+  end
+
   def results_partial
     @decision = current_decision
     set_results_view_vars
     render partial: 'results'
+  end
+
+  def voters_page
+    @decision = current_decision || find_deleted_decision
+    return render '404', status: 404 unless @decision
+    return render '404', status: 404 if @decision.deleted?
+    if @current_user && @decision.created_by && UserBlock.between?(@current_user, @decision.created_by)
+      return render 'shared/403', status: 403
+    end
+
+    @page_title = "Voters | #{@decision.question}"
+    @sidebar_mode = 'resource'
+
+    all_votes = @decision.votes.includes(:option, decision_participant: :user)
+    results = @decision.results
+    result_option_ids = results.map(&:option_id)
+    # Use results order; append any options not yet in results (no votes yet)
+    all_options = @decision.options.order(:created_at)
+    options_by_id = all_options.index_by(&:id)
+    sorted_options = result_option_ids.filter_map { |id| options_by_id[id] }
+    remaining = all_options.reject { |o| result_option_ids.include?(o.id) }
+    sorted_options += remaining
+
+    @votes_by_option = sorted_options.map do |option|
+      option_votes = all_votes.select { |v| v.option_id == option.id }
+      accepted_votes = option_votes.select { |v| v.accepted == 1 }
+      {
+        option: option,
+        accepted_and_preferred: accepted_votes.select { |v| v.preferred == 1 }.map { |v| v.decision_participant.user }.compact.sort_by { |u| u.display_name.downcase },
+        accepted_only: accepted_votes.select { |v| v.preferred != 1 }.map { |v| v.decision_participant.user }.compact.sort_by { |u| u.display_name.downcase },
+      }
+    end
+
+    @votes_by_voter = @decision.voters.sort_by { |u| u.display_name.downcase }.map do |voter|
+      voter_votes = all_votes.select { |v| v.decision_participant&.user_id == voter.id && v.accepted == 1 }
+      # Sort accepted options in results order
+      options_with_status = voter_votes.map do |v|
+        { option: v.option, preferred: v.preferred == 1 }
+      end.sort_by { |entry| result_option_ids.index(entry[:option].id) || Float::INFINITY }
+      {
+        voter: voter,
+        options: options_with_status,
+      }
+    end
   end
 
   def voters_partial
@@ -287,6 +396,7 @@ class DecisionsController < ApplicationController
     @page_title = "Actions | #{@decision.question}"
     route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/d/:decision_id")
     actions = (route_info&.dig(:actions) || []).select do |action|
+      next false if (@decision.is_executive? || @decision.is_lottery?) && action[:name] == "vote"
       ActionAuthorization.authorized?(action[:name], @current_user, { collective: @current_collective, resource: @decision })
     end
     render_actions_index({ actions: actions })
@@ -317,6 +427,68 @@ class DecisionsController < ApplicationController
     end
   end
 
+  def describe_close_decision
+    render_action_description(ActionsHelper.action_description("close_decision", resource: current_decision))
+  end
+
+  def close_decision_action
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    return render 'shared/403', status: 403 unless @decision.can_close?(@current_user)
+
+    begin
+      # Parse selections from either selections[] array or selections_map hash (HTML form)
+      selections = if params[:selections_map].present?
+        raw = params[:selections_map]
+        entries = raw.is_a?(ActionController::Parameters) ? raw.values : Array(raw)
+        entries.select { |e| e[:selected] == "1" }.map { |e| e[:option_title] }
+      else
+        Array(params[:selections])
+      end
+      api_helper(params: { final_statement: params[:final_statement], selections: selections }).close_decision
+      respond_to do |format|
+        format.html { redirect_to @decision.path, notice: "Decision closed." }
+        format.md { render_action_success({ action_name: 'close_decision', resource: @decision, result: "Decision closed." }) }
+      end
+    rescue StandardError => e
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: e.message }
+        format.md { render_action_error({ action_name: 'close_decision', resource: @decision, error: e.message }) }
+      end
+    end
+  end
+
+  def describe_add_statement
+    render_action_description(ActionsHelper.action_description("add_statement", resource: current_decision))
+  end
+
+  def add_statement_action
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    return render 'shared/403', status: 403 unless @decision.can_write_statement?(@current_user)
+
+    unless @decision.closed?
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: "Decision must be closed to add a statement." }
+        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: "Decision must be closed to add a statement." }) }
+      end
+      return
+    end
+
+    begin
+      api_helper(params: { text: params[:text] || params[:final_statement] }).add_statement
+      respond_to do |format|
+        format.html { redirect_to @decision.path, notice: "Statement saved." }
+        format.md { render_action_success({ action_name: 'add_statement', resource: @decision, result: "Statement saved." }) }
+      end
+    rescue StandardError => e
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: e.message }
+        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: e.message }) }
+      end
+    end
+  end
+
   def describe_add_options
     render_action_description(ActionsHelper.action_description("add_options", resource: current_decision))
   end
@@ -341,12 +513,29 @@ class DecisionsController < ApplicationController
     end
   end
 
+  def verify
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    return redirect_to @decision.path unless @decision.lottery_drawn?
+
+    @page_title = "Verify Lottery | #{@decision.question}"
+    @sidebar_mode = 'resource'
+    lottery_service = LotteryService.new
+    @verification_url = lottery_service.verification_url(@decision)
+    provider = RandomnessProvider.current
+    @round_derivation = provider.round_derivation(
+      @decision.deadline,
+      T.must(@decision.lottery_beacon_round),
+    )
+  end
+
   private
 
   def decision_params
     model_params.permit(
       :question, :description, :options_open,
-      :duration, :duration_unit, :files
+      :duration, :duration_unit, :files,
+      :subtype, :decision_maker_id
     )
   end
 

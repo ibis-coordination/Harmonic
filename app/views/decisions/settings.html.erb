@@ -30,18 +30,22 @@
         </div>
       </section>
 
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Options</h2>
-        <p class="pulse-form-row">
-          <%= form.select :options_open, options_for_select([['Everyone', true], ['Just you', false]], selected: @decision.options_open), {}, class: "pulse-form-input" %>
-          can add options.
-        </p>
-      </section>
+      <% unless @decision.closed? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Options</h2>
+          <p class="pulse-form-row">
+            <%= form.select :options_open, options_for_select([['Everyone', true], ['Just you', false]], selected: @decision.options_open), {}, class: "pulse-form-input" %>
+            can add options.
+          </p>
+        </section>
+      <% end %>
 
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Deadline</h2>
-        <%= render 'shared/deadline_input_fields', form: form, resource: @decision, close_now_option: true %>
-      </section>
+      <% unless @decision.closed? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Deadline</h2>
+          <%= render 'shared/deadline_input_fields', form: form, resource: @decision, close_now_option: true %>
+        </section>
+      <% end %>
 
       <section class="pulse-settings-section pulse-action-row">
         <%= form.submit 'Save', class: "pulse-action-btn pulse-action-btn-primary" %>

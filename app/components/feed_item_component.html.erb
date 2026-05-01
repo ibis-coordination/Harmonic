@@ -46,16 +46,29 @@
     <%# Type-specific content %>
     <% case @type %>
     <% when 'Decision' %>
-      <% results = T.unsafe(@item).results %>
-      <% if results.any? %>
-        <div class="pulse-decision-options">
-          <% results.first(5).each_with_index do |result, index| %>
-            <div class="pulse-decision-option<%= ' pulse-decision-option-winner' if index == 0 && @item.closed? %>">
-              <span><%= result.option_title %></span>
-              <span class="pulse-option-votes"><%= result.accepted_yes %> accept &middot; <%= result.preferred %> prefer</span>
-            </div>
-          <% end %>
-        </div>
+      <% if T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
+        <% options = T.unsafe(@item).options.order(:created_at).first(5) %>
+        <% if options.any? %>
+          <div class="pulse-decision-options">
+            <% options.each do |option| %>
+              <div class="pulse-decision-option">
+                <span><%= option.title %></span>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      <% else %>
+        <% results = T.unsafe(@item).results %>
+        <% if results.any? %>
+          <div class="pulse-decision-options">
+            <% results.first(5).each_with_index do |result, index| %>
+              <div class="pulse-decision-option<%= ' pulse-decision-option-winner' if index == 0 && @item.closed? %>">
+                <span><%= result.option_title %></span>
+                <span class="pulse-option-votes"><%= result.accepted_yes %> accept &middot; <%= result.preferred %> prefer</span>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
       <% end %>
     <% when 'Commitment' %>
       <div class="pulse-commitment-progress">
@@ -100,6 +113,8 @@
     <% when 'Decision' %>
       <% if @item.closed? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check-circle' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
+      <% elsif T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
+        <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> View</a>
       <% else %>
         <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> Vote</a>
       <% end %>

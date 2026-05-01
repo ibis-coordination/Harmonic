@@ -1,0 +1,63 @@
+# Verify Lottery: <%= @decision.question %>
+
+[Back to lottery](<%= @decision.path %>)
+
+This lottery uses **verifiable randomness**. The outcome is determined by combining a publicly verifiable random value (from a randomness beacon) with each entry's title using a SHA-256 hash. Anyone can independently reproduce the calculation to confirm the results were not tampered with.
+
+## How the Beacon Round Is Determined
+
+<%= @round_derivation[:description] %>
+
+<% if @round_derivation[:formula] -%>
+```
+<%= @round_derivation[:formula] %>
+
+<%= @round_derivation[:steps].join("\n") %>
+```
+
+<% end -%>
+<% if @round_derivation[:chain_info_url] -%>
+<%= @round_derivation[:chain_info_note] %> [View chain info](<%= @round_derivation[:chain_info_url] %>)
+
+<% end -%>
+## Beacon Data
+
+| Field | Value |
+|-------|-------|
+| Beacon Round | `<%= @decision.lottery_beacon_round %>` |
+| Randomness | `<%= @decision.lottery_beacon_randomness %>` |
+<% if @verification_url -%>
+| Verify Beacon | [Look up round <%= @decision.lottery_beacon_round %>](<%= @verification_url %>) |
+<% end -%>
+| Decision Deadline | `<%= @decision.deadline.iso8601 %>` (unix: `<%= @decision.deadline.to_i %>`) |
+
+## Formula
+
+```
+sort_key = SHA256( beacon_randomness + NFC(entry_title) )
+```
+
+Entries are sorted by sort key in descending order. Titles are [NFC-normalized](https://unicode.org/reports/tr15/) before hashing.
+
+## Results Breakdown
+
+| # | Entry | Sort Key |
+|---|-------|----------|
+<% @decision.results.each_with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | `<%= result.lottery_sort_key %>` |
+<% end -%>
+
+## Verify Manually
+
+You can reproduce these results using any SHA-256 tool. For example, using Python:
+
+```python
+import hashlib, unicodedata
+beacon = "<%= @decision.lottery_beacon_randomness %>"
+<% @decision.results.each do |result| -%>
+title = <%= result.option_title.inspect %>
+print(hashlib.sha256((beacon + unicodedata.normalize("NFC", title)).encode()).hexdigest())
+<% end -%>
+```
+
+Each output should match the sort key shown above for that entry.

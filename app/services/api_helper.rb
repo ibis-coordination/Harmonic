@@ -176,14 +176,19 @@ class ApiHelper
   def create_decision
     decision = T.let(nil, T.nilable(Decision))
     ActiveRecord::Base.transaction do
-      decision = Decision.create!(
+      create_attrs = {
         question: params[:question],
         description: params[:description],
         subtype: params[:subtype] || "vote",
         options_open: params[:options_open] || true,
         deadline: params[:deadline],
         created_by: current_user,
-      )
+      }
+      decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
+      if decision_maker_param.present?
+        create_attrs[:decision_maker] = resolve_user(decision_maker_param)
+      end
+      decision = Decision.create!(create_attrs)
       track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
@@ -642,6 +647,9 @@ class ApiHelper
     votes_param = params[:votes]
     raise ArgumentError, "votes parameter is required" if votes_param.blank?
     raise ArgumentError, "votes must be an array" unless votes_param.is_a?(Array)
+    raise ArgumentError, "This decision is closed and no longer accepting votes." if T.must(current_decision).closed?
+    raise ArgumentError, "Executive decisions do not accept votes." if T.must(current_decision).is_executive?
+    raise ArgumentError, "Lottery decisions do not accept votes." if T.must(current_decision).is_lottery?
     check_not_blocked!(T.must(current_decision), action: "vote on")
 
     votes = T.let([], T::Array[Vote])
@@ -873,9 +881,17 @@ class ApiHelper
       decision.description = params[:description] if params[:description].present?
       # options_open is a boolean, so we need to check has_key? AND the value is not nil
       if params.has_key?(:options_open) && !params[:options_open].nil?
+        raise 'Cannot change options policy on a closed decision' if decision.closed?
         decision.options_open = params[:options_open]
       end
-      decision.deadline = params[:deadline] if params[:deadline].present?
+      if params[:deadline].present?
+        raise 'Cannot change deadline on a closed decision' if decision.closed?
+        decision.deadline = params[:deadline]
+      end
+      dm_param_key = params.has_key?(:decision_maker) ? :decision_maker : :decision_maker_id
+      if params.has_key?(dm_param_key)
+        decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
+      end
 
       decision.save!
 
@@ -888,6 +904,130 @@ class ApiHelper
       end
     end
     decision
+  end
+
+  def close_decision
+    decision = T.must(current_decision)
+    raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
+    raise 'Decision is already closed' if decision.closed?
+
+    ActiveRecord::Base.transaction do
+      # For executive decisions, create selection votes
+      if decision.is_executive?
+        create_executive_selections!(decision)
+      end
+
+      decision.deadline = Time.current
+      decision.save!
+
+      if params[:final_statement].present?
+        create_or_update_statement!(decision, params[:final_statement])
+      end
+
+      if current_representation_session
+        current_representation_session.record_event!(
+          request: request,
+          action_name: "close_decision",
+          resource: decision,
+        )
+      end
+    end
+
+    if decision.is_lottery?
+      LotteryDrawJob.perform_later(decision.id)
+    end
+
+    decision
+  end
+
+  def add_statement
+    decision = T.must(current_decision)
+    raise 'Unauthorized' unless decision.can_write_statement?(current_user)
+
+    raise 'Decision must be closed to add a statement' unless decision.closed?
+
+    statement = create_or_update_statement!(decision, params[:text])
+
+    if current_representation_session
+      current_representation_session.record_event!(
+        request: request,
+        action_name: "add_statement",
+        resource: statement,
+        context_resource: decision,
+      )
+    end
+    statement
+  end
+
+  # Resolve a user by UUID, handle, or @handle — scoped to current tenant
+  private def resolve_user(identifier)
+    id = identifier.to_s.strip
+    # Try UUID first — must belong to current tenant
+    if id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+      tu = current_tenant.tenant_users.find_by(user_id: id)
+      raise ActiveRecord::RecordNotFound, "Couldn't find User with id '#{id}'" unless tu
+      return tu.user
+    end
+    # Strip @ prefix if present
+    handle = id.delete_prefix("@")
+    tu = current_tenant.tenant_users.find_by(handle: handle)
+    raise ActiveRecord::RecordNotFound, "Couldn't find User with handle '#{handle}'" unless tu
+    tu.user
+  end
+
+  private def create_executive_selections!(decision)
+    selected_titles = Array(params[:selections])
+    dm = decision.effective_decision_maker
+    participant = DecisionParticipantManager.new(decision: decision, user: dm).find_or_create_participant
+
+    # Validate all selection titles match actual options
+    option_titles = decision.options.map(&:title)
+    invalid_titles = selected_titles - option_titles
+    if invalid_titles.any?
+      raise ArgumentError, "Unknown option(s): #{invalid_titles.map { |t| "'#{t}'" }.join(', ')}"
+    end
+
+    options = decision.options.to_a
+    existing_votes = Vote.where(
+      decision: decision,
+      decision_participant: participant,
+      option_id: options.map(&:id),
+    ).index_by(&:option_id)
+
+    options.each do |option|
+      vote = existing_votes[option.id] || Vote.new(
+        tenant: current_tenant,
+        collective: current_collective,
+        decision: decision,
+        option: option,
+        decision_participant: participant,
+      )
+      vote.accepted = selected_titles.include?(option.title) ? 1 : 0
+      vote.preferred = 0
+      vote.save!
+    end
+  end
+
+  private def create_or_update_statement!(statementable, text)
+    existing = statementable.statement
+    if existing
+      existing.text = text
+      existing.updated_by = current_user
+      existing.save!
+      existing
+    else
+      Note.create!(
+        subtype: "statement",
+        text: text,
+        statementable: statementable,
+        created_by: current_user,
+        updated_by: current_user,
+        tenant: current_tenant,
+        collective: current_collective,
+        deadline: Time.current,
+        edit_access: "owner",
+      )
+    end
   end
 
   sig { returns(Commitment) }

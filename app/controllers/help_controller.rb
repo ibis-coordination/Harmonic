@@ -1,7 +1,7 @@
 # typed: false
 
 class HelpController < ApplicationController
-  TOPICS = %w[privacy collectives notes reminder_notes table_notes decisions commitments cycles search links agents api].freeze
+  TOPICS = %w[privacy collectives notes reminder_notes table_notes decisions executive_decisions lottery_decisions commitments cycles search links agents api].freeze
 
   def index
     @page_title = "Help"

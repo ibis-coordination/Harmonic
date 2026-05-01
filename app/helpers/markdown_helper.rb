@@ -20,6 +20,10 @@ module MarkdownHelper
     current_user = instance_variable_get(:@current_user)
     context = build_authorization_context
     all_actions = all_actions.select do |action|
+      # Executive decisions exclude the vote action
+      decision = context[:resource]
+      next false if decision.is_a?(Decision) && (decision.is_executive? || decision.is_lottery?) && action[:name] == "vote"
+
       ActionAuthorization.authorized?(action[:name], current_user, context)
     end
 
