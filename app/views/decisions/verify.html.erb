@@ -1,0 +1,105 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  ['Lottery', @decision.path],
+  'Verify'
+] %>
+
+<article class="pulse-resource-detail">
+  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Verify Lottery Results</h1>
+  <p class="pulse-body-text-muted" style="margin-bottom: 20px;">
+    <%= link_to @decision.question, @decision.path %>
+  </p>
+
+  <div class="pulse-resource-body" style="padding: 16px;">
+    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">How It Works</h2>
+    <p style="line-height: 1.6; margin-bottom: 16px;">
+      This lottery uses <strong>verifiable randomness</strong>. The outcome is determined by combining
+      a publicly verifiable random value (from a randomness beacon) with each entry's title using a
+      SHA-256 hash. Anyone can independently reproduce the calculation to confirm the results were not tampered with.
+    </p>
+
+    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">How the Beacon Round Is Determined</h2>
+    <p style="line-height: 1.6; margin-bottom: 12px;">
+      <%= @round_derivation[:description] %>
+    </p>
+    <% if @round_derivation[:formula] %>
+      <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 12px;"><code><%= @round_derivation[:formula] %>
+
+<%= @round_derivation[:steps].join("\n") %></code></pre>
+    <% end %>
+    <% if @round_derivation[:chain_info_url] %>
+      <p style="line-height: 1.6; margin-bottom: 16px;">
+        <%= @round_derivation[:chain_info_note] %>
+        <%= link_to "View chain info", @round_derivation[:chain_info_url], target: "_blank", rel: "noopener" %>
+      </p>
+    <% end %>
+
+    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Beacon Data</h2>
+    <table class="pulse-results-table" style="margin-bottom: 16px;">
+      <tbody>
+        <tr>
+          <td><strong>Beacon Round</strong></td>
+          <td><code><%= @decision.lottery_beacon_round %></code></td>
+        </tr>
+        <tr>
+          <td><strong>Randomness</strong></td>
+          <td><code style="word-break: break-all;"><%= @decision.lottery_beacon_randomness %></code></td>
+        </tr>
+        <% if @verification_url %>
+          <tr>
+            <td><strong>Verify Beacon</strong></td>
+            <td><%= link_to "Look up round #{@decision.lottery_beacon_round}", @verification_url, target: "_blank", rel: "noopener" %></td>
+          </tr>
+        <% end %>
+        <tr>
+          <td><strong>Decision Deadline</strong></td>
+          <td><code><%= @decision.deadline.iso8601 %></code> (unix: <code><%= @decision.deadline.to_i %></code>)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Formula</h2>
+    <p style="line-height: 1.6; margin-bottom: 8px;">
+      For each entry, the sort key is computed as:
+    </p>
+    <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>sort_key = SHA256( beacon_randomness + NFC(entry_title) )</code></pre>
+    <p style="line-height: 1.6; margin-bottom: 16px;">
+      Entries are sorted by sort key in descending order.
+      Titles are <a href="https://unicode.org/reports/tr15/" target="_blank" rel="noopener">NFC-normalized</a> before hashing.
+    </p>
+
+    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Results Breakdown</h2>
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 16px;">
+      <thead>
+        <tr>
+          <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted); width: 40px;">#</th>
+          <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);">Entry</th>
+          <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);">Sort Key</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @decision.results.each_with_index do |result, index| %>
+          <tr style="<%= index == 0 ? 'background: var(--color-attention-subtle); font-weight: 600;' : '' %>">
+            <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default); width: 40px;"><%= index + 1 %></td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default);"><%= markdown_inline(result.option_title) %></td>
+            <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default);"><code style="font-size: 0.85em;"><%= result.lottery_sort_key %></code></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Verify Manually</h2>
+    <p style="line-height: 1.6; margin-bottom: 8px;">
+      You can reproduce these results using any SHA-256 tool. For example, using Python:
+    </p>
+    <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 8px;"><code>import hashlib, unicodedata
+beacon = "<%= @decision.lottery_beacon_randomness %>"
+<% @decision.results.each do |result| %>
+title = <%= result.option_title.inspect %>
+print(hashlib.sha256((beacon + unicodedata.normalize("NFC", title)).encode()).hexdigest())
+<% end %></code></pre>
+    <p class="pulse-body-text-muted" style="line-height: 1.6;">
+      Each output should match the sort key shown above for that entry.
+    </p>
+  </div>
+</article>

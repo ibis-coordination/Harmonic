@@ -10,12 +10,13 @@ A **lottery** selects randomly from a list of entries. There is no voting — th
 
 Results are hidden until the lottery closes.
 
+The randomness is **verifiable** — it comes from an external source that nobody controls, so the outcome cannot be rigged. After the lottery is drawn, a verification page is available where anyone can independently confirm the results.
+
 ## Key Differences from Vote Decisions
 
 - There is no voting UI — no checkboxes, no stars
 - Results are hidden until the lottery closes
-- Results are sorted purely by random number (no acceptance or preference counts)
-- The results table shows only the random digits column, not acceptance or preference
+- Results are sorted by verifiable randomness (no acceptance or preference counts)
 
 ## Creating a Lottery
 
@@ -31,3 +32,4 @@ A lottery closes the same way as any decision — via the close button, deadline
 
 - Create: `{collective}/decide`
 - View: `{collective}/d/{id}`
+- Verify: `{collective}/d/{id}/verify`

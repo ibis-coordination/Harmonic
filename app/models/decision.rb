@@ -46,6 +46,11 @@ class Decision < ApplicationRecord
     subtype == "executive"
   end
 
+  sig { returns(T::Boolean) }
+  def lottery_drawn?
+    is_lottery? && lottery_beacon_round.present?
+  end
+
   sig { returns(User) }
   def effective_decision_maker
     T.must(decision_maker || created_by)
@@ -77,6 +82,12 @@ class Decision < ApplicationRecord
       # history_events: history_events.map(&:api_json),
       # backlinks: backlinks.map(&:api_json),
     }
+    if lottery_drawn?
+      response.merge!({
+        lottery_beacon_round: lottery_beacon_round,
+        lottery_beacon_randomness: lottery_beacon_randomness,
+      })
+    end
     if include.include?('participants')
       response.merge!({ participants: participants.map(&:api_json) })
     end
@@ -165,7 +176,7 @@ class Decision < ApplicationRecord
     return @results if @results
     @results = DecisionResult.where(
       tenant_id: tenant_id,
-      decision_id: self.id
+      decision_id: self.id,
     ).map.with_index do |result, index|
       result.position = index + 1
       result

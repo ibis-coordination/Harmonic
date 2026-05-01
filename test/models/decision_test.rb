@@ -436,4 +436,199 @@ class DecisionTest < ActiveSupport::TestCase
       )
     end
   end
+
+  # === Verifiable Lottery Randomness Tests ===
+
+  test "lottery_drawn? returns false when beacon not set" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Lottery drawn test?", description: "", deadline: 1.day.from_now,
+      subtype: "lottery",
+    )
+    assert_not decision.lottery_drawn?
+  end
+
+  test "lottery_drawn? returns true when beacon is set" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Lottery drawn test?", description: "", deadline: 1.day.from_now,
+      subtype: "lottery",
+      lottery_beacon_round: 12345,
+      lottery_beacon_randomness: "abc123",
+    )
+    assert decision.lottery_drawn?
+  end
+
+  test "lottery_drawn? returns false for non-lottery decisions" do
+    decision = create_decision
+    assert_not decision.lottery_drawn?
+  end
+
+  test "lottery results sorted by beacon-derived keys when drawn" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Verifiable lottery?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+      lottery_beacon_round: 100,
+      lottery_beacon_randomness: "deadbeef",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Alpha", decision_participant: participant)
+    Option.create!(decision: decision, title: "Beta", decision_participant: participant)
+    Option.create!(decision: decision, title: "Gamma", decision_participant: participant)
+
+    results = decision.results
+    assert_equal 3, results.size
+
+    # Verify sort keys are present and in descending order
+    sort_keys = results.map(&:lottery_sort_key)
+    assert sort_keys.all?(&:present?), "All results should have lottery_sort_key"
+    assert_equal sort_keys, sort_keys.sort.reverse, "Results should be sorted by sort key descending"
+
+    # Verify sort keys match manual SHA256 computation
+    results.each do |result|
+      expected = Digest::SHA256.hexdigest("deadbeef" + result.option_title.unicode_normalize(:nfc))
+      assert_equal expected, result.lottery_sort_key
+    end
+  end
+
+  test "vote decision results have nil lottery_sort_key" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Option A", decision_participant: participant)
+
+    results = decision.results
+    assert_nil results.first.lottery_sort_key
+  end
+
+  test "api_json includes beacon data for drawn lottery" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "API json test?", description: "", deadline: 1.day.from_now,
+      subtype: "lottery",
+      lottery_beacon_round: 99999,
+      lottery_beacon_randomness: "abc123def456",
+    )
+    json = decision.api_json
+    assert_equal 99999, json[:lottery_beacon_round]
+    assert_equal "abc123def456", json[:lottery_beacon_randomness]
+  end
+
+  test "api_json omits beacon data for non-drawn lottery" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "API json test?", description: "", deadline: 1.day.from_now,
+      subtype: "lottery",
+    )
+    json = decision.api_json
+    assert_nil json[:lottery_beacon_round]
+    assert_nil json[:lottery_beacon_randomness]
+  end
+
+  test "drawn lottery with single entry computes sort key" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Single entry?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+      lottery_beacon_round: 1,
+      lottery_beacon_randomness: "abc",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Only Entry", decision_participant: participant)
+
+    results = decision.results
+    assert_equal 1, results.size
+    assert results.first.lottery_sort_key.present?
+  end
+
+  test "drawn lottery with no entries returns empty results" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Empty lottery?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+      lottery_beacon_round: 1,
+      lottery_beacon_randomness: "abc",
+    )
+
+    assert_equal 0, decision.results.size
+  end
+
+  test "drawn lottery result api_json includes lottery_sort_key" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "API sort key?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+      lottery_beacon_round: 1,
+      lottery_beacon_randomness: "beacon123",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Test", decision_participant: participant)
+
+    result_json = decision.results.first.api_json
+    assert result_json[:lottery_sort_key].present?
+    assert_equal 64, result_json[:lottery_sort_key].length
+  end
+
+  test "vote decision result api_json omits lottery_sort_key" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Option A", decision_participant: participant)
+
+    result_json = decision.results.first.api_json
+    assert_nil result_json[:lottery_sort_key]
+  end
+
+  test "undrawn lottery results have nil lottery_sort_key" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Undrawn?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Entry", decision_participant: participant)
+
+    results = decision.results
+    assert_nil results.first.lottery_sort_key
+  end
+
+  test "get_sorting_factor returns lottery_sort_key for drawn lottery" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Sorting factor?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+      lottery_beacon_round: 1,
+      lottery_beacon_randomness: "beacon",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Alpha", decision_participant: participant)
+    Option.create!(decision: decision, title: "Beta", decision_participant: participant)
+
+    results = decision.results
+    assert_equal "lottery_sort_key", results[0].get_sorting_factor(results[1])
+  end
+
+  test "get_sorting_factor returns random_id for undrawn lottery" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Sorting factor?", description: "", deadline: 1.minute.ago,
+      subtype: "lottery",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Alpha", decision_participant: participant)
+    Option.create!(decision: decision, title: "Beta", decision_participant: participant)
+
+    results = decision.results
+    assert_equal "random_id", results[0].get_sorting_factor(results[1])
+  end
 end

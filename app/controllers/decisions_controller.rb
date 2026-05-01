@@ -513,6 +513,22 @@ class DecisionsController < ApplicationController
     end
   end
 
+  def verify
+    @decision = current_decision
+    return render '404', status: 404 unless @decision
+    return redirect_to @decision.path unless @decision.lottery_drawn?
+
+    @page_title = "Verify Lottery | #{@decision.question}"
+    @sidebar_mode = 'resource'
+    lottery_service = LotteryService.new
+    @verification_url = lottery_service.verification_url(@decision)
+    provider = RandomnessProvider.current
+    @round_derivation = provider.round_derivation(
+      @decision.deadline,
+      T.must(@decision.lottery_beacon_round),
+    )
+  end
+
   private
 
   def decision_params

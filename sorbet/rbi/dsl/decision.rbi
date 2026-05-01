@@ -969,6 +969,51 @@ class Decision
     sig { void }
     def deadline_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def decision_maker_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def decision_maker_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def decision_maker_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def decision_maker_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def decision_maker_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def decision_maker_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def decision_maker_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def decision_maker_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def decision_maker_id_was; end
+
+    sig { void }
+    def decision_maker_id_will_change!; end
+
     sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
     def deleted_at; end
 
@@ -1194,6 +1239,96 @@ class Decision
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def lottery_beacon_randomness=(value); end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_randomness?; end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def lottery_beacon_randomness_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_randomness_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_beacon_randomness_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_beacon_randomness_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_randomness_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def lottery_beacon_randomness_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_randomness_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def lottery_beacon_randomness_was; end
+
+    sig { void }
+    def lottery_beacon_randomness_will_change!; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def lottery_beacon_round=(value); end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_round?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def lottery_beacon_round_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def lottery_beacon_round_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def lottery_beacon_round_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def lottery_beacon_round_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_round_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def lottery_beacon_round_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def lottery_beacon_round_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def lottery_beacon_round_was; end
+
+    sig { void }
+    def lottery_beacon_round_will_change!; end
+
     sig { returns(T::Boolean) }
     def options_open; end
 
@@ -1297,6 +1432,9 @@ class Decision
     def restore_deadline!; end
 
     sig { void }
+    def restore_decision_maker_id!; end
+
+    sig { void }
     def restore_deleted_at!; end
 
     sig { void }
@@ -1310,6 +1448,12 @@ class Decision
 
     sig { void }
     def restore_id_value!; end
+
+    sig { void }
+    def restore_lottery_beacon_randomness!; end
+
+    sig { void }
+    def restore_lottery_beacon_round!; end
 
     sig { void }
     def restore_options_open!; end
@@ -1356,6 +1500,12 @@ class Decision
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_deadline?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_decision_maker_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_decision_maker_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_deleted_at; end
 
@@ -1385,6 +1535,18 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_lottery_beacon_randomness; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_lottery_beacon_randomness?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_lottery_beacon_round; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_lottery_beacon_round?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_options_open; end
@@ -1666,6 +1828,9 @@ class Decision
     def will_save_change_to_deadline?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_decision_maker_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_deleted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1679,6 +1844,12 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_lottery_beacon_randomness?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_lottery_beacon_round?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_options_open?(from: T.unsafe(nil), to: T.unsafe(nil)); end

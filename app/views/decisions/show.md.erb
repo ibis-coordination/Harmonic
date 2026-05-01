@@ -36,11 +36,25 @@ No entries yet.
 * <%= option.title %>
 <% end -%>
 <% end -%>
-<% if @show_results -%>
+<% if @decision.lottery_drawn? -%>
+
+## Final Results
+
+Results are sorted by [verifiably random](<%= @decision.path %>/verify) values 🎲.
+
+|   |   | 🎲 |
+|---|---|---|
+<% @decision.results.each.with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | `<%= result.lottery_sort_key&.slice(0, 3) %>...` |
+<% end -%>
+<% elsif @show_results -%>
 
 ## <%= @decision.closed? ? "Final" : "Current" %> Results
 
-Entries are sorted by random digits 🎲.
+<% if @decision.closed? && !@decision.lottery_drawn? -%>
+Drawing... Fetching verifiable randomness.
+<% else -%>
+Entries are sorted by random digits 🎲. Final order will be determined by verifiable randomness when the lottery closes.
 
 |   |   | 🎲 |
 |---|---|---|
@@ -49,6 +63,7 @@ Entries are sorted by random digits 🎲.
 <% end -%>
 <% @decision.results.each.with_index do |result, index| -%>
 | <%= index + 1 %> | <%= result.option_title %> | <%= result.random_id.slice(0, 3) + "..." %> |
+<% end -%>
 <% end -%>
 <% end -%>
 <% if @decision.statement.present? -%>

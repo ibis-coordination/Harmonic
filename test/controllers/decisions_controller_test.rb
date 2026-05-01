@@ -990,12 +990,17 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_select "table.pulse-results-table", count: 0
   end
 
-  test "closed lottery shows results" do
+  test "closed drawn lottery shows results table" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(subtype: "lottery", deadline: 1.hour.ago)
+    @decision.update!(
+      subtype: "lottery",
+      deadline: 1.hour.ago,
+      lottery_beacon_round: 100,
+      lottery_beacon_randomness: "abc123",
+    )
     participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
     Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
     Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
@@ -1118,5 +1123,80 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_match(/closed/, flash[:alert])
+  end
+
+  # === Lottery Verification Page Tests ===
+
+  test "verify page renders for drawn lottery" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(
+      subtype: "lottery",
+      deadline: 1.hour.ago,
+      lottery_beacon_round: 12345,
+      lottery_beacon_randomness: "deadbeef123",
+    )
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Entry A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Entry B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_select "code", text: "12345"
+    assert_select "code", text: "deadbeef123"
+  end
+
+  test "verify page redirects for non-drawn lottery" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :redirect
+  end
+
+  test "closed lottery shows drawing message when beacon pending" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery", deadline: 1.hour.ago)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Entry A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/Drawing/, response.body)
+  end
+
+  test "drawn lottery shows verify link" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(
+      subtype: "lottery",
+      deadline: 1.hour.ago,
+      lottery_beacon_round: 999,
+      lottery_beacon_randomness: "abc",
+    )
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Entry A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/verifiably random/, response.body)
   end
 end

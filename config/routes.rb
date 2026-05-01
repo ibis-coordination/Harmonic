@@ -510,6 +510,7 @@ Rails.application.routes.draw do
       get '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#describe_remove_attachment'
       post '/attachments/:attachment_id/actions/remove_attachment' => 'decisions#remove_attachment'
       post '/submit_votes' => 'decisions#submit_votes'
+      get '/verify' => 'decisions#verify'
       get '/actions/add_statement' => 'decisions#describe_add_statement'
       post '/actions/add_statement' => 'decisions#add_statement_action'
       post '/duplicate' => 'decisions#duplicate'

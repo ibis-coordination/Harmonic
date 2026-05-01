@@ -932,6 +932,11 @@ class ApiHelper
         )
       end
     end
+
+    if decision.is_lottery?
+      LotteryDrawJob.perform_later(decision.id)
+    end
+
     decision
   end
 

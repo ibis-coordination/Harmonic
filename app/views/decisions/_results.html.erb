@@ -1,42 +1,55 @@
 <span id="results" data-header="<%= @results_header %>">
-  <table class="pulse-results-table">
-    <thead>
-      <tr>
-        <th title="place"></th>
-        <th title="option"></th>
-        <% unless @decision.is_lottery? %>
-          <th title="acceptances">✅</th>
-          <th title="preferences">⭐</th>
-        <% end %>
-        <th title="random digits">🎲</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if @decision.results.empty? %>
+  <% if @decision.is_lottery? && @decision.closed? && !@decision.lottery_drawn? %>
+    <p class="pulse-body-text-muted" style="padding: 12px 0;">
+      <%= octicon 'hourglass', height: 14 %>
+      Drawing&hellip; Fetching verifiable randomness. Refresh in a moment.
+    </p>
+  <% else %>
+    <table class="pulse-results-table">
+      <thead>
         <tr>
-          <td colspan="<%= @decision.is_lottery? ? 3 : 5 %>">Add <%= @decision.is_lottery? ? 'entries' : 'options' %> to see results.</td>
-        </tr>
-      <% end %>
-      <% ([nil] + @decision.results + [nil]).each_cons(3).with_index do |(prev_result, result, next_result), index| %>
-        <tr class="<%= (index == 0 && @decision.closed?) ? 'pulse-results-winner' : '' %>">
-          <td><%= index + 1 %></td>
-          <td><%= markdown_inline(result.option_title) %></td>
+          <th title="place"></th>
+          <th title="option"></th>
           <% unless @decision.is_lottery? %>
-            <td style="opacity:<%= (result.accepted_yes || 0) > 0 ? 1 : 0.2 %>;"><%= (result.accepted_yes || 0) %></td>
-            <td style="opacity:<%= (result.preferred || 0) > 0 ? 1 : 0.2 %>;"><%= (result.preferred || 0) %></td>
+            <th title="acceptances">✅</th>
+            <th title="preferences">⭐</th>
           <% end %>
-          <% random_id_is_relevant = @decision.is_lottery? || result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
-          <% random_id = result.random_id %>
-          <td class="pulse-results-random" title="<%= random_id %>"><%= random_id_is_relevant ? (random_id.slice(0, 3) + "...") : "" %></td>
+          <th title="random digits">🎲</th>
         </tr>
+      </thead>
+      <tbody>
+        <% if @decision.results.empty? %>
+          <tr>
+            <td colspan="<%= @decision.is_lottery? ? 3 : 5 %>">Add <%= @decision.is_lottery? ? 'entries' : 'options' %> to see results.</td>
+          </tr>
+        <% end %>
+        <% ([nil] + @decision.results + [nil]).each_cons(3).with_index do |(prev_result, result, next_result), index| %>
+          <tr class="<%= (index == 0 && @decision.closed?) ? 'pulse-results-winner' : '' %>">
+            <td><%= index + 1 %></td>
+            <td><%= markdown_inline(result.option_title) %></td>
+            <% unless @decision.is_lottery? %>
+              <td style="opacity:<%= (result.accepted_yes || 0) > 0 ? 1 : 0.2 %>;"><%= (result.accepted_yes || 0) %></td>
+              <td style="opacity:<%= (result.preferred || 0) > 0 ? 1 : 0.2 %>;"><%= (result.preferred || 0) %></td>
+            <% end %>
+            <% if @decision.lottery_drawn? %>
+              <td class="pulse-results-random" title="<%= result.lottery_sort_key %>"><%= result.lottery_sort_key&.slice(0, 3) %>...</td>
+            <% else %>
+              <% random_id_is_relevant = @decision.is_lottery? || result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
+              <% random_id = result.random_id %>
+              <td class="pulse-results-random" title="<%= random_id %>"><%= random_id_is_relevant ? (random_id.slice(0, 3) + "...") : "" %></td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <p class="pulse-results-explanation">
+      <% if @decision.lottery_drawn? %>
+        Results are sorted by <%= link_to "verifiably random", "#{@decision.path}/verify" %> values 🎲.
+      <% elsif @decision.is_lottery? %>
+        Entries are sorted by random digits 🎲. Final order will be determined by verifiable randomness when the lottery closes.
+      <% else %>
+        Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
       <% end %>
-    </tbody>
-  </table>
-  <p class="pulse-results-explanation">
-    <% if @decision.is_lottery? %>
-      Entries are sorted by random digits 🎲.
-    <% else %>
-      Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
-    <% end %>
-  </p>
+    </p>
+  <% end %>
 </span>

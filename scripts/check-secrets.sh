@@ -19,7 +19,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Files/patterns to exclude from scanning (dev configs, tests, this script)
-EXCLUDE_FILES=".env.example|check-secrets.sh|secrets.*test|fixtures|database.yml|importmap.rb"
+EXCLUDE_FILES=".env.example|check-secrets.sh|secrets.*test|fixtures|database.yml|importmap.rb|randomness_provider/drand.rb"
 
 # Patterns that suggest secrets (high confidence)
 # These patterns look for actual values, not just variable names

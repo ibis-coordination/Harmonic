@@ -8,7 +8,7 @@ class DecisionResult < ApplicationRecord
 
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def api_json
-    {
+    result = {
       position: position,
       decision_id: decision_id,
       option_id: option_id,
@@ -19,6 +19,8 @@ class DecisionResult < ApplicationRecord
       vote_count: vote_count,
       preferred: preferred,
     }
+    result[:lottery_sort_key] = lottery_sort_key if lottery_sort_key.present?
+    result
   end
 
   sig { params(other_result: DecisionResult).returns(String) }
@@ -27,6 +29,8 @@ class DecisionResult < ApplicationRecord
       'accepted_yes'
     elsif self.preferred != other_result.preferred
       'preferred'
+    elsif self.lottery_sort_key.present? && self.lottery_sort_key != other_result.lottery_sort_key
+      'lottery_sort_key'
     else
       'random_id'
     end

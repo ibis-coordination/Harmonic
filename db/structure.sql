@@ -561,6 +561,7 @@ SELECT
     NULL::bigint AS accepted_no,
     NULL::bigint AS vote_count,
     NULL::bigint AS preferred,
+    NULL::text AS lottery_sort_key,
     NULL::integer AS random_id;
 
 
@@ -584,7 +585,9 @@ CREATE TABLE public.decisions (
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
     subtype character varying DEFAULT 'vote'::character varying NOT NULL,
-    decision_maker_id uuid
+    decision_maker_id uuid,
+    lottery_beacon_round bigint,
+    lottery_beacon_randomness character varying
 );
 
 
@@ -7969,11 +7972,13 @@ CREATE OR REPLACE VIEW public.decision_results AS
     (count(v.accepted) - COALESCE(sum(v.accepted), (0)::bigint)) AS accepted_no,
     count(v.accepted) AS vote_count,
     COALESCE(sum(v.preferred), (0)::bigint) AS preferred,
+    encode(public.digest(((d.lottery_beacon_randomness)::text || "normalize"(o.title, 'nfc'::text)), 'sha256'::text), 'hex'::text) AS lottery_sort_key,
     o.random_id
-   FROM (public.options o
+   FROM ((public.options o
      LEFT JOIN public.votes v ON ((v.option_id = o.id)))
-  GROUP BY o.tenant_id, o.decision_id, o.id
-  ORDER BY COALESCE(sum(v.accepted), (0)::bigint) DESC, COALESCE(sum(v.preferred), (0)::bigint) DESC, o.random_id DESC;
+     LEFT JOIN public.decisions d ON ((d.id = o.decision_id)))
+  GROUP BY o.tenant_id, o.decision_id, o.id, d.lottery_beacon_randomness
+  ORDER BY COALESCE(sum(v.accepted), (0)::bigint) DESC, COALESCE(sum(v.preferred), (0)::bigint) DESC, (encode(public.digest(((d.lottery_beacon_randomness)::text || "normalize"(o.title, 'nfc'::text)), 'sha256'::text), 'hex'::text)) DESC NULLS LAST, o.random_id DESC;
 
 
 --
@@ -8951,6 +8956,8 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260501200240'),
+('20260501180221'),
 ('20260430190112'),
 ('20260430173704'),
 ('20260430173024'),
