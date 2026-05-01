@@ -658,7 +658,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
   # === Executive Decision Tests ===
 
-  test "executive decision show page hides voting UI" do
+  test "executive decision show page hides voting UI but shows selection UI for decision maker" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -670,8 +670,11 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
     assert_response :success
     assert_match(/Executive Decision/, response.body)
-    assert_select "button[data-decision-target='submitButton']", count: 0
+    # No star checkboxes or results table
+    assert_select "input.pulse-star-checkbox", count: 0
     assert_select "table.pulse-results-table", count: 0
+    # Decision maker sees selection submit button
+    assert_select "button[data-decision-target='submitButton']", text: "Submit Selection"
   end
 
   test "cannot submit votes on executive decision" do
@@ -750,7 +753,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_not @decision.closed?
   end
 
-  test "submitting statement on open executive decision auto-closes it" do
+  test "submitting statement on open executive decision is rejected" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -765,8 +768,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
       params: { text: "I've decided on Option A." }
 
     @decision.reload
-    assert @decision.closed?, "Executive decision should auto-close when statement is submitted"
-    assert_equal "I've decided on Option A.", @decision.statement&.text
+    assert_not @decision.closed?, "add_statement should not close an open executive decision"
+    assert_nil @decision.statement
   end
 
   test "submitting statement on open vote decision is rejected" do
@@ -780,6 +783,186 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     @decision.reload
     assert_not @decision.closed?
     assert_nil @decision.statement
+  end
+
+  # === Executive Option Selection Tests ===
+
+  test "decision maker can submit selection and close executive decision" do
+    unique_id = SecureRandom.hex(8)
+    decision_maker = User.create!(name: "Boss", email: "boss-select-#{unique_id}@example.com", user_type: "human")
+    @tenant.add_user!(decision_maker)
+    @collective.add_user!(decision_maker)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker)
+    participant = DecisionParticipantManager.new(decision: @decision, user: decision_maker).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option C")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(decision_maker, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { selections: ["Option A", "Option C"], final_statement: "Selected A and C." }
+
+    @decision.reload
+    assert @decision.closed?, "Decision should be closed"
+    assert_equal "Selected A and C.", @decision.statement&.text
+
+    # Check votes were created
+    dm_participant = DecisionParticipantManager.new(decision: @decision, user: decision_maker).find_or_create_participant
+    votes = Vote.where(decision: @decision, decision_participant: dm_participant)
+    assert_equal 3, votes.count
+    assert_equal 1, votes.find_by(option: @decision.options.find_by(title: "Option A")).accepted
+    assert_equal 0, votes.find_by(option: @decision.options.find_by(title: "Option B")).accepted
+    assert_equal 1, votes.find_by(option: @decision.options.find_by(title: "Option C")).accepted
+    # preferred is always 0 for executive selections
+    votes.each { |v| assert_equal 0, v.preferred }
+  end
+
+  test "non-decision-maker cannot submit selection on executive decision" do
+    unique_id = SecureRandom.hex(8)
+    decision_maker = User.create!(name: "Boss", email: "boss-noselect-#{unique_id}@example.com", user_type: "human")
+    @tenant.add_user!(decision_maker)
+    @collective.add_user!(decision_maker)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { selections: ["Option A"], final_statement: "I'll decide." }
+
+    @decision.reload
+    assert_not @decision.closed?, "Non-decision-maker should not be able to close"
+  end
+
+  test "executive decision close with no selections creates votes with accepted=0" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { final_statement: "None of the above." }
+
+    @decision.reload
+    assert @decision.closed?
+    dm_participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    votes = Vote.where(decision: @decision, decision_participant: dm_participant)
+    assert_equal 2, votes.count
+    votes.each { |v| assert_equal 0, v.accepted }
+  end
+
+  test "closed executive decision shows selected options with checkmarks" do
+    unique_id = SecureRandom.hex(8)
+    decision_maker = User.create!(name: "Boss", email: "boss-show-#{unique_id}@example.com", user_type: "human")
+    @tenant.add_user!(decision_maker)
+    @collective.add_user!(decision_maker)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker, deadline: 1.hour.ago)
+    participant = DecisionParticipantManager.new(decision: @decision, user: decision_maker).find_or_create_participant
+    opt_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    opt_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    # Create votes: A selected, B not
+    Vote.create!(decision: @decision, option: opt_a, decision_participant: participant,
+                 tenant: @tenant, collective: @collective, accepted: 1, preferred: 0)
+    Vote.create!(decision: @decision, option: opt_b, decision_participant: participant,
+                 tenant: @tenant, collective: @collective, accepted: 0, preferred: 0)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    # Should show checkmark for selected option
+    assert_select ".executive-option-selected", minimum: 1
+  end
+
+  test "cannot close an already closed executive decision" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive", deadline: 1.hour.ago)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    assert @decision.closed?
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { selections: ["Option A"], final_statement: "Trying again." }
+
+    assert_response :redirect
+    assert_match(/already closed/i, flash[:alert])
+  end
+
+  test "executive close with invalid option title raises error" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { selections: ["Nonexistent Option"], final_statement: "Oops." }
+
+    @decision.reload
+    assert_not @decision.closed?, "Decision should not close with invalid selection"
+    assert_response :redirect
+    assert_match(/Unknown option/, flash[:alert])
+  end
+
+  test "create executive decision with decision_maker handle via API" do
+    unique_id = SecureRandom.hex(8)
+    decision_maker = User.create!(name: "Boss", email: "boss-handle-#{unique_id}@example.com", user_type: "human")
+    @tenant.add_user!(decision_maker)
+    @collective.add_user!(decision_maker)
+    dm_handle = decision_maker.tenant_users.first.handle
+
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/decide/actions/create_decision",
+      params: { question: "Handle test?", description: "", options_open: true,
+                deadline: 1.week.from_now, subtype: "executive",
+                decision_maker: "@#{dm_handle}" },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/successfully created/, response.body)
+
+    # Extract decision ID from response and verify decision_maker
+    decision_id = response.body[/Decision \[(\w+)\]/, 1]
+    assert decision_id, "Should find decision ID in response"
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    new_decision = Decision.find_by!(truncated_id: decision_id)
+    assert_equal decision_maker.id, new_decision.decision_maker_id
+    assert_equal "executive", new_decision.subtype
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
   end
 
   test "cannot submit votes on closed decision" do

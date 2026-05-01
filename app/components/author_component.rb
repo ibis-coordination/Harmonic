@@ -7,14 +7,16 @@ class AuthorComponent < ViewComponent::Base
     params(
       resource: T.any(Note, Decision, Commitment),
       verb: T.nilable(String),
-      current_user: T.nilable(User)
+      current_user: T.nilable(User),
+      show_updated: T::Boolean
     ).void
   end
-  def initialize(resource:, verb: nil, current_user: nil)
+  def initialize(resource:, verb: nil, current_user: nil, show_updated: true)
     super()
     @resource = resource
     @verb = verb
     @current_user = current_user
+    @show_updated = show_updated
   end
 
   sig { returns(T::Boolean) }
@@ -61,6 +63,6 @@ class AuthorComponent < ViewComponent::Base
 
   sig { returns(T::Boolean) }
   def updated?
-    @resource.updated_at > @resource.created_at + 1.minute
+    @show_updated && @resource.updated_at > @resource.created_at + 1.minute
   end
 end

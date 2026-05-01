@@ -9,7 +9,7 @@
 
   <% initial_subtype = params[:subtype] || "vote" %>
   <%= form_with(url: "#{@current_collective.path}/decide", class: "pulse-form") do |form| %>
-    <input type="hidden" name="decision[subtype]" value="<%= initial_subtype %>" data-decision-subtype-target="subtypeInput">
+    <input type="hidden" name="subtype" value="<%= initial_subtype %>" data-decision-subtype-target="subtypeInput">
 
     <div class="pulse-form-group">
       <label class="pulse-form-label">Type</label>

@@ -184,8 +184,9 @@ class ApiHelper
         deadline: params[:deadline],
         created_by: current_user,
       }
-      if params[:decision_maker_id].present?
-        create_attrs[:decision_maker] = User.find(params[:decision_maker_id])
+      decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
+      if decision_maker_param.present?
+        create_attrs[:decision_maker] = resolve_user(decision_maker_param)
       end
       decision = Decision.create!(create_attrs)
       track_task_run_resource(decision, action_type: "create")
@@ -882,8 +883,9 @@ class ApiHelper
         decision.options_open = params[:options_open]
       end
       decision.deadline = params[:deadline] if params[:deadline].present?
-      if params.has_key?(:decision_maker_id)
-        decision.decision_maker = params[:decision_maker_id].present? ? User.find(params[:decision_maker_id]) : nil
+      dm_param_key = params.has_key?(:decision_maker) ? :decision_maker : :decision_maker_id
+      if params.has_key?(dm_param_key)
+        decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
       end
 
       decision.save!
@@ -902,8 +904,14 @@ class ApiHelper
   def close_decision
     decision = T.must(current_decision)
     raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
+    raise 'Decision is already closed' if decision.closed?
 
     ActiveRecord::Base.transaction do
+      # For executive decisions, create selection votes
+      if decision.is_executive?
+        create_executive_selections!(decision)
+      end
+
       decision.deadline = Time.current
       decision.save!
 
@@ -926,13 +934,7 @@ class ApiHelper
     decision = T.must(current_decision)
     raise 'Unauthorized' unless decision.can_write_statement?(current_user)
 
-    # For executive decisions, submitting a statement also closes the decision
-    if !decision.closed? && decision.is_executive?
-      decision.deadline = Time.current
-      decision.save!
-    elsif !decision.closed?
-      raise 'Decision must be closed to add a statement'
-    end
+    raise 'Decision must be closed to add a statement' unless decision.closed?
 
     statement = create_or_update_statement!(decision, params[:text])
 
@@ -945,6 +947,49 @@ class ApiHelper
       )
     end
     statement
+  end
+
+  # Resolve a user by UUID, handle, or @handle — scoped to current tenant
+  private def resolve_user(identifier)
+    id = identifier.to_s.strip
+    # Try UUID first — must belong to current tenant
+    if id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+      tu = current_tenant.tenant_users.find_by(user_id: id)
+      raise ActiveRecord::RecordNotFound, "Couldn't find User with id '#{id}'" unless tu
+      return tu.user
+    end
+    # Strip @ prefix if present
+    handle = id.delete_prefix("@")
+    tu = current_tenant.tenant_users.find_by(handle: handle)
+    raise ActiveRecord::RecordNotFound, "Couldn't find User with handle '#{handle}'" unless tu
+    tu.user
+  end
+
+  private def create_executive_selections!(decision)
+    selected_titles = Array(params[:selections])
+    dm = decision.effective_decision_maker
+    participant = DecisionParticipantManager.new(decision: decision, user: dm).find_or_create_participant
+
+    # Validate all selection titles match actual options
+    option_titles = decision.options.map(&:title)
+    invalid_titles = selected_titles - option_titles
+    if invalid_titles.any?
+      raise ArgumentError, "Unknown option(s): #{invalid_titles.map { |t| "'#{t}'" }.join(', ')}"
+    end
+
+    decision.options.each do |option|
+      associations = {
+        tenant: current_tenant,
+        collective: current_collective,
+        decision: decision,
+        option: option,
+        decision_participant: participant,
+      }
+      vote = Vote.find_by(associations) || Vote.new(associations)
+      vote.accepted = selected_titles.include?(option.title) ? 1 : 0
+      vote.preferred = 0
+      vote.save!
+    end
   end
 
   private def create_or_update_statement!(statementable, text)

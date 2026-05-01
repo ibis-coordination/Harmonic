@@ -6,7 +6,9 @@ export default class DecisionController extends Controller {
 
   declare readonly inputTarget: HTMLInputElement
   declare readonly listTarget: HTMLElement
+  declare readonly hasListTarget: boolean
   declare readonly optionsSectionTarget: HTMLElement
+  declare readonly hasOptionsSectionTarget: boolean
   declare readonly hasVoteFormTarget: boolean
   declare readonly voteFormTarget: HTMLFormElement
   declare readonly hasSubmitButtonTarget: boolean
@@ -27,6 +29,7 @@ export default class DecisionController extends Controller {
   }
 
   connect(): void {
+    if (!this.hasListTarget) return
     this.captureInitialState()
     this.updateSubmitButton()
     this.listenForChanges()
@@ -144,6 +147,7 @@ export default class DecisionController extends Controller {
   async refreshOptions(event: Event): Promise<void> {
     event.preventDefault()
     if (this.refreshing) return
+    if (!this.hasOptionsSectionTarget || !this.hasListTarget) return
     this.refreshing = true
 
     const url = this.optionsSectionTarget.dataset.url

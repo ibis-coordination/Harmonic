@@ -79,7 +79,7 @@ server.registerTool(
       "Read Harmonic documentation for a topic.",
     inputSchema: {
       topic: z.string().describe(
-        "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, commitments, cycles, search, links, agents, api, privacy"
+        "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, executive-decisions, commitments, cycles, search, links, agents, api, privacy"
       ),
     },
   },

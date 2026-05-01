@@ -51,7 +51,7 @@ class DecisionsController < ApplicationController
 
   def create_decision
     begin
-      @decision = api_helper.create_decision
+      @decision = api_helper(params: params).create_decision
       render_action_success({
         action_name: 'create_decision',
         resource: @decision,
@@ -89,6 +89,9 @@ class DecisionsController < ApplicationController
       @votes = Vote.none
       @current_user_has_voted = false
       @show_results = false
+      if @decision.closed?
+        @executive_selections = @decision.votes.where(accepted: 1).pluck(:option_id).to_set
+      end
     else
       @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
       @votes = current_votes
@@ -423,7 +426,15 @@ class DecisionsController < ApplicationController
     return render 'shared/403', status: 403 unless @decision.can_close?(@current_user)
 
     begin
-      api_helper(params: { final_statement: params[:final_statement] }).close_decision
+      # Parse selections from either selections[] array or selections_map hash (HTML form)
+      selections = if params[:selections_map].present?
+        raw = params[:selections_map]
+        entries = raw.is_a?(ActionController::Parameters) ? raw.values : Array(raw)
+        entries.select { |e| e[:selected] == "1" }.map { |e| e[:option_title] }
+      else
+        Array(params[:selections])
+      end
+      api_helper(params: { final_statement: params[:final_statement], selections: selections }).close_decision
       respond_to do |format|
         format.html { redirect_to @decision.path, notice: "Decision closed." }
         format.md { render_action_success({ action_name: 'close_decision', resource: @decision, result: "Decision closed." }) }
@@ -445,7 +456,7 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
     return render 'shared/403', status: 403 unless @decision.can_write_statement?(@current_user)
 
-    unless @decision.closed? || @decision.is_executive?
+    unless @decision.closed?
       respond_to do |format|
         format.html { redirect_to @decision.path, alert: "Decision must be closed to add a statement." }
         format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: "Decision must be closed to add a statement." }) }

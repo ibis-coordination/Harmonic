@@ -4,8 +4,19 @@
       <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @decision.path } %> to participate.
     </div>
   <% else %>
-    <% if @decision.is_executive? %>
-      <%# Executive: read-only options list + add option %>
+    <% if @decision.is_executive? && @decision.can_close?(@current_user) %>
+      <%# Executive decision maker: checkboxes (no stars) + final statement + submit %>
+      <span class="pulse-section-hint" data-decision-target="votingHint" style="<%= @decision.options.empty? ? 'display: none;' : '' %>">Select the options to include in your decision.</span>
+
+      <%= form_with url: "#{@decision.path}/actions/close_decision", method: :post, id: "executive-selection-form", data: { decision_target: "voteForm" } do |form| %>
+        <ul class="pulse-options-list">
+          <span data-decision-target="list">
+            <%= render 'options_list_items' %>
+          </span>
+        </ul>
+      <% end %>
+    <% elsif @decision.is_executive? %>
+      <%# Executive non-decision-maker: read-only options list %>
       <ul class="pulse-options-list">
         <span data-decision-target="list">
           <% @decision.options.order(:created_at).each do |option| %>
@@ -45,6 +56,16 @@
           <input type="text" class="pulse-add-option-input" data-decision-target="input" data-decision-id="<%= @decision.id %>" placeholder="Add an option" style="flex:1;">
           <button type="submit" class="pulse-action-btn-small">Add</button>
         </form>
+      </div>
+    <% end %>
+
+    <% if @decision.is_executive? && @decision.can_close?(@current_user) %>
+      <div style="margin-top: 12px;<%= @decision.options.empty? ? ' display: none;' : '' %>" data-decision-target="submitRow">
+        <label for="executive_final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement</label>
+        <textarea name="final_statement" id="executive_final_statement" placeholder="What is your decision?" class="pulse-form-input" rows="3" style="width: 100%; box-sizing: border-box; margin-bottom: 8px;" form="executive-selection-form"></textarea>
+        <button type="submit" form="executive-selection-form" class="pulse-action-btn pulse-action-btn-primary" data-decision-target="submitButton">
+          Submit Selection
+        </button>
       </div>
     <% end %>
   <% end %>

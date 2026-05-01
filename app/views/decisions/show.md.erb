@@ -10,8 +10,8 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
-<% if @decision.is_executive? -%>
-| decision_maker | @<%= @decision.effective_decision_maker.handle %> |
+<% if @decision.is_executive? && @decision.decision_maker_id.present? && @decision.decision_maker_id != @decision.created_by_id -%>
+| decision_maker | [@<%= @decision.effective_decision_maker.handle %>](<%= @decision.effective_decision_maker.path %>) |
 <% end -%>
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
@@ -27,6 +27,17 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <%= notice if notice %>
 <% end -%>
 <% if @decision.is_executive? -%>
+<% if @decision.closed? -%>
+## Selection
+
+<% if @decision.options.empty? -%>
+No options.
+<% else -%>
+<% @decision.options.order(:created_at).each do |option| -%>
+* [<%= @executive_selections&.include?(option.id) ? '✅' : ' ' %>] <%= option.title %>
+<% end -%>
+<% end -%>
+<% else -%>
 ## Options
 
 <% if @decision.options.empty? -%>
@@ -36,9 +47,10 @@ No options yet.
 * <%= option.title %>
 <% end -%>
 <% end -%>
+<% end -%>
 <% if @decision.statement.present? -%>
 
-## Final Statement
+## [Final Statement](<%= @decision.statement.path %>)
 
 <%= @decision.statement.text %>
 <% end -%>
@@ -76,7 +88,7 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 <% end -%>
 
 <% if @decision.statement.present? -%>
-## Final Statement
+## [Final Statement](<%= @decision.statement.path %>)
 
 <%= @decision.statement.text %>
 <% end -%>

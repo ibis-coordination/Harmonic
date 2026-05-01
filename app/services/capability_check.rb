@@ -74,6 +74,8 @@ module CapabilityCheck
     "unpin_decision",
     "vote",
     "add_options",
+    "close_decision",
+    "add_statement",
     "create_commitment",
     "update_commitment_settings",
     "delete_commitment",

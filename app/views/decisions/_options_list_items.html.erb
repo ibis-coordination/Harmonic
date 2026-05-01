@@ -1,5 +1,13 @@
 <% @decision.options.order(:created_at).each_with_index do |option, index| %>
-  <% if @decision.is_executive? %>
+  <% if @decision.is_executive? && @decision.can_close?(@current_user) %>
+    <%# Executive decision maker: checkbox only (no star) %>
+    <li class="pulse-option-item" data-option-id="<%= option.id %>">
+      <input type="hidden" name="selections_map[<%= index %>][option_title]" value="<%= option.title %>">
+      <input type="hidden" name="selections_map[<%= index %>][selected]" value="0">
+      <input type="checkbox" class="pulse-acceptance-checkbox" id="option<%= option.id %>" name="selections_map[<%= index %>][selected]" value="1" />
+      <label for="option<%= option.id %>" class="pulse-option-label" id="option-label<%= option.id %>"><%= markdown_inline(option.title) %></label>
+    </li>
+  <% elsif @decision.is_executive? %>
     <li class="pulse-option-item" data-option-id="<%= option.id %>" style="padding: 4px 0;">
       <%= markdown_inline(option.title) %>
     </li>
