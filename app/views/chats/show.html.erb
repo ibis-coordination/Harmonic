@@ -30,7 +30,7 @@
     <% end %>
 
     <% @messages.each do |message| %>
-      <%= render 'ai_agent_chats/message', message: message %>
+      <%= render 'chats/message', message: message %>
     <% end %>
 
     <% if @messages.empty? %>

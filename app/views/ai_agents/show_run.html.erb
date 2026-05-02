@@ -129,7 +129,7 @@
       <div style="margin-bottom: 8px;">
         <% first_msg = @task_run.chat_session&.chat_messages&.order(:created_at)&.first %>
         <% anchor = first_msg ? "#msg-#{first_msg.id}" : "" %>
-        <a href="<%= ai_agent_chat_path(@ai_agent.handle, @task_run.chat_session_id) %><%= anchor %>" class="pulse-feed-action-link">
+        <a href="<%= chat_path(@ai_agent.handle) %><%= anchor %>" class="pulse-feed-action-link">
           <%= octicon 'comment-discussion', height: 12 %> View in chat
         </a>
       </div>
