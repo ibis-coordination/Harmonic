@@ -2,6 +2,8 @@
 require "test_helper"
 
 class ChatsControllerTest < ActionDispatch::IntegrationTest
+  include ActionCable::TestHelper
+
   setup do
     @tenant = @global_tenant
     @user = @global_user
@@ -177,17 +179,19 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_nil resource, "Human-sent messages should not have resource tracking records"
   end
 
-  test "send_message rejects external agent" do
+  test "send_message to external agent saves message but does not dispatch" do
     external_agent = create_ai_agent(parent: @user, name: "External Bot #{SecureRandom.hex(4)}")
     external_agent.update!(agent_configuration: { "mode" => "external" })
     @tenant.add_user!(external_agent)
     @collective.add_user!(external_agent)
     ext_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: external_agent).handle
 
-    assert_no_difference ["ChatMessage.count", "AiAgentTaskRun.count"] do
-      post "/chat/#{ext_handle}/message", params: { message: "Hello" }
+    assert_difference "ChatMessage.count", 1 do
+      assert_no_difference "AiAgentTaskRun.count" do
+        post "/chat/#{ext_handle}/message", params: { message: "Hello" }
+      end
     end
-    assert_response :unprocessable_entity
+    assert_response :ok
   end
 
   test "send_message rejects empty message" do
@@ -280,7 +284,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   # --- non-human users ---
 
-  test "rejects non-human users" do
+  test "agent cannot access chat via browser session" do
     sign_in_as(@ai_agent, tenant: @tenant)
     get "/chat"
     assert_response :redirect
@@ -377,5 +381,168 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     get "/chat/#{@agent_handle}/messages?after=#{1.minute.ago.iso8601}"
     assert_response :success
     assert_nil response.parsed_body["turn_status"]
+  end
+
+  # --- markdown UI ---
+
+  test "index renders markdown format" do
+    get "/chat", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "# Chat"
+  end
+
+  test "show renders markdown format with messages" do
+    session = create_chat_session
+    with_tenant_scope do
+      session.chat_messages.create!(sender: @user, content: "Hello!")
+      session.chat_messages.create!(sender: @ai_agent, content: "Hi there!")
+    end
+
+    get "/chat/#{@agent_handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Hello!"
+    assert_includes response.body, "Hi there!"
+  end
+
+  # --- actions ---
+
+  test "actions_index lists send_message action" do
+    create_chat_session
+    get "/chat/#{@agent_handle}/actions", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "send_message"
+  end
+
+  test "describe_send_message shows action description" do
+    create_chat_session
+    get "/chat/#{@agent_handle}/actions/send_message", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "send_message"
+    assert_includes response.body, "message"
+  end
+
+  test "execute_send_message creates message via action" do
+    create_chat_session
+
+    assert_difference "ChatMessage.count", 1 do
+      post "/chat/#{@agent_handle}/actions/send_message",
+        params: { message: "Hello via action!" },
+        headers: { "Accept" => "text/markdown" }
+    end
+    assert_response :success
+    assert_includes response.body, "Message sent"
+
+    msg = ChatMessage.last
+    assert_equal "Hello via action!", msg.content
+  end
+
+  test "execute_send_message rejects empty message" do
+    create_chat_session
+
+    assert_no_difference "ChatMessage.count" do
+      post "/chat/#{@agent_handle}/actions/send_message",
+        params: { message: "" },
+        headers: { "Accept" => "text/markdown" }
+    end
+    assert_response :success
+    assert_includes response.body, "cannot be empty"
+  end
+
+  # --- agent as sender (API token auth) ---
+
+  test "agent can view chat via API token" do
+    @tenant.enable_api!
+    @collective.enable_api!
+
+    session = create_chat_session
+    with_tenant_scope do
+      session.chat_messages.create!(sender: @user, content: "Hello agent!")
+    end
+
+    agent_token = with_tenant_scope do
+      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
+    end
+    user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    get "/chat/#{user_handle}",
+      headers: { "Authorization" => "Bearer #{agent_token.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Hello agent!"
+  end
+
+  test "agent can send message via API token" do
+    @tenant.enable_api!
+    @collective.enable_api!
+
+    session = create_chat_session
+    with_tenant_scope do
+      session.chat_messages.create!(sender: @user, content: "Hello agent!")
+    end
+
+    agent_token = with_tenant_scope do
+      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
+    end
+    user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    assert_difference "ChatMessage.count", 1 do
+      post "/chat/#{user_handle}/actions/send_message",
+        params: { message: "Hi human!" }.to_json,
+        headers: { "Authorization" => "Bearer #{agent_token.plaintext_token}", "Accept" => "text/markdown", "Content-Type" => "application/json" }
+    end
+    assert_response :success
+
+    msg = ChatMessage.last
+    assert_equal @ai_agent.id, msg.sender_id
+    assert_equal "Hi human!", msg.content
+  end
+
+  test "agent message does not dispatch a task run" do
+    @tenant.enable_api!
+    @collective.enable_api!
+
+    session = create_chat_session
+    with_tenant_scope do
+      session.chat_messages.create!(sender: @user, content: "Hello!")
+    end
+
+    agent_token = with_tenant_scope do
+      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
+    end
+    user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      post "/chat/#{user_handle}/actions/send_message",
+        params: { message: "Response" }.to_json,
+        headers: { "Authorization" => "Bearer #{agent_token.plaintext_token}", "Accept" => "text/markdown", "Content-Type" => "application/json" }
+    end
+    assert_response :success
+  end
+
+  # --- ActionCable broadcast ---
+
+  test "send_message broadcasts to ActionCable" do
+    session = create_chat_session
+    stream = ChatSessionChannel.broadcasting_for(session)
+
+    assert_broadcasts(stream, 1) do
+      post "/chat/#{@agent_handle}/message", params: { message: "Hello!" }
+    end
+    assert_response :ok
+  end
+
+  test "agent returns 404 for nonexistent chat session" do
+    @tenant.enable_api!
+    @collective.enable_api!
+
+    agent_token = with_tenant_scope do
+      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
+    end
+    other_user = create_user(email: "noconvo-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_user).handle
+
+    get "/chat/#{other_handle}",
+      headers: { "Authorization" => "Bearer #{agent_token.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :not_found
   end
 end

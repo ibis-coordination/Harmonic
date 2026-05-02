@@ -36,10 +36,13 @@ Rails.application.routes.draw do
   end
 
   # Unified chat — top-level entry point for all agent conversations
-  get  'chat'                   => 'chats#index', as: 'chats'
-  get  'chat/:handle'           => 'chats#show', as: 'chat'
-  post 'chat/:handle/message'   => 'chats#send_message', as: 'chat_message'
-  get  'chat/:handle/messages'  => 'chats#poll_messages', as: 'chat_poll'
+  get  'chat'                                      => 'chats#index', as: 'chats'
+  get  'chat/:handle'                              => 'chats#show', as: 'chat'
+  post 'chat/:handle/message'                      => 'chats#send_message', as: 'chat_message'
+  get  'chat/:handle/messages'                     => 'chats#poll_messages', as: 'chat_poll'
+  get  'chat/:handle/actions'                      => 'chats#actions_index'
+  get  'chat/:handle/actions/send_message'         => 'chats#describe_send_message'
+  post 'chat/:handle/actions/send_message'         => 'chats#execute_send_message'
 
   # AI Agents management - consolidated under /ai-agents
   get 'ai-agents' => 'ai_agents#index', as: 'ai_agents'

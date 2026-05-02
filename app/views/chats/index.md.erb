@@ -1,0 +1,10 @@
+# Chat
+
+<% partners = @chat_partners || @agents || [] %>
+<% if partners.any? %>
+<% partners.each do |partner| %>
+- [<%= partner.display_name %>](<%= chat_path(partner.handle) %>)
+<% end %>
+<% else %>
+_No conversations available._
+<% end %>

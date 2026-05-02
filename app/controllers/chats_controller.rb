@@ -4,14 +4,17 @@ class ChatsController < ApplicationController
   MAX_MESSAGE_LENGTH = 10_000
   MESSAGES_PER_PAGE = 50
 
-  before_action :require_human_user
-  before_action :load_agents, only: [:index, :show]
-  before_action :find_agent_and_session, only: [:show, :send_message, :poll_messages]
+  before_action :load_chat_partners, only: [:index, :show]
+  before_action :find_partner_and_session, only: [:show, :send_message, :poll_messages, :actions_index, :describe_send_message, :execute_send_message]
   before_action :set_sidebar_mode, only: [:index, :show]
 
   # GET /chat
   def index
     @page_title = "Chat"
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   # GET /chat/:handle
@@ -29,35 +32,50 @@ class ChatsController < ApplicationController
     @page_title = "Chat - #{@ai_agent.display_name}"
     @turn_running = @chat_session.task_runs.exists?(status: ["queued", "running"])
     check_agent_busy
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   # POST /chat/:handle/message
   def send_message
-    if @ai_agent.external_ai_agent?
-      render plain: "External agents use API tokens, not chat", status: :unprocessable_entity
-      return
-    end
-
     message_text = params[:message].to_s.strip.truncate(MAX_MESSAGE_LENGTH)
     if message_text.blank?
       render plain: "Message cannot be empty", status: :unprocessable_entity
       return
     end
 
-    # Save the human's message as a ChatMessage
-    @chat_session.chat_messages.create!(
-      sender: current_user,
-      content: message_text
-    )
+    create_and_dispatch_message(message_text)
+    head :ok
+  end
 
-    # If no turn is running, create and dispatch one for the agent
-    active_run = @chat_session.task_runs.exists?(status: ["queued", "running"])
-    unless active_run
-      task_run = create_chat_turn(message_text)
-      dispatch_chat_turn(task_run)
+  # GET /chat/:handle/actions
+  def actions_index
+    render_actions_index(ActionsHelper.actions_for_route("/chat/:handle"))
+  end
+
+  # GET /chat/:handle/actions/send_message
+  def describe_send_message
+    render_action_description(ActionsHelper.action_description("send_message"))
+  end
+
+  # POST /chat/:handle/actions/send_message
+  def execute_send_message
+    message_text = params[:message].to_s.strip.truncate(MAX_MESSAGE_LENGTH)
+    if message_text.blank?
+      return render_action_error({
+        action_name: "send_message",
+        error: "Message cannot be empty",
+      })
     end
 
-    head :ok
+    create_and_dispatch_message(message_text)
+    render_action_success({
+      action_name: "send_message",
+      result: "Message sent.",
+    })
   end
 
   # GET /chat/:handle/messages?after=<iso8601>&before=<iso8601>
@@ -75,37 +93,84 @@ class ChatsController < ApplicationController
     false
   end
 
-  def require_human_user
-    return if current_user&.human?
-
-    render status: :forbidden, plain: "403 Unauthorized"
+  # Load chat partners for the sidebar. For humans, this is their agents.
+  # For agents, this is the humans who have chat sessions with them.
+  def load_chat_partners
+    if current_user&.ai_agent?
+      @agents = [] # Agents don't initiate — they see existing sessions
+      @chat_partners = ChatSession
+        .where(ai_agent: current_user)
+        .includes(:initiated_by)
+        .map(&:initiated_by)
+        .uniq
+    else
+      @agents = current_user&.ai_agents
+        &.includes(:tenant_users)
+        &.joins(:tenant_users)
+        &.where(tenant_users: { tenant_id: current_tenant&.id, archived_at: nil })
+        &.where(suspended_at: nil)
+        &.order(:name) || []
+      @chat_partners = nil
+    end
   end
 
-  def load_agents
-    @agents = current_user&.ai_agents
-      &.includes(:tenant_users)
-      &.joins(:tenant_users)
-      &.where(tenant_users: { tenant_id: current_tenant&.id, archived_at: nil })
-      &.where(suspended_at: nil)
-      &.order(:name) || []
-  end
+  # Find the other participant by handle and resolve the chat session.
+  # Works symmetrically: humans look up agents, agents look up humans.
+  def find_partner_and_session
+    partner = User.joins(:tenant_users)
+      .where(tenant_users: { tenant_id: current_tenant&.id, handle: params[:handle] })
+      .first
 
-  def find_agent_and_session
-    @ai_agent = current_user&.ai_agents
-      &.joins(:tenant_users)
-      &.where(tenant_users: { tenant_id: current_tenant&.id, handle: params[:handle] })
-      &.first
-
-    unless @ai_agent
+    unless partner
       render status: :not_found, plain: "404 Not Found"
       return
     end
 
-    @chat_session = ChatSession.find_or_create_for(
-      agent: @ai_agent,
-      user: current_user,
-      tenant: current_tenant
+    # Determine which side is the agent and which is the human
+    if current_user.ai_agent?
+      @ai_agent = current_user
+      @chat_session = ChatSession.find_by(
+        ai_agent: current_user,
+        initiated_by: partner
+      )
+      unless @chat_session
+        render status: :not_found, plain: "404 Not Found"
+        return
+      end
+    else
+      # Verify the partner is one of the current user's agents
+      unless current_user.ai_agents.include?(partner)
+        render status: :not_found, plain: "404 Not Found"
+        return
+      end
+      @ai_agent = partner
+      @chat_session = ChatSession.find_or_create_for(
+        agent: partner,
+        user: current_user,
+        tenant: current_tenant
+      )
+    end
+  end
+
+  def create_and_dispatch_message(message_text)
+    chat_message = @chat_session.chat_messages.create!(
+      sender: current_user,
+      content: message_text,
     )
+
+    # Broadcast to the other participant via ActionCable
+    ChatSessionChannel.broadcast_to(
+      @chat_session,
+      ChatMessagePresenter.format(chat_message, @chat_session),
+    )
+
+    # If the sender is human and the agent is internal, dispatch a turn
+    if current_user.human? && @ai_agent.internal_ai_agent?
+      unless @chat_session.task_runs.exists?(status: ["queued", "running"])
+        task_run = create_chat_turn(message_text)
+        dispatch_chat_turn(task_run)
+      end
+    end
   end
 
   def create_chat_turn(message_text)

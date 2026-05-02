@@ -64,8 +64,10 @@ class ActionsHelper
   TABLE_CONTENT_EDIT_AUTHORIZATION = T.let(
     lambda { |user, context|
       return false unless user
+
       resource = context[:resource]
       return false unless resource.is_a?(Note) && resource.is_table?
+
       resource.user_can_edit_content?(user)
     },
     T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
@@ -96,7 +98,8 @@ class ActionsHelper
         { name: "tempo", type: "string", description: 'The tempo of the collective: "daily", "weekly", or "monthly"' },
         { name: "synchronization_mode", type: "string", description: 'The synchronization mode: "improv" or "orchestra"' },
         { name: "invitations", type: "string", description: 'Who can invite new members: "all_members" or "only_admins" (optional)' },
-        { name: "representation", type: "string", description: 'Who can represent the collective: "any_member" or "only_representatives" (optional)' },
+        { name: "representation", type: "string",
+          description: 'Who can represent the collective: "any_member" or "only_representatives" (optional)', },
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed (optional)" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (optional)" },
       ],
@@ -179,7 +182,8 @@ class ActionsHelper
       params_string: "(text, scheduled_for, title)",
       params: [
         { name: "text", type: "string", required: true, description: "The reminder content" },
-        { name: "scheduled_for", type: "datetime", required: true, description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)" },
+        { name: "scheduled_for", type: "datetime", required: true,
+          description: "When to deliver. Accepts: ISO 8601 datetime (2024-01-15T09:00:00Z), Unix timestamp (1705312800), or relative time (1h, 2d, 1w)", },
         { name: "title", type: "string", required: false, description: "Optional title for the reminder note" },
       ],
       authorization: :collective_member,
@@ -201,8 +205,10 @@ class ActionsHelper
       params_string: "(title, columns, description, edit_access)",
       params: [
         { name: "title", type: "string", description: "The title of the table" },
-        { name: "columns", type: "array", description: 'Array of column definitions, e.g. [{ "name": "Status", "type": "text" }, { "name": "Due", "type": "date" }]. Types: text, number, boolean, date' },
-        { name: "initial_rows", type: "array", required: false, description: 'Array of row objects with column name/value pairs, e.g. [{ "Status": "done", "Due": "2026-05-01" }]' },
+        { name: "columns", type: "array",
+          description: 'Array of column definitions, e.g. [{ "name": "Status", "type": "text" }, { "name": "Due", "type": "date" }]. Types: text, number, boolean, date', },
+        { name: "initial_rows", type: "array", required: false,
+          description: 'Array of row objects with column name/value pairs, e.g. [{ "Status": "done", "Due": "2026-05-01" }]', },
         { name: "description", type: "string", required: false, description: "Description of what the table is for" },
         { name: "edit_access", type: "string", required: false, description: "Who can edit rows: 'owner' (default) or 'members'" },
       ],
@@ -285,7 +291,8 @@ class ActionsHelper
       description: "Perform multiple table operations in a single request (one save, one event)",
       params_string: "(operations)",
       params: [
-        { name: "operations", type: "array", description: 'Array of operations, e.g. [{ "action": "add_row", "values": { "Status": "done" } }, { "action": "delete_row", "row_id": "abc123" }]. Valid actions: add_row, update_row, delete_row, add_table_column, remove_table_column, update_table_description' },
+        { name: "operations", type: "array",
+          description: 'Array of operations, e.g. [{ "action": "add_row", "values": { "Status": "done" } }, { "action": "delete_row", "row_id": "abc123" }]. Valid actions: add_row, update_row, delete_row, add_table_column, remove_table_column, update_table_description', },
       ],
       authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
     },
@@ -328,7 +335,8 @@ class ActionsHelper
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", description: "When the decision closes" },
         { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default), 'executive', or 'lottery'" },
-        { name: "decision_maker", type: "string", required: false, description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)" },
+        { name: "decision_maker", type: "string", required: false,
+          description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)", },
       ],
       authorization: :collective_member,
     },
@@ -355,7 +363,8 @@ class ActionsHelper
       description: "Vote on one or more options",
       params_string: "(votes)",
       params: [
-        { name: "votes", type: "array[object]", description: "Array of vote objects, each with: option_title (string), accept (boolean), prefer (boolean)" },
+        { name: "votes", type: "array[object]",
+          description: "Array of vote objects, each with: option_title (string), accept (boolean), prefer (boolean)", },
       ],
       authorization: :collective_member,
     },
@@ -487,6 +496,14 @@ class ActionsHelper
       ],
       authorization: :self_ai_agent,
     },
+    "send_message" => {
+      description: "Send a message in this chat conversation",
+      params_string: "(message)",
+      params: [
+        { name: "message", type: "string", description: "The message text to send (max 10000 chars)" },
+      ],
+      authorization: :authenticated,
+    },
     "create_api_token" => {
       description: "Create a new API token",
       params_string: "(name, read_write, duration, duration_unit)",
@@ -503,7 +520,8 @@ class ActionsHelper
       params_string: "(name, identity_prompt, generate_token)",
       params: [
         { name: "name", type: "string", description: "The name of the AI agent" },
-        { name: "identity_prompt", type: "string", description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose" },
+        { name: "identity_prompt", type: "string",
+          description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose", },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
@@ -519,7 +537,8 @@ class ActionsHelper
         { name: "api_enabled", type: "boolean", description: "Whether API access is enabled" },
         { name: "require_login", type: "boolean", description: "Whether login is required to view content" },
         { name: "allow_file_uploads", type: "boolean", description: "Whether file uploads are allowed" },
-        { name: "allowed_attachment_categories", type: "array[string]", description: "Categories of attachment content types that may be uploaded. Valid values: images, pdfs, text. Send the full desired set; values not in the list are dropped." },
+        { name: "allowed_attachment_categories", type: "array[string]",
+          description: "Categories of attachment content types that may be uploaded. Valid values: images, pdfs, text. Send the full desired set; values not in the list are dropped.", },
       ],
       authorization: :tenant_admin,
     },
@@ -718,34 +737,35 @@ class ActionsHelper
 
   # Shared condition for report_content conditional action.
   # Shows the action only when the user is not the content author and hasn't already reported it.
-  TABLE_NOTE_CONDITION = ->(context) {
+  TABLE_NOTE_CONDITION = lambda { |context|
     resource = context[:resource]
     resource.is_a?(Note) && resource.is_table?
   }
 
-  PENDING_REMINDER_CONDITION = ->(context) {
+  PENDING_REMINDER_CONDITION = lambda { |context|
     resource = context[:resource]
     resource.is_a?(Note) && resource.is_reminder? && resource.reminder_pending?
   }
 
-  DELIVERED_REMINDER_CONDITION = ->(context) {
+  DELIVERED_REMINDER_CONDITION = lambda { |context|
     resource = context[:resource]
     resource.is_a?(Note) && resource.is_reminder? && resource.reminder_delivered?
   }
 
   # confirm_read is available for all notes EXCEPT delivered reminder notes
-  CONFIRM_READ_CONDITION = ->(context) {
+  CONFIRM_READ_CONDITION = lambda { |context|
     resource = context[:resource]
     return true unless resource.is_a?(Note)
+
     !(resource.is_reminder? && resource.reminder_delivered?)
   }
 
-  REPORT_CONTENT_CONDITION = ->(context) {
+  REPORT_CONTENT_CONDITION = lambda { |context|
     user = context[:user]
     resource = context[:resource]
     user && resource && resource.respond_to?(:created_by_id) &&
       resource.created_by_id != user.id &&
-      !ContentReport.where(reporter: user, reportable: resource).exists?
+      !ContentReport.exists?(reporter: user, reportable: resource)
   }
 
   @@actions_by_route = {
@@ -756,7 +776,15 @@ class ActionsHelper
     "/whoami" => {
       controller_actions: ["whoami#index"],
       actions: [
-        { name: "update_scratchpad", params_string: ACTION_DEFINITIONS["update_scratchpad"][:params_string], description: ACTION_DEFINITIONS["update_scratchpad"][:description] },
+        { name: "update_scratchpad", params_string: ACTION_DEFINITIONS["update_scratchpad"][:params_string],
+          description: ACTION_DEFINITIONS["update_scratchpad"][:description], },
+      ],
+    },
+    "/chat/:handle" => {
+      controller_actions: ["chats#show"],
+      actions: [
+        { name: "send_message", params_string: ACTION_DEFINITIONS["send_message"][:params_string],
+          description: ACTION_DEFINITIONS["send_message"][:description], },
       ],
     },
     "/collectives" => {
@@ -766,7 +794,8 @@ class ActionsHelper
     "/collectives/new" => {
       controller_actions: ["collectives#new"],
       actions: [
-        { name: "create_collective", params_string: ACTION_DEFINITIONS["create_collective"][:params_string], description: ACTION_DEFINITIONS["create_collective"][:description] },
+        { name: "create_collective", params_string: ACTION_DEFINITIONS["create_collective"][:params_string],
+          description: ACTION_DEFINITIONS["create_collective"][:description], },
       ],
     },
     "/collectives/:collective_handle" => {
@@ -775,7 +804,7 @@ class ActionsHelper
       conditional_actions: [
         {
           name: "send_heartbeat",
-          condition: ->(context) {
+          condition: lambda { |context|
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
             collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
@@ -789,7 +818,7 @@ class ActionsHelper
       conditional_actions: [
         {
           name: "send_heartbeat",
-          condition: ->(context) {
+          condition: lambda { |context|
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
             collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
@@ -800,15 +829,19 @@ class ActionsHelper
     "/collectives/:collective_handle/join" => {
       controller_actions: ["collectives#join"],
       actions: [
-        { name: "join_collective", params_string: ACTION_DEFINITIONS["join_collective"][:params_string], description: ACTION_DEFINITIONS["join_collective"][:description] },
+        { name: "join_collective", params_string: ACTION_DEFINITIONS["join_collective"][:params_string],
+          description: ACTION_DEFINITIONS["join_collective"][:description], },
       ],
     },
     "/collectives/:collective_handle/settings" => {
       controller_actions: ["collectives#settings"],
       actions: [
-        { name: "update_collective_settings", params_string: ACTION_DEFINITIONS["update_collective_settings"][:params_string], description: ACTION_DEFINITIONS["update_collective_settings"][:description] },
-        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string], description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description] },
-        { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string], description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description] },
+        { name: "update_collective_settings", params_string: ACTION_DEFINITIONS["update_collective_settings"][:params_string],
+          description: ACTION_DEFINITIONS["update_collective_settings"][:description], },
+        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string],
+          description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description], },
+        { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string],
+          description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
     },
     "/collectives/:collective_handle/cycles" => {
@@ -817,7 +850,7 @@ class ActionsHelper
       conditional_actions: [
         {
           name: "send_heartbeat",
-          condition: ->(context) {
+          condition: lambda { |context|
             collective = context[:collective]
             current_heartbeat = context[:current_heartbeat]
             collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
@@ -836,15 +869,19 @@ class ActionsHelper
     "/collectives/:collective_handle/note" => {
       controller_actions: ["notes#new"],
       actions: [
-        { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string], description: ACTION_DEFINITIONS["create_note"][:description] },
-        { name: "create_reminder_note", params_string: ACTION_DEFINITIONS["create_reminder_note"][:params_string], description: ACTION_DEFINITIONS["create_reminder_note"][:description] },
-        { name: "create_table_note", params_string: ACTION_DEFINITIONS["create_table_note"][:params_string], description: ACTION_DEFINITIONS["create_table_note"][:description] },
+        { name: "create_note", params_string: ACTION_DEFINITIONS["create_note"][:params_string],
+          description: ACTION_DEFINITIONS["create_note"][:description], },
+        { name: "create_reminder_note", params_string: ACTION_DEFINITIONS["create_reminder_note"][:params_string],
+          description: ACTION_DEFINITIONS["create_reminder_note"][:description], },
+        { name: "create_table_note", params_string: ACTION_DEFINITIONS["create_table_note"][:params_string],
+          description: ACTION_DEFINITIONS["create_table_note"][:description], },
       ],
     },
     "/collectives/:collective_handle/n/:note_id" => {
       controller_actions: ["notes#show"],
       actions: [
-        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
+        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string],
+          description: ACTION_DEFINITIONS["add_comment"][:description], },
       ],
       conditional_actions: [
         {
@@ -930,14 +967,17 @@ class ActionsHelper
     "/collectives/:collective_handle/n/:note_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
       actions: [
-        { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
+        { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string],
+          description: ACTION_DEFINITIONS["remove_attachment"][:description], },
       ],
     },
     "/collectives/:collective_handle/n/:note_id/edit" => {
       controller_actions: ["notes#edit"],
       actions: [
-        { name: "update_note", params_string: ACTION_DEFINITIONS["update_note"][:params_string], description: ACTION_DEFINITIONS["update_note"][:description] },
-        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
+        { name: "update_note", params_string: ACTION_DEFINITIONS["update_note"][:params_string],
+          description: ACTION_DEFINITIONS["update_note"][:description], },
+        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string],
+          description: ACTION_DEFINITIONS["add_attachment"][:description], },
       ],
     },
     "/collectives/:collective_handle/n/:note_id/settings" => {
@@ -947,17 +987,22 @@ class ActionsHelper
     "/collectives/:collective_handle/decide" => {
       controller_actions: ["decisions#new"],
       actions: [
-        { name: "create_decision", params_string: ACTION_DEFINITIONS["create_decision"][:params_string], description: ACTION_DEFINITIONS["create_decision"][:description] },
+        { name: "create_decision", params_string: ACTION_DEFINITIONS["create_decision"][:params_string],
+          description: ACTION_DEFINITIONS["create_decision"][:description], },
       ],
     },
     "/collectives/:collective_handle/d/:decision_id" => {
       controller_actions: ["decisions#show"],
       actions: [
-        { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string], description: ACTION_DEFINITIONS["add_options"][:description] },
+        { name: "add_options", params_string: ACTION_DEFINITIONS["add_options"][:params_string],
+          description: ACTION_DEFINITIONS["add_options"][:description], },
         { name: "vote", params_string: ACTION_DEFINITIONS["vote"][:params_string], description: ACTION_DEFINITIONS["vote"][:description] },
-        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
-        { name: "close_decision", params_string: ACTION_DEFINITIONS["close_decision"][:params_string], description: ACTION_DEFINITIONS["close_decision"][:description] },
-        { name: "add_statement", params_string: ACTION_DEFINITIONS["add_statement"][:params_string], description: ACTION_DEFINITIONS["add_statement"][:description] },
+        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string],
+          description: ACTION_DEFINITIONS["add_comment"][:description], },
+        { name: "close_decision", params_string: ACTION_DEFINITIONS["close_decision"][:params_string],
+          description: ACTION_DEFINITIONS["close_decision"][:description], },
+        { name: "add_statement", params_string: ACTION_DEFINITIONS["add_statement"][:params_string],
+          description: ACTION_DEFINITIONS["add_statement"][:description], },
       ],
       conditional_actions: [
         {
@@ -971,27 +1016,33 @@ class ActionsHelper
     "/collectives/:collective_handle/d/:decision_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
       actions: [
-        { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
+        { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string],
+          description: ACTION_DEFINITIONS["remove_attachment"][:description], },
       ],
     },
     "/collectives/:collective_handle/d/:decision_id/settings" => {
       controller_actions: ["decisions#settings"],
       actions: [
-        { name: "update_decision_settings", params_string: ACTION_DEFINITIONS["update_decision_settings"][:params_string], description: ACTION_DEFINITIONS["update_decision_settings"][:description] },
-        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
+        { name: "update_decision_settings", params_string: ACTION_DEFINITIONS["update_decision_settings"][:params_string],
+          description: ACTION_DEFINITIONS["update_decision_settings"][:description], },
+        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string],
+          description: ACTION_DEFINITIONS["add_attachment"][:description], },
       ],
     },
     "/collectives/:collective_handle/commit" => {
       controller_actions: ["commitments#new"],
       actions: [
-        { name: "create_commitment", params_string: ACTION_DEFINITIONS["create_commitment"][:params_string], description: ACTION_DEFINITIONS["create_commitment"][:description] },
+        { name: "create_commitment", params_string: ACTION_DEFINITIONS["create_commitment"][:params_string],
+          description: ACTION_DEFINITIONS["create_commitment"][:description], },
       ],
     },
     "/collectives/:collective_handle/c/:commitment_id" => {
       controller_actions: ["commitments#show"],
       actions: [
-        { name: "join_commitment", params_string: ACTION_DEFINITIONS["join_commitment"][:params_string], description: ACTION_DEFINITIONS["join_commitment"][:description] },
-        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string], description: ACTION_DEFINITIONS["add_comment"][:description] },
+        { name: "join_commitment", params_string: ACTION_DEFINITIONS["join_commitment"][:params_string],
+          description: ACTION_DEFINITIONS["join_commitment"][:description], },
+        { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string],
+          description: ACTION_DEFINITIONS["add_comment"][:description], },
       ],
       conditional_actions: [
         {
@@ -1005,26 +1056,31 @@ class ActionsHelper
     "/collectives/:collective_handle/c/:commitment_id/attachments/:attachment_id" => {
       controller_actions: ["attachments#show"],
       actions: [
-        { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string], description: ACTION_DEFINITIONS["remove_attachment"][:description] },
+        { name: "remove_attachment", params_string: ACTION_DEFINITIONS["remove_attachment"][:params_string],
+          description: ACTION_DEFINITIONS["remove_attachment"][:description], },
       ],
     },
     "/collectives/:collective_handle/c/:commitment_id/settings" => {
       controller_actions: ["commitments#settings"],
       actions: [
-        { name: "update_commitment_settings", params_string: ACTION_DEFINITIONS["update_commitment_settings"][:params_string], description: ACTION_DEFINITIONS["update_commitment_settings"][:description] },
-        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string], description: ACTION_DEFINITIONS["add_attachment"][:description] },
+        { name: "update_commitment_settings", params_string: ACTION_DEFINITIONS["update_commitment_settings"][:params_string],
+          description: ACTION_DEFINITIONS["update_commitment_settings"][:description], },
+        { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string],
+          description: ACTION_DEFINITIONS["add_attachment"][:description], },
       ],
     },
     "/u/:handle/settings" => {
       controller_actions: ["users#settings"],
       actions: [
-        { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string], description: ACTION_DEFINITIONS["update_profile"][:description] },
+        { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
+          description: ACTION_DEFINITIONS["update_profile"][:description], },
       ],
     },
     "/u/:handle/settings/tokens/new" => {
       controller_actions: ["api_tokens#new"],
       actions: [
-        { name: "create_api_token", params_string: ACTION_DEFINITIONS["create_api_token"][:params_string], description: ACTION_DEFINITIONS["create_api_token"][:description] },
+        { name: "create_api_token", params_string: ACTION_DEFINITIONS["create_api_token"][:params_string],
+          description: ACTION_DEFINITIONS["create_api_token"][:description], },
       ],
     },
     "/ai-agents" => {
@@ -1034,7 +1090,8 @@ class ActionsHelper
     "/ai-agents/new" => {
       controller_actions: ["ai_agents#new"],
       actions: [
-        { name: "create_ai_agent", params_string: ACTION_DEFINITIONS["create_ai_agent"][:params_string], description: ACTION_DEFINITIONS["create_ai_agent"][:description] },
+        { name: "create_ai_agent", params_string: ACTION_DEFINITIONS["create_ai_agent"][:params_string],
+          description: ACTION_DEFINITIONS["create_ai_agent"][:description], },
       ],
     },
     "/ai-agents/:handle" => {
@@ -1044,7 +1101,8 @@ class ActionsHelper
     "/ai-agents/:handle/settings" => {
       controller_actions: ["ai_agents#settings"],
       actions: [
-        { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string], description: ACTION_DEFINITIONS["update_profile"][:description] },
+        { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
+          description: ACTION_DEFINITIONS["update_profile"][:description], },
       ],
     },
     "/admin" => {
@@ -1054,34 +1112,41 @@ class ActionsHelper
     "/admin/settings" => {
       controller_actions: ["admin#settings", "tenant_admin#settings"],
       actions: [
-        { name: "update_tenant_settings", params_string: ACTION_DEFINITIONS["update_tenant_settings"][:params_string], description: ACTION_DEFINITIONS["update_tenant_settings"][:description] },
+        { name: "update_tenant_settings", params_string: ACTION_DEFINITIONS["update_tenant_settings"][:params_string],
+          description: ACTION_DEFINITIONS["update_tenant_settings"][:description], },
       ],
     },
     "/admin/tenants/new" => {
       controller_actions: ["app_admin#new_tenant"],
       actions: [
-        { name: "create_tenant", params_string: ACTION_DEFINITIONS["create_tenant"][:params_string], description: ACTION_DEFINITIONS["create_tenant"][:description] },
+        { name: "create_tenant", params_string: ACTION_DEFINITIONS["create_tenant"][:params_string],
+          description: ACTION_DEFINITIONS["create_tenant"][:description], },
       ],
     },
     "/admin/sidekiq/jobs/:jid" => {
       controller_actions: ["system_admin#show_job"],
       actions: [
-        { name: "retry_sidekiq_job", params_string: ACTION_DEFINITIONS["retry_sidekiq_job"][:params_string], description: ACTION_DEFINITIONS["retry_sidekiq_job"][:description] },
+        { name: "retry_sidekiq_job", params_string: ACTION_DEFINITIONS["retry_sidekiq_job"][:params_string],
+          description: ACTION_DEFINITIONS["retry_sidekiq_job"][:description], },
       ],
     },
     "/admin/users/:handle" => {
       controller_actions: ["system_admin#show_user"],
       actions: [
-        { name: "suspend_user", params_string: ACTION_DEFINITIONS["suspend_user"][:params_string], description: ACTION_DEFINITIONS["suspend_user"][:description] },
-        { name: "unsuspend_user", params_string: ACTION_DEFINITIONS["unsuspend_user"][:params_string], description: ACTION_DEFINITIONS["unsuspend_user"][:description] },
+        { name: "suspend_user", params_string: ACTION_DEFINITIONS["suspend_user"][:params_string],
+          description: ACTION_DEFINITIONS["suspend_user"][:description], },
+        { name: "unsuspend_user", params_string: ACTION_DEFINITIONS["unsuspend_user"][:params_string],
+          description: ACTION_DEFINITIONS["unsuspend_user"][:description], },
       ],
     },
     "/notifications" => {
       controller_actions: ["notifications#index"],
       actions: [
         { name: "dismiss", params_string: ACTION_DEFINITIONS["dismiss"][:params_string], description: ACTION_DEFINITIONS["dismiss"][:description] },
-        { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string], description: ACTION_DEFINITIONS["dismiss_all"][:description] },
-        { name: "dismiss_for_collective", params_string: ACTION_DEFINITIONS["dismiss_for_collective"][:params_string], description: ACTION_DEFINITIONS["dismiss_for_collective"][:description] },
+        { name: "dismiss_all", params_string: ACTION_DEFINITIONS["dismiss_all"][:params_string],
+          description: ACTION_DEFINITIONS["dismiss_all"][:description], },
+        { name: "dismiss_for_collective", params_string: ACTION_DEFINITIONS["dismiss_for_collective"][:params_string],
+          description: ACTION_DEFINITIONS["dismiss_for_collective"][:description], },
       ],
     },
     "/search" => {
@@ -1097,15 +1162,19 @@ class ActionsHelper
     "/collectives/:collective_handle/settings/webhooks/new" => {
       controller_actions: ["webhooks#new"],
       actions: [
-        { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
+        { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["create_webhook"][:description], },
       ],
     },
     "/collectives/:collective_handle/settings/webhooks/:id" => {
       controller_actions: ["webhooks#show"],
       actions: [
-        { name: "update_webhook", params_string: ACTION_DEFINITIONS["update_webhook"][:params_string], description: ACTION_DEFINITIONS["update_webhook"][:description] },
-        { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
-        { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
+        { name: "update_webhook", params_string: ACTION_DEFINITIONS["update_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["update_webhook"][:description], },
+        { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["delete_webhook"][:description], },
+        { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["test_webhook"][:description], },
       ],
     },
     "/u/:handle/settings/webhooks" => {
@@ -1115,14 +1184,17 @@ class ActionsHelper
     "/u/:handle/settings/webhooks/new" => {
       controller_actions: ["user_webhooks#new"],
       actions: [
-        { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string], description: ACTION_DEFINITIONS["create_webhook"][:description] },
+        { name: "create_webhook", params_string: ACTION_DEFINITIONS["create_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["create_webhook"][:description], },
       ],
     },
     "/u/:handle/settings/webhooks/:id" => {
       controller_actions: ["user_webhooks#show"],
       actions: [
-        { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string], description: ACTION_DEFINITIONS["delete_webhook"][:description] },
-        { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string], description: ACTION_DEFINITIONS["test_webhook"][:description] },
+        { name: "delete_webhook", params_string: ACTION_DEFINITIONS["delete_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["delete_webhook"][:description], },
+        { name: "test_webhook", params_string: ACTION_DEFINITIONS["test_webhook"][:params_string],
+          description: ACTION_DEFINITIONS["test_webhook"][:description], },
       ],
     },
     "/u/:handle/settings/trustee-grants" => {
@@ -1132,17 +1204,23 @@ class ActionsHelper
     "/u/:handle/settings/trustee-grants/new" => {
       controller_actions: ["trustee_grants#new"],
       actions: [
-        { name: "create_trustee_grant", params_string: ACTION_DEFINITIONS["create_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["create_trustee_grant"][:description] },
+        { name: "create_trustee_grant", params_string: ACTION_DEFINITIONS["create_trustee_grant"][:params_string],
+          description: ACTION_DEFINITIONS["create_trustee_grant"][:description], },
       ],
     },
     "/u/:handle/settings/trustee-grants/:grant_id" => {
       controller_actions: ["trustee_grants#show"],
       actions: [
-        { name: "accept_trustee_grant", params_string: ACTION_DEFINITIONS["accept_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["accept_trustee_grant"][:description] },
-        { name: "decline_trustee_grant", params_string: ACTION_DEFINITIONS["decline_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["decline_trustee_grant"][:description] },
-        { name: "revoke_trustee_grant", params_string: ACTION_DEFINITIONS["revoke_trustee_grant"][:params_string], description: ACTION_DEFINITIONS["revoke_trustee_grant"][:description] },
-        { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string], description: ACTION_DEFINITIONS["start_representation"][:description] },
-        { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string], description: ACTION_DEFINITIONS["end_representation"][:description] },
+        { name: "accept_trustee_grant", params_string: ACTION_DEFINITIONS["accept_trustee_grant"][:params_string],
+          description: ACTION_DEFINITIONS["accept_trustee_grant"][:description], },
+        { name: "decline_trustee_grant", params_string: ACTION_DEFINITIONS["decline_trustee_grant"][:params_string],
+          description: ACTION_DEFINITIONS["decline_trustee_grant"][:description], },
+        { name: "revoke_trustee_grant", params_string: ACTION_DEFINITIONS["revoke_trustee_grant"][:params_string],
+          description: ACTION_DEFINITIONS["revoke_trustee_grant"][:description], },
+        { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string],
+          description: ACTION_DEFINITIONS["start_representation"][:description], },
+        { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string],
+          description: ACTION_DEFINITIONS["end_representation"][:description], },
       ],
     },
     "/ai-agents/:handle/automations" => {
@@ -1152,7 +1230,8 @@ class ActionsHelper
     "/ai-agents/:handle/automations/new" => {
       controller_actions: ["agent_automations#new"],
       actions: [
-        { name: "create_automation_rule", params_string: ACTION_DEFINITIONS["create_automation_rule"][:params_string], description: ACTION_DEFINITIONS["create_automation_rule"][:description] },
+        { name: "create_automation_rule", params_string: ACTION_DEFINITIONS["create_automation_rule"][:params_string],
+          description: ACTION_DEFINITIONS["create_automation_rule"][:description], },
       ],
     },
     "/ai-agents/:handle/automations/templates" => {
@@ -1162,15 +1241,19 @@ class ActionsHelper
     "/ai-agents/:handle/automations/:automation_id" => {
       controller_actions: ["agent_automations#show"],
       actions: [
-        { name: "update_automation_rule", params_string: ACTION_DEFINITIONS["update_automation_rule"][:params_string], description: ACTION_DEFINITIONS["update_automation_rule"][:description] },
-        { name: "delete_automation_rule", params_string: ACTION_DEFINITIONS["delete_automation_rule"][:params_string], description: ACTION_DEFINITIONS["delete_automation_rule"][:description] },
-        { name: "toggle_automation_rule", params_string: ACTION_DEFINITIONS["toggle_automation_rule"][:params_string], description: ACTION_DEFINITIONS["toggle_automation_rule"][:description] },
+        { name: "update_automation_rule", params_string: ACTION_DEFINITIONS["update_automation_rule"][:params_string],
+          description: ACTION_DEFINITIONS["update_automation_rule"][:description], },
+        { name: "delete_automation_rule", params_string: ACTION_DEFINITIONS["delete_automation_rule"][:params_string],
+          description: ACTION_DEFINITIONS["delete_automation_rule"][:description], },
+        { name: "toggle_automation_rule", params_string: ACTION_DEFINITIONS["toggle_automation_rule"][:params_string],
+          description: ACTION_DEFINITIONS["toggle_automation_rule"][:description], },
       ],
     },
     "/ai-agents/:handle/automations/:automation_id/edit" => {
       controller_actions: ["agent_automations#edit"],
       actions: [
-        { name: "update_automation_rule", params_string: ACTION_DEFINITIONS["update_automation_rule"][:params_string], description: ACTION_DEFINITIONS["update_automation_rule"][:description] },
+        { name: "update_automation_rule", params_string: ACTION_DEFINITIONS["update_automation_rule"][:params_string],
+          description: ACTION_DEFINITIONS["update_automation_rule"][:description], },
       ],
     },
     "/ai-agents/:handle/automations/:automation_id/runs" => {

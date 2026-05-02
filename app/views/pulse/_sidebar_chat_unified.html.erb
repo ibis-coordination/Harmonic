@@ -7,23 +7,25 @@
   </div>
 
   <div class="pulse-sidebar-section" style="flex: 1; overflow-y: auto;">
-    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-fg-muted); margin-bottom: 8px;">
-      Agents
-    </div>
-    <% @agents.each do |agent| %>
-      <% is_active = @ai_agent&.id == agent.id %>
-      <a href="<%= chat_path(agent.handle) %>"
-         class="pulse-nav-item<%= ' active' if is_active %>"
-         style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; text-decoration: none; border-radius: 6px; margin-bottom: 2px;">
-        <%= profile_pic(agent, size: 24) %>
-        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-          <%= agent.display_name %>
-        </span>
-      </a>
-    <% end %>
-    <% if @agents.empty? %>
+    <% partners = @chat_partners || @agents || [] %>
+    <% if partners.any? %>
+      <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-fg-muted); margin-bottom: 8px;">
+        <%= @current_user&.ai_agent? ? "Conversations" : "Agents" %>
+      </div>
+      <% partners.each do |partner| %>
+        <% is_active = @ai_agent&.id == partner.id || (@chat_session&.initiated_by_id == partner.id && @current_user&.ai_agent?) %>
+        <a href="<%= chat_path(partner.handle) %>"
+           class="pulse-nav-item<%= ' active' if is_active %>"
+           style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; text-decoration: none; border-radius: 6px; margin-bottom: 2px;">
+          <%= profile_pic(partner, size: 24) %>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <%= partner.display_name %>
+          </span>
+        </a>
+      <% end %>
+    <% else %>
       <p style="font-size: 13px; color: var(--color-fg-muted); text-align: center; margin-top: 16px;">
-        No agents available.
+        No conversations available.
       </p>
     <% end %>
   </div>

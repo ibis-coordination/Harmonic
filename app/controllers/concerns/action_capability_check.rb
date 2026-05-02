@@ -83,6 +83,9 @@ module ActionCapabilityCheck
     "commitments#join" => "join_commitment",
     "commitments#pin" => "pin_commitment",
 
+    # Chat
+    "chats#send_message" => "send_message",
+
     # Commitments - API v1 routes
     "api/v1/commitments#create" => "create_commitment",
     "api/v1/commitments#update" => "update_commitment_settings",
