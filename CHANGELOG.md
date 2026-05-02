@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2026-05-01
+
+### Added
+
+- Deadline events — `decision.deadline_reached` and `commitment.deadline_reached` events fire automatically when deadlines pass, enabling automations and webhooks to react without user action.
+- `DeadlineEventJob` — sidekiq-cron job (every minute) that polls for past-deadline decisions and commitments across all tenants.
+- Lottery decisions now automatically draw when their deadline passes (no longer requires manual close).
+- Yabeda metrics for deadline events (`deadline_events.fired_total`, `deadline_events.errors_total`).
+
 ## [1.10.0] - 2026-05-01
 
 ### Added
