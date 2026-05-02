@@ -115,11 +115,28 @@ module Internal
         return
       end
 
-      # Get ALL steps across all turns, ordered chronologically
-      all_steps = AgentSessionStep
-        .where(ai_agent_task_run_id: chat_session.task_runs.select(:id))
+      task_run_ids = chat_session.task_runs.select(:id)
+      max_context_messages = 50
+
+      # Sliding window: find the cutoff timestamp from the Nth-most-recent message
+      # step, then load only steps from that point forward. This avoids loading the
+      # entire conversation history into memory for long-running sessions.
+      recent_message_steps = AgentSessionStep
+        .where(ai_agent_task_run_id: task_run_ids, step_type: "message")
+        .order(created_at: :desc)
+        .offset(max_context_messages)
+        .limit(1)
+        .pick(:created_at)
+
+      steps_scope = AgentSessionStep
+        .where(ai_agent_task_run_id: task_run_ids)
         .includes(:sender)
         .order(:created_at, :position)
+
+      # If there's a cutoff, only load steps after it
+      steps_scope = steps_scope.where("created_at >= ?", recent_message_steps) if recent_message_steps
+
+      all_steps = steps_scope.to_a
 
       messages = []
       action_buffer = []

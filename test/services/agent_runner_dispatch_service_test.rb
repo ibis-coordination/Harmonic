@@ -167,6 +167,33 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_equal billing_customer.id, @task_run.stripe_customer_id
   end
 
+  test "fails task for external agent" do
+    external_agent = create_ai_agent(mode: "external")
+    assert external_agent.external_ai_agent?, "precondition: agent should be external"
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: external_agent, initiated_by: @user,
+      task: "Test task", max_steps: 10, status: "queued",
+    )
+
+    AgentRunnerDispatchService.dispatch(task_run)
+
+    task_run.reload
+    assert_equal "failed", task_run.status
+    assert_includes task_run.error, "external"
+  end
+
+  test "dispatches task for internal agent" do
+    assert @ai_agent.internal_ai_agent?, "precondition: agent should be internal"
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "internal agent task should be dispatched"
+    redis.close
+  end
+
   test "skips dispatch for non-ai-agent user" do
     regular_user = User.create!(
       name: "Regular User",
@@ -226,12 +253,13 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
 
   private
 
-  def create_ai_agent
+  def create_ai_agent(mode: "internal")
     ai_agent = User.create!(
-      name: "Test Agent",
+      name: "Test Agent #{SecureRandom.hex(4)}",
       email: "test-agent-#{SecureRandom.hex(4)}@not-real.com",
       user_type: "ai_agent",
       parent_id: @user.id,
+      agent_configuration: { "mode" => mode },
     )
     tu = @tenant.add_user!(ai_agent)
     ai_agent.tenant_user = tu

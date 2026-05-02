@@ -4,7 +4,7 @@ class SidebarComponent < ViewComponent::Base
   extend T::Sig
 
   ADMIN_MODES = T.let(%w[system_admin app_admin tenant_admin].freeze, T::Array[String])
-  VALID_MODES = T.let(%w[full resource settings minimal chat system_admin app_admin tenant_admin none].freeze, T::Array[String])
+  VALID_MODES = T.let(%w[full resource settings minimal chat chat_unified system_admin app_admin tenant_admin none].freeze, T::Array[String])
 
   sig do
     params(
@@ -42,6 +42,7 @@ class SidebarComponent < ViewComponent::Base
     when "settings" then "pulse/sidebar_settings"
     when "minimal" then "pulse/sidebar_minimal"
     when "chat" then "pulse/sidebar_chat"
+    when "chat_unified" then "pulse/sidebar_chat_unified"
     when "system_admin" then "pulse/sidebar_system_admin"
     when "app_admin" then "pulse/sidebar_app_admin"
     when "tenant_admin" then "pulse/sidebar_tenant_admin"
@@ -52,7 +53,7 @@ class SidebarComponent < ViewComponent::Base
   sig { returns(String) }
   def compute_resolved_mode
     return @requested_mode if admin_mode?
-    return @requested_mode if @requested_mode == "chat"
+    return @requested_mode if @requested_mode == "chat" || @requested_mode == "chat_unified"
     return "none" if @collective&.is_main_collective?
 
     @requested_mode

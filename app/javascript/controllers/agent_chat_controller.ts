@@ -50,6 +50,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
     sessionId: String,
     pollUrl: String,
     turnRunning: Boolean,
+    hasOlderMessages: Boolean,
+    oldestTimestamp: String,
   }
 
   static targets = [
@@ -57,6 +59,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
     "input",
     "submitButton",
     "emptyState",
+    "loadOlderButton",
   ]
 
   declare urlValue: string
@@ -64,12 +67,16 @@ export default class AgentChatController extends Controller<HTMLElement> {
   declare sessionIdValue: string
   declare pollUrlValue: string
   declare turnRunningValue: boolean
+  declare hasOlderMessagesValue: boolean
+  declare oldestTimestampValue: string
 
   declare readonly messagesTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
   declare readonly submitButtonTarget: HTMLButtonElement
   declare readonly hasEmptyStateTarget: boolean
   declare readonly emptyStateTarget: HTMLElement
+  declare readonly hasLoadOlderButtonTarget: boolean
+  declare readonly loadOlderButtonTarget: HTMLElement
 
   private isSubmitting = false
   private subscription: ReturnType<ReturnType<typeof createConsumer>["subscriptions"]["create"]> | null = null
@@ -109,6 +116,81 @@ export default class AgentChatController extends Controller<HTMLElement> {
   async submit(event: Event): Promise<void> {
     event.preventDefault()
     this.sendMessage()
+  }
+
+  async loadOlder(): Promise<void> {
+    if (!this.hasOlderMessagesValue || !this.oldestTimestampValue || !this.pollUrlValue) return
+
+    const button = this.hasLoadOlderButtonTarget ? this.loadOlderButtonTarget : null
+    if (button) {
+      const btn = button.querySelector("button")
+      if (btn) {
+        btn.disabled = true
+        btn.textContent = "Loading..."
+      }
+    }
+
+    try {
+      const url = `${this.pollUrlValue}?before=${encodeURIComponent(this.oldestTimestampValue)}`
+      const response = await fetch(url, { credentials: "same-origin" })
+      if (!response.ok) return
+
+      const data = await response.json() as { messages: ChatMessage[]; has_more: boolean }
+
+      // Remember scroll position so we can restore it after prepending
+      const scrollContainer = this.messagesTarget
+      const prevScrollHeight = scrollContainer.scrollHeight
+
+      // Build HTML for older messages and prepend them
+      const fragment = document.createDocumentFragment()
+      for (const msg of data.messages) {
+        const el = this.buildMessageElement(
+          msg.content || "",
+          msg.sender_name || (msg.is_agent ? this.agentNameValue : "You"),
+          !msg.is_agent,
+          msg.is_agent ? msg.content_html : null,
+          msg.timestamp,
+        )
+        fragment.appendChild(el)
+      }
+
+      // Insert after the load-more button (or at the top)
+      if (button) {
+        button.after(fragment)
+      } else {
+        scrollContainer.prepend(fragment)
+      }
+
+      // Update oldest timestamp
+      if (data.messages.length > 0) {
+        this.oldestTimestampValue = data.messages[0].timestamp
+      }
+
+      // Restore scroll position
+      const newScrollHeight = scrollContainer.scrollHeight
+      scrollContainer.scrollTop += newScrollHeight - prevScrollHeight
+
+      // Update or remove the load-more button
+      if (!data.has_more) {
+        this.hasOlderMessagesValue = false
+        button?.remove()
+      } else if (button) {
+        const btn = button.querySelector("button")
+        if (btn) {
+          btn.disabled = false
+          btn.textContent = "Load earlier messages"
+        }
+      }
+    } catch {
+      // Restore button on error
+      if (button) {
+        const btn = button.querySelector("button")
+        if (btn) {
+          btn.disabled = false
+          btn.textContent = "Load earlier messages"
+        }
+      }
+    }
   }
 
   // --- ActionCable (primary transport) ---
@@ -354,12 +436,10 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
   // --- DOM helpers ---
 
-  private appendMessage(content: string, senderName: string, isHuman: boolean, contentHtml?: string | null): HTMLElement {
-    const time = new Date().toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    })
+  private buildMessageElement(content: string, senderName: string, isHuman: boolean, contentHtml?: string | null, timestamp?: string): HTMLElement {
+    const time = timestamp
+      ? new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+      : new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
 
     const wrapper = document.createElement("div")
     wrapper.setAttribute("data-chat-message", "")
@@ -384,9 +464,13 @@ export default class AgentChatController extends Controller<HTMLElement> {
     `
 
     wrapper.appendChild(bubble)
-    this.messagesTarget.appendChild(wrapper)
-
     return wrapper
+  }
+
+  private appendMessage(content: string, senderName: string, isHuman: boolean, contentHtml?: string | null): HTMLElement {
+    const el = this.buildMessageElement(content, senderName, isHuman, contentHtml)
+    this.messagesTarget.appendChild(el)
+    return el
   }
 
   private markMessageFailed(messageEl: HTMLElement, error: string): void {

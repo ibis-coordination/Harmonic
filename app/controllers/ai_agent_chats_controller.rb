@@ -16,10 +16,10 @@ class AiAgentChatsController < ApplicationController
 
   # POST /ai-agents/:handle/chat
   def create
-    session = ChatSession.create!(
+    session = ChatSession.find_or_create_for(
+      agent: @ai_agent,
+      user: current_user,
       tenant: current_tenant,
-      ai_agent: @ai_agent,
-      initiated_by: current_user,
     )
 
     redirect_to ai_agent_chat_path(@ai_agent.handle, session.id)
@@ -35,6 +35,11 @@ class AiAgentChatsController < ApplicationController
 
   # POST /ai-agents/:handle/chat/:session_id/message
   def send_message
+    if @ai_agent.external_ai_agent?
+      render plain: "External agents use API tokens, not chat", status: :unprocessable_entity
+      return
+    end
+
     message_text = params[:message].to_s.strip.truncate(MAX_MESSAGE_LENGTH)
     if message_text.blank?
       render plain: "Message cannot be empty", status: :unprocessable_entity

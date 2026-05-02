@@ -9,6 +9,7 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     @collective = @tenant.main_collective
 
     @ai_agent = create_ai_agent(parent: @user)
+    @ai_agent.update!(agent_configuration: { "mode" => "internal" })
     @tenant.add_user!(@ai_agent)
     @collective.add_user!(@ai_agent)
     @agent_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @ai_agent).handle
@@ -82,15 +83,14 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/ai-agents/#{@agent_handle}/chat/#{session.id}"
   end
 
-  test "create allows multiple sessions" do
+  test "create enforces one session per agent-user pair" do
     session1 = create_chat_session
 
-    assert_difference "ChatSession.count", 1 do
-      post "/ai-agents/#{@agent_handle}/chat"
+    assert_raises(ActiveRecord::RecordInvalid) do
+      with_tenant_scope do
+        ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      end
     end
-
-    session2 = ChatSession.tenant_scoped_only(@tenant.id).order(created_at: :desc).first
-    assert_not_equal session1.id, session2.id
   end
 
   # --- show ---
@@ -317,14 +317,13 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
 
   # --- busy agent ---
 
-  test "show sets agent_busy when agent has running task in another session" do
+  test "show sets agent_busy when agent has running non-chat task" do
     session = create_chat_session
-    other_session = create_chat_session
     with_tenant_scope do
       AiAgentTaskRun.create!(
         tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
         task: "Working on something", max_steps: 30, status: "running",
-        mode: "chat_turn", chat_session: other_session,
+        mode: "task",
         started_at: Time.current,
       )
     end

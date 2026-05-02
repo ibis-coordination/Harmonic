@@ -33,6 +33,12 @@ class AgentRunnerDispatchService
     # this guard, any downstream fail_task! would clobber the running state.
     return unless @task_run.status == "queued"
 
+    # External agents use API tokens, not the agent-runner
+    if ai_agent.external_ai_agent?
+      fail_task!("Cannot dispatch tasks for external agents. External agents interact via API tokens, not the agent-runner.")
+      return
+    end
+
     # Agent status checks
     agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: tenant.id)
     agent_archived = agent_tenant_user&.archived? || false

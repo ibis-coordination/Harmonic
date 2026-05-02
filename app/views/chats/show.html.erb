@@ -1,0 +1,59 @@
+<div data-controller="agent-chat"
+     data-agent-chat-url-value="<%= chat_message_path(@ai_agent.handle) %>"
+     data-agent-chat-agent-name-value="<%= @ai_agent.name %>"
+     data-agent-chat-session-id-value="<%= @chat_session.id %>"
+     data-agent-chat-poll-url-value="<%= chat_poll_path(@ai_agent.handle) %>"
+     data-agent-chat-turn-running-value="<%= @turn_running %>"
+     data-agent-chat-has-older-messages-value="<%= @has_older_messages %>"
+     data-agent-chat-oldest-timestamp-value="<%= @oldest_message_timestamp %>"
+     style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
+
+  <% if @agent_busy_run %>
+    <div class="pulse-flash pulse-flash-warning" style="margin: 8px 16px 0; padding: 8px 12px; font-size: 13px;">
+      <%= octicon 'clock', height: 14 %>
+      This agent is currently working on another task.
+      <a href="<%= ai_agent_run_path(@ai_agent.handle, @agent_busy_run.id) %>" class="pulse-link">View task</a>
+    </div>
+  <% end %>
+
+  <%# Message list %>
+  <div data-agent-chat-target="messages" id="chat-messages" style="flex: 1; overflow-y: auto; padding: 16px;">
+    <% if @has_older_messages %>
+      <div data-agent-chat-target="loadOlderButton" style="text-align: center; margin-bottom: 12px;">
+        <button type="button"
+                data-action="agent-chat#loadOlder"
+                class="pulse-action-btn"
+                style="font-size: 12px; padding: 4px 12px;">
+          Load earlier messages
+        </button>
+      </div>
+    <% end %>
+
+    <% @messages.each do |step| %>
+      <%= render 'ai_agent_chats/message', step: step %>
+    <% end %>
+
+    <% if @messages.empty? %>
+      <p data-agent-chat-target="emptyState" style="text-align: center; margin-top: 40px; color: var(--color-fg-muted);">
+        Send a message to start the conversation.
+      </p>
+    <% end %>
+  </div>
+
+  <%# Input bar %>
+  <div style="border-top: 1px solid var(--color-border-default); padding: 12px 16px;">
+    <form data-action="submit->agent-chat#submit" style="display: flex; gap: 8px;">
+      <textarea
+        data-agent-chat-target="input"
+        data-action="keydown->agent-chat#keydown"
+        rows="1"
+        class="pulse-form-textarea"
+        placeholder="Type a message..."
+        style="flex: 1; resize: none;"
+      ></textarea>
+      <button type="submit" data-agent-chat-target="submitButton" class="pulse-action-btn" style="align-self: flex-end;">
+        <%= octicon 'paper-airplane', height: 14 %> Send
+      </button>
+    </form>
+  </div>
+</div>

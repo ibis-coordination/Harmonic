@@ -1,0 +1,30 @@
+<aside class="pulse-sidebar" data-mode="chat_unified">
+  <div class="pulse-sidebar-section">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+      <%= octicon 'comment-discussion', height: 16 %>
+      <span style="font-weight: 600;">Chat</span>
+    </div>
+  </div>
+
+  <div class="pulse-sidebar-section" style="flex: 1; overflow-y: auto;">
+    <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-fg-muted); margin-bottom: 8px;">
+      Agents
+    </div>
+    <% @agents.each do |agent| %>
+      <% is_active = @ai_agent&.id == agent.id %>
+      <a href="<%= chat_path(agent.handle) %>"
+         class="pulse-nav-item<%= ' active' if is_active %>"
+         style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; text-decoration: none; border-radius: 6px; margin-bottom: 2px;">
+        <%= profile_pic(agent, size: 24) %>
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <%= agent.display_name %>
+        </span>
+      </a>
+    <% end %>
+    <% if @agents.empty? %>
+      <p style="font-size: 13px; color: var(--color-fg-muted); text-align: center; margin-top: 16px;">
+        No agents available.
+      </p>
+    <% end %>
+  </div>
+</aside>

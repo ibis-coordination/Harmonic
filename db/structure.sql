@@ -3393,6 +3393,13 @@ CREATE INDEX index_chat_sessions_on_tenant_id ON public.chat_sessions USING btre
 
 
 --
+-- Name: index_chat_sessions_unique_per_agent_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_chat_sessions_unique_per_agent_user ON public.chat_sessions USING btree (tenant_id, ai_agent_id, initiated_by_id);
+
+
+--
 -- Name: index_collective_members_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8958,6 +8965,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260502050344'),
 ('20260501230351'),
 ('20260501224518'),
 ('20260501200240'),

@@ -509,6 +509,107 @@ describe("AgentChatController", () => {
     })
   })
 
+  // --- Load older messages ---
+
+  describe("loadOlder", () => {
+    function setupDOMWithOlderMessages() {
+      document.body.innerHTML = `
+        <div data-controller="agent-chat"
+             data-agent-chat-url-value="/chat/123/message"
+             data-agent-chat-agent-name-value="TestBot"
+             data-agent-chat-session-id-value="session-123"
+             data-agent-chat-poll-url-value="/chat/123/messages"
+             data-agent-chat-turn-running-value="false"
+             data-agent-chat-has-older-messages-value="true"
+             data-agent-chat-oldest-timestamp-value="2026-01-01T00:00:00Z">
+          <div data-agent-chat-target="messages" id="chat-messages">
+            <div data-agent-chat-target="loadOlderButton">
+              <button data-action="agent-chat#loadOlder">Load earlier messages</button>
+            </div>
+            <div data-chat-message>
+              <div><div>You</div><div>Recent message</div><div>1:00 PM</div></div>
+            </div>
+          </div>
+          <textarea data-agent-chat-target="input"></textarea>
+          <button data-agent-chat-target="submitButton">Send</button>
+        </div>
+      `
+    }
+
+    it("fetches and prepends older messages", async () => {
+      application.stop()
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          messages: [
+            {
+              id: "old-1",
+              sender_name: "You",
+              content: "Old message",
+              is_agent: false,
+              timestamp: "2025-12-31T23:00:00Z",
+            },
+          ],
+          has_more: false,
+        }),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      setupDOMWithOlderMessages()
+      application = Application.start()
+      application.register("agent-chat", AgentChatController)
+
+      await vi.advanceTimersByTimeAsync(0)
+
+      const button = document.querySelector("[data-agent-chat-target='loadOlderButton'] button") as HTMLButtonElement
+      button.click()
+
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.waitFor(() => {
+        expect(messageTexts()).toContain("Old message")
+      })
+
+      // Verify fetch was called with before param
+      const fetchCalls = mockFetch.mock.calls.filter(
+        (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("before="),
+      )
+      expect(fetchCalls.length).toBe(1)
+    })
+
+    it("removes load button when no more messages", async () => {
+      application.stop()
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          messages: [{
+            id: "old-1",
+            sender_name: "TestBot",
+            content: "First ever message",
+            is_agent: true,
+            content_html: "<p>First ever message</p>",
+            timestamp: "2025-12-31T23:00:00Z",
+          }],
+          has_more: false,
+        }),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      setupDOMWithOlderMessages()
+      application = Application.start()
+      application.register("agent-chat", AgentChatController)
+
+      await vi.advanceTimersByTimeAsync(0)
+
+      const button = document.querySelector("[data-agent-chat-target='loadOlderButton'] button") as HTMLButtonElement
+      button.click()
+
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.waitFor(() => {
+        expect(document.querySelector("[data-agent-chat-target='loadOlderButton']")).toBeNull()
+      })
+    })
+  })
+
   // --- Failed send ---
 
   describe("failed send", () => {

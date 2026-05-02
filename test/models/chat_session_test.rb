@@ -122,6 +122,27 @@ class ChatSessionTest < ActiveSupport::TestCase
     assert_equal "/collectives/team/n/abc", session.current_state["current_path"]
   end
 
+  test "find_or_create_for creates session on first call" do
+    session = ChatSession.find_or_create_for(agent: @ai_agent, user: @user, tenant: @tenant)
+    assert_not_nil session
+    assert_equal @ai_agent.id, session.ai_agent_id
+    assert_equal @user.id, session.initiated_by_id
+    assert_equal @tenant.id, session.tenant_id
+  end
+
+  test "find_or_create_for returns existing session on second call" do
+    session1 = ChatSession.find_or_create_for(agent: @ai_agent, user: @user, tenant: @tenant)
+    session2 = ChatSession.find_or_create_for(agent: @ai_agent, user: @user, tenant: @tenant)
+    assert_equal session1.id, session2.id
+  end
+
+  test "uniqueness constraint prevents duplicate sessions" do
+    ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+    assert_raises(ActiveRecord::RecordInvalid) do
+      ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+    end
+  end
+
   test "scoped to tenant" do
     ChatSession.create!(
       tenant: @tenant,
