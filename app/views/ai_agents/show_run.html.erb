@@ -127,8 +127,8 @@
     <% end %>
     <% if @task_run.mode == "chat_turn" && @task_run.chat_session_id.present? %>
       <div style="margin-bottom: 8px;">
-        <% human_message = @task_run.agent_session_steps.where(step_type: "message").order(:position).first %>
-        <% anchor = human_message ? "#msg-#{human_message.id}" : "" %>
+        <% first_msg = @task_run.chat_session&.chat_messages&.order(:created_at)&.first %>
+        <% anchor = first_msg ? "#msg-#{first_msg.id}" : "" %>
         <a href="<%= ai_agent_chat_path(@ai_agent.handle, @task_run.chat_session_id) %><%= anchor %>" class="pulse-feed-action-link">
           <%= octicon 'comment-discussion', height: 12 %> View in chat
         </a>

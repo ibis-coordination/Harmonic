@@ -14,23 +14,23 @@ class AiAgentChatsController < ApplicationController
     @page_title = "Chat - #{@ai_agent.display_name}"
   end
 
+  # GET /ai-agents/:handle/chat/:session_id
+  def show
+    @messages = @chat_session.messages.includes(:sender)
+    @page_title = "Chat - #{@ai_agent.display_name}"
+    @turn_running = @chat_session.task_runs.exists?(status: ["queued", "running"])
+    check_agent_busy
+  end
+
   # POST /ai-agents/:handle/chat
   def create
     session = ChatSession.find_or_create_for(
       agent: @ai_agent,
       user: current_user,
-      tenant: current_tenant,
+      tenant: current_tenant
     )
 
     redirect_to ai_agent_chat_path(@ai_agent.handle, session.id)
-  end
-
-  # GET /ai-agents/:handle/chat/:session_id
-  def show
-    @messages = @chat_session.messages.includes(:sender)
-    @page_title = "Chat - #{@ai_agent.display_name}"
-    @turn_running = @chat_session.task_runs.where(status: %w[queued running]).exists?
-    check_agent_busy
   end
 
   # POST /ai-agents/:handle/chat/:session_id/message
@@ -46,28 +46,16 @@ class AiAgentChatsController < ApplicationController
       return
     end
 
-    # If a turn is already running, attach the message to it (queued for next turn).
-    # Otherwise, create a new task run and dispatch it.
-    # Use a single query instead of check-then-act to avoid TOCTOU race
-    # where a turn completes between the exists? check and the find.
-    active_run = @chat_session.task_runs.where(status: %w[queued running]).order(created_at: :desc).first
+    # Save the human's message as a ChatMessage
+    @chat_session.chat_messages.create!(
+      sender: current_user,
+      content: message_text
+    )
 
-    if active_run
-      next_position = active_run.agent_session_steps.maximum(:position)&.+(1) || 0
-      active_run.agent_session_steps.create!(
-        position: next_position,
-        step_type: "message",
-        detail: { "content" => message_text },
-        sender: current_user,
-      )
-    else
+    # If no turn is running, create and dispatch one for the agent
+    active_run = @chat_session.task_runs.exists?(status: ["queued", "running"])
+    unless active_run
       task_run = create_chat_turn(message_text)
-      task_run.agent_session_steps.create!(
-        position: 0,
-        step_type: "message",
-        detail: { "content" => message_text },
-        sender: current_user,
-      )
       dispatch_chat_turn(task_run)
     end
 
@@ -79,15 +67,15 @@ class AiAgentChatsController < ApplicationController
   # plus turn status and latest activity for fallback transport.
   def poll_messages
     after = begin
-      params[:after].present? ? Time.parse(params[:after]) : Time.at(0)
+      params[:after].present? ? Time.zone.parse(params[:after]) : Time.zone.at(0)
     rescue ArgumentError
-      Time.at(0)
+      Time.zone.at(0)
     end
 
     new_messages = @chat_session.messages
       .where("created_at > ?", after)
       .includes(:sender)
-      .map { |step| ChatMessagePresenter.format(step, @chat_session) }
+      .map { |msg| ChatMessagePresenter.format(msg, @chat_session) }
 
     latest_turn = @chat_session.task_runs.order(created_at: :desc).first
     turn_status = latest_turn&.status
@@ -106,7 +94,7 @@ class AiAgentChatsController < ApplicationController
       first_think_position = latest_turn.agent_session_steps.where(step_type: "think").minimum(:position)
       if first_think_position
         latest_activity_step = latest_turn.agent_session_steps
-          .where(step_type: %w[navigate execute])
+          .where(step_type: ["navigate", "execute"])
           .where("position > ?", first_think_position)
           .order(position: :desc)
           .first
@@ -142,7 +130,7 @@ class AiAgentChatsController < ApplicationController
     @chat_session = ChatSession.find_by(
       id: params[:session_id],
       ai_agent: @ai_agent,
-      initiated_by: current_user,
+      initiated_by: current_user
     )
     render status: :not_found, plain: "404 Not Found" unless @chat_session
   end
@@ -157,7 +145,7 @@ class AiAgentChatsController < ApplicationController
       status: "queued",
       mode: "chat_turn",
       chat_session: @chat_session,
-      model: @ai_agent.agent_configuration&.dig("model") || "default",
+      model: @ai_agent.agent_configuration&.dig("model") || "default"
     )
   end
 
@@ -193,31 +181,14 @@ class AiAgentChatsController < ApplicationController
     session_ids = @chat_sessions.map(&:id)
     return @first_messages = {} if session_ids.empty?
 
-    # Get the earliest task run per session (the one containing the first message).
-    # Use MIN(created_at) since MIN(uuid) is not supported in PostgreSQL.
-    earliest_times = AiAgentTaskRun
+    # Get the first ChatMessage per session
+    first_msgs = ChatMessage
       .where(chat_session_id: session_ids)
-      .group(:chat_session_id)
-      .minimum(:created_at)
-
-    return @first_messages = {} if earliest_times.empty?
-
-    first_runs = AiAgentTaskRun
-      .where(chat_session_id: earliest_times.keys)
-      .where(created_at: earliest_times.values)
-      .pluck(:id, :chat_session_id)
-
-    run_to_session = first_runs.to_h { |run_id, session_id| [run_id, session_id] }
-
-    # Get only the first message step from each of those runs
-    steps = AgentSessionStep
-      .where(ai_agent_task_run_id: run_to_session.keys, step_type: "message")
-      .order(:created_at, :position)
+      .order(:created_at)
 
     @first_messages = {}
-    steps.each do |step|
-      session_id = run_to_session[step.ai_agent_task_run_id]
-      @first_messages[session_id] ||= step
+    first_msgs.each do |msg|
+      @first_messages[msg.chat_session_id] ||= msg
     end
   end
 
@@ -225,7 +196,7 @@ class AiAgentChatsController < ApplicationController
     # where.not with a non-nil value excludes NULLs in SQL, so we need to
     # explicitly include NULL chat_session_id (regular task runs).
     @agent_busy_run = AiAgentTaskRun
-      .where(ai_agent: @ai_agent, status: %w[queued running])
+      .where(ai_agent: @ai_agent, status: ["queued", "running"])
       .where("chat_session_id IS DISTINCT FROM ?", @chat_session.id)
       .order(created_at: :desc)
       .first

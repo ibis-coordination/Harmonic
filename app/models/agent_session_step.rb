@@ -3,10 +3,8 @@
 class AgentSessionStep < ApplicationRecord
   extend T::Sig
 
-  STEP_TYPES = %w[
-    navigate think execute done error
-    security_warning scratchpad_update scratchpad_update_failed
-    message
+  STEP_TYPES = [
+    "navigate", "think", "execute", "done", "error", "security_warning", "scratchpad_update", "scratchpad_update_failed",
   ].freeze
 
   belongs_to :tenant
@@ -15,15 +13,8 @@ class AgentSessionStep < ApplicationRecord
 
   validates :position, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validates :step_type, presence: true, inclusion: { in: STEP_TYPES }
-  validates :sender, presence: true, if: :message_step?
 
   scope :chronological, -> { order(:position) }
-  scope :messages, -> { where(step_type: "message") }
-
-  sig { returns(T::Boolean) }
-  def message_step?
-    step_type == "message"
-  end
 
   sig { returns(T::Hash[String, T.untyped]) }
   def to_step_hash
@@ -35,5 +26,4 @@ class AgentSessionStep < ApplicationRecord
     hash["sender_id"] = sender_id if sender_id.present?
     hash
   end
-
 end

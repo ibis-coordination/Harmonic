@@ -29,8 +29,8 @@
       </div>
     <% end %>
 
-    <% @messages.each do |step| %>
-      <%= render 'ai_agent_chats/message', step: step %>
+    <% @messages.each do |message| %>
+      <%= render 'ai_agent_chats/message', message: message %>
     <% end %>
 
     <% if @messages.empty? %>

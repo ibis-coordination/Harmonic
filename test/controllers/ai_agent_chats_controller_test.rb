@@ -98,13 +98,8 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
   test "show renders chat session with messages" do
     session = create_chat_session
     with_tenant_scope do
-      run = AiAgentTaskRun.create!(
-        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-        task: "Hello", max_steps: 30, status: "completed",
-        mode: "chat_turn", chat_session: session,
-      )
-      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
-      run.agent_session_steps.create!(position: 1, step_type: "message", detail: { content: "Hi!" }, sender: @ai_agent)
+      session.chat_messages.create!(sender: @user, content: "Hello")
+      session.chat_messages.create!(sender: @ai_agent, content: "Hi!")
     end
 
     get "/ai-agents/#{@agent_handle}/chat/#{session.id}"
@@ -123,20 +118,19 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
 
   # --- send_message ---
 
-  test "send_message creates message step and dispatches task" do
+  test "send_message creates chat message and dispatches task" do
     session = create_chat_session
 
-    assert_difference "AgentSessionStep.count", 1 do
+    assert_difference "ChatMessage.count", 1 do
       assert_difference "AiAgentTaskRun.count", 1 do
         post "/ai-agents/#{@agent_handle}/chat/#{session.id}/message",
           params: { message: "Hello agent!" }
       end
     end
 
-    step = AgentSessionStep.last
-    assert_equal "message", step.step_type
-    assert_equal @user.id, step.sender_id
-    assert_equal "Hello agent!", step.detail["content"]
+    msg = ChatMessage.last
+    assert_equal @user.id, msg.sender_id
+    assert_equal "Hello agent!", msg.content
 
     task_run = AiAgentTaskRun.last
     assert_equal "chat_turn", task_run.mode
@@ -149,7 +143,7 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(other_user)
     sign_in_as(other_user, tenant: @tenant)
 
-    assert_no_difference "AgentSessionStep.count" do
+    assert_no_difference "ChatMessage.count" do
       post "/ai-agents/#{@agent_handle}/chat/#{session.id}/message",
         params: { message: "Injected message" }
     end
@@ -159,7 +153,7 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
   test "send_message rejects empty message" do
     session = create_chat_session
 
-    assert_no_difference "AgentSessionStep.count" do
+    assert_no_difference "ChatMessage.count" do
       post "/ai-agents/#{@agent_handle}/chat/#{session.id}/message", params: { message: "" }
     end
     assert_response :unprocessable_entity
@@ -172,8 +166,8 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
     post "/ai-agents/#{@agent_handle}/chat/#{session.id}/message", params: { message: long_message }
     assert_response :ok
 
-    step = AgentSessionStep.last
-    assert_equal AiAgentChatsController::MAX_MESSAGE_LENGTH, step.detail["content"].length
+    msg = ChatMessage.last
+    assert_equal AiAgentChatsController::MAX_MESSAGE_LENGTH, msg.content.length
   end
 
   test "send_message skips dispatch if a turn is already running" do
@@ -187,7 +181,7 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
       )
     end
 
-    assert_difference "AgentSessionStep.count", 1 do
+    assert_difference "ChatMessage.count", 1 do
       assert_no_difference "AiAgentTaskRun.count" do
         post "/ai-agents/#{@agent_handle}/chat/#{session.id}/message",
           params: { message: "Follow-up" }
@@ -200,21 +194,8 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
   test "poll_messages returns new messages after timestamp" do
     session = with_tenant_scope do
       cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
-      run = AiAgentTaskRun.create!(
-        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-        task: "Hello", max_steps: 30, status: "completed",
-        mode: "chat_turn", chat_session: cs,
-      )
-      run.agent_session_steps.create!(
-        position: 0, step_type: "message",
-        detail: { content: "Hello" }, sender: @user,
-        created_at: 10.seconds.ago,
-      )
-      run.agent_session_steps.create!(
-        position: 1, step_type: "message",
-        detail: { content: "Hi there!" }, sender: @ai_agent,
-        created_at: 5.seconds.ago,
-      )
+      cs.chat_messages.create!(sender: @user, content: "Hello", created_at: 10.seconds.ago)
+      cs.chat_messages.create!(sender: @ai_agent, content: "Hi there!", created_at: 5.seconds.ago)
       cs
     end
 
@@ -288,6 +269,7 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
   test "poll_messages returns latest activity for running turn" do
     session = create_chat_session
     with_tenant_scope do
+      session.chat_messages.create!(sender: @user, content: "Hello")
       run = AiAgentTaskRun.create!(
         tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
         task: "Hello", max_steps: 30, status: "running",
@@ -295,15 +277,11 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
         started_at: Time.current,
       )
       run.agent_session_steps.create!(
-        position: 0, step_type: "message",
-        detail: { content: "Hello" }, sender: @user,
-      )
-      run.agent_session_steps.create!(
-        position: 1, step_type: "think",
+        position: 0, step_type: "think",
         detail: { step_number: 0 },
       )
       run.agent_session_steps.create!(
-        position: 2, step_type: "navigate",
+        position: 1, step_type: "navigate",
         detail: { path: "/collectives/team" },
       )
     end
@@ -352,12 +330,7 @@ class AiAgentChatsControllerTest < ActionDispatch::IntegrationTest
   test "poll_messages returns empty array when no new messages" do
     session = with_tenant_scope do
       cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
-      run = AiAgentTaskRun.create!(
-        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-        task: "Hello", max_steps: 30, status: "completed",
-        mode: "chat_turn", chat_session: cs,
-      )
-      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
+      cs.chat_messages.create!(sender: @user, content: "Hello")
       cs
     end
 

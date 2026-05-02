@@ -8,6 +8,7 @@ class ChatSession < ApplicationRecord
   belongs_to :initiated_by, class_name: "User"
 
   has_many :task_runs, class_name: "AiAgentTaskRun", dependent: :nullify
+  has_many :chat_messages, dependent: :destroy
 
   validates :ai_agent_id, uniqueness: { scope: [:tenant_id, :initiated_by_id] }
 
@@ -16,21 +17,18 @@ class ChatSession < ApplicationRecord
     find_or_create_by!(
       tenant: tenant,
       ai_agent: agent,
-      initiated_by: user,
+      initiated_by: user
     )
   rescue ActiveRecord::RecordNotUnique
     find_by!(
       tenant: tenant,
       ai_agent: agent,
-      initiated_by: user,
+      initiated_by: user
     )
   end
 
   sig { returns(T.untyped) }
   def messages
-    AgentSessionStep.where(
-      ai_agent_task_run_id: task_runs.select(:id),
-      step_type: "message",
-    ).order(:created_at)
+    chat_messages.order(:created_at)
   end
 end

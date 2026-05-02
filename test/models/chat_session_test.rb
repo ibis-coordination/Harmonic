@@ -72,34 +72,23 @@ class ChatSessionTest < ActiveSupport::TestCase
     assert_equal task_run, session.task_runs.first
   end
 
-  test "messages returns message steps across all turns" do
+  test "messages returns chat messages in chronological order" do
     session = ChatSession.create!(
       tenant: @tenant,
-
       ai_agent: @ai_agent,
       initiated_by: @user,
     )
 
-    run1 = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-      task: "Hello", max_steps: 30, status: "completed",
-      mode: "chat_turn", chat_session: session,
-    )
-    run1.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
-    run1.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/home" })
-    run1.agent_session_steps.create!(position: 2, step_type: "message", detail: { content: "Hi there!" }, sender: @ai_agent)
-
-    run2 = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-      task: "What's new?", max_steps: 30, status: "completed",
-      mode: "chat_turn", chat_session: session,
-    )
-    run2.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "What's new?" }, sender: @user)
-    run2.agent_session_steps.create!(position: 1, step_type: "message", detail: { content: "Not much!" }, sender: @ai_agent)
+    session.chat_messages.create!(sender: @user, content: "Hello", created_at: 3.minutes.ago)
+    session.chat_messages.create!(sender: @ai_agent, content: "Hi there!", created_at: 2.minutes.ago)
+    session.chat_messages.create!(sender: @user, content: "What's new?", created_at: 1.minute.ago)
+    session.chat_messages.create!(sender: @ai_agent, content: "Not much!", created_at: Time.current)
 
     messages = session.messages
     assert_equal 4, messages.count
-    assert messages.all? { |s| s.step_type == "message" }
+    assert messages.all? { |m| m.is_a?(ChatMessage) }
+    assert_equal "Hello", messages.first.content
+    assert_equal "Not much!", messages.last.content
   end
 
   test "current_state defaults to empty hash" do

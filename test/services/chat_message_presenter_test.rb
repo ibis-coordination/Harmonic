@@ -19,24 +19,18 @@ class ChatMessagePresenterTest < ActiveSupport::TestCase
       ai_agent: @ai_agent,
       initiated_by: @user,
     )
-
-    @task_run = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-      task: "Test", max_steps: 30, status: "completed",
-      mode: "chat_turn", chat_session: @chat_session,
-    )
   end
 
   test "formats agent message with content_html" do
-    step = @task_run.agent_session_steps.create!(
-      position: 0, step_type: "message",
-      detail: { "content" => "Hello **human**!" }, sender: @ai_agent,
+    msg = @chat_session.chat_messages.create!(
+      sender: @ai_agent,
+      content: "Hello **human**!",
     )
 
-    result = ChatMessagePresenter.format(step, @chat_session)
+    result = ChatMessagePresenter.format(msg, @chat_session)
 
     assert_equal "message", result[:type]
-    assert_equal step.id, result[:id]
+    assert_equal msg.id, result[:id]
     assert_equal @ai_agent.id, result[:sender_id]
     assert_equal @ai_agent.name, result[:sender_name]
     assert_equal "Hello **human**!", result[:content]
@@ -46,12 +40,12 @@ class ChatMessagePresenterTest < ActiveSupport::TestCase
   end
 
   test "formats human message without content_html" do
-    step = @task_run.agent_session_steps.create!(
-      position: 0, step_type: "message",
-      detail: { "content" => "Hello agent!" }, sender: @user,
+    msg = @chat_session.chat_messages.create!(
+      sender: @user,
+      content: "Hello agent!",
     )
 
-    result = ChatMessagePresenter.format(step, @chat_session)
+    result = ChatMessagePresenter.format(msg, @chat_session)
 
     assert_equal @user.id, result[:sender_id]
     assert_equal @user.name, result[:sender_name]
@@ -61,24 +55,24 @@ class ChatMessagePresenterTest < ActiveSupport::TestCase
   end
 
   test "content_html sanitizes dangerous markup" do
-    step = @task_run.agent_session_steps.create!(
-      position: 0, step_type: "message",
-      detail: { "content" => '<script>alert("xss")</script>Safe text' }, sender: @ai_agent,
+    msg = @chat_session.chat_messages.create!(
+      sender: @ai_agent,
+      content: '<script>alert("xss")</script>Safe text',
     )
 
-    result = ChatMessagePresenter.format(step, @chat_session)
+    result = ChatMessagePresenter.format(msg, @chat_session)
 
     assert_not_includes result[:content_html], "<script>"
     assert_includes result[:content_html], "Safe text"
   end
 
   test "format output matches expected keys for ActionCable and polling" do
-    step = @task_run.agent_session_steps.create!(
-      position: 0, step_type: "message",
-      detail: { "content" => "Test" }, sender: @ai_agent,
+    msg = @chat_session.chat_messages.create!(
+      sender: @ai_agent,
+      content: "Test",
     )
 
-    result = ChatMessagePresenter.format(step, @chat_session)
+    result = ChatMessagePresenter.format(msg, @chat_session)
     expected_keys = %i[type id sender_id sender_name content content_html timestamp is_agent]
 
     assert_equal expected_keys.sort, result.keys.sort

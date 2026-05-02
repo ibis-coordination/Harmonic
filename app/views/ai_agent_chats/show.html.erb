@@ -16,8 +16,8 @@
 
   <%# Message list %>
   <div data-agent-chat-target="messages" id="chat-messages" style="flex: 1; overflow-y: auto; padding: 16px;">
-    <% @messages.each do |step| %>
-      <%= render 'ai_agent_chats/message', step: step %>
+    <% @messages.each do |message| %>
+      <%= render 'ai_agent_chats/message', message: message %>
     <% end %>
 
     <% if @messages.empty? %>

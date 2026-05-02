@@ -44,24 +44,16 @@ class ChatsController < ApplicationController
       return
     end
 
-    active_run = @chat_session.task_runs.where(status: ["queued", "running"]).order(created_at: :desc).first
+    # Save the human's message as a ChatMessage
+    @chat_session.chat_messages.create!(
+      sender: current_user,
+      content: message_text
+    )
 
-    if active_run
-      next_position = active_run.agent_session_steps.maximum(:position)&.+(1) || 0
-      active_run.agent_session_steps.create!(
-        position: next_position,
-        step_type: "message",
-        detail: { "content" => message_text },
-        sender: current_user
-      )
-    else
+    # If no turn is running, create and dispatch one for the agent
+    active_run = @chat_session.task_runs.exists?(status: ["queued", "running"])
+    unless active_run
       task_run = create_chat_turn(message_text)
-      task_run.agent_session_steps.create!(
-        position: 0,
-        step_type: "message",
-        detail: { "content" => message_text },
-        sender: current_user
-      )
       dispatch_chat_turn(task_run)
     end
 
@@ -170,7 +162,7 @@ class ChatsController < ApplicationController
     new_messages = @chat_session.messages
       .where("created_at > ?", after)
       .includes(:sender)
-      .map { |step| ChatMessagePresenter.format(step, @chat_session) }
+      .map { |msg| ChatMessagePresenter.format(msg, @chat_session) }
 
     latest_turn = @chat_session.task_runs.order(created_at: :desc).first
     turn_status = latest_turn&.status
@@ -213,7 +205,7 @@ class ChatsController < ApplicationController
     has_more = older.size > MESSAGES_PER_PAGE
     older = older.first(MESSAGES_PER_PAGE).reverse
 
-    messages = older.map { |step| ChatMessagePresenter.format(step, @chat_session) }
+    messages = older.map { |msg| ChatMessagePresenter.format(msg, @chat_session) }
 
     render json: { messages: messages, has_more: has_more }
   end

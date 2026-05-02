@@ -23,7 +23,7 @@
          class="pulse-nav-item<%= ' active' if is_active %>"
          style="display: block; padding: 8px 10px; font-size: 13px; text-decoration: none; border-radius: 6px; margin-bottom: 2px;">
         <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-          <%= first_message ? first_message.detail&.dig("content").to_s.truncate(50) : "Empty session" %>
+          <%= first_message ? first_message.content.to_s.truncate(50) : "Empty session" %>
         </div>
         <div style="font-size: 11px; color: var(--color-fg-muted); margin-top: 2px;">
           <%= timeago(session.created_at) %>
