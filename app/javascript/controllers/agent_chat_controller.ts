@@ -52,6 +52,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
     turnRunning: Boolean,
     hasOlderMessages: Boolean,
     oldestTimestamp: String,
+    partnerIsAgent: Boolean,
+    currentUserId: String,
   }
 
   static targets = [
@@ -69,6 +71,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
   declare turnRunningValue: boolean
   declare hasOlderMessagesValue: boolean
   declare oldestTimestampValue: string
+  declare partnerIsAgentValue: boolean
+  declare currentUserIdValue: string
 
   declare readonly messagesTarget: HTMLElement
   declare readonly inputTarget: HTMLTextAreaElement
@@ -144,11 +148,12 @@ export default class AgentChatController extends Controller<HTMLElement> {
       // Build HTML for older messages and prepend them
       const fragment = document.createDocumentFragment()
       for (const msg of data.messages) {
+        const isMine = msg.sender_id === this.currentUserIdValue
         const el = this.buildMessageElement(
           msg.content || "",
-          msg.sender_name || (msg.is_agent ? this.agentNameValue : "You"),
-          !msg.is_agent,
-          msg.is_agent ? msg.content_html : null,
+          isMine ? "You" : (msg.sender_name || this.agentNameValue),
+          isMine,
+          isMine ? null : msg.content_html,
           msg.timestamp,
         )
         fragment.appendChild(el)
@@ -227,8 +232,9 @@ export default class AgentChatController extends Controller<HTMLElement> {
         received(data: CableEvent) {
           switch (data.type) {
             case "message":
-              if (data.is_agent) {
-                controller.handleAgentMessage(data)
+              // Render messages from the other participant (skip own messages — shown optimistically)
+              if (data.sender_id !== controller.currentUserIdValue) {
+                controller.handleIncomingMessage(data)
               }
               break
             case "status":
@@ -266,7 +272,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.showIndicator(data.text)
   }
 
-  private handleAgentMessage(data: ChatMessage): void {
+  private handleIncomingMessage(data: ChatMessage): void {
     this.removeIndicator()
     this.appendMessage(
       data.content || "",
@@ -297,8 +303,12 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
     const messageEl = this.appendMessage(message, "You", true)
     this.lastTimestamp = new Date().toISOString()
-    this.waitingForResponse = true
-    this.showIndicator("Thinking...")
+
+    if (this.partnerIsAgentValue) {
+      this.waitingForResponse = true
+      this.showIndicator("Thinking...")
+    }
+
     this.scrollToBottom()
 
     try {
@@ -416,8 +426,8 @@ export default class AgentChatController extends Controller<HTMLElement> {
       const data = await response.json() as PollResponse
 
       for (const msg of data.messages) {
-        if (msg.is_agent) {
-          this.handleAgentMessage(msg)
+        if (msg.sender_id !== this.currentUserIdValue) {
+          this.handleIncomingMessage(msg)
         }
       }
 

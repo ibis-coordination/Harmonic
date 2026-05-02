@@ -1,9 +1,11 @@
 <div data-controller="agent-chat"
-     data-agent-chat-url-value="<%= chat_message_path(@ai_agent.handle) %>"
-     data-agent-chat-agent-name-value="<%= @ai_agent.name %>"
+     data-agent-chat-url-value="<%= chat_message_path(@partner.handle) %>"
+     data-agent-chat-agent-name-value="<%= @partner.name %>"
      data-agent-chat-session-id-value="<%= @chat_session.id %>"
-     data-agent-chat-poll-url-value="<%= chat_poll_path(@ai_agent.handle) %>"
+     data-agent-chat-poll-url-value="<%= chat_poll_path(@partner.handle) %>"
      data-agent-chat-turn-running-value="<%= @turn_running %>"
+     data-agent-chat-partner-is-agent-value="<%= @partner.ai_agent? %>"
+     data-agent-chat-current-user-id-value="<%= @current_user&.id %>"
      data-agent-chat-has-older-messages-value="<%= @has_older_messages %>"
      data-agent-chat-oldest-timestamp-value="<%= @oldest_message_timestamp %>"
      style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
@@ -12,7 +14,7 @@
     <div class="pulse-flash pulse-flash-warning" style="margin: 8px 16px 0; padding: 8px 12px; font-size: 13px;">
       <%= octicon 'clock', height: 14 %>
       This agent is currently working on another task.
-      <a href="<%= ai_agent_run_path(@ai_agent.handle, @agent_busy_run.id) %>" class="pulse-link">View task</a>
+      <a href="<%= ai_agent_run_path(@partner.handle, @agent_busy_run.id) %>" class="pulse-link">View task</a>
     </div>
   <% end %>
 

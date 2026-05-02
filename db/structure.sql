@@ -309,12 +309,12 @@ CREATE TABLE public.chat_messages (
 CREATE TABLE public.chat_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
-    ai_agent_id uuid NOT NULL,
-    initiated_by_id uuid NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     current_state jsonb DEFAULT '{}'::jsonb NOT NULL,
-    collective_id uuid NOT NULL
+    collective_id uuid NOT NULL,
+    user_one_id uuid NOT NULL,
+    user_two_id uuid NOT NULL
 );
 
 
@@ -3432,24 +3432,10 @@ CREATE INDEX index_chat_messages_on_tenant_id ON public.chat_messages USING btre
 
 
 --
--- Name: index_chat_sessions_on_ai_agent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_chat_sessions_on_ai_agent_id ON public.chat_sessions USING btree (ai_agent_id);
-
-
---
 -- Name: index_chat_sessions_on_collective_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX index_chat_sessions_on_collective_id ON public.chat_sessions USING btree (collective_id);
-
-
---
--- Name: index_chat_sessions_on_initiated_by_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_chat_sessions_on_initiated_by_id ON public.chat_sessions USING btree (initiated_by_id);
 
 
 --
@@ -3460,10 +3446,24 @@ CREATE INDEX index_chat_sessions_on_tenant_id ON public.chat_sessions USING btre
 
 
 --
--- Name: index_chat_sessions_unique_per_agent_user; Type: INDEX; Schema: public; Owner: -
+-- Name: index_chat_sessions_on_user_one_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_chat_sessions_unique_per_agent_user ON public.chat_sessions USING btree (tenant_id, ai_agent_id, initiated_by_id);
+CREATE INDEX index_chat_sessions_on_user_one_id ON public.chat_sessions USING btree (user_one_id);
+
+
+--
+-- Name: index_chat_sessions_on_user_two_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_chat_sessions_on_user_two_id ON public.chat_sessions USING btree (user_two_id);
+
+
+--
+-- Name: index_chat_sessions_unique_participants; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_chat_sessions_unique_participants ON public.chat_sessions USING btree (tenant_id, user_one_id, user_two_id);
 
 
 --
@@ -8378,6 +8378,14 @@ ALTER TABLE ONLY public.collective_members
 
 
 --
+-- Name: chat_sessions fk_rails_5655d34ac5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_sessions
+    ADD CONSTRAINT fk_rails_5655d34ac5 FOREIGN KEY (user_two_id) REFERENCES public.users(id);
+
+
+--
 -- Name: note_history_events fk_rails_601d54357c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8466,11 +8474,11 @@ ALTER TABLE ONLY public.notes
 
 
 --
--- Name: chat_sessions fk_rails_6f2fcf3e6f; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: chat_sessions fk_rails_789cff0cc3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.chat_sessions
-    ADD CONSTRAINT fk_rails_6f2fcf3e6f FOREIGN KEY (initiated_by_id) REFERENCES public.users(id);
+    ADD CONSTRAINT fk_rails_789cff0cc3 FOREIGN KEY (user_one_id) REFERENCES public.users(id);
 
 
 --
@@ -8858,14 +8866,6 @@ ALTER TABLE ONLY public.user_blocks
 
 
 --
--- Name: chat_sessions fk_rails_d915015e52; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.chat_sessions
-    ADD CONSTRAINT fk_rails_d915015e52 FOREIGN KEY (ai_agent_id) REFERENCES public.users(id);
-
-
---
 -- Name: representation_sessions fk_rails_d99c283120; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9072,6 +9072,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260502202229'),
 ('20260502200655'),
 ('20260502174649'),
 ('20260502074903'),

@@ -14,11 +14,7 @@ class ChatMessagePresenterTest < ActiveSupport::TestCase
       parent_id: @user.id,
     )
 
-    @chat_session = ChatSession.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+    @chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
   end
 
   test "formats agent message with content_html" do

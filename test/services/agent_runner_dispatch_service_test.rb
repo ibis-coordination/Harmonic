@@ -112,11 +112,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "broadcasts error to chat session when dispatch fails for chat_turn" do
     @ai_agent.update!(pending_billing_setup: true)
 
-    chat_session = ChatSession.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+    chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     @task_run.update!(mode: "chat_turn", chat_session: chat_session)
 
     stream = ChatSessionChannel.broadcasting_for(chat_session)

@@ -405,29 +405,17 @@ class ChatSession
   end
 
   module GeneratedAssociationMethods
-    sig { returns(T.nilable(::User)) }
-    def ai_agent; end
-
-    sig { params(value: T.nilable(::User)).void }
-    def ai_agent=(value); end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_changed?; end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_previously_changed?; end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def build_ai_agent(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
     def build_collective(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def build_initiated_by(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_user_one(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_user_two(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
     def chat_message_ids; end
@@ -455,23 +443,11 @@ class ChatSession
     sig { returns(T::Boolean) }
     def collective_previously_changed?; end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_ai_agent(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_ai_agent!(*args, &blk); end
-
     sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
     def create_collective(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
     def create_collective!(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_initiated_by(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
-    def create_initiated_by!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -479,41 +455,41 @@ class ChatSession
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant!(*args, &blk); end
 
-    sig { returns(T.nilable(::User)) }
-    def initiated_by; end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_user_one(*args, &blk); end
 
-    sig { params(value: T.nilable(::User)).void }
-    def initiated_by=(value); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_user_one!(*args, &blk); end
 
-    sig { returns(T::Boolean) }
-    def initiated_by_changed?; end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_user_two(*args, &blk); end
 
-    sig { returns(T::Boolean) }
-    def initiated_by_previously_changed?; end
-
-    sig { returns(T.nilable(::User)) }
-    def reload_ai_agent; end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_user_two!(*args, &blk); end
 
     sig { returns(T.nilable(::Collective)) }
     def reload_collective; end
 
-    sig { returns(T.nilable(::User)) }
-    def reload_initiated_by; end
-
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
-    sig { void }
-    def reset_ai_agent; end
+    sig { returns(T.nilable(::User)) }
+    def reload_user_one; end
+
+    sig { returns(T.nilable(::User)) }
+    def reload_user_two; end
 
     sig { void }
     def reset_collective; end
 
     sig { void }
-    def reset_initiated_by; end
+    def reset_tenant; end
 
     sig { void }
-    def reset_tenant; end
+    def reset_user_one; end
+
+    sig { void }
+    def reset_user_two; end
 
     sig { returns(T::Array[T.untyped]) }
     def task_run_ids; end
@@ -540,6 +516,30 @@ class ChatSession
 
     sig { returns(T::Boolean) }
     def tenant_previously_changed?; end
+
+    sig { returns(T.nilable(::User)) }
+    def user_one; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def user_one=(value); end
+
+    sig { returns(T::Boolean) }
+    def user_one_changed?; end
+
+    sig { returns(T::Boolean) }
+    def user_one_previously_changed?; end
+
+    sig { returns(T.nilable(::User)) }
+    def user_two; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def user_two=(value); end
+
+    sig { returns(T::Boolean) }
+    def user_two_changed?; end
+
+    sig { returns(T::Boolean) }
+    def user_two_previously_changed?; end
   end
 
   module GeneratedAssociationRelationMethods
@@ -688,51 +688,6 @@ class ChatSession
   end
 
   module GeneratedAttributeMethods
-    sig { returns(::String) }
-    def ai_agent_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def ai_agent_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def ai_agent_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def ai_agent_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def ai_agent_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def ai_agent_id_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def ai_agent_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def ai_agent_id_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def ai_agent_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def ai_agent_id_was; end
-
-    sig { void }
-    def ai_agent_id_will_change!; end
-
     sig { returns(::String) }
     def collective_id; end
 
@@ -958,54 +913,6 @@ class ChatSession
     sig { void }
     def id_will_change!; end
 
-    sig { returns(::String) }
-    def initiated_by_id; end
-
-    sig { params(value: ::String).returns(::String) }
-    def initiated_by_id=(value); end
-
-    sig { returns(T::Boolean) }
-    def initiated_by_id?; end
-
-    sig { returns(T.nilable(::String)) }
-    def initiated_by_id_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def initiated_by_id_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def initiated_by_id_came_from_user?; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def initiated_by_id_change; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def initiated_by_id_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def initiated_by_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def initiated_by_id_in_database; end
-
-    sig { returns(T.nilable([::String, ::String])) }
-    def initiated_by_id_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def initiated_by_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::String)) }
-    def initiated_by_id_previously_was; end
-
-    sig { returns(T.nilable(::String)) }
-    def initiated_by_id_was; end
-
-    sig { void }
-    def initiated_by_id_will_change!; end
-
-    sig { void }
-    def restore_ai_agent_id!; end
-
     sig { void }
     def restore_collective_id!; end
 
@@ -1022,19 +929,16 @@ class ChatSession
     def restore_id_value!; end
 
     sig { void }
-    def restore_initiated_by_id!; end
-
-    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
     def restore_updated_at!; end
 
-    sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_ai_agent_id; end
+    sig { void }
+    def restore_user_one_id!; end
 
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_ai_agent_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    sig { void }
+    def restore_user_two_id!; end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_collective_id; end
@@ -1067,12 +971,6 @@ class ChatSession
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
-    def saved_change_to_initiated_by_id; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_initiated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1083,6 +981,18 @@ class ChatSession
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_user_one_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_user_one_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_user_two_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_user_two_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1174,8 +1084,95 @@ class ChatSession
     sig { void }
     def updated_at_will_change!; end
 
+    sig { returns(::String) }
+    def user_one_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def user_one_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def user_one_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def user_one_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def user_one_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def user_one_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def user_one_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def user_one_id_change_to_be_saved; end
+
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_ai_agent_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def user_one_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def user_one_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def user_one_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def user_one_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def user_one_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def user_one_id_was; end
+
+    sig { void }
+    def user_one_id_will_change!; end
+
+    sig { returns(::String) }
+    def user_two_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def user_two_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def user_two_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def user_two_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def user_two_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def user_two_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def user_two_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def user_two_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def user_two_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def user_two_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def user_two_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def user_two_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def user_two_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def user_two_id_was; end
+
+    sig { void }
+    def user_two_id_will_change!; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
@@ -1193,13 +1190,16 @@ class ChatSession
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_initiated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_user_one_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_user_two_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods

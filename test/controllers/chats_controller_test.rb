@@ -31,7 +31,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   def create_chat_session
     with_tenant_scope do
-      ChatSession.find_or_create_for(agent: @ai_agent, user: @user, tenant: @tenant)
+      ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     end
   end
 
@@ -58,7 +58,8 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     with_tenant_scope do
-      session = ChatSession.find_by(ai_agent: @ai_agent, initiated_by: @user)
+      one, two = [@ai_agent.id, @user.id].sort
+      session = ChatSession.find_by(user_one_id: one, user_two_id: two)
       assert_not_nil session
     end
   end
@@ -484,6 +485,10 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     end
     user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
 
+    # Clear browser session so API token auth is used
+    reset!
+    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+
     assert_difference "ChatMessage.count", 1 do
       post "/chat/#{user_handle}/actions/send_message",
         params: { message: "Hi human!" }.to_json,
@@ -491,9 +496,9 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_response :success
 
-    msg = ChatMessage.last
+    msg = ChatMessage.order(created_at: :desc).find_by(content: "Hi human!")
+    assert_not_nil msg, "Expected a ChatMessage with content 'Hi human!'"
     assert_equal @ai_agent.id, msg.sender_id
-    assert_equal "Hi human!", msg.content
   end
 
   test "agent message does not dispatch a task run" do
@@ -530,7 +535,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
   end
 
-  test "agent returns 404 for nonexistent chat session" do
+  test "agent can start new chat with any tenant member" do
     @tenant.enable_api!
     @collective.enable_api!
 
@@ -543,6 +548,94 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
     get "/chat/#{other_handle}",
       headers: { "Authorization" => "Bearer #{agent_token.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :success
+  end
+
+  # --- human-to-human chat ---
+
+  test "human can start chat with another human" do
+    other_human = create_user(email: "human2-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    get "/chat/#{other_handle}"
+    assert_response :success
+
+    # Session should have been created
+    with_tenant_scope do
+      one, two = [@user.id, other_human.id].sort
+      session = ChatSession.find_by(user_one_id: one, user_two_id: two)
+      assert_not_nil session
+    end
+  end
+
+  test "human can send message to another human" do
+    other_human = create_user(email: "human3-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    assert_difference "ChatMessage.count", 1 do
+      post "/chat/#{other_handle}/message", params: { message: "Hey there!" }
+    end
+    assert_response :ok
+
+    msg = ChatMessage.order(created_at: :desc).find_by(content: "Hey there!")
+    assert_equal @user.id, msg.sender_id
+  end
+
+  test "human-to-human message does not dispatch a task run" do
+    other_human = create_user(email: "human4-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      post "/chat/#{other_handle}/message", params: { message: "Hello!" }
+    end
+    assert_response :ok
+  end
+
+  # --- security ---
+
+  test "cannot send message to another user's agent" do
+    other_user = create_user(email: "other-owner2-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+
+    other_agent = create_ai_agent(parent: other_user, name: "Sealed Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_agent)
+    @collective.add_user!(other_agent)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_agent).handle
+
+    assert_no_difference "ChatMessage.count" do
+      post "/chat/#{other_handle}/message", params: { message: "sneaky" }
+    end
     assert_response :not_found
+  end
+
+  test "cannot access chat with user on another tenant" do
+    other_tenant = create_tenant(subdomain: "sec-test-#{SecureRandom.hex(4)}", name: "Other Org")
+    other_user = create_user(email: "cross-tenant-#{SecureRandom.hex(4)}@example.com")
+    other_tenant.add_user!(other_user)
+
+    # The user exists but has no tenant_user on our tenant, so lookup returns 404
+    tu = TenantUser.unscoped.find_by(user: other_user, tenant: other_tenant)
+    get "/chat/#{tu.handle}"
+    assert_response :not_found
+  end
+
+  test "message sender_id is always the authenticated user" do
+    other_human = create_user(email: "human5-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    post "/chat/#{other_handle}/message", params: { message: "test auth" }
+    assert_response :ok
+
+    msg = ChatMessage.order(created_at: :desc).find_by(content: "test auth")
+    assert_equal @user.id, msg.sender_id, "sender must be the authenticated user, not spoofable"
   end
 end

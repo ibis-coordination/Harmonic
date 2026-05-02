@@ -29,7 +29,7 @@ class ChatsController < ApplicationController
     @messages = @messages.first(MESSAGES_PER_PAGE).reverse
 
     @oldest_message_timestamp = @messages.first&.created_at&.iso8601
-    @page_title = "Chat - #{@ai_agent.display_name}"
+    @page_title = "Chat - #{@partner.display_name}"
     @turn_running = @chat_session.task_runs.exists?(status: ["queued", "running"])
     check_agent_busy
 
@@ -93,63 +93,65 @@ class ChatsController < ApplicationController
     false
   end
 
-  # Load chat partners for the sidebar. For humans, this is their agents.
-  # For agents, this is the humans who have chat sessions with them.
+  # Load chat partners for the sidebar.
+  # Humans see: their agents + humans they have existing sessions with
+  # Agents see: humans they have existing sessions with
   def load_chat_partners
     if current_user&.ai_agent?
-      @agents = [] # Agents don't initiate — they see existing sessions
       @chat_partners = ChatSession
-        .where(ai_agent: current_user)
-        .includes(:initiated_by)
-        .map(&:initiated_by)
+        .where("user_one_id = ? OR user_two_id = ?", current_user.id, current_user.id)
+        .map { |s| s.other_participant(current_user) }
+        .reject(&:collective_identity?)
         .uniq
     else
-      @agents = current_user&.ai_agents
+      agents = current_user&.ai_agents
         &.includes(:tenant_users)
         &.joins(:tenant_users)
         &.where(tenant_users: { tenant_id: current_tenant&.id, archived_at: nil })
         &.where(suspended_at: nil)
-        &.order(:name) || []
-      @chat_partners = nil
+        &.order(:name)&.to_a || []
+
+      human_sessions = ChatSession
+        .where("user_one_id = ? OR user_two_id = ?", current_user&.id, current_user&.id)
+        .map { |s| s.other_participant(current_user) }
+        .reject { |u| u.ai_agent? || u.collective_identity? }
+
+      # Social proximity contacts (humans the user is close to but may not have chatted with)
+      proximity_users = current_user&.most_proximate_users(tenant_id: current_tenant&.id, limit: 10)
+        &.map(&:first)
+        &.reject(&:collective_identity?) || []
+
+      # Merge: agents first, then humans with sessions, then proximity contacts (deduplicated)
+      seen_ids = Set.new(agents.map(&:id))
+      humans = (human_sessions + proximity_users).uniq(&:id).reject { |u| seen_ids.include?(u.id) || u.ai_agent? }
+
+      @chat_partners = agents + humans
     end
   end
 
   # Find the other participant by handle and resolve the chat session.
-  # Works symmetrically: humans look up agents, agents look up humans.
   def find_partner_and_session
-    partner = User.joins(:tenant_users)
+    @partner = User.joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant&.id, handle: params[:handle] })
       .first
 
-    unless partner
+    unless @partner
       render status: :not_found, plain: "404 Not Found"
       return
     end
 
-    # Determine which side is the agent and which is the human
-    if current_user.ai_agent?
-      @ai_agent = current_user
-      @chat_session = ChatSession.find_by(
-        ai_agent: current_user,
-        initiated_by: partner
-      )
-      unless @chat_session
-        render status: :not_found, plain: "404 Not Found"
-        return
-      end
-    else
-      # Verify the partner is one of the current user's agents
-      unless current_user.ai_agents.include?(partner)
-        render status: :not_found, plain: "404 Not Found"
-        return
-      end
-      @ai_agent = partner
-      @chat_session = ChatSession.find_or_create_for(
-        agent: partner,
-        user: current_user,
-        tenant: current_tenant
-      )
+    # Authorization: must be on same tenant (handled by query above)
+    # For human→agent: must be the user's own agent
+    if current_user.human? && @partner.ai_agent? && !current_user.ai_agents.include?(@partner)
+      render status: :not_found, plain: "404 Not Found"
+      return
     end
+
+    @chat_session = ChatSession.find_or_create_between(
+      user_a: current_user,
+      user_b: @partner,
+      tenant: current_tenant,
+    )
   end
 
   def create_and_dispatch_message(message_text)
@@ -164,8 +166,8 @@ class ChatsController < ApplicationController
       ChatMessagePresenter.format(chat_message, @chat_session),
     )
 
-    # If the sender is human and the agent is internal, dispatch a turn
-    if current_user.human? && @ai_agent.internal_ai_agent?
+    # If the sender is human and the partner is an internal agent, dispatch a turn
+    if current_user.human? && @partner.internal_ai_agent?
       unless @chat_session.task_runs.exists?(status: ["queued", "running"])
         task_run = create_chat_turn(message_text)
         dispatch_chat_turn(task_run)
@@ -176,14 +178,14 @@ class ChatsController < ApplicationController
   def create_chat_turn(message_text)
     AiAgentTaskRun.create!(
       tenant: current_tenant,
-      ai_agent: @ai_agent,
+      ai_agent: @partner,
       initiated_by: current_user,
       task: message_text,
       max_steps: 30,
       status: "queued",
       mode: "chat_turn",
       chat_session: @chat_session,
-      model: @ai_agent.agent_configuration&.dig("model") || "default"
+      model: @partner.agent_configuration&.dig("model") || "default",
     )
   end
 
@@ -209,8 +211,10 @@ class ChatsController < ApplicationController
   end
 
   def check_agent_busy
+    return unless @partner.ai_agent?
+
     @agent_busy_run = AiAgentTaskRun
-      .where(ai_agent: @ai_agent, status: ["queued", "running"])
+      .where(ai_agent: @partner, status: ["queued", "running"])
       .where("chat_session_id IS DISTINCT FROM ?", @chat_session.id)
       .order(created_at: :desc)
       .first

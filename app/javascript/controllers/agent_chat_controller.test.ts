@@ -34,14 +34,16 @@ vi.mock("@rails/actioncable", () => ({
 
 // --- Helpers ---
 
-function setupDOM(options: { turnRunning?: boolean } = {}) {
+function setupDOM(options: { turnRunning?: boolean; partnerIsAgent?: boolean; currentUserId?: string } = {}) {
   document.body.innerHTML = `
     <div data-controller="agent-chat"
          data-agent-chat-url-value="/chat/123/message"
          data-agent-chat-agent-name-value="TestBot"
          data-agent-chat-session-id-value="session-123"
          data-agent-chat-poll-url-value="/chat/123/messages"
-         data-agent-chat-turn-running-value="${options.turnRunning ?? false}">
+         data-agent-chat-turn-running-value="${options.turnRunning ?? false}"
+         data-agent-chat-partner-is-agent-value="${options.partnerIsAgent ?? true}"
+         data-agent-chat-current-user-id-value="${options.currentUserId ?? "current-user-1"}">
       <div data-agent-chat-target="messages" id="chat-messages"></div>
       <textarea data-agent-chat-target="input"
                 data-action="keydown->agent-chat#keydown"></textarea>
@@ -187,19 +189,34 @@ describe("AgentChatController", () => {
       expect(messageTexts()).toContain("Done!")
     })
 
-    it("ignores non-agent messages from ActionCable", () => {
+    it("ignores own messages from ActionCable (already shown optimistically)", () => {
       simulateCableConnected()
       simulateCableReceived({
         type: "message",
-        content: "Human echo",
-        sender_name: "User",
+        content: "My own echo",
+        sender_name: "You",
         is_agent: false,
         timestamp: new Date().toISOString(),
         id: "msg-3",
-        sender_id: "user-1",
+        sender_id: "current-user-1",
       })
 
-      expect(messageTexts()).not.toContain("Human echo")
+      expect(messageTexts()).not.toContain("My own echo")
+    })
+
+    it("renders messages from other human participants", () => {
+      simulateCableConnected()
+      simulateCableReceived({
+        type: "message",
+        content: "Hello from other human",
+        sender_name: "Other Person",
+        is_agent: false,
+        timestamp: new Date().toISOString(),
+        id: "msg-4",
+        sender_id: "other-user-1",
+      })
+
+      expect(messageTexts()).toContain("Hello from other human")
     })
   })
 
@@ -368,7 +385,7 @@ describe("AgentChatController", () => {
   // --- Message sending ---
 
   describe("sending messages", () => {
-    it("appends user message optimistically and shows indicator", async () => {
+    it("appends user message optimistically and shows indicator for agent partner", async () => {
       simulateCableConnected()
 
       inputField().value = "Hello agent"
@@ -380,6 +397,28 @@ describe("AgentChatController", () => {
         expect(messageTexts()).toContain("Hello agent")
       })
       expect(hasIndicator()).toBe(true)
+    })
+
+    it("does not show indicator for human partner", async () => {
+      application.stop()
+      setupDOM({ partnerIsAgent: false })
+      application = Application.start()
+      application.register("agent-chat", AgentChatController)
+
+      // Wait for Stimulus to connect the controller
+      await vi.advanceTimersByTimeAsync(0)
+
+      simulateCableConnected()
+
+      inputField().value = "Hello human"
+
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      inputField().dispatchEvent(event)
+
+      await vi.waitFor(() => {
+        expect(messageTexts()).toContain("Hello human")
+      })
+      expect(hasIndicator()).toBe(false)
     })
 
     it("does not poll after send when cable is connected", async () => {
@@ -476,6 +515,83 @@ describe("AgentChatController", () => {
     })
   })
 
+  // --- Human-to-human chat (production HTML reproduction) ---
+
+  describe("human-to-human chat with production HTML", () => {
+    // These tests use the exact HTML attribute values that Rails renders
+    // to catch Stimulus Boolean parsing issues (e.g. "false" != false).
+    function setupProductionHTML() {
+      document.body.innerHTML = `
+        <div data-controller="agent-chat"
+             data-agent-chat-url-value="/chat/other-human/message"
+             data-agent-chat-agent-name-value="Other Person"
+             data-agent-chat-session-id-value="session-456"
+             data-agent-chat-poll-url-value="/chat/other-human/messages"
+             data-agent-chat-turn-running-value="false"
+             data-agent-chat-partner-is-agent-value="false"
+             data-agent-chat-current-user-id-value="user-me"
+             data-agent-chat-has-older-messages-value="false"
+             data-agent-chat-oldest-timestamp-value="">
+          <div data-agent-chat-target="messages" id="chat-messages"></div>
+          <textarea data-agent-chat-target="input"
+                    data-action="keydown->agent-chat#keydown"></textarea>
+          <button data-agent-chat-target="submitButton">Send</button>
+        </div>
+      `
+    }
+
+    it("does not show Thinking indicator when sending to a human partner", async () => {
+      application.stop()
+      setupProductionHTML()
+      application = Application.start()
+      application.register("agent-chat", AgentChatController)
+      await vi.advanceTimersByTimeAsync(0)
+
+      simulateCableConnected()
+
+      inputField().value = "Hey there"
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      inputField().dispatchEvent(event)
+
+      await vi.waitFor(() => {
+        expect(messageTexts()).toContain("Hey there")
+      })
+      expect(hasIndicator()).toBe(false)
+    })
+
+    it("does not show Thinking indicator on page load for human partner", async () => {
+      application.stop()
+      setupProductionHTML()
+      application = Application.start()
+      application.register("agent-chat", AgentChatController)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(hasIndicator()).toBe(false)
+    })
+
+    it("receives messages from the other human via ActionCable", async () => {
+      application.stop()
+      setupProductionHTML()
+      application = Application.start()
+      application.register("agent-chat", AgentChatController)
+      await vi.advanceTimersByTimeAsync(0)
+
+      simulateCableConnected()
+
+      simulateCableReceived({
+        type: "message",
+        content: "Hello from the other side",
+        sender_name: "Other Person",
+        is_agent: false,
+        timestamp: new Date().toISOString(),
+        id: "msg-human-1",
+        sender_id: "user-other",
+      })
+
+      expect(messageTexts()).toContain("Hello from the other side")
+    })
+  })
+
   // --- Rejected subscription ---
 
   describe("rejected subscription", () => {
@@ -520,6 +636,7 @@ describe("AgentChatController", () => {
              data-agent-chat-session-id-value="session-123"
              data-agent-chat-poll-url-value="/chat/123/messages"
              data-agent-chat-turn-running-value="false"
+             data-agent-chat-partner-is-agent-value="true"
              data-agent-chat-has-older-messages-value="true"
              data-agent-chat-oldest-timestamp-value="2026-01-01T00:00:00Z">
           <div data-agent-chat-target="messages" id="chat-messages">

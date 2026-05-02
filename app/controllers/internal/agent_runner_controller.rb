@@ -177,7 +177,7 @@ module Internal
             content: item.content,
             sender_id: item.sender_id,
             sender_name: item.sender&.name,
-            role: item.sender_id == chat_session.ai_agent_id ? "assistant" : "user",
+            role: item.sender&.ai_agent? ? "assistant" : "user",
             timestamp: item.created_at.iso8601,
           }
         when :action
@@ -439,14 +439,17 @@ module Internal
       chat_session = task_run.chat_session
       return unless chat_session
 
+      ai_agent = T.must(task_run.ai_agent)
+      human = chat_session.other_participant(ai_agent)
+
       # Find the last agent message in this session
       last_agent_message = chat_session.chat_messages
-        .where.not(sender_id: chat_session.initiated_by_id)
+        .where(sender_id: ai_agent.id)
         .order(created_at: :desc)
         .first
 
       # Find human messages that arrived after the last agent message
-      scope = chat_session.chat_messages.where(sender_id: chat_session.initiated_by_id)
+      scope = chat_session.chat_messages.where(sender_id: human.id)
       scope = scope.where("created_at > ?", last_agent_message.created_at) if last_agent_message
 
       pending_human_message = scope.order(created_at: :desc).first
@@ -455,8 +458,8 @@ module Internal
       # Create and dispatch a new turn
       new_run = AiAgentTaskRun.create!(
         tenant: task_run.tenant,
-        ai_agent: task_run.ai_agent,
-        initiated_by: chat_session.initiated_by,
+        ai_agent: ai_agent,
+        initiated_by: human,
         task: pending_human_message.content,
         max_steps: 30,
         status: "queued",

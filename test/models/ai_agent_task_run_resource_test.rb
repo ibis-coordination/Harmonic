@@ -431,7 +431,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
   # === ChatMessage resource tracking ===
 
   test "resource with ChatMessage type is valid" do
-    chat_session = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+    chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     msg = chat_session.chat_messages.create!(sender: @ai_agent, content: "Hello!")
 
     resource = AiAgentTaskRunResource.new(
@@ -445,7 +445,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
   end
 
   test "task_run.created_messages returns tracked ChatMessages" do
-    chat_session = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+    chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     msg1 = chat_session.chat_messages.create!(sender: @ai_agent, content: "First response")
     msg2 = chat_session.chat_messages.create!(sender: @ai_agent, content: "Second response")
     # Human message — not tracked
@@ -467,7 +467,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
   end
 
   test "display_title for ChatMessage returns truncated content" do
-    chat_session = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+    chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     msg = chat_session.chat_messages.create!(sender: @ai_agent, content: "Here is a detailed response about the team's recent activity and decisions.")
 
     resource = AiAgentTaskRunResource.create!(

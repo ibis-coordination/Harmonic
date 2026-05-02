@@ -7,7 +7,7 @@ class ChatMessagePresenter
 
   sig { params(message: ChatMessage, chat_session: ChatSession).returns(T::Hash[String, T.untyped]) }
   def self.format(message, chat_session)
-    is_agent = message.sender_id == chat_session.ai_agent_id
+    is_agent = message.sender&.ai_agent? || false
 
     {
       type: "message",
