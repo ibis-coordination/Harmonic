@@ -18,6 +18,11 @@ Sidekiq.configure_server do |_config|
       "class" => "ReminderDeliveryJob",
       "description" => "Deliver due reminders",
     },
+    "deadline_event" => {
+      "cron" => "* * * * *", # Every minute
+      "class" => "DeadlineEventJob",
+      "description" => "Fire events when decision/commitment deadlines pass",
+    },
     "orphaned_task_sweep" => {
       "cron" => "*/10 * * * *", # Every 10 minutes
       "class" => "OrphanedTaskSweepJob",

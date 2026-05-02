@@ -21,5 +21,8 @@ module Yabeda
 
     sig { returns(T.untyped) }
     def users; end
+
+    sig { returns(T.untyped) }
+    def deadline_events; end
   end
 end

@@ -68,6 +68,17 @@ Yabeda.configure do
           tags: [:tenant_id]
   end
 
+  # Deadline event metrics
+  group :deadline_events do
+    counter :fired_total,
+            comment: "Total deadline events fired",
+            tags: [:resource_type]
+
+    counter :errors_total,
+            comment: "Total deadline event processing errors",
+            tags: [:resource_type]
+  end
+
   # Automation metrics
   group :automations do
     counter :runs_total,
