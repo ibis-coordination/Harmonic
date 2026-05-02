@@ -378,7 +378,8 @@ CREATE TABLE public.commitments (
     "limit" integer,
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
-    subtype character varying DEFAULT 'action'::character varying NOT NULL
+    subtype character varying DEFAULT 'action'::character varying NOT NULL,
+    deadline_event_fired_at timestamp(6) without time zone
 );
 
 
@@ -587,7 +588,8 @@ CREATE TABLE public.decisions (
     subtype character varying DEFAULT 'vote'::character varying NOT NULL,
     decision_maker_id uuid,
     lottery_beacon_round bigint,
-    lottery_beacon_randomness character varying
+    lottery_beacon_randomness character varying,
+    deadline_event_fired_at timestamp(6) without time zone
 );
 
 
@@ -8956,6 +8958,8 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260501230351'),
+('20260501224518'),
 ('20260501200240'),
 ('20260501180221'),
 ('20260430190112'),
