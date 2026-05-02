@@ -93,6 +93,11 @@ class AiAgentTaskRun < ApplicationRecord
     Commitment.where(id: ai_agent_task_run_resources.where(resource_type: "Commitment", action_type: "create").select(:resource_id))
   end
 
+  sig { returns(T.untyped) }
+  def created_messages
+    ChatMessage.where(id: ai_agent_task_run_resources.where(resource_type: "ChatMessage", action_type: "message").select(:resource_id))
+  end
+
   sig { returns(T::Array[T.untyped]) }
   def all_resources
     ai_agent_task_run_resources.includes(:resource).map(&:resource)

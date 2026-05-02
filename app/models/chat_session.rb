@@ -4,6 +4,7 @@ class ChatSession < ApplicationRecord
   extend T::Sig
 
   belongs_to :tenant
+  belongs_to :collective
   belongs_to :ai_agent, class_name: "User"
   belongs_to :initiated_by, class_name: "User"
 

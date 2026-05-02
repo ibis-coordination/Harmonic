@@ -49,13 +49,16 @@ module Internal
         if step_type == "message"
           next unless task_run.chat_session_id.present?
 
+          chat_session = T.must(task_run.chat_session)
           chat_message = ChatMessage.create!(
             tenant: task_run.tenant,
+            collective: chat_session.collective,
             chat_session_id: task_run.chat_session_id,
             sender_id: s[:sender_id],
             content: s[:detail]&.dig("content").presence || "(empty)",
             created_at: timestamp,
           )
+          track_chat_message_resource(task_run, chat_message)
           broadcast_chat_message(task_run, chat_message)
         else
           step_record = task_run.agent_session_steps.create!(
@@ -400,6 +403,18 @@ module Internal
       )
     rescue StandardError => e
       Rails.logger.error("[Internal::AgentRunner] Failed to broadcast chat activity: #{e.message}")
+    end
+
+    sig { params(task_run: AiAgentTaskRun, chat_message: ChatMessage).void }
+    def track_chat_message_resource(task_run, chat_message)
+      AiAgentTaskRunResource.create!(
+        ai_agent_task_run: task_run,
+        resource: chat_message,
+        resource_collective_id: chat_message.collective_id,
+        action_type: "message",
+      )
+    rescue StandardError => e
+      Rails.logger.error("[Internal::AgentRunner] Failed to track chat message resource: #{e.message}")
     end
 
     sig { params(task_run: AiAgentTaskRun, chat_message: ChatMessage).void }

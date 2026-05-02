@@ -4,6 +4,7 @@ class ChatMessage < ApplicationRecord
   extend T::Sig
 
   belongs_to :tenant
+  belongs_to :collective
   belongs_to :chat_session
   belongs_to :sender, class_name: "User"
 

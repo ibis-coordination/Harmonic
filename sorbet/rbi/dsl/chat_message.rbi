@@ -408,6 +408,9 @@ class ChatMessage
     sig { params(args: T.untyped, blk: T.untyped).returns(::ChatSession) }
     def build_chat_session(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def build_collective(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_sender(*args, &blk); end
 
@@ -426,11 +429,29 @@ class ChatMessage
     sig { returns(T::Boolean) }
     def chat_session_previously_changed?; end
 
+    sig { returns(T.nilable(::Collective)) }
+    def collective; end
+
+    sig { params(value: T.nilable(::Collective)).void }
+    def collective=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_changed?; end
+
+    sig { returns(T::Boolean) }
+    def collective_previously_changed?; end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::ChatSession) }
     def create_chat_session(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ChatSession) }
     def create_chat_session!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
+    def create_collective!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_sender(*args, &blk); end
@@ -447,6 +468,9 @@ class ChatMessage
     sig { returns(T.nilable(::ChatSession)) }
     def reload_chat_session; end
 
+    sig { returns(T.nilable(::Collective)) }
+    def reload_collective; end
+
     sig { returns(T.nilable(::User)) }
     def reload_sender; end
 
@@ -455,6 +479,9 @@ class ChatMessage
 
     sig { void }
     def reset_chat_session; end
+
+    sig { void }
+    def reset_collective; end
 
     sig { void }
     def reset_sender; end
@@ -679,6 +706,51 @@ class ChatMessage
     def chat_session_id_will_change!; end
 
     sig { returns(::String) }
+    def collective_id; end
+
+    sig { params(value: ::String).returns(::String) }
+    def collective_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_id_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def collective_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def collective_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_id_was; end
+
+    sig { void }
+    def collective_id_will_change!; end
+
+    sig { returns(::String) }
     def content; end
 
     sig { params(value: ::String).returns(::String) }
@@ -862,6 +934,9 @@ class ChatMessage
     def restore_chat_session_id!; end
 
     sig { void }
+    def restore_collective_id!; end
+
+    sig { void }
     def restore_content!; end
 
     sig { void }
@@ -887,6 +962,12 @@ class ChatMessage
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_chat_session_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_collective_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_content; end
@@ -1067,6 +1148,9 @@ class ChatMessage
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_chat_session_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_content?(from: T.unsafe(nil), to: T.unsafe(nil)); end

@@ -166,6 +166,17 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_equal session.id, task_run.chat_session_id
   end
 
+  test "send_message does not create resource tracking for human messages" do
+    create_chat_session
+
+    post "/chat/#{@agent_handle}/message", params: { message: "Hello agent!" }
+    assert_response :ok
+
+    msg = ChatMessage.last
+    resource = AiAgentTaskRunResource.find_by(resource_type: "ChatMessage", resource_id: msg.id)
+    assert_nil resource, "Human-sent messages should not have resource tracking records"
+  end
+
   test "send_message rejects external agent" do
     external_agent = create_ai_agent(parent: @user, name: "External Bot #{SecureRandom.hex(4)}")
     external_agent.update!(agent_configuration: { "mode" => "external" })

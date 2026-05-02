@@ -297,7 +297,8 @@ CREATE TABLE public.chat_messages (
     sender_id uuid NOT NULL,
     content text NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    collective_id uuid NOT NULL
 );
 
 
@@ -312,7 +313,8 @@ CREATE TABLE public.chat_sessions (
     initiated_by_id uuid NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    current_state jsonb DEFAULT '{}'::jsonb NOT NULL
+    current_state jsonb DEFAULT '{}'::jsonb NOT NULL,
+    collective_id uuid NOT NULL
 );
 
 
@@ -3409,6 +3411,13 @@ CREATE INDEX index_chat_messages_on_chat_session_id_and_created_at ON public.cha
 
 
 --
+-- Name: index_chat_messages_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_chat_messages_on_collective_id ON public.chat_messages USING btree (collective_id);
+
+
+--
 -- Name: index_chat_messages_on_sender_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3427,6 +3436,13 @@ CREATE INDEX index_chat_messages_on_tenant_id ON public.chat_messages USING btre
 --
 
 CREATE INDEX index_chat_sessions_on_ai_agent_id ON public.chat_sessions USING btree (ai_agent_id);
+
+
+--
+-- Name: index_chat_sessions_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_chat_sessions_on_collective_id ON public.chat_sessions USING btree (collective_id);
 
 
 --
@@ -8794,11 +8810,27 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: chat_messages fk_rails_cca2776a12; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_messages
+    ADD CONSTRAINT fk_rails_cca2776a12 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
 -- Name: links fk_rails_cd7c2a63d7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.links
     ADD CONSTRAINT fk_rails_cd7c2a63d7 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: chat_sessions fk_rails_cd919ab3a9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.chat_sessions
+    ADD CONSTRAINT fk_rails_cd919ab3a9 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -9040,6 +9072,7 @@ ALTER TABLE ONLY public.representation_session_events
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260502174649'),
 ('20260502074903'),
 ('20260502074842'),
 ('20260502050344'),

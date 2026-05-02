@@ -177,6 +177,14 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_equal @ai_agent.id, msg.sender_id
     assert_equal "Hello from agent", msg.content
     assert_equal cs.id, msg.chat_session_id
+
+    # Verify resource tracking
+    resource_record = AiAgentTaskRunResource.tenant_scoped_only(@tenant.id)
+      .find_by(resource_type: "ChatMessage", resource_id: msg.id)
+    assert_not_nil resource_record, "Expected AiAgentTaskRunResource to be created for ChatMessage"
+    assert_equal @task_run.id, resource_record.ai_agent_task_run_id
+    assert_equal "message", resource_record.action_type
+    assert_equal msg.collective_id, resource_record.resource_collective_id
   end
 
   test "step skips message type for non-chat task runs" do
