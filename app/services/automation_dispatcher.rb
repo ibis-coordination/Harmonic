@@ -21,16 +21,26 @@ class AutomationDispatcher
     end
   end
 
-  # Find all enabled automation rules that match this event
+  # Find all enabled automation rules that match this event.
+  # Rules are filtered by collective access at the database level:
+  # - Collective rules must match the event's collective_id
+  # - Agent/user rules require membership in the event's collective
   sig { params(event: Event).returns(T::Array[AutomationRule]) }
   def self.find_matching_rules(event)
-    # Find all event-triggered rules for this event type
+    collective_id = event.collective_id
+    return [] if collective_id.nil?
+
+    # Find rules with collective access in a single query
     rules = AutomationRule
       .tenant_scoped_only(event.tenant_id)
       .enabled
       .for_event_type(event.event_type)
+      .where(<<~SQL.squish, collective_id: collective_id)
+        (collective_id = :collective_id)
+        OR (ai_agent_id IN (SELECT user_id FROM collective_members WHERE collective_id = :collective_id AND archived_at IS NULL))
+        OR (user_id IN (SELECT user_id FROM collective_members WHERE collective_id = :collective_id AND archived_at IS NULL))
+      SQL
 
-    # Filter by mention filter for agent rules
     rules.select do |rule|
       matches_rule?(event, rule)
     end
@@ -39,8 +49,8 @@ class AutomationDispatcher
   # Check if an event matches a specific rule
   sig { params(event: Event, rule: AutomationRule).returns(T::Boolean) }
   def self.matches_rule?(event, rule)
-    # Collective access check: rules must only fire for events in
-    # collectives the rule owner has access to.
+    # Collective access check (redundant safety net — also enforced at
+    # the query level in find_matching_rules)
     return false unless rule_has_collective_access?(rule, event)
 
     # Check mention filter for agent rules
