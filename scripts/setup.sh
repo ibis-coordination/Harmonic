@@ -47,9 +47,9 @@ docker compose $COMPOSE_FILES exec web bundle exec rake caddyfile:generate CADDY
 
 # Sorbet RBI files are committed to the repo.
 # To regenerate after gem/model changes, run:
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec web bundle exec tapioca gems
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec web bundle exec tapioca dsl
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec web bundle exec tapioca annotations
+#   docker compose exec web bundle exec tapioca gems
+#   docker compose exec web bundle exec tapioca dsl
+#   docker compose exec web bundle exec tapioca annotations
 
 echo -e "${GREEN}Setup completed. Removing containers...${NC}"
 docker compose $COMPOSE_FILES down

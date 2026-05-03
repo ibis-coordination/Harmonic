@@ -17,8 +17,11 @@ Clone the repo or copy these files to your server:
 │       ├── Caddyfile.template  # maintenance mode template
 │       └── maintenance.html    # maintenance page
 └── scripts/
-    ├── generate-caddyfile.sh # manual Caddyfile regeneration (delegates to rake task)
-    └── maintenance.sh        # maintenance mode toggle script
+    ├── deploy.sh             # pull latest images and restart
+    ├── rollback.sh           # rollback to previous image version
+    ├── hotfix-patch.sh       # emergency file-level patching
+    ├── maintenance.sh        # maintenance mode toggle script
+    └── generate-caddyfile.sh # manual Caddyfile regeneration
 ```
 
 After initial setup, a `Caddyfile` will also be present - it is auto-generated from tenant subdomains by `RegenerateCaddyfileJob` (see [Caddyfile Management](#caddyfile-management) below).
@@ -35,10 +38,14 @@ git push --tags
 
 ### Deploy
 
+On the production server:
+
 ```bash
-docker compose -f docker-compose.production.yml pull
-docker compose -f docker-compose.production.yml up -d
-docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate  # if needed
+# Code-only changes
+./scripts/deploy.sh --skip-migrations
+
+# If the release includes database migrations
+./scripts/deploy.sh --with-migrations
 ```
 
 ### Caddyfile Management
@@ -131,10 +138,7 @@ docker compose -f docker-compose.production.yml up -d sidekiq
 ### Rollback
 
 ```bash
-# Edit docker-compose.production.yml to pin version:
-# image: ghcr.io/ibis-coordination/harmonic:v1.2.2
-docker compose -f docker-compose.production.yml pull
-docker compose -f docker-compose.production.yml up -d
+./scripts/rollback.sh v1.11.0
 ```
 
 ## Environment Variables
@@ -231,7 +235,7 @@ From the advisory page, click **"Start a temporary private fork"**. GitHub creat
 - Push branches and open PRs (visible only to advisory collaborators)
 - Iterate on the fix with code review
 
-> **Note:** GitHub Actions do not run on private advisory forks. The workflow files are present in the code but GitHub won't trigger them. The build overlay (`docker-compose.build.yml`) is the only build path for these images — test thoroughly before deploying.
+> **Note:** GitHub Actions do not run on private advisory forks. Run the full test suite manually before deploying: `docker compose exec web bundle exec rails test --verbose 2>&1 > /tmp/test-results.txt`
 
 Clone the private fork locally:
 
@@ -239,46 +243,86 @@ Clone the private fork locally:
 # GitHub provides the clone URL on the advisory page
 git clone https://github.com/ibis-coordination/Harmonic-ghsa-XXXX-XXXX-XXXX.git
 cd Harmonic-ghsa-XXXX-XXXX-XXXX
+
+# Copy .env from the main repo (not checked into git)
+cp ../Harmonic/.env .env
 ```
 
-### 3. Build and Deploy from the Private Fork
+> **Warning:** Do NOT merge PRs on the private fork through GitHub's UI — this may push commits to the public repo before the advisory is published. Instead, merge locally and push to the private fork's main branch. The advisory publish step handles the public merge.
 
-Log in to the container registry, build, and push. Image names come from `docker-compose.production.yml` — the same file used for normal deploys.
+### 3. Deploy the Fix
+
+There are three paths, from fastest to slowest:
+
+#### Option A: Emergency file patch (seconds)
+
+For single-file fixes that need to be live immediately. Run on the **production server**. The fix is temporary — the next image deploy overwrites it.
 
 ```bash
-# Set token without leaking to shell history
-read -rs GITHUB_TOKEN && export GITHUB_TOKEN
-echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$(git config user.email)" --password-stdin
-
-# Build and push
-docker compose -f docker-compose.production.yml -f docker-compose.build.yml build
-docker compose -f docker-compose.production.yml -f docker-compose.build.yml push
+git pull origin main
+./scripts/hotfix-patch.sh app/services/automation_dispatcher.rb
 ```
 
-Then deploy on the production server:
+#### Option B: Tag and let CI build (~5 minutes)
+
+Preferred when the fix is on public `main`. Run on your **dev machine**.
 
 ```bash
-docker compose -f docker-compose.production.yml pull
-docker compose -f docker-compose.production.yml up -d
+git tag v1.X.Y
+git push origin v1.X.Y
+# Wait for CI (~5 min), then on the production server:
+./scripts/deploy.sh
+```
+
+#### Option C: Local cross-compile (~20 minutes)
+
+Fallback when CI is unavailable (e.g., private fork). Run on your **dev machine**.
+
+> **Warning:** Do NOT use `docker compose build` directly on Apple Silicon Macs — this produces ARM images that won't run on AMD64 production servers. Use `hotfix-build.sh` which enforces the correct platform.
+
+```bash
+# Authenticate: see docs/DEPLOYMENT.md "Container Registry Auth" below
+./scripts/hotfix-build.sh v1.X.Y
+# Then on the production server:
+./scripts/deploy.sh
 ```
 
 ### 4. Verify the Fix in Production
 
 Confirm the vulnerability is patched. Run any relevant smoke tests.
 
-### 5. Merge to Public and Publish
+### 5. Publish and Release
 
 Once production is safe:
 
-1. **Publish the advisory** — this merges the private fork into the public repo and makes the advisory visible. Optionally request a CVE and assign a severity (CVSS score).
-2. **Tag a release** on the public repo (e.g., `v1.6.1`) — tag on the merged main branch so CI rebuilds the images through the normal pipeline.
+1. **Publish the advisory** — this makes the advisory visible and credits reporters. Do NOT use the "merge to public repo" option if you've already pushed the fix to main.
+2. **Tag a release** on the public repo (e.g., `v1.6.1`) if not already done in step 3.
 3. **Notify affected users** if the vulnerability could have been exploited before the fix.
+
+### Rollback
+
+On the **production server**:
+
+```bash
+./scripts/rollback.sh v1.11.0
+```
+
+Find available tags at: https://github.com/orgs/ibis-coordination/packages/container/harmonic/versions
+
+### Container Registry Auth
+
+To push images manually (Option C), you need a GitHub Personal Access Token with `write:packages` scope:
+
+```bash
+# Create token at: https://github.com/settings/tokens/new?scopes=write:packages
+read -rs GITHUB_TOKEN && export GITHUB_TOKEN
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$(git config user.email)" --password-stdin
+```
 
 ### Notes
 
 - The private fork is deleted automatically when the advisory is published
-- The merge commit on `main` will show the fix but not the private fork history
-- `docker-compose.build.yml` adds build contexts to the same image definitions in `docker-compose.production.yml` — if you add a new service to production, add its build context to the overlay too
+- CI automatically tags images with version numbers (`:v1.X.Y`) when triggered by git tags, making rollback straightforward
 - See [SECURITY.md](../SECURITY.md) for the vulnerability reporting policy
 
 ## Related Documentation
