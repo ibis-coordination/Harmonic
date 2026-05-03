@@ -5,19 +5,18 @@
 class ChatMessagePresenter
   extend T::Sig
 
-  sig { params(step: AgentSessionStep, chat_session: ChatSession).returns(T::Hash[String, T.untyped]) }
-  def self.format(step, chat_session)
-    content = step.detail&.dig("content")
-    is_agent = step.sender_id == chat_session.ai_agent_id
+  sig { params(message: ChatMessage, chat_session: ChatSession).returns(T::Hash[String, T.untyped]) }
+  def self.format(message, chat_session)
+    is_agent = message.sender&.ai_agent? || false
 
     {
       type: "message",
-      id: step.id,
-      sender_id: step.sender_id,
-      sender_name: step.sender&.name,
-      content: content,
-      content_html: is_agent ? MarkdownRenderer.render(content.to_s, shift_headers: false, display_references: false) : nil,
-      timestamp: step.created_at.iso8601,
+      id: message.id,
+      sender_id: message.sender_id,
+      sender_name: message.sender&.name,
+      content: message.content,
+      content_html: is_agent ? MarkdownRenderer.render(message.content.to_s, shift_headers: false, display_references: false) : nil,
+      timestamp: message.created_at.iso8601,
       is_agent: is_agent,
     }
   end

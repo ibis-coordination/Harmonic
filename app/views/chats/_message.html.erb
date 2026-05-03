@@ -1,0 +1,19 @@
+<% is_mine = message.sender_id == @current_user&.id %>
+<% sender_name = is_mine ? "You" : message.sender&.display_name %>
+<% is_agent_message = message.sender&.ai_agent? %>
+
+<div id="msg-<%= message.id %>" data-chat-message style="display: flex; margin-bottom: 12px; justify-content: <%= is_mine ? 'flex-end' : 'flex-start' %>;">
+  <div style="max-width: 75%; padding: 10px 14px; border-radius: 12px; background: <%= is_mine ? 'var(--color-accent-subtle)' : 'var(--color-canvas-subtle)' %>;">
+    <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px; color: var(--color-fg-muted);">
+      <%= sender_name %>
+    </div>
+    <% if is_agent_message %>
+      <div class="pulse-markdown-content" style="font-size: 14px;"><%= MarkdownRenderer.render(message.content.to_s, shift_headers: false, display_references: false).html_safe %></div>
+    <% else %>
+      <div style="font-size: 14px; white-space: pre-wrap;"><%= message.content %></div>
+    <% end %>
+    <div style="font-size: 11px; color: var(--color-fg-muted); margin-top: 4px;">
+      <%= message.created_at.strftime("%-I:%M %p") %>
+    </div>
+  </div>
+</div>

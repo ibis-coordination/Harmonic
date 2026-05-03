@@ -40,23 +40,39 @@ module Internal
       # concurrent inserts producing duplicate positions.
       next_position = task_run.agent_session_steps.maximum(:position)&.+(1) || 0
 
-      steps.each_with_index do |s, i|
+      step_offset = 0
+      steps.each do |s|
         step_type = s[:type]
         timestamp = s[:timestamp].present? ? Time.parse(s[:timestamp]) : Time.current
 
-        step_record = task_run.agent_session_steps.create!(
-          position: next_position + i,
-          step_type: step_type,
-          detail: s[:detail] || {},
-          created_at: timestamp,
-          sender_id: s[:sender_id],
-        )
-
-        # Broadcast message steps to the chat session channel
+        # Message steps are stored as ChatMessage records, not AgentSessionSteps
         if step_type == "message"
-          broadcast_chat_message(task_run, step_record)
-        elsif step_type == "navigate" || step_type == "execute"
-          broadcast_chat_activity(task_run, step_record)
+          next unless task_run.chat_session_id.present?
+
+          chat_session = T.must(task_run.chat_session)
+          chat_message = ChatMessage.create!(
+            tenant: task_run.tenant,
+            collective: chat_session.collective,
+            chat_session_id: task_run.chat_session_id,
+            sender_id: s[:sender_id],
+            content: s[:detail]&.dig("content").presence || "(empty)",
+            created_at: timestamp,
+          )
+          track_chat_message_resource(task_run, chat_message)
+          broadcast_chat_message(task_run, chat_message)
+        else
+          step_record = task_run.agent_session_steps.create!(
+            position: next_position + step_offset,
+            step_type: step_type,
+            detail: s[:detail] || {},
+            created_at: timestamp,
+            sender_id: s[:sender_id],
+          )
+          step_offset += 1
+
+          if step_type == "navigate" || step_type == "execute"
+            broadcast_chat_activity(task_run, step_record)
+          end
         end
       end
 
@@ -115,44 +131,66 @@ module Internal
         return
       end
 
-      # Get ALL steps across all turns, ordered chronologically
-      all_steps = AgentSessionStep
-        .where(ai_agent_task_run_id: chat_session.task_runs.select(:id))
-        .includes(:sender)
-        .order(:created_at, :position)
+      task_run_ids = chat_session.task_runs.select(:id)
+      max_context_messages = 50
 
+      # Sliding window: find the cutoff timestamp from the Nth-most-recent chat
+      # message, then load only data from that point forward.
+      cutoff_timestamp = chat_session.chat_messages
+        .order(created_at: :desc)
+        .offset(max_context_messages)
+        .limit(1)
+        .pick(:created_at)
+
+      # Load chat messages (from ChatMessage table)
+      msg_scope = chat_session.chat_messages.includes(:sender).order(:created_at)
+      msg_scope = msg_scope.where("created_at >= ?", cutoff_timestamp) if cutoff_timestamp
+      chat_msgs = msg_scope.to_a
+
+      # Load action steps (navigate/execute from AgentSessionStep) for interleaving
+      action_scope = AgentSessionStep
+        .where(ai_agent_task_run_id: task_run_ids, step_type: %w[navigate execute])
+        .order(:created_at, :position)
+      action_scope = action_scope.where("created_at >= ?", cutoff_timestamp) if cutoff_timestamp
+      action_steps = action_scope.to_a
+
+      # Merge messages and action steps chronologically
       messages = []
       action_buffer = []
+      all_items = (chat_msgs.map { |m| [:message, m] } + action_steps.map { |s| [:action, s] })
+        .sort_by { |_type, item| item.created_at }
 
-      all_steps.each do |step|
-        case step.step_type
-        when "message"
-          # Flush any accumulated action summary before the message
+      T.unsafe(all_items).each do |type, item|
+        case type
+        when :message
+          # Flush accumulated action summary before the message
           if action_buffer.any?
             messages << {
               content: "[Actions taken: #{action_buffer.join(", ")}]",
               role: "system",
-              timestamp: step.created_at.iso8601,
+              timestamp: item.created_at.iso8601,
             }
             action_buffer = []
           end
 
           messages << {
-            content: step.detail&.dig("content"),
-            sender_id: step.sender_id,
-            sender_name: step.sender&.name,
-            role: step.sender_id == chat_session.ai_agent_id ? "assistant" : "user",
-            timestamp: step.created_at.iso8601,
+            content: item.content,
+            sender_id: item.sender_id,
+            sender_name: item.sender&.name,
+            role: item.sender&.ai_agent? ? "assistant" : "user",
+            timestamp: item.created_at.iso8601,
           }
-        when "navigate"
-          path = step.detail&.dig("path")
-          action_buffer << "navigated to #{path}" if path.present?
-        when "execute"
-          action = step.detail&.dig("action")
-          success = step.detail&.dig("success")
-          action_buffer << "#{action} (#{success ? "success" : "failed"})" if action.present?
+        when :action
+          case item.step_type
+          when "navigate"
+            path = item.detail&.dig("path")
+            action_buffer << "navigated to #{path}" if path.present?
+          when "execute"
+            action_name = item.detail&.dig("action")
+            success = item.detail&.dig("success")
+            action_buffer << "#{action_name} (#{success ? "success" : "failed"})" if action_name.present?
+          end
         end
-        # Skip think, done, scratchpad, error, security_warning steps
       end
 
       # Flush any trailing action summary
@@ -160,7 +198,7 @@ module Internal
         messages << {
           content: "[Actions taken: #{action_buffer.join(", ")}]",
           role: "system",
-          timestamp: all_steps.last&.created_at&.iso8601,
+          timestamp: all_items.last&.last&.created_at&.iso8601,
         }
       end
 
@@ -367,14 +405,26 @@ module Internal
       Rails.logger.error("[Internal::AgentRunner] Failed to broadcast chat activity: #{e.message}")
     end
 
-    sig { params(task_run: AiAgentTaskRun, step_record: AgentSessionStep).void }
-    def broadcast_chat_message(task_run, step_record)
+    sig { params(task_run: AiAgentTaskRun, chat_message: ChatMessage).void }
+    def track_chat_message_resource(task_run, chat_message)
+      AiAgentTaskRunResource.create!(
+        ai_agent_task_run: task_run,
+        resource: chat_message,
+        resource_collective_id: chat_message.collective_id,
+        action_type: "message",
+      )
+    rescue StandardError => e
+      Rails.logger.error("[Internal::AgentRunner] Failed to track chat message resource: #{e.message}")
+    end
+
+    sig { params(task_run: AiAgentTaskRun, chat_message: ChatMessage).void }
+    def broadcast_chat_message(task_run, chat_message)
       chat_session = task_run.chat_session
       return unless chat_session
 
       ChatSessionChannel.broadcast_to(
         chat_session,
-        ChatMessagePresenter.format(step_record, chat_session),
+        ChatMessagePresenter.format(chat_message, chat_session),
       )
     rescue StandardError => e
       Rails.logger.error("[Internal::AgentRunner] Failed to broadcast chat message: #{e.message}")
@@ -389,29 +439,28 @@ module Internal
       chat_session = task_run.chat_session
       return unless chat_session
 
-      # Find the last agent message in this turn
-      last_agent_step = task_run.agent_session_steps
-        .where(step_type: "message")
-        .where.not(sender_id: chat_session.initiated_by_id)
-        .order(position: :desc)
+      ai_agent = T.must(task_run.ai_agent)
+      human = chat_session.other_participant(ai_agent)
+
+      # Find the last agent message in this session
+      last_agent_message = chat_session.chat_messages
+        .where(sender_id: ai_agent.id)
+        .order(created_at: :desc)
         .first
 
       # Find human messages that arrived after the last agent message
-      scope = task_run.agent_session_steps.where(
-        step_type: "message",
-        sender_id: chat_session.initiated_by_id,
-      )
-      scope = scope.where("position > ?", last_agent_step.position) if last_agent_step
+      scope = chat_session.chat_messages.where(sender_id: human.id)
+      scope = scope.where("created_at > ?", last_agent_message.created_at) if last_agent_message
 
-      pending_human_message = scope.order(position: :desc).first
+      pending_human_message = scope.order(created_at: :desc).first
       return unless pending_human_message
 
       # Create and dispatch a new turn
       new_run = AiAgentTaskRun.create!(
         tenant: task_run.tenant,
-        ai_agent: task_run.ai_agent,
-        initiated_by: chat_session.initiated_by,
-        task: pending_human_message.detail&.dig("content") || "",
+        ai_agent: ai_agent,
+        initiated_by: human,
+        task: pending_human_message.content,
         max_steps: 30,
         status: "queued",
         mode: "chat_turn",

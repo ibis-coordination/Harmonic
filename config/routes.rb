@@ -35,6 +35,15 @@ Rails.application.routes.draw do
     get "dev/styleguide" => "dev#styleguide"
   end
 
+  # Unified chat — top-level entry point for all agent conversations
+  get  'chat'                                      => 'chats#index', as: 'chats'
+  get  'chat/:handle'                              => 'chats#show', as: 'chat'
+  post 'chat/:handle/message'                      => 'chats#send_message', as: 'chat_message'
+  get  'chat/:handle/messages'                     => 'chats#poll_messages', as: 'chat_poll'
+  get  'chat/:handle/actions'                      => 'chats#actions_index'
+  get  'chat/:handle/actions/send_message'         => 'chats#describe_send_message'
+  post 'chat/:handle/actions/send_message'         => 'chats#execute_send_message'
+
   # AI Agents management - consolidated under /ai-agents
   get 'ai-agents' => 'ai_agents#index', as: 'ai_agents'
   get 'ai-agents/new' => 'ai_agents#new', as: 'new_ai_agent'
@@ -47,12 +56,6 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/settings/actions' => 'ai_agents#settings_actions_index'
   get 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#describe_update_ai_agent'
   post 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#execute_update_ai_agent'
-  # AI Agent chat
-  get  'ai-agents/:handle/chat'                        => 'ai_agent_chats#index', as: 'ai_agent_chats'
-  post 'ai-agents/:handle/chat'                        => 'ai_agent_chats#create', as: 'ai_agent_chat_create'
-  get  'ai-agents/:handle/chat/:session_id'            => 'ai_agent_chats#show', as: 'ai_agent_chat'
-  post 'ai-agents/:handle/chat/:session_id/message'    => 'ai_agent_chats#send_message', as: 'ai_agent_chat_message'
-  get  'ai-agents/:handle/chat/:session_id/messages'   => 'ai_agent_chats#poll_messages', as: 'ai_agent_chat_poll'
 
   get 'ai-agents/:handle/run' => 'ai_agents#run_task', as: 'ai_agent_run_task'
   post 'ai-agents/:handle/run' => 'ai_agents#execute_task', as: 'ai_agent_execute_task'

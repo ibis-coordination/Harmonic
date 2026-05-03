@@ -156,7 +156,38 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_equal [0, 1, 2], positions
   end
 
-  test "step creates message step with sender_id" do
+  test "step creates ChatMessage for message type in chat mode" do
+    cs = with_tenant_scope do
+      ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    end
+    @task_run.update!(status: "running", started_at: Time.current, mode: "chat_turn", chat_session: cs)
+
+    body = {
+      steps: [
+        { type: "message", detail: { content: "Hello from agent" }, timestamp: Time.current.iso8601, sender_id: @ai_agent.id },
+      ],
+    }.to_json
+
+    assert_difference "ChatMessage.count", 1 do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+
+    msg = ChatMessage.last
+    assert_equal @ai_agent.id, msg.sender_id
+    assert_equal "Hello from agent", msg.content
+    assert_equal cs.id, msg.chat_session_id
+
+    # Verify resource tracking
+    resource_record = AiAgentTaskRunResource.tenant_scoped_only(@tenant.id)
+      .find_by(resource_type: "ChatMessage", resource_id: msg.id)
+    assert_not_nil resource_record, "Expected AiAgentTaskRunResource to be created for ChatMessage"
+    assert_equal @task_run.id, resource_record.ai_agent_task_run_id
+    assert_equal "message", resource_record.action_type
+    assert_equal msg.collective_id, resource_record.resource_collective_id
+  end
+
+  test "step skips message type for non-chat task runs" do
     @task_run.update!(status: "running", started_at: Time.current)
 
     body = {
@@ -165,18 +196,15 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
       ],
     }.to_json
 
-    post step_url, params: body, headers: signed_headers(body)
+    assert_no_difference ["ChatMessage.count", "AgentSessionStep.count"] do
+      post step_url, params: body, headers: signed_headers(body)
+    end
     assert_response :success
-
-    step_row = @task_run.agent_session_steps.last
-    assert_equal "message", step_row.step_type
-    assert_equal @ai_agent.id, step_row.sender_id
-    assert_equal "Hello from agent", step_row.detail["content"]
   end
 
   test "step broadcasts message steps via ActionCable for chat sessions" do
     with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -197,9 +225,86 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "step handles empty message content gracefully" do
+    cs = with_tenant_scope do
+      ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    end
+    @task_run.update!(status: "running", started_at: Time.current, mode: "chat_turn", chat_session: cs)
+
+    body = {
+      steps: [
+        { type: "message", detail: {}, timestamp: Time.current.iso8601, sender_id: @ai_agent.id },
+      ],
+    }.to_json
+
+    assert_difference "ChatMessage.count", 1 do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+
+    msg = ChatMessage.last
+    assert_equal "(empty)", msg.content
+  end
+
+  test "step broadcasts ChatMessage with correct format via ActionCable" do
+    cs = with_tenant_scope do
+      ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    end
+    @task_run.update!(status: "running", started_at: Time.current, mode: "chat_turn", chat_session: cs)
+
+    body = {
+      steps: [
+        { type: "message", detail: { content: "Hello!" }, timestamp: Time.current.iso8601, sender_id: @ai_agent.id },
+      ],
+    }.to_json
+
+    stream = ChatSessionChannel.broadcasting_for(cs)
+
+    assert_broadcasts(stream, 1) do
+      post step_url, params: body, headers: signed_headers(body)
+    end
+    assert_response :success
+
+    # Verify the broadcast payload shape matches what the frontend expects
+    msg = ChatMessage.last
+    broadcast = ActiveSupport::JSON.decode(broadcasts(stream).last)
+    assert_equal "message", broadcast["type"]
+    assert_equal msg.id, broadcast["id"]
+    assert_equal @ai_agent.id, broadcast["sender_id"]
+    assert_equal "Hello!", broadcast["content"]
+    assert_equal true, broadcast["is_agent"]
+    assert_not_nil broadcast["timestamp"]
+  end
+
+  test "step with mixed batch creates contiguous positions for non-message steps" do
+    cs = with_tenant_scope do
+      ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    end
+    @task_run.update!(status: "running", started_at: Time.current, mode: "chat_turn", chat_session: cs)
+
+    body = {
+      steps: [
+        { type: "navigate", detail: { path: "/home" }, timestamp: Time.current.iso8601 },
+        { type: "message", detail: { content: "Done!" }, timestamp: Time.current.iso8601, sender_id: @ai_agent.id },
+        { type: "execute", detail: { action: "create_note", success: true }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    # 2 AgentSessionSteps (navigate + execute), 1 ChatMessage
+    assert_equal 2, @task_run.agent_session_steps.count
+    assert_equal 1, ChatMessage.where(chat_session: cs).count
+
+    # Positions should be contiguous (0, 1) with no gap from the skipped message
+    positions = @task_run.agent_session_steps.order(:position).pluck(:position)
+    assert_equal [0, 1], positions
+  end
+
   test "step does not broadcast non-message steps" do
     with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -350,29 +455,20 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   # --- Chat History ---
 
-  test "chat_history returns message steps for a chat session" do
+  test "chat_history returns messages for a chat session" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(
-        tenant: @tenant,
-        ai_agent: @ai_agent,
-        initiated_by: @user,
-      )
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
       run1 = AiAgentTaskRun.create!(
         tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
         task: "Hello", max_steps: 30, status: "completed",
         mode: "chat_turn", chat_session: cs,
       )
-      run1.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
-      run1.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/home" })
-      run1.agent_session_steps.create!(position: 2, step_type: "message", detail: { content: "Hi there!" }, sender: @ai_agent)
+      cs.chat_messages.create!(sender: @user, content: "Hello", created_at: 3.minutes.ago)
+      run1.agent_session_steps.create!(position: 0, step_type: "navigate", detail: { path: "/home" }, created_at: 2.minutes.ago)
+      cs.chat_messages.create!(sender: @ai_agent, content: "Hi there!", created_at: 1.minute.ago)
 
-      run2 = AiAgentTaskRun.create!(
-        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-        task: "What's new?", max_steps: 30, status: "completed",
-        mode: "chat_turn", chat_session: cs,
-      )
-      run2.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "What's new?" }, sender: @user)
+      cs.chat_messages.create!(sender: @user, content: "What's new?", created_at: Time.current)
 
       cs
     end
@@ -396,18 +492,18 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "chat_history includes action summaries between messages" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
       run = AiAgentTaskRun.create!(
         tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
         task: "Do stuff", max_steps: 30, status: "completed",
         mode: "chat_turn", chat_session: cs,
       )
-      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Do stuff" }, sender: @user)
-      run.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/collectives/team" })
-      run.agent_session_steps.create!(position: 2, step_type: "execute", detail: { action: "create_note", success: true })
-      run.agent_session_steps.create!(position: 3, step_type: "navigate", detail: { path: "/collectives/team/n/abc" })
-      run.agent_session_steps.create!(position: 4, step_type: "message", detail: { content: "Done! Created a note." }, sender: @ai_agent)
+      cs.chat_messages.create!(sender: @user, content: "Do stuff", created_at: 5.minutes.ago)
+      run.agent_session_steps.create!(position: 0, step_type: "navigate", detail: { path: "/collectives/team" }, created_at: 4.minutes.ago)
+      run.agent_session_steps.create!(position: 1, step_type: "execute", detail: { action: "create_note", success: true }, created_at: 3.minutes.ago)
+      run.agent_session_steps.create!(position: 2, step_type: "navigate", detail: { path: "/collectives/team/n/abc" }, created_at: 2.minutes.ago)
+      cs.chat_messages.create!(sender: @ai_agent, content: "Done! Created a note.", created_at: 1.minute.ago)
 
       cs
     end
@@ -431,15 +527,15 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "chat_history flushes trailing action buffer" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
       run = AiAgentTaskRun.create!(
         tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
         task: "Navigate", max_steps: 30, status: "failed",
         mode: "chat_turn", chat_session: cs,
       )
-      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Navigate somewhere" }, sender: @user)
-      run.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/collectives/team" })
+      cs.chat_messages.create!(sender: @user, content: "Navigate somewhere", created_at: 2.minutes.ago)
+      run.agent_session_steps.create!(position: 0, step_type: "navigate", detail: { path: "/collectives/team" }, created_at: 1.minute.ago)
       # No agent message — task failed mid-navigation
 
       cs
@@ -464,26 +560,16 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "complete auto-dispatches next turn when queued human messages exist" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(
-        tenant: @tenant,
-        ai_agent: @ai_agent,
-        initiated_by: @user,
-      )
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
       )
       # Agent's response
-      @task_run.agent_session_steps.create!(
-        position: 0, step_type: "message",
-        detail: { content: "Here's what I found" }, sender: @ai_agent,
-      )
+      cs.chat_messages.create!(sender: @ai_agent, content: "Here's what I found", created_at: 2.minutes.ago)
       # Human sent a follow-up while the turn was running
-      @task_run.agent_session_steps.create!(
-        position: 1, step_type: "message",
-        detail: { content: "Also check the decisions" }, sender: @user,
-      )
+      cs.chat_messages.create!(sender: @user, content: "Also check the decisions", created_at: 1.minute.ago)
 
       cs
     end
@@ -509,11 +595,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "complete saves current_state for chat_turn tasks" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(
-        tenant: @tenant,
-        ai_agent: @ai_agent,
-        initiated_by: @user,
-      )
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -556,18 +638,14 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "chat_history returns current_state" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(
-        tenant: @tenant,
-        ai_agent: @ai_agent,
-        initiated_by: @user,
-        current_state: { "current_path" => "/collectives/chariot" },
-      )
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+      cs.update!(current_state: { "current_path" => "/collectives/chariot" })
       run = AiAgentTaskRun.create!(
         tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
         task: "Hello", max_steps: 30, status: "completed",
         mode: "chat_turn", chat_session: cs,
       )
-      run.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
+      cs.chat_messages.create!(sender: @user, content: "Hello")
       cs
     end
 
@@ -595,7 +673,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "claim broadcasts working status for chat_turn tasks" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(mode: "chat_turn", chat_session: cs)
       cs
     end
@@ -616,7 +694,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "step does not broadcast activity during setup (before first think step)" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -640,7 +718,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "step broadcasts activity for navigate steps after setup" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -667,7 +745,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "step broadcasts activity for execute steps after setup" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -692,7 +770,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "complete broadcasts completed status for chat_turn tasks" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -715,7 +793,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "complete broadcasts error status when task failed for chat_turn" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -738,7 +816,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "fail_task broadcasts error status for chat_turn tasks" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: cs,
@@ -758,7 +836,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "fail_task broadcasts error for queued chat_turn (preflight failure)" do
     chat_session = with_tenant_scope do
-      cs = ChatSession.create!(tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user)
+      cs = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
       @task_run.update!(
         status: "queued",
         mode: "chat_turn", chat_session: cs,
@@ -787,20 +865,13 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   test "complete does not auto-dispatch when no queued human messages" do
     with_tenant_scope do
-      chat_session = ChatSession.create!(
-        tenant: @tenant,
-        ai_agent: @ai_agent,
-        initiated_by: @user,
-      )
+      chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
       @task_run.update!(
         status: "running", started_at: Time.current,
         mode: "chat_turn", chat_session: chat_session,
       )
-      @task_run.agent_session_steps.create!(
-        position: 0, step_type: "message",
-        detail: { content: "Done" }, sender: @ai_agent,
-      )
+      chat_session.chat_messages.create!(sender: @ai_agent, content: "Done")
     end
 
     body = {

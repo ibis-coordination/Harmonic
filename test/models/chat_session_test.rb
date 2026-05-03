@@ -13,49 +13,91 @@ class ChatSessionTest < ActiveSupport::TestCase
       user_type: "ai_agent",
       parent_id: @user.id,
     )
+
+    @other_user = User.create!(
+      name: "Other Human",
+      email: "other-human-#{SecureRandom.hex(4)}@example.com",
+    )
   end
 
   test "valid chat session with required fields" do
+    one, two = [@ai_agent.id, @user.id].sort
     session = ChatSession.new(
       tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
+      user_one_id: one,
+      user_two_id: two,
     )
     assert session.valid?
   end
 
-  test "auto-sets tenant_id from thread context" do
-    session = ChatSession.new(
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+  test "auto-sets tenant_id and collective_id from thread context" do
+    one, two = [@ai_agent.id, @user.id].sort
+    session = ChatSession.new(user_one_id: one, user_two_id: two)
     assert session.valid?
+    assert_equal @tenant.id, session.tenant_id
+    assert_equal @collective.id, session.collective_id
+  end
+
+  test "requires user_one" do
+    session = ChatSession.new(tenant: @tenant, user_two_id: @user.id)
+    assert_not session.valid?
+  end
+
+  test "requires user_two" do
+    session = ChatSession.new(tenant: @tenant, user_one_id: @ai_agent.id)
+    assert_not session.valid?
+  end
+
+  test "find_or_create_between creates session on first call" do
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    assert_not_nil session
+    assert session.participant?(@ai_agent)
+    assert session.participant?(@user)
     assert_equal @tenant.id, session.tenant_id
   end
 
-  test "requires ai_agent" do
-    session = ChatSession.new(
-      tenant: @tenant,
-      initiated_by: @user,
-    )
-    assert_not session.valid?
+  test "find_or_create_between returns existing session on second call" do
+    session1 = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    session2 = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    assert_equal session1.id, session2.id
   end
 
-  test "requires initiated_by" do
-    session = ChatSession.new(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-    )
-    assert_not session.valid?
+  test "find_or_create_between returns same session regardless of argument order" do
+    session1 = ChatSession.find_or_create_between(user_a: @user, user_b: @ai_agent, tenant: @tenant)
+    session2 = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    assert_equal session1.id, session2.id
+  end
+
+  test "find_or_create_between works for two humans" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @other_user, tenant: @tenant)
+    assert_not_nil session
+    assert session.participant?(@user)
+    assert session.participant?(@other_user)
+  end
+
+  test "other_participant returns the other user" do
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    assert_equal @user, session.other_participant(@ai_agent)
+    assert_equal @ai_agent, session.other_participant(@user)
+  end
+
+  test "participant? returns true for participants and false for non-participants" do
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    assert session.participant?(@ai_agent)
+    assert session.participant?(@user)
+    assert_not session.participant?(@other_user)
+  end
+
+  test "uniqueness constraint prevents duplicate sessions" do
+    ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    one, two = [@ai_agent.id, @user.id].sort
+    assert_raises(ActiveRecord::RecordInvalid) do
+      ChatSession.create!(tenant: @tenant, user_one_id: one, user_two_id: two)
+    end
   end
 
   test "has_many task_runs via chat_session_id" do
-    session = ChatSession.create!(
-      tenant: @tenant,
-
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
     task_run = AiAgentTaskRun.create!(
       tenant: @tenant,
@@ -72,63 +114,54 @@ class ChatSessionTest < ActiveSupport::TestCase
     assert_equal task_run, session.task_runs.first
   end
 
-  test "messages returns message steps across all turns" do
-    session = ChatSession.create!(
-      tenant: @tenant,
+  test "messages returns chat messages in chronological order" do
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
-
-    run1 = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-      task: "Hello", max_steps: 30, status: "completed",
-      mode: "chat_turn", chat_session: session,
-    )
-    run1.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "Hello" }, sender: @user)
-    run1.agent_session_steps.create!(position: 1, step_type: "navigate", detail: { path: "/home" })
-    run1.agent_session_steps.create!(position: 2, step_type: "message", detail: { content: "Hi there!" }, sender: @ai_agent)
-
-    run2 = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
-      task: "What's new?", max_steps: 30, status: "completed",
-      mode: "chat_turn", chat_session: session,
-    )
-    run2.agent_session_steps.create!(position: 0, step_type: "message", detail: { content: "What's new?" }, sender: @user)
-    run2.agent_session_steps.create!(position: 1, step_type: "message", detail: { content: "Not much!" }, sender: @ai_agent)
+    session.chat_messages.create!(sender: @user, content: "Hello", created_at: 3.minutes.ago)
+    session.chat_messages.create!(sender: @ai_agent, content: "Hi there!", created_at: 2.minutes.ago)
+    session.chat_messages.create!(sender: @user, content: "What's new?", created_at: 1.minute.ago)
+    session.chat_messages.create!(sender: @ai_agent, content: "Not much!", created_at: Time.current)
 
     messages = session.messages
     assert_equal 4, messages.count
-    assert messages.all? { |s| s.step_type == "message" }
+    assert messages.all? { |m| m.is_a?(ChatMessage) }
+    assert_equal "Hello", messages.first.content
+    assert_equal "Not much!", messages.last.content
+  end
+
+  test "self-chat creates a valid session" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    assert_not_nil session
+    assert session.persisted?
+    assert session.participant?(@user)
+  end
+
+  test "self-chat returns the same user as other_participant" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    assert_equal @user, session.other_participant(@user)
+  end
+
+  test "self-chat allows saving messages" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    msg = session.chat_messages.create!(sender: @user, content: "Note to self")
+    assert msg.persisted?
+    assert_equal "Note to self", session.messages.last.content
   end
 
   test "current_state defaults to empty hash" do
-    session = ChatSession.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     assert_equal({}, session.current_state)
   end
 
   test "current_state persists navigation path" do
-    session = ChatSession.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     session.update!(current_state: { "current_path" => "/collectives/team/n/abc" })
     session.reload
     assert_equal "/collectives/team/n/abc", session.current_state["current_path"]
   end
 
   test "scoped to tenant" do
-    ChatSession.create!(
-      tenant: @tenant,
-
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-    )
+    ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
 
     other_user = create_user(email: "other-#{SecureRandom.hex(4)}@example.com")
     other_tenant = create_tenant(subdomain: "other-chat-#{SecureRandom.hex(4)}", name: "Other")

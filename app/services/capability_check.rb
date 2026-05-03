@@ -110,6 +110,8 @@ module CapabilityCheck
     "end_representation",
     # Content reporting
     "report_content",
+    # Chat
+    "send_message",
   ].freeze
 
   # Check if a user has capability for an action

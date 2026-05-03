@@ -71,32 +71,19 @@ class AgentSessionStepTest < ActiveSupport::TestCase
         step_type: type,
         detail: {},
       )
-      # message type requires sender
-      step.sender = @user if type == "message"
       assert step.valid?, "Expected step_type '#{type}' to be valid, got errors: #{step.errors.full_messages}"
     end
   end
 
-  test "message step requires sender" do
+  test "message is not a valid step type" do
     step = AgentSessionStep.new(
       ai_agent_task_run: @task_run,
       position: 0,
       step_type: "message",
-      detail: { content: "Hello" },
+      detail: {},
     )
     assert_not step.valid?
-    assert_includes step.errors[:sender], "can't be blank"
-  end
-
-  test "message step is valid with sender" do
-    step = AgentSessionStep.new(
-      ai_agent_task_run: @task_run,
-      position: 0,
-      step_type: "message",
-      detail: { content: "Hello" },
-      sender: @user,
-    )
-    assert step.valid?
+    assert_includes step.errors[:step_type], "is not included in the list"
   end
 
   test "non-message step does not require sender" do
@@ -153,16 +140,6 @@ class AgentSessionStepTest < ActiveSupport::TestCase
     assert_equal({}, hash["detail"])
   end
 
-  test "message_step? returns true for message type" do
-    step = AgentSessionStep.new(step_type: "message")
-    assert step.message_step?
-  end
-
-  test "message_step? returns false for other types" do
-    step = AgentSessionStep.new(step_type: "navigate")
-    assert_not step.message_step?
-  end
-
   test "chronological scope orders by position" do
     AgentSessionStep.create!(ai_agent_task_run: @task_run, position: 2, step_type: "done", detail: {})
     AgentSessionStep.create!(ai_agent_task_run: @task_run, position: 0, step_type: "navigate", detail: {})
@@ -170,17 +147,6 @@ class AgentSessionStepTest < ActiveSupport::TestCase
 
     steps = @task_run.agent_session_steps.chronological
     assert_equal [0, 1, 2], steps.map(&:position)
-  end
-
-  test "messages scope returns only message steps" do
-    AgentSessionStep.create!(ai_agent_task_run: @task_run, position: 0, step_type: "navigate", detail: {})
-    AgentSessionStep.create!(ai_agent_task_run: @task_run, position: 1, step_type: "message", detail: { content: "Hi" }, sender: @user)
-    AgentSessionStep.create!(ai_agent_task_run: @task_run, position: 2, step_type: "think", detail: {})
-    AgentSessionStep.create!(ai_agent_task_run: @task_run, position: 3, step_type: "message", detail: { content: "Done" }, sender: @ai_agent)
-
-    messages = @task_run.agent_session_steps.messages
-    assert_equal 2, messages.count
-    assert messages.all? { |s| s.step_type == "message" }
   end
 
   test "task run association with dependent destroy" do

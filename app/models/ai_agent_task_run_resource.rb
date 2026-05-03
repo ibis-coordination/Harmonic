@@ -10,10 +10,10 @@ class AiAgentTaskRunResource < ApplicationRecord
   belongs_to :resource_collective, class_name: "Collective"
 
   validates :resource_type, inclusion: {
-    in: ["Note", "Decision", "Commitment", "Option", "Vote", "CommitmentParticipant", "NoteHistoryEvent"],
+    in: ["Note", "Decision", "Commitment", "Option", "Vote", "CommitmentParticipant", "NoteHistoryEvent", "ChatMessage"],
   }
   validates :action_type, inclusion: {
-    in: ["create", "update", "confirm", "add_options", "vote", "commit"],
+    in: ["create", "update", "confirm", "add_options", "vote", "commit", "message"],
   }
   validate :resource_collective_matches_resource
 
@@ -73,6 +73,8 @@ class AiAgentTaskRunResource < ApplicationRecord
       commitment = Commitment.tenant_scoped_only(tenant_id).find_by(id: resource.commitment_id)
       commitment_title = commitment&.title || "unknown commitment"
       "Joined: #{commitment_title.truncate(50)}"
+    when ChatMessage
+      "Message: #{resource.content.to_s.truncate(50)}"
     else
       "#{resource.class.name} #{resource.id.to_s[0..7]}"
     end

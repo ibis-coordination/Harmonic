@@ -55,6 +55,10 @@
         </li>
         <% if @current_tenant&.ai_agents_enabled? %>
           <li>
+            <%= octicon 'comment-discussion' %>
+            <a href="/chat">Chat</a>
+          </li>
+          <li>
             <%= octicon 'command-palette' %>
             <a href="/ai-agents">AI Agents</a>
           </li>

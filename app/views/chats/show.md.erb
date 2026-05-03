@@ -1,0 +1,17 @@
+# Chat with <%= @partner.display_name %>
+
+<% if @messages.empty? %>
+_No messages yet. Send a message to start the conversation._
+<% else %>
+## Messages
+
+<% @messages.each do |message| %>
+<% is_mine = message.sender_id == @current_user&.id %>
+**<%= is_mine ? "You" : message.sender&.display_name || "Unknown" %>** (<%= message.created_at.strftime("%Y-%m-%d %H:%M") %>):
+<%= message.content %>
+
+<% end %>
+<% if @has_older_messages %>
+_Showing most recent <%= @messages.length %> messages. Older messages are available in the conversation history._
+<% end %>
+<% end %>
