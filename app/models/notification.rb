@@ -3,7 +3,7 @@
 class Notification < ApplicationRecord
   extend T::Sig
 
-  NOTIFICATION_TYPES = %w[mention comment participation system reminder].freeze
+  NOTIFICATION_TYPES = %w[mention comment participation system reminder chat_message].freeze
 
   belongs_to :tenant
   belongs_to :event, optional: true

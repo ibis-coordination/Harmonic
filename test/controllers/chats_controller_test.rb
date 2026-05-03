@@ -638,4 +638,160 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     msg = ChatMessage.order(created_at: :desc).find_by(content: "test auth")
     assert_equal @user.id, msg.sender_id, "sender must be the authenticated user, not spoofable"
   end
+
+  # --- chat notifications ---
+
+  test "sending a message creates a notification for the recipient" do
+    post "/chat/#{@agent_handle}/message", params: { message: "Hey agent" }
+    assert_response :ok
+
+    with_tenant_scope do
+      recipients = NotificationRecipient.where(user: @ai_agent).in_app.unread
+      assert_equal 1, recipients.count
+      notif = recipients.first.notification
+      assert_equal "chat_message", notif.notification_type
+      assert_includes notif.url, "/chat/"
+    end
+  end
+
+  test "multiple messages from the same sender create only one notification" do
+    3.times do |i|
+      post "/chat/#{@agent_handle}/message", params: { message: "Message #{i}" }
+      assert_response :ok
+    end
+
+    with_tenant_scope do
+      recipients = NotificationRecipient.where(user: @ai_agent).in_app.unread
+      assert_equal 1, recipients.count, "should be one notification, not one per message"
+    end
+  end
+
+  test "replying auto-dismisses the notification from the other participant" do
+    other_human = create_user(email: "notif-test-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    # Other human sends a message to current user
+    sign_in_as(other_human, tenant: @tenant)
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+    post "/chat/#{my_handle}/message", params: { message: "Hey!" }
+    assert_response :ok
+
+    # Current user should have a notification
+    with_tenant_scope do
+      assert_equal 1, NotificationRecipient.where(user: @user).in_app.unread.count
+    end
+
+    # Current user replies
+    sign_in_as(@user, tenant: @tenant)
+    post "/chat/#{other_handle}/message", params: { message: "Hey back!" }
+    assert_response :ok
+
+    # Notification from other_human should be dismissed
+    with_tenant_scope do
+      assert_equal 0, NotificationRecipient.where(user: @user).in_app.unread.count,
+        "replying should auto-dismiss notification from the other participant"
+    end
+  end
+
+  test "notification URL points to the sender's chat page" do
+    post "/chat/#{@agent_handle}/message", params: { message: "Check URL" }
+    assert_response :ok
+
+    with_tenant_scope do
+      my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+      recipient = NotificationRecipient.where(user: @ai_agent).in_app.unread.first
+      assert_equal "/chat/#{my_handle}", recipient.notification.url
+    end
+  end
+
+  test "replying only dismisses notifications from that specific sender" do
+    hex = SecureRandom.hex(4)
+    alice = create_user(name: "Alice #{hex}", email: "alice-#{hex}@example.com")
+    bob = create_user(name: "Bob #{hex}", email: "bob-#{hex}@example.com")
+    @tenant.add_user!(alice)
+    @tenant.add_user!(bob)
+    @collective.add_user!(alice)
+    @collective.add_user!(bob)
+    alice_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: alice).handle
+    bob_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: bob).handle
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    # Both Alice and Bob message the current user
+    sign_in_as(alice, tenant: @tenant)
+    post "/chat/#{my_handle}/message", params: { message: "Hi from Alice" }
+
+    sign_in_as(bob, tenant: @tenant)
+    post "/chat/#{my_handle}/message", params: { message: "Hi from Bob" }
+
+    # Current user has two notifications
+    with_tenant_scope do
+      assert_equal 2, NotificationRecipient.where(user: @user).in_app.unread.count
+    end
+
+    # Reply only to Alice
+    sign_in_as(@user, tenant: @tenant)
+    post "/chat/#{alice_handle}/message", params: { message: "Hey Alice" }
+
+    # Bob's notification should remain
+    with_tenant_scope do
+      remaining = NotificationRecipient.where(user: @user).in_app.unread
+      assert_equal 1, remaining.count
+      assert_equal "/chat/#{bob_handle}", remaining.first.notification.url
+    end
+  end
+
+  test "agent sending via API creates notification for human" do
+    @tenant.enable_api!
+    @collective.enable_api!
+
+    session = create_chat_session
+
+    agent_token = with_tenant_scope do
+      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
+    end
+    user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    # Clear browser session so API token auth is used
+    reset!
+    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    post "/chat/#{user_handle}/actions/send_message",
+      params: { message: "Agent here" }.to_json,
+      headers: { "Authorization" => "Bearer #{agent_token.plaintext_token}", "Accept" => "text/markdown", "Content-Type" => "application/json" }
+    assert_response :success
+
+    with_tenant_scope do
+      recipients = NotificationRecipient.where(user: @user).in_app.unread
+      assert_equal 1, recipients.count
+      assert_equal "chat_message", recipients.first.notification.notification_type
+    end
+  end
+
+  # --- self-chat ---
+
+  test "user can chat with themselves" do
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    get "/chat/#{my_handle}"
+    assert_response :success
+
+    assert_difference "ChatMessage.count", 1 do
+      post "/chat/#{my_handle}/message", params: { message: "Note to self" }
+    end
+    assert_response :ok
+  end
+
+  test "self-chat does not create a notification" do
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    post "/chat/#{my_handle}/message", params: { message: "Reminder" }
+    assert_response :ok
+
+    with_tenant_scope do
+      assert_equal 0, NotificationRecipient.where(user: @user).in_app.unread.count,
+        "should not notify yourself"
+    end
+  end
 end

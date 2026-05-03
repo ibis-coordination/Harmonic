@@ -166,6 +166,24 @@ class ChatsController < ApplicationController
       ChatMessagePresenter.format(chat_message, @chat_session),
     )
 
+    # Notify the recipient (upsert: one notification per sender)
+    partner_handle = TenantUser.tenant_scoped_only(current_tenant.id).find_by(user: current_user)&.handle
+    if partner_handle
+      NotificationService.notify_chat_message!(
+        sender: current_user,
+        recipient: @partner,
+        tenant: current_tenant,
+        url: "/chat/#{partner_handle}",
+      )
+    end
+
+    # Auto-dismiss any notification from the partner (we're replying)
+    NotificationService.dismiss_chat_notifications_from!(
+      user: current_user,
+      sender: @partner,
+      tenant: current_tenant,
+    )
+
     # If the sender is human and the partner is an internal agent, dispatch a turn
     if current_user.human? && @partner.internal_ai_agent?
       unless @chat_session.task_runs.exists?(status: ["queued", "running"])

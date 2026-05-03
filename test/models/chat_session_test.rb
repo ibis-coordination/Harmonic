@@ -129,6 +129,25 @@ class ChatSessionTest < ActiveSupport::TestCase
     assert_equal "Not much!", messages.last.content
   end
 
+  test "self-chat creates a valid session" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    assert_not_nil session
+    assert session.persisted?
+    assert session.participant?(@user)
+  end
+
+  test "self-chat returns the same user as other_participant" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    assert_equal @user, session.other_participant(@user)
+  end
+
+  test "self-chat allows saving messages" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    msg = session.chat_messages.create!(sender: @user, content: "Note to self")
+    assert msg.persisted?
+    assert_equal "Note to self", session.messages.last.content
+  end
+
   test "current_state defaults to empty hash" do
     session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     assert_equal({}, session.current_state)
