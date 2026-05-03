@@ -4,7 +4,7 @@
      data-agent-chat-session-id-value="<%= @chat_session.id %>"
      data-agent-chat-poll-url-value="<%= chat_poll_path(@partner.handle) %>"
      data-agent-chat-turn-running-value="<%= @turn_running %>"
-     data-agent-chat-partner-is-agent-value="<%= @partner.ai_agent? %>"
+     data-agent-chat-partner-is-agent-value="<%= @partner.internal_ai_agent? %>"
      data-agent-chat-current-user-id-value="<%= @current_user&.id %>"
      data-agent-chat-has-older-messages-value="<%= @has_older_messages %>"
      data-agent-chat-oldest-timestamp-value="<%= @oldest_message_timestamp %>"

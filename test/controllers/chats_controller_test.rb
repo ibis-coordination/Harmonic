@@ -872,4 +872,25 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     bob_idx = links.index("/chat/#{bob_handle}")
     assert bob_idx < alice_idx, "Order should be the same regardless of active chat"
   end
+
+  # --- external agent chat ---
+
+  test "sending message to external agent does not show thinking indicator" do
+    external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(4)}")
+    external_agent.update!(agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+    @collective.add_user!(external_agent)
+    ext_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: external_agent).handle
+
+    get "/chat/#{ext_handle}"
+    assert_response :success
+    assert_select "[data-agent-chat-partner-is-agent-value='false']"
+  end
+
+  test "sending message to internal agent shows thinking indicator" do
+    get "/chat/#{@agent_handle}"
+    assert_response :success
+    assert_select "[data-agent-chat-partner-is-agent-value='true']"
+  end
+
 end
