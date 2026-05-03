@@ -1,8 +1,26 @@
 <aside class="pulse-sidebar" data-mode="chat_unified">
   <div class="pulse-sidebar-section">
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; position: relative;"
+         data-controller="chat-search"
+         data-chat-search-autocomplete-url-value="<%= @current_collective ? "/collectives/#{@current_collective.handle}/autocomplete/users" : "" %>">
       <%= octicon 'comment-discussion', height: 16 %>
-      <span style="font-weight: 600;">Chat</span>
+      <span style="font-weight: 600; flex: 1;">Chat</span>
+      <button type="button"
+              data-chat-search-target="button"
+              data-action="click->chat-search#toggle"
+              title="New conversation"
+              style="background: none; border: none; cursor: pointer; padding: 2px; color: var(--color-fg-muted); line-height: 0;">
+        <%= octicon 'plus', height: 16 %>
+      </button>
+      <div data-chat-search-target="panel" style="display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 100; background: var(--color-canvas-default); border: 1px solid var(--color-border-default); border-radius: 8px; box-shadow: var(--color-shadow-medium, 0 3px 12px rgba(0,0,0,0.15));">
+        <input type="text"
+               data-chat-search-target="input"
+               data-action="input->chat-search#search keydown->chat-search#handleKeydown"
+               placeholder="Search users..."
+               class="pulse-form-input"
+               style="border: none; border-bottom: 1px solid var(--color-border-default); border-radius: 8px 8px 0 0; font-size: 13px; padding: 8px 10px;" />
+        <div data-chat-search-target="results" style="max-height: 200px; overflow-y: auto;"></div>
+      </div>
     </div>
   </div>
 
@@ -14,14 +32,17 @@
            class="pulse-nav-item<%= ' active' if is_active %>"
            style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; text-decoration: none; border-radius: 6px; margin-bottom: 2px;">
           <%= profile_pic(partner, size: 24) %>
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
             <%= partner.display_name %>
           </span>
+          <% if @unread_chat_handles&.include?(partner.handle) %>
+            <span data-unread-chat style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent-fg); flex-shrink: 0;"></span>
+          <% end %>
         </a>
       <% end %>
     <% else %>
       <p style="font-size: 13px; color: var(--color-fg-muted); text-align: center; margin-top: 16px;">
-        No conversations available.
+        No conversations yet. Click + to start one.
       </p>
     <% end %>
   </div>

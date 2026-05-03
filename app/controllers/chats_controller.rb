@@ -4,8 +4,8 @@ class ChatsController < ApplicationController
   MAX_MESSAGE_LENGTH = 10_000
   MESSAGES_PER_PAGE = 50
 
-  before_action :load_chat_partners, only: [:index, :show]
   before_action :find_partner_and_session, only: [:show, :send_message, :poll_messages, :actions_index, :describe_send_message, :execute_send_message]
+  before_action :load_chat_partners, only: [:index, :show]
   before_action :set_sidebar_mode, only: [:index, :show]
 
   # GET /chat
@@ -94,11 +94,14 @@ class ChatsController < ApplicationController
   end
 
   # Load chat partners for the sidebar.
-  # Humans see: their agents + humans they have existing sessions with
+  # Humans see: their agents + humans they have existing chat sessions with
   # Agents see: humans they have existing sessions with
+  #
+  # Sorted by most recent message (descending), then contacts without
+  # messages last (alphabetically).
   def load_chat_partners
     if current_user&.ai_agent?
-      @chat_partners = ChatSession
+      partners = ChatSession
         .where("user_one_id = ? OR user_two_id = ?", current_user.id, current_user.id)
         .map { |s| s.other_participant(current_user) }
         .reject(&:collective_identity?)
@@ -109,23 +112,63 @@ class ChatsController < ApplicationController
         &.joins(:tenant_users)
         &.where(tenant_users: { tenant_id: current_tenant&.id, archived_at: nil })
         &.where(suspended_at: nil)
-        &.order(:name)&.to_a || []
+        &.to_a || []
 
       human_sessions = ChatSession
         .where("user_one_id = ? OR user_two_id = ?", current_user&.id, current_user&.id)
         .map { |s| s.other_participant(current_user) }
         .reject { |u| u.ai_agent? || u.collective_identity? }
 
-      # Social proximity contacts (humans the user is close to but may not have chatted with)
-      proximity_users = current_user&.most_proximate_users(tenant_id: current_tenant&.id, limit: 10)
-        &.map(&:first)
-        &.reject(&:collective_identity?) || []
-
-      # Merge: agents first, then humans with sessions, then proximity contacts (deduplicated)
       seen_ids = Set.new(agents.map(&:id))
-      humans = (human_sessions + proximity_users).uniq(&:id).reject { |u| seen_ids.include?(u.id) || u.ai_agent? }
+      humans = human_sessions.uniq(&:id).reject { |u| seen_ids.include?(u.id) || u.ai_agent? }
 
-      @chat_partners = agents + humans
+      partners = agents + humans
+    end
+
+    @chat_partners = sort_chat_partners(partners)
+    load_unread_chat_handles
+  end
+
+  # Build a set of partner handles that have unread chat notifications,
+  # so the sidebar can show an unread dot.
+  def load_unread_chat_handles
+    unread_urls = NotificationRecipient
+      .joins(:notification)
+      .where(user: current_user, tenant_id: current_tenant&.id, channel: "in_app")
+      .where(dismissed_at: nil)
+      .where(notifications: { notification_type: "chat_message" })
+      .pluck("notifications.url")
+
+    @unread_chat_handles = Set.new(unread_urls.map { |url| url&.delete_prefix("/chat/") })
+  end
+
+  # Sort partners by most recent message (descending), then contacts
+  # without messages last (alphabetically).
+  def sort_chat_partners(partners)
+    return partners if partners.empty?
+
+    partner_ids = partners.map(&:id)
+
+    # Get the latest message timestamp per partner from their chat sessions
+    sessions = ChatSession
+      .where("user_one_id = ? OR user_two_id = ?", current_user&.id, current_user&.id)
+      .where("user_one_id IN (?) OR user_two_id IN (?)", partner_ids, partner_ids)
+
+    latest_message_at = {}
+    sessions.each do |s|
+      other_id = s.user_one_id == current_user&.id ? s.user_two_id : s.user_one_id
+      next unless partner_ids.include?(other_id)
+      latest = s.chat_messages.maximum(:created_at)
+      latest_message_at[other_id] = latest if latest
+    end
+
+    epoch = Time.at(0)
+    partners.sort_by do |p|
+      [
+        latest_message_at[p.id] ? 0 : 1,        # contacts with messages before those without
+        -(latest_message_at[p.id] || epoch).to_f, # most recent message first
+        p.display_name.to_s.downcase,            # alphabetical tiebreaker
+      ]
     end
   end
 

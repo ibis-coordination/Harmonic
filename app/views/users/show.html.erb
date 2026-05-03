@@ -28,6 +28,12 @@
           Settings
         </a>
       <% end %>
+      <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.collective_identity? %>
+        <a href="<%= chat_path(@showing_user.handle) %>" class="pulse-action-btn-secondary" title="Message">
+          <%= octicon 'comment', height: 14 %>
+          Message
+        </a>
+      <% end %>
       <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.ai_agent? %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">

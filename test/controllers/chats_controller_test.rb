@@ -794,4 +794,82 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
         "should not notify yourself"
     end
   end
+
+  # --- sidebar unread badge ---
+
+  test "sidebar shows unread dot for partner with pending notification" do
+    other_human = create_user(name: "Unread Sender #{SecureRandom.hex(4)}", email: "unread-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    # Other human sends a message
+    sign_in_as(other_human, tenant: @tenant)
+    post "/chat/#{my_handle}/message", params: { message: "Read me!" }
+    assert_response :ok
+
+    # Current user views the chat index — sidebar should show unread indicator
+    sign_in_as(@user, tenant: @tenant)
+    get "/chat/#{other_handle}"
+    assert_response :success
+    assert_select "[data-unread-chat]", minimum: 1
+  end
+
+  test "sidebar does not show unread dot after replying" do
+    other_human = create_user(name: "Reply Test #{SecureRandom.hex(4)}", email: "reply-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    # Other human sends a message
+    sign_in_as(other_human, tenant: @tenant)
+    post "/chat/#{my_handle}/message", params: { message: "Hey!" }
+
+    # Current user replies
+    sign_in_as(@user, tenant: @tenant)
+    post "/chat/#{other_handle}/message", params: { message: "Hey back!" }
+
+    # View the page — no unread dot
+    get "/chat/#{other_handle}"
+    assert_response :success
+    assert_select "[data-unread-chat]", 0
+  end
+
+  # --- sidebar ordering ---
+
+  test "sidebar sorts partners by most recent message" do
+    hex = SecureRandom.hex(4)
+    alice = create_user(name: "Alice Order #{hex}", email: "alice-order-#{hex}@example.com")
+    bob = create_user(name: "Bob Order #{hex}", email: "bob-order-#{hex}@example.com")
+    @tenant.add_user!(alice)
+    @tenant.add_user!(bob)
+    @collective.add_user!(alice)
+    @collective.add_user!(bob)
+    alice_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: alice).handle
+    bob_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: bob).handle
+
+    # Send messages: Alice first, then Bob (Bob is more recent)
+    post "/chat/#{alice_handle}/message", params: { message: "Hi Alice" }
+    post "/chat/#{bob_handle}/message", params: { message: "Hi Bob" }
+
+    # View any chat page — Bob should be first (most recent), then Alice
+    get "/chat/#{alice_handle}"
+    assert_response :success
+    links = css_select("a[href^='/chat/']").map { |a| a["href"] }
+    alice_idx = links.index("/chat/#{alice_handle}")
+    bob_idx = links.index("/chat/#{bob_handle}")
+    assert_not_nil alice_idx, "Alice should appear in sidebar"
+    assert_not_nil bob_idx, "Bob should appear in sidebar"
+    assert bob_idx < alice_idx, "Bob (more recent message) should appear before Alice"
+
+    # Order is stable regardless of which chat is active
+    get "/chat/#{bob_handle}"
+    assert_response :success
+    links = css_select("a[href^='/chat/']").map { |a| a["href"] }
+    alice_idx = links.index("/chat/#{alice_handle}")
+    bob_idx = links.index("/chat/#{bob_handle}")
+    assert bob_idx < alice_idx, "Order should be the same regardless of active chat"
+  end
 end
