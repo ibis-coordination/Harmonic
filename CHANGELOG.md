@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1] - 2026-05-03
+
+### Security
+
+- Fix cross-collective automation rule matching (GHSA-g35v-6gwr-xpwp). Automation rules could fire for events in collectives the rule owner was not a member of, potentially leaking private content via webhook payloads or agent task prompts. Added collective membership enforcement at both the SQL query level and as a redundant Ruby-level check.
+
 ## [1.11.0] - 2026-05-02
 
 ### Added
