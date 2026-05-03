@@ -39,6 +39,10 @@ class AutomationDispatcher
   # Check if an event matches a specific rule
   sig { params(event: Event, rule: AutomationRule).returns(T::Boolean) }
   def self.matches_rule?(event, rule)
+    # Collective access check: rules must only fire for events in
+    # collectives the rule owner has access to.
+    return false unless rule_has_collective_access?(rule, event)
+
     # Check mention filter for agent rules
     if rule.agent_rule? && rule.mention_filter.present?
       ai_agent = rule.ai_agent
@@ -54,6 +58,33 @@ class AutomationDispatcher
 
     true
   end
+
+  # Verify the rule owner has access to the event's collective.
+  # - Collective rules: must match the event's collective_id exactly
+  # - Agent rules: the agent must be a member of the event's collective
+  # - User rules: the user must be a member of the event's collective
+  sig { params(rule: AutomationRule, event: Event).returns(T::Boolean) }
+  def self.rule_has_collective_access?(rule, event)
+    event_collective_id = event.collective_id
+    return false if event_collective_id.nil?
+
+    if rule.collective_rule?
+      rule.collective_id == event_collective_id
+    elsif rule.agent_rule?
+      CollectiveMember
+        .where(collective_id: event_collective_id, user_id: rule.ai_agent_id)
+        .where(archived_at: nil)
+        .exists?
+    elsif rule.user_rule?
+      CollectiveMember
+        .where(collective_id: event_collective_id, user_id: rule.user_id)
+        .where(archived_at: nil)
+        .exists?
+    else
+      false
+    end
+  end
+  private_class_method :rule_has_collective_access?
 
   # Queue execution of a rule for an event
   sig { params(rule: AutomationRule, event: Event).void }
