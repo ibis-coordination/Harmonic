@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-05-02
+
+### Added
+
+- Unified `/chat` page — single DM-style interface replacing the per-agent `/ai-agents/:handle/chat` routes. Sidebar shows all conversations (agents and humans) sorted by recency.
+- ChatMessage model — messages are now first-class records in a dedicated `chat_messages` table, decoupled from AgentSessionStep.
+- Human-to-human messaging — any two users on the same tenant can chat in real-time via ActionCable.
+- Self-chat — message yourself as a scratchpad (no notifications generated).
+- Chat notifications — one in-app notification per sender, auto-dismissed on reply.
+- Sidebar unread badges — dot indicator for conversations with pending notifications.
+- Sidebar user search — "+" button with searchable dropdown to start new conversations.
+- Profile "Message" button — quick access to chat from any user's profile page.
+- Markdown chat UI — agents can read/send messages via API tokens using `Accept: text/markdown`.
+- `send_message` registered as a grantable capability for AI agents.
+- Collective scoping for chat sessions and messages (follows existing note/decision pattern).
+- Task run resource tracking for agent-produced chat messages.
+
+### Changed
+
+- ChatSession generalized from agent-specific (`ai_agent_id`/`initiated_by_id`) to any two participants (`user_one_id`/`user_two_id`) with canonical UUID ordering.
+- Thinking indicator only shown for internal agents (external agents don't have task runs).
+- AgentRunnerDispatchService rejects external agents with a clear error (they use API tokens, not the agent-runner).
+- Sidebar no longer shows social proximity users — only existing conversations.
+
+### Removed
+
+- `AiAgentChatsController` and `/ai-agents/:handle/chat/:session_id` routes (replaced by `/chat/:handle`).
+- AgentSessionStep no longer accepts `step_type: "message"` (orphaned records cleaned up via migration).
+
 ## [1.10.1] - 2026-05-01
 
 ### Added
