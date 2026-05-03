@@ -65,7 +65,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show reuses existing session on subsequent visits" do
-    session = create_chat_session
+    create_chat_session
 
     assert_no_difference "ChatSession.count" do
       get "/chat/#{@agent_handle}"
@@ -746,7 +746,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_api!
     @collective.enable_api!
 
-    session = create_chat_session
+    create_chat_session
 
     agent_token = with_tenant_scope do
       ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
