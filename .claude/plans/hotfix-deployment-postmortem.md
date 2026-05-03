@@ -142,5 +142,6 @@ docker compose -f docker-compose.production.yml up -d
 ### Build speed (future)
 
 - [x] Default hotfix path documented as "tag and let CI build" (~5 min on native AMD64)
-- [ ] Add registry-based buildx layer caching (`--cache-from`/`--cache-to`) to reduce local rebuild time
-- [ ] Create a `Dockerfile.base` / `harmonic-base` image with pre-installed dependencies. App image then only copies code and precompiles assets (~1-2 min even under QEMU)
+- [x] CI already uses GitHub Actions layer caching (`type=gha`)
+- [x] Added registry-based layer caching to `hotfix-build.sh` for local builds
+- [ ] Create a `Dockerfile.base` / `harmonic-base` image with pre-installed dependencies (future optimization)
