@@ -15,6 +15,7 @@ class ChatMessagePresenterTest < ActiveSupport::TestCase
     )
 
     @chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    Collective.set_thread_context(@chat_session.collective)
   end
 
   test "formats agent message with content_html" do

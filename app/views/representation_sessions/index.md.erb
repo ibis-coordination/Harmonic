@@ -12,7 +12,7 @@
 
 Representation allows this collective (<%= @current_collective.name %>) to act as an individual member of other collectives.
 
-<% identity_collectives = @current_collective.identity_user&.collectives&.not_private_workspace || [] %>
+<% identity_collectives = @current_collective.identity_user&.collectives&.listable || [] %>
 <% if identity_collectives.empty? %>
 <%= @current_collective.name %> is not currently a member of any other collectives.
 <% else %>

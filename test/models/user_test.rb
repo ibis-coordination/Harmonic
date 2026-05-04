@@ -1213,7 +1213,7 @@ class UserTest < ActiveSupport::TestCase
     assert workspace.billing_exempt?
 
     count = @user.active_billable_collective_count
-    workspace_in_count = Collective.for_user_across_tenants(@user).not_private_workspace.where(
+    workspace_in_count = Collective.for_user_across_tenants(@user).listable.where(
       tenant_id: @user.billing_tenant_ids,
       archived_at: nil,
       billing_exempt: false,

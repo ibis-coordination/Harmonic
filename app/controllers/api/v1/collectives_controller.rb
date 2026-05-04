@@ -3,7 +3,7 @@
 module Api::V1
   class CollectivesController < BaseController
     def index
-      render json: current_user.collectives.not_private_workspace.map(&:api_json)
+      render json: current_user.collectives.listable.map(&:api_json)
     end
 
     def show

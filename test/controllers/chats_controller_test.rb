@@ -29,6 +29,16 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
   end
 
+  # Set thread context to a chat session's collective for creating messages.
+  def with_chat_scope(session)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(session.collective)
+    yield
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+  end
+
   def create_chat_session
     with_tenant_scope do
       ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
@@ -59,8 +69,9 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
     with_tenant_scope do
       one, two = [@ai_agent.id, @user.id].sort
-      session = ChatSession.find_by(user_one_id: one, user_two_id: two)
+      session = ChatSession.tenant_scoped_only(@tenant.id).find_by(user_one_id: one, user_two_id: two)
       assert_not_nil session
+      assert_equal "chat", session.collective.collective_type
     end
   end
 
@@ -89,7 +100,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "show paginates messages to last 50" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       60.times do |i|
         session.chat_messages.create!(
           sender: i.even? ? @user : @ai_agent,
@@ -106,7 +117,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "show displays most recent messages in chronological order" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       60.times do |i|
         session.chat_messages.create!(
           sender: @user,
@@ -139,7 +150,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "show does not show load earlier button when all messages fit" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       session.chat_messages.create!(sender: @user, content: "Hello")
     end
 
@@ -227,7 +238,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "poll_messages returns new messages after timestamp" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       session.chat_messages.create!(sender: @user, content: "Hello", created_at: 10.seconds.ago)
       session.chat_messages.create!(sender: @ai_agent, content: "Hi there!", created_at: 5.seconds.ago)
     end
@@ -244,7 +255,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "poll_messages with before param returns older messages" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       3.times do |i|
         session.chat_messages.create!(
           sender: @user,
@@ -265,7 +276,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "poll_messages with before param signals has_more when more pages exist" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       55.times do |i|
         session.chat_messages.create!(
           sender: @user,
@@ -394,7 +405,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "show renders markdown format with messages" do
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       session.chat_messages.create!(sender: @user, content: "Hello!")
       session.chat_messages.create!(sender: @ai_agent, content: "Hi there!")
     end
@@ -456,7 +467,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @collective.enable_api!
 
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       session.chat_messages.create!(sender: @user, content: "Hello agent!")
     end
 
@@ -476,7 +487,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @collective.enable_api!
 
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       session.chat_messages.create!(sender: @user, content: "Hello agent!")
     end
 
@@ -506,7 +517,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @collective.enable_api!
 
     session = create_chat_session
-    with_tenant_scope do
+    with_chat_scope(session) do
       session.chat_messages.create!(sender: @user, content: "Hello!")
     end
 
@@ -565,7 +576,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     # Session should have been created
     with_tenant_scope do
       one, two = [@user.id, other_human.id].sort
-      session = ChatSession.find_by(user_one_id: one, user_two_id: two)
+      session = ChatSession.tenant_scoped_only(@tenant.id).find_by(user_one_id: one, user_two_id: two)
       assert_not_nil session
     end
   end

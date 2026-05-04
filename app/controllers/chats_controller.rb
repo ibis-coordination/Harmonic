@@ -101,7 +101,7 @@ class ChatsController < ApplicationController
   # messages last (alphabetically).
   def load_chat_partners
     if current_user&.ai_agent?
-      partners = ChatSession
+      partners = ChatSession.unscope_collective
         .where("user_one_id = ? OR user_two_id = ?", current_user.id, current_user.id)
         .map { |s| s.other_participant(current_user) }
         .reject(&:collective_identity?)
@@ -114,7 +114,7 @@ class ChatsController < ApplicationController
         &.where(suspended_at: nil)
         &.to_a || []
 
-      human_sessions = ChatSession
+      human_sessions = ChatSession.unscope_collective
         .where("user_one_id = ? OR user_two_id = ?", current_user&.id, current_user&.id)
         .map { |s| s.other_participant(current_user) }
         .reject { |u| u.ai_agent? || u.collective_identity? }
@@ -150,7 +150,7 @@ class ChatsController < ApplicationController
     partner_ids = partners.map(&:id)
 
     # Get the latest message timestamp per partner from their chat sessions
-    sessions = ChatSession
+    sessions = ChatSession.unscope_collective
       .where("user_one_id = ? OR user_two_id = ?", current_user&.id, current_user&.id)
       .where("user_one_id IN (?) OR user_two_id IN (?)", partner_ids, partner_ids)
 
@@ -158,7 +158,7 @@ class ChatsController < ApplicationController
     sessions.each do |s|
       other_id = s.user_one_id == current_user&.id ? s.user_two_id : s.user_one_id
       next unless partner_ids.include?(other_id)
-      latest = s.chat_messages.maximum(:created_at)
+      latest = s.chat_messages.unscope(where: :collective_id).maximum(:created_at)
       latest_message_at[other_id] = latest if latest
     end
 
@@ -173,6 +173,9 @@ class ChatsController < ApplicationController
   end
 
   # Find the other participant by handle and resolve the chat session.
+  # After finding/creating the session, switches the thread context to the
+  # chat session's collective so that message creation and event tracking
+  # are scoped to the private chat collective.
   def find_partner_and_session
     @partner = User.joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant&.id, handle: params[:handle] })
@@ -195,6 +198,11 @@ class ChatsController < ApplicationController
       user_b: @partner,
       tenant: current_tenant,
     )
+
+    # Switch collective context to the chat session's private collective.
+    # This ensures all subsequent queries, message creation, and event
+    # tracking are scoped to the chat collective (not the main collective).
+    Collective.set_thread_context(@chat_session.collective)
   end
 
   def create_and_dispatch_message(message_text)

@@ -37,16 +37,16 @@ class UsersController < ApplicationController
       @common_collectives = [current_collective]
       @additional_common_collective_count = (
         current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
-      ).reject(&:private_workspace?).count - 1
+      ).select(&:listable?).count - 1
     else
       # Showing user at the tenant level, so we want to show all common collectives between the current user and the showing user
-      @common_collectives = (current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]).reject(&:private_workspace?)
+      @common_collectives = (current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]).select(&:listable?)
       @additional_common_collective_count = 0
     end
 
     # Compute count of common collectives for profile display
     if @current_user != @showing_user
-      all_common = (current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]).reject(&:private_workspace?)
+      all_common = (current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]).select(&:listable?)
       @common_collective_count = all_common.count
     else
       @common_collective_count = 0

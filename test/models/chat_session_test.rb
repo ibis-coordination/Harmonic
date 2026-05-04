@@ -21,21 +21,14 @@ class ChatSessionTest < ActiveSupport::TestCase
   end
 
   test "valid chat session with required fields" do
-    one, two = [@ai_agent.id, @user.id].sort
-    session = ChatSession.new(
-      tenant: @tenant,
-      user_one_id: one,
-      user_two_id: two,
-    )
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     assert session.valid?
+    assert session.collective.chat?
   end
 
-  test "auto-sets tenant_id and collective_id from thread context" do
-    one, two = [@ai_agent.id, @user.id].sort
-    session = ChatSession.new(user_one_id: one, user_two_id: two)
-    assert session.valid?
+  test "auto-sets tenant_id from thread context" do
+    session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     assert_equal @tenant.id, session.tenant_id
-    assert_equal @collective.id, session.collective_id
   end
 
   test "requires user_one" do
@@ -48,12 +41,41 @@ class ChatSessionTest < ActiveSupport::TestCase
     assert_not session.valid?
   end
 
+  test "user_one_id must be less than or equal to user_two_id" do
+    one, two = [@ai_agent.id, @user.id].sort
+    # Swap them so they're in the wrong order
+    chat_collective = Collective.create!(
+      tenant: @tenant, created_by: @user, name: "Chat",
+      handle: "val-#{SecureRandom.hex(4)}", collective_type: "chat", billing_exempt: true,
+    )
+    session = ChatSession.new(
+      tenant: @tenant,
+      collective: chat_collective,
+      user_one_id: two,
+      user_two_id: one,
+    )
+    assert_not session.valid?
+    assert_includes session.errors[:user_one_id], "must be <= user_two_id (canonical order)"
+  end
+
   test "find_or_create_between creates session on first call" do
     session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
     assert_not_nil session
     assert session.participant?(@ai_agent)
     assert session.participant?(@user)
     assert_equal @tenant.id, session.tenant_id
+  end
+
+  test "collective must be a chat collective" do
+    one, two = [@ai_agent.id, @user.id].sort
+    session = ChatSession.new(
+      tenant: @tenant,
+      collective: @collective,
+      user_one_id: one,
+      user_two_id: two,
+    )
+    assert_not session.valid?
+    assert_includes session.errors[:collective], "must be a chat collective"
   end
 
   test "find_or_create_between returns existing session on second call" do
@@ -116,6 +138,7 @@ class ChatSessionTest < ActiveSupport::TestCase
 
   test "messages returns chat messages in chronological order" do
     session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    Collective.set_thread_context(session.collective)
 
     session.chat_messages.create!(sender: @user, content: "Hello", created_at: 3.minutes.ago)
     session.chat_messages.create!(sender: @ai_agent, content: "Hi there!", created_at: 2.minutes.ago)
@@ -143,6 +166,7 @@ class ChatSessionTest < ActiveSupport::TestCase
 
   test "self-chat allows saving messages" do
     session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    Collective.set_thread_context(session.collective)
     msg = session.chat_messages.create!(sender: @user, content: "Note to self")
     assert msg.persisted?
     assert_equal "Note to self", session.messages.last.content
@@ -158,6 +182,34 @@ class ChatSessionTest < ActiveSupport::TestCase
     session.update!(current_state: { "current_path" => "/collectives/team/n/abc" })
     session.reload
     assert_equal "/collectives/team/n/abc", session.current_state["current_path"]
+  end
+
+  test "find_or_create_between creates a chat collective for the session" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @other_user, tenant: @tenant)
+    chat_collective = session.collective
+    assert_equal "chat", chat_collective.collective_type
+    assert chat_collective.billing_exempt?
+    assert_nil chat_collective.identity_user
+  end
+
+  test "find_or_create_between adds both participants as collective members" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @other_user, tenant: @tenant)
+    chat_collective = session.collective
+    assert chat_collective.user_is_member?(@user)
+    assert chat_collective.user_is_member?(@other_user)
+  end
+
+  test "find_or_create_between restores previous collective context" do
+    original_collective_id = Collective.current_id
+    ChatSession.find_or_create_between(user_a: @user, user_b: @other_user, tenant: @tenant)
+    assert_equal original_collective_id, Collective.current_id
+  end
+
+  test "self-chat creates a chat collective with one member" do
+    session = ChatSession.find_or_create_between(user_a: @user, user_b: @user, tenant: @tenant)
+    chat_collective = session.collective
+    assert_equal "chat", chat_collective.collective_type
+    assert chat_collective.user_is_member?(@user)
   end
 
   test "scoped to tenant" do

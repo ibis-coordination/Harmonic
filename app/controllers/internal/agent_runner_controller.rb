@@ -50,6 +50,7 @@ module Internal
           next unless task_run.chat_session_id.present?
 
           chat_session = T.must(task_run.chat_session)
+          Collective.set_thread_context(T.must(chat_session.collective))
           chat_message = ChatMessage.create!(
             tenant: task_run.tenant,
             collective: chat_session.collective,

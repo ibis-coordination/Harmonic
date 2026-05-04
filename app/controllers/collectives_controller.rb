@@ -7,7 +7,7 @@ class CollectivesController < ApplicationController
     @page_title = "Collectives"
     if current_user
       all_collectives = current_user.collectives
-        .not_private_workspace
+        .listable
         .joins(
           "LEFT JOIN heartbeats ON heartbeats.collective_id = collectives.id AND " +
           "heartbeats.user_id = '#{current_user.id}' AND " +
