@@ -28,8 +28,12 @@ class Collective < ApplicationRecord
 
   scope :standard, -> { where(collective_type: "standard") }
   scope :private_workspaces, -> { where(collective_type: "private_workspace") }
-  scope :not_private_workspace, -> { where.not(collective_type: "private_workspace") }
+  scope :chat, -> { where(collective_type: "chat") }
+  scope :listable, -> { where(collective_type: "standard") }
 
+  VALID_COLLECTIVE_TYPES = %w[standard private_workspace chat].freeze
+
+  validates :collective_type, inclusion: { in: VALID_COLLECTIVE_TYPES }
   validate :handle_is_valid
   validate :creator_is_not_collective_identity, on: :create
   validate :collective_type_immutable, on: :update
@@ -130,11 +134,29 @@ class Collective < ApplicationRecord
       self.settings["any_member_can_represent"] = false
       self.settings["tempo"] = "weekly"
     end
+
+    # Chat collectives are hidden and locked down
+    if chat?
+      self.settings["unlisted"] = true
+      self.settings["invite_only"] = true
+      self.settings["all_members_can_invite"] = false
+      self.settings["any_member_can_represent"] = false
+    end
   end
 
   sig { returns(T::Boolean) }
   def private_workspace?
     collective_type == "private_workspace"
+  end
+
+  sig { returns(T::Boolean) }
+  def chat?
+    collective_type == "chat"
+  end
+
+  sig { returns(T::Boolean) }
+  def listable?
+    collective_type == "standard"
   end
 
   sig { returns(String) }
@@ -392,6 +414,7 @@ class Collective < ApplicationRecord
   sig { void }
   def create_identity_user!
     return if private_workspace?
+    return if chat?
     return if identity_user
 
     identity = User.create!(
@@ -478,6 +501,10 @@ class Collective < ApplicationRecord
       raise "Cannot add other users to a private workspace"
     end
 
+    if chat? && collective_members.where(archived_at: nil).count >= 2 && !collective_members.exists?(user: user)
+      raise "Chat collectives are limited to two members"
+    end
+
     existing_cm = collective_members.find_by(user: user)
     if existing_cm
       existing_cm.unarchive! if existing_cm.archived?
@@ -542,6 +569,7 @@ class Collective < ApplicationRecord
   sig { params(created_by: User).returns(Invite) }
   def find_or_create_shareable_invite(created_by)
     raise "Cannot create invites for private workspaces" if private_workspace?
+    raise "Cannot create invites for chat collectives" if chat?
 
     invite = Invite.where(
       collective: self,

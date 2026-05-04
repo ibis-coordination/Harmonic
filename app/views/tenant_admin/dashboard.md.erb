@@ -41,7 +41,7 @@ The main collective is the default collective at the base path (i.e. `<%= @curre
 
 ### Other Collectives
 
-<% @current_tenant.collectives.not_private_workspace.order(created_at: :desc).each do |collective| %>
+<% @current_tenant.collectives.listable.order(created_at: :desc).each do |collective| %>
 <% next if collective == @current_tenant.main_collective %>
 * [<%= collective.name %>](<%= collective.path %>) - created <%= time_ago_in_words(collective.created_at) %> ago
 <% end %>

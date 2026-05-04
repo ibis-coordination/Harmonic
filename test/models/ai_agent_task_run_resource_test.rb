@@ -432,13 +432,14 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "resource with ChatMessage type is valid" do
     chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    Collective.set_thread_context(chat_session.collective)
     msg = chat_session.chat_messages.create!(sender: @ai_agent, content: "Hello!")
 
     resource = AiAgentTaskRunResource.new(
       tenant: @tenant,
       ai_agent_task_run: @task_run,
       resource: msg,
-      resource_collective: @collective,
+      resource_collective: chat_session.collective,
       action_type: "message",
     )
     assert resource.valid?, "Expected ChatMessage resource to be valid, but got: #{resource.errors.full_messages}"
@@ -446,6 +447,7 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "task_run.created_messages returns tracked ChatMessages" do
     chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    Collective.set_thread_context(chat_session.collective)
     msg1 = chat_session.chat_messages.create!(sender: @ai_agent, content: "First response")
     msg2 = chat_session.chat_messages.create!(sender: @ai_agent, content: "Second response")
     # Human message — not tracked
@@ -453,11 +455,11 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
     AiAgentTaskRunResource.create!(
       tenant: @tenant, ai_agent_task_run: @task_run,
-      resource: msg1, resource_collective: @collective, action_type: "message",
+      resource: msg1, resource_collective: chat_session.collective, action_type: "message",
     )
     AiAgentTaskRunResource.create!(
       tenant: @tenant, ai_agent_task_run: @task_run,
-      resource: msg2, resource_collective: @collective, action_type: "message",
+      resource: msg2, resource_collective: chat_session.collective, action_type: "message",
     )
 
     created = @task_run.created_messages
@@ -468,13 +470,14 @@ class AiAgentTaskRunResourceTest < ActiveSupport::TestCase
 
   test "display_title for ChatMessage returns truncated content" do
     chat_session = ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    Collective.set_thread_context(chat_session.collective)
     msg = chat_session.chat_messages.create!(sender: @ai_agent, content: "Here is a detailed response about the team's recent activity and decisions.")
 
     resource = AiAgentTaskRunResource.create!(
       tenant: @tenant,
       ai_agent_task_run: @task_run,
       resource: msg,
-      resource_collective: @collective,
+      resource_collective: chat_session.collective,
       action_type: "message",
     )
 

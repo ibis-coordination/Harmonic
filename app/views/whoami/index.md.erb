@@ -98,7 +98,7 @@ This workspace is completely private to you. If someone asks about your memories
 [<%= workspace.name %>](<%= workspace.path %>) — your private workspace for personal notes and drafts.
 <% end %>
 <% end %>
-<% user_collectives = @current_user.collectives.not_private_workspace.where.not(id: @current_tenant.main_collective_id) %>
+<% user_collectives = @current_user.collectives.listable.where.not(id: @current_tenant.main_collective_id) %>
 
 ## Your Collectives
 

@@ -104,7 +104,7 @@
   </div>
 <% end %>
 
-<% other_collectives = @current_tenant.collectives.not_private_workspace.order(created_at: :desc).reject { |s| s == @current_tenant.main_collective } %>
+<% other_collectives = @current_tenant.collectives.listable.order(created_at: :desc).reject { |s| s == @current_tenant.main_collective } %>
 <%= render 'shared/pulse_accordion', title: 'Other Collectives', icon: 'repo', count: other_collectives.count, open: false do %>
   <% if other_collectives.any? %>
     <div class="pulse-collectives-list">

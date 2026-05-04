@@ -131,7 +131,7 @@ class RepresentationSessionsController < ApplicationController
     @collective = @representation_session.collective
     # For user representation, use the represented user's (granting_user/ai_agent) collectives, not the parent's
     collectives_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
-    @other_collectives = collectives_user.collectives.not_private_workspace.where.not(id: @current_tenant.main_collective_id)
+    @other_collectives = collectives_user.collectives.listable.where.not(id: @current_tenant.main_collective_id)
   end
 
   def stop_representing

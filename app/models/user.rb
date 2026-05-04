@@ -573,7 +573,7 @@ class User < ApplicationRecord
 
     main_collective_ids = Tenant.where(id: tenant_ids).pluck(:main_collective_id).compact
 
-    scope = Collective.for_user_across_tenants(self).not_private_workspace.where(
+    scope = Collective.for_user_across_tenants(self).listable.where(
       tenant_id: tenant_ids,
       archived_at: nil,
       billing_exempt: false,

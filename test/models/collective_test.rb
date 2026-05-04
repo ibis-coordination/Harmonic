@@ -588,6 +588,23 @@ class CollectiveTest < ActiveSupport::TestCase
     assert workspace.billing_exempt?
   end
 
+  test "collective_type must be a valid type" do
+    tenant = create_tenant(subdomain: "ct-valid-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+
+    assert_raises(ActiveRecord::RecordInvalid, /collective_type/) do
+      Collective.create!(
+        tenant: tenant,
+        created_by: user,
+        name: "Bad Type",
+        handle: "bad-#{SecureRandom.hex(4)}",
+        collective_type: "nonsense",
+      )
+    end
+  end
+
   test "collective_type cannot be changed after creation" do
     tenant = create_tenant(subdomain: "pw-immut-#{SecureRandom.hex(4)}")
     user = create_user
@@ -602,7 +619,7 @@ class CollectiveTest < ActiveSupport::TestCase
     assert workspace.private_workspace?
   end
 
-  test "not_private_workspace scope excludes private workspaces" do
+  test "listable scope returns only standard collectives" do
     tenant = create_tenant(subdomain: "pw-scope-#{SecureRandom.hex(4)}")
     user = create_user
     Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
@@ -615,11 +632,31 @@ class CollectiveTest < ActiveSupport::TestCase
     )
 
     all = Collective.where(tenant_id: tenant.id)
-    filtered = Collective.where(tenant_id: tenant.id).not_private_workspace
+    filtered = Collective.where(tenant_id: tenant.id).listable
 
     # All includes the workspace + the standard collective + main (if any)
     assert all.count > filtered.count, "Unfiltered should include more collectives than filtered"
-    assert filtered.where(collective_type: "private_workspace").count == 0
+    assert_equal 0, filtered.where(collective_type: "private_workspace").count
+    filtered.each { |c| assert_equal "standard", c.collective_type }
+  end
+
+  test "listable? returns true for standard collectives and false for others" do
+    tenant = create_tenant(subdomain: "listable-pred-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+
+    standard = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Standard",
+      handle: "std-#{SecureRandom.hex(4)}",
+      collective_type: "standard",
+    )
+    assert standard.listable?
+
+    workspace = user.private_workspace
+    refute workspace.listable?
   end
 
   test "find_or_create_shareable_invite raises for private workspaces" do
@@ -660,5 +697,119 @@ class CollectiveTest < ActiveSupport::TestCase
     # Re-adding the owner should not raise
     workspace.add_user!(owner, roles: ["admin"])
     assert workspace.user_is_member?(owner)
+  end
+
+  # =========================================================================
+  # Chat Collective tests
+  # =========================================================================
+
+  test "chat? returns true for chat collective_type" do
+    tenant = create_tenant(subdomain: "chat-type-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+
+    chat_collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Chat",
+      handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat",
+      billing_exempt: true,
+    )
+    assert chat_collective.chat?
+    refute chat_collective.listable?
+    refute chat_collective.private_workspace?
+  end
+
+  test "chat collective does not create identity user" do
+    tenant = create_tenant(subdomain: "chat-id-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+
+    chat_collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Chat",
+      handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat",
+      billing_exempt: true,
+    )
+    assert_nil chat_collective.identity_user
+  end
+
+  test "chat collective is excluded from listable scope" do
+    tenant = create_tenant(subdomain: "chat-scope-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+
+    Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Chat",
+      handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat",
+      billing_exempt: true,
+    )
+
+    all = Collective.where(tenant_id: tenant.id)
+    listable = Collective.where(tenant_id: tenant.id).listable
+    assert listable.count < all.count, "Listable should exclude chat collectives"
+    listable.each { |c| assert_equal "standard", c.collective_type }
+  end
+
+  test "find_or_create_shareable_invite raises for chat collectives" do
+    tenant = create_tenant(subdomain: "chat-invite-#{SecureRandom.hex(4)}")
+    user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user)
+
+    chat_collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Chat",
+      handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat",
+      billing_exempt: true,
+    )
+    assert_raises(RuntimeError) do
+      chat_collective.find_or_create_shareable_invite(user)
+    end
+  end
+
+  test "chat collective limits membership to two users" do
+    tenant = create_tenant(subdomain: "chat-limit-#{SecureRandom.hex(4)}")
+    user_a = create_user(name: "Alice")
+    user_b = create_user(name: "Bob")
+    user_c = create_user(name: "Carol")
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    tenant.add_user!(user_a)
+    tenant.add_user!(user_b)
+    tenant.add_user!(user_c)
+
+    chat_collective = Collective.create!(
+      tenant: tenant,
+      created_by: user_a,
+      name: "Chat",
+      handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat",
+      billing_exempt: true,
+    )
+
+    previous_id = Collective.current_id
+    previous_handle = Collective.current_handle
+    begin
+      Collective.set_thread_context(chat_collective)
+      chat_collective.add_user!(user_a)
+      chat_collective.add_user!(user_b)
+      assert_raises(RuntimeError) do
+        chat_collective.add_user!(user_c)
+      end
+    ensure
+      Current.collective_id = previous_id
+      Current.collective_handle = previous_handle
+    end
   end
 end
