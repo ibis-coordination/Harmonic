@@ -106,6 +106,10 @@ class ChatsController < ApplicationController
         .map { |s| s.other_participant(current_user) }
         .reject(&:collective_identity?)
         .uniq
+
+      # Filter out partners with an active block in either direction
+      blocked_ids = blocked_partner_ids(partners.map(&:id))
+      partners = partners.reject { |u| blocked_ids.include?(u.id) }
     else
       agents = current_user&.ai_agents
         &.includes(:tenant_users)
@@ -121,6 +125,10 @@ class ChatsController < ApplicationController
 
       seen_ids = Set.new(agents.map(&:id))
       humans = human_sessions.uniq(&:id).reject { |u| seen_ids.include?(u.id) || u.ai_agent? }
+
+      # Filter out partners with an active block in either direction
+      blocked_user_ids = blocked_partner_ids(humans.map(&:id))
+      humans = humans.reject { |u| blocked_user_ids.include?(u.id) }
 
       partners = agents + humans
     end
@@ -190,6 +198,12 @@ class ChatsController < ApplicationController
     # For human→agent: must be the user's own agent
     if current_user.human? && @partner.ai_agent? && !current_user.ai_agents.include?(@partner)
       render status: :not_found, plain: "404 Not Found"
+      return
+    end
+
+    # Block check: if either user has blocked the other, deny access
+    if UserBlock.between?(current_user, @partner)
+      render status: :forbidden, plain: "Chat is unavailable due to a block between you and this user."
       return
     end
 
@@ -273,6 +287,18 @@ class ChatsController < ApplicationController
       action = step.detail&.dig("action")
       "Executing #{action}" if action.present?
     end
+  end
+
+  # Returns IDs of partners who have a block relationship with current_user
+  def blocked_partner_ids(partner_ids)
+    return Set.new if partner_ids.empty?
+
+    UserBlock.where(blocker: current_user, blocked_id: partner_ids)
+      .or(UserBlock.where(blocker_id: partner_ids, blocked: current_user))
+      .pluck(:blocker_id, :blocked_id)
+      .flatten
+      .reject { |id| id == current_user&.id }
+      .to_set
   end
 
   def set_sidebar_mode

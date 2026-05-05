@@ -884,6 +884,101 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert bob_idx < alice_idx, "Order should be the same regardless of active chat"
   end
 
+  # --- block enforcement ---
+
+  test "blocked user cannot view chat with blocker" do
+    other_human = create_user(email: "block-view-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    with_tenant_scope do
+      UserBlock.create!(blocker: other_human, blocked: @user, tenant: @tenant)
+    end
+
+    get "/chat/#{other_handle}"
+    assert_response :forbidden
+  end
+
+  test "blocker cannot view chat with blocked user" do
+    other_human = create_user(email: "block-view2-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    with_tenant_scope do
+      UserBlock.create!(blocker: @user, blocked: other_human, tenant: @tenant)
+    end
+
+    get "/chat/#{other_handle}"
+    assert_response :forbidden
+  end
+
+  test "blocked user cannot send message to blocker" do
+    other_human = create_user(email: "block-send-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    # Create session first, then block
+    post "/chat/#{other_handle}/message", params: { message: "Before block" }
+    assert_response :ok
+
+    with_tenant_scope do
+      UserBlock.create!(blocker: other_human, blocked: @user, tenant: @tenant)
+    end
+
+    assert_no_difference "ChatMessage.count" do
+      post "/chat/#{other_handle}/message", params: { message: "After block" }
+    end
+    assert_response :forbidden
+  end
+
+  test "blocker cannot send message to blocked user" do
+    other_human = create_user(email: "block-send2-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    with_tenant_scope do
+      UserBlock.create!(blocker: @user, blocked: other_human, tenant: @tenant)
+    end
+
+    assert_no_difference "ChatMessage.count" do
+      post "/chat/#{other_handle}/message", params: { message: "After block" }
+    end
+    assert_response :forbidden
+  end
+
+  test "blocked users do not appear in chat partner list" do
+    other_human = create_user(email: "block-list-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    # Create a chat session so the user would normally appear
+    post "/chat/#{other_handle}/message", params: { message: "Hi" }
+    assert_response :ok
+
+    # Now block them
+    with_tenant_scope do
+      UserBlock.create!(blocker: @user, blocked: other_human, tenant: @tenant)
+    end
+
+    get "/chat"
+    assert_response :success
+    assert_no_match(/#{other_handle}/, response.body)
+  end
+
+  test "block check applies to AI agent chats too" do
+    with_tenant_scope do
+      UserBlock.create!(blocker: @user, blocked: @ai_agent, tenant: @tenant)
+    end
+
+    get "/chat/#{@agent_handle}"
+    assert_response :forbidden
+  end
+
   # --- external agent chat ---
 
   test "sending message to external agent does not show thinking indicator" do
