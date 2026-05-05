@@ -15,9 +15,9 @@ Results are sorted by three factors in order:
 
 1. **Acceptances ✅** — Options with more acceptances rank higher
 2. **Preferences ⭐** — Among options with equal acceptances, more preferences rank higher
-3. **Random digits 🎲** — If still tied, a random number assigned to each option breaks the tie
+3. **Random tiebreakers 🎲** — If still tied, a verifiably random value breaks the tie
 
-The random digits ensure there is always a clear ordering, even when votes are identical. They are only displayed in the results table when they are the deciding factor.
+The random tiebreakers ensure there is always a clear ordering, even when votes are identical. They are only displayed in the results table when they are the deciding factor. The tiebreaker values come from an external randomness beacon and are not known until the decision closes — the same verifiable randomness used by [lottery decisions](/help/lottery-decisions). After a decision closes, a verification page is available where anyone can independently confirm the tiebreaker values.
 
 **Results are hidden until you vote.** You will not see the current results until after you submit your own vote. This prevents strategic voting and encourages independent evaluation. Results are always visible once the decision is closed.
 
@@ -32,7 +32,7 @@ Suppose 3 people vote on a decision with 4 options:
 | 3 | Option C | 1 | 1 | 847... |
 | 4 | Option D | 1 | 1 | 231... |
 
-Options A and B both have 3 acceptances, so preferences break the tie (A wins with 2 vs 1). Options C and D are tied on both acceptances and preferences, so random digits decide (C's 847 beats D's 231).
+Options A and B both have 3 acceptances, so preferences break the tie (A wins with 2 vs 1). Options C and D are tied on both acceptances and preferences, so the random tiebreaker decides (C's 847 beats D's 231).
 
 ## Creating a Decision
 
@@ -92,3 +92,4 @@ Each decision has a voters page (`{decision}/voters`) that shows a detailed brea
 - Create: `{collective}/decide`
 - View: `{collective}/d/{id}`
 - Voters: `{collective}/d/{id}/voters`
+- Verify: `{collective}/d/{id}/verify`

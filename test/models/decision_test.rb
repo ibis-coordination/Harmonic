@@ -466,7 +466,64 @@ class DecisionTest < ActiveSupport::TestCase
     assert_not decision.lottery_drawn?
   end
 
-  test "lottery results sorted by beacon-derived keys when drawn" do
+  # === beacon_drawn? tests ===
+
+  test "beacon_drawn? returns true for vote decision with beacon data" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Beacon vote test?", description: "", deadline: 1.day.from_now,
+      subtype: "vote",
+      lottery_beacon_round: 12345,
+      lottery_beacon_randomness: "abc123",
+    )
+    assert decision.beacon_drawn?
+    assert_not decision.lottery_drawn?
+  end
+
+  test "beacon_drawn? returns false when no beacon data" do
+    decision = create_decision
+    assert_not decision.beacon_drawn?
+  end
+
+  test "api_json includes beacon data for vote decision with beacon" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Vote beacon API?", description: "", deadline: 1.minute.ago,
+      subtype: "vote",
+      lottery_beacon_round: 42,
+      lottery_beacon_randomness: "vote_beacon_hex",
+    )
+    json = decision.api_json
+    assert_equal 42, json[:lottery_beacon_round]
+    assert_equal "vote_beacon_hex", json[:lottery_beacon_randomness]
+  end
+
+  test "vote decision results use beacon sort key when beacon drawn" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Vote with beacon?", description: "", deadline: 1.minute.ago,
+      subtype: "vote",
+      lottery_beacon_round: 100,
+      lottery_beacon_randomness: "deadbeef",
+    )
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Option.create!(decision: decision, title: "Alpha", decision_participant: participant)
+    Option.create!(decision: decision, title: "Beta", decision_participant: participant)
+
+    results = decision.results
+    sort_keys = results.map(&:lottery_sort_key)
+    assert sort_keys.all?(&:present?), "All results should have lottery_sort_key"
+
+    results.each do |result|
+      expected = Digest::SHA256.hexdigest("deadbeef" + result.option_title.unicode_normalize(:nfc))
+      assert_equal expected, result.lottery_sort_key
+    end
+  end
+
+  test "vote decision results have nil lottery_sort_key when no beacon" do
     decision = Decision.create!(
       tenant: @tenant, collective: @collective,
       created_by: @user, updated_by: @user,
@@ -493,15 +550,6 @@ class DecisionTest < ActiveSupport::TestCase
       expected = Digest::SHA256.hexdigest("deadbeef" + result.option_title.unicode_normalize(:nfc))
       assert_equal expected, result.lottery_sort_key
     end
-  end
-
-  test "vote decision results have nil lottery_sort_key" do
-    decision = create_decision
-    participant = DecisionParticipant.create!(decision: decision, user: @user)
-    Option.create!(decision: decision, title: "Option A", decision_participant: participant)
-
-    results = decision.results
-    assert_nil results.first.lottery_sort_key
   end
 
   test "api_json includes beacon data for drawn lottery" do

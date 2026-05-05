@@ -1,20 +1,26 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_collective.name, @current_collective.path],
-  ['Lottery', @decision.path],
+  [@decision.is_lottery? ? 'Lottery' : 'Decision', @decision.path],
   'Verify'
 ] %>
 
 <article class="pulse-resource-detail">
-  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Verify Lottery Results</h1>
+  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Verify Results</h1>
   <p class="pulse-body-text-muted" style="margin-bottom: 20px;">
     <%= link_to @decision.question, @decision.path %>
   </p>
 
   <div class="pulse-resource-body" style="padding: 16px;">
     <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">How It Works</h2>
+    <% unless @decision.is_lottery? %>
+      <p style="line-height: 1.6; margin-bottom: 16px;">
+        Everyone's votes are visible on the <%= link_to "voters page", "#{@decision.path}/voters" %>.
+        When options are tied on acceptance and preference, ties are broken using verifiable randomness.
+      </p>
+    <% end %>
     <p style="line-height: 1.6; margin-bottom: 16px;">
-      This lottery uses <strong>verifiable randomness</strong>. The outcome is determined by combining
-      a publicly verifiable random value (from a randomness beacon) with each entry's title using a
+      This decision uses <strong>verifiable randomness</strong>. <%= @decision.is_lottery? ? 'The outcome is' : 'Tiebreakers are' %> determined by combining
+      a publicly verifiable random value (from a randomness beacon) with each <%= @decision.is_lottery? ? "entry's" : "option's" %> title using a
       SHA-256 hash. Anyone can independently reproduce the calculation to confirm the results were not tampered with.
     </p>
 
@@ -60,11 +66,11 @@
 
     <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Formula</h2>
     <p style="line-height: 1.6; margin-bottom: 8px;">
-      For each entry, the sort key is computed as:
+      For each <%= @decision.is_lottery? ? 'entry' : 'option' %>, the sort key is computed as:
     </p>
-    <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>sort_key = SHA256( beacon_randomness + NFC(entry_title) )</code></pre>
+    <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>sort_key = SHA256( beacon_randomness + NFC(<%= @decision.is_lottery? ? 'entry' : 'option' %>_title) )</code></pre>
     <p style="line-height: 1.6; margin-bottom: 16px;">
-      Entries are sorted by sort key in descending order.
+      <%= @decision.is_lottery? ? 'Entries' : 'Options' %> are sorted by sort key in descending order.
       Titles are <a href="https://unicode.org/reports/tr15/" target="_blank" rel="noopener">NFC-normalized</a> before hashing.
     </p>
 
@@ -73,15 +79,24 @@
       <thead>
         <tr>
           <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted); width: 40px;">#</th>
-          <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);">Entry</th>
+          <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);"><%= @decision.is_lottery? ? 'Entry' : 'Option' %></th>
+          <% unless @decision.is_lottery? %>
+            <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);">✅</th>
+            <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);">⭐</th>
+          <% end %>
           <th style="padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--color-border-default); color: var(--color-fg-muted);">Sort Key</th>
         </tr>
       </thead>
       <tbody>
-        <% @decision.results.each_with_index do |result, index| %>
-          <tr style="<%= index == 0 ? 'background: var(--color-attention-subtle); font-weight: 600;' : '' %>">
+        <% ([nil] + @decision.results + [nil]).each_cons(3).with_index do |(prev_result, result, next_result), index| %>
+          <% is_tiebreaker = @decision.is_lottery? || result.is_sorting_factor?(prev_result, 'lottery_sort_key') || result.is_sorting_factor?(next_result, 'lottery_sort_key') %>
+          <tr style="<%= index == 0 ? 'background: var(--color-attention-subtle); font-weight: 600;' : '' %><%= is_tiebreaker ? '' : ' opacity: 0.4;' %>">
             <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default); width: 40px;"><%= index + 1 %></td>
             <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default);"><%= markdown_inline(result.option_title) %></td>
+            <% unless @decision.is_lottery? %>
+              <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default);"><%= result.accepted_yes || 0 %></td>
+              <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default);"><%= result.preferred || 0 %></td>
+            <% end %>
             <td style="padding: 8px 12px; border-bottom: 1px solid var(--color-border-default);"><code style="font-size: 0.85em;"><%= result.lottery_sort_key %></code></td>
           </tr>
         <% end %>
@@ -99,7 +114,7 @@ title = <%= result.option_title.inspect %>
 print(hashlib.sha256((beacon + unicodedata.normalize("NFC", title)).encode()).hexdigest())
 <% end %></code></pre>
     <p class="pulse-body-text-muted" style="line-height: 1.6;">
-      Each output should match the sort key shown above for that entry.
+      Each output should match the sort key shown above for that <%= @decision.is_lottery? ? 'entry' : 'option' %>.
     </p>
   </div>
 </article>

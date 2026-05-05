@@ -38,8 +38,10 @@ class LotteryServiceTest < ActiveSupport::TestCase
     assert_equal "test_random_hex", decision.lottery_beacon_randomness
   end
 
-  test "draw! raises if decision is not a lottery" do
+  test "draw! works for vote decisions" do
     provider = RandomnessProvider::Test.new
+    provider.randomness = "vote_random_hex"
+    provider.round = 99
     service = LotteryService.new(provider: provider)
 
     decision = Decision.create!(
@@ -49,7 +51,25 @@ class LotteryServiceTest < ActiveSupport::TestCase
       subtype: "vote",
     )
 
-    assert_raises(RuntimeError, "Decision is not a lottery") do
+    service.draw!(decision)
+    decision.reload
+    assert_equal 99, decision.lottery_beacon_round
+    assert_equal "vote_random_hex", decision.lottery_beacon_randomness
+  end
+
+  test "draw! raises if decision is executive" do
+    provider = RandomnessProvider::Test.new
+    service = LotteryService.new(provider: provider)
+
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective,
+      created_by: @user, updated_by: @user,
+      question: "Executive?", description: "", deadline: 1.minute.ago,
+      subtype: "executive",
+      decision_maker: @user,
+    )
+
+    assert_raises(RuntimeError, "Decision must be a lottery or vote") do
       service.draw!(decision)
     end
   end
@@ -61,7 +81,7 @@ class LotteryServiceTest < ActiveSupport::TestCase
     decision = create_lottery_decision
     decision.update!(lottery_beacon_round: 1, lottery_beacon_randomness: "existing")
 
-    assert_raises(RuntimeError, "Lottery has already been drawn") do
+    assert_raises(RuntimeError, "Beacon has already been drawn") do
       service.draw!(decision)
     end
   end

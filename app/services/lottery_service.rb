@@ -11,8 +11,8 @@ class LotteryService
 
   sig { params(decision: Decision).void }
   def draw!(decision)
-    raise "Decision is not a lottery" unless decision.is_lottery?
-    raise "Lottery has already been drawn" if decision.lottery_beacon_round.present?
+    raise "Decision must be a lottery or vote" unless decision.is_lottery? || decision.is_vote?
+    raise "Beacon has already been drawn" if decision.beacon_drawn?
 
     round_number = @provider.round_for_timestamp(T.must(decision.deadline))
     result = @provider.fetch_round(round_number)

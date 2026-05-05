@@ -31,8 +31,14 @@
               <td style="opacity:<%= (result.accepted_yes || 0) > 0 ? 1 : 0.2 %>;"><%= (result.accepted_yes || 0) %></td>
               <td style="opacity:<%= (result.preferred || 0) > 0 ? 1 : 0.2 %>;"><%= (result.preferred || 0) %></td>
             <% end %>
-            <% if @decision.lottery_drawn? %>
+            <% if @decision.is_lottery? && @decision.beacon_drawn? %>
               <td class="pulse-results-random" title="<%= result.lottery_sort_key %>"><%= result.lottery_sort_key&.slice(0, 3) %>...</td>
+            <% elsif @decision.is_vote? && @decision.beacon_drawn? %>
+              <% is_relevant = result.is_sorting_factor?(prev_result, 'lottery_sort_key') || result.is_sorting_factor?(next_result, 'lottery_sort_key') %>
+              <td class="pulse-results-random" title="<%= result.lottery_sort_key %>"><%= is_relevant ? (result.lottery_sort_key&.slice(0, 3) + "...") : "" %></td>
+            <% elsif @decision.is_vote? %>
+              <% is_relevant = result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
+              <td class="pulse-results-random"><%= is_relevant ? "???" : "" %></td>
             <% else %>
               <% random_id_is_relevant = @decision.is_lottery? || result.is_sorting_factor?(prev_result, 'random_id') || result.is_sorting_factor?(next_result, 'random_id') %>
               <% random_id = result.random_id %>
@@ -43,10 +49,14 @@
       </tbody>
     </table>
     <p class="pulse-results-explanation">
-      <% if @decision.lottery_drawn? %>
+      <% if @decision.is_lottery? && @decision.beacon_drawn? %>
         Results are sorted by <%= link_to "verifiably random", "#{@decision.path}/verify" %> values 🎲.
       <% elsif @decision.is_lottery? %>
         Entries are sorted by random digits 🎲. Final order will be determined by verifiable randomness when the lottery closes.
+      <% elsif @decision.beacon_drawn? %>
+        Results are sorted first by acceptance ✅, then by preference ⭐, then by <%= link_to "verifiably random", "#{@decision.path}/verify" %> tiebreakers 🎲.
+      <% elsif @decision.is_vote? %>
+        Results are sorted first by acceptance ✅, then by preference ⭐, then by random tiebreakers 🎲 (determined at close time).
       <% else %>
         Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
       <% end %>
