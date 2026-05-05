@@ -1,0 +1,78 @@
+{
+  "ignored_warnings": [
+    {
+      "fingerprint": "26768f6475c5c711dbb57eaac7a6a05349c1b6b547152eed68bbc980a972d33b",
+      "code": "T.must(T.must(@relation).where(\"search_index.#{column} >= ?\", min_val.to_i)).where(\"search_index.#{column} <= ?\", max_val.to_i)",
+      "message": "Possible SQL injection",
+      "file": "app/services/search_query.rb",
+      "line": 772,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "3d5f4ae4474a216aa7a6c35760c7600cec14c5df06f7d8bdc0431cb1bcc8783a",
+      "code": "T.must(@relation).where(\"search_index.#{column} >= ?\", min_val.to_i)",
+      "message": "Possible SQL injection",
+      "file": "app/services/search_query.rb",
+      "line": 768,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "3edcbdf4ea5aecda5daa3e80e3013a16a263f7783cc13aa41a1e1febaa6a6618",
+      "code": "if request.get? then\n  request.original_url\nelse\n  (request.referer or request.original_url)\nend",
+      "message": "Potential HTTP verb confusion. `HEAD` is routed like `GET` but `request.get?` will return `false`",
+      "file": "app/controllers/concerns/requires_reverification.rb",
+      "line": 52,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "3edcbdf4ea5aecda5daa3e80e3013a16a263f7783cc13aa41a1e1febaa6a6618",
+      "code": "if request.get? then\n  request.original_url\nelse\n  (request.referer or request.original_url)\nend",
+      "message": "Potential HTTP verb confusion. `HEAD` is routed like `GET` but `request.get?` will return `false`",
+      "file": "app/controllers/concerns/requires_reverification.rb",
+      "line": 62,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "8a14cccc2d334f63bafed8b44d1689f712575ad852350a1f471bbf8cb6854ec3",
+      "code": "ActiveRecord::Base.connection.execute(\"      DELETE FROM search_index si\\n      WHERE si.item_type = 'Decision'\\n      #{(\"AND si.tenant_id = '#{tenant_id}'\" or \"\")}\\n      AND NOT EXISTS (\\n        SELECT 1 FROM decisions d WHERE d.id = si.item_id\\n      )\\n\".squish)",
+      "message": "Possible SQL injection",
+      "file": "app/jobs/backfill_search_index_job.rb",
+      "line": 43,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "97bf38be2c69558e9962fcb532ea6e074737ceeffd29b8fb21c0cc0df346a2bb",
+      "code": "relation.where(\"(#{\"search_index.#{field}\"} #{(\"<\" or \">\")} ?) OR (#{\"search_index.#{field}\"} = ? AND search_index.sort_key < ?)\", field_value, field_value, sort_key)",
+      "message": "Possible SQL injection",
+      "file": "app/services/search_query.rb",
+      "line": 929,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "99272b0e456b9d7314400ce3c1e8dc5bc95dea36f4f81a9049ce857fefdb7e01",
+      "code": "ActiveRecord::Base.connection.execute(\"      DELETE FROM search_index si\\n      WHERE si.item_type = 'Note'\\n      #{(\"AND si.tenant_id = '#{tenant_id}'\" or \"\")}\\n      AND NOT EXISTS (\\n        SELECT 1 FROM notes n WHERE n.id = si.item_id\\n      )\\n\".squish)",
+      "message": "Possible SQL injection",
+      "file": "app/jobs/backfill_search_index_job.rb",
+      "line": 33,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "f0063dea6cc37f80e67e706af8fbddd6bc2a15f72b3ef8471a81e752e57abbe7",
+      "code": "Collective.scope_thread_to_collective(:subdomain => request.subdomain, :handle => params[:collective_handle]).tenant.subdomain",
+      "message": "Unescaped model attribute",
+      "file": "app/views/shared/_admin_user_list.html.erb",
+      "line": 10,
+      "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "fb9daefff8323397f284fc378658d61dfa569112d7678e5a893a193f5778e983",
+      "code": "ActiveRecord::Base.connection.execute(\"      DELETE FROM search_index si\\n      WHERE si.item_type = 'Commitment'\\n      #{(\"AND si.tenant_id = '#{tenant_id}'\" or \"\")}\\n      AND NOT EXISTS (\\n        SELECT 1 FROM commitments c WHERE c.id = si.item_id\\n      )\\n\".squish)",
+      "message": "Possible SQL injection",
+      "file": "app/jobs/backfill_search_index_job.rb",
+      "line": 53,
+      "note": "Pre-existing warning, tracked for future remediation"
+    }
+  ],
+  "updated": "2026-05-04",
+  "brakeman_version": "8.0.4"
+}

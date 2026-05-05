@@ -58,6 +58,9 @@ group :development, :test do
 
   # Code style checking
   gem "rubocop", require: false
+
+  # Security scanning
+  gem "brakeman", require: false
   gem "rubocop-rails", require: false
 end
 

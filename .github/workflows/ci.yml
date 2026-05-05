@@ -21,6 +21,9 @@ jobs:
           ruby-version-file: '.ruby-version'
           bundler-cache: true
 
+      - name: Run Brakeman security scan
+        run: bundle exec brakeman --no-pager --ensure-no-obsolete-ignore-entries
+
       - name: Run Sorbet type check
         run: bundle exec srb tc
 

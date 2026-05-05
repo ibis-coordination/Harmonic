@@ -105,6 +105,8 @@ GEM
     bindex (0.8.1)
     bootsnap (1.10.2)
       msgpack (~> 1.2)
+    brakeman (8.0.4)
+      racc
     builder (3.3.0)
     capybara (3.40.0)
       addressable
@@ -506,6 +508,7 @@ DEPENDENCIES
   aws-sdk-s3 (~> 1.208)
   bcrypt (~> 3.1.22)
   bootsnap
+  brakeman
   capybara
   clamby
   connection_pool (< 3)
