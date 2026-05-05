@@ -10,6 +10,19 @@
      data-agent-chat-oldest-timestamp-value="<%= @oldest_message_timestamp %>"
      style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
 
+  <% if @chat_blocked %>
+    <div class="pulse-flash pulse-flash-warning" style="margin: 8px 16px 0; padding: 8px 12px; font-size: 13px;">
+      <%= octicon 'no-entry', height: 14 %>
+      <% if @blocked_by_self && @blocked_by_partner %>
+        You and <%= @partner.display_name %> have blocked each other. Chat is disabled.
+      <% elsif @blocked_by_self %>
+        You have blocked <%= @partner.display_name %>. Chat is disabled. <a href="/user-blocks" class="pulse-link">Manage blocks</a>
+      <% else %>
+        <%= @partner.display_name %> has blocked you. Chat is disabled.
+      <% end %>
+    </div>
+  <% end %>
+
   <% if @agent_busy_run %>
     <div class="pulse-flash pulse-flash-warning" style="margin: 8px 16px 0; padding: 8px 12px; font-size: 13px;">
       <%= octicon 'clock', height: 14 %>
@@ -43,19 +56,21 @@
   </div>
 
   <%# Input bar %>
-  <div style="border-top: 1px solid var(--color-border-default); padding: 12px 16px;">
-    <form data-action="submit->agent-chat#submit" style="display: flex; gap: 8px;">
-      <textarea
-        data-agent-chat-target="input"
-        data-action="keydown->agent-chat#keydown"
-        rows="1"
-        class="pulse-form-textarea"
-        placeholder="Type a message..."
-        style="flex: 1; resize: none;"
-      ></textarea>
-      <button type="submit" data-agent-chat-target="submitButton" class="pulse-action-btn" style="align-self: flex-end;">
-        <%= octicon 'paper-airplane', height: 14 %> Send
-      </button>
-    </form>
-  </div>
+  <% unless @chat_blocked %>
+    <div style="border-top: 1px solid var(--color-border-default); padding: 12px 16px;">
+      <form data-action="submit->agent-chat#submit" style="display: flex; gap: 8px;">
+        <textarea
+          data-agent-chat-target="input"
+          data-action="keydown->agent-chat#keydown"
+          rows="1"
+          class="pulse-form-textarea"
+          placeholder="Type a message..."
+          style="flex: 1; resize: none;"
+        ></textarea>
+        <button type="submit" data-agent-chat-target="submitButton" class="pulse-action-btn" style="align-self: flex-end;">
+          <%= octicon 'paper-airplane', height: 14 %> Send
+        </button>
+      </form>
+    </div>
+  <% end %>
 </div>

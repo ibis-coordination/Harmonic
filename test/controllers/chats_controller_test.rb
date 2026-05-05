@@ -886,28 +886,55 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   # --- block enforcement ---
 
-  test "blocked user cannot view chat with blocker" do
-    other_human = create_user(email: "block-view-#{SecureRandom.hex(4)}@example.com")
+  test "blocked user sees chat in read-only mode with block banner" do
+    other_human = create_user(email: "block-view-#{SecureRandom.hex(4)}@example.com", name: "BlockerPerson")
     @tenant.add_user!(other_human)
     @collective.add_user!(other_human)
     other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    # Create a session first (chat existed before the block)
+    post "/chat/#{other_handle}/message", params: { message: "Hi" }
+    assert_response :ok
 
     with_tenant_scope do
       UserBlock.create!(blocker: other_human, blocked: @user, tenant: @tenant)
     end
 
     get "/chat/#{other_handle}"
-    assert_response :forbidden
+    assert_response :success
+    assert_match(/BlockerPerson has blocked you/, response.body)
+    assert_no_match(/Type a message/, response.body)
   end
 
-  test "blocker cannot view chat with blocked user" do
-    other_human = create_user(email: "block-view2-#{SecureRandom.hex(4)}@example.com")
+  test "blocker sees chat in read-only mode with block banner" do
+    other_human = create_user(email: "block-view2-#{SecureRandom.hex(4)}@example.com", name: "BlockedPerson")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    # Create a session first (chat existed before the block)
+    post "/chat/#{other_handle}/message", params: { message: "Hi" }
+    assert_response :ok
+
+    with_tenant_scope do
+      UserBlock.create!(blocker: @user, blocked: other_human, tenant: @tenant)
+    end
+
+    get "/chat/#{other_handle}"
+    assert_response :success
+    assert_match(/You have blocked BlockedPerson/, response.body)
+    assert_match(/Manage blocks/, response.body)
+    assert_no_match(/Type a message/, response.body)
+  end
+
+  test "blocked chat returns 403 when no prior session exists" do
+    other_human = create_user(email: "block-nosession-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_human)
     @collective.add_user!(other_human)
     other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
 
     with_tenant_scope do
-      UserBlock.create!(blocker: @user, blocked: other_human, tenant: @tenant)
+      UserBlock.create!(blocker: other_human, blocked: @user, tenant: @tenant)
     end
 
     get "/chat/#{other_handle}"
@@ -970,13 +997,28 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/#{other_handle}/, response.body)
   end
 
-  test "block check applies to AI agent chats too" do
+  test "block between users prevents chat with the other user's agent" do
+    other_user = create_user(email: "block-agent-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+
+    other_agent = create_ai_agent(parent: other_user, name: "Other Agent #{SecureRandom.hex(4)}")
+    other_agent.update!(agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(other_agent)
+    @collective.add_user!(other_agent)
+
     with_tenant_scope do
-      UserBlock.create!(blocker: @user, blocked: @ai_agent, tenant: @tenant)
+      UserBlock.create!(blocker: @user, blocked: other_user, tenant: @tenant)
     end
 
-    get "/chat/#{@agent_handle}"
-    assert_response :forbidden
+    # The agent's owner is blocked, but the block is between humans.
+    # The user can still access the agent (agent != owner).
+    # Blocks only apply to the direct participants in the chat.
+    other_agent_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_agent).handle
+
+    # Agent not owned by current_user → 404 (existing authorization)
+    get "/chat/#{other_agent_handle}"
+    assert_response :not_found
   end
 
   # --- external agent chat ---

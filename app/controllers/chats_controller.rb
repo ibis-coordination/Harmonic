@@ -5,6 +5,7 @@ class ChatsController < ApplicationController
   MESSAGES_PER_PAGE = 50
 
   before_action :find_partner_and_session, only: [:show, :send_message, :poll_messages, :actions_index, :describe_send_message, :execute_send_message]
+  before_action :deny_if_blocked, only: [:send_message, :execute_send_message]
   before_action :load_chat_partners, only: [:index, :show]
   before_action :set_sidebar_mode, only: [:index, :show]
 
@@ -201,17 +202,32 @@ class ChatsController < ApplicationController
       return
     end
 
-    # Block check: if either user has blocked the other, deny access
+    # Block check: determine block state for UX
     if UserBlock.between?(current_user, @partner)
-      render status: :forbidden, plain: "Chat is unavailable due to a block between you and this user."
-      return
+      @chat_blocked = true
+      @blocked_by_partner = current_user.blocked_by?(@partner)
+      @blocked_by_self = current_user.blocked?(@partner)
     end
 
-    @chat_session = ChatSession.find_or_create_between(
-      user_a: current_user,
-      user_b: @partner,
-      tenant: current_tenant,
-    )
+    if @chat_blocked
+      # Don't create a new session just to show a blocked page —
+      # only load the existing one (if any) for read-only history.
+      one, two = [current_user.id, @partner.id].sort
+      @chat_session = ChatSession.tenant_scoped_only(current_tenant.id).find_by(
+        user_one_id: one,
+        user_two_id: two,
+      )
+      unless @chat_session
+        render status: :forbidden, plain: "Chat is unavailable due to a block between you and this user."
+        return
+      end
+    else
+      @chat_session = ChatSession.find_or_create_between(
+        user_a: current_user,
+        user_b: @partner,
+        tenant: current_tenant,
+      )
+    end
 
     # Switch collective context to the chat session's private collective.
     # This ensures all subsequent queries, message creation, and event
@@ -287,6 +303,12 @@ class ChatsController < ApplicationController
       action = step.detail&.dig("action")
       "Executing #{action}" if action.present?
     end
+  end
+
+  def deny_if_blocked
+    return unless @chat_blocked
+
+    render status: :forbidden, plain: "Chat is unavailable due to a block between you and this user."
   end
 
   # Returns IDs of partners who have a block relationship with current_user
