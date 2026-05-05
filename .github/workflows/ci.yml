@@ -30,6 +30,9 @@ jobs:
       - name: Check tenant safety (no banned .unscoped)
         run: ./scripts/check-tenant-safety.sh
 
+      - name: Check audit safety (Vote/Option mutations via DecisionActionService)
+        run: ./scripts/check-audit-safety.sh
+
       - name: Check style guide (Pulse CSS)
         run: ./scripts/check-style-guide.sh --diff main
 

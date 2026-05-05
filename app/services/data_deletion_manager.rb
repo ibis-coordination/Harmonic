@@ -37,18 +37,12 @@ class DataDeletionManager
       [
         RepresentationSessionEvent, RepresentationSession,
         Link, NoteHistoryEvent, Note,
-        Vote, Option, DecisionParticipant, Decision,
+        DecisionAuditEntry, Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,
         Invite, CollectiveMember
       ].each do |model|
         model.tenant_scoped_only(collective.tenant_id).where(collective_id: collective.id).delete_all
       end
-      # Delete identity user only if it does not have any conflicting associations
-      # begin
-      #   delete_user!(user: collective.identity_user, confirmation_token: confirmation_token)
-      # rescue ActiveRecord::RecordNotDestroyed
-      #   Rails.logger.info "Identity user for collective '#{collective_name}' (ID: #{collective_id_value}) could not be deleted due to conflicting associations."
-      # end
       # Delete the collective itself
       collective.destroy!
     end
@@ -141,9 +135,8 @@ class DataDeletionManager
     decision_id = decision.id
     ActiveRecord::Base.transaction do
       # Delete all associated data (always in same collective as parent)
-      Vote.where(decision_id: decision.id).each do |vote|
-        vote.destroy!
-      end
+      DecisionAuditEntry.where(decision_id: decision.id).delete_all
+      Vote.where(decision_id: decision.id).delete_all
       Option.where(decision_id: decision.id).each do |option|
         option.destroy!
       end

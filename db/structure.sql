@@ -44,6 +44,39 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
+--
+-- Name: prevent_audit_entry_mutation(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prevent_audit_entry_mutation() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'decision_audit_entries are immutable — updates are not allowed';
+END;
+$$;
+
+
+--
+-- Name: prevent_vote_mutation_after_close(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prevent_vote_mutation_after_close() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM decisions
+    WHERE id = NEW.decision_id
+    AND deadline < NOW()
+  ) THEN
+    RAISE EXCEPTION 'Votes cannot be created or modified after the decision is closed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -549,6 +582,30 @@ UNION ALL
 
 
 --
+-- Name: decision_audit_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.decision_audit_entries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    decision_id uuid NOT NULL,
+    sequence_number integer NOT NULL,
+    schema_version integer DEFAULT 1 NOT NULL,
+    action character varying NOT NULL,
+    actor_id uuid,
+    actor_handle character varying,
+    option_title character varying,
+    accepted integer,
+    preferred integer,
+    metadata jsonb,
+    previous_hash character varying,
+    entry_hash character varying NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: decision_participants; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -606,7 +663,8 @@ CREATE TABLE public.decisions (
     decision_maker_id uuid,
     lottery_beacon_round bigint,
     lottery_beacon_randomness character varying,
-    deadline_event_fired_at timestamp(6) without time zone
+    deadline_event_fired_at timestamp(6) without time zone,
+    audit_chain_hash character varying
 );
 
 
@@ -2349,6 +2407,14 @@ ALTER TABLE ONLY public.content_reports
 
 
 --
+-- Name: decision_audit_entries decision_audit_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.decision_audit_entries
+    ADD CONSTRAINT decision_audit_entries_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: decision_participants decision_participants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2834,6 +2900,20 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.webhook_deliveries
     ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_audit_entries_decision; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_audit_entries_decision ON public.decision_audit_entries USING btree (decision_id);
+
+
+--
+-- Name: idx_audit_entries_decision_sequence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit_entries USING btree (decision_id, sequence_number);
 
 
 --
@@ -3639,6 +3719,27 @@ CREATE INDEX index_content_reports_on_tenant_id_and_status ON public.content_rep
 --
 
 CREATE UNIQUE INDEX index_content_reports_unique_per_reporter_and_reportable ON public.content_reports USING btree (reporter_id, reportable_type, reportable_id, tenant_id);
+
+
+--
+-- Name: index_decision_audit_entries_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_decision_audit_entries_on_collective_id ON public.decision_audit_entries USING btree (collective_id);
+
+
+--
+-- Name: index_decision_audit_entries_on_decision_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_decision_audit_entries_on_decision_id ON public.decision_audit_entries USING btree (decision_id);
+
+
+--
+-- Name: index_decision_audit_entries_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_decision_audit_entries_on_tenant_id ON public.decision_audit_entries USING btree (tenant_id);
 
 
 --
@@ -8058,6 +8159,20 @@ CREATE OR REPLACE VIEW public.decision_results AS
 
 
 --
+-- Name: decision_audit_entries enforce_audit_entry_immutability; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enforce_audit_entry_immutability BEFORE UPDATE ON public.decision_audit_entries FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_entry_mutation();
+
+
+--
+-- Name: votes enforce_vote_immutability_after_close; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enforce_vote_immutability_after_close BEFORE INSERT OR UPDATE ON public.votes FOR EACH ROW EXECUTE FUNCTION public.prevent_vote_mutation_after_close();
+
+
+--
 -- Name: invites fk_rails_07e7bb098b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8455,6 +8570,14 @@ ALTER TABLE ONLY public.links
 
 ALTER TABLE ONLY public.collective_members
     ADD CONSTRAINT fk_rails_6922fe428a FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
+-- Name: decision_audit_entries fk_rails_6b2eb0532e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.decision_audit_entries
+    ADD CONSTRAINT fk_rails_6b2eb0532e FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -8994,6 +9117,14 @@ ALTER TABLE ONLY public.api_tokens
 
 
 --
+-- Name: decision_audit_entries fk_rails_f36bc89776; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.decision_audit_entries
+    ADD CONSTRAINT fk_rails_f36bc89776 FOREIGN KEY (decision_id) REFERENCES public.decisions(id);
+
+
+--
 -- Name: notification_recipients fk_rails_f4bcceedb3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9066,12 +9197,21 @@ ALTER TABLE ONLY public.representation_session_events
 
 
 --
+-- Name: decision_audit_entries fk_rails_fffb565014; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.decision_audit_entries
+    ADD CONSTRAINT fk_rails_fffb565014 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260505203614'),
 ('20260503232136'),
 ('20260502202229'),
 ('20260502200655'),

@@ -590,11 +590,12 @@ class ApiHelper
       end
 
       titles.each do |title|
-        option = Option.create!(
+        option = Option.new(
           decision: current_decision,
           decision_participant: current_decision_participant,
           title: title,
         )
+        DecisionActionService.add_option!(decision: T.must(current_decision), option: option, actor: current_user)
         track_task_run_resource(option, action_type: "add_options")
         options << option
       end
@@ -625,10 +626,11 @@ class ApiHelper
       decision_participant: current_decision_participant,
     }
     # If the vote already exists, update it. Otherwise, create a new one.
-    vote = Vote.find_by(associations) || Vote.new(associations)
+    vote = Vote.find_by(associations) || Vote.new(associations) # audit-safety-ignore: find_or_build pattern, saved via DecisionActionService
+    is_update = vote.persisted?
     vote.accepted = ActiveModel::Type::Boolean.new.cast(params[:accepted]) ? 1 : 0 if params.key?(:accepted)
     vote.preferred = ActiveModel::Type::Boolean.new.cast(params[:preferred]) ? 1 : 0 if params.key?(:preferred)
-    vote.save!
+    DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update)
     track_task_run_resource(vote, action_type: "vote")
 
     if current_representation_session
@@ -670,13 +672,14 @@ class ApiHelper
         }
         # If the vote already exists, update it. Otherwise, create a new one.
         # There should only be one vote record per decision + option + participant.
-        vote = Vote.find_by(associations) || Vote.new(associations)
+        vote = Vote.find_by(associations) || Vote.new(associations) # audit-safety-ignore: find_or_build pattern, saved via DecisionActionService
+        is_update = vote.persisted?
         accept_value = vote_data[:accept] || vote_data["accept"] || vote_data[:accepted] || vote_data["accepted"]
         prefer_value = vote_data[:prefer] || vote_data["prefer"] || vote_data[:preferred] || vote_data["preferred"]
         # Convert boolean to integer (Vote model validates accepted/preferred as 0 or 1)
         vote.accepted = accept_value ? 1 : 0
         vote.preferred = prefer_value ? 1 : 0
-        vote.save!
+        DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update)
         track_task_run_resource(vote, action_type: "vote")
         votes << vote
       end
@@ -911,14 +914,18 @@ class ApiHelper
     raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
     raise 'Decision is already closed' if decision.closed?
 
+    executive_selections = T.let(nil, T.nilable(T::Array[T.untyped]))
     ActiveRecord::Base.transaction do
       # For executive decisions, create selection votes
       if decision.is_executive?
-        create_executive_selections!(decision)
+        create_executive_selections!(decision) # audit-safety-ignore: executive selection votes, audited via executive_selection entry
+        executive_selections = Array(params[:selections])
       end
 
-      decision.deadline = Time.current
-      decision.save!
+      DecisionActionService.close_decision!(
+        decision: decision, actor: current_user,
+        executive_selections: executive_selections,
+      )
 
       if params[:final_statement].present?
         create_or_update_statement!(decision, params[:final_statement])
@@ -1112,11 +1119,7 @@ class ApiHelper
   # Delete an option
   sig { params(option: Option).void }
   def delete_option(option)
-    decision = option.decision
-    ActiveRecord::Base.transaction do
-      option.destroy!
-      # Note: We don't record an event for deleted resources since the resource no longer exists
-    end
+    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user)
   end
 
   # Duplicate a decision

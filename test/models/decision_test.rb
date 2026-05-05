@@ -100,6 +100,24 @@ class DecisionTest < ActiveSupport::TestCase
     assert decision.can_add_options?(participant)
   end
 
+  test "Decision.can_add_options? returns false when at MAX_OPTIONS limit" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    Decision::MAX_OPTIONS.times do |i|
+      Option.create!(decision: decision, decision_participant: participant, title: "Option #{i}")
+    end
+    assert_not decision.can_add_options?(participant)
+  end
+
+  test "Decision.can_add_options? returns true when below MAX_OPTIONS limit" do
+    decision = create_decision
+    participant = DecisionParticipant.create!(decision: decision, user: @user)
+    (Decision::MAX_OPTIONS - 1).times do |i|
+      Option.create!(decision: decision, decision_participant: participant, title: "Option #{i}")
+    end
+    assert decision.can_add_options?(participant)
+  end
+
   test "Decision.can_add_options? returns false for non-creator when options are closed" do
     decision = create_decision
     decision.options_open = false

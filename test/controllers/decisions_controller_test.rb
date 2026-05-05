@@ -875,7 +875,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(subtype: "executive", decision_maker: decision_maker, deadline: 1.hour.ago)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker)
     participant = DecisionParticipantManager.new(decision: @decision, user: decision_maker).find_or_create_participant
     opt_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
     opt_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
@@ -884,6 +884,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
                  tenant: @tenant, collective: @collective, accepted: 1, preferred: 0)
     Vote.create!(decision: @decision, option: opt_b, decision_participant: participant,
                  tenant: @tenant, collective: @collective, accepted: 0, preferred: 0)
+    @decision.update!(deadline: 1.hour.ago)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -1244,12 +1245,13 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(subtype: "vote", deadline: 1.hour.ago)
+    @decision.update!(subtype: "vote")
     participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
     option_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
     option_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
     Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_a, decision_participant: participant, accepted: 1, preferred: 0)
     Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant, accepted: 1, preferred: 0)
+    @decision.update!(deadline: 1.hour.ago)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -1263,15 +1265,15 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
     @decision.update!(
-      subtype: "vote",
       deadline: 1.hour.ago,
       lottery_beacon_round: 999,
       lottery_beacon_randomness: "abc",
     )
-    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
-    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
-    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 

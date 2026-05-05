@@ -17,9 +17,10 @@ class LotteryService
     round_number = @provider.round_for_timestamp(T.must(decision.deadline))
     result = @provider.fetch_round(round_number)
 
-    decision.update!(
-      lottery_beacon_round: result[:round],
-      lottery_beacon_randomness: result[:randomness]
+    DecisionActionService.draw_beacon!(
+      decision: decision,
+      round: result[:round],
+      randomness: result[:randomness],
     )
   end
 
