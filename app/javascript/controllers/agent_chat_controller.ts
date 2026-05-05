@@ -26,7 +26,11 @@ interface ActivityEvent {
   task_run_id?: string
 }
 
-type CableEvent = ChatMessage | StatusEvent | ActivityEvent
+interface BlockedEvent {
+  type: "blocked"
+}
+
+type CableEvent = ChatMessage | StatusEvent | ActivityEvent | BlockedEvent
 
 interface PollResponse {
   messages: ChatMessage[]
@@ -243,6 +247,9 @@ export default class AgentChatController extends Controller<HTMLElement> {
             case "activity":
               controller.handleActivityEvent(data)
               break
+            case "blocked":
+              controller.handleBlockedEvent()
+              break
           }
         },
       },
@@ -270,6 +277,25 @@ export default class AgentChatController extends Controller<HTMLElement> {
 
   private handleActivityEvent(data: ActivityEvent): void {
     this.showIndicator(data.text)
+  }
+
+  private handleBlockedEvent(): void {
+    this.removeIndicator()
+    this.waitingForResponse = false
+    this.stopPolling()
+
+    // Hide the input bar
+    const inputBar = this.element.querySelector("form")?.closest("div[style*='border-top']")
+    if (inputBar) {
+      (inputBar as HTMLElement).remove()
+    }
+
+    // Show a banner at the top of the message area
+    const messagesEl = this.messagesTarget
+    const banner = document.createElement("div")
+    banner.style.cssText = "margin: 8px 0; padding: 8px 12px; font-size: 13px; background: var(--color-attention-subtle); border: 1px solid var(--color-attention-muted); border-radius: 6px; text-align: center;"
+    banner.textContent = "Chat has been disabled due to a block. Reload the page for details."
+    messagesEl.insertBefore(banner, messagesEl.firstChild)
   }
 
   private handleIncomingMessage(data: ChatMessage): void {

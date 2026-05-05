@@ -85,6 +85,24 @@ class UserBlockTest < ActiveSupport::TestCase
     assert_not @user.blocked_by?(@other_user)
   end
 
+  test "cannot block your own AI agent" do
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+
+    block = UserBlock.new(blocker: @user, blocked: agent, tenant: @tenant)
+    assert_not block.valid?
+    assert_includes block.errors[:blocked_id], "cannot block your own agent"
+  end
+
+  test "agent cannot block their parent user" do
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+
+    block = UserBlock.new(blocker: agent, blocked: @user, tenant: @tenant)
+    assert_not block.valid?
+    assert_includes block.errors[:blocker_id], "agents cannot block their parent user"
+  end
+
   test "tenant scoping isolates blocks" do
     UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
 

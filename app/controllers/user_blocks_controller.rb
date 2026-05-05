@@ -18,6 +18,7 @@ class UserBlocksController < ApplicationController
     user_block = current_user.user_blocks_given.build(blocked: blocked_user)
 
     if user_block.save
+      notify_chat_blocked(blocked_user)
       flash[:notice] = "#{blocked_user.display_name || blocked_user.name} has been blocked."
     else
       flash[:alert] = user_block.errors.full_messages.join(", ")
@@ -41,6 +42,17 @@ class UserBlocksController < ApplicationController
   end
 
   private
+
+  def notify_chat_blocked(blocked_user)
+    one, two = [current_user.id, blocked_user.id].sort
+    session = ChatSession.tenant_scoped_only(current_tenant.id).find_by(
+      user_one_id: one,
+      user_two_id: two,
+    )
+    return unless session
+
+    ChatSessionChannel.broadcast_to(session, { type: "blocked" })
+  end
 
   def require_user
     return if current_user

@@ -5,6 +5,7 @@ class ChatsController < ApplicationController
   MESSAGES_PER_PAGE = 50
 
   before_action :find_partner_and_session, only: [:show, :send_message, :poll_messages, :actions_index, :describe_send_message, :execute_send_message]
+  before_action :deny_if_blocked, only: [:send_message, :execute_send_message]
   before_action :load_chat_partners, only: [:index, :show]
   before_action :set_sidebar_mode, only: [:index, :show]
 
@@ -106,6 +107,10 @@ class ChatsController < ApplicationController
         .map { |s| s.other_participant(current_user) }
         .reject(&:collective_identity?)
         .uniq
+
+      # Filter out partners with an active block in either direction
+      blocked_ids = blocked_partner_ids(partners.map(&:id))
+      partners = partners.reject { |u| blocked_ids.include?(u.id) }
     else
       agents = current_user&.ai_agents
         &.includes(:tenant_users)
@@ -121,6 +126,10 @@ class ChatsController < ApplicationController
 
       seen_ids = Set.new(agents.map(&:id))
       humans = human_sessions.uniq(&:id).reject { |u| seen_ids.include?(u.id) || u.ai_agent? }
+
+      # Filter out partners with an active block in either direction
+      blocked_user_ids = blocked_partner_ids(humans.map(&:id))
+      humans = humans.reject { |u| blocked_user_ids.include?(u.id) }
 
       partners = agents + humans
     end
@@ -193,11 +202,32 @@ class ChatsController < ApplicationController
       return
     end
 
-    @chat_session = ChatSession.find_or_create_between(
-      user_a: current_user,
-      user_b: @partner,
-      tenant: current_tenant,
-    )
+    # Block check: determine block state for UX
+    if UserBlock.between?(current_user, @partner)
+      @chat_blocked = true
+      @blocked_by_partner = current_user.blocked_by?(@partner)
+      @blocked_by_self = current_user.blocked?(@partner)
+    end
+
+    if @chat_blocked
+      # Don't create a new session just to show a blocked page —
+      # only load the existing one (if any) for read-only history.
+      one, two = [current_user.id, @partner.id].sort
+      @chat_session = ChatSession.tenant_scoped_only(current_tenant.id).find_by(
+        user_one_id: one,
+        user_two_id: two,
+      )
+      unless @chat_session
+        render status: :forbidden, plain: "Chat is unavailable due to a block between you and this user."
+        return
+      end
+    else
+      @chat_session = ChatSession.find_or_create_between(
+        user_a: current_user,
+        user_b: @partner,
+        tenant: current_tenant,
+      )
+    end
 
     # Switch collective context to the chat session's private collective.
     # This ensures all subsequent queries, message creation, and event
@@ -273,6 +303,24 @@ class ChatsController < ApplicationController
       action = step.detail&.dig("action")
       "Executing #{action}" if action.present?
     end
+  end
+
+  def deny_if_blocked
+    return unless @chat_blocked
+
+    render status: :forbidden, plain: "Chat is unavailable due to a block between you and this user."
+  end
+
+  # Returns IDs of partners who have a block relationship with current_user
+  def blocked_partner_ids(partner_ids)
+    return Set.new if partner_ids.empty?
+
+    UserBlock.where(blocker: current_user, blocked_id: partner_ids)
+      .or(UserBlock.where(blocker_id: partner_ids, blocked: current_user))
+      .pluck(:blocker_id, :blocked_id)
+      .flatten
+      .reject { |id| id == current_user&.id }
+      .to_set
   end
 
   def set_sidebar_mode
