@@ -1280,7 +1280,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/verifiably random/, response.body)
   end
 
-  test "open vote decision shows finalized at close time message" do
+  test "open vote decision shows determined at close time message" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -1294,6 +1294,6 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
     assert_response :success
-    assert_match(/finalized at close time/, response.body)
+    assert_match(/determined at close time/, response.body)
   end
 end
