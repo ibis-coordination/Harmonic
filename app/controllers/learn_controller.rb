@@ -81,8 +81,13 @@ class LearnController < ApplicationController
     MarkdownRenderer.render(text, shift_headers: false).html_safe
   end
 
+  ALLOWED_PAGES = %w[awareness_indicators acceptance_voting reciprocal_commitment memory].freeze
+
   def page_text
-    File.read(Rails.root.join('app', 'views', 'learn', params[:action] + '.md'))
+    action = params[:action]
+    raise ActionController::RoutingError, "Not Found" unless ALLOWED_PAGES.include?(action)
+
+    File.read(Rails.root.join("app", "views", "learn", "#{action}.md"))
   end
 
   def current_resource_model
