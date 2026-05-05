@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-05-04
+
+### Added
+
+- Per-session chat collectives — each chat session gets a dedicated private collective (`collective_type: "chat"`) with only the two participants as members, ensuring `chat_message.created` events are scoped privately and cannot be matched by non-participant automation rules.
+- Block enforcement in chat — if either user has blocked the other, chat is disabled. Sending messages returns 403; the chat page renders in read-only mode with existing message history visible and a role-aware banner ("You have blocked X" / "X has blocked you" / mutual block).
+- Real-time block notification — when a block is created, a `blocked` event broadcasts via ActionCable so the other participant sees immediate feedback.
+- `UserBlock` validation preventing blocks between agents and their parent user (parent is always responsible for agent actions).
+- Deployment scripts: `deploy.sh` (pull & restart with explicit migration flag), `rollback.sh` (revert to previous image tag), `hotfix-patch.sh` (emergency file-level patch), `hotfix-build.sh` (cross-compile AMD64 images from dev machine).
+- Registry-based layer caching for `hotfix-build.sh` (--cache-from/--cache-to with container registry).
+
+### Changed
+
+- Blocked users are filtered from the chat partner sidebar.
+- `Collective` model now validates `collective_type` inclusion (`standard`, `private_workspace`, `chat`).
+- Renamed `not_private_workspace` scope to `listable` (positive filter, excludes both private workspaces and chat collectives).
+- `ChatMessage` includes the `Tracked` concern, firing `chat_message.created` events scoped to the session's chat collective.
+
 ## [1.11.1] - 2026-05-03
 
 ### Security
