@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2026-05-04
+
+### Security
+
+- Fix path traversal vulnerability in `LearnController#page_text` by allowlisting valid page actions.
+- Update `net-imap` (0.4.20 → 0.6.4) — fixes command injection, DoS, and STARTTLS stripping vulnerabilities.
+- Update `addressable` (2.8.4 → 2.9.0) — fixes Regular Expression Denial of Service in URI templates.
+- Update `yard` (0.9.38 → 0.9.43) — fixes arbitrary path traversal via yard server.
+
+### Added
+
+- Brakeman static security analysis in CI — scans for Rails-specific vulnerabilities (SQL injection, XSS, path traversal, etc.) on every PR.
+
 ## [1.12.0] - 2026-05-04
 
 ### Added
