@@ -516,9 +516,9 @@ class DecisionsController < ApplicationController
   def verify
     @decision = current_decision
     return render '404', status: 404 unless @decision
-    return redirect_to @decision.path unless @decision.lottery_drawn?
+    return redirect_to @decision.path unless @decision.beacon_drawn?
 
-    @page_title = "Verify Lottery | #{@decision.question}"
+    @page_title = "Verify Results | #{@decision.question}"
     @sidebar_mode = 'resource'
     lottery_service = LotteryService.new
     @verification_url = lottery_service.verification_url(@decision)
@@ -541,7 +541,13 @@ class DecisionsController < ApplicationController
 
   def set_results_view_vars
     @voter_count = @decision.voter_count
-    @results_header = @decision.closed? ? 'Final Results' : 'Current Results'
+    @results_header = if @decision.closed? && !@decision.is_executive? && !@decision.beacon_drawn?
+                        'Finalizing...'
+                      elsif @decision.closed?
+                        'Final Results'
+                      else
+                        'Current Results'
+                      end
   end
 
   def current_app

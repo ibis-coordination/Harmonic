@@ -933,7 +933,7 @@ class ApiHelper
       end
     end
 
-    if decision.is_lottery?
+    if decision.is_lottery? || decision.is_vote?
       LotteryDrawJob.perform_later(decision.id)
     end
 

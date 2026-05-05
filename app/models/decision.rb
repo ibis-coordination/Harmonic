@@ -47,8 +47,13 @@ class Decision < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
+  def beacon_drawn?
+    lottery_beacon_round.present?
+  end
+
+  sig { returns(T::Boolean) }
   def lottery_drawn?
-    is_lottery? && lottery_beacon_round.present?
+    is_lottery? && beacon_drawn?
   end
 
   sig { returns(User) }
@@ -82,7 +87,7 @@ class Decision < ApplicationRecord
       # history_events: history_events.map(&:api_json),
       # backlinks: backlinks.map(&:api_json),
     }
-    if lottery_drawn?
+    if beacon_drawn?
       response.merge!({
         lottery_beacon_round: lottery_beacon_round,
         lottery_beacon_randomness: lottery_beacon_randomness,

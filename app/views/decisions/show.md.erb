@@ -120,9 +120,30 @@ Check ✅ all options that you would accept. Star ⭐️ options you prefer.
 <% end -%>
 <% end -%>
 <% if @show_results -%>
-## <%= @decision.closed? ? "Final" : "Current" %> Results
+<% if @decision.beacon_drawn? -%>
+## Final Results
 
-Results are sorted first by acceptance ✅, then by preference ⭐, then by random digits 🎲.
+Results are sorted first by acceptance ✅, then by preference ⭐, then by [verifiably random](<%= @decision.path %>/verify) tiebreakers 🎲.
+
+|   |   | ✅ | ⭐ | 🎲 |
+|---|---|---|---|---|
+<% @decision.results.each.with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | `<%= result.lottery_sort_key&.slice(0, 3) %>...` |
+<% end -%>
+<% elsif @decision.closed? -%>
+## Finalizing...
+
+Results are sorted first by acceptance ✅, then by preference ⭐, then by random tiebreakers 🎲 (determined at close time).
+
+|   |   | ✅ | ⭐ | 🎲 |
+|---|---|---|---|---|
+<% @decision.results.each.with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | ??? |
+<% end -%>
+<% else -%>
+## Current Results
+
+Results are sorted first by acceptance ✅, then by preference ⭐, then by random tiebreakers 🎲 (determined at close time).
 
 |   |   | ✅ | ⭐ | 🎲 |
 |---|---|---|---|---|
@@ -130,7 +151,8 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 | 0 | Add options to see results. | 0 | 0 | 0 |
 <% end -%>
 <% @decision.results.each.with_index do |result, index| -%>
-| <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | <%= result.random_id.slice(0, 3) + "..." %> |
+| <%= index + 1 %> | <%= result.option_title %> | <%= (result.accepted_yes || 0) %> | <%= (result.preferred || 0) %> | ??? |
+<% end -%>
 <% end -%>
 
 <% if @decision.statement.present? -%>

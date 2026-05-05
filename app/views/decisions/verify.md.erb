@@ -1,8 +1,12 @@
-# Verify Lottery: <%= @decision.question %>
+# Verify Results: <%= @decision.question %>
 
-[Back to lottery](<%= @decision.path %>)
+[Back to <%= @decision.is_lottery? ? 'lottery' : 'decision' %>](<%= @decision.path %>)
 
-This lottery uses **verifiable randomness**. The outcome is determined by combining a publicly verifiable random value (from a randomness beacon) with each entry's title using a SHA-256 hash. Anyone can independently reproduce the calculation to confirm the results were not tampered with.
+<% unless @decision.is_lottery? -%>
+Everyone's votes are visible on the [voters page](<%= @decision.path %>/voters). When options are tied on acceptance and preference, ties are broken using verifiable randomness.
+
+<% end -%>
+This decision uses **verifiable randomness**. <%= @decision.is_lottery? ? 'The outcome is' : 'Tiebreakers are' %> determined by combining a publicly verifiable random value (from a randomness beacon) with each <%= @decision.is_lottery? ? "entry's" : "option's" %> title using a SHA-256 hash. Anyone can independently reproduce the calculation to confirm the results were not tampered with.
 
 ## How the Beacon Round Is Determined
 
@@ -34,17 +38,25 @@ This lottery uses **verifiable randomness**. The outcome is determined by combin
 ## Formula
 
 ```
-sort_key = SHA256( beacon_randomness + NFC(entry_title) )
+sort_key = SHA256( beacon_randomness + NFC(<%= @decision.is_lottery? ? 'entry' : 'option' %>_title) )
 ```
 
-Entries are sorted by sort key in descending order. Titles are [NFC-normalized](https://unicode.org/reports/tr15/) before hashing.
+<%= @decision.is_lottery? ? 'Entries' : 'Options' %> are sorted by sort key in descending order. Titles are [NFC-normalized](https://unicode.org/reports/tr15/) before hashing.
 
 ## Results Breakdown
 
+<% if @decision.is_lottery? -%>
 | # | Entry | Sort Key |
 |---|-------|----------|
 <% @decision.results.each_with_index do |result, index| -%>
 | <%= index + 1 %> | <%= result.option_title %> | `<%= result.lottery_sort_key %>` |
+<% end -%>
+<% else -%>
+| # | Option | ✅ | ⭐ | Sort Key |
+|---|--------|---|---|----------|
+<% @decision.results.each_with_index do |result, index| -%>
+| <%= index + 1 %> | <%= result.option_title %> | <%= result.accepted_yes || 0 %> | <%= result.preferred || 0 %> | `<%= result.lottery_sort_key %>` |
+<% end -%>
 <% end -%>
 
 ## Verify Manually
@@ -60,4 +72,4 @@ print(hashlib.sha256((beacon + unicodedata.normalize("NFC", title)).encode()).he
 <% end -%>
 ```
 
-Each output should match the sort key shown above for that entry.
+Each output should match the sort key shown above for that <%= @decision.is_lottery? ? 'entry' : 'option' %>.

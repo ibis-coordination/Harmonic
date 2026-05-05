@@ -12,9 +12,9 @@ class LotteryDrawJob < TenantScopedJob
   def perform(decision_id)
     decision = Decision.unscoped_for_system_job.find_by(id: decision_id)
     return unless decision
-    return unless decision.is_lottery?
+    return unless decision.is_lottery? || decision.is_vote?
     return unless decision.closed?
-    return if decision.lottery_beacon_round.present?
+    return if decision.beacon_drawn?
 
     set_tenant_context!(decision.tenant)
 

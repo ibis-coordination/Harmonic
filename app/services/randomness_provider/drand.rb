@@ -99,8 +99,8 @@ module RandomnessProvider
     def round_derivation(deadline, round_number)
       deadline_unix = deadline.to_i
       {
-        description: "The beacon round is the first drand round published after the lottery deadline. " \
-                     "This ensures the randomness was not yet known when entries were added.",
+        description: "The beacon round is the first drand round published after the decision deadline. " \
+                     "This ensures the randomness was not yet known when the decision closed.",
         formula: "round = floor( (deadline_unix - genesis_time) / period ) + 2",
         steps: [
           "deadline_unix = #{deadline_unix}",

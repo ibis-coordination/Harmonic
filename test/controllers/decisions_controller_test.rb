@@ -1199,4 +1199,101 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match(/verifiably random/, response.body)
   end
+
+  # === Vote Decision Beacon Tests ===
+
+  test "verify page renders for vote decision with beacon" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(
+      subtype: "vote",
+      deadline: 1.hour.ago,
+      lottery_beacon_round: 12345,
+      lottery_beacon_randomness: "deadbeef123",
+    )
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_match(/Verify Results/, response.body)
+    assert_match(/Tiebreakers are/, response.body)
+    assert_match(/voters page/, response.body)
+  end
+
+  test "verify page redirects for vote decision without beacon" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote", deadline: 1.hour.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :redirect
+  end
+
+  test "closed vote decision shows question marks when beacon pending" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote", deadline: 1.hour.ago)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    option_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_a, decision_participant: participant, accepted: 1, preferred: 0)
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant, accepted: 1, preferred: 0)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/\?\?\?/, response.body)
+  end
+
+  test "drawn vote decision shows verify link" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(
+      subtype: "vote",
+      deadline: 1.hour.ago,
+      lottery_beacon_round: 999,
+      lottery_beacon_randomness: "abc",
+    )
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/verifiably random/, response.body)
+  end
+
+  test "open vote decision shows determined at close time message" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote", deadline: 1.hour.from_now)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/determined at close time/, response.body)
+  end
 end
