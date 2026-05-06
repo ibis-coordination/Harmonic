@@ -25,9 +25,12 @@ GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Patterns to detect direct Vote/Option class-level mutations
-# Matches: Vote.create, Vote.create!, Vote.new(...).save, Option.create!, etc.
+# Patterns to detect direct Vote/Option mutations
+# Class-level: Vote.create, Vote.create!, Option.find_or_create_by!, etc.
 CLASS_PATTERNS='(Vote|Option)\.(create[!]?|find_or_create_by[!]?)\b'
+# Instance-level: vote.save!, vote.update!, option.destroy!, etc.
+# Variable names "vote" and "option" are convention in this codebase.
+INSTANCE_PATTERNS='\b(vote|option)\.(save[!]?|update[!]?|destroy[!]?)\b'
 
 # Files that are allowed to mutate Vote/Option directly
 ALLOWED_FILES=(
@@ -82,6 +85,26 @@ check_files() {
             found=1
 
         done < <(grep -nE "$CLASS_PATTERNS" "$file" 2>/dev/null || true)
+
+        # Check for Vote/Option instance-level mutations
+        while IFS=: read -r line_num line_content; do
+            [[ -z "$line_num" ]] && continue
+
+            if echo "$line_content" | grep -qE '^\s*#'; then
+                continue
+            fi
+
+            if echo "$line_content" | grep -q "audit-safety-ignore"; then
+                continue
+            fi
+
+            echo -e "${RED}Banned:${NC} $file:$line_num"
+            echo "  $line_content"
+            echo "  (Vote/Option mutations must go through DecisionActionService)"
+            echo ""
+            found=1
+
+        done < <(grep -nE "$INSTANCE_PATTERNS" "$file" 2>/dev/null || true)
 
     done <<< "$files"
 

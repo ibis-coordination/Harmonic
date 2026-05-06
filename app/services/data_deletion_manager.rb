@@ -138,7 +138,7 @@ class DataDeletionManager
       DecisionAuditEntry.where(decision_id: decision.id).delete_all
       Vote.where(decision_id: decision.id).delete_all
       Option.where(decision_id: decision.id).each do |option|
-        option.destroy!
+        option.destroy! # audit-safety-ignore: data deletion bypasses audit chain intentionally
       end
       DecisionParticipant.where(decision_id: decision.id).each do |participant|
         participant.destroy!
