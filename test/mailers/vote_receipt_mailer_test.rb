@@ -26,9 +26,8 @@ class VoteReceiptMailerTest < ActiveSupport::TestCase
     assert_match(/verify/, mail.body.encoded)
   end
 
-  test "api_helper sends one email with last receipt from batch" do
+  test "api_helper does not send receipt email (disabled until opt-in UI)" do
     option_a = create_option(decision: @decision, created_by: @user, title: "Option A")
-    option_b = create_option(decision: @decision, created_by: @user, title: "Option B")
 
     helper = ApiHelper.new(
       current_tenant: @tenant,
@@ -38,12 +37,11 @@ class VoteReceiptMailerTest < ActiveSupport::TestCase
       params: {
         votes: [
           { option_title: "Option A", accept: true, prefer: true },
-          { option_title: "Option B", accept: true, prefer: false },
         ],
       },
     )
 
-    assert_enqueued_emails 1 do
+    assert_no_enqueued_jobs(only: ActionMailer::MailDeliveryJob) do
       helper.create_votes
     end
   end

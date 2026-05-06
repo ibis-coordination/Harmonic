@@ -1014,16 +1014,11 @@ class ApiHelper
     end
   end
 
+  # TODO: Re-enable when opt-in UI is built. Currently disabled because
+  # there's no preference check — would send unsolicited emails on every vote.
+  # The receipt is still available via flash notice and Vote#audit_receipt.
   private def send_vote_receipt_email(votes)
-    return if votes.empty?
-    decision = votes.first.decision
-    receipt_entry = DecisionAuditEntry.receipt_for_user(decision, current_user)
-    return unless receipt_entry
-    VoteReceiptMailer.receipt_email(
-      user: current_user,
-      decision: decision,
-      receipt: receipt_entry.entry_hash,
-    ).deliver_later
+    # Disabled — see above
   end
 
   private def create_or_update_statement!(statementable, text)
