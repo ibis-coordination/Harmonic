@@ -917,18 +917,13 @@ class ApiHelper
     raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
     raise 'Decision is already closed' if decision.closed?
 
-    executive_selections = T.let(nil, T.nilable(T::Array[T.untyped]))
     ActiveRecord::Base.transaction do
-      # For executive decisions, create selection votes
+      # For executive decisions, cast selection votes (before close, so DB trigger allows them)
       if decision.is_executive?
-        create_executive_selections!(decision) # audit-safety-ignore: executive selection votes, audited via executive_selection entry
-        executive_selections = Array(params[:selections])
+        create_executive_selections!(decision)
       end
 
-      DecisionActionService.close_decision!(
-        decision: decision, actor: current_user,
-        executive_selections: executive_selections,
-      )
+      DecisionActionService.close_decision!(decision: decision, actor: current_user)
 
       if params[:final_statement].present?
         create_or_update_statement!(decision, params[:final_statement])
@@ -1005,16 +1000,17 @@ class ApiHelper
     ).index_by(&:option_id)
 
     options.each do |option|
-      vote = existing_votes[option.id] || Vote.new(
+      vote = existing_votes[option.id] || Vote.new( # audit-safety-ignore: find_or_build pattern, saved via DecisionActionService
         tenant: current_tenant,
         collective: current_collective,
         decision: decision,
         option: option,
         decision_participant: participant,
       )
+      is_update = vote.persisted?
       vote.accepted = selected_titles.include?(option.title) ? 1 : 0
       vote.preferred = 0
-      vote.save!
+      DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: dm, is_update: is_update)
     end
   end
 

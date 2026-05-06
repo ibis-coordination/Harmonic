@@ -4,7 +4,7 @@ require "test_helper"
 
 # Cross-language verification and integrity tests for the audit chain.
 # These tests ensure:
-# 1. The Python verification script correctly validates all 10 event types
+# 1. The Python verification script correctly validates all 9 event types
 # 2. DB triggers enforce immutability and vote-after-close protection
 # 3. The JSON endpoint returns complete, correctly structured data
 class AuditChainVerificationTest < ActionDispatch::IntegrationTest
@@ -39,9 +39,9 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     ((deadline.to_i - 1_692_803_367) / 3) + 2
   end
 
-  # === Cross-language verification: all 10 event types ===
+  # === Cross-language verification: all 9 event types ===
 
-  test "Python script verifies all 10 event types in a complete lifecycle" do
+  test "Python script verifies all 9 event types in a complete lifecycle" do
     tenant = @global_tenant
     collective = @global_collective
     user = @global_user
@@ -54,7 +54,7 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     # 1. decision_created
     decision = Decision.new(
       tenant: tenant, collective: collective, created_by: user,
-      question: "All Events Test?", description: "Testing all 10 event types",
+      question: "All Events Test?", description: "Testing all 9 event types",
       deadline: 1.week.from_now, options_open: true, subtype: "vote",
     )
     DecisionActionService.create_decision!(decision: decision, actor: user)
@@ -108,7 +108,7 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     round = expected_round_for(decision.deadline)
     DecisionActionService.draw_beacon!(decision: decision, round: round, randomness: randomness)
 
-    # Verify all 10 action types are present in the chain
+    # Verify all 9 action types are present in the chain
     actions = DecisionAuditEntry.where(decision_id: decision.id).order(:sequence_number).pluck(:action)
     assert_includes actions, "decision_created"
     assert_includes actions, "decision_updated"
@@ -156,24 +156,22 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     option = Option.new(decision: decision, decision_participant: participant, title: "The Only Option")
     DecisionActionService.add_option!(decision: decision, option: option, actor: user)
 
-    # Create the selection votes (as api_helper.create_executive_selections! does)
-    vote = Vote.create!(  # audit-safety-ignore: executive selection votes, audited via executive_selection entry
+    # Cast selection votes through the audit chain (same as regular votes)
+    vote = Vote.new(
       tenant: tenant, collective: collective, decision: decision,
       option: option, decision_participant: participant,
       accepted: 1, preferred: 0,
     )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: user)
 
-    # executive_selection is recorded as part of close
-    DecisionActionService.close_decision!(
-      decision: decision, actor: user,
-      executive_selections: ["The Only Option"],
-    )
+    DecisionActionService.close_decision!(decision: decision, actor: user)
 
     actions = DecisionAuditEntry.where(decision_id: decision.id).pluck(:action)
     assert_includes actions, "decision_created"
     assert_includes actions, "option_added"
+    assert_includes actions, "vote_cast"
     assert_includes actions, "decision_closed"
-    assert_includes actions, "executive_selection"
+    assert_not_includes actions, "executive_selection"
 
     Collective.clear_thread_scope
     Tenant.clear_thread_scope

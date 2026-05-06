@@ -272,12 +272,12 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
 
   # === All 10 action types are defined ===
 
-  test "all 10 action types are present in ACTIONS constant" do
+  test "all 9 action types are present in ACTIONS constant" do
     expected = %w[
       decision_created decision_updated
       option_added option_removed option_updated
       vote_cast vote_updated
-      executive_selection decision_closed beacon_drawn
+      decision_closed beacon_drawn
     ]
     expected.each do |action|
       assert_includes DecisionAuditEntry::ACTIONS, action,

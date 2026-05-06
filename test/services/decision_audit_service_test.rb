@@ -141,16 +141,6 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     assert_equal @user.id, entry.actor_id
   end
 
-  # --- record_executive_selection! ---
-
-  test "record_executive_selection! creates entry with selected titles in metadata" do
-    entry = DecisionAuditService.record_executive_selection!(
-      decision: @decision, actor: @user, selected_option_titles: ["Option A"],
-    )
-    assert_equal "executive_selection", entry.action
-    assert_equal({ "selected_option_titles" => ["Option A"] }, entry.metadata)
-  end
-
   # --- record_beacon! ---
 
   test "record_beacon! creates a beacon_drawn entry with metadata" do

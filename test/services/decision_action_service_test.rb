@@ -76,49 +76,52 @@ class DecisionActionServiceTest < ActiveSupport::TestCase
     assert_equal "decision_closed", result[:audit_entry].action
   end
 
-  test "close_decision! with executive selections records selection before close" do
+  test "executive selections create vote_cast entries, not executive_selection entries" do
     exec_decision = Decision.new(
       tenant: @tenant, collective: @collective, created_by: @user,
-      question: "Selection Order?", description: "test", deadline: 1.week.from_now,
+      question: "Exec Vote Audit?", description: "test", deadline: 1.week.from_now,
       options_open: true, subtype: "executive",
     )
     DecisionActionService.create_decision!(decision: exec_decision, actor: @user)
-    opt = Option.new(decision: exec_decision, decision_participant: @participant, title: "Pick Me")
-    DecisionActionService.add_option!(decision: exec_decision, option: opt, actor: @user)
+    opt_a = Option.new(decision: exec_decision, decision_participant: @participant, title: "Yes")
+    DecisionActionService.add_option!(decision: exec_decision, option: opt_a, actor: @user)
+    opt_b = Option.new(decision: exec_decision, decision_participant: @participant, title: "No")
+    DecisionActionService.add_option!(decision: exec_decision, option: opt_b, actor: @user)
 
-    DecisionActionService.close_decision!(
-      decision: exec_decision, actor: @user,
-      executive_selections: ["Pick Me"],
+    # Cast selection votes through the audit chain
+    vote_a = Vote.new(
+      tenant: @tenant, collective: @collective, decision: exec_decision,
+      option: opt_a, decision_participant: @participant,
+      accepted: 1, preferred: 0,
     )
+    DecisionActionService.cast_vote!(decision: exec_decision, vote: vote_a, actor: @user)
+    vote_b = Vote.new(
+      tenant: @tenant, collective: @collective, decision: exec_decision,
+      option: opt_b, decision_participant: @participant,
+      accepted: 0, preferred: 0,
+    )
+    DecisionActionService.cast_vote!(decision: exec_decision, vote: vote_b, actor: @user)
 
-    entries = DecisionAuditEntry.where(decision: exec_decision).order(:sequence_number).pluck(:action)
-    close_idx = entries.index("decision_closed")
-    selection_idx = entries.index("executive_selection")
+    DecisionActionService.close_decision!(decision: exec_decision, actor: @user)
 
-    assert close_idx.present?, "Expected decision_closed entry"
-    assert selection_idx.present?, "Expected executive_selection entry"
-    assert selection_idx < close_idx,
-      "executive_selection (#{selection_idx}) should come before decision_closed (#{close_idx}), " \
-      "but got: #{entries.join(', ')}"
+    actions = DecisionAuditEntry.where(decision: exec_decision).pluck(:action)
+    assert_includes actions, "vote_cast"
+    assert_not_includes actions, "executive_selection",
+      "Executive selections should use vote_cast, not a separate executive_selection entry"
   end
 
-  test "close_decision! with executive selections creates two entries and sets chain hash" do
+  test "close_decision! for executive sets chain hash to close entry" do
     exec_decision = Decision.create!(
       tenant: @tenant, collective: @collective, created_by: @user,
       question: "Exec Decision?", description: "Test exec", deadline: Time.current + 1.week,
       options_open: true, subtype: "executive",
     )
-    opt = create_option(decision: exec_decision, created_by: @user, title: "Exec Option")
 
-    result = DecisionActionService.close_decision!(
-      decision: exec_decision, actor: @user,
-      executive_selections: ["Exec Option"],
-    )
-    entries = DecisionAuditEntry.where(decision: exec_decision).order(:sequence_number)
-    assert_equal 2, entries.count
-    assert_equal "executive_selection", entries.first.action
-    assert_equal "decision_closed", entries.last.action
-    assert_equal exec_decision.reload.audit_chain_hash, entries.last.entry_hash
+    DecisionActionService.close_decision!(decision: exec_decision, actor: @user)
+
+    close_entry = DecisionAuditEntry.where(decision: exec_decision, action: "decision_closed").last
+    assert close_entry.present?
+    assert_equal exec_decision.reload.audit_chain_hash, close_entry.entry_hash
   end
 
   # --- draw_beacon! ---

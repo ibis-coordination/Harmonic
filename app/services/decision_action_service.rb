@@ -116,19 +116,11 @@ class DecisionActionService
     params(
       decision: Decision,
       actor: User,
-      executive_selections: T.nilable(T::Array[String]),
     ).returns(T::Hash[Symbol, T.untyped])
   end
-  def self.close_decision!(decision:, actor:, executive_selections: nil)
+  def self.close_decision!(decision:, actor:)
     ActiveRecord::Base.transaction do
       decision.update!(deadline: Time.current)
-
-      if executive_selections
-        DecisionAuditService.record_executive_selection!(
-          decision: decision, actor: actor, selected_option_titles: executive_selections,
-        )
-      end
-
       close_entry = DecisionAuditService.record_close!(decision: decision, actor: actor)
 
       if decision.is_executive? && close_entry

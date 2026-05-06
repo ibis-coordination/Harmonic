@@ -79,17 +79,6 @@ class DecisionAuditService
     )
   end
 
-  sig { params(decision: Decision, actor: User, selected_option_titles: T::Array[String]).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_executive_selection!(decision:, actor:, selected_option_titles:)
-    record!(
-      decision: decision,
-      action: "executive_selection",
-      actor_id: actor.id,
-      actor_handle: actor.handle,
-      metadata: { selected_option_titles: selected_option_titles },
-    )
-  end
-
   sig { params(decision: Decision, round: Integer, randomness: String).returns(T.nilable(DecisionAuditEntry)) }
   def self.record_beacon!(decision:, round:, randomness:)
     record!(
