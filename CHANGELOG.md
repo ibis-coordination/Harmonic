@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-05-06
+
+### Added
+
+- Tamper-evident audit chain for decision mutations — every vote, option change, close, and beacon draw gets a SHA-256 hash-chained entry in a per-decision append-only log. Tampering with any record breaks the chain.
+- Verifiable randomness beacon for vote decision tiebreakers — vote decisions now fetch a drand beacon value on close, making tie-breaking between equally-ranked options provably fair.
+- Decision lifecycle tracking — `decision_created`, `decision_updated`, and `option_updated` audit entries record the full history of a decision from creation through close, with before/after metadata.
+- Verify page (`/d/:id/verify`) with embedded Python verification script, syntax highlighting, and copy-to-clipboard. Accessible before and after close, with contextual language for vote vs. lottery decisions.
+- Vote audit receipts — voters see their receipt hash in a flash notice and API response after voting.
+- `AuditChainIntegrityJob` for periodic chain verification.
+- DB triggers enforcing audit entry immutability (UPDATE blocked) and vote-after-close prevention (INSERT/UPDATE blocked on votes for closed decisions).
+- `check-audit-safety.sh` static analysis script (CI + pre-commit) banning direct Vote/Option mutations outside `DecisionActionService`.
+- `Decision::MAX_OPTIONS` cap (100 options per decision).
+- Dark mode support for syntax highlighting (highlight.js GitHub Dark theme).
+- Comprehensive integration and regression test suites for the audit chain, including cross-language Python script verification.
+
+### Changed
+
+- `LotteryService` and `LotteryDrawJob` generalized to handle both lottery and vote decisions.
+- `DeadlineEventJob` now enqueues `LotteryDrawJob` for vote decisions on natural deadline expiry.
+
 ## [1.12.1] - 2026-05-04
 
 ### Security
