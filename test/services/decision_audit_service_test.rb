@@ -13,13 +13,45 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
 
   # --- record_creation! ---
 
-  test "record_creation! creates a decision_created entry as the first entry" do
+  test "record_creation! creates a decision_created entry with initial values in metadata" do
     entry = DecisionAuditService.record_creation!(decision: @decision, actor: @user)
     assert_equal "decision_created", entry.action
     assert_equal 1, entry.sequence_number
     assert_equal @user.id, entry.actor_id
     assert_nil entry.previous_hash
     assert entry.entry_hash.present?
+    assert_equal @decision.question, entry.metadata["question"]
+    assert_equal @decision.description, entry.metadata["description"]
+    assert_equal @decision.subtype, entry.metadata["subtype"]
+    assert_equal @decision.deadline.iso8601, entry.metadata["deadline"]
+    assert_equal @decision.options_open.to_s, entry.metadata["options_open"]
+  end
+
+  test "record_creation! includes decision_maker_id for executive decisions" do
+    exec_decision = Decision.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      question: "Exec?", description: "test", deadline: 1.week.from_now,
+      options_open: true, subtype: "executive", decision_maker: @user,
+    )
+    entry = DecisionAuditService.record_creation!(decision: exec_decision, actor: @user)
+    assert_equal @user.id, entry.metadata["decision_maker_id"]
+  end
+
+  test "record_creation! omits decision_maker_id for vote decisions" do
+    entry = DecisionAuditService.record_creation!(decision: @decision, actor: @user)
+    assert_not entry.metadata.key?("decision_maker_id")
+  end
+
+  # --- record_update! ---
+
+  test "record_update! creates a decision_updated entry with changed fields in metadata" do
+    entry = DecisionAuditService.record_update!(
+      decision: @decision, actor: @user,
+      changes: { "deadline" => [1.week.from_now.iso8601, 2.weeks.from_now.iso8601] },
+    )
+    assert_equal "decision_updated", entry.action
+    assert_equal @user.id, entry.actor_id
+    assert entry.metadata.key?("deadline")
   end
 
   # --- record_option! ---
@@ -38,6 +70,16 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     assert_nil entry.previous_hash
     assert_equal DecisionAuditEntry::CURRENT_SCHEMA_VERSION, entry.schema_version
     assert entry.entry_hash.present?
+  end
+
+  test "record_option_update! creates an option_updated entry with old and new title" do
+    entry = DecisionAuditService.record_option_update!(
+      decision: @decision, option: @option, actor: @user,
+      old_title: "Option A", new_title: "Option A (revised)",
+    )
+    assert_equal "option_updated", entry.action
+    assert_equal "Option A (revised)", entry.option_title
+    assert_equal({ "old_title" => "Option A", "new_title" => "Option A (revised)" }, entry.metadata)
   end
 
   test "record_option! creates an option_removed entry" do

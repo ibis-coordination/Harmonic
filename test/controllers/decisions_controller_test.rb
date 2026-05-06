@@ -1495,4 +1495,34 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     # Beacon section should not appear
     assert_no_match(/Randomness beacon/, response.body)
   end
+
+  test "updating decision settings creates decision_updated audit entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference -> { DecisionAuditEntry.where(decision_id: @decision.id, action: "decision_updated").count }, 1 do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+        params: { decision: { question: "Changed Question?" } },
+        headers: { 'Referer' => "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}" }
+    end
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    entry = DecisionAuditEntry.where(decision_id: @decision.id, action: "decision_updated").last
+    assert entry.metadata.key?("question")
+    changes = entry.metadata["question"]
+    assert_equal "Test Decision?", changes[0]
+    assert_equal "Changed Question?", changes[1]
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "updating decision settings with no changes creates no audit entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference -> { DecisionAuditEntry.where(decision_id: @decision.id).count } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+        params: { decision: {} },
+        headers: { 'Referer' => "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}" }
+    end
+  end
 end

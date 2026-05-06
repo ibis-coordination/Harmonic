@@ -3,7 +3,7 @@
 class DecisionAuditEntry < ApplicationRecord
   extend T::Sig
 
-  ACTIONS = %w[decision_created option_added option_removed vote_cast vote_updated executive_selection decision_closed beacon_drawn].freeze
+  ACTIONS = %w[decision_created decision_updated option_added option_removed option_updated vote_cast vote_updated executive_selection decision_closed beacon_drawn].freeze
   CURRENT_SCHEMA_VERSION = 1
 
   self.implicit_order_column = "sequence_number"

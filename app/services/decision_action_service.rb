@@ -23,6 +23,45 @@ class DecisionActionService
   sig do
     params(
       decision: Decision,
+      actor: User,
+    ).returns(T::Hash[Symbol, T.untyped])
+  end
+  def self.update_decision!(decision:, actor:)
+    ActiveRecord::Base.transaction do
+      changes = decision.changes.except("updated_at").transform_values do |v|
+        v.map { |val| val.is_a?(Time) ? val.iso8601 : val&.to_s }
+      end
+      decision.save!
+      audit_entry = if changes.any?
+        DecisionAuditService.record_update!(decision: decision, actor: actor, changes: changes)
+      end
+      { decision: decision, audit_entry: audit_entry }
+    end
+  end
+
+  sig do
+    params(
+      option: Option,
+      actor: User,
+    ).returns(T::Hash[Symbol, T.untyped])
+  end
+  def self.update_option!(option:, actor:)
+    ActiveRecord::Base.transaction do
+      old_title = option.title_was
+      option.save!
+      audit_entry = if option.title != old_title && old_title.present?
+        DecisionAuditService.record_option_update!(
+          decision: T.must(option.decision), option: option, actor: actor,
+          old_title: old_title, new_title: option.title,
+        )
+      end
+      { option: option, audit_entry: audit_entry }
+    end
+  end
+
+  sig do
+    params(
+      decision: Decision,
       vote: Vote,
       actor: User,
       is_update: T::Boolean,

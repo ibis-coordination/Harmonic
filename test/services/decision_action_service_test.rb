@@ -108,6 +108,41 @@ class DecisionActionServiceTest < ActiveSupport::TestCase
     assert_equal @decision.audit_chain_hash, result[:audit_entry].entry_hash
   end
 
+  # --- update_decision! ---
+
+  test "update_decision! saves changes and records decision_updated with ISO8601 timestamps" do
+    @decision.deadline = 2.weeks.from_now
+    result = DecisionActionService.update_decision!(decision: @decision, actor: @user)
+    assert result[:audit_entry].present?
+    assert_equal "decision_updated", result[:audit_entry].action
+    deadline_change = result[:audit_entry].metadata["deadline"]
+    assert deadline_change.is_a?(Array)
+    # Timestamps should be ISO8601, not Ruby default
+    assert_match(/\d{4}-\d{2}-\d{2}T/, deadline_change[1])
+  end
+
+  test "update_decision! creates no audit entry when nothing changed" do
+    result = DecisionActionService.update_decision!(decision: @decision, actor: @user)
+    assert_nil result[:audit_entry]
+  end
+
+  # --- update_option! ---
+
+  test "update_option! saves and records option_updated with old and new title" do
+    @option.title = "Renamed Option"
+    result = DecisionActionService.update_option!(option: @option, actor: @user)
+    assert result[:audit_entry].present?
+    assert_equal "option_updated", result[:audit_entry].action
+    assert_equal "Renamed Option", result[:audit_entry].option_title
+    assert_equal "Option A", result[:audit_entry].metadata["old_title"]
+    assert_equal "Renamed Option", result[:audit_entry].metadata["new_title"]
+  end
+
+  test "update_option! creates no audit entry when title unchanged" do
+    result = DecisionActionService.update_option!(option: @option, actor: @user)
+    assert_nil result[:audit_entry]
+  end
+
   # --- create_decision! ---
 
   test "create_decision! saves decision and records decision_created as first entry" do

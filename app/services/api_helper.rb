@@ -899,7 +899,7 @@ class ApiHelper
         decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
       end
 
-      decision.save!
+      DecisionActionService.update_decision!(decision: decision, actor: current_user)
 
       if current_representation_session
         current_representation_session.record_event!(
@@ -1118,7 +1118,7 @@ class ApiHelper
   def update_option(option)
     ActiveRecord::Base.transaction do
       option.title = params[:title] if params[:title].present?
-      option.save!
+      DecisionActionService.update_option!(option: option, actor: current_user)
       if current_representation_session
         current_representation_session.record_event!(
           request: request,

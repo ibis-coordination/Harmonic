@@ -5,11 +5,43 @@ class DecisionAuditService
 
   sig { params(decision: Decision, actor: User).returns(T.nilable(DecisionAuditEntry)) }
   def self.record_creation!(decision:, actor:)
+    initial_values = {
+      question: decision.question,
+      description: decision.description,
+      subtype: decision.subtype,
+      deadline: decision.deadline&.iso8601,
+      options_open: decision.options_open.to_s,
+    }
+    initial_values[:decision_maker_id] = decision.decision_maker_id if decision.decision_maker_id.present?
     record!(
       decision: decision,
       action: "decision_created",
       actor_id: actor.id,
       actor_handle: actor.handle,
+      metadata: initial_values,
+    )
+  end
+
+  sig { params(decision: Decision, actor: User, changes: T::Hash[T.any(String, Symbol), T.untyped]).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_update!(decision:, actor:, changes:)
+    record!(
+      decision: decision,
+      action: "decision_updated",
+      actor_id: actor.id,
+      actor_handle: actor.handle,
+      metadata: changes,
+    )
+  end
+
+  sig { params(decision: Decision, option: Option, actor: User, old_title: String, new_title: String).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_option_update!(decision:, option:, actor:, old_title:, new_title:)
+    record!(
+      decision: decision,
+      action: "option_updated",
+      actor_id: actor.id,
+      actor_handle: actor.handle,
+      option_title: new_title,
+      metadata: { old_title: old_title, new_title: new_title },
     )
   end
 
@@ -92,7 +124,7 @@ class DecisionAuditService
       option_title: T.nilable(String),
       accepted: T.nilable(Integer),
       preferred: T.nilable(Integer),
-      metadata: T.nilable(T::Hash[Symbol, T.untyped]),
+      metadata: T.nilable(T::Hash[T.any(String, Symbol), T.untyped]),
     ).returns(T.nilable(DecisionAuditEntry))
   end
   def self.record!(decision:, action:, actor_id: nil, actor_handle: nil, option_title: nil, accepted: nil, preferred: nil, metadata: nil)
