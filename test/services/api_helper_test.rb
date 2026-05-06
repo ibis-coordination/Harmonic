@@ -793,4 +793,40 @@ class ApiHelperTest < ActiveSupport::TestCase
       end
     end
   end
+
+  test "create_ai_agent adds the agent to the tenant's main collective" do
+    main_collective = T.must(@tenant.main_collective)
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: main_collective,
+      current_tenant: @tenant,
+      params: { name: "Bill", mode: "internal" },
+    )
+
+    agent = helper.create_ai_agent
+
+    assert agent.persisted?
+    assert_equal "ai_agent", agent.user_type
+    assert_not_nil CollectiveMember.find_by(collective: main_collective, user: agent),
+                   "expected new ai_agent to be a member of the main collective"
+  end
+
+  test "create_ai_agent adds the agent to the current collective when it differs from main" do
+    main_collective = T.must(@tenant.main_collective)
+    refute_equal main_collective.id, @collective.id, "test relies on @collective not being the main collective"
+
+    helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: { name: "Bill", mode: "internal" },
+    )
+
+    agent = helper.create_ai_agent
+
+    assert_not_nil CollectiveMember.find_by(collective: main_collective, user: agent),
+                   "expected new ai_agent to be a member of the main collective"
+    assert_not_nil CollectiveMember.find_by(collective: @collective, user: agent),
+                   "expected new ai_agent to be a member of the current collective"
+  end
 end

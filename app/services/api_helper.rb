@@ -733,6 +733,10 @@ class ApiHelper
       )
       tenant_user = current_tenant.add_user!(user)
       user.tenant_user = tenant_user
+      T.must(current_tenant.main_collective).add_user!(user)
+      if current_collective.id != current_tenant.main_collective_id
+        current_collective.add_user!(user)
+      end
     end
     T.must(user)
   end
