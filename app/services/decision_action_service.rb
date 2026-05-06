@@ -122,19 +122,17 @@ class DecisionActionService
   def self.close_decision!(decision:, actor:, executive_selections: nil)
     ActiveRecord::Base.transaction do
       decision.update!(deadline: Time.current)
-      close_entry = DecisionAuditService.record_close!(decision: decision, actor: actor)
 
       if executive_selections
-        selection_entry = DecisionAuditService.record_executive_selection!(
+        DecisionAuditService.record_executive_selection!(
           decision: decision, actor: actor, selected_option_titles: executive_selections,
         )
-        last_entry = selection_entry
-      else
-        last_entry = close_entry
       end
 
-      if decision.is_executive? && last_entry
-        decision.update!(audit_chain_hash: last_entry.entry_hash)
+      close_entry = DecisionAuditService.record_close!(decision: decision, actor: actor)
+
+      if decision.is_executive? && close_entry
+        decision.update!(audit_chain_hash: close_entry.entry_hash)
       end
 
       { audit_entry: close_entry }
