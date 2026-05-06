@@ -641,6 +641,7 @@ class ApiHelper
         context_resource: current_decision
       )
     end
+    send_vote_receipt_email([vote])
     vote
   end
 
@@ -693,6 +694,7 @@ class ApiHelper
         )
       end
     end
+    send_vote_receipt_email(votes)
     votes
   end
 
@@ -1013,6 +1015,18 @@ class ApiHelper
       vote.preferred = 0
       vote.save!
     end
+  end
+
+  private def send_vote_receipt_email(votes)
+    return if votes.empty?
+    decision = votes.first.decision
+    receipt_entry = DecisionAuditEntry.receipt_for_user(decision, current_user)
+    return unless receipt_entry
+    VoteReceiptMailer.receipt_email(
+      user: current_user,
+      decision: decision,
+      receipt: receipt_entry.entry_hash,
+    ).deliver_later
   end
 
   private def create_or_update_statement!(statementable, text)

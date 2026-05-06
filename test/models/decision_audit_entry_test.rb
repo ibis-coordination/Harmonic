@@ -134,4 +134,34 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
     )
     assert_includes @decision.decision_audit_entries, entry
   end
+
+  test "receipt_for_user returns the user's last entry, not another user's" do
+    # Alice votes
+    alice = @user
+    DecisionAuditService.record_option!(decision: @decision, option: @option, actor: alice, action: "option_added")
+    alice_vote_entry = DecisionAuditService.record_vote!(
+      decision: @decision,
+      vote: Vote.new(option: @option, accepted: 1, preferred: 0),
+      actor: alice,
+    )
+
+    # Bob votes after Alice
+    bob = create_user(email: "bob-receipt-#{SecureRandom.hex(4)}@example.com", name: "Bob")
+    @tenant.add_user!(bob)
+    bob_entry = DecisionAuditService.record_vote!(
+      decision: @decision,
+      vote: Vote.new(option: @option, accepted: 1, preferred: 1),
+      actor: bob,
+    )
+
+    # Alice's receipt is her vote entry, not Bob's
+    assert_equal alice_vote_entry.entry_hash, DecisionAuditEntry.receipt_for_user(@decision, alice)&.entry_hash
+    assert_equal bob_entry.entry_hash, DecisionAuditEntry.receipt_for_user(@decision, bob)&.entry_hash
+    assert_not_equal alice_vote_entry.entry_hash, bob_entry.entry_hash
+  end
+
+  test "receipt_for_user returns nil when user has no entries" do
+    other_user = create_user(email: "nobody-#{SecureRandom.hex(4)}@example.com", name: "Nobody")
+    assert_nil DecisionAuditEntry.receipt_for_user(@decision, other_user)
+  end
 end

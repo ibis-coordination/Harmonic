@@ -540,14 +540,27 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
       params: {
         votes: [
           { option_title: "Option A", accepted: "1", preferred: "0" },
+          { option_title: "Option B", accepted: "1", preferred: "1" },
         ],
       }
     assert_response :redirect
     assert_match(/Audit receipt:/, flash[:notice])
+
+    # The receipt in the flash should be this user's last audit entry
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    receipt_entry = DecisionAuditEntry.receipt_for_user(@decision, @user)
+    assert_match(receipt_entry.entry_hash, flash[:notice])
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
   end
 
   # === Results Visibility Tests ===

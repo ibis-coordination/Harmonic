@@ -16,4 +16,9 @@ class DecisionAuditEntry < ApplicationRecord
   validates :schema_version, presence: true
   validates :sequence_number, presence: true
   validates :entry_hash, presence: true
+
+  sig { params(decision: Decision, user: User).returns(T.nilable(DecisionAuditEntry)) }
+  def self.receipt_for_user(decision, user)
+    where(decision_id: decision.id, actor_id: user.id).order(:sequence_number).last
+  end
 end

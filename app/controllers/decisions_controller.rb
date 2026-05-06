@@ -327,10 +327,13 @@ class DecisionsController < ApplicationController
 
     if votes_data.any?
       begin
-        votes = api_helper(params: { votes: votes_data }).create_votes
-        receipt = votes.first&.audit_receipt
-        notice = "Vote submitted."
-        notice += " Audit receipt: #{receipt}" if receipt
+        api_helper(params: { votes: votes_data }).create_votes
+        receipt_entry = DecisionAuditEntry.receipt_for_user(@decision, @current_user)
+        notice = if receipt_entry
+          "Vote submitted. Audit receipt: #{receipt_entry.entry_hash}"
+        else
+          "Vote submitted."
+        end
         redirect_to @decision.path, notice: notice
       rescue StandardError => e
         redirect_to @decision.path, alert: e.message
