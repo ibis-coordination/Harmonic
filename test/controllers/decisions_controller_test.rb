@@ -1405,9 +1405,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
     assert_response :success
-    assert_match(/Audit Chain/, response.body)
-    assert_match(/Vote cast/, response.body)
-    assert_match(/Decision closed/, response.body)
+    assert_match(/Verify Independently/, response.body)
+    assert_match(/verify\.py/, response.body)
   end
 
   test "verify page loads audit entries in controller" do
@@ -1479,8 +1478,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
     assert_response :success
-    assert_match(/Audit Chain/, response.body)
+    assert_match(/Verify Independently/, response.body)
     # Beacon section should not appear
-    assert_no_match(/Verifiable Randomness/, response.body)
+    assert_no_match(/Randomness beacon/, response.body)
   end
 end
