@@ -36,7 +36,12 @@ The decision maker closes the decision by selecting options and submitting a fin
 
 The final statement is required as part of the close action. After closing, the decision maker can edit the statement using the `add_statement` action, same as vote decisions.
 
+## Verification
+
+Like all decision types, executive decisions have a tamper-evident [audit chain](/help/decisions#verification) that records every action (options added, selection made, decision closed). The verify page (`{decision}/verify`) is available after the decision is closed.
+
 ## URL Pattern
 
 - Create: `{collective}/decide`
 - View: `{collective}/d/{id}`
+- Verify: `{collective}/d/{id}/verify`

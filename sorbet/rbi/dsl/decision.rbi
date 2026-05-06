@@ -470,6 +470,20 @@ class Decision
     sig { returns(T::Boolean) }
     def created_by_previously_changed?; end
 
+    # This method is created by ActiveRecord on the `Decision` class because it declared `has_many :decision_audit_entries`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::DecisionAuditEntry::PrivateCollectionProxy) }
+    def decision_audit_entries; end
+
+    sig { params(value: T::Enumerable[::DecisionAuditEntry]).void }
+    def decision_audit_entries=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def decision_audit_entry_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def decision_audit_entry_ids=(ids); end
+
     sig { returns(T.nilable(::User)) }
     def decision_maker; end
 
@@ -789,6 +803,51 @@ class Decision
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.nilable(::String)) }
+    def audit_chain_hash; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def audit_chain_hash=(value); end
+
+    sig { returns(T::Boolean) }
+    def audit_chain_hash?; end
+
+    sig { returns(T.nilable(::String)) }
+    def audit_chain_hash_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def audit_chain_hash_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def audit_chain_hash_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def audit_chain_hash_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def audit_chain_hash_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def audit_chain_hash_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def audit_chain_hash_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def audit_chain_hash_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def audit_chain_hash_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def audit_chain_hash_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def audit_chain_hash_was; end
+
+    sig { void }
+    def audit_chain_hash_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def collective_id; end
 
@@ -1465,6 +1524,9 @@ class Decision
     def question_will_change!; end
 
     sig { void }
+    def restore_audit_chain_hash!; end
+
+    sig { void }
     def restore_collective_id!; end
 
     sig { void }
@@ -1523,6 +1585,12 @@ class Decision
 
     sig { void }
     def restore_updated_by_id!; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_audit_chain_hash; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_audit_chain_hash?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_collective_id; end
@@ -1868,6 +1936,9 @@ class Decision
 
     sig { void }
     def updated_by_id_will_change!; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_audit_chain_hash?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

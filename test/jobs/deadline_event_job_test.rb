@@ -135,14 +135,39 @@ class DeadlineEventJobTest < ActiveJob::TestCase
     end
   end
 
-  test "does not enqueue LotteryDrawJob for vote decisions" do
-    create_decision(deadline: 1.minute.ago, subtype: "vote")
+  test "enqueues LotteryDrawJob for vote decisions" do
+    decision = create_decision(deadline: 1.minute.ago, subtype: "vote")
+
+    Collective.clear_thread_scope
+
+    assert_enqueued_with(job: LotteryDrawJob, args: [decision.id]) do
+      DeadlineEventJob.perform_now
+    end
+  end
+
+  test "does not enqueue LotteryDrawJob for executive decisions" do
+    create_decision(deadline: 1.minute.ago, subtype: "executive")
 
     Collective.clear_thread_scope
 
     assert_no_enqueued_jobs(only: LotteryDrawJob) do
       DeadlineEventJob.perform_now
     end
+  end
+
+  # === Audit chain ===
+
+  test "creates decision_closed audit entry when deadline passes" do
+    decision = create_decision(deadline: 1.minute.ago)
+
+    Collective.clear_thread_scope
+
+    DeadlineEventJob.perform_now
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    entry = DecisionAuditEntry.where(decision_id: decision.id, action: "decision_closed").last
+    assert_not_nil entry, "Expected a decision_closed audit entry"
+    assert_equal decision.created_by_id, entry.actor_id
   end
 
   # === Cross-tenant ===

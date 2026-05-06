@@ -14,6 +14,7 @@ class Decision < ApplicationRecord
   include SoftDeletable
   include Statementable
   SUBTYPES = %w[vote lottery executive].freeze
+  MAX_OPTIONS = 100
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -26,6 +27,7 @@ class Decision < ApplicationRecord
   has_many :decision_participants, dependent: :destroy
   has_many :options, dependent: :destroy
   has_many :votes # dependent: :destroy through options
+  has_many :decision_audit_entries
 
   validates :question, presence: true
   validates :deadline, presence: true
@@ -54,6 +56,13 @@ class Decision < ApplicationRecord
   sig { returns(T::Boolean) }
   def lottery_drawn?
     is_lottery? && beacon_drawn?
+  end
+
+  AUDIT_CHAIN_LAUNCH_DATE = Time.utc(2026, 5, 5)
+
+  sig { returns(T::Boolean) }
+  def audit_chain_enabled?
+    created_at >= AUDIT_CHAIN_LAUNCH_DATE
   end
 
   sig { returns(User) }
@@ -124,6 +133,7 @@ class Decision < ApplicationRecord
   sig { params(participant: DecisionParticipant).returns(T::Boolean) }
   def can_add_options?(participant)
     return false if closed? || !participant.authenticated?
+    return false if options.count >= MAX_OPTIONS
     return true if options_open? || participant.user_id == created_by_id
     return false
   end

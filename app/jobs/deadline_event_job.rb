@@ -102,7 +102,16 @@ class DeadlineEventJob < SystemJob
         metadata: event_metadata(resource)
       )
 
-      LotteryDrawJob.perform_later(resource.id) if resource.is_a?(Decision) && resource.is_lottery?
+      if resource.is_a?(Decision)
+        # Record the close in the audit chain (skips if already recorded by manual close)
+        if resource.audit_chain_enabled?
+          DecisionAuditService.record_close!(decision: resource, actor: T.must(resource.created_by))
+        end
+
+        if resource.is_lottery? || resource.is_vote?
+          LotteryDrawJob.perform_later(resource.id)
+        end
+      end
     end
 
     increment_fired_counter(T.must(resource.class.name).underscore)

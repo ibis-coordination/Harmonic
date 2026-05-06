@@ -166,6 +166,13 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 Submit your vote to see results. Votes are not anonymous — individual votes are visible on the voters page after you vote.
 <% end -%>
 <% end -%>
+<% if @audit_entry_count && @audit_entry_count > 0 -%>
+<% if @decision.beacon_drawn? -%>
+[Audit chain: <%= @audit_entry_count %> entries · verified](<%= @decision.path %>/verify)
+<% else -%>
+[Audit chain: <%= @audit_entry_count %> entries · `<%= @audit_latest_hash&.slice(0, 8) %>...`](<%= @decision.path %>/verify)
+<% end -%>
+<% end -%>
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>
 <%= render 'shared/comments_section', resource: @decision %>

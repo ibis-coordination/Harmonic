@@ -20,6 +20,7 @@
     "@types/rails__actioncable": "^8.0.3",
     "cropperjs": "^1.6.2",
     "date-fns": "^3.6.0",
+    "highlight.js": "^11.11.1",
     "hotkeys-js": "^3.13.9",
     "stimulus-clipboard": "^4.0.1",
     "stimulus-dropdown": "^2.1.0",

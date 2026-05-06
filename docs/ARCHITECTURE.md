@@ -156,8 +156,11 @@ Decision
 ├── has_many :options              # choices to vote on
 ├── has_many :decision_participants
 ├── has_many :votes                # votes (through participants/options)
+├── has_many :decision_audit_entries  # tamper-evident audit chain
 └── includes Linkable, Pinnable, Attachable, Commentable
 ```
+
+**Audit chain:** All vote/option mutations go through `DecisionActionService`, which wraps each mutation + audit entry in a single transaction. `DecisionAuditService` computes SHA-256 hash chains. `DecisionAuditVerifier` validates chain integrity. DB triggers prevent audit entry updates and vote mutations after close.
 
 #### Commitment
 Action pledges with critical mass thresholds. Maps to "Act" in OODA.

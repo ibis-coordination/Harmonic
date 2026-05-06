@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
+    .header { border-bottom: 2px solid #007bff; padding-bottom: 20px; margin-bottom: 20px; }
+    .header h1 { margin: 0; font-size: 24px; color: #333; }
+    .content { margin: 20px 0; }
+    .content h2 { font-size: 18px; margin: 0 0 10px 0; color: #333; }
+    .receipt { font-family: monospace; font-size: 13px; background-color: #f9f9f9; padding: 12px; border-radius: 4px; word-break: break-all; margin: 16px 0; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Harmonic</h1>
+    </div>
+
+    <div class="content">
+      <h2>Vote recorded</h2>
+      <p>Your vote on "<%= @decision.question %>" has been recorded.</p>
+
+      <div class="receipt">Audit receipt: <%= @receipt %></div>
+
+      <a href="<%= @verify_url %>" class="button">Verify on Harmonic</a>
+    </div>
+
+    <div class="footer">
+      <p>Save your audit receipt. After the decision closes, you can use it to confirm your vote was recorded correctly.</p>
+    </div>
+  </div>
+</body>
+</html>

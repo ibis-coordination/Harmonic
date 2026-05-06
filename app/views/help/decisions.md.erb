@@ -77,6 +77,14 @@ After a decision is closed, the creator can add a **final statement** explaining
 
 The final statement can be edited at any time after the decision is closed, but cannot be added while the decision is still open. When closing a decision, the creator can optionally include the final statement as part of the close action.
 
+## Verification
+
+Every action on a decision — options added, votes cast, votes updated, the decision closing, and the randomness beacon draw — is recorded in a tamper-evident **audit chain**. Each entry in the chain includes a cryptographic hash of the previous entry, so altering any record would break all subsequent hashes.
+
+After voting, you receive an **audit receipt** (the hash of your vote's entry in the chain). You can use this to confirm your vote was recorded.
+
+The **verify page** (`{decision}/verify`) provides all the data needed for independent verification, along with a Python script that replays every hash, recomputes vote totals from the recorded events, and checks sort keys against the [drand](https://drand.love) randomness beacon.
+
 ## Voters Page
 
 Each decision has a voters page (`{decision}/voters`) that shows a detailed breakdown of how each person voted. For every option, it lists which users accepted it and which users preferred it. This page is accessible via a link on the decision page (visible after you've voted or after the decision is closed).

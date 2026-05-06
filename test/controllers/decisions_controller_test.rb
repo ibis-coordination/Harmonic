@@ -500,6 +500,69 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
   end
 
+  test "submitting votes creates audit chain entries" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    assert_difference -> { DecisionAuditEntry.where(decision_id: @decision.id).count }, 1 do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+        params: {
+          votes: [
+            { option_title: "Option A", accepted: "1", preferred: "0" },
+          ],
+        }
+    end
+    assert_response :redirect
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    entry = DecisionAuditEntry.where(decision_id: @decision.id).last
+    assert_equal "vote_cast", entry.action
+    assert_equal @user.id, entry.actor_id
+    assert_equal "Option A", entry.option_title
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "submitting votes shows audit receipt in flash notice" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: {
+        votes: [
+          { option_title: "Option A", accepted: "1", preferred: "0" },
+          { option_title: "Option B", accepted: "1", preferred: "1" },
+        ],
+      }
+    assert_response :redirect
+    assert_match(/Audit receipt:/, flash[:notice])
+
+    # The receipt in the flash should be this user's last audit entry
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    receipt_entry = DecisionAuditEntry.receipt_for_user(@decision, @user)
+    assert_match(receipt_entry.entry_hash, flash[:notice])
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
   # === Results Visibility Tests ===
 
   test "results are hidden for user who has not voted" do
@@ -875,7 +938,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(subtype: "executive", decision_maker: decision_maker, deadline: 1.hour.ago)
+    @decision.update!(subtype: "executive", decision_maker: decision_maker)
     participant = DecisionParticipantManager.new(decision: @decision, user: decision_maker).find_or_create_participant
     opt_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
     opt_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
@@ -884,6 +947,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
                  tenant: @tenant, collective: @collective, accepted: 1, preferred: 0)
     Vote.create!(decision: @decision, option: opt_b, decision_participant: participant,
                  tenant: @tenant, collective: @collective, accepted: 0, preferred: 0)
+    @decision.update!(deadline: 1.hour.ago)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -1222,8 +1286,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
     assert_response :success
     assert_match(/Verify Results/, response.body)
-    assert_match(/Tiebreakers are/, response.body)
-    assert_match(/voters page/, response.body)
+    assert_match(/verify on drand/, response.body)
   end
 
   test "verify page redirects for vote decision without beacon" do
@@ -1244,12 +1307,13 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(subtype: "vote", deadline: 1.hour.ago)
+    @decision.update!(subtype: "vote")
     participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
     option_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
     option_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
     Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_a, decision_participant: participant, accepted: 1, preferred: 0)
     Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant, accepted: 1, preferred: 0)
+    @decision.update!(deadline: 1.hour.ago)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -1263,15 +1327,15 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
     @decision.update!(
-      subtype: "vote",
       deadline: 1.hour.ago,
       lottery_beacon_round: 999,
       lottery_beacon_randomness: "abc",
     )
-    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
-    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
-    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -1295,5 +1359,237 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
     assert_response :success
     assert_match(/determined at close time/, response.body)
+  end
+
+  # === Audit Chain Tests ===
+
+  test "decision page shows audit chain info when entries exist" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/Audit chain:/, response.body)
+    assert_match(/1 entries/, response.body)
+  end
+
+  test "decision page shows verify link when beacon drawn" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    @decision.update!(deadline: 1.hour.ago, lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_match(/Audit chain:.*verified/, response.body)
+    assert_match(/verify/, response.body)
+  end
+
+  test "verify page shows audit chain section when entries exist" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    @decision.update!(lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_match(/Verify Independently/, response.body)
+    assert_match(/verify\.py/, response.body)
+  end
+
+  test "verify page loads audit entries in controller" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery", lottery_beacon_round: 1, lottery_beacon_randomness: "abc")
+    DecisionAuditService.record_close!(decision: @decision, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+  end
+
+  test "verify JSON endpoint returns structured chain data" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    @decision.update!(lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify.json"
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert json["decision"].present?
+    assert json["audit_chain"].present?
+    assert json["audit_chain"].is_a?(Array)
+    assert json["audit_chain"].length >= 2
+    first_entry = json["audit_chain"].first
+    assert first_entry["sequence_number"].present?
+    assert first_entry["action"].present?
+    assert first_entry["entry_hash"].present?
+  end
+
+  test "verify page redirects when no beacon and no audit entries" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote", deadline: 1.hour.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :redirect
+  end
+
+  test "verify page accessible before close when audit entries exist" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_match(/Verify Independently/, response.body)
+    # Beacon section should not appear
+    assert_no_match(/Randomness beacon/, response.body)
+  end
+
+  test "markdown verify page renders with audit chain before beacon" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Verify Independently/, response.body)
+    assert_match(/verify\.py/, response.body)
+    assert_no_match(/Randomness beacon/, response.body)
+  end
+
+  test "markdown verify page renders with beacon data after close" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    @decision.update!(lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Verify Independently/, response.body)
+    assert_match(/verify\.py/, response.body)
+    assert_match(/Randomness beacon/, response.body)
+    assert_match(/verify on drand/, response.body)
+    assert_match(/Audit chain hash formula/, response.body)
+  end
+
+  test "markdown verify page includes python script content" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    # Script should contain actual Python, not HTML-escaped entities
+    assert_match(/import hashlib/, response.body)
+    assert_match(/DRAND_BASE_URL/, response.body)
+    assert_no_match(/&quot;/, response.body)
+    assert_no_match(/&#39;/, response.body)
+  end
+
+  test "updating decision settings creates decision_updated audit entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference -> { DecisionAuditEntry.where(decision_id: @decision.id, action: "decision_updated").count }, 1 do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+        params: { decision: { question: "Changed Question?" } },
+        headers: { 'Referer' => "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}" }
+    end
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    entry = DecisionAuditEntry.where(decision_id: @decision.id, action: "decision_updated").last
+    assert entry.metadata.key?("question")
+    changes = entry.metadata["question"]
+    assert_equal "Test Decision?", changes[0]
+    assert_equal "Changed Question?", changes[1]
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "updating decision settings with no changes creates no audit entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference -> { DecisionAuditEntry.where(decision_id: @decision.id).count } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+        params: { decision: {} },
+        headers: { 'Referer' => "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}" }
+    end
   end
 end

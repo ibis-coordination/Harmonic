@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Verify a Harmonic decision's audit chain, vote totals, and sort keys.
+
+Usage: python3 verify.py verify.json
+
+Exit code 0 = all checks passed, 1 = verification failed.
+"""
+import hashlib, json, math, sys, unicodedata, urllib.request
+from datetime import datetime, timezone
+
+# drand quicknet chain parameters (public, independently verifiable)
+DRAND_BASE_URL = "https://api.drand.sh"
+DRAND_CHAIN_HASH = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971"
+DRAND_GENESIS_TIME = 1692803367
+DRAND_PERIOD = 3
+
+data = json.load(open(sys.argv[1]))
+ok = True
+
+# 1. Verify audit chain: replay each hash and check the links
+#    Each entry's hash covers all its fields plus the previous entry's hash,
+#    forming a chain. If any entry was altered, all subsequent hashes break.
+prev = ""
+for e in data.get("audit_chain", []):
+    computed = hashlib.sha256("|".join([
+        "v1", prev, str(e["sequence_number"]), e["action"],
+        e["actor_id"], e["actor_handle"],
+        unicodedata.normalize("NFC", e["option_title"]),
+        e["accepted"], e["preferred"], e["metadata"],
+        e["created_at"],
+    ]).encode()).hexdigest()
+    if computed != e["entry_hash"]:
+        print(f"FAIL: entry #{e['sequence_number']} hash mismatch")
+        ok = False
+    if e["previous_hash"] != prev:
+        print(f"FAIL: entry #{e['sequence_number']} broken chain link")
+        ok = False
+    prev = e["entry_hash"]
+
+# The decision stores the final chain hash — verify it matches the last entry
+chain_hash = data.get("decision", {}).get("audit_chain_hash")
+if chain_hash and chain_hash != prev:
+    print("FAIL: final chain hash mismatch")
+    ok = False
+
+# 2. Replay votes from the audit chain and verify totals match results
+#    Each vote_cast/vote_updated entry records a single voter's choice on one option.
+#    We replay all votes to independently compute the acceptance and preference counts,
+#    then compare against the results the server is showing.
+votes = {}
+for e in data.get("audit_chain", []):
+    if e["action"] in ("vote_cast", "vote_updated"):
+        # Keep the latest vote per (voter, option) pair — updates replace earlier votes
+        votes[(e["actor_id"], e["option_title"])] = (e["accepted"], e["preferred"])
+
+if len(votes) > 0:
+    # Sum up totals per option
+    totals = {}
+    for (actor, option), (accepted, preferred) in votes.items():
+        if option not in totals:
+            totals[option] = [0, 0]
+        totals[option][0] += int(accepted)
+        totals[option][1] += int(preferred)
+
+    for r in data.get("results", []):
+        title = r["option_title"]
+        expected_accepted, expected_preferred = totals.get(title, [0, 0])
+        if r["accepted_yes"] != expected_accepted:
+            print(f"FAIL: '{title}' acceptance count is {r['accepted_yes']}, audit chain shows {expected_accepted}")
+            ok = False
+        if r["preferred"] != expected_preferred:
+            print(f"FAIL: '{title}' preference count is {r['preferred']}, audit chain shows {expected_preferred}")
+            ok = False
+
+# 3. Fetch beacon from drand and verify sort keys
+#    The beacon round is derived from the decision deadline — we don't trust the
+#    server's claimed round number. We fetch the randomness value directly from
+#    drand and use it to recompute every sort key.
+beacon = data.get("beacon")
+if beacon:
+    # Derive the expected round from the deadline (first round after deadline)
+    deadline_str = data["decision"]["deadline"]
+    deadline_unix = int(datetime.fromisoformat(deadline_str).replace(tzinfo=timezone.utc).timestamp())
+    expected_round = math.floor((deadline_unix - DRAND_GENESIS_TIME) / DRAND_PERIOD) + 2
+
+    if beacon["round"] != expected_round:
+        print(f"FAIL: server claims round {beacon['round']}, deadline implies round {expected_round}")
+        ok = False
+
+    # Fetch the beacon value directly from drand (not from the server)
+    drand_url = f"{DRAND_BASE_URL}/{DRAND_CHAIN_HASH}/public/{expected_round}"
+    drand = json.loads(urllib.request.urlopen(drand_url).read())
+    randomness = drand["randomness"]
+
+    if randomness != beacon["randomness"]:
+        print(f"FAIL: beacon randomness does not match drand")
+        print(f"  server says: {beacon['randomness']}")
+        print(f"  drand says:  {randomness}")
+        ok = False
+
+    # Recompute each sort key from the drand-fetched randomness
+    for r in data.get("results", []):
+        computed = hashlib.sha256(
+            (randomness + unicodedata.normalize("NFC", r["option_title"])).encode()
+        ).hexdigest()
+        if computed != r.get("lottery_sort_key"):
+            print(f"FAIL: sort key mismatch for '{r['option_title']}'")
+            ok = False
+
+print("All checks passed." if ok else "VERIFICATION FAILED.")
+sys.exit(0 if ok else 1)

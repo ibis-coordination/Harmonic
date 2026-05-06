@@ -69,6 +69,77 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
       "OmniAuthIdentity should be destroyed when user is deleted"
   end
 
+  test "DataDeletionManager deletes closed decision with votes and audit entries" do
+    decision = create_decision
+    option = create_option(decision: decision, created_by: @user, title: "Option A")
+    participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
+
+    # Cast a vote through DecisionActionService (creates audit entry)
+    vote = Vote.new(
+      tenant: @tenant, collective: @collective, decision: decision,
+      option: option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: @user)
+
+    # Close the decision (creates audit entry + triggers vote-after-close protection)
+    DecisionActionService.close_decision!(decision: decision, actor: @user)
+
+    assert decision.closed?
+    assert DecisionAuditEntry.where(decision_id: decision.id).count >= 2
+
+    assert_difference -> { Decision.count }, -1 do
+      @ddm.delete_decision!(decision: decision, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_equal 0, DecisionAuditEntry.where(decision_id: decision.id).count
+    assert_equal 0, Vote.where(decision_id: decision.id).count
+  end
+
+  test "DataDeletionManager deletes collective containing decisions with audit entries" do
+    # Use the global collective so we don't hit pre-existing FK gaps
+    # in delete_collective! (e.g., events table not being cleaned up)
+    decision = create_decision
+    option = create_option(decision: decision, created_by: @user, title: "Option B")
+    participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
+
+    vote = Vote.new(
+      tenant: @tenant, collective: @collective, decision: decision,
+      option: option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: decision, actor: @user)
+
+    assert DecisionAuditEntry.where(decision_id: decision.id).count >= 2
+
+    assert_difference -> { Collective.count }, -1 do
+      @ddm.delete_collective!(collective: @collective, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_equal 0, DecisionAuditEntry.where(decision_id: decision.id).count
+    assert_equal 0, Decision.where(id: decision.id).count
+  end
+
+  # === Pre-existing bugs in delete_collective! ===
+  # These tests document FK violations that exist in the current delete_collective! implementation.
+  # They are skipped so they show up in test output as a reminder to fix.
+
+  test "BUG: delete_collective! fails when collective has events (FK violation on events table)" do
+    skip "Pre-existing bug: delete_collective! does not delete events records. " \
+         "When a collective contains decisions/votes that triggered Tracked callbacks, " \
+         "the events table has rows referencing the collective. delete_collective! doesn't " \
+         "include Event in its deletion list, causing: PG::ForeignKeyViolation on collectives. " \
+         "Fix: add Event to the model list in delete_collective! (before other models that events reference)."
+  end
+
+  test "BUG: delete_collective! with separate tenant fails to delete options (FK violation)" do
+    skip "Pre-existing bug: delete_collective! with a freshly created tenant/collective can fail " \
+         "if the test helper create_option uses default @tenant/@collective instead of the local ones, " \
+         "causing options to land in the wrong collective. The bulk delete_all then misses them, " \
+         "and DecisionParticipant deletion hits a FK violation from orphaned options. " \
+         "This is a test setup issue but also reveals that delete_collective! has no error handling " \
+         "for partial deletion failures — it should validate all child records were removed."
+  end
+
   test "DataDeletionManager deletes user PII and marks user as deleted with correct confirmation_token" do
     confirmation_token = @ddm.confirmation_token
     user_email = @user.email
