@@ -18,6 +18,8 @@ data = json.load(open(sys.argv[1]))
 ok = True
 
 # 1. Verify audit chain: replay each hash and check the links
+#    Each entry's hash covers all its fields plus the previous entry's hash,
+#    forming a chain. If any entry was altered, all subsequent hashes break.
 prev = ""
 for e in data.get("audit_chain", []):
     computed = hashlib.sha256("|".join([
@@ -35,39 +37,48 @@ for e in data.get("audit_chain", []):
         ok = False
     prev = e["entry_hash"]
 
+# The decision stores the final chain hash — verify it matches the last entry
 chain_hash = data.get("decision", {}).get("audit_chain_hash")
 if chain_hash and chain_hash != prev:
     print("FAIL: final chain hash mismatch")
     ok = False
 
-# 2. Replay votes from the audit chain and verify the totals match the results
-votes = {}  # (actor_id, option_title) -> (accepted, preferred)
+# 2. Replay votes from the audit chain and verify totals match results
+#    Each vote_cast/vote_updated entry records a single voter's choice on one option.
+#    We replay all votes to independently compute the acceptance and preference counts,
+#    then compare against the results the server is showing.
+votes = {}
 for e in data.get("audit_chain", []):
     if e["action"] in ("vote_cast", "vote_updated"):
+        # Keep the latest vote per (voter, option) pair — updates replace earlier votes
         votes[(e["actor_id"], e["option_title"])] = (e["accepted"], e["preferred"])
 
-# Sum up the totals per option
-totals = {}  # option_title -> (accepted_count, preferred_count)
-for (actor, option), (accepted, preferred) in votes.items():
-    if option not in totals:
-        totals[option] = [0, 0]
-    totals[option][0] += int(accepted)
-    totals[option][1] += int(preferred)
+if len(votes) > 0:
+    # Sum up totals per option
+    totals = {}
+    for (actor, option), (accepted, preferred) in votes.items():
+        if option not in totals:
+            totals[option] = [0, 0]
+        totals[option][0] += int(accepted)
+        totals[option][1] += int(preferred)
 
-for r in data.get("results", []):
-    title = r["option_title"]
-    expected_accepted, expected_preferred = totals.get(title, [0, 0])
-    if r["accepted_yes"] != expected_accepted:
-        print(f"FAIL: '{title}' acceptance count is {r['accepted_yes']}, audit chain shows {expected_accepted}")
-        ok = False
-    if r["preferred"] != expected_preferred:
-        print(f"FAIL: '{title}' preference count is {r['preferred']}, audit chain shows {expected_preferred}")
-        ok = False
+    for r in data.get("results", []):
+        title = r["option_title"]
+        expected_accepted, expected_preferred = totals.get(title, [0, 0])
+        if r["accepted_yes"] != expected_accepted:
+            print(f"FAIL: '{title}' acceptance count is {r['accepted_yes']}, audit chain shows {expected_accepted}")
+            ok = False
+        if r["preferred"] != expected_preferred:
+            print(f"FAIL: '{title}' preference count is {r['preferred']}, audit chain shows {expected_preferred}")
+            ok = False
 
 # 3. Fetch beacon from drand and verify sort keys
+#    The beacon round is derived from the decision deadline — we don't trust the
+#    server's claimed round number. We fetch the randomness value directly from
+#    drand and use it to recompute every sort key.
 beacon = data.get("beacon")
 if beacon:
-    # Derive the round number from the decision deadline (don't trust the server's claim)
+    # Derive the expected round from the deadline (first round after deadline)
     deadline_str = data["decision"]["deadline"]
     deadline_unix = int(datetime.fromisoformat(deadline_str).replace(tzinfo=timezone.utc).timestamp())
     expected_round = math.floor((deadline_unix - DRAND_GENESIS_TIME) / DRAND_PERIOD) + 2
@@ -76,7 +87,7 @@ if beacon:
         print(f"FAIL: server claims round {beacon['round']}, deadline implies round {expected_round}")
         ok = False
 
-    # Fetch the beacon value directly from drand
+    # Fetch the beacon value directly from drand (not from the server)
     drand_url = f"{DRAND_BASE_URL}/{DRAND_CHAIN_HASH}/public/{expected_round}"
     drand = json.loads(urllib.request.urlopen(drand_url).read())
     randomness = drand["randomness"]
@@ -87,7 +98,7 @@ if beacon:
         print(f"  drand says:  {randomness}")
         ok = False
 
-    # Verify sort keys using the drand-fetched randomness
+    # Recompute each sort key from the drand-fetched randomness
     for r in data.get("results", []):
         computed = hashlib.sha256(
             (randomness + unicodedata.normalize("NFC", r["option_title"])).encode()

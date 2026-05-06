@@ -584,6 +584,8 @@ class DecisionsController < ApplicationController
             randomness: @decision.lottery_beacon_randomness,
             verification_url: @verification_url,
           }
+        end
+        if @decision.beacon_drawn? || (@decision.closed? && @decision.is_executive?)
           json[:results] = @decision.results.map { |r|
             {
               position: r.position,

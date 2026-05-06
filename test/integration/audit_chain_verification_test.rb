@@ -156,6 +156,13 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     option = Option.new(decision: decision, decision_participant: participant, title: "The Only Option")
     DecisionActionService.add_option!(decision: decision, option: option, actor: user)
 
+    # Create the selection votes (as api_helper.create_executive_selections! does)
+    vote = Vote.create!(  # audit-safety-ignore: executive selection votes, audited via executive_selection entry
+      tenant: tenant, collective: collective, decision: decision,
+      option: option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+
     # executive_selection is recorded as part of close
     DecisionActionService.close_decision!(
       decision: decision, actor: user,
@@ -171,11 +178,15 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    # Executive decisions have no beacon, so Python script should still pass (no beacon section)
+    # Executive decisions have no beacon but should have results
     get "/collectives/#{collective.handle}/d/#{decision.truncated_id}/verify.json"
     assert_response :success
 
     json_data = JSON.parse(response.body)
+    assert_nil json_data["beacon"], "Executive decisions should not have beacon data"
+    assert json_data["results"].is_a?(Array), "Executive decisions should have results after close"
+    assert json_data["results"].length == 1
+    assert_equal "The Only Option", json_data["results"].first["option_title"]
 
     Dir.mktmpdir do |dir|
       json_path = File.join(dir, "verify.json")
@@ -189,6 +200,67 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
       assert_equal 0, exit_code, "Python verification failed:\n#{output}"
       assert_match(/All checks passed/, output)
     end
+  end
+
+  test "Python script verifies lottery decision with beacon" do
+    tenant = @global_tenant
+    collective = @global_collective
+    user = @global_user
+
+    sign_in_as(user, tenant: tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    decision = Decision.new(
+      tenant: tenant, collective: collective, created_by: user,
+      question: "Lottery Test?", description: "Testing lottery verification",
+      deadline: 1.week.from_now, options_open: true, subtype: "lottery",
+    )
+    DecisionActionService.create_decision!(decision: decision, actor: user)
+
+    participant = DecisionParticipantManager.new(decision: decision, user: user).find_or_create_participant
+    entry_a = Option.new(decision: decision, decision_participant: participant, title: "Entry A")
+    DecisionActionService.add_option!(decision: decision, option: entry_a, actor: user)
+    entry_b = Option.new(decision: decision, decision_participant: participant, title: "Entry B")
+    DecisionActionService.add_option!(decision: decision, option: entry_b, actor: user)
+
+    DecisionActionService.close_decision!(decision: decision, actor: user)
+
+    randomness = "lottery_randomness_hex_value_1234"
+    round = expected_round_for(decision.deadline)
+    DecisionActionService.draw_beacon!(decision: decision, round: round, randomness: randomness)
+
+    actions = DecisionAuditEntry.where(decision_id: decision.id).pluck(:action)
+    assert_includes actions, "decision_created"
+    assert_includes actions, "option_added"
+    assert_includes actions, "decision_closed"
+    assert_includes actions, "beacon_drawn"
+    # Lotteries have no votes
+    assert_not_includes actions, "vote_cast"
+
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{collective.handle}/d/#{decision.truncated_id}/verify.json"
+    assert_response :success
+
+    json_data = JSON.parse(response.body)
+
+    # Lottery results should have sort keys but 0 votes
+    assert json_data["results"].is_a?(Array)
+    assert json_data["results"].length == 2
+    json_data["results"].each do |r|
+      assert_equal 0, r["accepted_yes"]
+      assert_equal 0, r["preferred"]
+      assert r["lottery_sort_key"].present?
+    end
+
+    result = run_python_verifier(json_data, expected_round: round, randomness: randomness)
+
+    assert_equal 0, result[:exit_code], "Python verification failed for lottery:\n#{result[:output]}"
+    assert_match(/All checks passed/, result[:output])
+    assert_no_match(/FAIL/, result[:output])
   end
 
   # === DB trigger tests ===
