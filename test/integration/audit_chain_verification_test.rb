@@ -535,6 +535,62 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "Python script verifies open decision with votes (pre-close)" do
+    tenant = @global_tenant
+    collective = @global_collective
+    user = @global_user
+
+    sign_in_as(user, tenant: tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    decision = Decision.new(
+      tenant: tenant, collective: collective, created_by: user,
+      question: "Open Decision?", description: "Still accepting votes",
+      deadline: 1.week.from_now, options_open: true, subtype: "vote",
+    )
+    DecisionActionService.create_decision!(decision: decision, actor: user)
+
+    participant = DecisionParticipantManager.new(decision: decision, user: user).find_or_create_participant
+    option = Option.new(decision: decision, decision_participant: participant, title: "Alpha")
+    DecisionActionService.add_option!(decision: decision, option: option, actor: user)
+
+    vote = Vote.new(
+      tenant: tenant, collective: collective, decision: decision,
+      option: option, decision_participant: participant,
+      accepted: 1, preferred: 1,
+    )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: user)
+
+    assert_not decision.closed?
+
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{collective.handle}/d/#{decision.truncated_id}/verify.json"
+    assert_response :success
+
+    json_data = JSON.parse(response.body)
+
+    # Pre-close: no beacon, no results — but chain should still verify
+    assert_nil json_data["beacon"]
+    assert_nil json_data["results"]
+    assert json_data["audit_chain"].length >= 3  # created + option_added + vote_cast
+
+    Dir.mktmpdir do |dir|
+      json_path = File.join(dir, "verify.json")
+      File.write(json_path, JSON.generate(json_data))
+
+      script_path = Rails.root.join("scripts", "verify-audit-chain.py")
+      output = `python3 #{script_path} #{json_path} 2>&1`
+      exit_code = $?.exitstatus
+
+      assert_equal 0, exit_code, "Python verification failed for open decision:\n#{output}"
+      assert_match(/All checks passed/, output)
+    end
+  end
+
   test "verify.json omits beacon and results before decision closes" do
     tenant = @global_tenant
     collective = @global_collective
