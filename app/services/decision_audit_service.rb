@@ -5,6 +5,8 @@ class DecisionAuditService
 
   sig { params(decision: Decision, actor: User).returns(T.nilable(DecisionAuditEntry)) }
   def self.record_creation!(decision:, actor:)
+    return nil if DecisionAuditEntry.where(decision_id: decision.id, action: "decision_created").exists?
+
     initial_values = {
       question: decision.question,
       description: decision.description,
@@ -71,6 +73,8 @@ class DecisionAuditService
 
   sig { params(decision: Decision, actor: User).returns(T.nilable(DecisionAuditEntry)) }
   def self.record_close!(decision:, actor:)
+    return nil if DecisionAuditEntry.where(decision_id: decision.id, action: "decision_closed").exists?
+
     record!(
       decision: decision,
       action: "decision_closed",
@@ -81,6 +85,8 @@ class DecisionAuditService
 
   sig { params(decision: Decision, round: Integer, randomness: String).returns(T.nilable(DecisionAuditEntry)) }
   def self.record_beacon!(decision:, round:, randomness:)
+    return nil if DecisionAuditEntry.where(decision_id: decision.id, action: "beacon_drawn").exists?
+
     record!(
       decision: decision,
       action: "beacon_drawn",

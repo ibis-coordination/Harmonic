@@ -139,6 +139,8 @@ class DecisionActionService
     ).returns(T::Hash[Symbol, T.untyped])
   end
   def self.draw_beacon!(decision:, round:, randomness:)
+    return { audit_entry: nil } if decision.beacon_drawn?
+
     ActiveRecord::Base.transaction do
       decision.update!(lottery_beacon_round: round, lottery_beacon_randomness: randomness)
       entry = DecisionAuditService.record_beacon!(

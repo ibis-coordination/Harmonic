@@ -103,7 +103,7 @@ class DeadlineEventJob < SystemJob
       )
 
       if resource.is_a?(Decision)
-        # Record the close in the audit chain (the deadline passing is the close event)
+        # Record the close in the audit chain (skips if already recorded by manual close)
         if resource.audit_chain_enabled?
           DecisionAuditService.record_close!(decision: resource, actor: T.must(resource.created_by))
         end
