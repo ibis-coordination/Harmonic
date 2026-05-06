@@ -73,3 +73,34 @@ print(hashlib.sha256((beacon + unicodedata.normalize("NFC", title)).encode()).he
 ```
 
 Each output should match the sort key shown above for that <%= @decision.is_lottery? ? 'entry' : 'option' %>.
+<% if @audit_entries.any? -%>
+
+## Audit Chain
+
+Every action on this decision — options added, votes cast, votes changed, and the random tiebreaker — is recorded in a tamper-evident chain. Each entry includes a cryptographic hash of the previous entry, so if any record were altered, inserted, or removed after the fact, the chain would break.
+
+<%= @audit_entries.size %> entries<%= @decision.audit_chain_hash.present? ? " · Chain hash: `#{@decision.audit_chain_hash[0..7]}...`" : "" %>
+
+| # | Action | Actor | Detail | Hash |
+|---|--------|-------|--------|------|
+<% @audit_entries.each do |entry| -%>
+<% detail = entry.option_title.present? ? entry.option_title : (entry.metadata.present? ? entry.metadata.to_json.truncate(40) : "") -%>
+<% detail += " · ✅#{entry.accepted} ⭐#{entry.preferred}" if entry.accepted.present? -%>
+| <%= entry.sequence_number %> | <%= entry.action %> | <%= entry.actor_handle || "(system)" %> | <%= detail %> | `<%= entry.entry_hash[0..7] %>...` |
+<% end -%>
+
+### Hash Formula
+
+```
+entry_hash = SHA256(
+  "v1" + "|" + previous_hash + "|" + sequence_number + "|" +
+  action + "|" + actor_id + "|" + actor_handle + "|" +
+  NFC(option_title) + "|" + accepted + "|" + preferred + "|" +
+  sorted_json(metadata) + "|" + ISO8601(created_at)
+)
+```
+
+Null fields are empty strings. First entry uses empty string for previous_hash.
+
+JSON endpoint for programmatic verification: `GET <%= @decision.path %>/verify.json`
+<% end -%>

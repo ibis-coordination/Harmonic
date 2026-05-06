@@ -8,6 +8,9 @@ class Vote < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
 
+  # Transient attribute — set by DecisionActionService.cast_vote! after recording the audit entry
+  attr_accessor :audit_receipt
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -32,7 +35,7 @@ class Vote < ApplicationRecord
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
-    {
+    json = {
       id: id,
       option_id: option_id,
       decision_id: decision_id,
@@ -42,6 +45,8 @@ class Vote < ApplicationRecord
       created_at: created_at,
       updated_at: updated_at,
     }
+    json[:audit_receipt] = audit_receipt if audit_receipt.present?
+    json
   end
 
   private

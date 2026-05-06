@@ -3441,3 +3441,32 @@ dialog.pulse-dialog form {
   align-items: center;
   gap: 12px;
 }
+
+/* Code block: copy button and Python syntax highlighting */
+
+.code-block-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 6px;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: 4px;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.code-block-copy-btn:hover {
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+[data-controller="code-block"]:hover .code-block-copy-btn {
+  opacity: 1;
+}
+
+/* highlight.js overrides to match app theme */
+.hljs { background: transparent !important; padding: 0 !important; }

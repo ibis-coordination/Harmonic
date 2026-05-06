@@ -254,6 +254,21 @@
     <% end %>
   <% end %>
 
+  <%# Audit Chain (all decision types) %>
+  <% if @audit_entry_count && @audit_entry_count > 0 %>
+    <div style="margin-top: 8px;">
+      <%= link_to "#{@decision.path}/verify", class: 'pulse-body-text-muted' do %>
+        <% if @decision.beacon_drawn? %>
+          <%= octicon 'verified', height: 14 %>
+          Audit chain: <%= @audit_entry_count %> entries &middot; verified
+        <% else %>
+          <%= octicon 'link', height: 14 %>
+          Audit chain: <%= @audit_entry_count %> entries &middot; <code style="font-size: 0.85em;"><%= @audit_latest_hash&.slice(0, 8) %>...</code>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+
   <%= render 'shared/pulse_comments', commentable: @decision %>
   <%= render 'shared/pulse_backlinks', resource: @decision %>
 </article>

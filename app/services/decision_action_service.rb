@@ -20,6 +20,7 @@ class DecisionActionService
       audit_entry = DecisionAuditService.record_vote!(
         decision: decision, vote: vote, actor: actor, is_update: is_update,
       )
+      vote.audit_receipt = audit_entry&.entry_hash
       { vote: vote, audit_entry: audit_entry }
     end
   end

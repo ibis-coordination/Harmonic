@@ -108,6 +108,32 @@ class DecisionActionServiceTest < ActiveSupport::TestCase
     assert_equal @decision.audit_chain_hash, result[:audit_entry].entry_hash
   end
 
+  # --- audit_receipt ---
+
+  test "cast_vote! sets audit_receipt on the vote object" do
+    vote = Vote.new(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: @participant,
+      accepted: 1, preferred: 0,
+    )
+
+    result = DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    assert vote.audit_receipt.present?
+    assert_equal result[:audit_entry].entry_hash, vote.audit_receipt
+  end
+
+  test "vote api_json includes audit_receipt when set" do
+    vote = Vote.new(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: @participant,
+      accepted: 1, preferred: 0,
+    )
+
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    json = vote.api_json
+    assert_equal vote.audit_receipt, json[:audit_receipt]
+  end
+
   # --- Transaction rollback ---
 
   test "transaction rolls back both vote and audit entry on failure" do

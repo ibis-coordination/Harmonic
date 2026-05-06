@@ -106,6 +106,12 @@ class DecisionsController < ApplicationController
     set_results_view_vars
     set_pin_vars
     set_report_vars(@decision)
+
+    if @decision.audit_chain_enabled?
+      latest_entry = DecisionAuditEntry.where(decision_id: @decision.id).order(sequence_number: :desc).first
+      @audit_entry_count = latest_entry&.sequence_number || 0
+      @audit_latest_hash = latest_entry&.entry_hash
+    end
   end
 
   def report
@@ -321,8 +327,11 @@ class DecisionsController < ApplicationController
 
     if votes_data.any?
       begin
-        api_helper(params: { votes: votes_data }).create_votes
-        redirect_to @decision.path, notice: "Vote submitted."
+        votes = api_helper(params: { votes: votes_data }).create_votes
+        receipt = votes.first&.audit_receipt
+        notice = "Vote submitted."
+        notice += " Audit receipt: #{receipt}" if receipt
+        redirect_to @decision.path, notice: notice
       rescue StandardError => e
         redirect_to @decision.path, alert: e.message
       end
@@ -516,17 +525,74 @@ class DecisionsController < ApplicationController
   def verify
     @decision = current_decision
     return render '404', status: 404 unless @decision
-    return redirect_to @decision.path unless @decision.beacon_drawn?
+
+    @audit_entries = DecisionAuditEntry.where(decision_id: @decision.id).order(:sequence_number)
+
+    # Allow access if beacon is drawn OR if there are audit entries to show
+    has_content = @decision.beacon_drawn? || @audit_entries.any?
+    return redirect_to @decision.path unless has_content
 
     @page_title = "Verify Results | #{@decision.question}"
     @sidebar_mode = 'resource'
-    lottery_service = LotteryService.new
-    @verification_url = lottery_service.verification_url(@decision)
-    provider = RandomnessProvider.current
-    @round_derivation = provider.round_derivation(
-      @decision.deadline,
-      T.must(@decision.lottery_beacon_round),
-    )
+
+    if @decision.beacon_drawn?
+      lottery_service = LotteryService.new
+      @verification_url = lottery_service.verification_url(@decision)
+      provider = RandomnessProvider.current
+      @round_derivation = provider.round_derivation(
+        @decision.deadline,
+        T.must(@decision.lottery_beacon_round),
+      )
+    end
+
+    respond_to do |format|
+      format.html
+      format.json do
+        json = {
+          decision: {
+            id: @decision.id,
+            question: @decision.question,
+            subtype: @decision.subtype,
+            deadline: @decision.deadline.iso8601,
+            audit_chain_hash: @decision.audit_chain_hash,
+            lottery_beacon_round: @decision.lottery_beacon_round,
+            lottery_beacon_randomness: @decision.lottery_beacon_randomness,
+          },
+          audit_chain: @audit_entries.map { |e|
+            {
+              sequence_number: e.sequence_number,
+              action: e.action,
+              actor_id: e.actor_id || "",
+              actor_handle: e.actor_handle || "",
+              option_title: e.option_title || "",
+              accepted: e.accepted.nil? ? "" : e.accepted.to_s,
+              preferred: e.preferred.nil? ? "" : e.preferred.to_s,
+              metadata: e.metadata.nil? ? "" : JSON.generate(e.metadata.sort.to_h),
+              previous_hash: e.previous_hash || "",
+              entry_hash: e.entry_hash,
+              created_at: e.created_at.iso8601,
+            }
+          },
+        }
+        if @decision.beacon_drawn?
+          json[:beacon] = {
+            round: @decision.lottery_beacon_round,
+            randomness: @decision.lottery_beacon_randomness,
+            verification_url: @verification_url,
+          }
+          json[:results] = @decision.results.map { |r|
+            {
+              position: r.position,
+              option_title: r.option_title,
+              accepted_yes: r.accepted_yes,
+              preferred: r.preferred,
+              lottery_sort_key: r.lottery_sort_key,
+            }
+          }
+        end
+        render json: json
+      end
+    end
   end
 
   private
