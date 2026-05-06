@@ -188,7 +188,8 @@ class ApiHelper
       if decision_maker_param.present?
         create_attrs[:decision_maker] = resolve_user(decision_maker_param)
       end
-      decision = Decision.create!(create_attrs)
+      decision = Decision.new(create_attrs)
+      DecisionActionService.create_decision!(decision: decision, actor: current_user)
       track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
@@ -1142,7 +1143,7 @@ class ApiHelper
     original = T.must(current_decision)
     new_decision = T.let(nil, T.nilable(Decision))
     ActiveRecord::Base.transaction do
-      new_decision = Decision.create!(
+      new_decision = Decision.new(
         question: "#{original.question} (copy)",
         description: original.description,
         subtype: original.subtype,
@@ -1150,8 +1151,9 @@ class ApiHelper
         deadline: original.deadline,
         created_by: current_user,
       )
+      DecisionActionService.create_decision!(decision: new_decision, actor: current_user)
       original.options.each do |opt|
-        Option.create!(
+        option = Option.new(
           decision: new_decision,
           title: opt.title,
           decision_participant: DecisionParticipantManager.new(
@@ -1159,6 +1161,7 @@ class ApiHelper
             user: current_user
           ).find_or_create_participant,
         )
+        DecisionActionService.add_option!(decision: new_decision, option: option, actor: current_user)
       end
       track_task_run_resource(new_decision, action_type: "create")
       if current_representation_session

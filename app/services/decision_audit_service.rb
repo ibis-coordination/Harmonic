@@ -3,6 +3,16 @@
 class DecisionAuditService
   extend T::Sig
 
+  sig { params(decision: Decision, actor: User).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_creation!(decision:, actor:)
+    record!(
+      decision: decision,
+      action: "decision_created",
+      actor_id: actor.id,
+      actor_handle: actor.handle,
+    )
+  end
+
   sig { params(decision: Decision, vote: Vote, actor: User, is_update: T::Boolean).returns(T.nilable(DecisionAuditEntry)) }
   def self.record_vote!(decision:, vote:, actor:, is_update: false)
     record!(

@@ -9,6 +9,20 @@ class DecisionActionService
   sig do
     params(
       decision: Decision,
+      actor: User,
+    ).returns(T::Hash[Symbol, T.untyped])
+  end
+  def self.create_decision!(decision:, actor:)
+    ActiveRecord::Base.transaction do
+      decision.save!
+      audit_entry = DecisionAuditService.record_creation!(decision: decision, actor: actor)
+      { decision: decision, audit_entry: audit_entry }
+    end
+  end
+
+  sig do
+    params(
+      decision: Decision,
       vote: Vote,
       actor: User,
       is_update: T::Boolean,

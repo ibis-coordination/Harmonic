@@ -108,6 +108,20 @@ class DecisionActionServiceTest < ActiveSupport::TestCase
     assert_equal @decision.audit_chain_hash, result[:audit_entry].entry_hash
   end
 
+  # --- create_decision! ---
+
+  test "create_decision! saves decision and records decision_created as first entry" do
+    new_decision = Decision.new(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      question: "New?", description: "test", deadline: 1.week.from_now,
+      options_open: true, subtype: "vote",
+    )
+    result = DecisionActionService.create_decision!(decision: new_decision, actor: @user)
+    assert new_decision.persisted?
+    assert_equal "decision_created", result[:audit_entry].action
+    assert_equal 1, result[:audit_entry].sequence_number
+  end
+
   # --- audit_receipt ---
 
   test "cast_vote! sets audit_receipt on the vote object" do

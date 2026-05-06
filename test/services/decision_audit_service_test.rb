@@ -11,6 +11,17 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     @option = create_option(decision: @decision, created_by: @user, title: "Option A")
   end
 
+  # --- record_creation! ---
+
+  test "record_creation! creates a decision_created entry as the first entry" do
+    entry = DecisionAuditService.record_creation!(decision: @decision, actor: @user)
+    assert_equal "decision_created", entry.action
+    assert_equal 1, entry.sequence_number
+    assert_equal @user.id, entry.actor_id
+    assert_nil entry.previous_hash
+    assert entry.entry_hash.present?
+  end
+
   # --- record_option! ---
 
   test "record_option! creates an option_added entry" do

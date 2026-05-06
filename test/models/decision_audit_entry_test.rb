@@ -12,7 +12,7 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
   end
 
   test "ACTIONS constant contains all expected actions" do
-    expected = %w[option_added option_removed vote_cast vote_updated executive_selection decision_closed beacon_drawn]
+    expected = %w[decision_created option_added option_removed vote_cast vote_updated executive_selection decision_closed beacon_drawn]
     assert_equal expected.sort, DecisionAuditEntry::ACTIONS.sort
   end
 
