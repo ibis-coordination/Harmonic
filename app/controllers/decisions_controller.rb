@@ -550,6 +550,7 @@ class DecisionsController < ApplicationController
 
     respond_to do |format|
       format.html
+      format.md
       format.json do
         json = {
           decision: {

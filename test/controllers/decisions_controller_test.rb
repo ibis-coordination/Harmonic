@@ -1496,6 +1496,73 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Randomness beacon/, response.body)
   end
 
+  test "markdown verify page renders with audit chain before beacon" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Verify Independently/, response.body)
+    assert_match(/verify\.py/, response.body)
+    assert_no_match(/Randomness beacon/, response.body)
+  end
+
+  test "markdown verify page renders with beacon data after close" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    @decision.update!(lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Verify Independently/, response.body)
+    assert_match(/verify\.py/, response.body)
+    assert_match(/Randomness beacon/, response.body)
+    assert_match(/verify on drand/, response.body)
+    assert_match(/Audit chain hash formula/, response.body)
+  end
+
+  test "markdown verify page includes python script content" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    # Script should contain actual Python, not HTML-escaped entities
+    assert_match(/import hashlib/, response.body)
+    assert_match(/DRAND_BASE_URL/, response.body)
+    assert_no_match(/&quot;/, response.body)
+    assert_no_match(/&#39;/, response.body)
+  end
+
   test "updating decision settings creates decision_updated audit entry" do
     sign_in_as(@user, tenant: @tenant)
 
