@@ -550,7 +550,12 @@ class DecisionsController < ApplicationController
 
     respond_to do |format|
       format.html
-      format.md
+      format.md do
+        @verification_result = DecisionAuditVerifier.verify_all(
+          @decision,
+          fetched_randomness: @decision.lottery_beacon_randomness,
+        )
+      end
       format.json do
         json = {
           decision: {

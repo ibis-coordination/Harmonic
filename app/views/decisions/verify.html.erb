@@ -16,6 +16,15 @@
       Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded so that anyone can independently verify that nothing was tampered with<% if @decision.beacon_drawn? %> and that the results are correct<% end %>.
     </p>
 
+    <div data-controller="audit-verify"
+         data-audit-verify-url-value="<%= request.path %>.json"
+         style="background: var(--color-canvas-subtle); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+      <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Automated Verification</h2>
+      <div data-audit-verify-target="results" style="line-height: 1.6;">
+        <p style="color: var(--color-fg-muted);">Verifying audit chain...</p>
+      </div>
+    </div>
+
     <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Verify Independently</h2>
 
     <ol style="line-height: 1.8; margin-bottom: 16px; padding-left: 20px;">

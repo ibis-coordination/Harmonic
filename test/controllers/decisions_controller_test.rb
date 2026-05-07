@@ -1563,6 +1563,116 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/&#39;/, response.body)
   end
 
+  test "markdown verify page includes server-side verification results" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Verification Results/, response.body)
+    assert_match(/Chain integrity.*PASS.*entries verified/i, response.body)
+    assert_match(/Vote tallies.*PASS.*totals match/i, response.body)
+    assert_match(/Beacon verification.*PASS/i, response.body)
+    assert_match(/All checks passed/i, response.body)
+  end
+
+  test "markdown verify page shows chain failure with integrity warning" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Tamper with an entry hash to trigger chain failure
+    entry = DecisionAuditEntry.where(decision_id: @decision.id).first
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    ActiveRecord::Base.connection.execute(
+      "UPDATE decision_audit_entries SET entry_hash = 'tampered' WHERE id = '#{entry.id}'"
+    )
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Chain integrity.*FAIL/i, response.body)
+    assert_match(/altered or corrupted/i, response.body)
+    assert_match(/serious integrity issue/i, response.body)
+    assert_match(/Do not rely/i, response.body)
+    assert_match(/One or more checks failed/i, response.body)
+  end
+
+  test "markdown verify page shows vote tally failure when votes tampered" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+
+    # Tamper with the actual vote to create a tally mismatch
+    vote.update_columns(accepted: 0)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Vote tallies.*FAIL/i, response.body)
+    assert_match(/do not match/i, response.body)
+    assert_match(/added, removed, or changed/i, response.body)
+    assert_match(/Do not rely/i, response.body)
+  end
+
+  test "markdown verify page shows beacon failure when round is wrong" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+
+    # Set a wrong beacon round (randomness won't match sort keys either)
+    @decision.update_columns(lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Beacon verification.*FAIL/i, response.body)
+    assert_match(/random sorting could not be verified/i, response.body)
+    assert_match(/manipulated/i, response.body)
+  end
+
   test "updating decision settings creates decision_updated audit entry" do
     sign_in_as(@user, tenant: @tenant)
 

@@ -58,6 +58,7 @@ import TooltipController from "./tooltip_controller"
 import TopLeftMenuController from "./top_left_menu_controller"
 import TopRightMenuController from "./top_right_menu_controller"
 import TrioLogoController from "./trio_logo_controller"
+import AuditVerifyController from "./audit_verify_controller"
 import AutoSubmitController from "./auto_submit_controller"
 import CheckboxGroupController from "./checkbox_group_controller"
 import KebabMenuController from "./kebab_menu_controller"
@@ -114,6 +115,7 @@ application.register("tooltip", TooltipController)
 application.register("top-left-menu", TopLeftMenuController)
 application.register("top-right-menu", TopRightMenuController)
 application.register("trio-logo", TrioLogoController)
+application.register("audit-verify", AuditVerifyController)
 application.register("auto-submit", AutoSubmitController)
 application.register("checkbox-group", CheckboxGroupController)
 application.register("kebab-menu", KebabMenuController)

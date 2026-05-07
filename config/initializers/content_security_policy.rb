@@ -39,8 +39,8 @@ Rails.application.configure do
     # TODO: Consider using nonces for inline styles in the future
     policy.style_src :self, :unsafe_inline
 
-    # Connect: allow self (for fetch/XHR requests)
-    policy.connect_src :self
+    # Connect: allow self (for fetch/XHR requests) and drand API (for audit chain beacon verification)
+    policy.connect_src :self, "https://api.drand.sh"
 
     # Frames: prevent clickjacking by disallowing framing
     policy.frame_ancestors :none

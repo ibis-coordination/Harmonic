@@ -3468,5 +3468,10 @@ dialog.pulse-dialog form {
   opacity: 1;
 }
 
+/* Audit chain verification status */
+.verification-pass { color: var(--color-success-fg); }
+.verification-fail { color: var(--color-danger-fg); }
+.verification-error { color: var(--color-fg-muted); }
+
 /* highlight.js overrides to match app theme */
 .hljs { background: transparent !important; padding: 0 !important; }

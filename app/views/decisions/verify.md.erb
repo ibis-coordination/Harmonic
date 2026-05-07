@@ -3,6 +3,56 @@
 [Back to <%= @decision.is_lottery? ? 'lottery' : 'decision' %>](<%= @decision.path %>)
 
 Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded so that anyone can independently verify that nothing was tampered with<% if @decision.beacon_drawn? %> and that the results are correct<% end %>.
+<% if @verification_result -%>
+
+## Verification Results
+<% if @verification_result[:chain][:valid] -%>
+
+- **Chain integrity**: PASS — All <%= @verification_result[:chain][:entry_count] %> entries verified — every hash is correct and links to the previous entry.
+<% else -%>
+
+- **Chain integrity**: FAIL — The audit chain has been altered or corrupted. This is a serious integrity issue — it means the recorded history of this decision may not be trustworthy. Do not rely on the displayed results until this is investigated.
+<% @verification_result[:chain][:errors]&.each do |error| -%>
+  - <%= error %>
+<% end -%>
+<% end -%>
+<% if @verification_result[:vote_tallies][:valid] -%>
+
+- **Vote tallies**: PASS — Replayed all votes from the audit chain — totals match the displayed results.
+<% else -%>
+
+- **Vote tallies**: FAIL — The vote totals shown in the results do not match what the audit chain recorded. This means votes may have been added, removed, or changed outside of the audited process. Do not rely on the displayed results until this is investigated.
+<% @verification_result[:vote_tallies][:errors]&.each do |error| -%>
+  - <%= error %>
+<% end -%>
+<% end -%>
+<% if !@decision.beacon_drawn? -%>
+
+- **Beacon verification**: PASS (no beacon drawn yet)
+<% elsif @verification_result[:beacon][:skipped] -%>
+
+- **Beacon verification**: SKIPPED — Could not reach the drand randomness beacon to verify sort keys. This does not indicate a problem with the decision — the drand API may be temporarily unavailable. You can verify the beacon independently using the Python script below.
+<% elsif @verification_result[:beacon][:valid] -%>
+
+- **Beacon verification**: PASS — Randomness round and sort keys verified against the drand beacon.
+<% else -%>
+
+- **Beacon verification**: FAIL — The random sorting could not be verified against the drand randomness beacon. This could mean the sort order was manipulated, or that the wrong beacon round was used.
+<% @verification_result[:beacon][:errors]&.each do |error| -%>
+  - <%= error %>
+<% end -%>
+<% end -%>
+<% if @verification_result[:valid] && !@verification_result[:beacon][:skipped] -%>
+
+**All checks passed.**
+<% elsif @verification_result[:valid] && @verification_result[:beacon][:skipped] -%>
+
+**Chain and vote checks passed. Beacon could not be checked — see above.**
+<% else -%>
+
+**One or more checks failed — see details above.**
+<% end -%>
+<% end -%>
 
 ## Verify Independently
 
