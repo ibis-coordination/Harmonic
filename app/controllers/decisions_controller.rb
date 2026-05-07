@@ -380,6 +380,12 @@ class DecisionsController < ApplicationController
       }
     end
 
+    # Load receipt hashes for all voters in one query (last vote entry per actor)
+    receipt_entries = DecisionAuditEntry
+      .where(decision_id: @decision.id, action: ["vote_cast", "vote_updated"])
+      .order(:sequence_number)
+    @receipts_by_voter = receipt_entries.group_by(&:actor_id).transform_values(&:last)
+
     @votes_by_voter = @decision.voters.sort_by { |u| u.display_name.downcase }.map do |voter|
       voter_votes = all_votes.select { |v| v.decision_participant&.user_id == voter.id && v.accepted == 1 }
       # Sort accepted options in results order
@@ -603,6 +609,38 @@ class DecisionsController < ApplicationController
         end
         render json: json
       end
+    end
+  end
+
+  def verify_receipt
+    @decision = current_decision
+    return render "404", status: 404 unless @decision
+
+    @receipt_hash = params[:receipt_hash]
+    receipt_entry = DecisionAuditEntry.find_by_receipt(@decision, @receipt_hash)
+
+    unless receipt_entry
+      @page_title = "Receipt not found | #{@decision.question}"
+      @sidebar_mode = "resource"
+      return respond_to do |format|
+        format.html { render "verify_receipt_not_found", status: :not_found }
+        format.md { render "verify_receipt_not_found", status: :not_found }
+        format.json { render json: { error: "Receipt not found", receipt_hash: @receipt_hash }, status: :not_found }
+      end
+    end
+
+    actor_id = receipt_entry.actor_id
+    @actor = User.find_by(id: actor_id)
+    @entries = DecisionAuditEntry
+      .where(decision_id: @decision.id, actor_id: actor_id)
+      .order(:sequence_number)
+
+    @page_title = "Vote receipt | #{@decision.question}"
+    @sidebar_mode = "resource"
+
+    respond_to do |format|
+      format.html
+      format.md
     end
   end
 

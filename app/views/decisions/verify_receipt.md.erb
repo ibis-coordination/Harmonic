@@ -1,0 +1,13 @@
+# Vote receipt for <%= @actor&.display_name || "unknown user" %>
+
+[Back to <%= @decision.is_lottery? ? 'lottery' : 'decision' %>](<%= @decision.path %>) | [Verify page](<%= @decision.path %>/verify)
+
+This page shows all audited actions by **<%= @actor&.display_name || "unknown user" %>** on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>. Each entry is part of the cryptographic audit chain and can be independently verified on the [verify page](<%= @decision.path %>/verify).
+
+## Audit entries
+
+<% @entries.each do |entry| -%>
+- **#<%= entry.sequence_number %>** `<%= entry.action %>`<%= " — #{entry.option_title}" if entry.option_title.present? %><%= " ✅" if entry.accepted == 1 %><%= " ⭐" if entry.preferred == 1 %> — `<%= entry.entry_hash[0, 8] %>...` — <%= entry.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %>
+<% end -%>
+
+Receipt: `<%= @receipt_hash %>`

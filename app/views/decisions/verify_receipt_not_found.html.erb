@@ -1,0 +1,35 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  [@decision.is_lottery? ? 'Lottery' : 'Decision', @decision.path],
+  ['Verify', "#{@decision.path}/verify"],
+  'Receipt not found'
+] %>
+
+<article class="pulse-resource-detail">
+  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Receipt not found</h1>
+  <p class="pulse-body-text-muted" style="margin-bottom: 20px;">
+    <%= link_to @decision.question, @decision.path %>
+  </p>
+
+  <div class="pulse-resource-body" style="padding: 16px;">
+    <p style="line-height: 1.6; margin-bottom: 16px;">
+      No audit entry matching the hash <code class="receipt-hash" style="word-break: break-all; font-size: 1em;"><%= @receipt_hash %></code> was found for this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>.
+    </p>
+
+    <h2 style="font-size: 1.1em; margin: 0 0 12px 0;">What this could mean</h2>
+
+    <ul style="line-height: 1.8; margin-bottom: 16px; padding-left: 20px;">
+      <li><strong>Typo or truncation</strong> — Receipt hashes are 64 characters long. Make sure you're using the full hash, not a truncated version.</li>
+      <li><strong>Wrong decision</strong> — This receipt may belong to a different decision. Check that you're looking at the right one.</li>
+      <li><strong>Data integrity issue</strong> — If neither of the above apply and you believe your receipt should be valid, this could indicate a problem with the audit chain. You can investigate further on the <%= link_to "verify page", "#{@decision.path}/verify" %>.</li>
+    </ul>
+
+    <h2 style="font-size: 1.1em; margin: 0 0 12px 0;">Where to find your receipt</h2>
+
+    <ul style="line-height: 1.8; margin-bottom: 16px; padding-left: 20px;">
+      <li>Your receipt was shown after you submitted your vote.</li>
+      <li>If you voted via the API, your receipt was returned in the response as <code>audit_receipt</code>.</li>
+      <li>All voter receipts are listed on the <%= link_to "voters page", "#{@decision.path}/voters" %>.</li>
+    </ul>
+  </div>
+</article>

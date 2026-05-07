@@ -38,11 +38,15 @@
           <% @votes_by_voter.each do |entry| %>
             <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border-muted);">
               <div class="pulse-body-text-muted" style="font-size: 0.8em; margin-bottom: 2px;">Voter</div>
-              <h3 style="margin-bottom: 8px;">
+              <h3 style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <a href="<%= "/u/#{entry[:voter].handle}" %>" style="display: inline-flex; align-items: center; gap: 4px;">
                   <%= profile_pic(entry[:voter], size: 20) %>
                   <%= entry[:voter].display_name %>
                 </a>
+                <% receipt = @receipts_by_voter[entry[:voter].id] %>
+                <% if receipt %>
+                  <a href="<%= @decision.path %>/verify/<%= receipt.entry_hash %>" class="receipt-hash" title="<%= receipt.entry_hash %>"><code><%= receipt.entry_hash[0, 8] %>...</code></a>
+                <% end %>
               </h3>
               <% if entry[:options].any? %>
                 <% entry[:options].each do |opt| %>

@@ -3473,5 +3473,16 @@ dialog.pulse-dialog form {
 .verification-fail { color: var(--color-danger-fg); }
 .verification-error { color: var(--color-fg-muted); }
 
+/* Vote receipt highlight */
+.receipt-hash {
+  background: var(--color-attention-subtle);
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-decoration: none;
+  color: inherit;
+}
+a.receipt-hash { font-size: 0.75em; }
+.receipt-hash code { background: none; }
+
 /* highlight.js overrides to match app theme */
 .hljs { background: transparent !important; padding: 0 !important; }

@@ -694,6 +694,95 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Option A/, response.body)
   end
 
+  test "voters page shows receipt hashes next to voter names" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/voters"
+    assert_response :success
+
+    # Receipt hash should appear as a truncated code element
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    receipt = DecisionAuditEntry.receipt_for_user(@decision, @user)
+    assert receipt, "Expected receipt entry to exist"
+    truncated = receipt.entry_hash[0, 8]
+    assert_match(/#{truncated}/, response.body)
+    # Receipt should link to the verify receipt route
+    assert_match(/verify\/#{receipt.entry_hash}/, response.body)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  # === Receipt Verification Page Tests ===
+
+  test "receipt verification page shows voter's full audit history" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    option_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    vote_a = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option_a, decision_participant: participant, accepted: 1, preferred: 1)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote_a, actor: @user)
+    vote_b = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote_b, actor: @user)
+
+    receipt = DecisionAuditEntry.receipt_for_user(@decision, @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify/#{receipt.entry_hash}"
+    assert_response :success
+    assert_match(/Vote receipt/, response.body)
+    assert_match(/vote_cast/, response.body)
+    assert_match(/Option A/, response.body)
+    assert_match(/Option B/, response.body)
+    assert_match(@user.display_name, response.body)
+  end
+
+  test "receipt verification page shows helpful not-found page for unknown hash" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify/nonexistent_hash"
+    assert_response :not_found
+    assert_match(/Receipt not found/, response.body)
+    assert_match(/nonexistent_hash/, response.body)
+    assert_match(/What this could mean/, response.body)
+    assert_match(/Where to find your receipt/, response.body)
+  end
+
+  test "receipt verification page renders markdown format" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+
+    receipt = DecisionAuditEntry.receipt_for_user(@decision, @user)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify/#{receipt.entry_hash}",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Vote receipt/, response.body)
+    assert_match(/vote_cast/, response.body)
+    assert_match(/Option A/, response.body)
+  end
+
   test "cannot vote via API action on closed decision" do
     sign_in_as(@user, tenant: @tenant)
 
