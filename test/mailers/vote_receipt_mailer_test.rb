@@ -12,7 +12,7 @@ class VoteReceiptMailerTest < ActiveSupport::TestCase
     @decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
   end
 
-  test "sends email with receipt hash and verify link" do
+  test "sends email with receipt hash and link to receipt verification page" do
     mail = VoteReceiptMailer.receipt_email(
       user: @user,
       decision: @decision,
@@ -23,10 +23,33 @@ class VoteReceiptMailerTest < ActiveSupport::TestCase
     assert_match(/vote.*recorded/i, mail.subject)
     assert_match(@decision.question, mail.subject)
     assert_match(/abc123def456/, mail.body.encoded)
-    assert_match(/verify/, mail.body.encoded)
+    # Link should go to the receipt verification page, not just the verify page
+    assert_match(/verify\/abc123def456/, mail.body.encoded)
   end
 
-  test "api_helper does not send receipt email (disabled until opt-in UI)" do
+  test "api_helper sends receipt email when opted in and flag enabled" do
+    option_a = create_option(decision: @decision, created_by: @user, title: "Option A")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    participant.update!(vote_receipt_email: true)
+
+    helper = ApiHelper.new(
+      current_tenant: @tenant,
+      current_collective: @collective,
+      current_user: @user,
+      current_decision: @decision,
+      params: {
+        votes: [
+          { option_title: "Option A", accept: true, prefer: true },
+        ],
+      },
+    )
+
+    assert_enqueued_jobs(1, only: ActionMailer::MailDeliveryJob) do
+      helper.create_votes
+    end
+  end
+
+  test "api_helper does not send receipt email when not opted in" do
     option_a = create_option(decision: @decision, created_by: @user, title: "Option A")
 
     helper = ApiHelper.new(
@@ -41,7 +64,32 @@ class VoteReceiptMailerTest < ActiveSupport::TestCase
       },
     )
 
-    assert_no_enqueued_jobs(only: ActionMailer::MailDeliveryJob) do
+    assert_no_enqueued_emails do
+      helper.create_votes
+    end
+  end
+
+  test "api_helper does not send receipt email when feature flag disabled" do
+    option_a = create_option(decision: @decision, created_by: @user, title: "Option A")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    participant.update!(vote_receipt_email: true)
+
+    # Disable feature flag at collective level
+    @collective.disable_feature_flag!("vote_receipt_emails")
+
+    helper = ApiHelper.new(
+      current_tenant: @tenant,
+      current_collective: @collective,
+      current_user: @user,
+      current_decision: @decision,
+      params: {
+        votes: [
+          { option_title: "Option A", accept: true, prefer: true },
+        ],
+      },
+    )
+
+    assert_no_enqueued_emails do
       helper.create_votes
     end
   end

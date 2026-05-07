@@ -783,6 +783,82 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Option A/, response.body)
   end
 
+  # === Vote Receipt Email Tests ===
+
+  test "submit_votes saves vote_receipt_email preference on decision participant" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: {
+        votes: { "0" => { option_title: "Option A", accepted: "1", preferred: "0" } },
+        vote_receipt_email: "1",
+      }
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant.reload
+    assert participant.vote_receipt_email, "Expected vote_receipt_email to be true"
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "submit_votes preserves vote_receipt_email preference when param is missing" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    participant.update!(vote_receipt_email: true)
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # Submit without vote_receipt_email param (e.g., API call)
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: {
+        votes: { "0" => { option_title: "Option A", accepted: "1", preferred: "0" } },
+      }
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant.reload
+    assert participant.vote_receipt_email, "Expected vote_receipt_email to remain true when param is missing"
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "submit_votes clears vote_receipt_email preference when unchecked" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    participant.update!(vote_receipt_email: true)
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: {
+        votes: { "0" => { option_title: "Option A", accepted: "1", preferred: "0" } },
+        vote_receipt_email: "0",
+      }
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant.reload
+    assert_not participant.vote_receipt_email, "Expected vote_receipt_email to be false"
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
   test "cannot vote via API action on closed decision" do
     sign_in_as(@user, tenant: @tenant)
 

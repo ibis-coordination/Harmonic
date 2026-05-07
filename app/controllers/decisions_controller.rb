@@ -327,6 +327,12 @@ class DecisionsController < ApplicationController
 
     if votes_data.any?
       begin
+        # Save email receipt preference before creating votes (only if param is present)
+        if params.key?(:vote_receipt_email)
+          participant = DecisionParticipantManager.new(decision: @decision, user: @current_user).find_or_create_participant
+          participant.update!(vote_receipt_email: params[:vote_receipt_email] == "1")
+        end
+
         api_helper(params: { votes: votes_data }).create_votes
         receipt_entry = DecisionAuditEntry.receipt_for_user(@decision, @current_user)
         notice = if receipt_entry

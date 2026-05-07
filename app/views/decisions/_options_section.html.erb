@@ -40,7 +40,19 @@
             <%= render 'options_list_items' %>
           </span>
         </ul>
+        <% receipt_emails_enabled = FeatureFlagService.enabled?("vote_receipt_emails", collective: @current_collective) %>
         <div class="pulse-vote-submit-row" data-decision-target="submitRow" style="margin-top: 8px;<%= @decision.options.empty? ? ' display: none;' : '' %>">
+          <% if receipt_emails_enabled %>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85em; cursor: pointer; color: var(--color-fg-muted); margin: 0 0 10px 0;">
+              <%= octicon 'mail', height: 14 %>
+              <input type="hidden" name="vote_receipt_email" value="0">
+              <input type="checkbox" name="vote_receipt_email" value="1" <%= "checked" if @participant.vote_receipt_email %> style="accent-color: var(--color-fg-default);">
+              Email me a vote receipt
+              <%= render TooltipComponent.new do %>
+                You'll receive an email with a cryptographic receipt hash after voting. This hash proves your vote was recorded in the audit chain and can be used to verify your vote on the <strong>verify page</strong>.
+              <% end %>
+            </label>
+          <% end %>
           <span style="position: relative; display: inline-block;">
             <button type="submit" class="pulse-action-btn pulse-action-btn-primary" data-decision-target="submitButton" disabled>
               <%= @votes.any? { |v| v.accepted == 1 } ? 'Update Vote' : 'Submit Vote' %>
