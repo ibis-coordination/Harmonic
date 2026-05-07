@@ -1,4 +1,10 @@
 import { afterEach } from "vitest"
+import { webcrypto } from "node:crypto"
+
+// jsdom doesn't provide crypto.subtle — use Node's webcrypto
+if (!globalThis.crypto?.subtle) {
+  Object.defineProperty(globalThis, "crypto", { value: webcrypto })
+}
 
 // Clean up DOM after each test
 afterEach(() => {

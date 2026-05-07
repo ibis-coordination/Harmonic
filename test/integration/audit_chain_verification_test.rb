@@ -591,6 +591,71 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # === Cross-implementation consistency ===
+
+  test "Ruby verifier agrees with Python on complete lifecycle" do
+    tenant = @global_tenant
+    collective = @global_collective
+    user = @global_user
+
+    sign_in_as(user, tenant: tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    decision = Decision.new(
+      tenant: tenant, collective: collective, created_by: user,
+      question: "Cross-impl Test?", description: "Testing Ruby and Python agree",
+      deadline: 1.week.from_now, options_open: true, subtype: "vote",
+    )
+    DecisionActionService.create_decision!(decision: decision, actor: user)
+
+    participant = DecisionParticipantManager.new(decision: decision, user: user).find_or_create_participant
+    option_a = Option.new(decision: decision, decision_participant: participant, title: "Alpha")
+    DecisionActionService.add_option!(decision: decision, option: option_a, actor: user)
+    option_b = Option.new(decision: decision, decision_participant: participant, title: "Beta")
+    DecisionActionService.add_option!(decision: decision, option: option_b, actor: user)
+
+    vote_a = Vote.new(
+      tenant: tenant, collective: collective, decision: decision,
+      option: option_a, decision_participant: participant,
+      accepted: 1, preferred: 1,
+    )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote_a, actor: user)
+
+    vote_b = Vote.new(
+      tenant: tenant, collective: collective, decision: decision,
+      option: option_b, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote_b, actor: user)
+
+    DecisionActionService.close_decision!(decision: decision, actor: user)
+
+    randomness = "crossimpl_test_randomness_value"
+    round = expected_round_for(decision.deadline)
+    DecisionActionService.draw_beacon!(decision: decision, round: round, randomness: randomness)
+
+    # Ruby verifier
+    ruby_result = DecisionAuditVerifier.verify_all(decision, fetched_randomness: randomness)
+    assert ruby_result[:valid], "Ruby verifier failed: #{ruby_result.inspect}"
+    assert ruby_result[:chain][:valid]
+    assert ruby_result[:vote_tallies][:valid]
+    assert ruby_result[:beacon][:valid]
+
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # Python verifier (same data via JSON endpoint)
+    get "/collectives/#{collective.handle}/d/#{decision.truncated_id}/verify.json"
+    assert_response :success
+    json_data = JSON.parse(response.body)
+
+    python_result = run_python_verifier(json_data, expected_round: round, randomness: randomness)
+    assert_equal 0, python_result[:exit_code], "Python verification failed:\n#{python_result[:output]}"
+    assert_match(/All checks passed/, python_result[:output])
+  end
+
   test "verify.json omits beacon and results before decision closes" do
     tenant = @global_tenant
     collective = @global_collective

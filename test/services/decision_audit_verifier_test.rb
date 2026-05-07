@@ -118,4 +118,148 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     assert_not result[:valid]
     assert result[:errors].any? { |e| e.include?("chain hash mismatch") }
   end
+
+  # --- verify_vote_tallies tests ---
+
+  test "verify_vote_tallies passes when replayed votes match results" do
+    option_b = create_option(decision: @decision, created_by: @user, title: "Option B")
+    user2 = create_user(name: "User Two")
+    @tenant.add_user!(user2)
+    @collective.add_user!(user2)
+
+    participant1 = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    participant2 = DecisionParticipantManager.new(decision: @decision, user: user2).find_or_create_participant
+
+    vote_a = Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: @option, decision_participant: participant1, accepted: 1, preferred: 1)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote_a, actor: @user)
+
+    vote_b = Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant1, accepted: 1, preferred: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote_b, actor: @user)
+
+    vote_a2 = Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: @option, decision_participant: participant2, accepted: 0, preferred: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote_a2, actor: user2)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert result[:valid], "Expected valid but got errors: #{result[:errors]}"
+    assert_empty result[:errors]
+  end
+
+  test "verify_vote_tallies detects acceptance count mismatch" do
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: @option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Tamper: directly update the vote to change the count without an audit entry
+    vote.update_columns(accepted: 0)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert_not result[:valid]
+    assert result[:errors].any? { |e| e.include?("acceptance count") }
+  end
+
+  test "verify_vote_tallies detects preference count mismatch" do
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: @option, decision_participant: participant, accepted: 1, preferred: 1)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Tamper: directly update the preference
+    vote.update_columns(preferred: 0)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert_not result[:valid]
+    assert result[:errors].any? { |e| e.include?("preference count") }
+  end
+
+  test "verify_vote_tallies handles vote_updated correctly" do
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: @option, decision_participant: participant, accepted: 0, preferred: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Update the vote
+    vote.update_columns(accepted: 1, preferred: 1)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user, is_update: true)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert result[:valid], "Expected valid but got errors: #{result[:errors]}"
+  end
+
+  test "verify_vote_tallies passes with no votes (lottery)" do
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert result[:valid]
+    assert_empty result[:errors]
+  end
+
+  # --- verify_beacon tests ---
+
+  test "verify_beacon passes when round and sort keys match" do
+    randomness = "a1b2c3d4e5f6" * 5
+    round = RandomnessProvider.current.round_for_timestamp(T.must(@decision.deadline))
+    @decision.update_columns(
+      lottery_beacon_round: round,
+      lottery_beacon_randomness: randomness,
+    )
+
+    result = DecisionAuditVerifier.verify_beacon(@decision, fetched_randomness: randomness)
+    assert result[:valid], "Expected valid but got errors: #{result[:errors]}"
+  end
+
+  test "verify_beacon detects round mismatch" do
+    randomness = "a1b2c3d4e5f6" * 5
+    wrong_round = 999
+    @decision.update_columns(
+      lottery_beacon_round: wrong_round,
+      lottery_beacon_randomness: randomness,
+    )
+
+    result = DecisionAuditVerifier.verify_beacon(@decision, fetched_randomness: randomness)
+    assert_not result[:valid]
+    assert result[:errors].any? { |e| e.include?("round") }
+  end
+
+  test "verify_beacon detects sort key mismatch" do
+    randomness = "a1b2c3d4e5f6" * 5
+    round = RandomnessProvider.current.round_for_timestamp(T.must(@decision.deadline))
+    @decision.update_columns(
+      lottery_beacon_round: round,
+      lottery_beacon_randomness: "different_randomness_value",
+    )
+
+    result = DecisionAuditVerifier.verify_beacon(@decision, fetched_randomness: randomness)
+    assert_not result[:valid]
+    assert result[:errors].any? { |e| e.include?("randomness") }
+  end
+
+  test "verify_beacon skips when no beacon present" do
+    result = DecisionAuditVerifier.verify_beacon(@decision, fetched_randomness: nil)
+    assert result[:valid]
+    assert_not result[:skipped]
+    assert_empty result[:errors]
+  end
+
+  test "verify_beacon returns skipped when beacon drawn but no randomness provided" do
+    round = RandomnessProvider.current.round_for_timestamp(T.must(@decision.deadline))
+    @decision.update_columns(
+      lottery_beacon_round: round,
+      lottery_beacon_randomness: "abc123",
+    )
+
+    result = DecisionAuditVerifier.verify_beacon(@decision, fetched_randomness: nil)
+    assert result[:valid]
+    assert result[:skipped]
+    assert result[:errors].any? { |e| e.include?("Could not fetch") }
+  end
+
+  # --- verify_all tests ---
+
+  test "verify_all returns combined results for all checks" do
+    DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+
+    result = DecisionAuditVerifier.verify_all(@decision)
+    assert result[:valid]
+    assert result[:chain][:valid]
+    assert result[:vote_tallies][:valid]
+    assert result[:beacon][:valid]
+  end
 end
