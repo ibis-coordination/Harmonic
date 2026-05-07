@@ -9211,6 +9211,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260506234024'),
 ('20260505203614'),
 ('20260503232136'),
 ('20260502202229'),
