@@ -134,6 +134,59 @@ class TenantAdminController < ApplicationController
   end
 
   # ============================================================================
+  # Data Import Actions
+  # ============================================================================
+
+  # GET /tenant-admin/imports
+  def imports_index
+    @imports = DataImport.tenant_scoped_only(@current_tenant.id).order(created_at: :desc)
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # GET /tenant-admin/imports/new
+  def new_import
+    @import = DataImport.new
+  end
+
+  # POST /tenant-admin/imports
+  def create_import
+    if params[:file].blank?
+      flash[:alert] = "Please select a ZIP file to import."
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    data_import = DataImport.create!(
+      tenant: @current_tenant,
+      user: @current_user,
+      status: "pending"
+    )
+    data_import.file.attach(params[:file])
+    CollectiveImportJob.perform_later(data_import.id)
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "data_import_created",
+      details: { import_id: data_import.id }
+    )
+
+    flash[:notice] = "Your import is being processed. This page will update when it's complete."
+    redirect_to "/tenant-admin/imports/#{data_import.id}"
+  end
+
+  # GET /tenant-admin/imports/:id
+  def show_import
+    @import = DataImport.tenant_scoped_only(@current_tenant.id).find(params[:id])
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # ============================================================================
   # Markdown API Actions
   # ============================================================================
 

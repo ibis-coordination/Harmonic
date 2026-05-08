@@ -10,7 +10,7 @@ Harmonic needs a unified data lifecycle for GDPR-like compliance and user trust.
 
 *Detailed plan: [data-export.md](data-export.md)*
 
-Export an entire collective as a ZIP of JSON files + attachments, designed for re-import into another Harmonic instance (e.g., hosted → self-hosted migration). Admin-only. Users are matched by email on import; unmatched users become placeholder accounts that can be claimed later.
+Export an entire collective as a ZIP of JSON files + attachments, designed for re-import into another Harmonic instance (e.g., hosted → self-hosted migration). Export is a collective-admin action; import is a tenant-admin action (creates a new collective, not self-service). Users are matched by email on import; unmatched users become placeholder accounts that can be claimed later.
 
 Phase 1a: Collective export + import (built simultaneously, each validates the other)
 Phase 1b: User-level personal data export (GDPR Article 20, separate scope)

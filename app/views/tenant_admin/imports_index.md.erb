@@ -1,0 +1,15 @@
+# Data Imports
+
+[Back to Tenant Admin](/tenant-admin)
+
+All imports for `<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>` (<%= @imports.count %> total)
+
+<% if @imports.any? -%>
+| Created | Status | Imported By | Collective | |
+|---------|--------|-------------|------------|---|
+<% @imports.each do |import| -%>
+| <%= import.created_at.strftime("%Y-%m-%d %H:%M") %> | <%= import.status %> | <%= import.user.name %> | <%= import.collective&.name || "—" %> | [View](/tenant-admin/imports/<%= import.id %>) |
+<% end -%>
+<% else -%>
+No imports yet.
+<% end %>

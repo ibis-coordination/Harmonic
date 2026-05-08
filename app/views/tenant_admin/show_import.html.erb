@@ -1,7 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_tenant.subdomain, @current_tenant.path],
-  [@current_collective.name, @current_collective.path],
-  'Settings',
+  ['Tenant Admin', '/tenant-admin'],
+  ['Imports', '/tenant-admin/imports'],
   'Import Status'
 ] %>
 

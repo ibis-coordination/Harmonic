@@ -29,7 +29,7 @@
   <% end %>
 
   <div class="pulse-section">
-    <p>Export all data from this collective as a ZIP file. The export includes notes, decisions, commitments, votes, attachments, and audit history. The exported data can be imported into another Harmonic instance.</p>
+    <p>Export all data from this collective as a ZIP file. The export includes notes, decisions, commitments, votes, attachments, and audit history.</p>
 
     <%= form_tag("/collectives/#{@current_collective.handle}/exports", method: :post) do %>
       <button type="submit" class="pulse-btn pulse-btn-primary">

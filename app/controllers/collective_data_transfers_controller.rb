@@ -57,42 +57,6 @@ class CollectiveDataTransfersController < ApplicationController
     redirect_to rails_blob_path(data_export.file, disposition: "attachment"), allow_other_host: true
   end
 
-  # GET /collectives/:collective_handle/imports/new
-  def new_import
-    @import = DataImport.new
-  end
-
-  # POST /collectives/:collective_handle/imports
-  def create_import
-    if params[:file].blank?
-      flash[:alert] = "Please select a ZIP file to import."
-      return redirect_to new_collective_import_path
-    end
-
-    data_import = DataImport.create!(
-      tenant: @current_tenant,
-      user: @current_user,
-      status: "pending"
-    )
-    data_import.file.attach(params[:file])
-    CollectiveImportJob.perform_later(data_import.id)
-
-    SecurityAuditLog.log_admin_action(
-      admin: @current_user,
-      ip: request.remote_ip,
-      action: "data_import_created",
-      details: { collective_handle: @current_collective.handle, import_id: data_import.id },
-    )
-
-    flash[:notice] = "Your import is being processed. This page will update when it's complete."
-    redirect_to collective_import_path(data_import.id)
-  end
-
-  # GET /collectives/:collective_handle/imports/:id
-  def show_import
-    @import = DataImport.find_by!(id: params[:id], tenant_id: @current_tenant.id, user_id: @current_user.id)
-  end
-
   private
 
   def require_admin
@@ -108,13 +72,5 @@ class CollectiveDataTransfersController < ApplicationController
 
   def collective_exports_path
     "#{collective_path_prefix}/exports"
-  end
-
-  def new_collective_import_path
-    "#{collective_path_prefix}/imports/new"
-  end
-
-  def collective_import_path(id)
-    "#{collective_path_prefix}/imports/#{id}"
   end
 end

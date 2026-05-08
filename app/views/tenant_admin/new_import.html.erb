@@ -1,8 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  [@current_tenant.subdomain, @current_tenant.path],
-  [@current_collective.name, @current_collective.path],
-  'Settings',
-  'Import Data'
+  ['Tenant Admin', '/tenant-admin'],
+  ['Imports', '/tenant-admin/imports'],
+  'New Import'
 ] %>
 
 <article class="pulse-resource-detail">
@@ -26,7 +25,7 @@
     <p>Import a collective export ZIP file. This will create a new collective with all the exported data, including notes, decisions, commitments, and attachments.</p>
     <p>Users will be matched by email address. Unmatched users will appear as placeholder accounts.</p>
 
-    <%= form_tag("/collectives/#{@current_collective.handle}/imports", method: :post, multipart: true) do %>
+    <%= form_tag("/tenant-admin/imports", method: :post, multipart: true) do %>
       <div style="margin-bottom: 16px;">
         <label for="file" class="pulse-label">Export ZIP file</label>
         <input type="file" name="file" id="file" accept=".zip" class="pulse-input" required>

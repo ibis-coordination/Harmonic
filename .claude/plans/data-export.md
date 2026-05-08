@@ -18,9 +18,9 @@ Users of the Harmonic-hosted instance can export an entire collective's data and
 - [x] `deadline_event_fired_at` preserved on import (prevents duplicate deadline events)
 - [x] Reminder notes: `reminder_scheduled_for` preserved, `reminder_notification_id` cleared
 - [x] Background jobs: `CollectiveExportJob`, `CollectiveImportJob` (TenantScopedJob), `CleanupExpiredExportsJob` (SystemJob)
-- [x] Controller: `CollectiveDataTransfersController` — admin-only, scoped queries
-- [x] Views: export list, import upload form, import status page
-- [x] Routes: under `/collectives/:handle/` and `/workspace/:handle/`
+- [x] Controllers: `CollectiveDataTransfersController` (export, collective admin) and `TenantAdminController` (import, tenant admin) — scoped queries, RequiresReverification
+- [x] Views: export list (collective), import list/upload/status (tenant admin)
+- [x] Routes: exports under `/collectives/:handle/`; imports under `/tenant-admin/imports`
 - [x] Rate limiting: Rack::Attack 3/hr per IP + app-level 1 concurrent per collective
 - [x] `LinkParser` nil text fix (latent bug in existing code)
 - [x] `imported_placeholder` user type added to User model
@@ -48,7 +48,7 @@ An export ZIP contains the collective's entire dataset including user emails, vo
 
 - [ ] **DataExportMailer**: Email notification when export is ready for download
 - [ ] **Cron schedule**: Wire `CleanupExpiredExportsJob` into sidekiq-cron config
-- [ ] **Settings page integration**: "Export data" / "Import data" links in collective settings UI
+- [x] **Settings page integration**: "Export Data" link in collective settings; "Manage Imports" link in tenant admin dashboard
 - [ ] **Status page auto-refresh**: Turbo Stream or polling for export/import progress
 - [ ] **Manual browser testing**: End-to-end UI flow verification with Playwright MCP
 
