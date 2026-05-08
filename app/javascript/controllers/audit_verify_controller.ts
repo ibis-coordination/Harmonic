@@ -78,7 +78,9 @@ export default class AuditVerifyController extends Controller {
     }
 
     // Vote tallies
-    if (result.voteTallies.valid) {
+    if (result.voteTallies.skipped) {
+      lines.push(this.warnLine("Vote tallies", result.voteTallies.errors[0] || "Vote tally verification was skipped."))
+    } else if (result.voteTallies.valid) {
       lines.push(this.passLine("Vote tallies", "Replayed all votes from the audit chain — totals match the displayed results."))
     } else {
       lines.push(this.failLine("Vote tallies", this.explainTallyFailure(result.voteTallies.errors)))
@@ -86,9 +88,7 @@ export default class AuditVerifyController extends Controller {
 
     // Beacon
     if (result.beacon.skipped) {
-      lines.push(this.warnLine("Beacon verification", "Could not reach the drand randomness beacon to verify sort keys. " +
-        "This does not indicate a problem with the decision — the drand API may be temporarily unavailable. " +
-        "You can verify the beacon independently using the Python script below."))
+      lines.push(this.warnLine("Beacon verification", result.beacon.errors[0] || "Beacon verification was skipped."))
     } else if (result.beacon.valid) {
       lines.push(this.passLine("Beacon verification", "Randomness round and sort keys verified against the drand beacon."))
     } else {
@@ -96,10 +96,11 @@ export default class AuditVerifyController extends Controller {
     }
 
     // Overall
-    if (result.valid && !result.beacon.skipped) {
+    const anySkipped = result.beacon.skipped || result.voteTallies.skipped
+    if (result.valid && !anySkipped) {
       lines.push(`<p class="verification-pass" style="font-weight: 600; margin: 12px 0 0 0;">All checks passed.</p>`)
-    } else if (result.valid && result.beacon.skipped) {
-      lines.push(`<p style="font-weight: 600; margin: 12px 0 0 0;">Chain and vote checks passed. Beacon could not be checked — see above.</p>`)
+    } else if (result.valid && anySkipped) {
+      lines.push(`<p style="font-weight: 600; margin: 12px 0 0 0;">Completed checks passed. Some checks were skipped — see above.</p>`)
     } else {
       lines.push(`<p class="verification-fail" style="font-weight: 600; margin: 12px 0 0 0;">One or more checks failed — see details above.</p>`)
     }

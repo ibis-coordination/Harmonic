@@ -16,7 +16,10 @@ Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cr
   - <%= error %>
 <% end -%>
 <% end -%>
-<% if @verification_result[:vote_tallies][:valid] -%>
+<% if @verification_result[:vote_tallies][:skipped] -%>
+
+- **Vote tallies**: SKIPPED — <%= @verification_result[:vote_tallies][:errors]&.first || "Vote tally verification was skipped." %>
+<% elsif @verification_result[:vote_tallies][:valid] -%>
 
 - **Vote tallies**: PASS — Replayed all votes from the audit chain — totals match the displayed results.
 <% else -%>
@@ -26,12 +29,9 @@ Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cr
   - <%= error %>
 <% end -%>
 <% end -%>
-<% if !@decision.beacon_drawn? -%>
+<% if @verification_result[:beacon][:skipped] -%>
 
-- **Beacon verification**: PASS (no beacon drawn yet)
-<% elsif @verification_result[:beacon][:skipped] -%>
-
-- **Beacon verification**: SKIPPED — Could not reach the drand randomness beacon to verify sort keys. This does not indicate a problem with the decision — the drand API may be temporarily unavailable. You can verify the beacon independently using the Python script below.
+- **Beacon verification**: SKIPPED — <%= @verification_result[:beacon][:errors]&.first || "Beacon verification was skipped." %>
 <% elsif @verification_result[:beacon][:valid] -%>
 
 - **Beacon verification**: PASS — Randomness round and sort keys verified against the drand beacon.
@@ -42,12 +42,13 @@ Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cr
   - <%= error %>
 <% end -%>
 <% end -%>
-<% if @verification_result[:valid] && !@verification_result[:beacon][:skipped] -%>
+<% any_skipped = @verification_result[:beacon][:skipped] || @verification_result[:vote_tallies][:skipped] -%>
+<% if @verification_result[:valid] && !any_skipped -%>
 
 **All checks passed.**
-<% elsif @verification_result[:valid] && @verification_result[:beacon][:skipped] -%>
+<% elsif @verification_result[:valid] && any_skipped -%>
 
-**Chain and vote checks passed. Beacon could not be checked — see above.**
+**Completed checks passed. Some checks were skipped — see above.**
 <% else -%>
 
 **One or more checks failed — see details above.**

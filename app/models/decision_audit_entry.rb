@@ -21,4 +21,9 @@ class DecisionAuditEntry < ApplicationRecord
   def self.receipt_for_user(decision, user)
     where(decision_id: decision.id, actor_id: user.id).order(:sequence_number).last
   end
+
+  sig { params(decision: Decision, receipt_hash: String).returns(T.nilable(DecisionAuditEntry)) }
+  def self.find_by_receipt(decision, receipt_hash)
+    find_by(decision_id: decision.id, entry_hash: receipt_hash)
+  end
 end

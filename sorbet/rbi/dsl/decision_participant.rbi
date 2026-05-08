@@ -1058,6 +1058,9 @@ class DecisionParticipant
     sig { void }
     def restore_user_id!; end
 
+    sig { void }
+    def restore_vote_receipt_email!; end
+
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_collective_id; end
 
@@ -1117,6 +1120,12 @@ class DecisionParticipant
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_vote_receipt_email; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_vote_receipt_email?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -1253,6 +1262,51 @@ class DecisionParticipant
     sig { void }
     def user_id_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def vote_receipt_email; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def vote_receipt_email=(value); end
+
+    sig { returns(T::Boolean) }
+    def vote_receipt_email?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def vote_receipt_email_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def vote_receipt_email_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def vote_receipt_email_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def vote_receipt_email_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def vote_receipt_email_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def vote_receipt_email_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def vote_receipt_email_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def vote_receipt_email_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def vote_receipt_email_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def vote_receipt_email_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def vote_receipt_email_was; end
+
+    sig { void }
+    def vote_receipt_email_will_change!; end
+
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
@@ -1282,6 +1336,9 @@ class DecisionParticipant
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_vote_receipt_email?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods

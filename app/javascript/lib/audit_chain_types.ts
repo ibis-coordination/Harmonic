@@ -52,6 +52,7 @@ export interface ChainResult {
 
 export interface VoteTalliesResult {
   valid: boolean
+  skipped: boolean
   errors: string[]
 }
 

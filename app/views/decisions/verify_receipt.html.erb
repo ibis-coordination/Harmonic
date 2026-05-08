@@ -1,0 +1,57 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  [@decision.is_lottery? ? 'Lottery' : 'Decision', @decision.path],
+  ['Verify', "#{@decision.path}/verify"],
+  'Receipt'
+] %>
+
+<article class="pulse-resource-detail">
+  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Vote receipt for <%= @actor&.display_name || "unknown user" %></h1>
+  <p class="pulse-body-text-muted" style="margin-bottom: 20px;">
+    <%= link_to @decision.question, @decision.path %>
+  </p>
+
+  <div class="pulse-resource-body" style="padding: 16px;">
+    <p style="line-height: 1.6; margin-bottom: 16px;">
+      This page shows all audited actions by <strong><%= @actor&.display_name || "unknown user" %></strong> on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>.
+      Each entry is part of the cryptographic audit chain and can be independently verified on the <%= link_to "verify page", "#{@decision.path}/verify" %>.
+    </p>
+
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--color-border-default); text-align: left;">
+          <th style="padding: 8px 12px;">#</th>
+          <th style="padding: 8px 12px;">Action</th>
+          <th style="padding: 8px 12px;">Option</th>
+          <th style="padding: 8px 12px;">Accepted</th>
+          <th style="padding: 8px 12px;">Preferred</th>
+          <th style="padding: 8px 12px;">Hash</th>
+          <th style="padding: 8px 12px;">Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @entries.each do |entry| %>
+          <tr style="border-bottom: 1px solid var(--color-border-muted);">
+            <td style="padding: 8px 12px;"><%= entry.sequence_number %></td>
+            <td style="padding: 8px 12px;"><code><%= entry.action %></code></td>
+            <td style="padding: 8px 12px;"><%= entry.option_title.present? ? markdown_inline(entry.option_title) : "" %></td>
+            <td style="padding: 8px 12px;"><%= entry.accepted.present? ? (entry.accepted == 1 ? "✅" : "—") : "" %></td>
+            <td style="padding: 8px 12px;"><%= entry.preferred.present? ? (entry.preferred == 1 ? "⭐" : "—") : "" %></td>
+            <td style="padding: 8px 12px;">
+              <% if entry.entry_hash == @receipt_hash %>
+                <span class="receipt-hash"><code title="<%= entry.entry_hash %>"><%= entry.entry_hash[0, 8] %>...</code></span>
+              <% else %>
+                <code title="<%= entry.entry_hash %>"><%= entry.entry_hash[0, 8] %>...</code>
+              <% end %>
+            </td>
+            <td style="padding: 8px 12px;"><%= entry.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <p style="margin-top: 16px; font-size: 0.85em;">
+      Receipt: <code class="receipt-hash" style="word-break: break-all; font-size: 1em;"><%= @receipt_hash %></code>
+    </p>
+  </div>
+</article>

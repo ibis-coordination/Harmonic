@@ -618,7 +618,8 @@ CREATE TABLE public.decision_participants (
     user_id uuid,
     participant_uid character varying DEFAULT ''::character varying NOT NULL,
     tenant_id uuid NOT NULL,
-    collective_id uuid
+    collective_id uuid,
+    vote_receipt_email boolean DEFAULT false NOT NULL
 );
 
 
@@ -9211,6 +9212,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260507200842'),
 ('20260506234024'),
 ('20260505203614'),
 ('20260503232136'),

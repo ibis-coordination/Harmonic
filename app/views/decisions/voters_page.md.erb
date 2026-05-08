@@ -9,7 +9,8 @@ No one has voted yet.
 ## By Voter
 
 <% @votes_by_voter.each do |entry| -%>
-### <%= user_link_md(entry[:voter]) %>
+<% receipt = @receipts_by_voter[entry[:voter].id] -%>
+### <%= user_link_md(entry[:voter]) %><%= " [`#{receipt.entry_hash[0, 8]}...`](#{@decision.path}/verify/#{receipt.entry_hash})" if receipt %>
 
 <% if entry[:options].any? -%>
 <% entry[:options].each do |opt| -%>

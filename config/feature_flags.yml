@@ -52,3 +52,11 @@ feature_flags:
     default_tenant: false
     default_collective: false
     collective_level: false
+
+  vote_receipt_emails:
+    name: "Vote Receipt Emails"
+    description: "Allows voters to opt in to receiving email receipts when they vote"
+    app_enabled: true
+    default_tenant: true
+    default_collective: true
+    collective_level: true

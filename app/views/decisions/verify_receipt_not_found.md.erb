@@ -1,0 +1,17 @@
+# Receipt not found
+
+[Back to <%= @decision.is_lottery? ? 'lottery' : 'decision' %>](<%= @decision.path %>) | [Verify page](<%= @decision.path %>/verify)
+
+No audit entry matching the hash `<%= @receipt_hash %>` was found for this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>.
+
+## What this could mean
+
+- **Typo or truncation** — Receipt hashes are 64 characters long. Make sure you're using the full hash, not a truncated version.
+- **Wrong decision** — This receipt may belong to a different decision. Check that you're looking at the right one.
+- **Data integrity issue** — If neither of the above apply and you believe your receipt should be valid, this could indicate a problem with the audit chain. You can investigate further on the [verify page](<%= @decision.path %>/verify).
+
+## Where to find your receipt
+
+- Your receipt was shown after you submitted your vote.
+- If you voted via the API, your receipt was returned in the response as `audit_receipt`.
+- All voter receipts are listed on the [voters page](<%= @decision.path %>/voters).

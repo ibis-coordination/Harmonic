@@ -100,7 +100,7 @@ class DecisionsController < ApplicationController
     else
       @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
       @votes = current_votes
-      @current_user_has_voted = @votes.any? { |v| v.accepted == 1 || v.preferred == 1 }
+      @current_user_has_voted = @votes.any?
       @show_results = @decision.closed? || @current_user_has_voted
     end
     set_results_view_vars
@@ -327,6 +327,12 @@ class DecisionsController < ApplicationController
 
     if votes_data.any?
       begin
+        # Save email receipt preference before creating votes (only if param is present)
+        if params.key?(:vote_receipt_email)
+          participant = DecisionParticipantManager.new(decision: @decision, user: @current_user).find_or_create_participant
+          participant.update!(vote_receipt_email: params[:vote_receipt_email] == "1")
+        end
+
         api_helper(params: { votes: votes_data }).create_votes
         receipt_entry = DecisionAuditEntry.receipt_for_user(@decision, @current_user)
         notice = if receipt_entry
@@ -379,6 +385,12 @@ class DecisionsController < ApplicationController
         accepted_only: accepted_votes.select { |v| v.preferred != 1 }.map { |v| v.decision_participant.user }.compact.sort_by { |u| u.display_name.downcase },
       }
     end
+
+    # Load receipt hashes for all voters in one query (last vote entry per actor)
+    receipt_entries = DecisionAuditEntry
+      .where(decision_id: @decision.id, action: ["vote_cast", "vote_updated"])
+      .order(:sequence_number)
+    @receipts_by_voter = receipt_entries.group_by(&:actor_id).transform_values(&:last)
 
     @votes_by_voter = @decision.voters.sort_by { |u| u.display_name.downcase }.map do |voter|
       voter_votes = all_votes.select { |v| v.decision_participant&.user_id == voter.id && v.accepted == 1 }
@@ -558,6 +570,7 @@ class DecisionsController < ApplicationController
       end
       format.json do
         json = {
+          generated_at: Time.current.iso8601,
           decision: {
             id: @decision.id,
             question: @decision.question,
@@ -590,7 +603,7 @@ class DecisionsController < ApplicationController
             verification_url: @verification_url,
           }
         end
-        if @decision.beacon_drawn? || (@decision.closed? && @decision.is_executive?)
+        if @decision.votes.any? || @decision.beacon_drawn? || (@decision.closed? && @decision.is_executive?)
           json[:results] = @decision.results.map { |r|
             {
               position: r.position,
@@ -603,6 +616,38 @@ class DecisionsController < ApplicationController
         end
         render json: json
       end
+    end
+  end
+
+  def verify_receipt
+    @decision = current_decision
+    return render "404", status: 404 unless @decision
+
+    @receipt_hash = params[:receipt_hash]
+    receipt_entry = DecisionAuditEntry.find_by_receipt(@decision, @receipt_hash)
+
+    unless receipt_entry
+      @page_title = "Receipt not found | #{@decision.question}"
+      @sidebar_mode = "resource"
+      return respond_to do |format|
+        format.html { render "verify_receipt_not_found", status: :not_found }
+        format.md { render "verify_receipt_not_found", status: :not_found }
+        format.json { render json: { error: "Receipt not found", receipt_hash: @receipt_hash }, status: :not_found }
+      end
+    end
+
+    actor_id = receipt_entry.actor_id
+    @actor = User.find_by(id: actor_id)
+    @entries = DecisionAuditEntry
+      .where(decision_id: @decision.id, actor_id: actor_id)
+      .order(:sequence_number)
+
+    @page_title = "Vote receipt | #{@decision.question}"
+    @sidebar_mode = "resource"
+
+    respond_to do |format|
+      format.html
+      format.md
     end
   end
 

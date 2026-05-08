@@ -164,4 +164,24 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
     other_user = create_user(email: "nobody-#{SecureRandom.hex(4)}@example.com", name: "Nobody")
     assert_nil DecisionAuditEntry.receipt_for_user(@decision, other_user)
   end
+
+  test "find_by_receipt returns the entry matching the hash" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    found = DecisionAuditEntry.find_by_receipt(@decision, entry.entry_hash)
+    assert_equal entry.id, found.id
+  end
+
+  test "find_by_receipt returns nil for unknown hash" do
+    assert_nil DecisionAuditEntry.find_by_receipt(@decision, "nonexistent_hash")
+  end
+
+  test "find_by_receipt does not return entries from other decisions" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    other_decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_nil DecisionAuditEntry.find_by_receipt(other_decision, entry.entry_hash)
+  end
 end

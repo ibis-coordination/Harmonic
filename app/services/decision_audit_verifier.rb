@@ -58,6 +58,11 @@ class DecisionAuditVerifier
 
   sig { params(decision: Decision).returns(T::Hash[Symbol, T.untyped]) }
   def self.verify_vote_tallies(decision)
+    has_votes = decision.votes.any?
+    unless has_votes
+      return { valid: true, skipped: true, errors: ["No votes have been cast yet — vote tally verification will be available after voting begins."] }
+    end
+
     totals = replay_vote_totals(decision)
     errors = T.let([], T::Array[String])
 
@@ -72,7 +77,7 @@ class DecisionAuditVerifier
       end
     end
 
-    { valid: errors.empty?, errors: errors }
+    { valid: errors.empty?, skipped: false, errors: errors }
   end
 
   sig { params(decision: Decision).returns(T::Hash[String, { accepted: Integer, preferred: Integer }]) }
@@ -107,8 +112,10 @@ class DecisionAuditVerifier
   def self.verify_beacon(decision, fetched_randomness:)
     errors = T.let([], T::Array[String])
 
-    # No beacon drawn — nothing to check
-    return { valid: true, skipped: false, errors: errors } if decision.lottery_beacon_round.blank?
+    # No beacon drawn yet
+    if decision.lottery_beacon_round.blank?
+      return { valid: true, skipped: true, errors: ["No beacon drawn yet — beacon verification will be available after the decision closes."] }
+    end
 
     # Verify round derivation
     deadline = decision.deadline

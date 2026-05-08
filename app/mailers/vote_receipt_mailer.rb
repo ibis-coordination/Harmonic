@@ -5,7 +5,7 @@ class VoteReceiptMailer < ApplicationMailer
     @user = user
     @decision = decision
     @receipt = receipt
-    @verify_url = "#{decision.shareable_link}/verify"
+    @verify_url = "#{decision.shareable_link}/verify/#{receipt}"
 
     mail(
       to: user.email,
