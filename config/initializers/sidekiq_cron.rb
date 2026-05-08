@@ -28,6 +28,11 @@ Sidekiq.configure_server do |_config|
       "class" => "OrphanedTaskSweepJob",
       "description" => "Mark stuck agent task runs as failed",
     },
+    "cleanup_expired_exports" => {
+      "cron" => "0 3 * * *", # Daily at 3 AM
+      "class" => "CleanupExpiredExportsJob",
+      "description" => "Purge expired data export files",
+    },
   }
 
   Sidekiq::Cron::Job.load_from_hash(schedule)

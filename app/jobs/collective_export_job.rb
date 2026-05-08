@@ -14,5 +14,6 @@ class CollectiveExportJob < TenantScopedJob
 
     set_tenant_context!(data_export.tenant)
     CollectiveExportService.new(data_export: data_export).perform!
+    DataExportMailer.export_ready(data_export: data_export).deliver_later
   end
 end
