@@ -407,6 +407,13 @@ Rails.application.routes.draw do
     post "#{prefix}/heartbeats" => 'heartbeats#create'
     get "#{prefix}/heartbeats/actions" => 'heartbeats#actions_index_default'
     post "#{prefix}/heartbeats/actions/create_heartbeat" => 'heartbeats#create_heartbeat'
+    # Data export/import (admin only)
+    get "#{prefix}/exports" => 'collective_data_transfers#exports_index'
+    post "#{prefix}/exports" => 'collective_data_transfers#create_export'
+    get "#{prefix}/exports/:id" => 'collective_data_transfers#download_export'
+    get "#{prefix}/imports/new" => 'collective_data_transfers#new_import'
+    post "#{prefix}/imports" => 'collective_data_transfers#create_import'
+    get "#{prefix}/imports/:id" => 'collective_data_transfers#show_import'
   end
 
   ['', 'collectives/:collective_handle', 'workspace/:collective_handle'].each do |prefix|

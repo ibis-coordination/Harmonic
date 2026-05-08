@@ -82,6 +82,12 @@ class Rack::Attack
       req.env['rack.attack.matched'] && req.env['rack.attack.match_type'] == :throttle
     end
   end
+  # Throttle data export requests: 3 per hour per IP
+  throttle('exports/ip', limit: 3, period: 1.hour) do |req|
+    if req.path.match?(%r{/(?:collectives|workspace)/[^/]+/exports\z}) && req.post?
+      req.ip
+    end
+  end
 end
 
 # Configure cache store for Rack::Attack

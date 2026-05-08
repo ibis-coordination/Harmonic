@@ -582,6 +582,47 @@ UNION ALL
 
 
 --
+-- Name: data_exports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_exports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    record_counts jsonb DEFAULT '{}'::jsonb,
+    error_message text,
+    expires_at timestamp(6) without time zone,
+    started_at timestamp(6) without time zone,
+    completed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: data_imports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_imports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid,
+    user_id uuid NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    source_manifest jsonb DEFAULT '{}'::jsonb,
+    user_mapping jsonb DEFAULT '{}'::jsonb,
+    record_counts jsonb DEFAULT '{}'::jsonb,
+    error_message text,
+    started_at timestamp(6) without time zone,
+    completed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: decision_audit_entries; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2408,6 +2449,22 @@ ALTER TABLE ONLY public.content_reports
 
 
 --
+-- Name: data_exports data_exports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports
+    ADD CONSTRAINT data_exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_imports data_imports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_imports
+    ADD CONSTRAINT data_imports_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: decision_audit_entries decision_audit_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3720,6 +3777,62 @@ CREATE INDEX index_content_reports_on_tenant_id_and_status ON public.content_rep
 --
 
 CREATE UNIQUE INDEX index_content_reports_unique_per_reporter_and_reportable ON public.content_reports USING btree (reporter_id, reportable_type, reportable_id, tenant_id);
+
+
+--
+-- Name: index_data_exports_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_exports_on_collective_id ON public.data_exports USING btree (collective_id);
+
+
+--
+-- Name: index_data_exports_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_exports_on_tenant_id ON public.data_exports USING btree (tenant_id);
+
+
+--
+-- Name: index_data_exports_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_exports_on_user_id ON public.data_exports USING btree (user_id);
+
+
+--
+-- Name: index_data_exports_on_user_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_exports_on_user_id_and_status ON public.data_exports USING btree (user_id, status);
+
+
+--
+-- Name: index_data_imports_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_imports_on_collective_id ON public.data_imports USING btree (collective_id);
+
+
+--
+-- Name: index_data_imports_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_imports_on_tenant_id ON public.data_imports USING btree (tenant_id);
+
+
+--
+-- Name: index_data_imports_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_imports_on_user_id ON public.data_imports USING btree (user_id);
+
+
+--
+-- Name: index_data_imports_on_user_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_imports_on_user_id_and_status ON public.data_imports USING btree (user_id, status);
 
 
 --
@@ -8270,6 +8383,14 @@ ALTER TABLE ONLY public.invites
 
 
 --
+-- Name: data_exports fk_rails_20d4bd51c5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports
+    ADD CONSTRAINT fk_rails_20d4bd51c5 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: automation_rule_run_resources fk_rails_23642e8a45; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8486,6 +8607,14 @@ ALTER TABLE ONLY public.decisions
 
 
 --
+-- Name: data_exports fk_rails_5408e45594; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports
+    ADD CONSTRAINT fk_rails_5408e45594 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: collective_members fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8595,6 +8724,14 @@ ALTER TABLE ONLY public.invites
 
 ALTER TABLE ONLY public.notes
     ADD CONSTRAINT fk_rails_6e1963e950 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: data_imports fk_rails_6e6105b87f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_imports
+    ADD CONSTRAINT fk_rails_6e6105b87f FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -9062,6 +9199,14 @@ ALTER TABLE ONLY public.tenant_users
 
 
 --
+-- Name: data_imports fk_rails_e3d457f31c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_imports
+    ADD CONSTRAINT fk_rails_e3d457f31c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: notes fk_rails_e420fccb7e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9075,6 +9220,22 @@ ALTER TABLE ONLY public.notes
 
 ALTER TABLE ONLY public.commitments
     ADD CONSTRAINT fk_rails_e4837f1e6d FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: data_exports fk_rails_eadf7c0d9d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_exports
+    ADD CONSTRAINT fk_rails_eadf7c0d9d FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
+-- Name: data_imports fk_rails_ee39bd5867; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_imports
+    ADD CONSTRAINT fk_rails_ee39bd5867 FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -9212,6 +9373,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260508060114'),
+('20260508060053'),
 ('20260507200842'),
 ('20260506234024'),
 ('20260506230000'),
