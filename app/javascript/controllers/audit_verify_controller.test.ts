@@ -64,7 +64,9 @@ describe("AuditVerifyController", () => {
     const text = resultsText()
     expect(text).toContain("PASS")
     expect(text).toContain("0 entries verified")
-    expect(text).toContain("All checks passed")
+    expect(text).toContain("No beacon drawn yet")
+    expect(text).toContain("No votes have been cast yet")
+    expect(text).toContain("Completed checks passed")
   })
 
   it("uses verification-pass CSS class for passing checks", async () => {
@@ -236,10 +238,10 @@ describe("AuditVerifyController", () => {
 
     const text = resultsText()
     expect(text).toContain("SKIPPED")
-    expect(text).toContain("drand randomness beacon")
+    expect(text).toContain("Could not reach the drand randomness beacon")
     expect(text).toContain("temporarily unavailable")
     expect(text).toContain("Python script below")
-    expect(text).toContain("Chain and vote checks passed")
+    expect(text).toContain("Completed checks passed")
   })
 
   it("renders beacon failure when randomness doesn't match drand", async () => {
@@ -318,10 +320,10 @@ describe("AuditVerifyController", () => {
     await startController()
 
     const text = resultsText()
-    // Chain fails but vote tallies and beacon should still pass
+    // Chain fails, vote tallies and beacon skipped (no votes, no beacon)
     expect(text).toMatch(/Chain integrity:.*FAIL/)
-    expect(text).toMatch(/Vote tallies:.*PASS/)
-    expect(text).toMatch(/Beacon verification:.*PASS/)
+    expect(text).toMatch(/Vote tallies:.*SKIPPED/)
+    expect(text).toMatch(/Beacon verification:.*SKIPPED/)
     expect(text).toContain("One or more checks failed")
   })
 

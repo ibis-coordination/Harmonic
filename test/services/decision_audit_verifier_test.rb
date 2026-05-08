@@ -183,10 +183,11 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     assert result[:valid], "Expected valid but got errors: #{result[:errors]}"
   end
 
-  test "verify_vote_tallies passes with no votes (lottery)" do
+  test "verify_vote_tallies skips with no votes" do
     result = DecisionAuditVerifier.verify_vote_tallies(@decision)
     assert result[:valid]
-    assert_empty result[:errors]
+    assert result[:skipped]
+    assert result[:errors].any? { |e| e.include?("No votes") }
   end
 
   # --- verify_beacon tests ---
@@ -232,8 +233,8 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
   test "verify_beacon skips when no beacon present" do
     result = DecisionAuditVerifier.verify_beacon(@decision, fetched_randomness: nil)
     assert result[:valid]
-    assert_not result[:skipped]
-    assert_empty result[:errors]
+    assert result[:skipped]
+    assert result[:errors].any? { |e| e.include?("No beacon drawn yet") }
   end
 
   test "verify_beacon returns skipped when beacon drawn but no randomness provided" do

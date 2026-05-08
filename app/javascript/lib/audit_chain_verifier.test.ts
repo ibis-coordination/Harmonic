@@ -407,7 +407,8 @@ describe("verifyBeacon", () => {
 
     const result = await verifyBeacon(data)
     expect(result.valid).toBe(true)
-    expect(result.errors).toEqual([])
+    expect(result.skipped).toBe(true)
+    expect(result.errors.some((e) => e.includes("No beacon drawn yet"))).toBe(true)
   })
 })
 

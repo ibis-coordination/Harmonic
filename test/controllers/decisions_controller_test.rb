@@ -1788,8 +1788,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Verification Results/, response.body)
     assert_match(/Chain integrity.*PASS.*entries verified/i, response.body)
     assert_match(/Vote tallies.*PASS.*totals match/i, response.body)
-    assert_match(/Beacon verification.*PASS/i, response.body)
-    assert_match(/All checks passed/i, response.body)
+    assert_match(/Beacon verification.*SKIPPED.*No beacon drawn yet/i, response.body)
+    assert_match(/Completed checks passed/i, response.body)
   end
 
   test "markdown verify page shows chain failure with integrity warning" do

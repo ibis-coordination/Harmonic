@@ -471,6 +471,10 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
 
     json = JSON.parse(response.body)
 
+    # Timestamp
+    assert json["generated_at"].is_a?(String)
+    assert_match(/\d{4}-\d{2}-\d{2}T/, json["generated_at"])
+
     # Decision section
     d = json["decision"]
     assert d.is_a?(Hash)
@@ -573,9 +577,10 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
 
     json_data = JSON.parse(response.body)
 
-    # Pre-close: no beacon, no results — but chain should still verify
+    # Pre-close: no beacon, but results are included (votes exist)
     assert_nil json_data["beacon"]
-    assert_nil json_data["results"]
+    assert json_data["results"].is_a?(Array)
+    assert json_data["results"].length >= 1
     assert json_data["audit_chain"].length >= 3  # created + option_added + vote_cast
 
     Dir.mktmpdir do |dir|

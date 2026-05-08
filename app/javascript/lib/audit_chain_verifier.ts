@@ -78,9 +78,9 @@ export function verifyVoteTallies(data: VerifyData): VoteTalliesResult {
   const errors: string[] = []
   const results = data.results
 
-  // If no results to verify, pass
+  // If no results and no votes, nothing to verify yet
   if (!results) {
-    return { valid: true, errors }
+    return { valid: true, skipped: true, errors: ["No votes have been cast yet — vote tally verification will be available after voting begins."] }
   }
 
   // Replay votes: keep latest per (actor_id, option_title) pair
@@ -120,7 +120,7 @@ export function verifyVoteTallies(data: VerifyData): VoteTalliesResult {
     }
   }
 
-  return { valid: errors.length === 0, errors }
+  return { valid: errors.length === 0, skipped: false, errors }
 }
 
 export async function verifyBeacon(
@@ -130,7 +130,7 @@ export async function verifyBeacon(
   const errors: string[] = []
 
   if (!data.beacon) {
-    return { valid: true, skipped: false, errors }
+    return { valid: true, skipped: true, errors: ["No beacon drawn yet — beacon verification will be available after the decision closes."] }
   }
 
   // Derive expected round from deadline
@@ -159,7 +159,7 @@ export async function verifyBeacon(
     try {
       fetchedRandomness = await fetchRandomness(expectedRound)
     } catch {
-      return { valid: true, skipped: true, errors: ["Could not reach the drand randomness beacon to verify sort keys."] }
+      return { valid: true, skipped: true, errors: ["Could not reach the drand randomness beacon to verify sort keys. This does not indicate a problem with the decision — the drand API may be temporarily unavailable. You can verify the beacon independently using the Python script below."] }
     }
 
     if (fetchedRandomness !== data.beacon.randomness) {

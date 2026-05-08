@@ -570,6 +570,7 @@ class DecisionsController < ApplicationController
       end
       format.json do
         json = {
+          generated_at: Time.current.iso8601,
           decision: {
             id: @decision.id,
             question: @decision.question,
@@ -602,7 +603,7 @@ class DecisionsController < ApplicationController
             verification_url: @verification_url,
           }
         end
-        if @decision.beacon_drawn? || (@decision.closed? && @decision.is_executive?)
+        if @decision.votes.any? || @decision.beacon_drawn? || (@decision.closed? && @decision.is_executive?)
           json[:results] = @decision.results.map { |r|
             {
               position: r.position,
