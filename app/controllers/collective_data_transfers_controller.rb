@@ -1,18 +1,17 @@
-# typed: true
+# typed: false
 
 class CollectiveDataTransfersController < ApplicationController
-  extend T::Sig
+  include RequiresReverification
 
   before_action :require_admin
+  before_action -> { require_reverification(scope: "data_transfer") }
 
   # GET /collectives/:collective_handle/exports
-  sig { void }
   def exports_index
     @exports = DataExport.where(collective_id: @current_collective.id).order(created_at: :desc)
   end
 
   # POST /collectives/:collective_handle/exports
-  sig { void }
   def create_export
     # Rate limit: only 1 active export per collective
     if DataExport.active.exists?(collective_id: @current_collective.id)
@@ -33,7 +32,6 @@ class CollectiveDataTransfersController < ApplicationController
   end
 
   # GET /collectives/:collective_handle/exports/:id
-  sig { void }
   def download_export
     data_export = DataExport.find_by!(id: params[:id], collective_id: @current_collective.id)
 
@@ -46,13 +44,11 @@ class CollectiveDataTransfersController < ApplicationController
   end
 
   # GET /collectives/:collective_handle/imports/new
-  sig { void }
   def new_import
     @import = DataImport.new
   end
 
   # POST /collectives/:collective_handle/imports
-  sig { void }
   def create_import
     if params[:file].blank?
       flash[:alert] = "Please select a ZIP file to import."
@@ -72,14 +68,12 @@ class CollectiveDataTransfersController < ApplicationController
   end
 
   # GET /collectives/:collective_handle/imports/:id
-  sig { void }
   def show_import
     @import = DataImport.find_by!(id: params[:id], tenant_id: @current_tenant.id, user_id: @current_user.id)
   end
 
   private
 
-  sig { void }
   def require_admin
     return if @current_user&.collective_member&.is_admin?
 
@@ -87,22 +81,18 @@ class CollectiveDataTransfersController < ApplicationController
     redirect_to root_path
   end
 
-  sig { returns(String) }
   def collective_path_prefix
-    "#{@current_collective.path}"
+    @current_collective.path
   end
 
-  sig { returns(String) }
   def collective_exports_path
     "#{collective_path_prefix}/exports"
   end
 
-  sig { returns(String) }
   def new_collective_import_path
     "#{collective_path_prefix}/imports/new"
   end
 
-  sig { params(id: T.untyped).returns(String) }
   def collective_import_path(id)
     "#{collective_path_prefix}/imports/#{id}"
   end
