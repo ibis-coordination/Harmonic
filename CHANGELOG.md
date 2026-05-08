@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-05-07
+
+### Added
+
+- Client-side audit chain verification — TypeScript verifier runs automatically in the browser on the verify page, recomputing all hashes via Web Crypto API, replaying vote tallies, and fetching beacon randomness directly from drand. Shows detailed PASS/FAIL/SKIPPED results with trust-building explanations.
+- Server-side audit chain verification for AI agents — the markdown verify page now runs Ruby verification and shows results inline, so AI agents see verification status without running anything.
+- Vote receipt hashes on voters page — each voter's receipt hash is shown (amber-highlighted) next to their name, linking to a receipt verification page.
+- Receipt verification route (`/d/:id/verify/:hash`) — shows a voter's full audit trail with the receipt entry highlighted. Helpful not-found page for invalid hashes.
+- Vote receipt email opt-in — "Email me a vote receipt" checkbox on the voting form, behind the `vote_receipt_emails` feature flag (enabled by default, configurable per-collective/tenant). Emails link to the receipt verification page.
+- `generated_at` timestamp in verify.json for cache/staleness awareness.
+- Cross-implementation hash consistency tests (Ruby, TypeScript, Python all verified to produce identical hashes).
+
+### Changed
+
+- Verification checks now show SKIPPED with an explanation when nothing was actually verified (no beacon drawn, no votes cast), instead of misleadingly claiming PASS.
+- Results are now included in verify.json for open decisions when votes exist, enabling client-side tally verification before close.
+- CSP `connect-src` expanded to allow `https://api.drand.sh` for browser-side beacon verification.
+- Voter status now based on vote record existence rather than positive acceptance — a voter who unchecks all options is still recognized as having voted (sees results, button says "Update Vote").
+- Submit button stays enabled after any checkbox interaction, allowing voters to submit non-acceptance of all options.
+
+### Fixed
+
+- Vote-after-close trigger race condition — changed `deadline < NOW()` to `deadline <= NOW()` to close a sub-millisecond window.
+- Audit timestamp precision — `created_at` truncated to second precision before storing, matching the ISO8601 second precision used in hash computation.
+- Voter who unchecks all options no longer loses voted status or results visibility.
+
+### Security
+
+- Audit safety check extended to catch instance-level Vote/Option mutations (e.g., `vote.save!`), not just class-level.
+- New AI agents are automatically added to the tenant's main collective on creation.
+
 ## [1.13.0] - 2026-05-06
 
 ### Added
