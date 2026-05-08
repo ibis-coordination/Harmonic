@@ -20,6 +20,8 @@ module Tracked
   private
 
   def track_creation
+    return if Current.importing_data
+
     EventService.record!(
       event_type: "#{self.class.name.underscore}.created",
       actor: respond_to?(:created_by) ? created_by : nil,
@@ -29,6 +31,7 @@ module Tracked
   end
 
   def track_changes
+    return if Current.importing_data
     return if saved_changes.except("updated_at").empty?
 
     EventService.record!(
@@ -40,6 +43,8 @@ module Tracked
   end
 
   def track_deletion
+    return if Current.importing_data
+
     EventService.record!(
       event_type: "#{self.class.name.underscore}.deleted",
       actor: nil,

@@ -68,7 +68,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM decisions
     WHERE id = NEW.decision_id
-    AND deadline <= NOW()
+    AND deadline < NEW.updated_at
   ) THEN
     RAISE EXCEPTION 'Votes cannot be created or modified after the decision is closed';
   END IF;
@@ -9373,6 +9373,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260508185124'),
 ('20260508060114'),
 ('20260508060053'),
 ('20260507200842'),

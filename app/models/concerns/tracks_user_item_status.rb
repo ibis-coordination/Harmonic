@@ -28,6 +28,8 @@ module TracksUserItemStatus
   private
 
   def update_user_item_status_records
+    return if Current.importing_data
+
     updates = user_item_status_updates
     return if updates.blank?
 

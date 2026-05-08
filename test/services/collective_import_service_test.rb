@@ -1167,6 +1167,50 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
       "Pasted attachment URL should NOT have the source attachment UUID"
   end
 
+  # --- Side effect suppression ---
+
+  test "does not create Event records during import" do
+    data_import, imported_collective = export_and_import_source!
+
+    # Events are created by the Tracked concern on after_create_commit.
+    # Import should suppress these — imported data should not generate new Events.
+    events = Event.where(collective_id: imported_collective.id)
+    assert_equal 0, events.count,
+      "Import should not create Event records (got #{events.count}: #{events.pluck(:event_type).join(', ')})"
+  end
+
+  test "does not create UserItemStatus records during import" do
+    data_import, imported_collective = export_and_import_source!
+
+    # UserItemStatus tracks who created/read/voted on items. Import should not
+    # create these records — they reflect activity in the source, not the target.
+    imported_note_ids = Note.where(collective_id: imported_collective.id).pluck(:id)
+    imported_decision_ids = Decision.where(collective_id: imported_collective.id).pluck(:id)
+    all_item_ids = imported_note_ids + imported_decision_ids
+
+    statuses = UserItemStatus.where(item_id: all_item_ids)
+    assert_equal 0, statuses.count,
+      "Import should not create UserItemStatus records"
+  end
+
+  test "imports votes on past-deadline decisions without trigger rejection" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    # Simulate a decision whose deadline has passed: the vote was cast before the
+    # deadline, then the deadline expired. Set timestamps to reflect this history.
+    @source_decision.update_columns(deadline: 2.days.ago)
+    @source_vote.update_columns(created_at: 3.days.ago, updated_at: 3.days.ago)
+
+    # The source already has a vote from setup — export it
+    data_import, imported_collective = export_and_import_source!
+
+    # The vote should have been imported despite the past deadline
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+    votes = Vote.where(decision_id: imported_decision.id)
+    assert_equal 1, votes.count, "Vote should be imported even though deadline has passed"
+  end
+
   # --- Edge cases ---
 
   test "imports empty collective successfully" do

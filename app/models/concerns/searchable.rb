@@ -11,6 +11,7 @@ module Searchable
   private
 
   def enqueue_search_reindex
+    return if Current.importing_data
     return if respond_to?(:deleted?) && deleted?
 
     ReindexSearchJob.perform_later(

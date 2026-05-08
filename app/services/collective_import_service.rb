@@ -31,34 +31,36 @@ class CollectiveImportService
     previous_collective_handle = Current.collective_handle
 
     begin
-      ActiveRecord::Base.transaction do
-        Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+      with_suppressed_side_effects do
+        ActiveRecord::Base.transaction do
+          Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-        import_users
-        import_collective
-        import_members
+          import_users
+          import_collective
+          import_members
 
-        # Set collective scope for remaining imports
-        collective = Collective.find(T.must(@data_import.collective_id))
-        Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: collective.handle)
+          # Set collective scope for remaining imports
+          collective = Collective.find(T.must(@data_import.collective_id))
+          Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: collective.handle)
 
-        import_notes_first_pass
-        import_decisions
-        import_commitments
-        import_representation_sessions
-        import_notes_second_pass  # comments/statements (need decisions/commitments/sessions in ID map)
-        import_decision_participants
-        import_options
-        import_votes
-        import_decision_audit_entries
-        import_commitment_participants
-        clear_auto_generated_history_events
-        import_note_history_events
-        import_heartbeats
-        import_invites
-        import_representation_session_events
-        import_attachments
-        rewrite_text_references
+          import_notes_first_pass
+          import_decisions
+          import_commitments
+          import_representation_sessions
+          import_notes_second_pass  # comments/statements (need decisions/commitments/sessions in ID map)
+          import_decision_participants
+          import_options
+          import_votes
+          import_decision_audit_entries
+          import_commitment_participants
+          clear_auto_generated_history_events
+          import_note_history_events
+          import_heartbeats
+          import_invites
+          import_representation_session_events
+          import_attachments
+          rewrite_text_references
+        end
       end
     ensure
       restore_thread_scope(previous_tenant_id, previous_collective_id, previous_collective_handle)
@@ -70,6 +72,10 @@ class CollectiveImportService
       record_counts: @record_counts,
       user_mapping: @user_mapping
     )
+
+    # Enqueue search reindex for all imported content. Best-effort — if Redis is
+    # down, the import is still successful; search will catch up on the next reindex.
+    enqueue_search_reindex_for_imported_collective rescue nil # rubocop:disable Style/RescueModifier
   rescue StandardError => e
     @data_import.update!(status: "failed", error_message: e.message)
     raise
@@ -402,12 +408,14 @@ class CollectiveImportService
         option_id: map_id!(v["source_option_id"]),
         decision_participant_id: map_id!(v["source_decision_participant_id"]),
         accepted: v["accepted"],
-        preferred: v["preferred"]
+        preferred: v["preferred"],
+        # Set timestamps before save so the DB trigger (which checks deadline < updated_at)
+        # sees the original vote timestamp rather than NOW()
+        created_at: v["created_at"] ? Time.zone.parse(v["created_at"]) : nil,
+        updated_at: v["updated_at"] ? Time.zone.parse(v["updated_at"]) : nil,
       )
       vote.save!(validate: false) # audit-safety-ignore: data import bypasses audit chain intentionally
       register_id(v["source_id"], vote.id)
-
-      preserve_timestamps(vote, v)
     end
     @record_counts["votes"] = data.length
   end
@@ -713,12 +721,12 @@ class CollectiveImportService
     end
 
     # Regenerate Link records from the rewritten text.
-    # The import skips Link import (they're regenerated from text), and update_columns
-    # above bypasses the Linkable after_save callback, so we trigger it explicitly.
+    # The import suppresses the Linkable after_save callback (to avoid broken links
+    # from pre-rewrite text), so we call LinkParser directly here after rewriting.
     [Note, Decision, Commitment].each do |model|
-      scope = model.respond_to?(:with_deleted) ? model.with_deleted : model
+      scope = T.unsafe(model).respond_to?(:with_deleted) ? T.unsafe(model).with_deleted : model
       scope.where(collective_id: @data_import.collective_id).find_each do |record|
-        record.parse_and_create_link_records! if record.respond_to?(:parse_and_create_link_records!)
+        LinkParser.new(from_record: record).parse_and_create_link_records!
       end
     end
     @record_counts["links"] = Link.where(collective_id: @data_import.collective_id).count
@@ -894,6 +902,38 @@ class CollectiveImportService
       suffix += 1
     end
     handle
+  end
+
+  sig { void }
+  def enqueue_search_reindex_for_imported_collective
+    collective_id = @data_import.collective_id
+    return unless collective_id
+
+    [Note, Decision, Commitment].each do |model|
+      scope = T.unsafe(model).respond_to?(:with_deleted) ? T.unsafe(model).with_deleted : model
+      scope.where(collective_id: collective_id).where(deleted_at: nil).pluck(:id).each do |item_id|
+        ReindexSearchJob.perform_later(
+          item_type: T.must(model.name),
+          item_id: item_id,
+          tenant_id: @tenant.id,
+        )
+      end
+    end
+  end
+
+  # Sets a thread-local flag that suppresses automatic side effects during import.
+  # Each concern (Tracked, Searchable, TracksUserItemStatus, InvalidatesSearchIndex)
+  # checks this flag and returns early when it's set. This is thread-safe — it only
+  # affects the current thread/worker, not other requests or Sidekiq workers.
+  #
+  # Note: NoteHistoryEvent auto-creation (anonymous after_create block on Note) is
+  # handled separately by clear_auto_generated_history_events.
+  sig { params(block: T.proc.void).void }
+  def with_suppressed_side_effects(&block)
+    Current.importing_data = true
+    block.call
+  ensure
+    Current.importing_data = nil
   end
 
   sig { params(previous_tenant_id: T.nilable(String), previous_collective_id: T.nilable(String), previous_collective_handle: T.nilable(String)).void }

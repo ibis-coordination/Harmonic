@@ -10,6 +10,8 @@ module Linkable
   end
 
   def parse_and_create_link_records!
+    return if Current.importing_data
+
     LinkParser.new(from_record: self).parse_and_create_link_records!
   end
 
