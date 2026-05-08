@@ -55,10 +55,10 @@ class CollectiveImportService
         clear_auto_generated_history_events
         import_note_history_events
         import_heartbeats
-        import_links
         import_invites
         import_representation_session_events
         import_attachments
+        rewrite_text_references
       end
     ensure
       restore_thread_scope(previous_tenant_id, previous_collective_id, previous_collective_handle)
@@ -191,11 +191,13 @@ class CollectiveImportService
       user_id = map_id(m["source_user_id"])
       next unless user_id
 
+      user = User.find(user_id)
+
       # Add user to tenant if not already
       tenant_user = TenantUser.find_by(tenant_id: @tenant.id, user_id: user_id)
-      @tenant.add_user!(User.find(user_id)) unless tenant_user
+      @tenant.add_user!(user) unless tenant_user
 
-      member = collective.add_user!(User.find(user_id))
+      member = collective.add_user!(user)
       register_id(m["source_id"], member.id)
 
       # Restore roles
@@ -340,6 +342,7 @@ class CollectiveImportService
 
       preserve_timestamps(decision, d)
       preserve_soft_delete(decision, d)
+      preserve_deadline_fired(decision, d)
 
       # Clear audit_chain_hash — imported chains are historical, not verifiable with new IDs
       decision.update_columns(audit_chain_hash: nil) if d["audit_chain_hash"].present?
@@ -456,6 +459,7 @@ class CollectiveImportService
 
       preserve_timestamps(commitment, c)
       preserve_soft_delete(commitment, c)
+      preserve_deadline_fired(commitment, c)
     end
     @record_counts["commitments"] = data.length
   end
@@ -520,13 +524,6 @@ class CollectiveImportService
       preserve_timestamps(heartbeat, h)
     end
     @record_counts["heartbeats"] = data.length
-  end
-
-  sig { void }
-  def import_links
-    # Links are exported for reference but regenerated from text content.
-    # Skip importing them — the Linkable after_save callback creates them automatically.
-    @record_counts["links"] = 0
   end
 
   sig { void }
@@ -612,6 +609,13 @@ class CollectiveImportService
   end
 
   sig { params(record: T.untyped, data: T::Hash[String, T.untyped]).void }
+  def preserve_deadline_fired(record, data)
+    return unless data["deadline_event_fired_at"]
+
+    record.update_columns(deadline_event_fired_at: Time.zone.parse(data["deadline_event_fired_at"]))
+  end
+
+  sig { params(record: T.untyped, data: T::Hash[String, T.untyped]).void }
   def preserve_soft_delete(record, data)
     return unless data["deleted_at"]
 
@@ -655,6 +659,222 @@ class CollectiveImportService
       preserve_timestamps(attachment, a)
     end
     @record_counts["attachments"] = data.length
+  end
+
+  # --- Text rewriting ---
+
+  # Rewrites internal links, @ mentions, and attachment URLs in all imported text content.
+  # Must run after all records are created so the ID map and handle mappings are complete.
+  sig { void }
+  def rewrite_text_references
+    truncated_id_map = build_truncated_id_map
+    attachment_id_map = build_attachment_id_map
+    handle_map = build_handle_map
+    source_manifest = @data_import.source_manifest || {}
+    source_hostname = source_manifest["source_instance"] || ""
+    source_subdomain = source_manifest["source_subdomain"] || ""
+    source_collective_handle = source_manifest.dig("collective", "handle") || ""
+    target_collective = Collective.find(T.must(@data_import.collective_id))
+    target_collective_handle = target_collective.handle
+    target_subdomain = @tenant.subdomain
+    target_hostname = ENV.fetch("HOSTNAME", "localhost")
+
+    rewrite_opts = {
+      truncated_id_map: truncated_id_map,
+      attachment_id_map: attachment_id_map,
+      handle_map: handle_map,
+      source_hostname: source_hostname,
+      source_subdomain: source_subdomain,
+      source_collective_handle: source_collective_handle,
+      target_hostname: target_hostname,
+      target_subdomain: target_subdomain,
+      target_collective_handle: T.must(target_collective_handle),
+    }
+
+    # Rewrite notes (title and text fields)
+    Note.with_deleted.where(collective_id: @data_import.collective_id).find_each do |note|
+      rewrite_record_fields(note, [:title, :text], rewrite_opts)
+    end
+
+    # Rewrite decisions (question and description fields)
+    Decision.with_deleted.where(collective_id: @data_import.collective_id).find_each do |decision|
+      rewrite_record_fields(decision, [:question, :description], rewrite_opts)
+    end
+
+    # Rewrite commitments (title and description fields)
+    Commitment.with_deleted.where(collective_id: @data_import.collective_id).find_each do |commitment|
+      rewrite_record_fields(commitment, [:title, :description], rewrite_opts)
+    end
+
+    # Rewrite options (title and description fields)
+    decision_ids = Decision.with_deleted.where(collective_id: @data_import.collective_id).pluck(:id)
+    Option.where(decision_id: decision_ids).find_each do |option|
+      rewrite_record_fields(option, [:title, :description], rewrite_opts)
+    end
+
+    # Regenerate Link records from the rewritten text.
+    # The import skips Link import (they're regenerated from text), and update_columns
+    # above bypasses the Linkable after_save callback, so we trigger it explicitly.
+    [Note, Decision, Commitment].each do |model|
+      scope = model.respond_to?(:with_deleted) ? model.with_deleted : model
+      scope.where(collective_id: @data_import.collective_id).find_each do |record|
+        record.parse_and_create_link_records! if record.respond_to?(:parse_and_create_link_records!)
+      end
+    end
+    @record_counts["links"] = Link.where(collective_id: @data_import.collective_id).count
+  end
+
+  sig { params(record: T.untyped, fields: T::Array[Symbol], opts: T::Hash[Symbol, T.untyped]).void }
+  def rewrite_record_fields(record, fields, opts)
+    updates = {}
+    fields.each do |field|
+      old_value = record.send(field)
+      next if old_value.blank?
+
+      new_value = rewrite_text(old_value, **T.unsafe(opts))
+      updates[field] = new_value if new_value != old_value
+    end
+    record.update_columns(updates) if updates.any?
+  end
+
+  sig { params(
+    text: String,
+    truncated_id_map: T::Hash[String, String],
+    attachment_id_map: T::Hash[String, String],
+    handle_map: T::Hash[String, String],
+    source_hostname: String,
+    source_subdomain: String,
+    source_collective_handle: String,
+    target_hostname: String,
+    target_subdomain: String,
+    target_collective_handle: String,
+  ).returns(String) }
+  def rewrite_text(text, truncated_id_map:, attachment_id_map:, handle_map:, source_hostname:, source_subdomain:, source_collective_handle:, target_hostname:, target_subdomain:, target_collective_handle:)
+    result = text
+
+    # Rewrite full URLs: https://subdomain.hostname/collectives/handle/n/truncated_id
+    if source_hostname.present? && source_subdomain.present? && source_collective_handle.present?
+      full_url_pattern = /https:\/\/#{Regexp.escape(source_subdomain)}\.#{Regexp.escape(source_hostname)}\/(collectives|workspace)\/#{Regexp.escape(source_collective_handle)}\/([ndcr])\/([0-9a-f-]+)(\/\S*)?/
+      result = result.gsub(full_url_pattern) do
+        scope_prefix = $1 # preserve "collectives" or "workspace"
+        type_prefix = $2
+        old_id = $3
+        suffix = $4 || ""
+        new_id = truncated_id_map[old_id] || old_id
+        suffix = remap_attachment_ids_in_suffix(suffix, attachment_id_map)
+        "https://#{target_subdomain}.#{target_hostname}/#{scope_prefix}/#{target_collective_handle}/#{type_prefix}/#{new_id}#{suffix}"
+      end
+    end
+
+    # Rewrite markdown path links: [text](/collectives/handle/n/truncated_id...)
+    # Also handles image links ![alt](/collectives/...) since they contain ](/...
+    if source_collective_handle.present?
+      path_pattern = /(\]\()\/(collectives|workspace)\/#{Regexp.escape(source_collective_handle)}\/([ndcr])\/([0-9a-f-]+)(\/[^\)]*)?(\))/
+      result = result.gsub(path_pattern) do
+        link_open = $1
+        scope_prefix = $2 # preserve "collectives" or "workspace"
+        type_prefix = $3
+        old_id = $4
+        suffix = $5 || ""  # e.g., /attachments/uuid
+        link_close = $6
+        new_id = truncated_id_map[old_id] || old_id
+        # Remap attachment UUIDs in the suffix
+        suffix = remap_attachment_ids_in_suffix(suffix, attachment_id_map)
+        "#{link_open}/#{scope_prefix}/#{target_collective_handle}/#{type_prefix}/#{new_id}#{suffix}#{link_close}"
+      end
+    end
+
+    # Note: markdown image links ![alt](/path) are already handled by the path pattern above,
+    # since they contain ](/path) which matches the same regex.
+
+    # Rewrite @ mentions in a single pass to avoid cascading replacements
+    # (e.g., @bob -> @alice then @alice -> @alice-smith would be wrong)
+    if handle_map.any?
+      escaped_handles = handle_map.keys.sort_by { |h| -h.length }.map { |h| Regexp.escape(h) }
+      mention_pattern = /(?<=@)(#{escaped_handles.join("|")})(?![a-zA-Z0-9_-])/
+      result = result.gsub(mention_pattern) { |match| handle_map[match] || match }
+    end
+
+    result
+  end
+
+  # Build a mapping from source truncated_id to new truncated_id.
+  # Single forward pass: iterate export data, look up new IDs from @id_map,
+  # batch-fetch new truncated_ids from the database.
+  sig { returns(T::Hash[String, String]) }
+  def build_truncated_id_map
+    # Collect source_id -> source_truncated_id from export data
+    source_truncated_ids = {} # { source_id => source_truncated_id }
+    %w[notes.json decisions.json commitments.json representation_sessions.json].each do |filename|
+      read_json_optional(filename).each do |record|
+        next unless record["truncated_id"].present?
+        source_truncated_ids[record["source_id"]] = record["truncated_id"]
+      end
+    end
+
+    # Build new_id -> source_truncated_id using @id_map (forward lookup, O(1) per entry)
+    new_id_to_source_truncated = {}
+    source_truncated_ids.each do |source_id, source_tid|
+      new_id = @id_map[source_id]
+      next unless new_id
+      new_id_to_source_truncated[new_id] = source_tid
+    end
+
+    # Batch-fetch new truncated_ids from the database
+    map = {}
+    new_id_to_source_truncated.keys.each_slice(500) do |batch|
+      [Note, Decision, Commitment, RepresentationSession].each do |model|
+        scope = T.unsafe(model).respond_to?(:with_deleted) ? T.unsafe(model).with_deleted : model
+        scope.where(id: batch).pluck(:id, :truncated_id).each do |new_id, new_tid|
+          source_tid = new_id_to_source_truncated[new_id]
+          map[source_tid] = new_tid if source_tid
+        end
+      end
+    end
+    map
+  end
+
+  # Build a mapping from source attachment UUID to new attachment UUID
+  sig { returns(T::Hash[String, String]) }
+  def build_attachment_id_map
+    map = {}
+    read_json_optional("attachments.json").each do |a|
+      new_id = @id_map[a["source_id"]]
+      map[a["source_id"]] = new_id if new_id
+    end
+    map
+  end
+
+  # Remap attachment UUIDs in a URL suffix like /attachments/old-uuid
+  sig { params(suffix: String, attachment_id_map: T::Hash[String, String]).returns(String) }
+  def remap_attachment_ids_in_suffix(suffix, attachment_id_map)
+    return suffix unless suffix.include?("/attachments/")
+
+    suffix.gsub(%r{/attachments/([0-9a-f-]{36})}) do
+      old_attachment_id = $1
+      new_attachment_id = attachment_id_map[old_attachment_id] || old_attachment_id
+      "/attachments/#{new_attachment_id}"
+    end
+  end
+
+  # Build a mapping from source user handle to target user handle
+  sig { returns(T::Hash[String, String]) }
+  def build_handle_map
+    map = {}
+    users_data = read_json("users.json")
+    users_data.each do |u|
+      source_handle = u["handle"]
+      next if source_handle.blank?
+
+      target_user_id = map_id(u["source_id"])
+      next unless target_user_id
+
+      target_tenant_user = TenantUser.find_by(tenant_id: @tenant.id, user_id: target_user_id)
+      next unless target_tenant_user
+
+      map[source_handle] = target_tenant_user.handle
+    end
+    map
   end
 
   # Remove auto-generated note history events from import. The Note model creates

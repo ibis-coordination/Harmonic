@@ -89,12 +89,15 @@ class CollectiveExportService
   def gather_users(tmpdir)
     user_ids = collect_referenced_user_ids
     users = User.where(id: user_ids.to_a)
+    tenant_users_by_user_id = TenantUser.where(tenant_id: @tenant.id, user_id: user_ids.to_a).index_by(&:user_id)
     data = users.map do |user|
+      tenant_user = tenant_users_by_user_id[user.id]
       {
         "source_id" => user.id,
         "email" => user.email,
         "name" => user.name,
         "user_type" => user.user_type,
+        "handle" => tenant_user&.handle,
       }
     end
     write_json(tmpdir, "users.json", data)
@@ -383,6 +386,7 @@ class CollectiveExportService
     data = sessions.map do |s|
       {
         "source_id" => s.id,
+        "truncated_id" => s.truncated_id,
         "source_representative_user_id" => s.representative_user_id,
         "source_trustee_grant_id" => s.trustee_grant_id,
         "began_at" => s.began_at.iso8601,
@@ -499,6 +503,7 @@ class CollectiveExportService
       "app_version" => Rails.root.join("VERSION").read.strip,
       "exported_at" => Time.current.iso8601,
       "source_instance" => ENV.fetch("HOSTNAME", "unknown"),
+      "source_subdomain" => @tenant.subdomain,
       "collective" => {
         "name" => @collective.name,
         "handle" => @collective.handle,

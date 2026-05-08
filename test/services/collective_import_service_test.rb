@@ -831,6 +831,342 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_nil decisions.first.description
   end
 
+  # --- Deadline event preservation ---
+
+  test "preserves deadline_event_fired_at on imported decisions" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    fired_time = 2.days.ago.change(usec: 0)
+    @source_decision.update_columns(deadline_event_fired_at: fired_time)
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+    assert imported_decision.deadline_event_fired_at.present?,
+      "deadline_event_fired_at should be preserved to prevent duplicate deadline events"
+    assert_in_delta fired_time.to_f, imported_decision.deadline_event_fired_at.to_f, 1.0
+  end
+
+  test "preserves deadline_event_fired_at on imported commitments" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    fired_time = 1.day.ago.change(usec: 0)
+    @source_commitment.update_columns(deadline_event_fired_at: fired_time)
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_commitment = Commitment.where(collective_id: imported_collective.id).first
+    assert imported_commitment.deadline_event_fired_at.present?,
+      "deadline_event_fired_at should be preserved to prevent duplicate deadline events"
+    assert_in_delta fired_time.to_f, imported_commitment.deadline_event_fired_at.to_f, 1.0
+  end
+
+  # --- Text rewriting ---
+
+  test "rewrites markdown path links in note text after import" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    # Create a note that links to the source decision using a markdown path link
+    source_decision_path = "/collectives/#{@source_collective.handle}/d/#{@source_decision.truncated_id}"
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Linking note", text: "See [the decision](#{source_decision_path}) for details.",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Linking note").first
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+
+    # The text should now reference the imported decision's truncated_id and new collective handle
+    assert_includes imported_note.text, imported_decision.truncated_id,
+      "Text should contain the new truncated_id, not the source one"
+    assert_includes imported_note.text, imported_collective.handle,
+      "Text should contain the new collective handle"
+    assert_not_includes imported_note.text, @source_decision.truncated_id,
+      "Text should NOT contain the source truncated_id"
+  end
+
+  test "rewrites full URLs in note text after import" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    hostname = ENV.fetch("HOSTNAME", "localhost")
+    full_url = "https://#{@source_tenant.subdomain}.#{hostname}/collectives/#{@source_collective.handle}/d/#{@source_decision.truncated_id}"
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Full URL note", text: "Check out #{full_url} for the vote.",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Full URL note").first
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+
+    assert_includes imported_note.text, imported_decision.truncated_id
+    assert_not_includes imported_note.text, @source_decision.truncated_id
+  end
+
+  test "rewrites @ mentions in note text after import" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    # Give the source user a distinct handle so we can prove rewriting happened
+    source_tenant_user = TenantUser.find_by(tenant_id: @source_tenant.id, user_id: @source_user.id)
+    source_tenant_user.update!(handle: "source-handle-#{SecureRandom.hex(4)}")
+    source_handle = source_tenant_user.handle
+
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Mention note", text: "Hey @#{source_handle}, what do you think?",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Mention note").first
+    target_tenant_user = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: @source_user.id)
+    target_handle = target_tenant_user.handle
+
+    # Handles should differ (source was customized, target uses default)
+    assert_not_equal source_handle, target_handle, "Handles should differ for this test to be meaningful"
+    assert_includes imported_note.text, "@#{target_handle}",
+      "Text should contain the target tenant handle"
+    assert_not_includes imported_note.text, "@#{source_handle}",
+      "Text should NOT contain the source handle"
+  end
+
+  test "rewrites links in decision descriptions after import" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_note_path = "/collectives/#{@source_collective.handle}/n/#{@source_note.truncated_id}"
+    decision = Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "Linking decision", description: "Related to [this note](#{source_note_path}).",
+      deadline: 1.week.from_now, options_open: true,
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_decision = Decision.where(collective_id: imported_collective.id, question: "Linking decision").first
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Import Test Note").first
+
+    assert_includes imported_decision.description, imported_note.truncated_id,
+      "Decision description should reference the new note truncated_id"
+    assert_not_includes imported_decision.description, @source_note.truncated_id,
+      "Decision description should NOT contain the source truncated_id"
+  end
+
+  test "rewrites links in commitment descriptions after import" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_note_path = "/collectives/#{@source_collective.handle}/n/#{@source_note.truncated_id}"
+    Commitment.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Linking commitment", description: "See [notes](#{source_note_path}) for context.",
+      critical_mass: 1, deadline: 1.week.from_now,
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_commitment = Commitment.where(collective_id: imported_collective.id, title: "Linking commitment").first
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Import Test Note").first
+
+    assert_includes imported_commitment.description, imported_note.truncated_id
+    assert_not_includes imported_commitment.description, @source_note.truncated_id
+  end
+
+  test "rewrites mixed links and mentions in the same text" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_tenant_user = TenantUser.find_by(tenant_id: @source_tenant.id, user_id: @source_user.id)
+    source_tenant_user.update!(handle: "mixed-source-#{SecureRandom.hex(4)}")
+    source_handle = source_tenant_user.handle
+
+    source_decision_path = "/collectives/#{@source_collective.handle}/d/#{@source_decision.truncated_id}"
+    source_note_path = "/collectives/#{@source_collective.handle}/n/#{@source_note.truncated_id}"
+    mixed_text = "Hey @#{source_handle}, check [decision](#{source_decision_path}) and [note](#{source_note_path})."
+
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Mixed content", text: mixed_text,
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported = Note.where(collective_id: imported_collective.id, title: "Mixed content").first
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Import Test Note").first
+    target_handle = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: @source_user.id).handle
+
+    # All three references should be rewritten
+    assert_includes imported.text, imported_decision.truncated_id
+    assert_includes imported.text, imported_note.truncated_id
+    assert_includes imported.text, "@#{target_handle}"
+    # None of the source references should remain
+    assert_not_includes imported.text, @source_decision.truncated_id
+    assert_not_includes imported.text, @source_note.truncated_id
+    assert_not_includes imported.text, "@#{source_handle}"
+  end
+
+  test "creates Link records from rewritten text" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_decision_path = "/collectives/#{@source_collective.handle}/d/#{@source_decision.truncated_id}"
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Link source", text: "References [decision](#{source_decision_path}).",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Link source").first
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+
+    # Link records should have been created from the rewritten text
+    links = Link.where(collective_id: imported_collective.id)
+    assert links.any?, "Link records should exist after import with text rewriting"
+    link = links.find { |l| l.from_linkable_id == imported_note.id && l.to_linkable_id == imported_decision.id }
+    assert_not_nil link, "Should have a Link from the imported note to the imported decision"
+  end
+
+  test "rewrites mentions in decision question field" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_tu = TenantUser.find_by(tenant_id: @source_tenant.id, user_id: @source_user.id)
+    source_tu.update!(handle: "question-source-#{SecureRandom.hex(4)}")
+
+    Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "Should @#{source_tu.handle} lead?", description: "Details here",
+      deadline: 1.week.from_now, options_open: true,
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported = Decision.where(collective_id: imported_collective.id).find_by("question LIKE '%lead?'")
+    target_handle = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: @source_user.id).handle
+
+    assert_not_equal source_tu.handle, target_handle
+    assert_includes imported.question, "@#{target_handle}"
+    assert_not_includes imported.question, "@#{source_tu.handle}"
+  end
+
+  test "rewrites mentions in commitment title field" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_tu = TenantUser.find_by(tenant_id: @source_tenant.id, user_id: @source_user.id)
+    source_tu.update!(handle: "title-source-#{SecureRandom.hex(4)}")
+
+    Commitment.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "@#{source_tu.handle}'s pledge", description: "Do the thing",
+      critical_mass: 1, deadline: 1.week.from_now,
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported = Commitment.where(collective_id: imported_collective.id).find_by("title LIKE '%pledge'")
+    target_handle = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: @source_user.id).handle
+
+    assert_not_equal source_tu.handle, target_handle
+    assert_includes imported.title, "@#{target_handle}"
+    assert_not_includes imported.title, "@#{source_tu.handle}"
+  end
+
+  test "rewrites mentions in option title and description" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_tu = TenantUser.find_by(tenant_id: @source_tenant.id, user_id: @source_user.id)
+    source_tu.update!(handle: "opt-source-#{SecureRandom.hex(4)}")
+
+    option = Option.find(@source_option.id)
+    option.update_columns(
+      title: "@#{source_tu.handle}'s proposal",
+      description: "Proposed by @#{source_tu.handle}",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_decision = Decision.where(collective_id: imported_collective.id).first
+    imported_option = Option.where(decision_id: imported_decision.id).first
+    target_handle = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: @source_user.id).handle
+
+    assert_not_equal source_tu.handle, target_handle
+    assert_includes imported_option.title, "@#{target_handle}"
+    assert_not_includes imported_option.title, "@#{source_tu.handle}"
+    assert_includes imported_option.description, "@#{target_handle}"
+  end
+
+  test "rewrites links in note title field" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    source_tu = TenantUser.find_by(tenant_id: @source_tenant.id, user_id: @source_user.id)
+    source_tu.update!(handle: "title-note-source-#{SecureRandom.hex(4)}")
+
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Note by @#{source_tu.handle}", text: "Body content",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    target_handle = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: @source_user.id).handle
+    imported_note = Note.where(collective_id: imported_collective.id).find_by("title LIKE '%Note by%'")
+
+    assert_not_equal source_tu.handle, target_handle
+    assert_includes imported_note.title, "@#{target_handle}"
+    assert_not_includes imported_note.title, "@#{source_tu.handle}"
+  end
+
+  test "rewrites pasted attachment URLs including attachment UUID after import" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    # Create a real attachment on the source note
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("attachment content"), filename: "screenshot.txt", content_type: "text/plain",
+    )
+    attachment = Attachment.create!(
+      tenant: @source_tenant, collective: @source_collective,
+      attachable: @source_note, file: blob,
+      created_by: @source_user, updated_by: @source_user,
+    )
+
+    # Paste the attachment URL into another note's text
+    pasted_url = "/collectives/#{@source_collective.handle}/n/#{@source_note.truncated_id}/attachments/#{attachment.id}"
+    create_note(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      title: "Attachment URL note", text: "See ![screenshot](#{pasted_url}) for reference.",
+    )
+
+    data_import, imported_collective = export_and_import_source!
+
+    imported_note = Note.where(collective_id: imported_collective.id, title: "Attachment URL note").first
+    imported_target_note = Note.where(collective_id: imported_collective.id, title: "Import Test Note").first
+    imported_attachment = Attachment.where(collective_id: imported_collective.id).first
+
+    # The note truncated_id, collective handle, AND attachment UUID should all be rewritten
+    assert_includes imported_note.text, imported_target_note.truncated_id,
+      "Pasted attachment URL should have the new note truncated_id"
+    assert_includes imported_note.text, imported_collective.handle,
+      "Pasted attachment URL should have the new collective handle"
+    assert_includes imported_note.text, imported_attachment.id,
+      "Pasted attachment URL should have the new attachment UUID"
+    assert_not_includes imported_note.text, attachment.id,
+      "Pasted attachment URL should NOT have the source attachment UUID"
+  end
+
   # --- Edge cases ---
 
   test "imports empty collective successfully" do
@@ -1030,6 +1366,9 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
 
     # Same number of members
     assert_equal original_zip["members.json"].length, reimported_zip["members.json"].length
+
+    # Same number of links
+    assert_equal original_zip["links.json"].length, reimported_zip["links.json"].length
 
     # Record counts match
     assert_equal original_zip["manifest.json"]["record_counts"]["notes"], reimported_zip["manifest.json"]["record_counts"]["notes"]
