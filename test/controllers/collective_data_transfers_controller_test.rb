@@ -219,6 +219,52 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # === Audit logging ===
+
+  test "creating export logs to security audit" do
+    sign_in_admin_with_reverification
+    mark_audit_log_position
+
+    post "/collectives/#{@collective.handle}/exports"
+
+    entry = find_audit_entry("data_export_created")
+    assert entry, "Expected data_export_created event in security audit log"
+    assert_equal @admin_user.id, entry["user_id"]
+    assert_equal @collective.id, entry.dig("collective_id")
+  end
+
+  test "downloading export logs to security audit" do
+    sign_in_admin_with_reverification
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+    export = DataExport.create!(tenant: @tenant, collective: @collective, user: @admin_user, status: "pending")
+    CollectiveExportService.new(data_export: export).perform!
+    export.reload
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    mark_audit_log_position
+
+    get "/collectives/#{@collective.handle}/exports/#{export.id}"
+
+    entry = find_audit_entry("data_export_downloaded")
+    assert entry, "Expected data_export_downloaded event in security audit log"
+    assert_equal export.id, entry.dig("export_id")
+  end
+
+  test "creating import logs to security audit" do
+    sign_in_admin_with_reverification
+    mark_audit_log_position
+
+    file = fixture_file_upload(create_minimal_export_zip, "application/zip")
+    post "/collectives/#{@collective.handle}/imports", params: { file: file }
+
+    entry = find_audit_entry("data_import_created")
+    assert entry, "Expected data_import_created event in security audit log"
+    assert_equal @admin_user.id, entry["user_id"]
+  end
+
   # === Import flow ===
 
   test "admin can access import form" do
@@ -255,6 +301,26 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
   def sign_in_admin_with_reverification
     exports_path = "/collectives/#{@collective.handle}/exports"
     sign_in_with_reverification(@admin_user, tenant: @tenant, path: exports_path)
+  end
+
+  def mark_audit_log_position
+    log_file = Rails.root.join("log/security_audit.log")
+    @audit_log_offset = File.exist?(log_file) ? File.size(log_file) : 0
+  end
+
+  def find_audit_entry(admin_action)
+    log_file = Rails.root.join("log/security_audit.log")
+    return nil unless File.exist?(log_file)
+
+    # Only read entries written after the marked position
+    File.open(log_file) do |f|
+      f.seek(@audit_log_offset || 0)
+      f.each_line do |line|
+        entry = JSON.parse(line) rescue next
+        return entry if entry["admin_action"] == admin_action
+      end
+    end
+    nil
   end
 
   # Create a minimal valid export ZIP for testing the import controller action.

@@ -27,6 +27,13 @@ class CollectiveDataTransfersController < ApplicationController
     )
     CollectiveExportJob.perform_later(data_export.id)
 
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "data_export_created",
+      details: { collective_id: @current_collective.id, collective_name: @current_collective.name, export_id: data_export.id },
+    )
+
     flash[:notice] = "Your export is being prepared. This page will update when it's ready."
     redirect_to collective_exports_path
   end
@@ -39,6 +46,13 @@ class CollectiveDataTransfersController < ApplicationController
       flash[:alert] = data_export.expired? ? "This export has expired." : "This export is not ready for download."
       return redirect_to collective_exports_path
     end
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "data_export_downloaded",
+      details: { collective_id: @current_collective.id, export_id: data_export.id },
+    )
 
     redirect_to rails_blob_path(data_export.file, disposition: "attachment"), allow_other_host: true
   end
@@ -62,6 +76,13 @@ class CollectiveDataTransfersController < ApplicationController
     )
     data_import.file.attach(params[:file])
     CollectiveImportJob.perform_later(data_import.id)
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "data_import_created",
+      details: { collective_handle: @current_collective.handle, import_id: data_import.id },
+    )
 
     flash[:notice] = "Your import is being processed. This page will update when it's complete."
     redirect_to collective_import_path(data_import.id)
