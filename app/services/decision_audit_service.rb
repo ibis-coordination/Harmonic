@@ -134,7 +134,7 @@ class DecisionAuditService
         sequence_number = (last_entry&.sequence_number || 0) + 1
         previous_hash = last_entry&.entry_hash
 
-        now = Time.current
+        now = Time.current.change(usec: 0)
 
         entry = DecisionAuditEntry.new(
           tenant_id: decision.tenant_id,
