@@ -100,7 +100,7 @@ class DecisionsController < ApplicationController
     else
       @options_header = @decision.can_add_options?(@participant) ? 'Add Options & Vote' : 'Vote'
       @votes = current_votes
-      @current_user_has_voted = @votes.any? { |v| v.accepted == 1 || v.preferred == 1 }
+      @current_user_has_voted = @votes.any?
       @show_results = @decision.closed? || @current_user_has_voted
     end
     set_results_view_vars

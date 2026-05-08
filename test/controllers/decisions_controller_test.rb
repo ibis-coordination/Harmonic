@@ -859,6 +859,46 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
   end
 
+  # === Vote Update Edge Cases ===
+
+  test "user who unchecks all options is still recognized as having voted" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+
+    # First: vote with acceptance
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: { votes: { "0" => { option_title: "Option A", accepted: "1", preferred: "0" } } }
+    assert_redirected_to @decision.path
+
+    # Then: update to uncheck all options
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+      params: { votes: { "0" => { option_title: "Option A", accepted: "0", preferred: "0" } } }
+    assert_redirected_to @decision.path
+
+    # The show page should still recognize the user as having voted
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+
+    # The user should still see results (they participated, even if they now accept nothing)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # Check that vote records still exist
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    votes = Vote.where(decision_participant: participant)
+    assert votes.any?, "Vote records should still exist after unchecking all options"
+
+    # The UI should show "Update Vote" (not "Submit Vote") since the user has already voted
+    assert_match(/Update Vote/, response.body, "User who unchecked all options should still see 'Update Vote'")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
   test "cannot vote via API action on closed decision" do
     sign_in_as(@user, tenant: @tenant)
 

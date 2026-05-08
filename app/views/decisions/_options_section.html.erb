@@ -55,7 +55,7 @@
           <% end %>
           <span style="position: relative; display: inline-block;">
             <button type="submit" class="pulse-action-btn pulse-action-btn-primary" data-decision-target="submitButton" disabled>
-              <%= @votes.any? { |v| v.accepted == 1 } ? 'Update Vote' : 'Submit Vote' %>
+              <%= @votes.any? ? 'Update Vote' : 'Submit Vote' %>
             </button>
             <span class="pulse-body-text-muted" style="font-size: 0.85em; display: none; position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); white-space: nowrap;" data-decision-target="voteNotice">
               <%= @current_collective.id == @current_tenant.main_collective_id ? 'Your vote will be publicly visible.' : 'Your vote will be visible to all members of this collective.' %>

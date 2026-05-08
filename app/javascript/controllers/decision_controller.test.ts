@@ -95,7 +95,7 @@ describe("DecisionController", () => {
       expect(button.disabled).toBe(false)
     })
 
-    it("becomes disabled again when checkbox is reverted to original state", async () => {
+    it("stays enabled after checkbox is reverted to original state", async () => {
       document.body.innerHTML = buildDecisionHTML([
         { id: "1", title: "Option A", accepted: false, preferred: false },
       ])
@@ -109,10 +109,10 @@ describe("DecisionController", () => {
       checkbox.dispatchEvent(new Event("change"))
       expect(button.disabled).toBe(false)
 
-      // Uncheck it back
+      // Uncheck it back — button stays enabled because user has interacted
       checkbox.checked = false
       checkbox.dispatchEvent(new Event("change"))
-      expect(button.disabled).toBe(true)
+      expect(button.disabled).toBe(false)
     })
 
     it("becomes enabled when star checkbox is changed", async () => {

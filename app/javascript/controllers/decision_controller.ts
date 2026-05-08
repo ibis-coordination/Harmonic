@@ -23,6 +23,7 @@ export default class DecisionController extends Controller {
   private refreshing = false
   private previousOptionsListHtml = ""
   private initialVoteState: string = ""
+  private hasInteracted = false
 
   initialize(): void {
     document.addEventListener("poll", this.refreshOptions.bind(this))
@@ -128,7 +129,7 @@ export default class DecisionController extends Controller {
     if (this.hasVotingHintTarget) {
       this.votingHintTarget.style.display = hasOptions ? "" : "none"
     }
-    const changed = this.hasVoteChanged()
+    const changed = this.hasVoteChanged() || this.hasInteracted
     this.submitButtonTarget.disabled = !changed
     if (this.hasVoteNoticeTarget) {
       this.voteNoticeTarget.style.display = changed ? "" : "none"
@@ -140,7 +141,10 @@ export default class DecisionController extends Controller {
       "input.pulse-acceptance-checkbox, input.pulse-star-checkbox"
     )
     checkboxes.forEach((cb) => {
-      cb.addEventListener("change", () => this.updateSubmitButton())
+      cb.addEventListener("change", () => {
+        this.hasInteracted = true
+        this.updateSubmitButton()
+      })
     })
   }
 
