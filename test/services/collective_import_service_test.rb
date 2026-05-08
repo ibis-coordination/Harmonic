@@ -1211,6 +1211,55 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal 1, votes.count, "Vote should be imported even though deadline has passed"
   end
 
+  # --- Tenant user access control ---
+
+  test "does not escalate access for archived tenant users" do
+    # Create a second user in the source collective
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+    revoked_user = create_user(name: "Revoked User")
+    @source_tenant.add_user!(revoked_user)
+    @source_collective.add_user!(revoked_user)
+    create_note(tenant: @source_tenant, collective: @source_collective, created_by: revoked_user, title: "Revoked user note")
+
+    # In the target tenant, this user exists but has been archived (access revoked)
+    Tenant.scope_thread_to_tenant(subdomain: @target_tenant.subdomain)
+    @target_tenant.add_user!(revoked_user)
+    target_tu = TenantUser.find_by(tenant_id: @target_tenant.id, user_id: revoked_user.id)
+    target_tu.update!(archived_at: 1.day.ago)
+
+    data_import, imported_collective = export_and_import_source!
+
+    # The archived tenant user should NOT be unarchived
+    target_tu.reload
+    assert target_tu.archived?, "Archived TenantUser should remain archived after import"
+
+    # The user should be a member of the imported collective, but archived
+    member = CollectiveMember.find_by(collective_id: imported_collective.id, user_id: revoked_user.id)
+    assert_not_nil member, "User should still be added as a collective member (for data integrity)"
+    assert member.archived?, "Collective member should be archived since their tenant access is revoked"
+  end
+
+  test "active tenant users get active collective membership on import" do
+    # Create a second user in the source collective
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+    active_user = create_user(name: "Active User")
+    @source_tenant.add_user!(active_user)
+    @source_collective.add_user!(active_user)
+
+    # In the target tenant, this user exists and is active
+    Tenant.scope_thread_to_tenant(subdomain: @target_tenant.subdomain)
+    @target_tenant.add_user!(active_user)
+
+    data_import, imported_collective = export_and_import_source!
+
+    # Active tenant user should get active collective membership
+    member = CollectiveMember.find_by(collective_id: imported_collective.id, user_id: active_user.id)
+    assert_not_nil member
+    assert_not member.archived?, "Active tenant user should get active collective membership"
+  end
+
   # --- Edge cases ---
 
   test "imports empty collective successfully" do

@@ -201,6 +201,7 @@ class CollectiveImportService
 
       # Add user to tenant if not already
       tenant_user = TenantUser.find_by(tenant_id: @tenant.id, user_id: user_id)
+      tenant_user_is_archived = tenant_user&.archived?
       @tenant.add_user!(user) unless tenant_user
 
       member = collective.add_user!(user)
@@ -211,12 +212,19 @@ class CollectiveImportService
         member.add_role!(role)
       end
 
-      # Preserve timestamps and archived state
+      # Preserve timestamps and archived state from source
       updates = {
         created_at: Time.zone.parse(m["created_at"]),
         updated_at: Time.zone.parse(m["updated_at"]),
       }
       updates[:archived_at] = Time.zone.parse(m["archived_at"]) if m["archived_at"]
+
+      # Conservative access policy: if the user's tenant access is archived (revoked),
+      # archive the collective membership too. Import should not escalate access.
+      if tenant_user_is_archived && !updates.key?(:archived_at)
+        updates[:archived_at] = Time.current
+      end
+
       member.update_columns(updates)
     end
     @record_counts["members"] = members_data.length
