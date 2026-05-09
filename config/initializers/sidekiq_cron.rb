@@ -33,6 +33,11 @@ Sidekiq.configure_server do |_config|
       "class" => "CleanupExpiredExportsJob",
       "description" => "Purge expired data export files",
     },
+    "sweep_stuck_data_imports" => {
+      "cron" => "0 * * * *", # Hourly
+      "class" => "SweepStuckDataImportsJob",
+      "description" => "Mark stuck data imports as failed",
+    },
   }
 
   Sidekiq::Cron::Job.load_from_hash(schedule)

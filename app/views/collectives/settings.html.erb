@@ -254,15 +254,17 @@
     <% end %>
 
 
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title"><%= octicon 'download', height: 16 %> Data Export</h2>
-        <p class="pulse-section-description">
-          Export this collective's data as a ZIP file.
-        </p>
-        <a href="<%= @current_collective.path %>/exports" class="pulse-action-btn">
-          <%= octicon 'download', height: 14 %> Export Data
-        </a>
-      </section>
+      <% if @current_tenant.feature_enabled?("collective_export") %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title"><%= octicon 'download', height: 16 %> Data Export</h2>
+          <p class="pulse-section-description">
+            Export this collective's data as a ZIP file.
+          </p>
+          <a href="<%= @current_collective.path %>/exports" class="pulse-action-btn">
+            <%= octicon 'download', height: 14 %> Export Data
+          </a>
+        </section>
+      <% end %>
 
       <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
         <section class="pulse-settings-section">

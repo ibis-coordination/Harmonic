@@ -3,6 +3,7 @@
 class CollectiveDataTransfersController < ApplicationController
   include RequiresReverification
 
+  before_action :require_export_feature_enabled
   before_action :require_admin
   before_action -> { require_reverification(scope: "data_transfer") }
 
@@ -58,6 +59,12 @@ class CollectiveDataTransfersController < ApplicationController
   end
 
   private
+
+  def require_export_feature_enabled
+    return if @current_tenant&.feature_enabled?("collective_export")
+
+    render plain: "Not Found", status: :not_found
+  end
 
   def require_admin
     return if @current_user&.collective_member&.is_admin?

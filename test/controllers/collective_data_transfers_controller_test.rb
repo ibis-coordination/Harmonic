@@ -12,6 +12,10 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.set_thread_context(@collective)
 
+    # Enable the collective_export feature flag for the test tenant — gated
+    # by a feature flag in production until privacy policy work is complete.
+    @tenant.update!(settings: @tenant.settings.deep_merge("feature_flags" => { "collective_export" => true }))
+
     # Make the user an admin of the collective
     member = @collective.collective_members.find_by(user_id: @admin_user.id)
     member.add_role!("admin")
@@ -29,6 +33,16 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
 
   teardown do
     @temp_files&.each { |f| FileUtils.rm_f(f) }
+  end
+
+  # === Feature flag gating ===
+
+  test "exports are 404 when collective_export feature flag is disabled" do
+    @tenant.update!(settings: @tenant.settings.deep_merge("feature_flags" => { "collective_export" => false }))
+    sign_in_as(@admin_user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/exports"
+    assert_response :not_found
   end
 
   # === Authorization: admin required ===
