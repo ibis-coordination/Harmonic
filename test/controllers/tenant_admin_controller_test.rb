@@ -318,6 +318,62 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     assert_equal "File must be a valid ZIP archive.", flash[:alert]
   end
 
+  test "import stores use_placeholders and handle_email_map options" do
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+
+    map_path = Rails.root.join("tmp", "test-user-map-#{SecureRandom.hex(4)}.json")
+    File.write(map_path, JSON.generate({ "alice" => "alice@example.com", "bob" => "bob@example.com" }))
+    @temp_files ||= []
+    @temp_files << map_path.to_s
+
+    zip = fixture_file_upload(create_minimal_export_zip, "application/zip")
+    map = fixture_file_upload(map_path.to_s, "application/json")
+
+    post "/tenant-admin/imports", params: { file: zip, user_map: map, use_placeholders: "1" }
+
+    import = DataImport.where(tenant_id: @primary_tenant.id).order(created_at: :desc).first
+    assert_equal true, import.import_options["use_placeholders"]
+    assert_equal({ "alice" => "alice@example.com", "bob" => "bob@example.com" }, import.import_options["handle_email_map"])
+  end
+
+  test "import rejects malformed user_map JSON" do
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+
+    map_path = Rails.root.join("tmp", "test-bad-map-#{SecureRandom.hex(4)}.json")
+    File.write(map_path, "{not valid json")
+    @temp_files ||= []
+    @temp_files << map_path.to_s
+
+    zip = fixture_file_upload(create_minimal_export_zip, "application/zip")
+    map = fixture_file_upload(map_path.to_s, "application/json")
+
+    assert_no_enqueued_jobs only: CollectiveImportJob do
+      post "/tenant-admin/imports", params: { file: zip, user_map: map }
+    end
+
+    assert_response :redirect
+    assert_match(/User mapping file is not valid JSON/, flash[:alert])
+  end
+
+  test "import rejects user_map that is not handle→email object" do
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+
+    map_path = Rails.root.join("tmp", "test-wrong-shape-#{SecureRandom.hex(4)}.json")
+    File.write(map_path, JSON.generate(["alice@example.com", "bob@example.com"]))
+    @temp_files ||= []
+    @temp_files << map_path.to_s
+
+    zip = fixture_file_upload(create_minimal_export_zip, "application/zip")
+    map = fixture_file_upload(map_path.to_s, "application/json")
+
+    assert_no_enqueued_jobs only: CollectiveImportJob do
+      post "/tenant-admin/imports", params: { file: zip, user_map: map }
+    end
+
+    assert_response :redirect
+    assert_match(/must be a JSON object/, flash[:alert])
+  end
+
   test "import rejects when another import is already in progress" do
     sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
 

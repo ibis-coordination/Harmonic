@@ -618,7 +618,8 @@ CREATE TABLE public.data_imports (
     started_at timestamp(6) without time zone,
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    import_options jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 
@@ -9373,6 +9374,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260509000000'),
 ('20260508185124'),
 ('20260508060114'),
 ('20260508060053'),

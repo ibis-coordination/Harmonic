@@ -29,9 +29,10 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     CollectiveExportService.new(data_export: @export).perform!
     @export.reload
 
-    # Target: different tenant, same user email (to test matching)
+    # Target: different tenant. The @source_user User row is reused because the
+    # User table is shared across tenants (User is not tenant-scoped); the import
+    # adds the user to the target tenant as part of import_members.
     @target_tenant = create_tenant(subdomain: "target-#{SecureRandom.hex(4)}", name: "Target Tenant")
-    @target_tenant.add_user!(@source_user) # Same user exists in target tenant
 
     Tenant.scope_thread_to_tenant(subdomain: @target_tenant.subdomain)
     Collective.clear_thread_scope
@@ -61,60 +62,198 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal @source_collective.handle, imported_collective.handle
   end
 
-  test "matches existing users by email" do
+  test "matches existing users by UUID (same-instance import)" do
     service = CollectiveImportService.new(data_import: @data_import)
     service.perform!
 
     @data_import.reload
     imported_collective = Collective.find(@data_import.collective_id)
 
-    # The source_user should be a member of the imported collective (matched by email)
+    # The source_user should be a member of the imported collective (matched by UUID
+    # — User table is shared across tenants so the source ID resolves directly).
     Collective.scope_thread_to_collective(subdomain: @target_tenant.subdomain, handle: imported_collective.handle)
     members = CollectiveMember.where(collective_id: imported_collective.id)
     member_user_ids = members.pluck(:user_id)
     assert_includes member_user_ids, @source_user.id
 
-    # user_mapping should show them as matched
+    # user_mapping is keyed by source handle, with name + matched status
     mapping = @data_import.user_mapping
-    matched_entry = mapping[@source_user.email]
+    source_handle = @source_tenant.tenant_users.find_by(user_id: @source_user.id).handle
+    matched_entry = mapping[source_handle]
     assert matched_entry.present?
     assert_equal true, matched_entry["matched"]
+    assert_equal @source_user.id, matched_entry["target_user_id"]
   end
 
-  test "creates placeholder users for unmatched emails" do
-    unmatched_email = "unmatched-#{SecureRandom.hex(6)}@example.com"
+  test "matches users by handle→email map when UUID match fails (cross-instance)" do
+    # Create a target user with a known email; the map will resolve to them.
+    other_email = "other-#{SecureRandom.hex(6)}@example.com"
+    other_user = create_user(email: other_email, name: "Other User")
+    @target_tenant.add_user!(other_user)
 
-    # Create a second user in the source collective with a unique email that doesn't exist in target
-    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
-    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
-    second_user = create_user(email: unmatched_email, name: "Unmatched User")
-    @source_tenant.add_user!(second_user)
-    @source_collective.add_user!(second_user)
-    create_note(tenant: @source_tenant, collective: @source_collective, created_by: second_user, title: "Unmatched Note")
+    # Build a synthetic export ZIP with a fake source_id (no User in our DB
+    # has this UUID) so UUID matching fails. The handle is what the admin
+    # supplies in the map.
+    fake_source_id = SecureRandom.uuid
+    source_handle = "imported-user"
+    zip_path = build_synthetic_export_zip(
+      user_source_id: fake_source_id,
+      user_handle: source_handle,
+      user_name: "Imported User",
+    )
 
-    # Re-export with the new user
-    export2 = DataExport.create!(tenant: @source_tenant, collective: @source_collective, user: @source_user, status: "pending")
-    CollectiveExportService.new(data_export: export2).perform!
-    export2.reload
-
-    # Delete the second user so they won't match on import
-    # (simulate importing into a fresh instance where this user doesn't exist)
-    second_user.update!(email: "deleted-#{SecureRandom.hex(6)}@example.com")
-
-    # Import into target
     Tenant.scope_thread_to_tenant(subdomain: @target_tenant.subdomain)
     Collective.clear_thread_scope
-    import2 = DataImport.create!(tenant: @target_tenant, user: @source_user, status: "pending")
-    import2.file.attach(io: StringIO.new(export2.file.download), filename: "import2.zip", content_type: "application/zip")
+    data_import = DataImport.create!(
+      tenant: @target_tenant,
+      user: @source_user,
+      status: "pending",
+      import_options: { "handle_email_map" => { source_handle => other_email } },
+    )
+    data_import.file.attach(io: File.open(zip_path), filename: "synthetic.zip", content_type: "application/zip")
 
-    service = CollectiveImportService.new(data_import: import2)
-    service.perform!
+    CollectiveImportService.new(data_import: data_import).perform!
 
-    import2.reload
-    placeholder = User.find_by(email: unmatched_email)
-    assert_not_nil placeholder, "Expected a placeholder user with email #{unmatched_email}"
+    data_import.reload
+    assert_equal "completed", data_import.status
+
+    # other_user (matched via the map) is now a member of the imported collective
+    imported_collective = Collective.find(data_import.collective_id)
+    Collective.scope_thread_to_collective(subdomain: @target_tenant.subdomain, handle: imported_collective.handle)
+    member_user_ids = CollectiveMember.where(collective_id: imported_collective.id).pluck(:user_id)
+    assert_includes member_user_ids, other_user.id, "Map-matched user should be a member of imported collective"
+
+    # user_mapping reflects the match (not a placeholder)
+    mapping = data_import.user_mapping[source_handle]
+    assert_equal true, mapping["matched"]
+    assert_equal other_user.id, mapping["target_user_id"]
+
+    # No imported_placeholder was created for that handle
+    refute User.where(name: "Imported User", user_type: "imported_placeholder").exists?
+  end
+
+  test "falls back to placeholder when handle is in map but email doesn't match any user" do
+    fake_source_id = SecureRandom.uuid
+    source_handle = "imported-user"
+    zip_path = build_synthetic_export_zip(
+      user_source_id: fake_source_id,
+      user_handle: source_handle,
+      user_name: "Imported User",
+    )
+
+    Tenant.scope_thread_to_tenant(subdomain: @target_tenant.subdomain)
+    Collective.clear_thread_scope
+    data_import = DataImport.create!(
+      tenant: @target_tenant,
+      user: @source_user,
+      status: "pending",
+      import_options: { "handle_email_map" => { source_handle => "no-such-user@example.com" } },
+    )
+    data_import.file.attach(io: File.open(zip_path), filename: "synthetic.zip", content_type: "application/zip")
+
+    CollectiveImportService.new(data_import: data_import).perform!
+
+    data_import.reload
+    assert_equal "completed", data_import.status
+
+    # No real user matched → placeholder created
+    mapping = data_import.user_mapping[source_handle]
+    assert_equal false, mapping["matched"]
+    assert mapping["placeholder"]
+    placeholder = User.find(mapping["target_user_id"])
     assert_equal "imported_placeholder", placeholder.user_type
   end
+
+  test "import_members survives handle collisions in target tenant" do
+    # Pre-populate target tenant with a TenantUser whose handle parameterizes
+    # the same way as @source_user's name. This used to crash the import with
+    # PG::UniqueViolation because Tenant#add_user! tries to create a TenantUser
+    # with handle = name.parameterize.
+    colliding_user = create_user(email: "colliding-#{SecureRandom.hex(4)}@example.com", name: "Source User")
+    @target_tenant.add_user!(colliding_user)
+    refute_nil TenantUser.find_by(tenant_id: @target_tenant.id, handle: "source-user")
+
+    @data_import.update!(import_options: { "use_placeholders" => true })
+
+    service = CollectiveImportService.new(data_import: @data_import)
+    service.perform!
+
+    @data_import.reload
+    assert_equal "completed", @data_import.status
+
+    # The placeholder ended up with a suffixed handle
+    Collective.scope_thread_to_collective(subdomain: @target_tenant.subdomain, handle: Collective.find(@data_import.collective_id).handle)
+    placeholder_handles = TenantUser.where(tenant_id: @target_tenant.id).pluck(:handle)
+    assert_includes placeholder_handles, "source-user-imported-1"
+  end
+
+  test "importing admin is added as admin member of the imported collective" do
+    # Repros: with use_placeholders=true, every source member becomes a
+    # placeholder, so the real importing admin can't access the imported
+    # collective at all (no real user is a member, and only existing members
+    # can invite). Even without placeholders, if the importing admin wasn't
+    # a member of the source collective, they'd have no way in.
+    @data_import.update!(import_options: { "use_placeholders" => true })
+
+    service = CollectiveImportService.new(data_import: @data_import)
+    service.perform!
+
+    @data_import.reload
+    imported_collective = Collective.find(@data_import.collective_id)
+
+    Collective.scope_thread_to_collective(subdomain: @target_tenant.subdomain, handle: imported_collective.handle)
+    member = CollectiveMember.find_by(collective_id: imported_collective.id, user_id: @data_import.user_id)
+    assert_not_nil member, "Importing admin must be a member of the imported collective"
+    assert member.is_admin?, "Importing admin must have admin role on the imported collective"
+    assert_nil member.archived_at, "Importing admin's membership must not be archived"
+  end
+
+  test "marks import as failed cleanly when an import step raises after import_collective" do
+    # Reproduces the bug where the rescue's update! would itself fail with a
+    # foreign-key violation because the rolled-back collective_id was still
+    # dirty in memory. Now we use update_columns to bypass that.
+    service = CollectiveImportService.new(data_import: @data_import)
+    service.define_singleton_method(:import_members) { raise StandardError, "synthetic failure" }
+
+    assert_raises(StandardError) do
+      service.perform!
+    end
+
+    @data_import.reload
+    assert_equal "failed", @data_import.status
+    assert_equal "synthetic failure", @data_import.error_message
+  end
+
+  test "creates placeholder users when use_placeholders flag is set" do
+    @data_import.update!(import_options: { "use_placeholders" => true })
+
+    service = CollectiveImportService.new(data_import: @data_import)
+    service.perform!
+
+    @data_import.reload
+    imported_collective = Collective.find(@data_import.collective_id)
+
+    Collective.scope_thread_to_collective(subdomain: @target_tenant.subdomain, handle: imported_collective.handle)
+    members = CollectiveMember.where(collective_id: imported_collective.id)
+    member_user_ids = members.pluck(:user_id)
+
+    # The importer is added as a real member regardless of the placeholder flag,
+    # so they retain access to the imported collective.
+    assert_includes member_user_ids, @data_import.user_id, "Importer should be a member"
+
+    # All OTHER members (the source's own membership records) should be placeholders.
+    other_member_ids = member_user_ids - [@data_import.user_id]
+    refute_empty other_member_ids
+    placeholder_users = User.where(id: other_member_ids, user_type: "imported_placeholder")
+    assert_equal other_member_ids.sort, placeholder_users.pluck(:id).sort,
+                 "Non-importer members should all be placeholders"
+
+    # Placeholders use synthetic @imported.invalid emails
+    placeholder_emails = placeholder_users.pluck(:email)
+    assert placeholder_emails.all? { |e| e.end_with?("@imported.invalid") },
+           "Expected synthetic emails, got: #{placeholder_emails}"
+  end
+
 
   test "imports notes with correct content" do
     service = CollectiveImportService.new(data_import: @data_import)
@@ -1595,5 +1734,73 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     Collective.scope_thread_to_collective(subdomain: @target_tenant.subdomain, handle: imported_collective.handle)
 
     [data_import, imported_collective]
+  end
+
+  # Builds a minimal-but-valid export ZIP with a single user record whose
+  # source_id is a brand-new UUID (so UUID matching on import will fail).
+  # Lets us exercise the cross-instance code paths (map matching, placeholder
+  # fallback) without a real source instance.
+  def build_synthetic_export_zip(user_source_id:, user_handle:, user_name:)
+    require "zip"
+    path = Rails.root.join("tmp", "synthetic-export-#{SecureRandom.hex(4)}.zip")
+    @synthetic_zip_paths ||= []
+    @synthetic_zip_paths << path.to_s
+
+    collective_handle = "synth-#{SecureRandom.hex(4)}"
+    Zip::OutputStream.open(path.to_s) do |zos|
+      zos.put_next_entry("export/manifest.json")
+      zos.write(JSON.generate({
+        "format_version" => "1.0",
+        "app_version" => "1.0.0",
+        "exported_at" => Time.current.iso8601,
+        "source_instance" => "synthetic.test",
+        "source_subdomain" => "synthetic",
+        "collective" => { "name" => "Synthetic", "handle" => collective_handle },
+        "record_counts" => {},
+        "checksums" => {},
+      }))
+
+      zos.put_next_entry("export/collective.json")
+      zos.write(JSON.generate({
+        "source_id" => SecureRandom.uuid,
+        "name" => "Synthetic",
+        "handle" => collective_handle,
+        "collective_type" => "standard",
+        "settings" => {},
+        "source_created_by_id" => user_source_id,
+        "created_at" => Time.current.iso8601,
+        "updated_at" => Time.current.iso8601,
+      }))
+
+      zos.put_next_entry("export/users.json")
+      zos.write(JSON.generate([{
+        "source_id" => user_source_id,
+        "name" => user_name,
+        "user_type" => "human",
+        "handle" => user_handle,
+      }]))
+
+      zos.put_next_entry("export/members.json")
+      zos.write(JSON.generate([{
+        "source_id" => SecureRandom.uuid,
+        "source_user_id" => user_source_id,
+        "roles" => [],
+        "created_at" => Time.current.iso8601,
+        "updated_at" => Time.current.iso8601,
+      }]))
+
+      %w[notes.json decisions.json options.json decision_participants.json
+         votes.json decision_audit_entries.json commitments.json
+         commitment_participants.json links.json note_history_events.json].each do |f|
+        zos.put_next_entry("export/#{f}")
+        zos.write("[]")
+      end
+    end
+
+    path.to_s
+  end
+
+  teardown do
+    @synthetic_zip_paths&.each { |p| FileUtils.rm_f(p) }
   end
 end

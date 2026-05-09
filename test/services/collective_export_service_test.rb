@@ -51,8 +51,16 @@ class CollectiveExportServiceTest < ActiveSupport::TestCase
     service.perform!
 
     users_data = read_json_from_zip("users.json")
-    emails = users_data.map { |u| u["email"] }
-    assert_includes emails, @user.email
+    source_ids = users_data.map { |u| u["source_id"] }
+    assert_includes source_ids, @user.id
+  end
+
+  test "users.json does not contain email addresses (privacy)" do
+    service = CollectiveExportService.new(data_export: @data_export)
+    service.perform!
+
+    users_data = read_json_from_zip("users.json")
+    refute users_data.any? { |u| u.key?("email") }, "users.json must not include any email field"
   end
 
   test "exports members with roles" do
@@ -207,8 +215,8 @@ class CollectiveExportServiceTest < ActiveSupport::TestCase
     service.perform!
 
     users_data = read_json_from_zip("users.json")
-    emails = users_data.map { |u| u["email"] }
-    assert_includes emails, voter.email, "Voter user should be in users.json even though they're not a member"
+    source_ids = users_data.map { |u| u["source_id"] }
+    assert_includes source_ids, voter.id, "Voter user should be in users.json even though they're not a member"
   end
 
   test "exports invites that have not expired" do

@@ -29,10 +29,10 @@
 <% if @import.user_mapping.present? && @import.user_mapping.any? -%>
 ## User Mapping
 
-| Email | Status |
-|-------|--------|
-<% @import.user_mapping.each do |email, mapping| -%>
-| <%= email %> | <%= mapping["matched"] ? "Matched" : "Placeholder created" %> |
+| Source handle | Name | Status |
+|---------------|------|--------|
+<% @import.user_mapping.each do |handle, mapping| -%>
+| `@<%= handle %>` | <%= mapping["name"] %> | <%= mapping["matched"] ? "Matched" : "Placeholder created" %> |
 <% end %>
 <% end -%>
 <% if @import.status == "completed" && @import.collective_id -%>

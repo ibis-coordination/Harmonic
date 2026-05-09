@@ -958,6 +958,51 @@ class DataImport
     def id_will_change!; end
 
     sig { returns(T.untyped) }
+    def import_options; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def import_options=(value); end
+
+    sig { returns(T::Boolean) }
+    def import_options?; end
+
+    sig { returns(T.untyped) }
+    def import_options_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def import_options_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def import_options_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def import_options_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def import_options_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def import_options_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def import_options_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def import_options_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def import_options_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def import_options_previously_was; end
+
+    sig { returns(T.untyped) }
+    def import_options_was; end
+
+    sig { void }
+    def import_options_will_change!; end
+
+    sig { returns(T.untyped) }
     def record_counts; end
 
     sig { params(value: T.untyped).returns(T.untyped) }
@@ -1021,6 +1066,9 @@ class DataImport
     def restore_id_value!; end
 
     sig { void }
+    def restore_import_options!; end
+
+    sig { void }
     def restore_record_counts!; end
 
     sig { void }
@@ -1079,6 +1127,12 @@ class DataImport
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_import_options; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_import_options?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_record_counts; end
@@ -1460,6 +1514,9 @@ class DataImport
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_import_options?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_record_counts?(from: T.unsafe(nil), to: T.unsafe(nil)); end

@@ -174,10 +174,22 @@ class TenantAdminController < ApplicationController
       return redirect_to "/tenant-admin/imports"
     end
 
+    handle_email_map, parse_error = parse_handle_email_map(params[:user_map])
+    if parse_error
+      flash[:alert] = parse_error
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    import_options = {
+      "use_placeholders" => params[:use_placeholders] == "1",
+      "handle_email_map" => handle_email_map,
+    }
+
     data_import = DataImport.create!(
       tenant: @current_tenant,
       user: @current_user,
-      status: "pending"
+      status: "pending",
+      import_options: import_options
     )
     data_import.file.attach(params[:file])
     CollectiveImportJob.perform_later(data_import.id)
@@ -269,6 +281,29 @@ class TenantAdminController < ApplicationController
     # "PK\x03\x04" = local file header (normal ZIP)
     # "PK\x05\x06" = end of central directory (empty ZIP)
     magic == "PK\x03\x04" || magic == "PK\x05\x06"
+  end
+
+  MAX_USER_MAP_BYTES = 1.megabyte
+
+  # Parses an optional handle→email JSON map uploaded by the importing admin.
+  # Returns [parsed_hash, error_message]. parsed_hash is {} if no file given.
+  def parse_handle_email_map(uploaded_file)
+    return [{}, nil] if uploaded_file.blank?
+
+    if uploaded_file.size > MAX_USER_MAP_BYTES
+      return [nil, "User mapping file too large (max #{MAX_USER_MAP_BYTES / 1.kilobyte} KB)."]
+    end
+
+    parsed = JSON.parse(uploaded_file.read)
+    uploaded_file.rewind
+
+    unless parsed.is_a?(Hash) && parsed.all? { |k, v| k.is_a?(String) && v.is_a?(String) }
+      return [nil, "User mapping file must be a JSON object of {\"handle\": \"email\"}."]
+    end
+
+    [parsed, nil]
+  rescue JSON::ParserError => e
+    [nil, "User mapping file is not valid JSON: #{e.message}"]
   end
 
   def ensure_tenant_admin

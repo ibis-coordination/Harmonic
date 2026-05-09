@@ -23,13 +23,34 @@
 
   <div class="pulse-section">
     <p>Import a collective export ZIP file. This will create a new collective with all the exported data, including notes, decisions, commitments, and attachments.</p>
-    <p>Users will be matched by email address. Unmatched users will appear as placeholder accounts.</p>
+    <p>
+      <strong>User matching:</strong> Exports do not include email addresses (privacy). On import, users are matched by UUID for same-instance imports.
+      For cross-instance imports, you may upload a separate JSON map of source handles to email addresses if you have legitimate access to those addresses.
+      Unmatched users become placeholder accounts.
+    </p>
 
     <%= form_tag("/tenant-admin/imports", method: :post, multipart: true) do %>
       <div style="margin-bottom: 16px;">
         <label for="file" class="pulse-label">Export ZIP file</label>
         <input type="file" name="file" id="file" accept=".zip" class="pulse-input" required>
       </div>
+
+      <div style="margin-bottom: 16px;">
+        <label for="user_map" class="pulse-label">User mapping (optional)</label>
+        <input type="file" name="user_map" id="user_map" accept=".json,application/json" class="pulse-input">
+        <p class="pulse-form-hint">
+          JSON object mapping source handles to email addresses, e.g. <code>{"alice": "alice@example.com"}</code>.
+          Used to correlate imported users with existing accounts on this instance for cross-instance imports.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label class="pulse-label">
+          <input type="checkbox" name="use_placeholders" value="1">
+          Create placeholder users for everyone (sandbox/test mode — skips matching)
+        </label>
+      </div>
+
       <button type="submit" class="pulse-btn pulse-btn-primary">
         <%= octicon 'upload', height: 14 %> Start Import
       </button>

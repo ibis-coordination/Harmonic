@@ -60,7 +60,9 @@ class CollectiveExportService
       record_counts: @record_counts
     )
   rescue StandardError => e
-    @data_export.update!(status: "failed", error_message: e.message)
+    # update_columns avoids persisting any dirty in-memory attributes that
+    # may have been set by a now-failed gather/attach step.
+    @data_export.update_columns(status: "failed", error_message: e.message, updated_at: Time.current)
     raise
   end
 
@@ -85,6 +87,23 @@ class CollectiveExportService
     write_json(tmpdir, "collective.json", data)
   end
 
+  # Emit only fields that are already visible to other collective members.
+  #
+  # PRIVACY: User email addresses are intentionally NOT exported. Within
+  # Harmonic, a member's email is private — never displayed to other
+  # members, only known to the user themselves. Including emails in an
+  # export would let a collective admin extract member emails they were
+  # never authorized to see in-app, which is a privacy boundary the
+  # admin should not be able to cross unilaterally.
+  #
+  # Without email, cross-instance imports cannot auto-correlate users.
+  # The import side handles this by:
+  #   1. UUID match against existing users on the target instance
+  #      (works for same-instance imports)
+  #   2. Optional handle→email map provided by the importing tenant admin
+  #      (for cross-instance migrations where the admin already has the
+  #      emails through some legitimate channel)
+  #   3. Fallback: create placeholder users
   sig { params(tmpdir: String).void }
   def gather_users(tmpdir)
     user_ids = collect_referenced_user_ids
@@ -94,7 +113,6 @@ class CollectiveExportService
       tenant_user = tenant_users_by_user_id[user.id]
       {
         "source_id" => user.id,
-        "email" => user.email,
         "name" => user.name,
         "user_type" => user.user_type,
         "handle" => tenant_user&.handle,

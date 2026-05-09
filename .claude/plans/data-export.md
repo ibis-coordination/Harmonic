@@ -129,19 +129,28 @@ Entries preserved as historical records with `metadata.imported = true`. Decisio
 
 Import appends `-imported-N` suffix if collective handle already exists in target tenant.
 
-### Import access policy
+### User identity & matching policy
 
-Conservative by default: import never escalates a user's access level.
+**Privacy: emails are not exported.** A member's email is private within Harmonic — never displayed to other members, only known to the user themselves. Including emails in an export would let a collective admin extract member emails they were never authorized to see in-app, so `users.json` contains `source_id`, `name`, `handle`, `user_type` only.
 
-- **User exists, active in target tenant** → active collective membership
-- **User exists, archived in target tenant** → archived collective membership (preserves data relationships without granting access)
-- **User exists, not in target tenant** → added to tenant and collective (needs access to see imported content)
-- **User doesn't exist** → placeholder account created (display-only, no auth)
+**Matching strategy on import** (in priority order, per user):
 
-Future import wizard could offer modes:
-- **"Active membership"** (default for migration) — matched users get active membership
-- **"Read-only / archived"** — all imported members archived, admin activates individually
-- **"Data only"** — all users become placeholders, no one gets access
+1. **`use_placeholders` import option** → always create placeholder (sandbox/test scenario)
+2. **UUID match** — `User.find_by(id: source_id)`. Succeeds for same-instance imports because the User table is shared across tenants. Likely the most common scenario.
+3. **Handle→email map** — admin uploads a JSON map (`{"alice": "alice@example.com", ...}`) at import time. For cross-instance migrations where the importing admin already has the emails through some legitimate channel. Map is stored on the `DataImport` for audit.
+4. **Fallback** — create placeholder with synthetic `@imported.invalid` email.
+
+**Membership policy** (once a user is matched or created):
+
+- Matched user is active in target tenant → active collective membership
+- Matched user is archived in target tenant → archived collective membership (preserves data relationships without granting access)
+- Matched user not in target tenant → added to tenant + collective
+- New placeholder → added to tenant + collective with `imported_placeholder` user_type (display-only, no auth)
+
+**Known limitations / deferred:**
+
+- AI agents from the source aren't preserved as such — they import as `imported_placeholder` because the export doesn't capture their parent (`User#parent_id`) and AI agents require a parent. We'll address this when we build user merging.
+- No post-import user merging UI yet. Placeholders sit until either a follow-up admin tool merges them, or a future "self-claim" flow lets real users adopt them via email confirmation.
 
 ### Tenant export (future)
 

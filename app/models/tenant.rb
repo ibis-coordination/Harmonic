@@ -244,12 +244,12 @@ class Tenant < ApplicationRecord
     save!
   end
 
-  sig { params(user: User).returns(TenantUser) }
-  def add_user!(user)
+  sig { params(user: User, handle: T.nilable(String)).returns(TenantUser) }
+  def add_user!(user, handle: nil)
     tu = tenant_users.create!(
       user: user,
       display_name: user.name,
-      handle: user.name.parameterize,
+      handle: handle || user.name.parameterize,
     )
     create_private_workspace_for!(user, tu) unless user.collective_identity?
     tu

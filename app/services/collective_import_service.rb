@@ -40,6 +40,7 @@ class CollectiveImportService
             import_users
             import_collective
             import_members
+            ensure_importer_is_admin_member!
 
             # Set collective scope for remaining imports
             collective = Collective.find(T.must(@data_import.collective_id))
@@ -80,7 +81,11 @@ class CollectiveImportService
     # down, the import is still successful; search will catch up on the next reindex.
     enqueue_search_reindex_for_imported_collective rescue nil # rubocop:disable Style/RescueModifier
   rescue StandardError => e
-    @data_import.update!(status: "failed", error_message: e.message)
+    # Use update_columns to avoid persisting any dirty in-memory attributes
+    # (e.g. collective_id was set inside import_collective but rolled back
+    # when the transaction failed; the in-memory value remains and would
+    # otherwise be re-sent on save and trigger a foreign-key violation).
+    @data_import.update_columns(status: "failed", error_message: e.message, updated_at: Time.current)
     raise
   end
 
@@ -167,22 +172,63 @@ class CollectiveImportService
 
   # --- Import methods ---
 
+  # Match imported users to existing User records, or create placeholders.
+  #
+  # Matching strategy (in priority order, per user):
+  #   1. If `use_placeholders` import option is set → always create a placeholder
+  #      (sandbox/test scenario where the admin wants isolated copies)
+  #   2. UUID match: try `User.find_by(id: source_id)` — succeeds for
+  #      same-instance imports where the User table is shared
+  #   3. Handle→email map: if the importing admin supplied a JSON map of
+  #      source_handle → email, look up by email — supports cross-instance
+  #      migrations where the admin already knows the emails through some
+  #      legitimate channel (and the import-time map is auditable)
+  #   4. Otherwise → create placeholder
+  #
+  # Placeholders get a synthetic `@imported.invalid` email so the User
+  # presence/uniqueness validations are satisfied without exposing or
+  # fabricating real-looking addresses. (.invalid is RFC 6761 reserved.)
   sig { void }
   def import_users
     users_data = read_json("users.json")
+    options = @data_import.import_options || {}
+    use_placeholders = options["use_placeholders"] == true
+    handle_email_map = options["handle_email_map"] || {}
+
     users_data.each do |u|
-      existing = User.find_by(email: u["email"])
-      if existing
-        register_id(u["source_id"], existing.id)
-        @user_mapping[u["email"]] = { "matched" => true, "target_user_id" => existing.id }
+      target_user = nil
+
+      unless use_placeholders
+        # Try UUID match (same-instance import case)
+        target_user = User.find_by(id: u["source_id"])
+
+        # Try handle→email map (cross-instance, admin-supplied)
+        if target_user.nil? && u["handle"].present?
+          mapped_email = handle_email_map[u["handle"]]
+          target_user = User.find_by(email: mapped_email) if mapped_email.present?
+        end
+      end
+
+      if target_user
+        register_id(u["source_id"], target_user.id)
+        @user_mapping[u["handle"] || u["source_id"]] = {
+          "matched" => true,
+          "target_user_id" => target_user.id,
+          "name" => u["name"],
+        }
       else
         placeholder = User.create!(
-          email: u["email"],
+          email: "placeholder-#{SecureRandom.hex(8)}@imported.invalid",
           name: u["name"],
           user_type: "imported_placeholder"
         )
         register_id(u["source_id"], placeholder.id)
-        @user_mapping[u["email"]] = { "matched" => false, "target_user_id" => placeholder.id, "placeholder" => true }
+        @user_mapping[u["handle"] || u["source_id"]] = {
+          "matched" => false,
+          "target_user_id" => placeholder.id,
+          "name" => u["name"],
+          "placeholder" => true,
+        }
       end
     end
     @record_counts["users"] = users_data.length
@@ -222,10 +268,14 @@ class CollectiveImportService
 
       user = User.find(user_id)
 
-      # Add user to tenant if not already
+      # Add user to tenant if not already. Use a collision-tolerant variant
+      # of Tenant#add_user! because imported users' names parameterize to
+      # handles that may already be in use in the target tenant (especially
+      # under use_placeholders, where every imported user is a fresh User
+      # whose name was inherited from the source).
       tenant_user = TenantUser.find_by(tenant_id: @tenant.id, user_id: user_id)
       tenant_user_is_archived = tenant_user&.archived?
-      @tenant.add_user!(user) unless tenant_user
+      add_user_to_target_tenant!(user) unless tenant_user
 
       member = collective.add_user!(user)
       register_id(m["source_id"], member.id)
@@ -936,6 +986,44 @@ class CollectiveImportService
       suffix += 1
     end
     handle
+  end
+
+  # The importing admin must always be an active admin member of the imported
+  # collective so they can access and manage what they imported. Without this,
+  # use_placeholders mode produces a collective with no real users at all
+  # (everyone is a display-only placeholder, so no one can invite or join);
+  # and even in non-placeholder mode, if the admin wasn't a member of the
+  # source collective, they'd have no way in. We unarchive an existing
+  # membership if needed and grant admin role.
+  sig { void }
+  def ensure_importer_is_admin_member!
+    importer = User.find(@data_import.user_id)
+    collective = Collective.find(T.must(@data_import.collective_id))
+
+    member = CollectiveMember.find_by(collective_id: collective.id, user_id: importer.id)
+    member ||= collective.add_user!(importer)
+    member.update_columns(archived_at: nil) if member.archived_at.present?
+    member.add_role!("admin") unless member.is_admin?
+  end
+
+  # Collision-tolerant variant of Tenant#add_user! for the import path. A
+  # placeholder (or a real user newly added to this tenant) may have a name
+  # whose parameterization collides with an existing TenantUser handle. We
+  # pre-compute a unique handle with a -imported-N suffix on collision, then
+  # delegate to Tenant#add_user! so the regular onboarding (private workspace
+  # creation) still runs.
+  sig { params(user: User).returns(TenantUser) }
+  def add_user_to_target_tenant!(user)
+    base = user.name.to_s.parameterize.presence || "user"
+    handle = base
+    suffix = 1
+    while @tenant.tenant_users.exists?(handle: handle)
+      handle = "#{base}-imported-#{suffix}"
+      suffix += 1
+      raise "Could not generate unique handle for user #{user.id}" if suffix > 1000
+    end
+
+    @tenant.add_user!(user, handle: handle)
   end
 
   sig { void }

@@ -67,14 +67,16 @@
         <table class="pulse-table">
           <thead>
             <tr>
-              <th>Email</th>
+              <th>Source handle</th>
+              <th>Name</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            <% @import.user_mapping.each do |email, mapping| %>
+            <% @import.user_mapping.each do |handle, mapping| %>
               <tr>
-                <td><%= email %></td>
+                <td><code>@<%= handle %></code></td>
+                <td><%= mapping["name"] %></td>
                 <td>
                   <% if mapping["matched"] %>
                     <span class="pulse-badge pulse-badge-success">Matched</span>
