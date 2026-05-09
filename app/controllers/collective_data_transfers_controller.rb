@@ -54,7 +54,7 @@ class CollectiveDataTransfersController < ApplicationController
       details: { collective_id: @current_collective.id, export_id: data_export.id },
     )
 
-    redirect_to rails_blob_path(data_export.file, disposition: "attachment"), allow_other_host: true
+    redirect_to rails_blob_path(data_export.file, disposition: "attachment", expires_in: 5.minutes), allow_other_host: true
   end
 
   private

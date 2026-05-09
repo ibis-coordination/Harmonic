@@ -14,5 +14,6 @@ class CollectiveImportJob < TenantScopedJob
 
     set_tenant_context!(data_import.tenant)
     CollectiveImportService.new(data_import: data_import).perform!
+    data_import.file.purge if data_import.file.attached?
   end
 end

@@ -26,29 +26,28 @@ Users of the Harmonic-hosted instance can export an entire collective's data and
 - [x] `imported_placeholder` user type added to User model
 - [x] Search reindex enqueued as best-effort after import completes
 - [x] Link records regenerated from rewritten text via `LinkParser` after import
-- [x] 77 tests / 325 assertions
+- [x] Reverification: `data_transfer` scope on export controller; `admin` scope on tenant-admin import actions (inherited from `TenantAdminController`)
+- [x] `SecurityAuditLog` entries for `data_export_created`, `data_export_downloaded`, `data_import_created`
+- [x] Controller authorization tests: non-admin rejected, cross-collective rejected, cross-tenant rejected, reverification required
+- [x] `DataExportMailer.export_ready` (HTML + text), delivered by `CollectiveExportJob` after successful export
+- [x] `CleanupExpiredExportsJob` registered in sidekiq-cron (daily at 3 AM)
+- [x] Settings page integration: "Export Data" link in collective settings; "Manage Imports" in tenant admin dashboard
+- [x] Verified: import creates a new collective and never mutates the triggering collective's data
+- [x] 77+ tests across services, jobs, controllers, mailers
 
 ### Not started
 
-#### Security hardening (NEXT PRIORITY)
+#### Security hardening
 
-An export ZIP contains the collective's entire dataset including user emails, vote records, and audit history. A leaked export is a severe data breach.
-
-- [ ] **Reverification**: Add `RequiresReverification` to `CollectiveDataTransfersController`. Require fresh TOTP for `create_export`, `download_export`, `create_import`. Scope: `"data_transfer"`.
-- [ ] **Authorization audit**: Review all access paths:
-  - Verify ActiveStorage signed URLs expire with the DataExport (7 days)
-  - Verify no export data leaks through error messages or logs
-  - Verify ZIP contents are not accessible without going through the controller
-  - Verify import can't be used to overwrite or corrupt existing data
-- [ ] **Audit logging**: Log export/import actions to the Event system (who exported what, when)
-- [ ] **Controller tests**: Authorization tests (non-admin rejected, cross-collective rejected, cross-tenant rejected, reverification required)
+- [x] **Authorization audit**:
+  - ActiveStorage URL TTL: `urls_expire_in = 1.hour` set globally; export download uses explicit `expires_in: 5.minutes` for defense in depth
+  - Import file purged after successful import (was retained indefinitely)
+  - Verified import never modifies the triggering collective's data — always creates a new collective
+  - `error_message` stores raw `e.message` from service exceptions; admin-only visibility, accepted as low risk
 - [ ] **Export encryption** (deferred — consider encrypting ZIP with key, adds complexity to import)
 
 #### Operational
 
-- [ ] **DataExportMailer**: Email notification when export is ready for download
-- [ ] **Cron schedule**: Wire `CleanupExpiredExportsJob` into sidekiq-cron config
-- [x] **Settings page integration**: "Export Data" link in collective settings; "Manage Imports" link in tenant admin dashboard
 - [ ] **Status page auto-refresh**: Turbo Stream or polling for export/import progress
 - [ ] **Manual browser testing**: End-to-end UI flow verification with Playwright MCP
 
@@ -163,10 +162,12 @@ Full tenant export would be a superset of collective export. Design consideratio
 | `app/services/collective_import_service.rb` | Import: ID remapping, text rewriting, side effect suppression |
 | `app/models/data_export.rb` | Export record with ActiveStorage |
 | `app/models/data_import.rb` | Import record with ActiveStorage |
-| `app/controllers/collective_data_transfers_controller.rb` | Admin-only controller |
-| `app/jobs/collective_export_job.rb` | Background export |
+| `app/controllers/collective_data_transfers_controller.rb` | Export actions (collective admin, reverification scope `data_transfer`) |
+| `app/controllers/tenant_admin_controller.rb` | Import actions (tenant admin, reverification scope `admin`) |
+| `app/jobs/collective_export_job.rb` | Background export — sends `DataExportMailer.export_ready` after success |
 | `app/jobs/collective_import_job.rb` | Background import |
-| `app/jobs/cleanup_expired_exports_job.rb` | Purge expired exports |
+| `app/jobs/cleanup_expired_exports_job.rb` | Purge expired exports (daily at 3 AM via sidekiq-cron) |
+| `app/mailers/data_export_mailer.rb` | "Your export is ready" notification |
 | `app/models/current.rb` | `importing_data` attribute |
 | `app/models/concerns/tracked.rb` | Import guard |
 | `app/models/concerns/searchable.rb` | Import guard |
