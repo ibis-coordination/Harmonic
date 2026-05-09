@@ -363,11 +363,11 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
 
     data_import, imported_collective = export_and_import_source!
 
-    comments = Note.where(collective_id: imported_collective.id, subtype: "comment").order(:created_at)
+    comments = Note.where(collective_id: imported_collective.id, subtype: "comment")
     assert_equal 2, comments.count
 
-    parent = comments.first
-    reply = comments.second
+    parent = comments.find_by!(title: "Parent comment")
+    reply = comments.find_by!(title: "Reply")
     assert_equal "Decision", parent.commentable_type
     assert_equal "Note", reply.commentable_type
     # Reply's commentable_id should point to the imported parent comment
@@ -547,12 +547,12 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
 
     data_import, imported_collective = export_and_import_source!
 
-    comments = Note.where(collective_id: imported_collective.id, subtype: "comment").order(:created_at)
+    comments = Note.where(collective_id: imported_collective.id, subtype: "comment")
     assert_equal 3, comments.count
 
-    imported_l1 = comments[0]
-    imported_l2 = comments[1]
-    imported_l3 = comments[2]
+    imported_l1 = comments.find_by!(title: "Level 1")
+    imported_l2 = comments.find_by!(title: "Level 2")
+    imported_l3 = comments.find_by!(title: "Level 3")
 
     # L1 -> Decision
     assert_equal "Decision", imported_l1.commentable_type
