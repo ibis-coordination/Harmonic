@@ -1,0 +1,43 @@
+# Import Status
+
+[Back to All Imports](/tenant-admin/imports)
+
+| Property | Value |
+|----------|-------|
+| Status | <%= @import.status %> |
+<% if @import.started_at -%>
+| Started | <%= @import.started_at.strftime("%Y-%m-%d %H:%M:%S") %> |
+<% end -%>
+<% if @import.completed_at -%>
+| Completed | <%= @import.completed_at.strftime("%Y-%m-%d %H:%M:%S") %> |
+<% end -%>
+| Imported By | <%= @import.user.name %> (`<%= @import.user.email %>`) |
+
+<% if @import.error_message.present? -%>
+## Error
+
+<%= @import.error_message %>
+
+<% end -%>
+<% if @import.record_counts.present? && @import.record_counts.any? -%>
+## Imported Records
+
+<% @import.record_counts.each do |type, count| -%>
+- **<%= type.humanize %>:** <%= count %>
+<% end %>
+<% end -%>
+<% if @import.user_mapping.present? && @import.user_mapping.any? -%>
+## User Mapping
+
+| Source handle | Name | Status |
+|---------------|------|--------|
+<% @import.user_mapping.each do |handle, mapping| -%>
+| `@<%= handle %>` | <%= mapping["name"] %> | <%= mapping["matched"] ? "Matched" : "Placeholder created" %> |
+<% end %>
+<% end -%>
+<% if @import.status == "completed" && @import.collective_id -%>
+<% imported_collective = Collective.tenant_scoped_only(@import.tenant_id).find(@import.collective_id) -%>
+---
+
+[Go to Imported Collective](/collectives/<%= imported_collective.handle %>)
+<% end %>

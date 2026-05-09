@@ -79,6 +79,8 @@ class LinkParser
         raise ArgumentError, "Cannot pass in text with from_record"
       end
       text = @from_record.class == Note ? T.unsafe(@from_record).text : T.unsafe(@from_record).description
+      return if text.nil?
+
       subdomain = T.must(@from_record.tenant).subdomain
       collective = T.must(@from_record.collective)
       collective_handle = collective.is_main_collective? ? nil : collective.handle

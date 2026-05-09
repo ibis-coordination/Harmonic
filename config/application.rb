@@ -21,5 +21,10 @@ module RailsRuby3
 
     config.active_record.schema_format = :sql
     config.active_job.queue_adapter = :sidekiq
+
+    # ActiveStorage signed_id URLs (rails_blob_path / rails_blob_url) expire after 1 hour.
+    # Limits the leak window if a URL is shared outside the auth boundary.
+    # Sensitive attachments (data exports) use shorter explicit TTLs at the call site.
+    config.active_storage.urls_expire_in = 1.hour
   end
 end

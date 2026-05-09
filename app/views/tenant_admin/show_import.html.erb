@@ -1,0 +1,102 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Tenant Admin', '/tenant-admin'],
+  ['Imports', '/tenant-admin/imports'],
+  'Import Status'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'upload', height: 14, class: 'pulse-resource-icon' %>
+        Import Status
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Import Progress</h1>
+  </header>
+
+  <div class="pulse-section">
+    <div style="margin-bottom: 16px;">
+      <strong>Status:</strong>
+      <% case @import.status %>
+      <% when "pending" %>
+        <span class="pulse-badge pulse-badge-info">Pending</span>
+      <% when "validating" %>
+        <span class="pulse-badge pulse-badge-info">Validating</span>
+      <% when "importing" %>
+        <span class="pulse-badge pulse-badge-info">Importing</span>
+      <% when "completed" %>
+        <span class="pulse-badge pulse-badge-success">Completed</span>
+      <% when "failed" %>
+        <span class="pulse-badge pulse-badge-danger">Failed</span>
+      <% end %>
+    </div>
+
+    <% if @import.started_at %>
+      <div style="margin-bottom: 8px;">
+        <strong>Started:</strong> <%= @import.started_at.strftime("%Y-%m-%d %H:%M:%S") %>
+      </div>
+    <% end %>
+
+    <% if @import.completed_at %>
+      <div style="margin-bottom: 8px;">
+        <strong>Completed:</strong> <%= @import.completed_at.strftime("%Y-%m-%d %H:%M:%S") %>
+      </div>
+    <% end %>
+
+    <% if @import.error_message.present? %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-top: 16px;">
+        <strong>Error:</strong> <%= @import.error_message %>
+      </div>
+    <% end %>
+
+    <% if @import.record_counts.present? && @import.record_counts.any? %>
+      <div style="margin-top: 16px;">
+        <h3>Imported Records</h3>
+        <ul>
+          <% @import.record_counts.each do |type, count| %>
+            <li><strong><%= type.humanize %>:</strong> <%= count %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% if @import.user_mapping.present? && @import.user_mapping.any? %>
+      <div style="margin-top: 16px;">
+        <h3>User Mapping</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Source handle</th>
+              <th>Name</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @import.user_mapping.each do |handle, mapping| %>
+              <tr>
+                <td><code>@<%= handle %></code></td>
+                <td><%= mapping["name"] %></td>
+                <td>
+                  <% if mapping["matched"] %>
+                    <span class="pulse-badge pulse-badge-success">Matched</span>
+                  <% else %>
+                    <span class="pulse-badge pulse-badge-info">Placeholder created</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <% if @import.status == "completed" && @import.collective_id %>
+      <div style="margin-top: 24px;">
+        <a href="/collectives/<%= Collective.tenant_scoped_only(@import.tenant_id).find(@import.collective_id).handle %>" class="pulse-btn pulse-btn-primary">
+          Go to Imported Collective
+        </a>
+      </div>
+    <% end %>
+  </div>
+</article>

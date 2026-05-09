@@ -25,6 +25,8 @@ module InvalidatesSearchIndex
   private
 
   def enqueue_search_reindex_for_parent
+    return if Current.importing_data
+
     items = search_index_items
     return if items.blank?
 

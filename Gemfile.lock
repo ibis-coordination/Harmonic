@@ -535,6 +535,7 @@ DEPENDENCIES
   rqrcode (~> 2.2)
   rubocop
   rubocop-rails
+  rubyzip (~> 2.3)
   selenium-webdriver
   sentry-rails
   sentry-ruby

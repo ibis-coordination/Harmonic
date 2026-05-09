@@ -43,7 +43,7 @@ class User < ApplicationRecord
   # Auto-create TrusteeGrant when an AI agent is created
   after_create :create_parent_trustee_grant!, if: :ai_agent?
 
-  validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_identity"] }
+  validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_identity", "imported_placeholder"] }
   validates :email, presence: true
   validates :name, presence: true
   validate :ai_agent_must_have_parent

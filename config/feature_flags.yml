@@ -60,3 +60,11 @@ feature_flags:
     default_tenant: true
     default_collective: true
     collective_level: true
+
+  collective_export:
+    name: "Collective Data Export"
+    description: "Allows collective admins to export their collective's data as a ZIP. Disabled by default pending privacy policy + member-notification work."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false

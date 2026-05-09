@@ -1,0 +1,262 @@
+# typed: false
+
+require "test_helper"
+
+class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    @tenant = @global_tenant
+    @collective = @global_collective
+    @admin_user = @global_user
+    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+
+    # Enable the collective_export feature flag for the test tenant — gated
+    # by a feature flag in production until privacy policy work is complete.
+    @tenant.update!(settings: @tenant.settings.deep_merge("feature_flags" => { "collective_export" => true }))
+
+    # Make the user an admin of the collective
+    member = @collective.collective_members.find_by(user_id: @admin_user.id)
+    member.add_role!("admin")
+
+    # Create a non-admin user
+    @non_admin_user = create_user(name: "Non-Admin")
+    @tenant.add_user!(@non_admin_user)
+    @collective.add_user!(@non_admin_user)
+
+    @temp_files = []
+
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  teardown do
+    @temp_files&.each { |f| FileUtils.rm_f(f) }
+  end
+
+  # === Feature flag gating ===
+
+  test "exports are 404 when collective_export feature flag is disabled" do
+    @tenant.update!(settings: @tenant.settings.deep_merge("feature_flags" => { "collective_export" => false }))
+    sign_in_as(@admin_user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/exports"
+    assert_response :not_found
+  end
+
+  # === Authorization: admin required ===
+
+  test "non-admin user is redirected from exports index" do
+    sign_in_as(@non_admin_user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/exports"
+    assert_response :redirect
+    assert_equal "You must be an admin to access data transfers.", flash[:alert]
+  end
+
+  test "non-admin user is redirected from create export" do
+    sign_in_as(@non_admin_user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/exports"
+    assert_response :redirect
+    assert_equal "You must be an admin to access data transfers.", flash[:alert]
+  end
+
+  test "unauthenticated user is redirected to login" do
+    get "/collectives/#{@collective.handle}/exports"
+    assert_redirected_to "/login"
+  end
+
+  test "non-admin with 2FA still rejected before reverification check" do
+    # Proves require_admin runs before require_reverification.
+    # If the order were reversed, this user would be redirected to /reverify
+    # instead of getting the admin rejection.
+    identity = @non_admin_user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    sign_in_as(@non_admin_user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/exports"
+    assert_response :redirect
+    assert_equal "You must be an admin to access data transfers.", flash[:alert]
+  end
+
+  test "admin without 2FA is redirected to 2FA setup" do
+    sign_in_as(@admin_user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/exports"
+    assert_redirected_to "/settings/two-factor"
+  end
+
+  test "admin with 2FA but without reverification is redirected to reverify" do
+    sign_in_as(@admin_user, tenant: @tenant)
+    # Set up 2FA but don't complete reverification
+    identity = @admin_user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+
+    get "/collectives/#{@collective.handle}/exports"
+    assert_redirected_to "/reverify"
+  end
+
+  test "admin with completed reverification can access exports index" do
+    sign_in_with_reverification(@admin_user, tenant: @tenant, path: "/collectives/#{@collective.handle}/exports")
+    get "/collectives/#{@collective.handle}/exports"
+    assert_response :success
+  end
+
+  test "POST create_export without reverification is redirected" do
+    sign_in_as(@admin_user, tenant: @tenant)
+    identity = @admin_user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret! unless identity.otp_enabled
+    identity.enable_otp! unless identity.otp_enabled
+
+    post "/collectives/#{@collective.handle}/exports"
+    assert_redirected_to "/reverify"
+  end
+
+  # === Export flow ===
+
+  test "admin can trigger an export" do
+    sign_in_admin_with_reverification
+
+    assert_enqueued_jobs 1, only: CollectiveExportJob do
+      post "/collectives/#{@collective.handle}/exports"
+    end
+
+    assert_response :redirect
+    assert_equal "Your export is being prepared. This page will update when it's ready.", flash[:notice]
+
+    export = DataExport.last
+    assert_equal "pending", export.status
+    assert_equal @admin_user.id, export.user_id
+    assert_equal @collective.id, export.collective_id
+  end
+
+  test "concurrent export is rejected" do
+    sign_in_admin_with_reverification
+
+    # Create an active export
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+    DataExport.create!(tenant: @tenant, collective: @collective, user: @admin_user, status: "processing")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/exports"
+    assert_response :redirect
+    assert_equal "An export is already in progress for this collective.", flash[:alert]
+  end
+
+  test "download export redirects to blob for completed export" do
+    sign_in_admin_with_reverification
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+    export = DataExport.create!(tenant: @tenant, collective: @collective, user: @admin_user, status: "pending")
+    CollectiveExportService.new(data_export: export).perform!
+    export.reload
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/exports/#{export.id}"
+    assert_response :redirect
+    assert response.location.include?("rails/active_storage"), "Should redirect to ActiveStorage blob"
+  end
+
+  test "download expired export shows alert" do
+    sign_in_admin_with_reverification
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+    export = DataExport.create!(tenant: @tenant, collective: @collective, user: @admin_user, status: "pending")
+    CollectiveExportService.new(data_export: export).perform!
+    export.update_columns(expires_at: 1.day.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/exports/#{export.id}"
+    assert_response :redirect
+    assert_equal "This export has expired.", flash[:alert]
+  end
+
+  # === Cross-collective scoping ===
+
+  test "cannot download export from another collective" do
+    sign_in_admin_with_reverification
+
+    # Create an export in a different collective
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    other_collective = Collective.create!(tenant: @tenant, created_by: @admin_user, name: "Other", handle: "other-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(@admin_user)
+    Collective.set_thread_context(other_collective)
+    other_export = DataExport.create!(tenant: @tenant, collective: other_collective, user: @admin_user, status: "pending")
+    CollectiveExportService.new(data_export: other_export).perform!
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # Try to download it from @collective's URL
+    assert_raises(ActiveRecord::RecordNotFound) do
+      get "/collectives/#{@collective.handle}/exports/#{other_export.id}"
+    end
+  end
+
+  # === Audit logging ===
+
+  test "creating export logs to security audit" do
+    sign_in_admin_with_reverification
+    mark_audit_log_position
+
+    post "/collectives/#{@collective.handle}/exports"
+
+    entry = find_audit_entry("data_export_created")
+    assert entry, "Expected data_export_created event in security audit log"
+    assert_equal @admin_user.id, entry["user_id"]
+    assert_equal @collective.id, entry.dig("collective_id")
+  end
+
+  test "downloading export logs to security audit" do
+    sign_in_admin_with_reverification
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+    export = DataExport.create!(tenant: @tenant, collective: @collective, user: @admin_user, status: "pending")
+    CollectiveExportService.new(data_export: export).perform!
+    export.reload
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    mark_audit_log_position
+
+    get "/collectives/#{@collective.handle}/exports/#{export.id}"
+
+    entry = find_audit_entry("data_export_downloaded")
+    assert entry, "Expected data_export_downloaded event in security audit log"
+    assert_equal export.id, entry.dig("export_id")
+  end
+
+  private
+
+  def sign_in_admin_with_reverification
+    sign_in_with_reverification(@admin_user, tenant: @tenant, path: "/collectives/#{@collective.handle}/exports")
+  end
+
+  def mark_audit_log_position
+    log_file = Rails.root.join("log/security_audit.log")
+    @audit_log_offset = File.exist?(log_file) ? File.size(log_file) : 0
+  end
+
+  def find_audit_entry(admin_action)
+    log_file = Rails.root.join("log/security_audit.log")
+    return nil unless File.exist?(log_file)
+
+    # Only read entries written after the marked position
+    File.open(log_file) do |f|
+      f.seek(@audit_log_offset || 0)
+      f.each_line do |line|
+        entry = JSON.parse(line) rescue next
+        return entry if entry["admin_action"] == admin_action
+      end
+    end
+    nil
+  end
+
+end

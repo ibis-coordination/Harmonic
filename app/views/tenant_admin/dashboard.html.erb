@@ -104,6 +104,17 @@
   </div>
 <% end %>
 
+<%= render 'shared/pulse_accordion', title: 'Data Imports', icon: 'upload', open: false do %>
+  <p class="pulse-form-hint" style="margin-bottom:16px;">
+    Import a collective export ZIP file to create a new collective with all its data.
+  </p>
+  <div class="pulse-form-actions">
+    <a href="/tenant-admin/imports" class="pulse-action-btn">
+      <%= octicon 'upload', height: 14 %> Manage Imports
+    </a>
+  </div>
+<% end %>
+
 <% other_collectives = @current_tenant.collectives.listable.order(created_at: :desc).reject { |s| s == @current_tenant.main_collective } %>
 <%= render 'shared/pulse_accordion', title: 'Other Collectives', icon: 'repo', count: other_collectives.count, open: false do %>
   <% if other_collectives.any? %>

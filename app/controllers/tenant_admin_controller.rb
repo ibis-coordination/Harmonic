@@ -21,6 +21,7 @@ class TenantAdminController < ApplicationController
   before_action :set_sidebar_mode
 
   USERS_PER_PAGE = 50
+  MAX_IMPORT_SIZE_BYTES = ENV.fetch("MAX_IMPORT_SIZE_BYTES", 2.gigabytes.to_i).to_i
 
   # GET /tenant-admin
   def dashboard
@@ -134,6 +135,86 @@ class TenantAdminController < ApplicationController
   end
 
   # ============================================================================
+  # Data Import Actions
+  # ============================================================================
+
+  # GET /tenant-admin/imports
+  def imports_index
+    @imports = DataImport.tenant_scoped_only(@current_tenant.id).order(created_at: :desc)
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # GET /tenant-admin/imports/new
+  def new_import
+    @import = DataImport.new
+  end
+
+  # POST /tenant-admin/imports
+  def create_import
+    if params[:file].blank?
+      flash[:alert] = "Please select a ZIP file to import."
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    if params[:file].size > MAX_IMPORT_SIZE_BYTES
+      flash[:alert] = "File too large. Maximum size is #{MAX_IMPORT_SIZE_BYTES / 1.gigabyte} GB."
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    unless valid_zip_upload?(params[:file])
+      flash[:alert] = "File must be a valid ZIP archive."
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    if DataImport.tenant_scoped_only(@current_tenant.id).active.exists?
+      flash[:alert] = "An import is already in progress for this tenant."
+      return redirect_to "/tenant-admin/imports"
+    end
+
+    handle_email_map, parse_error = parse_handle_email_map(params[:user_map])
+    if parse_error
+      flash[:alert] = parse_error
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    import_options = {
+      "use_placeholders" => params[:use_placeholders] == "1",
+      "handle_email_map" => handle_email_map,
+    }
+
+    data_import = DataImport.create!(
+      tenant: @current_tenant,
+      user: @current_user,
+      status: "pending",
+      import_options: import_options
+    )
+    data_import.file.attach(params[:file])
+    CollectiveImportJob.perform_later(data_import.id)
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "data_import_created",
+      details: { import_id: data_import.id }
+    )
+
+    flash[:notice] = "Your import is being processed. This page will update when it's complete."
+    redirect_to "/tenant-admin/imports/#{data_import.id}"
+  end
+
+  # GET /tenant-admin/imports/:id
+  def show_import
+    @import = DataImport.tenant_scoped_only(@current_tenant.id).find(params[:id])
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # ============================================================================
   # Markdown API Actions
   # ============================================================================
 
@@ -190,6 +271,40 @@ class TenantAdminController < ApplicationController
   end
 
   private
+
+  # Validates that an uploaded file is a ZIP by checking the magic bytes.
+  # Content-Type is intentionally not checked — it's browser-supplied and
+  # easily spoofed; the byte signature is the authoritative test.
+  def valid_zip_upload?(uploaded_file)
+    magic = uploaded_file.read(4)
+    uploaded_file.rewind
+    # "PK\x03\x04" = local file header (normal ZIP)
+    # "PK\x05\x06" = end of central directory (empty ZIP)
+    magic == "PK\x03\x04" || magic == "PK\x05\x06"
+  end
+
+  MAX_USER_MAP_BYTES = 1.megabyte
+
+  # Parses an optional handle→email JSON map uploaded by the importing admin.
+  # Returns [parsed_hash, error_message]. parsed_hash is {} if no file given.
+  def parse_handle_email_map(uploaded_file)
+    return [{}, nil] if uploaded_file.blank?
+
+    if uploaded_file.size > MAX_USER_MAP_BYTES
+      return [nil, "User mapping file too large (max #{MAX_USER_MAP_BYTES / 1.kilobyte} KB)."]
+    end
+
+    parsed = JSON.parse(uploaded_file.read)
+    uploaded_file.rewind
+
+    unless parsed.is_a?(Hash) && parsed.all? { |k, v| k.is_a?(String) && v.is_a?(String) }
+      return [nil, "User mapping file must be a JSON object of {\"handle\": \"email\"}."]
+    end
+
+    [parsed, nil]
+  rescue JSON::ParserError => e
+    [nil, "User mapping file is not valid JSON: #{e.message}"]
+  end
 
   def ensure_tenant_admin
     unless @current_tenant.is_admin?(@current_user)

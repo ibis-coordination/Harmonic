@@ -264,6 +264,11 @@ Rails.application.routes.draw do
   get 'tenant-admin/users' => 'tenant_admin#users'
   get 'tenant-admin/users/:handle' => 'tenant_admin#show_user', as: 'tenant_admin_user'
   # Note: Tenant admins do NOT have suspend/unsuspend actions - only app admins can suspend users
+  # Data import (tenant admin only)
+  get 'tenant-admin/imports' => 'tenant_admin#imports_index'
+  get 'tenant-admin/imports/new' => 'tenant_admin#new_import'
+  post 'tenant-admin/imports' => 'tenant_admin#create_import'
+  get 'tenant-admin/imports/:id' => 'tenant_admin#show_import'
 
   # ============================================================
   # Admin Chooser (smart redirect based on user's admin roles)
@@ -407,6 +412,10 @@ Rails.application.routes.draw do
     post "#{prefix}/heartbeats" => 'heartbeats#create'
     get "#{prefix}/heartbeats/actions" => 'heartbeats#actions_index_default'
     post "#{prefix}/heartbeats/actions/create_heartbeat" => 'heartbeats#create_heartbeat'
+    # Data export (collective admin only)
+    get "#{prefix}/exports" => 'collective_data_transfers#exports_index'
+    post "#{prefix}/exports" => 'collective_data_transfers#create_export'
+    get "#{prefix}/exports/:id" => 'collective_data_transfers#download_export'
   end
 
   ['', 'collectives/:collective_handle', 'workspace/:collective_handle'].each do |prefix|

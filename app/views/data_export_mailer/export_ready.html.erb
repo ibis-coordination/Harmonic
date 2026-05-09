@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
+    .header { border-bottom: 2px solid #007bff; padding-bottom: 20px; margin-bottom: 20px; }
+    .header h1 { margin: 0; font-size: 24px; color: #333; }
+    .content { margin: 20px 0; }
+    .content h2 { font-size: 18px; margin: 0 0 10px 0; color: #333; }
+    .button { display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+    .details { font-size: 14px; color: #666; margin: 16px 0; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Harmonic</h1>
+    </div>
+
+    <div class="content">
+      <h2>Your data export is ready</h2>
+      <p>The export for <strong><%= @collective.name %></strong> has been completed and is ready for download.</p>
+
+      <% if @data_export.record_counts.present? %>
+        <div class="details">
+          Exported: <%= @data_export.record_counts.map { |k, v| "#{v} #{k}" }.join(", ") %>
+        </div>
+      <% end %>
+
+      <a href="<%= @download_url %>" class="button">Download Export</a>
+
+      <div class="details">
+        You'll need to verify your identity (2FA) before downloading.
+        <% if @data_export.expires_at %>
+          <br>This download expires on <%= @data_export.expires_at.strftime("%B %d, %Y") %>.
+        <% end %>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>You requested this export from Harmonic. If you didn't request it, please contact your collective administrator.</p>
+    </div>
+  </div>
+</body>
+</html>

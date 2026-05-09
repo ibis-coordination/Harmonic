@@ -1,0 +1,50 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Tenant Admin', '/tenant-admin'],
+  'Imports'
+] %>
+
+<h1 class="pulse-page-title">
+  <%= octicon 'upload', height: 24 %> Data Imports
+</h1>
+
+<div class="pulse-form-actions" style="margin-bottom: 24px;">
+  <a href="/tenant-admin/imports/new" class="pulse-action-btn">
+    <%= octicon 'upload', height: 14 %> New Import
+  </a>
+</div>
+
+<% if @imports.empty? %>
+  <p class="pulse-body-text-muted">No imports yet.</p>
+<% else %>
+  <table class="pulse-table">
+    <thead>
+      <tr>
+        <th>Created</th>
+        <th>Status</th>
+        <th>Imported By</th>
+        <th>Collective</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @imports.each do |import| %>
+        <tr>
+          <td><%= import.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+          <td>
+            <% case import.status %>
+            <% when "completed" %>
+              <span class="pulse-badge pulse-badge-success">Completed</span>
+            <% when "failed" %>
+              <span class="pulse-badge pulse-badge-danger">Failed</span>
+            <% else %>
+              <span class="pulse-badge pulse-badge-info"><%= import.status.capitalize %></span>
+            <% end %>
+          </td>
+          <td><%= import.user.name %></td>
+          <td><%= import.collective&.name || "—" %></td>
+          <td><a href="/tenant-admin/imports/<%= import.id %>">View</a></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

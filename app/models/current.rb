@@ -20,4 +20,8 @@ class Current < ActiveSupport::CurrentAttributes
 
   # Automation context
   attribute :automation_rule_run_id, :automation_chain
+
+  # Data import flag — when true, model concerns (Tracked, Searchable, etc.)
+  # skip side effects like Event creation and search indexing
+  attribute :importing_data
 end
