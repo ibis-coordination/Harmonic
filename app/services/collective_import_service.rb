@@ -13,6 +13,7 @@ class CollectiveImportService
     @user_mapping = T.let({}, T::Hash[String, T::Hash[String, T.untyped]])
     @record_counts = T.let({}, T::Hash[String, Integer])
     @zip_data = T.let({}, T::Hash[String, String])
+    @attachment_paths = T.let({}, T::Hash[String, String])
     @notes_data = T.let(nil, T.untyped)
     @source_collective_id = T.let(nil, T.nilable(String))
   end
@@ -21,57 +22,59 @@ class CollectiveImportService
   def perform!
     @data_import.update!(status: "validating", started_at: Time.current)
 
-    extract_zip!
-    validate_manifest!
+    Dir.mktmpdir("harmonic-import") do |tmpdir|
+      extract_zip!(tmpdir)
+      validate_manifest!
 
-    @data_import.update!(status: "importing")
+      @data_import.update!(status: "importing")
 
-    previous_tenant_id = Tenant.current_id
-    previous_collective_id = Collective.current_id
-    previous_collective_handle = Current.collective_handle
+      previous_tenant_id = Tenant.current_id
+      previous_collective_id = Collective.current_id
+      previous_collective_handle = Current.collective_handle
 
-    begin
-      with_suppressed_side_effects do
-        ActiveRecord::Base.transaction do
-          Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+      begin
+        with_suppressed_side_effects do
+          ActiveRecord::Base.transaction do
+            Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
 
-          import_users
-          import_collective
-          import_members
+            import_users
+            import_collective
+            import_members
 
-          # Set collective scope for remaining imports
-          collective = Collective.find(T.must(@data_import.collective_id))
-          Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: collective.handle)
+            # Set collective scope for remaining imports
+            collective = Collective.find(T.must(@data_import.collective_id))
+            Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: collective.handle)
 
-          import_notes_first_pass
-          import_decisions
-          import_commitments
-          import_representation_sessions
-          import_notes_second_pass  # comments/statements (need decisions/commitments/sessions in ID map)
-          import_decision_participants
-          import_options
-          import_votes
-          import_decision_audit_entries
-          import_commitment_participants
-          clear_auto_generated_history_events
-          import_note_history_events
-          import_heartbeats
-          import_invites
-          import_representation_session_events
-          import_attachments
-          rewrite_text_references
+            import_notes_first_pass
+            import_decisions
+            import_commitments
+            import_representation_sessions
+            import_notes_second_pass  # comments/statements (need decisions/commitments/sessions in ID map)
+            import_decision_participants
+            import_options
+            import_votes
+            import_decision_audit_entries
+            import_commitment_participants
+            clear_auto_generated_history_events
+            import_note_history_events
+            import_heartbeats
+            import_invites
+            import_representation_session_events
+            import_attachments
+            rewrite_text_references
+          end
         end
+      ensure
+        restore_thread_scope(previous_tenant_id, previous_collective_id, previous_collective_handle)
       end
-    ensure
-      restore_thread_scope(previous_tenant_id, previous_collective_id, previous_collective_handle)
-    end
 
-    @data_import.update!(
-      status: "completed",
-      completed_at: Time.current,
-      record_counts: @record_counts,
-      user_mapping: @user_mapping
-    )
+      @data_import.update!(
+        status: "completed",
+        completed_at: Time.current,
+        record_counts: @record_counts,
+        user_mapping: @user_mapping
+      )
+    end
 
     # Enqueue search reindex for all imported content. Best-effort — if Redis is
     # down, the import is still successful; search will catch up on the next reindex.
@@ -85,16 +88,36 @@ class CollectiveImportService
 
   # --- ZIP handling ---
 
-  sig { void }
-  def extract_zip!
-    raw = T.unsafe(@data_import.file).download
-    Zip::InputStream.open(StringIO.new(raw)) do |io|
-      while (entry = io.get_next_entry)
+  # Streams the import ZIP from ActiveStorage to disk, then extracts entries:
+  # JSON files (small) go into @zip_data; attachment binaries (potentially
+  # very large) are written to disk in tmpdir and tracked by path in
+  # @attachment_paths. This caps memory usage at the largest single JSON file
+  # rather than the total ZIP size.
+  sig { params(tmpdir: String).void }
+  def extract_zip!(tmpdir)
+    zip_path = File.join(tmpdir, "import.zip")
+    attachments_dir = File.join(tmpdir, "attachments")
+    FileUtils.mkdir_p(attachments_dir)
+
+    File.open(zip_path, "wb") do |f|
+      T.unsafe(@data_import.file).download { |chunk| f.write(chunk) }
+    end
+
+    Zip::File.open(zip_path) do |zip_file|
+      zip_file.each do |entry|
         next if entry.directory?
 
-        # Strip the top-level directory prefix
+        # Strip the top-level directory prefix (e.g. "harmonic-export-.../")
         name = entry.name.sub(%r{^[^/]+/}, "")
-        @zip_data[name] = io.read
+
+        if name.start_with?("attachments/")
+          basename = File.basename(name)
+          target_path = File.join(attachments_dir, basename)
+          entry.extract(target_path)
+          @attachment_paths[basename] = target_path
+        else
+          @zip_data[name] = entry.get_input_stream.read
+        end
       end
     end
   end
@@ -659,14 +682,17 @@ class CollectiveImportService
         byte_size: a["byte_size"],
       )
 
-      # Attach the binary file if it exists in the ZIP
-      if a["filename"] && @zip_data["attachments/#{a["filename"]}"]
-        blob = ActiveStorage::Blob.create_and_upload!(
-          io: StringIO.new(T.must(@zip_data["attachments/#{a["filename"]}"])),
-          filename: a["name"],
-          content_type: a["content_type"] || "application/octet-stream",
-        )
-        attachment.file = blob
+      # Attach the binary file if it was extracted to disk
+      attachment_path = a["filename"] && @attachment_paths[a["filename"]]
+      if attachment_path
+        File.open(attachment_path, "rb") do |io|
+          blob = ActiveStorage::Blob.create_and_upload!(
+            io: io,
+            filename: a["name"],
+            content_type: a["content_type"] || "application/octet-stream",
+          )
+          attachment.file = blob
+        end
       end
 
       attachment.save!(validate: false)

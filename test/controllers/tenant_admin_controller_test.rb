@@ -300,6 +300,39 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Please select a ZIP file to import.", flash[:alert]
   end
 
+  test "import rejects non-zip file" do
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+
+    path = Rails.root.join("tmp", "test-not-a-zip-#{SecureRandom.hex(4)}.txt")
+    File.write(path, "this is not a zip file")
+    @temp_files ||= []
+    @temp_files << path.to_s
+
+    file = fixture_file_upload(path.to_s, "application/zip")
+
+    assert_no_enqueued_jobs only: CollectiveImportJob do
+      post "/tenant-admin/imports", params: { file: file }
+    end
+
+    assert_response :redirect
+    assert_equal "File must be a valid ZIP archive.", flash[:alert]
+  end
+
+  test "import rejects when another import is already in progress" do
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+
+    DataImport.create!(tenant: @primary_tenant, user: @tenant_admin_user, status: "importing")
+
+    file = fixture_file_upload(create_minimal_export_zip, "application/zip")
+
+    assert_no_enqueued_jobs only: CollectiveImportJob do
+      post "/tenant-admin/imports", params: { file: file }
+    end
+
+    assert_response :redirect
+    assert_equal "An import is already in progress for this tenant.", flash[:alert]
+  end
+
   test "tenant admin can view import status" do
     sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
     import = DataImport.create!(tenant: @primary_tenant, user: @tenant_admin_user, status: "completed")

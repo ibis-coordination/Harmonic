@@ -88,6 +88,16 @@ class Rack::Attack
       req.ip
     end
   end
+
+  # Throttle data import requests: 100 per hour per IP. Imports are tenant-admin
+  # only and already gated by reverification + ensure_tenant_admin; this throttle
+  # is a backstop against compromised-admin or misconfigured-automation abuse, not
+  # general anti-spam. A migrating admin doing many sequential imports is normal.
+  throttle('imports/ip', limit: 100, period: 1.hour) do |req|
+    if req.path == '/tenant-admin/imports' && req.post?
+      req.ip
+    end
+  end
 end
 
 # Configure cache store for Rack::Attack

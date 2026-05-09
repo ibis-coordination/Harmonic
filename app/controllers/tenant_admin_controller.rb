@@ -21,6 +21,7 @@ class TenantAdminController < ApplicationController
   before_action :set_sidebar_mode
 
   USERS_PER_PAGE = 50
+  MAX_IMPORT_SIZE_BYTES = ENV.fetch("MAX_IMPORT_SIZE_BYTES", 2.gigabytes.to_i).to_i
 
   # GET /tenant-admin
   def dashboard
@@ -158,6 +159,21 @@ class TenantAdminController < ApplicationController
       return redirect_to "/tenant-admin/imports/new"
     end
 
+    if params[:file].size > MAX_IMPORT_SIZE_BYTES
+      flash[:alert] = "File too large. Maximum size is #{MAX_IMPORT_SIZE_BYTES / 1.gigabyte} GB."
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    unless valid_zip_upload?(params[:file])
+      flash[:alert] = "File must be a valid ZIP archive."
+      return redirect_to "/tenant-admin/imports/new"
+    end
+
+    if DataImport.tenant_scoped_only(@current_tenant.id).active.exists?
+      flash[:alert] = "An import is already in progress for this tenant."
+      return redirect_to "/tenant-admin/imports"
+    end
+
     data_import = DataImport.create!(
       tenant: @current_tenant,
       user: @current_user,
@@ -243,6 +259,17 @@ class TenantAdminController < ApplicationController
   end
 
   private
+
+  # Validates that an uploaded file is a ZIP by checking the magic bytes.
+  # Content-Type is intentionally not checked — it's browser-supplied and
+  # easily spoofed; the byte signature is the authoritative test.
+  def valid_zip_upload?(uploaded_file)
+    magic = uploaded_file.read(4)
+    uploaded_file.rewind
+    # "PK\x03\x04" = local file header (normal ZIP)
+    # "PK\x05\x06" = end of central directory (empty ZIP)
+    magic == "PK\x03\x04" || magic == "PK\x05\x06"
+  end
 
   def ensure_tenant_admin
     unless @current_tenant.is_admin?(@current_user)
