@@ -1,8 +1,8 @@
-# Vote receipt for <%= @actor&.display_name || "unknown user" %>
+# Vote receipt for <%= @actor_display %>
 
 [Back to <%= @decision.is_lottery? ? 'lottery' : 'decision' %>](<%= @decision.path %>) | [Verify page](<%= @decision.path %>/verify)
 
-This page shows all audited actions by **<%= @actor&.display_name || "unknown user" %>** on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>. Each entry is part of the cryptographic audit chain and can be independently verified on the [verify page](<%= @decision.path %>/verify).
+This page shows all audited actions by **<%= @actor_display %>** on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>. Each entry is part of the cryptographic audit chain and can be independently verified on the [verify page](<%= @decision.path %>/verify).
 
 ## Audit entries
 

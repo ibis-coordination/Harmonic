@@ -43,9 +43,12 @@ for e in data.get("audit_chain", []):
 #     If actor_id and actor_token_salt are populated, the recomputed token
 #     must match the stored token — this proves the identity hasn't been
 #     swapped without also forging the token.
-#     If either has been scrubbed (NULL), we mark the binding as unattributable
-#     and skip verification (intended behavior for accounts that have been
-#     closed and had their PII removed).
+#     If either has been scrubbed (NULL), the binding is unverifiable. Two
+#     legitimate cases produce this state:
+#       - PII scrub on account closure (binding becomes unattributable by design)
+#       - Cross-instance import (metadata.imported=true; binding can't validate
+#         against remapped target IDs, but the entry isn't tampered)
+#     Anything else with mismatching binding is a real failure.
 decision_id = data.get("decision", {}).get("id", "")
 for e in data.get("audit_chain", []):
     if not e.get("actor_token"):
@@ -53,7 +56,8 @@ for e in data.get("audit_chain", []):
     actor_id = e.get("actor_id", "")
     salt = e.get("actor_token_salt", "")
     if not actor_id or not salt:
-        # PII scrubbed; binding unverifiable, this is intentional
+        # Skip: either PII scrubbed (account closure) or imported (cross-instance).
+        # Both are intentional states; binding is not expected to validate.
         continue
     expected_token = hashlib.sha256(
         f"{decision_id}|{actor_id}|{e.get('actor_handle', '')}|{salt}".encode()

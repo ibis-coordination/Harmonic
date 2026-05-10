@@ -656,6 +656,14 @@ class DecisionsController < ApplicationController
       DecisionAuditEntry.where(decision_id: @decision.id, id: receipt_entry.id)
     end
 
+    # Display name precedence:
+    #   1. The current User's display name (most informative when account still exists)
+    #   2. The entry's recorded actor_handle (post-scrub this is "[deleted account]";
+    #      pre-scrub it's the historical handle so the page still shows something
+    #      meaningful even if the User row was hard-deleted by some other path)
+    #   3. "unknown user" as a last-resort fallback (e.g., system-event receipt)
+    @actor_display = @actor&.display_name || receipt_entry.actor_handle.presence || "unknown user"
+
     @page_title = "Vote receipt | #{@decision.question}"
     @sidebar_mode = "resource"
 

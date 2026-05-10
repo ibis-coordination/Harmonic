@@ -216,6 +216,31 @@ describe("verifyChain", () => {
     const result = await verifyChain(data)
     expect(result.valid).toBe(true)
     expect(result.scrubbedCount).toBe(1)
+    expect(result.importedCount).toBe(0)
+    expect(result.bindingInconsistentCount).toBe(0)
+  })
+
+  it("counts imported entries separately from scrubbed; chain stays valid", async () => {
+    // Build with the imported flag baked into metadata so the hash matches
+    // (we're testing verifier accounting in isolation; see the verifier test
+    // above for the rationale).
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      actorId: "user-1",
+      actorHandle: "alice",
+      optionTitle: "Option A",
+      metadata: JSON.stringify({ imported: true }),
+    })
+    entry.actor_token_salt = ""
+    const data: VerifyData = {
+      decision: { ...baseDecision, audit_chain_hash: entry.entry_hash },
+      audit_chain: [entry],
+    }
+    const result = await verifyChain(data)
+    expect(result.valid).toBe(true)
+    expect(result.importedCount).toBe(1)
+    expect(result.scrubbedCount).toBe(0)
     expect(result.bindingInconsistentCount).toBe(0)
   })
 })
@@ -503,6 +528,22 @@ describe("verifyActorBinding", () => {
     entry.actor_id = ""
     entry.actor_token_salt = ""
     expect(await verifyActorBinding(entry, DECISION_ID)).toBe("unattributable")
+  })
+
+  it("returns 'imported' when salt is NULL and metadata flags the entry as imported", async () => {
+    // Build the entry with the imported metadata flag baked in so the
+    // recomputed hash matches (in production the importer doesn't recompute
+    // hashes, but this test isolates verifier logic from import-flow effects).
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      actorId: "user-1",
+      actorHandle: "alice",
+      metadata: JSON.stringify({ imported: true }),
+    })
+    // Salt isn't in the hash; nulling it doesn't affect entry_hash.
+    entry.actor_token_salt = ""
+    expect(await verifyActorBinding(entry, DECISION_ID)).toBe("imported")
   })
 
   it("returns 'tamper_or_scrub_inconsistent' when actor_id was changed without scrub", async () => {

@@ -286,6 +286,37 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     assert_equal :unattributable, DecisionAuditVerifier.verify_actor_binding(entry)
   end
 
+  test "verify_actor_binding returns :imported for entries imported from another instance" do
+    # Imported entries have salt NULL'd but metadata.imported=true; this
+    # distinguishes them from PII-scrubbed entries (NULL salt, no flag) so
+    # downstream tooling can render an accurate explanation rather than
+    # implying account-closure scrubbing happened.
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    new_metadata = (entry.metadata || {}).merge("imported" => true)
+    # The immutability trigger blocks metadata updates; tests forge the
+    # imported state by toggling the trigger off briefly.
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    entry.update_columns(actor_token_salt: nil, metadata: new_metadata)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    assert_equal :imported, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :unattributable (not :imported) when salt is NULL but no imported flag" do
+    # Defensive: an entry with NULL salt and no imported flag is the scrub
+    # case, regardless of what other metadata contents might look like.
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    entry.update_columns(actor_token_salt: nil)
+    assert_equal :unattributable, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
   test "verify_actor_binding returns :tamper_or_scrub_inconsistent when actor_id was changed without scrub" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
@@ -320,6 +351,35 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
 
     result = DecisionAuditVerifier.verify_chain(@decision)
     assert_equal 2, result[:scrubbed_count]
+    assert_equal 0, result[:imported_count]
+    assert_equal 0, result[:binding_inconsistent_count]
+  end
+
+  test "verify_chain.imported_count tracks imported entries separately from scrubbed" do
+    e1 = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    e2 = DecisionAuditService.record_close!(decision: @decision, actor: @user)
+    # e1 simulates account-closure scrub; e2 simulates a cross-instance import.
+    # The metadata change on e2 invalidates its entry_hash, so we recompute
+    # under a trigger-disabled window. (Real imports leave a hash mismatch on
+    # disk; this test isolates the verifier accounting logic.)
+    e1.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    e2.metadata = (e2.metadata || {}).merge("imported" => true)
+    e2.actor_token_salt = nil
+    new_hash = DecisionAuditService.compute_hash(e2)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    e2.update_columns(metadata: e2.metadata, actor_token_salt: nil, entry_hash: new_hash)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert result[:valid], "Chain stays valid: both states are intentional, not tamper. Errors: #{result[:errors].inspect}"
+    assert_equal 1, result[:scrubbed_count]
+    assert_equal 1, result[:imported_count]
     assert_equal 0, result[:binding_inconsistent_count]
   end
 

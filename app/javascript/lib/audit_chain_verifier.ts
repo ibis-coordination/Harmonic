@@ -43,10 +43,26 @@ export async function computeEntryHash(entry: AuditEntry): Promise<string> {
   return sha256hex(hashInput(entry))
 }
 
+// Imported entries are stamped with metadata.imported = true on import. The
+// metadata field arrives as a JSON-encoded string (matches the wire format
+// used in the entry hash); we parse it to distinguish imported entries from
+// scrubbed ones in the binding check.
+function isImported(entry: AuditEntry): boolean {
+  if (!entry.metadata) return false
+  try {
+    const parsed = JSON.parse(entry.metadata) as Record<string, unknown>
+    return parsed.imported === true
+  } catch {
+    return false
+  }
+}
+
 // Independent identity-binding check: recompute the actor_token from the
 // stored identity and salt, compare to the stored token. Outcomes:
 //   - "verified": token matches the recomputed value
 //   - "unattributable": actor_id or salt has been scrubbed (intentional, expected)
+//   - "imported": cross-instance import — binding can't validate against
+//     remapped target IDs (intentional, not a tamper)
 //   - "tamper_or_scrub_inconsistent": fields don't match (incomplete scrub or tamper)
 //   - "no_actor": entry has no actor (e.g., beacon_drawn)
 export async function verifyActorBinding(
@@ -54,7 +70,9 @@ export async function verifyActorBinding(
   decisionId: string,
 ): Promise<ActorBindingStatus> {
   if (!entry.actor_token) return "no_actor"
-  if (!entry.actor_id || !entry.actor_token_salt) return "unattributable"
+  if (!entry.actor_id || !entry.actor_token_salt) {
+    return isImported(entry) ? "imported" : "unattributable"
+  }
   const expected = await sha256hex(
     `${decisionId}|${entry.actor_id}|${entry.actor_handle}|${entry.actor_token_salt}`,
   )
@@ -92,6 +110,7 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
     (s) => s === "tamper_or_scrub_inconsistent",
   ).length
   const scrubbedCount = Object.values(bindingStatuses).filter((s) => s === "unattributable").length
+  const importedCount = Object.values(bindingStatuses).filter((s) => s === "imported").length
 
   return {
     valid: errors.length === 0 && bindingInconsistentCount === 0,
@@ -101,6 +120,7 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
     bindingStatuses,
     bindingInconsistentCount,
     scrubbedCount,
+    importedCount,
   }
 }
 

@@ -42,7 +42,8 @@ class DecisionAuditVerifier
     end
 
     # Surface tamper detection from the binding check separately from chain
-    # integrity. A scrubbed entry is expected and shouldn't fail the chain.
+    # integrity. Scrubbed and imported entries are expected and shouldn't
+    # fail the chain — only :tamper_or_scrub_inconsistent is a failure.
     binding_inconsistent = binding_statuses.values.count(:tamper_or_scrub_inconsistent)
 
     {
@@ -53,6 +54,7 @@ class DecisionAuditVerifier
       binding_statuses: binding_statuses,
       binding_inconsistent_count: binding_inconsistent,
       scrubbed_count: binding_statuses.values.count(:unattributable),
+      imported_count: binding_statuses.values.count(:imported),
     }
   end
 
@@ -77,6 +79,9 @@ class DecisionAuditVerifier
   #   :verified                       — token matches the recomputed derivation
   #   :unattributable                 — actor_id or actor_token_salt is NULL
   #                                     (PII has been scrubbed; intentional)
+  #   :imported                       — entry came from a cross-instance import;
+  #                                     binding can't validate against remapped
+  #                                     target IDs (intentional, not a tamper)
   #   :tamper_or_scrub_inconsistent   — derivation doesn't match stored token
   #                                     (either a tamper, or a partial scrub
   #                                     that left the chain inconsistent —
@@ -89,13 +94,27 @@ class DecisionAuditVerifier
   def self.verify_actor_binding(entry)
     return :v1_chain_only if entry.schema_version != 2
     return :no_actor if entry.actor_token.blank?
-    return :unattributable if entry.actor_id.blank? || entry.actor_token_salt.blank?
+    if entry.actor_id.blank? || entry.actor_token_salt.blank?
+      # Distinguish cross-instance imports from PII scrub. CollectiveImportService
+      # nulls the salt and stamps metadata["imported"] = true; account-closure
+      # scrubbing nulls the salt without touching metadata. The status enum is
+      # extensible — future flows (e.g., anonymous voting) can add their own
+      # labels following the same pattern.
+      return :imported if imported_entry?(entry)
+      return :unattributable
+    end
 
     expected = Digest::SHA256.hexdigest(
       "#{entry.decision_id}|#{entry.actor_id}|#{entry.actor_handle}|#{entry.actor_token_salt}"
     )
     expected == entry.actor_token ? :verified : :tamper_or_scrub_inconsistent
   end
+
+  sig { params(entry: DecisionAuditEntry).returns(T::Boolean) }
+  def self.imported_entry?(entry)
+    entry.metadata.is_a?(Hash) && entry.metadata["imported"] == true
+  end
+  private_class_method :imported_entry?
 
   sig { params(decision: Decision).returns(T::Hash[Symbol, T.untyped]) }
   def self.verify_vote_tallies(decision)

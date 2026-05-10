@@ -1853,6 +1853,49 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Do not rely/i, response.body)
   end
 
+  test "markdown verify page notes imported entries in the pass message (separate from scrubbed)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Forge "imported state" with a consistent entry_hash so we test render
+    # logic in isolation. (The real import flow mutates metadata after stamping
+    # entry_hash, which produces a hash mismatch — but that's a property of
+    # the import flow, not what we're testing here. The verifier+import test
+    # in audit_chain_verification_test.rb covers the integrated flow.)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: @user.id).find_each do |e|
+      e.metadata = (e.metadata || {}).merge("imported" => true)
+      e.actor_token_salt = nil
+      new_hash = DecisionAuditService.compute_hash(e)
+      e.update_columns(metadata: e.metadata, actor_token_salt: nil, entry_hash: new_hash)
+    end
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    # Refresh the decision's chain hash to match the rewritten last entry.
+    last_entry = DecisionAuditEntry.where(decision_id: @decision.id).order(:sequence_number).last
+    @decision.update_columns(audit_chain_hash: last_entry.entry_hash) if @decision.audit_chain_hash.present?
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Chain integrity.*PASS/i, response.body)
+    assert_match(/imported from another instance/i, response.body)
+    assert_match(/remapped IDs/i, response.body)
+    assert_no_match(/identifying information removed/, response.body)
+  end
+
   test "markdown verify page notes scrubbed entries in the pass message" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -2020,6 +2063,32 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
       assert rows.all? { |row| row.text.include?("vote_cast") || row.text.include?("vote_updated") },
              "Receipt page leaked entries from other actors after PII scrub"
     end
+  end
+
+  test "verify_receipt shows scrubbed actor as '[deleted account]' (from entry's actor_handle)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    receipt = DecisionAuditEntry.receipt_for_user(@decision, @user)
+    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: @user.id).find_each do |e|
+      e.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    end
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify/#{receipt.entry_hash}"
+    assert_response :success
+    assert_match(/\[deleted account\]/, response.body)
+    assert_no_match(/unknown user/, response.body)
   end
 
   test "verify_receipt for a system-event hash shows only that single entry" do

@@ -18,6 +18,7 @@ export interface AuditEntry {
 export type ActorBindingStatus =
   | "verified"
   | "unattributable"
+  | "imported"
   | "tamper_or_scrub_inconsistent"
   | "no_actor"
 
@@ -60,6 +61,7 @@ export interface ChainResult {
   bindingStatuses: Record<number, ActorBindingStatus>
   bindingInconsistentCount: number
   scrubbedCount: number
+  importedCount: number
 }
 
 export interface VoteTalliesResult {

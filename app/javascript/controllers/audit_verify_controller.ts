@@ -73,8 +73,10 @@ export default class AuditVerifyController extends Controller {
     // Chain integrity (covers hash chain + actor-identity binding for v2 entries)
     if (result.chain.valid) {
       const scrubbed = result.chain.scrubbedCount
+      const imported = result.chain.importedCount
       const detail = `All ${result.chain.entryCount} entries verified — every hash is correct and links to the previous entry.` +
-        (scrubbed > 0 ? ` ${scrubbed} ${scrubbed === 1 ? "entry has" : "entries have"} had identifying information removed (account closure); binding for ${scrubbed === 1 ? "that entry is" : "those entries are"} unattributable by design.` : "")
+        (scrubbed > 0 ? ` ${scrubbed} ${scrubbed === 1 ? "entry has" : "entries have"} had identifying information removed (account closure); binding for ${scrubbed === 1 ? "that entry is" : "those entries are"} unattributable by design.` : "") +
+        (imported > 0 ? ` ${imported} ${imported === 1 ? "entry was" : "entries were"} imported from another instance; binding for ${imported === 1 ? "that entry can't" : "those entries can't"} validate against remapped IDs in this instance.` : "")
       lines.push(this.passLine("Chain integrity", detail))
     } else if (result.chain.errors.length > 0) {
       lines.push(this.failLine("Chain integrity", this.explainChainFailure(result.chain.errors)))

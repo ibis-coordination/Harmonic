@@ -6,14 +6,14 @@
 ] %>
 
 <article class="pulse-resource-detail">
-  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Vote receipt for <%= @actor&.display_name || "unknown user" %></h1>
+  <h1 style="font-size: 1.5em; margin-bottom: 8px;">Vote receipt for <%= @actor_display %></h1>
   <p class="pulse-body-text-muted" style="margin-bottom: 20px;">
     <%= link_to @decision.question, @decision.path %>
   </p>
 
   <div class="pulse-resource-body" style="padding: 16px;">
     <p style="line-height: 1.6; margin-bottom: 16px;">
-      This page shows all audited actions by <strong><%= @actor&.display_name || "unknown user" %></strong> on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>.
+      This page shows all audited actions by <strong><%= @actor_display %></strong> on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>.
       Each entry is part of the cryptographic audit chain and can be independently verified on the <%= link_to "verify page", "#{@decision.path}/verify" %>.
     </p>
 

@@ -1,5 +1,23 @@
 # typed: true
 
+# Records audit entries for decision lifecycle events.
+#
+# == Metadata PII constraint
+#
+# `metadata` is a free-form jsonb column on `DecisionAuditEntry`. PII scrubbing
+# only NULLs `actor_id`, `actor_handle`, and `actor_token_salt` — it does NOT
+# touch `metadata`. Therefore, **callers of record_* must not put actor-
+# identifying information into metadata**: no display names, emails, handles,
+# personal pronouns, or anything that could re-identify the actor.
+#
+# Decision-content fields (question, description, option titles, deadlines)
+# ARE acceptable in metadata — they are content the actor authored about the
+# decision, not identifiers of the actor themselves. Scrubbing the actor's
+# identity preserves the content of decisions they participated in, by design.
+#
+# All current call sites have been audited and are clean: metadata only ever
+# contains decision attributes or system values (e.g., beacon round/randomness).
+# `audit_chain_metadata_pii_test.rb` pins this shape against future drift.
 class DecisionAuditService
   extend T::Sig
 

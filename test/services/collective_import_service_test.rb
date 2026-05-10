@@ -513,6 +513,51 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal parent.id, reply.commentable_id
   end
 
+  # --- Decision audit entry round-trip ---
+
+  test "imports decision audit entries: preserves schema_version + actor_token, drops salt, marks as :imported" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    # Create a fresh decision + audit chain on the source side so we control the entries.
+    decision = Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "Round-trip audit?", deadline: 1.week.from_now, options_open: true, subtype: "vote",
+    )
+    DecisionAuditService.record_creation!(decision: decision, actor: @source_user)
+    option = create_option(decision: decision, created_by: @source_user, title: "Option A")
+    DecisionAuditService.record_option!(
+      decision: decision, option: option, actor: @source_user, action: "option_added",
+    )
+
+    source_entries = DecisionAuditEntry.where(decision_id: decision.id).order(:sequence_number).to_a
+    assert_equal 2, source_entries.size, "precondition: source has 2 audit entries"
+    actor_entry = source_entries.find { |e| e.actor_id.present? }
+    source_token = actor_entry.actor_token
+    assert_equal 2, actor_entry.schema_version
+    assert_match(/\A[0-9a-f]{64}\z/, source_token)
+    assert_match(/\A[0-9a-f]{64}\z/, actor_entry.actor_token_salt)
+
+    _data_import, imported_collective = export_and_import_source!
+
+    imported_decision = Decision.where(collective_id: imported_collective.id, question: "Round-trip audit?").first
+    imported_entries = DecisionAuditEntry.where(decision_id: imported_decision.id).order(:sequence_number).to_a
+    assert_equal source_entries.size, imported_entries.size
+
+    imported_actor_entry = imported_entries.find { |e| e.action == "option_added" }
+    assert_equal 2, imported_actor_entry.schema_version, "schema_version must be preserved"
+    assert_equal source_token, imported_actor_entry.actor_token,
+                 "actor_token must be preserved verbatim for forensic traceability"
+    assert_nil imported_actor_entry.actor_token_salt,
+               "actor_token_salt must be NULLed on import (it was the source secret; carrying it across is misleading)"
+    assert_equal true, imported_actor_entry.metadata["imported"],
+                 "metadata.imported flag is what distinguishes :imported from :unattributable"
+
+    # Binding check on the imported entry returns :imported, not :tamper_or_scrub_inconsistent
+    # — the chain stays valid in the target instance.
+    assert_equal :imported, DecisionAuditVerifier.verify_actor_binding(imported_actor_entry)
+  end
+
   # --- Decision subtype tests ---
 
   test "imports lottery decisions with beacon data" do
