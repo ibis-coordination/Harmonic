@@ -1853,6 +1853,73 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Do not rely/i, response.body)
   end
 
+  test "markdown verify page notes scrubbed entries in the pass message" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Simulate PII scrub on @user's audit entries
+    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: @user.id).find_each do |e|
+      e.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    end
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Chain integrity.*PASS/i, response.body)
+    assert_match(/identifying information removed/i, response.body)
+    assert_match(/unattributable by design/i, response.body)
+  end
+
+  test "markdown verify page shows binding-tamper failure when actor identity is swapped" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+
+    # Tamper actor_id without recomputing actor_token. The hash chain still
+    # verifies (token is in the hash, identity fields are not), but binding
+    # detection should flag this as tamper_or_scrub_inconsistent.
+    other_user = create_user(name: "Other")
+    @tenant.add_user!(other_user)
+    entry = DecisionAuditEntry.where(decision_id: @decision.id, action: "vote_cast").first
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    ActiveRecord::Base.connection.execute(
+      ActiveRecord::Base.sanitize_sql([
+        "UPDATE decision_audit_entries SET actor_id = ?, actor_handle = ? WHERE id = ?",
+        other_user.id, other_user.handle, entry.id,
+      ]),
+    )
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Chain integrity.*FAIL/i, response.body)
+    assert_match(/actor identity does not match/i, response.body)
+    assert_match(/altered after the fact/i, response.body)
+    assert_match(/hash chain itself is intact/i, response.body)
+  end
+
   test "markdown verify page shows beacon failure when round is wrong" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -1906,5 +1973,76 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
         params: { decision: {} },
         headers: { 'Referer' => "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}" }
     end
+  end
+
+  # === verify_receipt with PII-scrubbed entries ===
+
+  test "verify_receipt scopes entries by actor_token when actor_id is NULL (scrubbed account)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+
+    # Two distinct voters on the same decision; second user will be scrubbed.
+    other_user = create_user(name: "Other Voter")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    p1 = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    p2 = DecisionParticipantManager.new(decision: @decision, user: other_user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: p1, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: p1, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: p2, accepted: 1, preferred: 1),
+      actor: other_user,
+    )
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+
+    # Capture other_user's receipt before scrubbing, then simulate PII scrub.
+    other_receipt = DecisionAuditEntry.receipt_for_user(@decision, other_user)
+    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: other_user.id).find_each do |e|
+      e.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    end
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify/#{other_receipt.entry_hash}"
+    assert_response :success
+
+    # Page must show ONLY other_user's entries (vote_cast), not @user's vote nor
+    # decision_closed (which has @user's actor_id, still populated).
+    assert_select "tbody tr" do |rows|
+      assert rows.all? { |row| row.text.include?("vote_cast") || row.text.include?("vote_updated") },
+             "Receipt page leaked entries from other actors after PII scrub"
+    end
+  end
+
+  test "verify_receipt for a system-event hash shows only that single entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    beacon_entry = DecisionAuditService.record_beacon!(decision: @decision, round: 999, randomness: "deadbeef")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify/#{beacon_entry.entry_hash}"
+    assert_response :success
+    assert_select "tbody tr", count: 1
+    assert_match(/beacon_drawn/, response.body)
   end
 end

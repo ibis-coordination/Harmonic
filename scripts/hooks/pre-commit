@@ -6,10 +6,12 @@
 # 1. Scans for accidentally committed secrets/API keys
 # 2. Checks for debug code (binding.pry, console.log, etc.)
 # 3. Checks for banned .unscoped usage (tenant safety)
-# 4. Checks for job base class inheritance
-# 5. Checks for style guide violations in Pulse CSS
-# 6. Runs Sorbet type checking
-# 7. Runs TypeScript type checking
+# 4. Checks for direct Vote/Option mutations outside DecisionActionService
+# 5. Checks for audit-immutability trigger toggles outside db/migrate/
+# 6. Checks for job base class inheritance
+# 7. Checks for style guide violations in Pulse CSS
+# 8. Runs Sorbet type checking
+# 9. Runs TypeScript type checking
 #
 # To install: ./scripts/setup-hooks.sh
 # To bypass: git commit --no-verify
@@ -28,6 +30,16 @@ fi
 # Check for banned .unscoped usage (blocks commit if found)
 if [[ -x "./scripts/check-tenant-safety.sh" ]]; then
     ./scripts/check-tenant-safety.sh --staged || exit 1
+fi
+
+# Check for direct Vote/Option mutations outside DecisionActionService (blocks commit if found)
+if [[ -x "./scripts/check-audit-safety.sh" ]]; then
+    ./scripts/check-audit-safety.sh --staged || exit 1
+fi
+
+# Check for audit-immutability trigger toggles outside db/migrate/ (blocks commit if found)
+if [[ -x "./scripts/check-audit-immutability.sh" ]]; then
+    ./scripts/check-audit-immutability.sh --staged || exit 1
 fi
 
 # Check for jobs inheriting from ApplicationJob directly (blocks commit if found)

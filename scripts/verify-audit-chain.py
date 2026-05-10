@@ -17,14 +17,16 @@ DRAND_PERIOD = 3
 data = json.load(open(sys.argv[1]))
 ok = True
 
-# 1. Verify audit chain: replay each hash and check the links
+# 1. Verify audit chain: replay each hash and check the links.
 #    Each entry's hash covers all its fields plus the previous entry's hash,
 #    forming a chain. If any entry was altered, all subsequent hashes break.
+#    Identity is bound via `actor_token`, a SHA256 commitment that lets PII
+#    be scrubbed without invalidating the chain (see step 1b).
 prev = ""
 for e in data.get("audit_chain", []):
     computed = hashlib.sha256("|".join([
-        "v1", prev, str(e["sequence_number"]), e["action"],
-        e["actor_id"], e["actor_handle"],
+        "v2", prev, str(e["sequence_number"]), e["action"],
+        e["actor_token"],
         unicodedata.normalize("NFC", e["option_title"]),
         e["accepted"], e["preferred"], e["metadata"],
         e["created_at"],
@@ -37,21 +39,45 @@ for e in data.get("audit_chain", []):
         ok = False
     prev = e["entry_hash"]
 
+# 1b. Verify the actor token binding when identity is present.
+#     If actor_id and actor_token_salt are populated, the recomputed token
+#     must match the stored token — this proves the identity hasn't been
+#     swapped without also forging the token.
+#     If either has been scrubbed (NULL), we mark the binding as unattributable
+#     and skip verification (intended behavior for accounts that have been
+#     closed and had their PII removed).
+decision_id = data.get("decision", {}).get("id", "")
+for e in data.get("audit_chain", []):
+    if not e.get("actor_token"):
+        continue  # system entries (no actor) — nothing to bind
+    actor_id = e.get("actor_id", "")
+    salt = e.get("actor_token_salt", "")
+    if not actor_id or not salt:
+        # PII scrubbed; binding unverifiable, this is intentional
+        continue
+    expected_token = hashlib.sha256(
+        f"{decision_id}|{actor_id}|{e.get('actor_handle', '')}|{salt}".encode()
+    ).hexdigest()
+    if expected_token != e["actor_token"]:
+        print(f"FAIL: entry #{e['sequence_number']} actor binding mismatch (token doesn't derive from stored identity)")
+        ok = False
+
 # The decision stores the final chain hash — verify it matches the last entry
 chain_hash = data.get("decision", {}).get("audit_chain_hash")
 if chain_hash and chain_hash != prev:
     print("FAIL: final chain hash mismatch")
     ok = False
 
-# 2. Replay votes from the audit chain and verify totals match results
+# 2. Replay votes from the audit chain and verify totals match results.
 #    Each vote_cast/vote_updated entry records a single voter's choice on one option.
 #    We replay all votes to independently compute the acceptance and preference counts,
 #    then compare against the results the server is showing.
+#    Votes are deduped by actor_token so the count stays correct even if the
+#    voter's PII has since been scrubbed (actor_id may be NULL post-scrub).
 votes = {}
 for e in data.get("audit_chain", []):
     if e["action"] in ("vote_cast", "vote_updated"):
-        # Keep the latest vote per (voter, option) pair — updates replace earlier votes
-        votes[(e["actor_id"], e["option_title"])] = (e["accepted"], e["preferred"])
+        votes[(e.get("actor_token"), e["option_title"])] = (e["accepted"], e["preferred"])
 
 if len(votes) > 0:
     # Sum up totals per option

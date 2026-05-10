@@ -7,14 +7,19 @@ Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cr
 
 ## Verification Results
 <% if @verification_result[:chain][:valid] -%>
+<% scrubbed = @verification_result[:chain][:scrubbed_count].to_i -%>
 
-- **Chain integrity**: PASS — All <%= @verification_result[:chain][:entry_count] %> entries verified — every hash is correct and links to the previous entry.
-<% else -%>
+- **Chain integrity**: PASS — All <%= @verification_result[:chain][:entry_count] %> entries verified — every hash is correct and links to the previous entry.<% if scrubbed > 0 %> <%= scrubbed %> <%= scrubbed == 1 ? "entry has" : "entries have" %> had identifying information removed (account closure); binding for <%= scrubbed == 1 ? "that entry is" : "those entries are" %> unattributable by design.<% end %>
+<% elsif @verification_result[:chain][:errors].any? -%>
 
 - **Chain integrity**: FAIL — The audit chain has been altered or corrupted. This is a serious integrity issue — it means the recorded history of this decision may not be trustworthy. Do not rely on the displayed results until this is investigated.
 <% @verification_result[:chain][:errors]&.each do |error| -%>
   - <%= error %>
 <% end -%>
+<% else -%>
+<% inconsistent = @verification_result[:chain][:binding_inconsistent_count].to_i -%>
+
+- **Chain integrity**: FAIL — <%= inconsistent %> <%= inconsistent == 1 ? "entry's" : "entries'" %> actor identity does not match the recorded identity token. This means the displayed actor for those entries may have been altered after the fact, or that PII scrubbing was performed inconsistently. The hash chain itself is intact, but you should not trust the displayed actor information until this is investigated.
 <% end -%>
 <% if @verification_result[:vote_tallies][:skipped] -%>
 
@@ -72,11 +77,13 @@ The script replays every hash in the audit chain, recomputes vote totals from th
 ## Technical Details
 <% if @audit_entries.any? -%>
 
-**Audit chain hash formula:** each entry's hash is `SHA256` of its fields joined by `|`:
+**Audit chain hash formula:** each entry's hash is `SHA256` of its fields joined by `|`. PII is decoupled from the hashed content so identity fields can be scrubbed on account closure without invalidating the chain:
 
 ```
-"v1" | previous_hash | sequence_number | action | actor_id | actor_handle | NFC(option_title) | accepted | preferred | metadata | created_at
+"v2" | previous_hash | sequence_number | action | actor_token | NFC(option_title) | accepted | preferred | metadata | created_at
 ```
+
+**Actor token derivation:** `actor_token = SHA256(decision_id | actor_id | actor_handle | actor_token_salt)`. The salt is stored alongside the entry and destroyed on PII scrub; without it, the binding from token to identity is computationally infeasible to recover, but the hash chain itself stays intact.
 <% end -%>
 <% if @decision.beacon_drawn? -%>
 

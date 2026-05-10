@@ -25,6 +25,8 @@ fi
 chmod +x scripts/check-debug-code.sh 2>/dev/null || true
 chmod +x scripts/check-secrets.sh 2>/dev/null || true
 chmod +x scripts/check-tenant-safety.sh 2>/dev/null || true
+chmod +x scripts/check-audit-safety.sh 2>/dev/null || true
+chmod +x scripts/check-audit-immutability.sh 2>/dev/null || true
 chmod +x scripts/check-job-inheritance.sh 2>/dev/null || true
 chmod +x scripts/check-style-guide.sh 2>/dev/null || true
 
@@ -35,6 +37,8 @@ echo "Hooks will:"
 echo "  - Block commits containing potential secrets/API keys"
 echo "  - Block commits containing debug code (binding.pry, console.log, etc.)"
 echo "  - Block commits containing banned .unscoped usage (tenant safety)"
+echo "  - Block commits with direct Vote/Option mutations outside DecisionActionService"
+echo "  - Block commits that toggle the audit-immutability trigger outside db/migrate/"
 echo "  - Block commits with incorrect job base class inheritance"
 echo "  - Block commits with style guide violations in Pulse CSS"
 echo "  - Run Sorbet type checking"

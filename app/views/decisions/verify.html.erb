@@ -45,9 +45,12 @@
 
     <% if @audit_entries.any? %>
       <p style="line-height: 1.6; margin-bottom: 8px;">
-        <strong>Audit chain hash formula:</strong> each entry's hash is <code>SHA256</code> of its fields joined by <code>|</code>:
+        <strong>Audit chain hash formula:</strong> each entry's hash is <code>SHA256</code> of its fields joined by <code>|</code>. PII is decoupled from the hashed content so identity fields can be scrubbed on account closure without invalidating the chain:
       </p>
-      <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>"v1" | previous_hash | sequence_number | action | actor_id | actor_handle | NFC(option_title) | accepted | preferred | metadata | created_at</code></pre>
+      <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>"v2" | previous_hash | sequence_number | action | actor_token | NFC(option_title) | accepted | preferred | metadata | created_at</code></pre>
+      <p style="line-height: 1.6; margin-bottom: 8px;">
+        <strong>Actor token derivation:</strong> <code>actor_token = SHA256(decision_id | actor_id | actor_handle | actor_token_salt)</code>. The salt is stored alongside the entry and destroyed on PII scrub; without it, the binding from token to identity is computationally infeasible to recover, but the hash chain itself stays intact.
+      </p>
     <% end %>
 
     <% if @decision.beacon_drawn? %>

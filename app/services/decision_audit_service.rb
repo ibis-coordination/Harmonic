@@ -20,7 +20,7 @@ class DecisionAuditService
       action: "decision_created",
       actor_id: actor.id,
       actor_handle: actor.handle,
-      metadata: initial_values,
+      metadata: initial_values
     )
   end
 
@@ -31,7 +31,7 @@ class DecisionAuditService
       action: "decision_updated",
       actor_id: actor.id,
       actor_handle: actor.handle,
-      metadata: changes,
+      metadata: changes
     )
   end
 
@@ -43,7 +43,7 @@ class DecisionAuditService
       actor_id: actor.id,
       actor_handle: actor.handle,
       option_title: new_title,
-      metadata: { old_title: old_title, new_title: new_title },
+      metadata: { old_title: old_title, new_title: new_title }
     )
   end
 
@@ -56,7 +56,7 @@ class DecisionAuditService
       actor_handle: actor.handle,
       option_title: T.must(vote.option).title,
       accepted: vote.accepted,
-      preferred: vote.preferred,
+      preferred: vote.preferred
     )
   end
 
@@ -67,7 +67,7 @@ class DecisionAuditService
       action: action,
       actor_id: actor.id,
       actor_handle: actor.handle,
-      option_title: option.title,
+      option_title: option.title
     )
   end
 
@@ -79,7 +79,7 @@ class DecisionAuditService
       decision: decision,
       action: "decision_closed",
       actor_id: actor.id,
-      actor_handle: actor.handle,
+      actor_handle: actor.handle
     )
   end
 
@@ -90,7 +90,7 @@ class DecisionAuditService
     record!(
       decision: decision,
       action: "beacon_drawn",
-      metadata: { round: round, randomness: randomness },
+      metadata: { round: round, randomness: randomness }
     )
   end
 
@@ -98,6 +98,7 @@ class DecisionAuditService
   def self.compute_hash(entry)
     case entry.schema_version
     when 1 then compute_hash_v1(entry)
+    when 2 then compute_hash_v2(entry)
     else raise "Unknown schema version: #{entry.schema_version}"
     end
   end
@@ -106,8 +107,19 @@ class DecisionAuditService
   def self.hash_input(entry)
     case entry.schema_version
     when 1 then hash_input_v1(entry)
+    when 2 then hash_input_v2(entry)
     else raise "Unknown schema version: #{entry.schema_version}"
     end
+  end
+
+  # Derives the per-entry actor token. The salt is destroyed on PII scrub, which
+  # makes brute-force re-identification computationally infeasible. The token
+  # itself is in the chain hash, so tampering with actor_id or actor_handle (without
+  # also recomputing the token, which requires knowing the original salt) is
+  # detectable by `verify_actor_binding`.
+  sig { params(decision_id: String, actor_id: String, actor_handle: String, salt: String).returns(String) }
+  def self.derive_actor_token(decision_id:, actor_id:, actor_handle:, salt:)
+    Digest::SHA256.hexdigest("#{decision_id}|#{actor_id}|#{actor_handle}|#{salt}")
   end
 
   sig do
@@ -119,7 +131,7 @@ class DecisionAuditService
       option_title: T.nilable(String),
       accepted: T.nilable(Integer),
       preferred: T.nilable(Integer),
-      metadata: T.nilable(T::Hash[T.any(String, Symbol), T.untyped]),
+      metadata: T.nilable(T::Hash[T.any(String, Symbol), T.untyped])
     ).returns(T.nilable(DecisionAuditEntry))
   end
   def self.record!(decision:, action:, actor_id: nil, actor_handle: nil, option_title: nil, accepted: nil, preferred: nil, metadata: nil)
@@ -136,6 +148,31 @@ class DecisionAuditService
 
         now = Time.current.change(usec: 0)
 
+        # For v2: derive the actor token from (decision_id, actor_id, actor_handle, salt).
+        # Both NULL when there's no actor (e.g., beacon_drawn).
+        #
+        # Salt is reused across entries by the same actor in the same decision
+        # (look up any prior entry's salt; otherwise generate a fresh one). This
+        # makes actor_token stable per (decision_id, actor_id) so vote-tally dedupe
+        # works correctly, AND means scrubbing a user's salt destroys identity
+        # binding for ALL their entries in one bulk update on account closure.
+        actor_token_salt = nil
+        actor_token = nil
+        if actor_id
+          prior_entry = DecisionAuditEntry
+            .where(decision_id: decision.id, actor_id: actor_id)
+            .where.not(actor_token_salt: nil)
+            .order(:sequence_number)
+            .first
+          actor_token_salt = prior_entry&.actor_token_salt || SecureRandom.hex(32)
+          actor_token = derive_actor_token(
+            decision_id: decision.id,
+            actor_id: actor_id,
+            actor_handle: actor_handle.to_s,
+            salt: actor_token_salt
+          )
+        end
+
         entry = DecisionAuditEntry.new(
           tenant_id: decision.tenant_id,
           collective_id: decision.collective_id,
@@ -145,21 +182,24 @@ class DecisionAuditService
           action: action,
           actor_id: actor_id,
           actor_handle: actor_handle,
+          actor_token: actor_token,
+          actor_token_salt: actor_token_salt,
           option_title: option_title,
           accepted: accepted,
           preferred: preferred,
           metadata: metadata&.transform_keys(&:to_s),
           previous_hash: previous_hash,
-          created_at: now,
+          created_at: now
         )
 
         entry.entry_hash = compute_hash(entry)
         entry.save!
         entry
       end
-    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
+    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout
       retries += 1
       raise if retries > 3
+
       sleep(0.1 * retries)
       retry
     end
@@ -191,5 +231,34 @@ class DecisionAuditService
     ].join("|")
   end
 
-  private_class_method :record!, :compute_hash_v1, :hash_input_v1
+  # v2 hash content excludes actor_id and actor_handle directly. Actor identity
+  # is bound via actor_token = SHA256(decision_id || actor_id || actor_handle || salt).
+  # actor_token_salt is intentionally NOT in the hashed content — it must be
+  # destroyable on PII scrub without invalidating the chain.
+  sig { params(entry: DecisionAuditEntry).returns(String) }
+  def self.compute_hash_v2(entry)
+    Digest::SHA256.hexdigest(hash_input_v2(entry))
+  end
+
+  sig { params(entry: DecisionAuditEntry).returns(String) }
+  def self.hash_input_v2(entry)
+    title = entry.option_title
+    normalized_title = title.nil? ? "" : title.unicode_normalize(:nfc)
+    sorted_metadata = entry.metadata ? JSON.generate(entry.metadata.sort.to_h) : ""
+
+    [
+      "v2",
+      entry.previous_hash || "",
+      entry.sequence_number.to_s,
+      entry.action,
+      entry.actor_token || "",
+      normalized_title,
+      entry.accepted.nil? ? "" : entry.accepted.to_s,
+      entry.preferred.nil? ? "" : entry.preferred.to_s,
+      sorted_metadata,
+      entry.created_at.iso8601,
+    ].join("|")
+  end
+
+  private_class_method :record!, :compute_hash_v1, :hash_input_v1, :compute_hash_v2, :hash_input_v2
 end

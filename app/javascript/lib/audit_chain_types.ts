@@ -1,8 +1,11 @@
 export interface AuditEntry {
   sequence_number: number
+  schema_version: number
   action: string
   actor_id: string
   actor_handle: string
+  actor_token: string
+  actor_token_salt: string
   option_title: string
   accepted: string
   preferred: string
@@ -11,6 +14,12 @@ export interface AuditEntry {
   entry_hash: string
   created_at: string
 }
+
+export type ActorBindingStatus =
+  | "verified"
+  | "unattributable"
+  | "tamper_or_scrub_inconsistent"
+  | "no_actor"
 
 export interface DecisionMeta {
   id: string
@@ -48,6 +57,9 @@ export interface ChainResult {
   entryCount: number
   errors: string[]
   lastHash: string | null
+  bindingStatuses: Record<number, ActorBindingStatus>
+  bindingInconsistentCount: number
+  scrubbedCount: number
 }
 
 export interface VoteTalliesResult {
