@@ -50,6 +50,7 @@ class UserDataExportService
         gather_commitments(tmpdir)
         gather_decision_participants(tmpdir)
         gather_votes(tmpdir)
+        gather_decision_audit_entries(tmpdir)
         gather_commitment_participants(tmpdir)
         gather_links(tmpdir)
         write_manifest(tmpdir)
@@ -243,6 +244,42 @@ class UserDataExportService
     end
     write_json(tmpdir, "commitment_participants.json", data)
     @record_counts["commitment_participants"] = data.length
+  end
+
+  # Audit entries are included as receipts of the user's own actions, NOT as
+  # a verifiable chain (the surrounding entries belong to the collective).
+  # The user can verify any individual entry via the public receipt URL
+  # using the entry_hash + decision_truncated_id snapshot.
+  sig { params(tmpdir: String).void }
+  def gather_decision_audit_entries(tmpdir)
+    entries = DecisionAuditEntry.where(collective_id: @collective.id, actor_id: @subject_user_ids)
+                                .includes(:decision)
+                                .order(:decision_id, :sequence_number)
+    data = entries.map do |e|
+      decision = e.decision
+      {
+        "source_id" => e.id,
+        "source_decision_id" => e.decision_id,
+        "decision_truncated_id" => decision&.truncated_id,
+        "decision_question" => decision&.question,
+        "sequence_number" => e.sequence_number,
+        "schema_version" => e.schema_version,
+        "action" => e.action,
+        "source_actor_id" => e.actor_id,
+        "actor_handle" => e.actor_handle,
+        "actor_token" => e.actor_token,
+        "actor_token_salt" => e.actor_token_salt,
+        "option_title" => e.option_title,
+        "accepted" => e.accepted,
+        "preferred" => e.preferred,
+        "metadata" => e.metadata,
+        "previous_hash" => e.previous_hash,
+        "entry_hash" => e.entry_hash,
+        "created_at" => e.created_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "decision_audit_entries.json", data)
+    @record_counts["decision_audit_entries"] = data.length
   end
 
   # Links have no created_by column (they're relationship metadata). Include

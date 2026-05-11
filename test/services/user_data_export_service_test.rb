@@ -192,6 +192,38 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal "Show up Saturday", p["commitment_title"]
   end
 
+  test "decision_audit_entries.json includes entries where actor=subject with denormalized decision context" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @other_user, question: "What time?")
+    option = create_option(decision: decision, created_by: @other_user, title: "Noon")
+    my_participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
+    other_participant = DecisionParticipantManager.new(decision: decision, user: @other_user).find_or_create_participant
+
+    my_vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: decision, option: option,
+      decision_participant: my_participant, accepted: 1, preferred: 0,
+    )
+    DecisionAuditService.record_vote!(decision: decision, vote: my_vote, actor: @user)
+
+    other_vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: decision, option: option,
+      decision_participant: other_participant, accepted: 1, preferred: 0,
+    )
+    DecisionAuditService.record_vote!(decision: decision, vote: other_vote, actor: @other_user)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    entries = read_json_from_zip("decision_audit_entries.json")
+    actor_ids = entries.map { |e| e["source_actor_id"] }
+    assert_equal [@user.id], actor_ids.uniq, "should include only the subject's entries"
+
+    entry = entries.first
+    assert_equal "vote_cast", entry["action"]
+    assert_equal "Noon", entry["option_title"]
+    assert_equal "What time?", entry["decision_question"], "denormalized decision_question snapshot"
+    assert_equal decision.truncated_id, entry["decision_truncated_id"], "needed to reconstruct the receipt URL"
+    assert entry["entry_hash"].present?, "entry_hash present for the user's own receipt lookup"
+  end
+
   test "links.json includes links touching the subject's content (either endpoint)" do
     my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine A", text: "x")
     my_other = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine B", text: "y")
