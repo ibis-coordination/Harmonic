@@ -401,6 +401,67 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal "read_confirmation", my_entry["event_type"]
   end
 
+  test "invites.json includes only invites sent by the subject" do
+    mine = Invite.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      code: SecureRandom.hex(8), expires_at: 1.week.from_now,
+    )
+    Invite.create!(
+      tenant: @tenant, collective: @collective, created_by: @other_user,
+      code: SecureRandom.hex(8), expires_at: 1.week.from_now,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    invites = read_json_from_zip("invites.json")
+    source_ids = invites.map { |i| i["source_id"] }
+    assert_equal [mine.id], source_ids, "only invites the subject sent are theirs to export"
+  end
+
+  test "representation_sessions.json includes only sessions where subject is the representative" do
+    mine = RepresentationSession.create!(
+      tenant: @tenant, collective: @collective,
+      representative_user: @user, began_at: Time.current, confirmed_understanding: true,
+    )
+    RepresentationSession.create!(
+      tenant: @tenant, collective: @collective,
+      representative_user: @other_user, began_at: Time.current, confirmed_understanding: true,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    sessions = read_json_from_zip("representation_sessions.json")
+    source_ids = sessions.map { |s| s["source_id"] }
+    assert_equal [mine.id], source_ids
+  end
+
+  test "representation_session_events.json includes only events for the subject's sessions" do
+    target_note = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Target", text: "x")
+    my_session = RepresentationSession.create!(
+      tenant: @tenant, collective: @collective,
+      representative_user: @user, began_at: Time.current, confirmed_understanding: true,
+    )
+    other_session = RepresentationSession.create!(
+      tenant: @tenant, collective: @collective,
+      representative_user: @other_user, began_at: Time.current, confirmed_understanding: true,
+    )
+
+    mine = RepresentationSessionEvent.create!(
+      tenant: @tenant, collective: @collective, representation_session: my_session,
+      action_name: "read", resource: target_note, resource_collective_id: @collective.id,
+    )
+    RepresentationSessionEvent.create!(
+      tenant: @tenant, collective: @collective, representation_session: other_session,
+      action_name: "read", resource: target_note, resource_collective_id: @collective.id,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    events = read_json_from_zip("representation_session_events.json")
+    source_ids = events.map { |e| e["source_id"] }
+    assert_equal [mine.id], source_ids, "only events in the subject's own sessions are included"
+  end
+
   test "excludes soft-deleted content" do
     kept = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Kept", text: "x")
     deleted = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Deleted", text: "y")

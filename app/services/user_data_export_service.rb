@@ -53,6 +53,9 @@ class UserDataExportService
         gather_decision_audit_entries(tmpdir)
         gather_commitment_participants(tmpdir)
         gather_note_history_events(tmpdir)
+        gather_invites(tmpdir)
+        gather_representation_sessions(tmpdir)
+        gather_representation_session_events(tmpdir)
         gather_links(tmpdir)
         gather_users(tmpdir)
         gather_tenant_users(tmpdir)
@@ -330,6 +333,77 @@ class UserDataExportService
     end
     write_json(tmpdir, "note_history_events.json", data)
     @record_counts["note_history_events"] = data.length
+  end
+
+  # Invites the subject sent. `invited_user_id` is a FK to another user
+  # (opaque UUID, no PII denormalized onto the row). Received invites are
+  # excluded — they're data others provided about the subject, not data
+  # the subject provided themselves.
+  sig { params(tmpdir: String).void }
+  def gather_invites(tmpdir)
+    invites = Invite.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+    data = invites.map do |i|
+      {
+        "source_id" => i.id,
+        "source_created_by_id" => i.created_by_id,
+        "source_invited_user_id" => i.invited_user_id,
+        "code" => i.code,
+        "expires_at" => i.expires_at.iso8601,
+        "created_at" => i.created_at.iso8601,
+        "updated_at" => i.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "invites.json", data)
+    @record_counts["invites"] = data.length
+  end
+
+  # Sessions where the subject represented another user. The subject's
+  # activity record.
+  sig { params(tmpdir: String).void }
+  def gather_representation_sessions(tmpdir)
+    sessions = RepresentationSession.where(
+      collective_id: @collective.id, representative_user_id: @subject_user_ids,
+    )
+    data = sessions.map do |s|
+      {
+        "source_id" => s.id,
+        "source_representative_user_id" => s.representative_user_id,
+        "began_at" => s.began_at.iso8601,
+        "ended_at" => s.ended_at&.iso8601,
+        "confirmed_understanding" => s.confirmed_understanding,
+        "source_trustee_grant_id" => s.trustee_grant_id,
+        "created_at" => s.created_at.iso8601,
+        "updated_at" => s.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "representation_sessions.json", data)
+    @record_counts["representation_sessions"] = data.length
+  end
+
+  # Events recorded within the subject's own representation sessions.
+  sig { params(tmpdir: String).void }
+  def gather_representation_session_events(tmpdir)
+    session_ids = RepresentationSession
+                    .where(collective_id: @collective.id, representative_user_id: @subject_user_ids)
+                    .pluck(:id)
+    events = RepresentationSessionEvent.where(representation_session_id: session_ids)
+    data = events.map do |e|
+      {
+        "source_id" => e.id,
+        "source_representation_session_id" => e.representation_session_id,
+        "action_name" => e.action_name,
+        "resource_type" => e.resource_type,
+        "source_resource_id" => e.resource_id,
+        "context_resource_type" => e.context_resource_type,
+        "source_context_resource_id" => e.context_resource_id,
+        "source_resource_collective_id" => e.resource_collective_id,
+        "request_id" => e.request_id,
+        "created_at" => e.created_at.iso8601,
+        "updated_at" => e.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "representation_session_events.json", data)
+    @record_counts["representation_session_events"] = data.length
   end
 
   # Links have no created_by column (they're relationship metadata). Include
