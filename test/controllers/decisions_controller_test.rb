@@ -1853,7 +1853,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Do not rely/i, response.body)
   end
 
-  test "markdown verify page notes imported entries in the pass message (separate from scrubbed)" do
+  test "verify HTML page renders imported-records banner when chain has imported entries" do
     sign_in_as(@user, tenant: @tenant)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -1861,39 +1861,223 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     @decision.update!(subtype: "vote")
     participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
     option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
-    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
-    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
-
-    # Forge "imported state" with a consistent entry_hash so we test render
-    # logic in isolation. (The real import flow mutates metadata after stamping
-    # entry_hash, which produces a hash mismatch — but that's a property of
-    # the import flow, not what we're testing here. The verifier+import test
-    # in audit_chain_verification_test.rb covers the integrated flow.)
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    # Mark one entry as imported (just the metadata flag is enough for the
+    # banner; we don't need to forge a fully-consistent imported entry, because
+    # the banner triggers off the metadata flag directly, not the verifier).
     ActiveRecord::Base.connection.execute(
       "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
     )
-    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: @user.id).find_each do |e|
-      e.metadata = (e.metadata || {}).merge("imported" => true)
-      e.actor_token_salt = nil
-      new_hash = DecisionAuditService.compute_hash(e)
-      e.update_columns(metadata: e.metadata, actor_token_salt: nil, entry_hash: new_hash)
+    entry = DecisionAuditEntry.where(decision_id: @decision.id, action: "vote_cast").first
+    entry.update_columns(metadata: (entry.metadata || {}).merge("imported" => true))
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_match(/Notice.*imported records/i, response.body)
+    assert_match(/cannot prove the imported actions actually happened/i, response.body)
+    assert_match(/trust in whoever produced the imported data/i, response.body)
+    # The banner appears in the markup; the bottom-of-page anchor target is present too.
+    assert_match(/what-this-verification-proves/i, response.body)
+    # Bottom section also includes import-specific bullets when there are imported entries
+    assert_match(/imported records reflect actions that actually happened/i, response.body)
+  end
+
+  test "verify HTML page does NOT render imported banner or import-specific disclaimers for native-only chains" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    # Banner-specific text is absent
+    assert_no_match(/Notice .*imported records/i, response.body)
+    # Import-specific disclaimers in the proves/doesn't-prove section are also absent
+    assert_no_match(/imported records reflect actions that actually happened/i, response.body)
+    assert_no_match(/trust in whoever produced the imported data/i, response.body)
+  end
+
+  test "markdown verify page renders imported banner even when chain integrity FAILS (real import flow scenario)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    # Reproduce the realistic import-flow state: metadata gets "imported": true
+    # added AFTER entry_hash was stamped. This produces a hash-mismatch FAIL
+    # in chain integrity. The banner must still display — it's the most
+    # important context for a user looking at a failed imported chain.
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    DecisionAuditEntry.where(decision_id: @decision.id, action: "vote_cast").find_each do |e|
+      e.update_columns(metadata: (e.metadata || {}).merge("imported" => true))
     end
     ActiveRecord::Base.connection.execute(
       "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
     )
-    # Refresh the decision's chain hash to match the rewritten last entry.
-    last_entry = DecisionAuditEntry.where(decision_id: @decision.id).order(:sequence_number).last
-    @decision.update_columns(audit_chain_hash: last_entry.entry_hash) if @decision.audit_chain_hash.present?
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
       headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_match(/Chain integrity.*PASS/i, response.body)
-    assert_match(/imported from another instance/i, response.body)
-    assert_match(/remapped IDs/i, response.body)
-    assert_no_match(/identifying information removed/, response.body)
+    # Banner displays regardless of chain status
+    assert_match(/Notice.*imported records/i, response.body)
+    # Chain reports FAIL (real imports cause a hash mismatch) but with
+    # the calmer "this is expected" wording rather than the native alarm.
+    assert_match(/Chain integrity.*FAIL/i, response.body)
+    assert_match(/is expected/i, response.body)
+    assert_match(/import process adds a metadata flag/i, response.body)
+    assert_match(/not tampering on this instance/i, response.body)
+    # The alarmist native-tamper language must NOT appear for imports
+    assert_no_match(/altered or corrupted/, response.body)
+    assert_no_match(/serious integrity issue/, response.body)
+  end
+
+  test "verify HTML page renders 'Additional safeguards' section for native non-lottery decisions" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_match(/Additional safeguards/i, response.body)
+    assert_match(/Visible votes/i, response.body)
+    # Email receipts are gated by feature flag + opt-in; copy reflects that.
+    assert_match(/Email receipts \(when enabled\)/i, response.body)
+    assert_match(/if your collective has vote receipt emails turned on and you've opted in/i, response.body)
+  end
+
+  test "verify HTML page does NOT render 'Additional safeguards' for lottery decisions" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "lottery", deadline: 1.day.ago)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.close_decision!(decision: @decision, actor: @user)
+    DecisionActionService.draw_beacon!(decision: @decision, round: 12345, randomness: "abc123def456")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_no_match(/Additional safeguards/i, response.body)
+    assert_no_match(/Email receipts/i, response.body)
+  end
+
+  test "verify HTML page does NOT render 'Additional safeguards' for imported decisions (banner covers them instead)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    DecisionAuditEntry.where(decision_id: @decision.id, action: "vote_cast").find_each do |e|
+      e.update_columns(metadata: (e.metadata || {}).merge("imported" => true))
+    end
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify"
+    assert_response :success
+    assert_no_match(/Additional safeguards/i, response.body)
+    assert_no_match(/Email receipts/i, response.body)
+    # But the basic voters-page link is still rendered for non-lottery imported decisions
+    assert_match(/voters page/i, response.body)
+  end
+
+  test "markdown verify page includes 'What this verification proves' section with user-facing disclaimers" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    DecisionActionService.cast_vote!(
+      decision: @decision,
+      vote: Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/verify",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/What this verification proves and doesn't/, response.body)
+    # What it proves (native decisions only — no import-specific noise)
+    assert_match(/have not been altered since they were written/i, response.body)
+    assert_match(/result totals shown for this decision match what's in the recorded history/i, response.body)
+    # What it doesn't prove (universal disclaimers)
+    assert_match(/every action a participant attempted was actually accepted and recorded/i, response.body)
+    # Account-compromise framing: names the actual residual risk (compromised
+    # credentials) rather than the misleading "we can't tell who voted" wording.
+    assert_match(/participant's Harmonic account was not compromised when they acted/i, response.body)
+    assert_match(/Participants must be logged in to participate/i, response.body)
+    assert_match(/can't distinguish the account holder from someone using their credentials/i, response.body)
+    # Server-compromise framing: the chain seals records after writing but
+    # can't independently confirm they were truthful when first written.
+    assert_match(/server itself was not compromised at the time of the decision/i, response.body)
+    assert_match(/seals records once written/i, response.body)
+    assert_match(/depends on Harmonic's infrastructure security/i, response.body)
+    # Should NOT contain implementation jargon
+    assert_no_match(/database.level immutability trigger/i, response.body)
+    assert_no_match(/maliciously.constructed export/i, response.body)
+    # And should NOT contain import-specific disclaimers on a native decision
+    assert_no_match(/imported records reflect actions that actually happened/i, response.body)
   end
 
   test "markdown verify page notes scrubbed entries in the pass message" do

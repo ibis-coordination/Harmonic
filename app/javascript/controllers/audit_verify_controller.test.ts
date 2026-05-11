@@ -444,43 +444,32 @@ describe("AuditVerifyController", () => {
     expect(text).toContain("unattributable by design")
   })
 
-  it("notes imported entries in the pass message (separate from scrubbed)", async () => {
-    const decisionId = "d1"
-    const salt = "deadbeef".repeat(8)
-    const encoder = new TextEncoder()
-    const sha = async (s: string): Promise<string> => {
-      const buf = await crypto.subtle.digest("SHA-256", encoder.encode(s))
-      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("")
-    }
-    const actorToken = await sha(`${decisionId}|user-1|alice|${salt}`)
-
-    // Build with metadata.imported=true baked in so the hash matches; this
-    // tests render logic in isolation. (Real imports preserve the source
-    // entry_hash and add the flag after, which produces a hash mismatch
-    // and therefore renders FAIL — see audit_chain_verification_test.rb
-    // for the import-flow behavior.)
+  it("uses calmer chain-failure wording when has_imported_entries is true", async () => {
+    // Real imports add metadata.imported=true after entry_hash is stamped,
+    // which always produces a hash mismatch. The JS controller should not
+    // alarm the user with "altered or corrupted" language for this expected
+    // case; instead it should say the mismatch is the import-induced change.
     const entry: AuditEntry = {
       sequence_number: 1,
       schema_version: 2,
       action: "vote_cast",
       actor_id: "user-1",
       actor_handle: "alice",
-      actor_token: actorToken,
-      actor_token_salt: salt,
+      actor_token: "abc123",
+      actor_token_salt: "",
       option_title: "Option A",
       accepted: "1",
       preferred: "0",
       metadata: JSON.stringify({ imported: true }),
       previous_hash: "",
-      entry_hash: "",
+      entry_hash: "fake_hash_will_not_match",
       created_at: "2026-05-05T12:00:00Z",
     }
-    entry.entry_hash = await computeEntryHash(entry)
-    entry.actor_token_salt = ""
 
     const importedData: VerifyData = {
-      decision: { ...validData.decision, id: decisionId, audit_chain_hash: entry.entry_hash },
+      decision: { ...validData.decision, audit_chain_hash: entry.entry_hash },
       audit_chain: [entry],
+      has_imported_entries: true,
     }
 
     setupDOM("/verify.json")
@@ -492,10 +481,14 @@ describe("AuditVerifyController", () => {
     await startController()
 
     const text = resultsText()
-    expect(text).toMatch(/Chain integrity:.*PASS/)
-    expect(text).toContain("imported from another instance")
-    expect(text).toContain("remapped IDs")
-    expect(text).not.toContain("identifying information removed") // distinct message from scrubbed
+    expect(text).toMatch(/Chain integrity:.*FAIL/)
+    // Calmer wording for imports
+    expect(text).toContain("is expected")
+    expect(text).toContain("import process")
+    expect(text).toContain("not tampering on this instance")
+    // The alarmist native-tamper language should NOT appear
+    expect(text).not.toContain("altered or corrupted")
+    expect(text).not.toContain("serious integrity issue")
   })
 
   // --- HTML escaping ---

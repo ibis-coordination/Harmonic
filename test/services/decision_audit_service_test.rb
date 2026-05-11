@@ -228,6 +228,35 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
                  "stable actor_token across same-actor entries is required for vote-tally dedupe"
   end
 
+  test "actor_token and stored actor_handle stay stable when the participant's handle changes between entries" do
+    # If a participant renames between actions in the same decision, the
+    # actor_token must NOT change — otherwise vote-tally dedupe groups the
+    # same voter's vote_cast and vote_updated under different tokens and
+    # double-counts them. The token derivation (and the stored actor_handle)
+    # anchors to the participant's first handle in this decision, not the
+    # handle in effect at each individual moment of action.
+    e1 = DecisionAuditService.record_vote!(
+      decision: @decision,
+      vote: Vote.new(option: @option, accepted: 1, preferred: 0),
+      actor: @user,
+    )
+    original_handle = @user.handle
+
+    # Simulate the participant renaming themselves between actions.
+    @user.handle = "renamed-#{SecureRandom.hex(4)}"
+    e2 = DecisionAuditService.record_vote!(
+      decision: @decision,
+      vote: Vote.new(option: @option, accepted: 0, preferred: 0),
+      actor: @user,
+      is_update: true,
+    )
+
+    assert_equal e1.actor_token, e2.actor_token,
+                 "actor_token must stay stable across a handle change in the same decision"
+    assert_equal original_handle, e2.actor_handle,
+                 "stored actor_handle anchors to the first entry's handle in this decision"
+  end
+
   test "record! does NOT update Decision#audit_chain_hash (terminal-snapshot invariant)" do
     # audit_chain_hash is a snapshot taken at terminal moments only
     # (executive close in DecisionActionService, beacon draw). For ongoing

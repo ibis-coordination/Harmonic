@@ -1,19 +1,30 @@
 # Verify Results: <%= @decision.question %>
 
 [Back to <%= @decision.is_lottery? ? 'lottery' : 'decision' %>](<%= @decision.path %>)
+<% if @has_imported_entries -%>
+
+> **Notice — imported records.** Parts of this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>'s history were imported from another Harmonic instance. The checks below confirm the imported data is self-consistent, but they cannot prove the imported actions actually happened. Trust in imported decisions depends on trust in whoever produced the imported data. See [What this verification proves and doesn't](#what-this-verification-proves-and-doesnt) below.
+
+Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded. For imported decisions verification is limited — see the notice above.
+<% else -%>
 
 Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded so that anyone can independently verify that nothing was tampered with<% if @decision.beacon_drawn? %> and that the results are correct<% end %>.
+<% end -%>
 <% if @verification_result -%>
 
 ## Verification Results
 <% if @verification_result[:chain][:valid] -%>
 <% scrubbed = @verification_result[:chain][:scrubbed_count].to_i -%>
-<% imported = @verification_result[:chain][:imported_count].to_i -%>
 
-- **Chain integrity**: PASS — All <%= @verification_result[:chain][:entry_count] %> entries verified — every hash is correct and links to the previous entry.<% if scrubbed > 0 %> <%= scrubbed %> <%= scrubbed == 1 ? "entry has" : "entries have" %> had identifying information removed (account closure); binding for <%= scrubbed == 1 ? "that entry is" : "those entries are" %> unattributable by design.<% end %><% if imported > 0 %> <%= imported %> <%= imported == 1 ? "entry was" : "entries were" %> imported from another instance; binding for <%= imported == 1 ? "that entry can't" : "those entries can't" %> validate against remapped IDs in this instance.<% end %>
+- **Chain integrity**: PASS — All <%= @verification_result[:chain][:entry_count] %> entries verified — every hash is correct and links to the previous entry.<% if scrubbed > 0 %> <%= scrubbed %> <%= scrubbed == 1 ? "entry has" : "entries have" %> had identifying information removed (account closure); binding for <%= scrubbed == 1 ? "that entry is" : "those entries are" %> unattributable by design.<% end %>
 <% elsif @verification_result[:chain][:errors].any? -%>
+<% if @has_imported_entries -%>
+
+- **Chain integrity**: FAIL — The recorded history of imported entries doesn't match what they originally hashed to. This is expected: the import process adds a metadata flag to each entry to mark it as imported, which changes the recorded hash. The differences below are the import-induced changes, not tampering on this instance. See the imported-records notice at the top for context on what this means.
+<% else -%>
 
 - **Chain integrity**: FAIL — The audit chain has been altered or corrupted. This is a serious integrity issue — it means the recorded history of this decision may not be trustworthy. Do not rely on the displayed results until this is investigated.
+<% end -%>
 <% @verification_result[:chain][:errors]&.each do |error| -%>
   - <%= error %>
 <% end -%>
@@ -75,6 +86,47 @@ The script replays every hash in the audit chain, recomputes vote totals from th
 <%= raw File.read(Rails.root.join("scripts", "verify-audit-chain.py")) %>
 ```
 
+## What this verification proves and doesn't
+
+**What it proves.**
+
+<% unless @has_imported_entries -%>
+- Records of actions on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> have not been altered since they were written. Any change to the recorded history breaks verification.
+<% end -%>
+- The result totals shown for this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> match what's in the recorded history.
+<% if @decision.beacon_drawn? && !@has_imported_entries -%>
+- The random ordering of options was generated using [drand](https://drand.love), an external public randomness source whose output can't be predicted in advance. The outcome was determined by drand, not by Harmonic.
+<% elsif @decision.beacon_drawn? -%>
+- The randomness values recorded for sort ordering match what [drand](https://drand.love) published for the recorded round.
+<% end -%>
+
+**What it doesn't prove.**
+
+- That every action a participant attempted was actually accepted and recorded. The check confirms what's in the recorded history, not what might have been omitted before reaching it.
+- That a given participant's Harmonic account was not compromised when they acted. Participants must be logged in to participate, but the cryptographic verification can't distinguish the account holder from someone using their credentials.
+- That the server itself was not compromised at the time of the decision. The cryptographic chain seals records once written, but the truthfulness of what's written depends on Harmonic's infrastructure security.
+<% if @has_imported_entries -%>
+- That the imported records reflect actions that actually happened. Imported history is just data this instance received from another Harmonic instance; this instance cannot independently verify what occurred on the source. Trust in imported decisions depends on trust in whoever produced the imported data.
+<% if @decision.beacon_drawn? -%>
+- For the imported lottery results, that the original operator committed to a specific drand round before drand revealed its value. The arithmetic check confirms the recorded values are real drand output, but a constructed import could point at any past round.
+<% end -%>
+<% end -%>
+<% unless @decision.is_lottery? -%>
+<% if @has_imported_entries -%>
+
+Individual votes are visible on the [voters page](<%= @decision.path %>/voters).
+<% else -%>
+
+## Additional safeguards
+
+Beyond the cryptographic checks above, practical mechanisms can strengthen trust in this decision:
+
+**Visible votes.** Every participant's vote is visible on the [voters page](<%= @decision.path %>/voters) to anyone who can view this decision. If a vote were invented under your name, you'd be able to see it and dispute it; other participants watch for the same on their own votes.
+
+**Email receipts (when enabled).** If your collective has vote receipt emails turned on and you've opted in, you'll receive an email after each vote with a verification link for your recorded entry. Keep these emails as an independent record — delivered out-of-band — of what the server told you it recorded.
+<% end -%>
+<% end -%>
+
 ## Technical Details
 <% if @audit_entries.any? -%>
 
@@ -107,4 +159,3 @@ The script replays every hash in the audit chain, recomputes vote totals from th
 
 <% end -%>
 <% end -%>
-**Limitation:** the audit chain verifies integrity of recorded data but cannot prove that the server accepted every submission.<% unless @decision.is_lottery? %> Individual votes are visible on the [voters page](<%= @decision.path %>/voters).<% end %>

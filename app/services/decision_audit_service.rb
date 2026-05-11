@@ -167,15 +167,21 @@ class DecisionAuditService
         now = Time.current.change(usec: 0)
 
         # For v2: derive the actor token from (decision_id, actor_id, actor_handle, salt).
-        # Both NULL when there's no actor (e.g., beacon_drawn).
+        # All NULL when there's no actor (e.g., beacon_drawn).
         #
-        # Salt is reused across entries by the same actor in the same decision
-        # (look up any prior entry's salt; otherwise generate a fresh one). This
-        # makes actor_token stable per (decision_id, actor_id) so vote-tally dedupe
-        # works correctly, AND means scrubbing a user's salt destroys identity
-        # binding for ALL their entries in one bulk update on account closure.
+        # Both the salt AND the actor_handle are anchored to the participant's
+        # FIRST entry in this decision: we look up the first prior entry by
+        # (decision_id, actor_id) and reuse its salt and actor_handle. This
+        # gives us a stable actor_token per (decision_id, actor_id) regardless
+        # of whether the participant renames between actions — vote-tally
+        # dedupe (which keys on actor_token) stays correct, and scrubbing a
+        # user's salt destroys identity binding for all their entries in one
+        # bulk update on account closure. The stored actor_handle is also the
+        # anchor handle, not the current one, so the binding check (which
+        # recomputes using entry.actor_handle) stays per-entry self-contained.
         actor_token_salt = nil
         actor_token = nil
+        anchor_handle = actor_handle
         if actor_id
           prior_entry = DecisionAuditEntry
             .where(decision_id: decision.id, actor_id: actor_id)
@@ -183,10 +189,11 @@ class DecisionAuditService
             .order(:sequence_number)
             .first
           actor_token_salt = prior_entry&.actor_token_salt || SecureRandom.hex(32)
+          anchor_handle    = prior_entry&.actor_handle     || actor_handle
           actor_token = derive_actor_token(
             decision_id: decision.id,
             actor_id: actor_id,
-            actor_handle: actor_handle.to_s,
+            actor_handle: anchor_handle.to_s,
             salt: actor_token_salt
           )
         end
@@ -199,7 +206,7 @@ class DecisionAuditService
           schema_version: DecisionAuditEntry::CURRENT_SCHEMA_VERSION,
           action: action,
           actor_id: actor_id,
-          actor_handle: actor_handle,
+          actor_handle: anchor_handle,
           actor_token: actor_token,
           actor_token_salt: actor_token_salt,
           option_title: option_title,

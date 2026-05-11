@@ -51,6 +51,7 @@ export interface VerifyData {
   audit_chain: AuditEntry[]
   beacon?: BeaconInfo
   results?: ResultEntry[]
+  has_imported_entries?: boolean
 }
 
 export interface ChainResult {

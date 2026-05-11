@@ -547,6 +547,16 @@ class DecisionsController < ApplicationController
     has_content = @decision.beacon_drawn? || @audit_entries.any?
     return redirect_to @decision.path unless has_content
 
+    # Detect cross-instance imports up front so all response formats can
+    # surface a banner. The chain may FAIL on imported decisions (the import
+    # adds metadata.imported=true after stamping entry_hash, which causes a
+    # hash mismatch), so we can't rely on the verifier's imported_count to
+    # render the banner — we look directly at the entries.
+    @has_imported_entries = DecisionAuditEntry
+                              .where(decision_id: @decision.id)
+                              .where("metadata @> ?", '{"imported":true}')
+                              .exists?
+
     @page_title = "Verify Results | #{@decision.question}"
     @sidebar_mode = 'resource'
 
@@ -571,6 +581,7 @@ class DecisionsController < ApplicationController
       format.json do
         json = {
           generated_at: Time.current.iso8601,
+          has_imported_entries: @has_imported_entries,
           decision: {
             id: @decision.id,
             question: @decision.question,

@@ -12,8 +12,24 @@
 
   <div class="pulse-resource-body" style="padding: 16px;">
 
+    <% if @has_imported_entries %>
+      <div style="background: var(--color-attention-subtle, #fff8c5); border-left: 4px solid var(--color-attention-emphasis, #9a6700); padding: 12px 16px; margin-bottom: 16px; border-radius: 4px;">
+        <p style="font-weight: 600; margin: 0 0 6px 0;">Notice — imported records</p>
+        <p style="line-height: 1.5; margin: 0; font-size: 0.95em;">
+          Parts of this <%= @decision.is_lottery? ? 'lottery' : 'decision' %>'s history were imported from another Harmonic instance.
+          The checks below confirm the imported data is self-consistent, but they cannot prove the imported actions actually happened.
+          Trust in imported decisions depends on trust in whoever produced the imported data.
+          See <a href="#what-this-verification-proves">What this verification proves and doesn't</a> below.
+        </p>
+      </div>
+    <% end %>
+
     <p style="line-height: 1.6; margin-bottom: 16px;">
-      Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded so that anyone can independently verify that nothing was tampered with<% if @decision.beacon_drawn? %> and that the results are correct<% end %>.
+      <% if @has_imported_entries %>
+        Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded. For imported decisions verification is limited — see the notice above.
+      <% else %>
+        Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cryptographically recorded so that anyone can independently verify that nothing was tampered with<% if @decision.beacon_drawn? %> and that the results are correct<% end %>.
+      <% end %>
     </p>
 
     <div data-controller="audit-verify"
@@ -41,7 +57,61 @@
       <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code><%= File.read(Rails.root.join("scripts", "verify-audit-chain.py")) %></code></pre>
     </div>
 
-    <h2 style="font-size: 1.15em; margin: 0 0 12px 0;">Technical Details</h2>
+    <h2 id="what-this-verification-proves" style="font-size: 1.15em; margin: 0 0 12px 0;">What this verification proves and doesn't</h2>
+
+    <p style="line-height: 1.6; margin-bottom: 4px;">
+      <strong>What it proves:</strong>
+    </p>
+    <ul style="line-height: 1.6; margin-bottom: 12px; padding-left: 20px;">
+      <% unless @has_imported_entries %>
+        <li>Records of actions on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> have not been altered since they were written. Any change to the recorded history breaks verification.</li>
+      <% end %>
+      <li>The result totals shown for this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> match what's in the recorded history.</li>
+      <% if @decision.beacon_drawn? && !@has_imported_entries %>
+        <li>The random ordering of options was generated using <a href="https://drand.love" target="_blank" rel="noopener">drand</a>, an external public randomness source whose output can't be predicted in advance. The outcome was determined by drand, not by Harmonic.</li>
+      <% elsif @decision.beacon_drawn? %>
+        <li>The randomness values recorded for sort ordering match what <a href="https://drand.love" target="_blank" rel="noopener">drand</a> published for the recorded round.</li>
+      <% end %>
+    </ul>
+
+    <p style="line-height: 1.6; margin-bottom: 4px;">
+      <strong>What it doesn't prove:</strong>
+    </p>
+    <ul style="line-height: 1.6; margin-bottom: 16px; padding-left: 20px;">
+      <li>That every action a participant attempted was actually accepted and recorded. The check confirms what's in the recorded history, not what might have been omitted before reaching it.</li>
+      <li>That a given participant's Harmonic account was not compromised when they acted. Participants must be logged in to participate, but the cryptographic verification can't distinguish the account holder from someone using their credentials.</li>
+      <li>That the server itself was not compromised at the time of the decision. The cryptographic chain seals records once written, but the truthfulness of what's written depends on Harmonic's infrastructure security.</li>
+      <% if @has_imported_entries %>
+        <li>That the imported records reflect actions that actually happened. Imported history is just data this instance received from another Harmonic instance; this instance cannot independently verify what occurred on the source. Trust in imported decisions depends on trust in whoever produced the imported data.</li>
+        <% if @decision.beacon_drawn? %>
+          <li>For the imported lottery results, that the original operator committed to a specific drand round before drand revealed its value. The arithmetic check confirms the recorded values are real drand output, but a constructed import could point at any past round.</li>
+        <% end %>
+      <% end %>
+    </ul>
+
+    <% unless @decision.is_lottery? %>
+      <% if @has_imported_entries %>
+        <p style="line-height: 1.6; color: var(--color-fg-muted);">
+          Individual votes are visible on the <%= link_to "voters page", "#{@decision.path}/voters" %>.
+        </p>
+      <% else %>
+        <h2 style="font-size: 1.15em; margin: 24px 0 12px 0;">Additional safeguards</h2>
+
+        <p style="line-height: 1.6; margin-bottom: 12px;">
+          Beyond the cryptographic checks above, practical mechanisms can strengthen trust in this decision.
+        </p>
+
+        <p style="line-height: 1.6; margin-bottom: 8px;">
+          <strong>Visible votes.</strong> Every participant's vote is visible on the <%= link_to "voters page", "#{@decision.path}/voters" %> to anyone who can view this decision. If a vote were invented under your name, you'd be able to see it and dispute it; other participants watch for the same on their own votes.
+        </p>
+
+        <p style="line-height: 1.6; margin-bottom: 16px;">
+          <strong>Email receipts (when enabled).</strong> If your collective has vote receipt emails turned on and you've opted in, you'll receive an email after each vote with a verification link for your recorded entry. Keep these emails as an independent record — delivered out-of-band — of what the server told you it recorded.
+        </p>
+      <% end %>
+    <% end %>
+
+    <h2 style="font-size: 1.15em; margin: 24px 0 12px 0;">Technical Details</h2>
 
     <% if @audit_entries.any? %>
       <p style="line-height: 1.6; margin-bottom: 8px;">
@@ -81,13 +151,6 @@
         <p style="line-height: 1.6; margin-bottom: 16px;"><%= @round_derivation[:chain_info_note] %> <%= link_to "View chain info", @round_derivation[:chain_info_url], target: "_blank", rel: "noopener" %></p>
       <% end %>
     <% end %>
-
-    <p style="line-height: 1.6; color: var(--color-fg-muted);">
-      <strong>Limitation:</strong> the audit chain verifies integrity of recorded data but cannot prove that the server accepted every submission.
-      <% unless @decision.is_lottery? %>
-        Individual votes are visible on the <%= link_to "voters page", "#{@decision.path}/voters" %>.
-      <% end %>
-    </p>
 
   </div>
 </article>

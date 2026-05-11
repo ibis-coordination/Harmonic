@@ -184,11 +184,40 @@ Pinned invariants (each documented with at least one test that breaks if the inv
 17. `verify_receipt` scopes by `actor_token` when `actor_id` is NULL (no cross-actor leakage)
 18. Migrator: idempotent; leaves already-v2 entries alone; system entries get NULL token+salt; same-actor entries share the same actor_token
 
+## Trust model — what the chain proves and doesn't
+
+This is the architectural framing it took a beat to surface clearly. Worth being explicit:
+
+**The chain proves:** *this Harmonic instance has not altered its own records since writing them.* The DB-level immutability trigger blocks modification; every entry's hash links to the next; any retroactive change breaks verification. This is a real and useful guarantee — it bounds operator misbehavior to "honest at write time, then can't covertly change later."
+
+**The chain does not prove:**
+
+1. **That the named actors actually performed the actions.** Audit entries are server-written; the actor does not cryptographically sign. The operator could fabricate entries under a user's identity at write time and the chain wouldn't object.
+2. **For imported decisions, that any of the recorded actions ever occurred.** An imported audit chain is just data the importing instance received. Anyone with database access on a source instance can hand-craft entries with whatever outcomes they want, compute the hash chain forward, fake actor tokens via SHA256 of any chosen inputs, and (for lotteries) pick any past drand round to use authentic-looking randomness. The verifier confirms internal consistency, not provenance.
+3. **That every submission attempt was recorded.** The chain attests only to what the server accepted into the audit log. A vote dropped before being written leaves no trace.
+4. **For lottery decisions, that the operator committed before drand revealed.** drand's value is unpredictability of *future* rounds. For native chains written in real time, this means the operator picked the round before knowing its randomness — a meaningful commitment. For imported chains constructed after the fact, the operator can look up drand's past output and choose entries to match. The drand check confirms arithmetic in this case, not honesty.
+
+**What would close these gaps (all deferred or out of scope):**
+
+- Public timestamped log of `entry_hash` values (drand-style beacon, blockchain, certificate transparency log) committed at write time, so a verifier can prove a hash existed at a specific moment.
+- Actor cryptographic signing of each action with keys the verifier trusts. Shifts the trust unit from "the operator" to "each actor."
+- Cross-instance witnessing where multiple Harmonic instances co-attest events.
+
+None of these exist in Harmonic today.
+
+**Implications for surfaces:**
+
+- The verify page now includes an explicit "What this verification proves and doesn't" section honestly disclaiming the limits.
+- An imported-decision banner fires at the top of the verify page (HTML + Markdown) when any entry in the chain is imported, calling out that the checks "cannot prove the imported actions actually happened" and that trust in imported decisions depends on trust in whoever produced the imported data.
+- The `:imported` binding status (introduced in this work) makes imported entries distinguishable in the data layer, so future UI or admin tooling can render the trust tier accurately.
+- Privacy-policy or marketing language about audit chains should phrase the guarantee as "no covert modification by this operator" rather than "these actions really happened." The former is true; the latter overstates.
+
 ## Out of scope
 
 - The actual user-account-closure flow — Phase 3
 - Tombstoning of decisions on hard-delete — Phase 5
 - Cross-instance chain integrity preservation — deferred
+- Public timestamped commitment of entry hashes — would close gap #2 above; out of scope
 
 ## Outstanding work (to fully close this plan)
 

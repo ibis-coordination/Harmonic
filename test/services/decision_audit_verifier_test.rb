@@ -183,6 +183,30 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     assert result[:valid], "Expected valid but got errors: #{result[:errors]}"
   end
 
+  test "verify_vote_tallies still verifies after the participant changes their handle between vote_cast and vote_updated" do
+    # Regression: replay_vote_totals dedupes votes by actor_token. If the
+    # token derivation depends on the actor's current handle, a rename
+    # between vote_cast and vote_updated produces two different tokens for
+    # the same voter and the tally check double-counts them. The fix is to
+    # anchor token derivation to the participant's first handle in the
+    # decision (same lookup we already do for the salt).
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user)
+
+    @user.handle = "renamed-#{SecureRandom.hex(4)}"
+    vote.update_columns(accepted: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user, is_update: true)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert result[:valid],
+           "Vote tally must verify after a handle change: #{result[:errors].inspect}"
+  end
+
   test "verify_vote_tallies skips with no votes" do
     result = DecisionAuditVerifier.verify_vote_tallies(@decision)
     assert result[:valid]
