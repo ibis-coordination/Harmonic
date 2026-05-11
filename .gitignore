@@ -76,6 +76,7 @@ __pycache__/
 *.pyc
 
 ignore/
+gitignored/
 *storybook.log
 storybook-static
 e2e/.auth/
