@@ -224,6 +224,75 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert entry["entry_hash"].present?, "entry_hash present for the user's own receipt lookup"
   end
 
+  test "users.json includes the subject and excludes other users" do
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    users = read_json_from_zip("users.json")
+    source_ids = users.map { |u| u["source_id"] }
+    assert_equal [@user.id], source_ids
+    me = users.first
+    assert_equal @user.email, me["email"]
+    assert_equal @user.name, me["name"]
+    assert_equal "human", me["user_type"]
+  end
+
+  test "tenant_users.json includes the subject's TenantUser row in this tenant" do
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    tu_rows = read_json_from_zip("tenant_users.json")
+    source_ids = tu_rows.map { |t| t["source_id"] }
+    expected = TenantUser.find_by!(tenant_id: @tenant.id, user_id: @user.id)
+    assert_includes source_ids, expected.id
+    assert_equal expected.handle, tu_rows.first["handle"]
+    refute tu_rows.any? { |t| t["source_user_id"] == @other_user.id }, "must not include other users' TenantUser rows"
+  end
+
+  test "collective_members.json includes the subject's membership in the main collective" do
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    members = read_json_from_zip("collective_members.json")
+    user_ids = members.map { |m| m["source_user_id"] }
+    assert_equal [@user.id], user_ids, "should include only the subject's membership"
+  end
+
+  test "oauth_identities.json includes provider linkages and excludes auth_data" do
+    OauthIdentity.create!(
+      user: @user, provider: "google_oauth2", uid: "12345",
+      url: "https://example.com/alice", username: "alice",
+      auth_data: { "access_token" => "SECRET", "refresh_token" => "SECRET2" },
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    rows = read_json_from_zip("oauth_identities.json")
+    assert_equal 1, rows.length
+    row = rows.first
+    assert_equal "google_oauth2", row["provider"]
+    assert_equal "12345", row["uid"]
+    refute row.key?("auth_data"), "auth_data must NOT be exported (contains tokens)"
+    serialized = row.to_json
+    refute_includes serialized, "SECRET", "no access/refresh tokens leak via any field"
+  end
+
+  test "omni_auth_identities.json excludes password_digest, otp_secret, and recovery codes" do
+    OmniAuthIdentity.create!(
+      email: @user.email, name: @user.name,
+      password: SecureRandom.hex(10),
+      user: @user,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    rows = read_json_from_zip("omni_auth_identities.json")
+    assert_equal 1, rows.length
+    row = rows.first
+    refute row.key?("password_digest"), "password_digest must NOT be exported"
+    refute row.key?("otp_secret"), "otp_secret must NOT be exported"
+    refute row.key?("otp_recovery_codes"), "recovery codes must NOT be exported"
+    refute row.key?("reset_password_token"), "reset_password_token must NOT be exported"
+    assert_equal @user.email, row["email"]
+  end
+
   test "links.json includes links touching the subject's content (either endpoint)" do
     my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine A", text: "x")
     my_other = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine B", text: "y")

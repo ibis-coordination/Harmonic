@@ -53,6 +53,11 @@ class UserDataExportService
         gather_decision_audit_entries(tmpdir)
         gather_commitment_participants(tmpdir)
         gather_links(tmpdir)
+        gather_users(tmpdir)
+        gather_tenant_users(tmpdir)
+        gather_collective_members(tmpdir)
+        gather_oauth_identities(tmpdir)
+        gather_omni_auth_identities(tmpdir)
         write_manifest(tmpdir)
 
         zip_path = create_zip(tmpdir)
@@ -315,6 +320,117 @@ class UserDataExportService
     end
     write_json(tmpdir, "links.json", data)
     @record_counts["links"] = data.length
+  end
+
+  # Account-level data. The parent user + AI agent children. Includes
+  # personal data the user provided (email, name, avatar) and provider
+  # linkages. Credentials (password digests, OTP secrets, OAuth tokens)
+  # are excluded — they're not "personal data" in the GDPR Article 20
+  # sense and exporting them would create an unnecessary attack surface
+  # if the archive is intercepted.
+  sig { params(tmpdir: String).void }
+  def gather_users(tmpdir)
+    users = User.where(id: @subject_user_ids)
+    data = users.map do |u|
+      {
+        "source_id" => u.id,
+        "email" => u.email,
+        "name" => u.name,
+        "user_type" => u.user_type,
+        "source_parent_id" => u.parent_id,
+        "picture_url" => u.picture_url,
+        "image_url" => u.image_url,
+        "agent_configuration" => u.agent_configuration,
+        "created_at" => u.created_at.iso8601,
+        "updated_at" => u.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "users.json", data)
+    @record_counts["users"] = data.length
+  end
+
+  sig { params(tmpdir: String).void }
+  def gather_tenant_users(tmpdir)
+    rows = TenantUser.where(tenant_id: @tenant.id, user_id: @subject_user_ids)
+    data = rows.map do |t|
+      {
+        "source_id" => t.id,
+        "source_user_id" => t.user_id,
+        "handle" => t.handle,
+        "display_name" => t.display_name,
+        "settings" => t.settings,
+        "archived_at" => t.archived_at&.iso8601,
+        "created_at" => t.created_at.iso8601,
+        "updated_at" => t.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "tenant_users.json", data)
+    @record_counts["tenant_users"] = data.length
+  end
+
+  sig { params(tmpdir: String).void }
+  def gather_collective_members(tmpdir)
+    rows = CollectiveMember.where(collective_id: @collective.id, user_id: @subject_user_ids)
+    data = rows.map do |m|
+      {
+        "source_id" => m.id,
+        "source_user_id" => m.user_id,
+        "settings" => m.settings,
+        "roles" => m.roles,
+        "archived_at" => m.archived_at&.iso8601,
+        "created_at" => m.created_at.iso8601,
+        "updated_at" => m.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "collective_members.json", data)
+    @record_counts["collective_members"] = data.length
+  end
+
+  # OAuth provider linkages. The `auth_data` jsonb column carries access
+  # and refresh tokens — those are credentials, not personal data, and are
+  # NEVER exported.
+  sig { params(tmpdir: String).void }
+  def gather_oauth_identities(tmpdir)
+    rows = OauthIdentity.where(user_id: @subject_user_ids)
+    data = rows.map do |o|
+      {
+        "source_id" => o.id,
+        "source_user_id" => o.user_id,
+        "provider" => o.provider,
+        "uid" => o.uid,
+        "url" => o.url,
+        "username" => o.username,
+        "image_url" => o.image_url,
+        "last_sign_in_at" => o.last_sign_in_at&.iso8601,
+        "created_at" => o.created_at.iso8601,
+        "updated_at" => o.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "oauth_identities.json", data)
+    @record_counts["oauth_identities"] = data.length
+  end
+
+  # Email/password identity. The credential fields (password_digest,
+  # otp_secret, otp_recovery_codes, reset_password_token) are NEVER
+  # exported — they're credentials, not personal data, and including
+  # them would create an unnecessary attack surface.
+  sig { params(tmpdir: String).void }
+  def gather_omni_auth_identities(tmpdir)
+    rows = OmniAuthIdentity.where(user_id: @subject_user_ids)
+    data = rows.map do |o|
+      {
+        "source_id" => o.id,
+        "source_user_id" => o.user_id,
+        "email" => o.email,
+        "name" => o.name,
+        "otp_enabled" => o.otp_enabled,
+        "otp_enabled_at" => o.otp_enabled_at&.iso8601,
+        "created_at" => o.created_at.iso8601,
+        "updated_at" => o.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "omni_auth_identities.json", data)
+    @record_counts["omni_auth_identities"] = data.length
   end
 
   sig { params(tmpdir: String).void }
