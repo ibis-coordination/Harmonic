@@ -210,6 +210,22 @@ class SecurityAuditLog
     )
   end
 
+  # User-initiated security-relevant actions (parallel to log_admin_action but
+  # without the admin-action framing — used for things like "downloaded my own
+  # data export" where the actor is a regular user acting on their own account).
+  sig { params(user: User, ip: String, action: String, details: T::Hash[Symbol, T.untyped]).void }
+  def self.log_user_action(user:, ip:, action:, details: {})
+    T.unsafe(self).log_event(
+      event: "user_action",
+      severity: :info,
+      user_id: user.id,
+      email: user.email,
+      ip: ip,
+      user_action: action,
+      **details
+    )
+  end
+
   # User suspension events
 
   sig { params(user: User, suspended_by: User, reason: String, ip: String).void }

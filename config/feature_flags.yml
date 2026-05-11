@@ -68,3 +68,11 @@ feature_flags:
     default_tenant: false
     default_collective: false
     collective_level: false
+
+  user_data_export:
+    name: "Per-User Data Export"
+    description: "Allows individual users to download a ZIP of their own data (GDPR Article 20 portability). Disabled by default pending privacy policy and rollout."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false
