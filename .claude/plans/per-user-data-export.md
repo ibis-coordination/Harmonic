@@ -34,36 +34,48 @@ In the filters below, "owned by user" means `created_by_id ∈ {user.id, *ai_age
 
 Every record below is one that would be deleted, purged, or scrubbed on account closure. **Soft-deleted records are excluded** — once the user soft-deletes content, it's no longer "theirs" for export purposes (and we don't want exports to resurrect content the user intentionally hid).
 
-### User-authored content (created_by ∈ subject)
+### User-authored content
 
 - `Note` records where `created_by_id ∈ subject` (includes comments — they're Notes with `subtype: "comment"`)
 - `Decision` records where `created_by_id ∈ subject`
-- `Option` records where `created_by_id ∈ subject`
+- `Option` records whose `decision_participant.user_id ∈ subject` (Option has no `created_by_id` — authorship flows through the participant)
 - `Commitment` records where `created_by_id ∈ subject`
-- `Link` records where the user created the link
-- ActiveStorage blobs attached to the above
+- `Link` records where either endpoint (Note / Decision / Commitment) is owned by the subject (Link has no `created_by_id`; the relationship vanishes on account closure when the linked content is deleted)
+- `Attachment` records where `created_by_id ∈ subject`, with binary file content under `attachments/`
 
 ### Participation records (records of the subject's actions)
 
-- `Vote` rows by anyone in the subject — denormalized with `option_title` and `decision_question` snapshots (see below)
+Actions the subject took on records they don't necessarily own — parallel to votes, all carry the subject's `user_id` (or `actor_id`):
+
+- `Vote` rows by anyone in the subject (joins via `DecisionParticipant`) — denormalized with `option_title` and `decision_question` snapshots
 - `DecisionParticipant` rows where `user_id ∈ subject` — denormalized with `decision_question` snapshot
 - `CommitmentParticipant` rows where `user_id ∈ subject` — denormalized with `commitment_title` snapshot
-- `DecisionAuditEntry` rows where `actor_id ∈ subject` — included as **receipts of the subject's actions**, not as a verifiable chain (the surrounding entries belong to the collective). These already carry `option_title` and action-specific metadata snapshots natively.
+- `NoteHistoryEvent` rows where `user_id ∈ subject` — read confirmations, reminder acknowledgments, and edits the subject performed on any note. Denormalized with `note_title` snapshot.
+- `DecisionAuditEntry` rows where `actor_id ∈ subject` — **receipts of the subject's actions** (not a verifiable chain). Carry `option_title` and action-specific metadata natively; further denormalized with `decision_question` and `decision_truncated_id` for receipt-URL reconstruction.
+- `Invite` rows where `created_by_id ∈ subject` — invites the subject sent. Received invites (`invited_user_id = subject`) are excluded.
+- `TrusteeGrant` rows where the subject is either party (`granting_user_id ∈ subject` OR `trustee_user_id ∈ subject`). Both directions vanish on either user's closure. Tenant-scoped (no collective_id).
+- `RepresentationSession` rows where `representative_user_id ∈ subject` AND `collective_id IS NULL` — user-to-user sessions (via a `TrusteeGrant`). The main collective has no representatives, so collective-rep sessions (which have `collective_id` set) are out of scope.
+- `RepresentationSessionEvent` rows linked to the user-to-user sessions above — per-action detail of what the subject did while representing.
 
 ### Account-level personal data
 
-- `User` rows for the parent and every AI agent child (`parent_id = user.id`): email, name, avatar
+- `User` rows for the parent and every AI agent child (`parent_id = user.id`): email, name, avatar, user_type, agent_configuration
 - `TenantUser` row(s) for each subject user in this tenant: handle, display_name, per-tenant settings
-- `OauthIdentity` / `OmniAuthIdentity` rows for the parent user (AI agents don't have these): provider linkages and timestamps (NOT the access/refresh tokens)
-- `CollectiveMember` rows for each subject user in the main collective: roles, joined_at
+- `OauthIdentity` rows for the parent user (AI agents don't have these): provider linkages and timestamps (auth_data is NEVER exported — see exclusions)
+- `OmniAuthIdentity` rows for the parent user: email, name, otp_enabled (credentials NEVER exported — see exclusions)
+- `CollectiveMember` rows for each subject user in the main collective: roles, settings, joined_at
 
 ### Cheap denormalization (snapshots, not records)
 
-To keep the v1 archive minimally useful, a few labels are snapshotted onto participation records at export time. These are read-only strings, not the parent records:
+To keep the v1 archive legible, a few labels are snapshotted onto participation/action records at export time. These are read-only strings, not the parent records:
 
-- `Vote` rows include `option_title` and `decision_question` from the time of export
-- `DecisionParticipant` rows include `decision_question`
-- `CommitmentParticipant` rows include `commitment_title`
+| Record | Snapshot fields |
+|---|---|
+| `Vote` | `option_title`, `decision_question` |
+| `DecisionParticipant` | `decision_question` |
+| `CommitmentParticipant` | `commitment_title` |
+| `NoteHistoryEvent` | `note_title` |
+| `DecisionAuditEntry` | `decision_question`, `decision_truncated_id` (for receipt URL reconstruction) |
 
 This is the minimum to make the archive legible. It does not extend to including full parent records, related options the user didn't act on, other participants' votes, etc. — those remain out of scope.
 
@@ -108,10 +120,12 @@ Beyond the cheap denormalization listed in the in-scope section, v1 does not inc
 
 Same ZIP + JSON shape as the existing collective export ([CollectiveExportService](../../app/services/collective_export_service.rb)):
 
-- `manifest.json` — metadata (export type = "per_user", user id, main collective id, timestamp, schema version)
-- Per-record-type JSON files: `notes.json`, `decisions.json`, `options.json`, `commitments.json`, `votes.json`, `decision_participants.json`, `commitment_participants.json`, `decision_audit_entries.json`, `links.json`, `user.json`, `tenant_user.json`, `oauth_identities.json`, `collective_member.json`
-- `attachments/` — binary blobs referenced by record IDs
-- SHA-256 checksums in the manifest
+- `manifest.json` — metadata: `export_type: "user"`, subject (`user_id`, `collective_id`, `ai_agent_user_ids`), timestamp, schema version, record counts, SHA-256 checksums
+- Per-record-type JSON files:
+  - Content: `notes.json`, `decisions.json`, `options.json`, `commitments.json`, `links.json`, `attachments.json`
+  - Participation: `votes.json`, `decision_participants.json`, `commitment_participants.json`, `note_history_events.json`, `decision_audit_entries.json`, `invites.json`, `trustee_grants.json`, `representation_sessions.json`, `representation_session_events.json`
+  - Account: `users.json`, `tenant_users.json`, `collective_members.json`, `oauth_identities.json`, `omni_auth_identities.json`
+- `attachments/` — binary blobs referenced by `attachments.json`
 
 Each JSON file contains an array of records with their database fields preserved. Foreign keys to records not in the export (e.g., a Vote's `decision_id`) remain as UUIDs — orphan FKs are accepted as a v1 constraint. The user can always look up the parent decision in the main collective UI while their account is active.
 
@@ -219,16 +233,25 @@ Cheap label snapshots on participation/vote rows (`option_title`, `decision_ques
 
 ## Test plan
 
-- Export contains every in-scope record type for a user with mixed authored / participated data
-- Export excludes records authored by others, even when the user has touched them (commented, voted, participated)
-- Soft-deleted records (deleted_at IS NOT NULL) are excluded
-- AI agent children's data is included in the parent's export (notes, votes, audit entries with actor=agent)
-- AI agents cannot trigger their own export (controller rejects)
-- Collective identities cannot trigger an export (controller rejects)
-- Denormalized labels (`option_title`, `decision_question`, `commitment_title`) appear on participation/vote rows
-- Credentials (API token secrets, TOTP, OAuth tokens) are never present in any JSON file
-- `SecurityAuditLog` entries are never present in the export
+### Service-level (pinned)
+
+- Each in-scope record type includes only the subject's rows, excludes others'
+- Cross-collective leak protection: participations in non-main collectives are excluded; explicit `collective_id` filters as defense-in-depth
+- AI agent children's data appears in parent's export (notes, votes, audit entries with actor=agent, trustee grants)
+- Soft-deleted notes are excluded (relies on Note default scope)
+- RepresentationSessions: user-to-user (collective_id IS NULL) included; collective-rep sessions in other collectives excluded
+- TrusteeGrants: both grantor-side and trustee-side rows included; third-party grants excluded
+- NoteHistoryEvent: subject's read confirmations on others' notes ARE included (parallel to votes)
+- Invites sent by subject included; received invites excluded
+- Cheap denormalization fields are populated on the documented record types
+- Attachment binary content is in the ZIP for subject's blobs only
+- Credentials (password_digest, otp_secret, OAuth tokens, auth_data) are never present in any JSON file — pinned per-record
+- `SecurityAuditLog` entries are never present
 - Empty export (user with no activity) produces a valid ZIP with empty arrays
+- Service guards: refuses if export_type != "user"; refuses if subject user_type != "human"; refuses if collective != tenant's main_collective
+
+### Job- and controller-level (pending)
+
 - Per-tenant scope: user with data in two tenants gets two separate exports when triggered from each
 - Authorization: non-owner cannot trigger another user's export
 - Rate limiting fires
