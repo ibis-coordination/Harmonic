@@ -146,5 +146,41 @@
       </span>
     </div>
 
+    <%# System Health Section: DB pool + Redis %>
+    <div class="pulse-monitoring-row">
+      <%= octicon 'database', height: 14 %>
+      <span class="pulse-monitoring-label">DB Pool</span>
+      <span class="pulse-monitoring-values">
+        <% if @system_health[:db_pool] %>
+          <% pool = @system_health[:db_pool] %>
+          <span><%= pool[:busy] %>/<%= pool[:size] %> busy</span>
+          &middot;
+          <span><%= pool[:connections] %> open</span>
+          &middot;
+          <% if pool[:waiting].to_i > 0 %>
+            <span class="pulse-text-warning"><%= pool[:waiting] %> waiting</span>
+          <% else %>
+            <span class="pulse-text-muted">0 waiting</span>
+          <% end %>
+        <% else %>
+          <span class="pulse-text-muted">unavailable</span>
+        <% end %>
+      </span>
+    </div>
+
+    <div class="pulse-monitoring-row">
+      <%= octicon 'pulse', height: 14 %>
+      <span class="pulse-monitoring-label">Redis</span>
+      <span class="pulse-monitoring-values">
+        <% if @system_health[:redis_used_memory] %>
+          <span><%= @system_health[:redis_used_memory] %> used</span>
+          &middot;
+          <span><%= @system_health[:redis_clients_connected] %> clients</span>
+        <% else %>
+          <span class="pulse-text-muted">unavailable</span>
+        <% end %>
+      </span>
+    </div>
+
   </div>
 <% end %>
