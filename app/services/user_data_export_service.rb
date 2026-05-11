@@ -488,12 +488,31 @@ class UserDataExportService
     @record_counts["links"] = data.length
   end
 
+  # Allowlists for JSONB columns. Open-ended jsonb is dangerous in an export
+  # because a new sub-key (e.g. a future cached API key on a User) would
+  # silently start leaking. Each allowlist names the keys we deliberately
+  # export; everything else is dropped.
+  USER_AGENT_CONFIGURATION_KEYS = %w[mode model capabilities identity_prompt].freeze
+  TENANT_USER_SETTINGS_KEYS = %w[pinned roles notification_preferences].freeze
+  COLLECTIVE_MEMBER_SETTINGS_KEYS = %w[roles].freeze
+
+  sig { params(jsonb: T.nilable(T::Hash[String, T.untyped]), allowed: T::Array[String]).returns(T::Hash[String, T.untyped]) }
+  def slice_jsonb(jsonb, allowed)
+    return {} if jsonb.nil?
+
+    allowed.each_with_object({}) { |key, acc| acc[key] = jsonb[key] if jsonb.key?(key) }
+  end
+
   # Account-level data. The parent user + AI agent children. Includes
   # personal data the user provided (email, name, avatar) and provider
   # linkages. Credentials (password digests, OTP secrets, OAuth tokens)
   # are excluded — they're not "personal data" in the GDPR Article 20
   # sense and exporting them would create an unnecessary attack surface
   # if the archive is intercepted.
+  #
+  # JSONB columns (agent_configuration, settings) are sliced to a fixed
+  # allowlist of keys to prevent future sub-key additions from silently
+  # leaking via this export.
   sig { params(tmpdir: String).void }
   def gather_users(tmpdir)
     users = User.where(id: @subject_user_ids)
@@ -506,7 +525,7 @@ class UserDataExportService
         "source_parent_id" => u.parent_id,
         "picture_url" => u.picture_url,
         "image_url" => u.image_url,
-        "agent_configuration" => u.agent_configuration,
+        "agent_configuration" => slice_jsonb(u.agent_configuration, USER_AGENT_CONFIGURATION_KEYS),
         "created_at" => u.created_at.iso8601,
         "updated_at" => u.updated_at.iso8601,
       }
@@ -524,7 +543,7 @@ class UserDataExportService
         "source_user_id" => t.user_id,
         "handle" => t.handle,
         "display_name" => t.display_name,
-        "settings" => t.settings,
+        "settings" => slice_jsonb(t.settings, TENANT_USER_SETTINGS_KEYS),
         "archived_at" => t.archived_at&.iso8601,
         "created_at" => t.created_at.iso8601,
         "updated_at" => t.updated_at.iso8601,
@@ -541,7 +560,7 @@ class UserDataExportService
       {
         "source_id" => m.id,
         "source_user_id" => m.user_id,
-        "settings" => m.settings,
+        "settings" => slice_jsonb(m.settings, COLLECTIVE_MEMBER_SETTINGS_KEYS),
         "roles" => m.roles,
         "archived_at" => m.archived_at&.iso8601,
         "created_at" => m.created_at.iso8601,

@@ -217,6 +217,14 @@ Excluded from the export. The user soft-deleted them intentionally; v1 doesn't r
 
 Cheap label snapshots on participation/vote rows (`option_title`, `decision_question`, `commitment_title`) at export time. Not parent record copies, just enough to make the archive legible.
 
+## Known acceptable consequences
+
+### Pre-scrub exports persist past account closure
+
+The export includes `actor_token` and `actor_token_salt` on each audit-chain receipt where the subject was the actor. Post-account-closure, the live DB scrubs both `actor_id` and `actor_token_salt` on those entries, but a previously-issued export still contains them. This is **intentional**: it lets the user prove their own past actions even after closing their account.
+
+Implication: an attacker who later obtains a user's pre-closure export ZIP could re-link the user's identity to entries that are now scrubbed in the live chain. This is an acceptable trade-off because the user explicitly requested the export, knows what's in it, and can manage their own copy. Future maintainers should NOT try to "fix" this by stripping the salt — the user attesting to their own scrubbed entries is a feature, not a bug.
+
 ## Future versions (out of scope for v1)
 
 - Per-user export from private collectives (waits on ownership policy)

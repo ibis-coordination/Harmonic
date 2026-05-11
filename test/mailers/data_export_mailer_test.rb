@@ -97,7 +97,7 @@ class DataExportMailerTest < ActiveSupport::TestCase
     refute_includes email.subject, @collective.name, "user export subject should not name a collective"
   end
 
-  test "user_export_ready email body includes record counts and the tenant-scoped download link" do
+  test "user_export_ready email body includes record counts and the user-scoped download link" do
     user_export = DataExport.create!(
       tenant: @tenant, collective: @collective, user: @user,
       status: "completed", expires_at: 7.days.from_now,
@@ -108,6 +108,8 @@ class DataExportMailerTest < ActiveSupport::TestCase
     body = email.body.encoded
     assert_includes body, "3 notes"
     assert_includes body, "4 votes"
-    assert_includes body, "/settings/data_export/#{user_export.id}"
+    handle = @user.tenant_users.find_by(tenant_id: @tenant.id).handle
+    assert_includes body, "/u/#{handle}/settings/data-export/#{user_export.id}",
+                     "download URL must match the actual controller route (/u/:handle/settings/data-export/:id)"
   end
 end

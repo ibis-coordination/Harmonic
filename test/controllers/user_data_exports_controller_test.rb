@@ -40,6 +40,53 @@ class UserDataExportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  # === Rate limit ===
+
+  test "Rack::Attack throttle is registered for POST to the user export endpoint" do
+    # The actual middleware-based behavior isn't exercised in the test env,
+    # but we pin that the throttle rule exists and matches the correct path
+    # — so removing or breaking the regex in rack_attack.rb causes a test
+    # failure rather than a silent loss of protection.
+    rule = Rack::Attack.throttles["user_data_exports/ip"]
+    refute_nil rule, "expected a 'user_data_exports/ip' throttle in rack_attack.rb"
+
+    # Synthesize a request and confirm the rule matches it.
+    post_env = Rack::MockRequest.env_for("/u/somehandle/settings/data-export", method: "POST", "REMOTE_ADDR" => "1.2.3.4")
+    post_req = Rack::Attack::Request.new(post_env)
+    assert_equal "1.2.3.4", rule.block.call(post_req), "throttle should match POST and return the client IP"
+
+    get_env = Rack::MockRequest.env_for("/u/somehandle/settings/data-export", method: "GET", "REMOTE_ADDR" => "1.2.3.4")
+    get_req = Rack::Attack::Request.new(get_env)
+    assert_nil rule.block.call(get_req), "throttle should not match GETs (read-only)"
+
+    other_env = Rack::MockRequest.env_for("/u/somehandle/settings/profile", method: "POST", "REMOTE_ADDR" => "1.2.3.4")
+    other_req = Rack::Attack::Request.new(other_env)
+    assert_nil rule.block.call(other_req), "throttle should not match unrelated paths"
+  end
+
+  # === API token rejection ===
+
+  test "rejects API-token-authenticated requests with 403" do
+    # Personal data export is browser-only. The reverification gate
+    # intentionally bypasses for API tokens, but for an action this
+    # sensitive we additionally refuse API-token auth at the boundary so
+    # a stolen token (even one issued by the legitimate user) can't
+    # trigger or download an export.
+    api_token = ApiToken.create!(
+      tenant: @tenant, user: @user, name: "test", scopes: ApiToken.valid_scopes,
+    )
+    headers = { "Authorization" => "Bearer #{api_token.plaintext_token}", "Accept" => "text/markdown" }
+
+    [
+      [:get, "/u/#{@user_handle}/settings/data-export"],
+      [:post, "/u/#{@user_handle}/settings/data-export"],
+      [:get, "/u/#{@user_handle}/settings/data-export/some-id"],
+    ].each do |method, path|
+      send(method, path, headers: headers)
+      assert_response :forbidden, "#{method.upcase} #{path} must reject API-token auth (got #{response.status})"
+    end
+  end
+
   # === Authorization ===
 
   test "unauthenticated user is redirected to login" do

@@ -45,6 +45,27 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  # === API token rejection ===
+
+  test "rejects API-token-authenticated requests with 403" do
+    # Collective data export is browser-only. The reverification gate
+    # (2FA) intentionally bypasses for API tokens; a stolen admin-scoped
+    # token must not be able to trigger an entire-collective export.
+    api_token = ApiToken.create!(
+      tenant: @tenant, user: @admin_user, name: "test", scopes: ApiToken.valid_scopes,
+    )
+    headers = { "Authorization" => "Bearer #{api_token.plaintext_token}", "Accept" => "text/markdown" }
+
+    [
+      [:get, "/collectives/#{@collective.handle}/exports"],
+      [:post, "/collectives/#{@collective.handle}/exports"],
+      [:get, "/collectives/#{@collective.handle}/exports/some-id"],
+    ].each do |method, path|
+      send(method, path, headers: headers)
+      assert_response :forbidden, "#{method.upcase} #{path} must reject API-token auth (got #{response.status})"
+    end
+  end
+
   # === Authorization: admin required ===
 
   test "non-admin user is redirected from exports index" do

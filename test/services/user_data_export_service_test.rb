@@ -520,6 +520,89 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal 2, source_ids.length, "third-party grants must be excluded"
   end
 
+  test "agent_configuration is sliced to a fixed key allowlist — unknown sub-keys do not leak" do
+    ai_agent = create_ai_agent(parent: @user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    # Simulate a future code path that stores a sensitive key on the AI agent.
+    ai_agent.update_columns(
+      agent_configuration: ai_agent.agent_configuration.to_h.merge("api_key" => "SHOULD_NOT_LEAK_ABCDE"),
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    users = read_json_from_zip("users.json")
+    agent_row = users.find { |u| u["source_id"] == ai_agent.id }
+    refute_nil agent_row
+    refute agent_row["agent_configuration"].key?("api_key"),
+           "agent_configuration must drop unknown keys; got: #{agent_row['agent_configuration'].inspect}"
+    refute_includes agent_row.to_json, "SHOULD_NOT_LEAK_ABCDE"
+  end
+
+  test "TenantUser.settings is sliced — unknown sub-keys do not leak" do
+    tu = @user.tenant_users.find_by!(tenant_id: @tenant.id)
+    tu.update_columns(settings: tu.settings.to_h.merge("future_secret" => "SETTINGS_LEAK_XYZ"))
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    rows = read_json_from_zip("tenant_users.json")
+    me = rows.find { |r| r["source_user_id"] == @user.id }
+    refute me["settings"].key?("future_secret"), "TenantUser settings must drop unknown keys"
+    refute_includes me.to_json, "SETTINGS_LEAK_XYZ"
+  end
+
+  test "CollectiveMember.settings is sliced — unknown sub-keys do not leak" do
+    cm = @collective.collective_members.find_by!(user_id: @user.id)
+    cm.update_columns(settings: cm.settings.to_h.merge("future_secret" => "MEMBER_LEAK_QPR"))
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    rows = read_json_from_zip("collective_members.json")
+    me = rows.find { |r| r["source_user_id"] == @user.id }
+    refute me["settings"].key?("future_secret"), "CollectiveMember settings must drop unknown keys"
+    refute_includes me.to_json, "MEMBER_LEAK_QPR"
+  end
+
+  test "credential strings do not appear in any exported JSON file (sweep across the whole ZIP)" do
+    # Plant a unique sentinel into every place credentials might live, then
+    # assert the ZIP contains none of them. Catches accidental leakage from
+    # any future code path that adds a column without going through the
+    # explicit per-record allowlist.
+    omni = OmniAuthIdentity.create!(email: @user.email, name: @user.name, password: SecureRandom.hex(10), user: @user)
+    omni.update_columns(
+      password_digest: "PD_LEAK_X4Y9Z2",
+      reset_password_token: "RP_LEAK_M7N3O8",
+      otp_secret: "OS_LEAK_K2L9M4",
+      otp_recovery_codes: ["RC_LEAK_R5T8W1"],
+    )
+    OauthIdentity.create!(
+      user: @user, provider: "google_oauth2", uid: "12345",
+      auth_data: { "access_token" => "AT_LEAK_J1K2L3", "refresh_token" => "RT_LEAK_Q9W8E7" },
+    )
+    ApiToken.create!(
+      tenant: @tenant, user: @user, name: "test",
+      scopes: ApiToken.valid_scopes,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    zip_data = @data_export.file.download
+    sentinels = %w[
+      PD_LEAK_X4Y9Z2 RP_LEAK_M7N3O8 OS_LEAK_K2L9M4 RC_LEAK_R5T8W1
+      AT_LEAK_J1K2L3 RT_LEAK_Q9W8E7
+    ]
+    Zip::InputStream.open(StringIO.new(zip_data)) do |io|
+      while (entry = io.get_next_entry)
+        next unless entry.name.end_with?(".json")
+
+        contents = io.read
+        sentinels.each do |s|
+          refute_includes contents, s, "credential sentinel '#{s}' leaked into #{entry.name}"
+        end
+      end
+    end
+  end
+
   test "trustee_grants.json includes AI agent's auto-created parent grant" do
     # create_ai_agent triggers User#create_parent_trustee_grant! which creates
     # a grant where granting_user = agent and trustee_user = parent. Both

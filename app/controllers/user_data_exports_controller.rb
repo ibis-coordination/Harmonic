@@ -5,6 +5,7 @@
 class UserDataExportsController < ApplicationController
   include RequiresReverification
 
+  before_action :reject_api_token_auth
   before_action :require_login
   before_action :require_feature_enabled
   before_action :set_settings_user
@@ -72,6 +73,18 @@ class UserDataExportsController < ApplicationController
   end
 
   private
+
+  # Personal data export is browser-only by design. The reverification gate
+  # (2FA) intentionally bypasses for API-token requests, but for a flow this
+  # sensitive — a download of everything the user has ever shared — we
+  # require an interactive browser session with a fresh 2FA confirmation.
+  # A stolen API token (even one issued by the legitimate user) must not be
+  # able to download a personal export without 2FA.
+  def reject_api_token_auth
+    return unless api_token_present?
+
+    render plain: "API tokens cannot trigger personal data exports. Sign in via the web UI.", status: :forbidden
+  end
 
   def require_login
     return if @current_user
