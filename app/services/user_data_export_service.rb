@@ -190,9 +190,18 @@ class UserDataExportService
   # legible without including the parent records it points at. The snapshot
   # reflects the current label at export time; if the parent has been edited
   # since the user's action, the export reflects "what it's called now."
+  #
+  # The explicit `collective_id: @collective.id` filter is defense-in-depth.
+  # The default scope inside `with_scoped_context` would filter anyway, but
+  # callers that bypass that context would otherwise leak the user's
+  # participations from other collectives in the same tenant. The user
+  # exports from the main collective only; their data in other collectives
+  # is not in scope.
   sig { params(tmpdir: String).void }
   def gather_decision_participants(tmpdir)
-    participants = DecisionParticipant.where(user_id: @subject_user_ids).includes(:decision)
+    participants = DecisionParticipant
+                     .where(collective_id: @collective.id, user_id: @subject_user_ids)
+                     .includes(:decision)
     data = participants.map do |p|
       decision = p.decision
       {
@@ -210,8 +219,12 @@ class UserDataExportService
 
   sig { params(tmpdir: String).void }
   def gather_votes(tmpdir)
-    participant_ids = DecisionParticipant.where(user_id: @subject_user_ids).pluck(:id)
-    votes = Vote.where(decision_participant_id: participant_ids).includes(:decision, :option)
+    participant_ids = DecisionParticipant
+                        .where(collective_id: @collective.id, user_id: @subject_user_ids)
+                        .pluck(:id)
+    votes = Vote
+              .where(collective_id: @collective.id, decision_participant_id: participant_ids)
+              .includes(:decision, :option)
     data = votes.map do |v|
       decision = v.decision
       option = v.option
@@ -234,7 +247,9 @@ class UserDataExportService
 
   sig { params(tmpdir: String).void }
   def gather_commitment_participants(tmpdir)
-    participants = CommitmentParticipant.where(user_id: @subject_user_ids).includes(:commitment)
+    participants = CommitmentParticipant
+                     .where(collective_id: @collective.id, user_id: @subject_user_ids)
+                     .includes(:commitment)
     data = participants.map do |p|
       commitment = p.commitment
       {

@@ -293,6 +293,73 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal @user.email, row["email"]
   end
 
+  test "does not leak participations from other collectives in the same tenant" do
+    other_collective = create_collective(tenant: @tenant, created_by: @user, name: "Private Group", handle: "private-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(@user)
+
+    # User has a decision + participation + vote AND a commitment + participation in the OTHER collective.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: other_collective.handle)
+
+    other_decision = create_decision(tenant: @tenant, collective: other_collective, created_by: @user, question: "Other group decision")
+    other_option = create_option(decision: other_decision, created_by: @user, title: "Other option")
+    other_participant = DecisionParticipantManager.new(decision: other_decision, user: @user).find_or_create_participant
+    Vote.create!(
+      tenant: @tenant, collective: other_collective, decision: other_decision, option: other_option,
+      decision_participant: other_participant, accepted: 1, preferred: 0,
+    )
+
+    other_commitment = create_commitment(tenant: @tenant, collective: other_collective, created_by: @user, title: "Other commitment")
+    other_cp = CommitmentParticipantManager.new(commitment: other_commitment, user: @user).find_or_create_participant
+    other_cp.update!(committed_at: Time.current)
+
+    # Switch back to the main collective scope and run the export.
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    decision_participants = read_json_from_zip("decision_participants.json")
+    refute decision_participants.any? { |p| p["source_decision_id"] == other_decision.id },
+           "decision_participants must not include participations from other collectives"
+
+    votes = read_json_from_zip("votes.json")
+    refute votes.any? { |v| v["source_decision_id"] == other_decision.id },
+           "votes must not include votes from other collectives"
+
+    commitment_participants = read_json_from_zip("commitment_participants.json")
+    refute commitment_participants.any? { |p| p["source_commitment_id"] == other_commitment.id },
+           "commitment_participants must not include participations from other collectives"
+  end
+
+  test "includes data authored by AI agent children of the subject" do
+    ai_agent = create_ai_agent(parent: @user)
+    @collective.add_user!(ai_agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    agent_note = create_note(tenant: @tenant, collective: @collective, created_by: ai_agent, title: "Agent note", text: "by agent")
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    notes = read_json_from_zip("notes.json")
+    source_ids = notes.map { |n| n["source_id"] }
+    assert_includes source_ids, agent_note.id, "AI agent's note must appear in the parent's export"
+
+    manifest = read_json_from_zip("manifest.json")
+    assert_includes manifest["subject"]["ai_agent_user_ids"], ai_agent.id
+  end
+
+  test "excludes soft-deleted content" do
+    kept = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Kept", text: "x")
+    deleted = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Deleted", text: "y")
+    deleted.soft_delete!(by: @user)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    notes = read_json_from_zip("notes.json")
+    source_ids = notes.map { |n| n["source_id"] }
+    assert_includes source_ids, kept.id
+    refute_includes source_ids, deleted.id, "soft-deleted notes must be excluded"
+  end
+
   test "links.json includes links touching the subject's content (either endpoint)" do
     my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine A", text: "x")
     my_other = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine B", text: "y")
