@@ -122,7 +122,7 @@ class TrusteeGrantsController < ApplicationController
       granting_user: @target_user,
       trustee_user: trustee,
       permissions: permissions,
-      studio_scope: collective_scope,
+      collective_scope: collective_scope,
       expires_at: expires_at
     )
 
@@ -505,11 +505,10 @@ class TrusteeGrantsController < ApplicationController
       { "mode" => "all" }
     when "include"
       ids = parse_collective_ids(collective_ids)
-      # Note: stored as "studio_ids" in JSONB column (to be renamed in a future migration)
-      { "mode" => "include", "studio_ids" => ids }
+      { "mode" => "include", "collective_ids" => ids }
     when "exclude"
       ids = parse_collective_ids(collective_ids)
-      { "mode" => "exclude", "studio_ids" => ids }
+      { "mode" => "exclude", "collective_ids" => ids }
     else
       { "mode" => "all" }
     end

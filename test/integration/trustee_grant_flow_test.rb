@@ -37,7 +37,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_notes" => true, "vote" => true },
-      studio_scope: { "mode" => "all" }
+      collective_scope: { "mode" => "all" }
     )
 
     assert permission.pending?
@@ -207,7 +207,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_note" => true },
-      studio_scope: { "mode" => "include", "studio_ids" => [@collective.id] }
+      collective_scope: { "mode" => "include", "collective_ids" => [@collective.id] }
     )
     permission.accept!
 
@@ -225,7 +225,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_note" => true },
-      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_collective.id] }
+      collective_scope: { "mode" => "exclude", "collective_ids" => [excluded_collective.id] }
     )
     permission.accept!
 
@@ -377,7 +377,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" } # Grant allows all collectives
+      collective_scope: { "mode" => "all" } # Grant allows all collectives
     )
     grant.accept!
 
@@ -418,7 +418,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "exclude", "studio_ids" => [excluded_collective.id] }
+      collective_scope: { "mode" => "exclude", "collective_ids" => [excluded_collective.id] }
     )
     grant.accept!
 
@@ -440,7 +440,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     # Since the grant excludes this collective, access should be denied
     get excluded_collective.path
 
-    # Expected behavior: Should deny access because the grant's studio_scope excludes this collective
+    # Expected behavior: Should deny access because the grant's collective_scope excludes this collective
     assert response.status != 200 || !response.body.include?(excluded_collective.name),
            "User representation session should not allow access to collectives excluded by grant scope. " \
            "Got status #{response.status}"
@@ -453,7 +453,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
       granting_user: @alice,
       trustee_user: @bob,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" }
+      collective_scope: { "mode" => "all" }
     )
     grant.accept!
 

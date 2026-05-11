@@ -1643,7 +1643,7 @@ CREATE TABLE public.trustee_grants (
     accepted_at timestamp(6) without time zone,
     declined_at timestamp(6) without time zone,
     revoked_at timestamp(6) without time zone,
-    studio_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
+    collective_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     trustee_user_id uuid NOT NULL
 );
@@ -9402,6 +9402,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260511000001'),
 ('20260511000000'),
 ('20260510000003'),
 ('20260510000002'),

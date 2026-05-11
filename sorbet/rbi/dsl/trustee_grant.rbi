@@ -703,6 +703,51 @@ class TrusteeGrant
     sig { void }
     def accepted_at_will_change!; end
 
+    sig { returns(T.untyped) }
+    def collective_scope; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def collective_scope=(value); end
+
+    sig { returns(T::Boolean) }
+    def collective_scope?; end
+
+    sig { returns(T.untyped) }
+    def collective_scope_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_scope_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_scope_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def collective_scope_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def collective_scope_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def collective_scope_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def collective_scope_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def collective_scope_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def collective_scope_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def collective_scope_previously_was; end
+
+    sig { returns(T.untyped) }
+    def collective_scope_was; end
+
+    sig { void }
+    def collective_scope_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -1067,6 +1112,9 @@ class TrusteeGrant
     def restore_accepted_at!; end
 
     sig { void }
+    def restore_collective_scope!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -1092,9 +1140,6 @@ class TrusteeGrant
 
     sig { void }
     def restore_revoked_at!; end
-
-    sig { void }
-    def restore_studio_scope!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -1159,6 +1204,12 @@ class TrusteeGrant
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_accepted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_collective_scope; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_collective_scope?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
 
@@ -1213,12 +1264,6 @@ class TrusteeGrant
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_revoked_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def saved_change_to_studio_scope; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_studio_scope?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_tenant_id; end
 
@@ -1242,51 +1287,6 @@ class TrusteeGrant
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def studio_scope; end
-
-    sig { params(value: T.untyped).returns(T.untyped) }
-    def studio_scope=(value); end
-
-    sig { returns(T::Boolean) }
-    def studio_scope?; end
-
-    sig { returns(T.untyped) }
-    def studio_scope_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def studio_scope_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def studio_scope_came_from_user?; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def studio_scope_change; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def studio_scope_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def studio_scope_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def studio_scope_in_database; end
-
-    sig { returns(T.nilable([T.untyped, T.untyped])) }
-    def studio_scope_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def studio_scope_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.untyped) }
-    def studio_scope_previously_was; end
-
-    sig { returns(T.untyped) }
-    def studio_scope_was; end
-
-    sig { void }
-    def studio_scope_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def tenant_id; end
@@ -1472,6 +1472,9 @@ class TrusteeGrant
     def will_save_change_to_accepted_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_collective_scope?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1497,9 +1500,6 @@ class TrusteeGrant
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_revoked_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_studio_scope?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

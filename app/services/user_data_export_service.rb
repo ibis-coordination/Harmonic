@@ -383,7 +383,7 @@ class UserDataExportService
         "source_trustee_user_id" => g.trustee_user_id,
         "description" => g.description,
         "permissions" => g.permissions,
-        "studio_scope" => g.studio_scope,
+        "collective_scope" => g.collective_scope,
         "expires_at" => g.expires_at&.iso8601,
         "accepted_at" => g.accepted_at&.iso8601,
         "declined_at" => g.declined_at&.iso8601,

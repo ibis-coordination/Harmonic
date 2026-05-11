@@ -424,7 +424,7 @@ class CollectiveTest < ActiveSupport::TestCase
       granting_user: alice,
       trustee_user: bob,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" }
+      collective_scope: { "mode" => "all" }
     )
     grant.accept!
 

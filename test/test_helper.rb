@@ -223,7 +223,7 @@ class ActiveSupport::TestCase
     granting_user:,
     trustee_user:,
     permissions: {},
-    studio_scope: { "mode" => "all" },
+    collective_scope: { "mode" => "all" },
     expires_at: nil,
     accepted: false
   )
@@ -232,7 +232,7 @@ class ActiveSupport::TestCase
       granting_user: granting_user,
       trustee_user: trustee_user,
       permissions: permissions,
-      studio_scope: studio_scope,
+      collective_scope: collective_scope,
       expires_at: expires_at,
     )
     permission.accept! if accepted
