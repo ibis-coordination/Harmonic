@@ -149,7 +149,9 @@ class SystemAdminController < ApplicationController
     redis&.close
 
     @status_filter = params[:status]
-    scope = AiAgentTaskRun.unscoped_for_admin(@current_user).order(created_at: :desc)
+    base = AiAgentTaskRun.unscoped_for_admin(@current_user)
+    @queued_task_count = base.where(status: "queued").count
+    scope = base.order(created_at: :desc)
     scope = scope.where(status: @status_filter) if @status_filter.present?
     @recent_task_runs = scope.limit(20)
 
@@ -180,17 +182,16 @@ class SystemAdminController < ApplicationController
     # Each task's dispatch needs its own tenant scope; restore the request's
     # tenant context once the loop finishes (or aborts) so the response can
     # log, render, and redirect normally.
-    begin
+    with_admin_scope_restored do
       queued.find_each do |task_run|
         Tenant.scope_thread_to_tenant(subdomain: task_run.tenant.subdomain)
+        Collective.clear_thread_scope
         AgentRunnerDispatchService.dispatch(task_run)
         dispatched += 1
       rescue StandardError => e
         failed += 1
         Rails.logger.warn("[SystemAdmin] redispatch failed for #{task_run.id}: #{e.class} #{e.message}")
       end
-    ensure
-      Tenant.scope_thread_to_tenant(subdomain: @current_tenant.subdomain)
     end
 
     SecurityAuditLog.log_admin_action(
@@ -228,17 +229,24 @@ class SystemAdminController < ApplicationController
       return
     end
 
-    task_run.update!(
-      status: "cancelled",
-      completed_at: Time.current,
-      error: "Cancelled by admin",
-    )
-    task_run.notify_parent_automation_runs!
-    # Revoke the ephemeral runner token (`internal: true`, so the default external
-    # scope hides it). Use admin scope so we find tokens belonging to other tenants too.
-    ApiToken.unscoped_for_admin(@current_user)
-      .where(context_id: task_run.id, context_type: "AiAgentTaskRun", deleted_at: nil)
-      .find_each(&:delete!)
+    # Mutations and parent-run lookups run in the task's own tenant scope so
+    # default-scoped queries (AutomationRuleRun, etc.) target the right rows
+    # even when admin and task live in different tenants.
+    with_admin_scope_restored do
+      Tenant.scope_thread_to_tenant(subdomain: task_run.tenant.subdomain)
+      Collective.clear_thread_scope
+      task_run.update!(
+        status: "cancelled",
+        completed_at: Time.current,
+        error: "Cancelled by admin",
+      )
+      task_run.notify_parent_automation_runs!
+      # Revoke the ephemeral runner token (`internal: true`, so the default external
+      # scope hides it). Use admin scope so we find tokens belonging to other tenants too.
+      ApiToken.unscoped_for_admin(@current_user)
+        .where(context_id: task_run.id, context_type: "AiAgentTaskRun", deleted_at: nil)
+        .find_each(&:delete!)
+    end
 
     SecurityAuditLog.log_admin_action(
       admin: @current_user,
@@ -262,6 +270,20 @@ class SystemAdminController < ApplicationController
   end
 
   private
+
+  # Run a block under a (possibly different) tenant/collective scope and
+  # always restore the request's original scope afterwards. Cross-tenant
+  # admin actions need this so the response (logging, redirect) runs under
+  # the admin's normal context.
+  def with_admin_scope_restored
+    saved_collective_id = Collective.current_id
+    saved_collective_handle = Current.collective_handle
+    yield
+  ensure
+    Tenant.scope_thread_to_tenant(subdomain: @current_tenant.subdomain) if @current_tenant
+    Current.collective_id = saved_collective_id
+    Current.collective_handle = saved_collective_handle
+  end
 
   def ensure_primary_tenant
     unless @current_tenant&.subdomain == ENV['PRIMARY_SUBDOMAIN']

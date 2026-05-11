@@ -65,17 +65,16 @@
   </div>
 <% end %>
 
-<% queued_count = AiAgentTaskRun.unscoped_for_admin(@current_user).where(status: "queued").count %>
-<%= render 'shared/pulse_accordion', title: 'Queue Actions', icon: 'tools', open: queued_count.positive? do %>
+<%= render 'shared/pulse_accordion', title: 'Queue Actions', icon: 'tools', open: @queued_task_count.positive? do %>
   <p class="pulse-form-hint" style="margin-bottom: 12px;">
     Re-publishes every <code class="pulse-code">queued</code> task run to the
     <code class="pulse-code">agent_tasks</code> Redis stream. Use when the runner
     restarted while tasks were waiting, or after the stream was lost.
   </p>
-  <% if queued_count.positive? %>
+  <% if @queued_task_count.positive? %>
     <details>
       <summary class="pulse-action-btn" style="cursor: pointer; display: inline-block;">
-        <%= octicon 'sync', height: 14 %> Redispatch <%= queued_count %> queued task<%= 's' unless queued_count == 1 %>
+        <%= octicon 'sync', height: 14 %> Redispatch <%= @queued_task_count %> queued task<%= 's' unless @queued_task_count == 1 %>
       </summary>
       <div style="background: var(--color-canvas-subtle); padding: 16px; margin-top: 8px; border-radius: 6px;">
         <p class="pulse-form-hint" style="margin-bottom: 16px;">

@@ -512,7 +512,9 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
 
     post cancel_system_admin_task_run_path(task_run.id)
 
-    assert_not_nil token.reload.deleted_at, "API token should be marked deleted"
+    # Internal tokens are hidden by the default scope, so query unscoped
+    refreshed = ApiToken.unscope(where: :internal).unscope(where: :tenant_id).find(token.id)
+    assert_not_nil refreshed.deleted_at, "API token should be marked deleted"
   end
 
   test "cancel refuses for already-completed task" do
@@ -622,9 +624,10 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     get "/system-admin"
     assert_response :success
 
+    # New labels introduced by the system health panel — not present before.
     assert_match(/DB Pool/, response.body)
-    assert_match(/Redis/, response.body)
-    assert_match(/busy/, response.body)
+    assert_match(/clients/, response.body)
+    assert_match(/waiting/, response.body)
   end
 
   test "dashboard markdown includes system health section" do
@@ -635,6 +638,6 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     get "/system-admin", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/System Health/, response.body)
-    assert_match(/DB pool/, response.body)
+    assert_match(/DB pool:/, response.body)
   end
 end
