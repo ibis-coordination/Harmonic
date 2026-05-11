@@ -10,12 +10,16 @@ class DataExport < ApplicationRecord
   has_one_attached :file, dependent: :destroy
 
   STATUSES = ["pending", "processing", "completed", "failed"].freeze
+  EXPORT_TYPES = ["collective", "user"].freeze
 
   validates :status, presence: true, inclusion: { in: STATUSES }
+  validates :export_type, presence: true, inclusion: { in: EXPORT_TYPES }
 
   scope :active, -> { where(status: ["pending", "processing"]) }
   scope :completed, -> { where(status: "completed") }
   scope :expired, -> { where(expires_at: ...Time.current) }
+  scope :collective_exports, -> { where(export_type: "collective") }
+  scope :user_exports, -> { where(export_type: "user") }
 
   sig { returns(T::Boolean) }
   def expired?

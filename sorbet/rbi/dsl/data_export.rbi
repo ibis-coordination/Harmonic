@@ -552,6 +552,9 @@ class DataExport
     def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def collective_exports(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def completed(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -674,6 +677,9 @@ class DataExport
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def unscope(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def user_exports(*args, &blk); end
 
     sig { returns(PrivateAssociationRelationWhereChain) }
     sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
@@ -919,6 +925,51 @@ class DataExport
     def expires_at_will_change!; end
 
     sig { returns(::String) }
+    def export_type; end
+
+    sig { params(value: ::String).returns(::String) }
+    def export_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def export_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def export_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def export_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def export_type_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def export_type_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def export_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def export_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def export_type_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def export_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def export_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def export_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def export_type_was; end
+
+    sig { void }
+    def export_type_will_change!; end
+
+    sig { returns(::String) }
     def id; end
 
     sig { params(value: ::String).returns(::String) }
@@ -1069,6 +1120,9 @@ class DataExport
     def restore_expires_at!; end
 
     sig { void }
+    def restore_export_type!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1121,6 +1175,12 @@ class DataExport
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_expires_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_export_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_export_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -1411,6 +1471,9 @@ class DataExport
     def will_save_change_to_expires_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_export_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1450,6 +1513,9 @@ class DataExport
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def arel_columns(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def collective_exports(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def completed(*args, &blk); end
@@ -1574,6 +1640,9 @@ class DataExport
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def unscope(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def user_exports(*args, &blk); end
 
     sig { returns(PrivateRelationWhereChain) }
     sig { params(args: T.untyped).returns(PrivateRelation) }
