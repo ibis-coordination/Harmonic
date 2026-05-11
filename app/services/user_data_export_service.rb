@@ -54,6 +54,7 @@ class UserDataExportService
         gather_commitment_participants(tmpdir)
         gather_note_history_events(tmpdir)
         gather_invites(tmpdir)
+        gather_trustee_grants(tmpdir)
         gather_representation_sessions(tmpdir)
         gather_representation_session_events(tmpdir)
         gather_links(tmpdir)
@@ -355,6 +356,44 @@ class UserDataExportService
     end
     write_json(tmpdir, "invites.json", data)
     @record_counts["invites"] = data.length
+  end
+
+  # Trustee grants where the subject is either party. Includes:
+  # - Grants the subject issued (granting_user_id ∈ subject): unambiguously
+  #   theirs (they authored the description, granted the permissions).
+  # - Grants given TO the subject (trustee_user_id ∈ subject): the subject's
+  #   accept/decline actions on grants others issued. The description was
+  #   authored by the grantor, but the subject saw it when accepting, so
+  #   it's not a new disclosure — same shape as snapshot context on votes.
+  #
+  # Note: TrusteeGrant is tenant-scoped but not collective-scoped. Scoping
+  # by @tenant.id captures all grants in this tenant regardless of which
+  # collective the grant's permissions might apply to.
+  sig { params(tmpdir: String).void }
+  def gather_trustee_grants(tmpdir)
+    grants = TrusteeGrant.where(tenant_id: @tenant.id).where(
+      "granting_user_id IN (:ids) OR trustee_user_id IN (:ids)",
+      ids: @subject_user_ids,
+    )
+    data = grants.map do |g|
+      {
+        "source_id" => g.id,
+        "truncated_id" => g.truncated_id,
+        "source_granting_user_id" => g.granting_user_id,
+        "source_trustee_user_id" => g.trustee_user_id,
+        "description" => g.description,
+        "permissions" => g.permissions,
+        "studio_scope" => g.studio_scope,
+        "expires_at" => g.expires_at&.iso8601,
+        "accepted_at" => g.accepted_at&.iso8601,
+        "declined_at" => g.declined_at&.iso8601,
+        "revoked_at" => g.revoked_at&.iso8601,
+        "created_at" => g.created_at.iso8601,
+        "updated_at" => g.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "trustee_grants.json", data)
+    @record_counts["trustee_grants"] = data.length
   end
 
   # Sessions where the subject represented another user. The subject's

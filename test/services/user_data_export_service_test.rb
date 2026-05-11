@@ -462,6 +462,48 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal [mine.id], source_ids, "only events in the subject's own sessions are included"
   end
 
+  test "trustee_grants.json includes grants where subject is grantor or trustee" do
+    granted_by_me = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      description: "Trust X to act for me",
+    )
+    granted_to_me = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      description: "Trust subject to act for X",
+    )
+    unrelated_user = create_user(name: "Unrelated")
+    @tenant.add_user!(unrelated_user)
+    TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: unrelated_user,
+      description: "Not about subject",
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    grants = read_json_from_zip("trustee_grants.json")
+    source_ids = grants.map { |g| g["source_id"] }
+    assert_includes source_ids, granted_by_me.id, "grant where subject is granting_user must be included"
+    assert_includes source_ids, granted_to_me.id, "grant where subject is trustee_user must be included"
+    assert_equal 2, source_ids.length, "third-party grants must be excluded"
+  end
+
+  test "trustee_grants.json includes AI agent's auto-created parent grant" do
+    # create_ai_agent triggers User#create_parent_trustee_grant! which creates
+    # a grant where granting_user = agent and trustee_user = parent. Both
+    # users are in the subject set, so the grant appears in the parent's export.
+    ai_agent = create_ai_agent(parent: @user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    grants = read_json_from_zip("trustee_grants.json")
+    refute_empty grants, "AI agent auto-grant should appear in parent's export"
+    grant = grants.first
+    assert_equal ai_agent.id, grant["source_granting_user_id"]
+    assert_equal @user.id, grant["source_trustee_user_id"]
+  end
+
   test "excludes soft-deleted content" do
     kept = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Kept", text: "x")
     deleted = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Deleted", text: "y")
