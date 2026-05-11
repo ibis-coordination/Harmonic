@@ -558,6 +558,50 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal :imported, DecisionAuditVerifier.verify_actor_binding(imported_actor_entry)
   end
 
+  test "imports decision audit entries: verify_all reports expected statuses end-to-end" do
+    # End-to-end: build a multi-entry chain on the source (actor entries + a
+    # system entry), round-trip it through export/import, then run the full
+    # verifier on the imported decision. Pins what consumers of the verify
+    # endpoint will actually see for an imported chain.
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    decision = Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "End-to-end verify?", deadline: 1.week.from_now, options_open: true, subtype: "vote",
+    )
+    DecisionAuditService.record_creation!(decision: decision, actor: @source_user)
+    option = create_option(decision: decision, created_by: @source_user, title: "Option A")
+    DecisionAuditService.record_option!(
+      decision: decision, option: option, actor: @source_user, action: "option_added",
+    )
+    # System entry (no actor) — exercises :no_actor in binding_statuses
+    DecisionAuditService.record_beacon!(decision: decision, round: 99, randomness: "deadbeef")
+
+    _data_import, imported_collective = export_and_import_source!
+
+    imported_decision = Decision.where(collective_id: imported_collective.id, question: "End-to-end verify?").first
+    result = DecisionAuditVerifier.verify_all(imported_decision)
+
+    # Chain integrity fails on imported chains by design: the import adds
+    # metadata.imported to every entry, which changes the recomputed hash.
+    # The verify view explains this to users via the imported banner.
+    refute result[:chain][:valid], "imported chain hash mismatch is expected, not a bug"
+    assert result[:chain][:errors].any? { |e| e.include?("hash mismatch") }
+
+    # Binding accounting: every actor entry imports as :imported (not
+    # :tamper_or_scrub_inconsistent), and binding_inconsistent_count stays 0.
+    assert_equal 2, result[:chain][:imported_count]
+    assert_equal 0, result[:chain][:scrubbed_count]
+    assert_equal 0, result[:chain][:binding_inconsistent_count]
+
+    statuses = result[:chain][:binding_statuses]
+    assert_equal 3, statuses.size
+    assert_equal :imported, statuses[1], "decision_created → :imported"
+    assert_equal :imported, statuses[2], "option_added → :imported"
+    assert_equal :no_actor, statuses[3], "beacon_drawn has no actor → :no_actor"
+  end
+
   # --- Decision subtype tests ---
 
   test "imports lottery decisions with beacon data" do

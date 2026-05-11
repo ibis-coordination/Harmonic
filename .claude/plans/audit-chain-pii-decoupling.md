@@ -6,14 +6,15 @@ This is the architectural fix that makes Phase 5 of [data-lifecycle-management.m
 
 ## Status
 
-**Core architecture: shipped.** The chain proves sequence-of-actions without including PII; scrubbing works without invalidating verification; v1→v2 migration ran cleanly in dev.
+**Architecturally complete.** All planned gates for Phase 5 deletion flow are met:
 
-**Remaining (gates Phase 5 deletion flow):**
-1. Export/import preserve `actor_token`, `actor_token_salt`, `schema_version`
-2. Display logic shows "[deleted account]" for scrubbed actors wherever audit entries surface
-3. Metadata audit at every `record_*` call site to confirm no PII leaks into `metadata`
+- v1→v2 schema migration shipped; chain proves sequence-of-actions without including PII; scrubbing works without invalidating verification
+- Export/import preserve `actor_token`, `schema_version`; salt is NULLed on import; imported entries are flagged in metadata so binding renders as `:imported` (distinct from `:unattributable`)
+- Display logic falls back to stored `actor_handle` (e.g. `[deleted account]`) wherever audit entries surface; verify views render binding-state counts honestly
+- Metadata PII constraint documented inline in `DecisionAuditService`; `audit_chain_metadata_pii_test.rb` pins the shape against future drift
+- Verify page now includes "What this verification proves and doesn't" copy and an imported-records banner that disclaims provenance for imported chains
 
-Branch: `feature/audit-chain-pii-decoupling` (pre-launch, not yet merged).
+Branch: `feature/audit-chain-pii-decoupling` (pre-launch, not yet merged). Ready for PR.
 
 ## Window of opportunity
 
@@ -219,20 +220,14 @@ None of these exist in Harmonic today.
 - Cross-instance chain integrity preservation — deferred
 - Public timestamped commitment of entry hashes — would close gap #2 above; out of scope
 
-## Outstanding work (to fully close this plan)
+## Phase 3 prerequisites (not part of this plan)
 
-1. **Export/import** — `CollectiveExportService#gather_decision_audit_entries` needs to include `actor_token`, `actor_token_salt`, `schema_version`. `CollectiveImportService#import_decision_audit_entries` needs to preserve all three. Round-trip test.
-2. **Display logic** — wherever audit entries surface, scrubbed actors should show "[deleted account]" gracefully:
-   - `verify_receipt.html.erb` / `verify_receipt.md.erb` — currently shows "unknown user"; should be "[deleted account]" when the receipt entry has been scrubbed
-   - Any other audit-rendering view that shows actor_handle or display_name
-3. **Metadata audit** — code-review pass over every `record_*` call site in `DecisionAuditService` and any other code that creates audit entries. Confirm `metadata` doesn't carry actor PII (display names, emails, etc.). Document the constraint near the call sites.
+When Phase 3 wires the account-closure flow, it must enforce one invariant `record!` doesn't enforce on its own:
 
-These three are the gates between "architecturally complete" and "ready for the Phase 3 deletion flow to wire into."
+- **Scrubbed actors must not produce new audit entries.** `record!` looks up the first prior entry by `(decision_id, actor_id) WHERE actor_token_salt IS NOT NULL` to anchor the salt and handle. If every prior entry by that actor has been scrubbed, the lookup misses and `record!` generates a fresh salt, producing a *different* `actor_token` from the actor's preserved earlier entries. `replay_vote_totals` would then count that actor twice. The natural place to enforce this is the auth layer (scrubbed accounts can't sign in, so they can't trigger `record!`) — but Phase 3 should pin it explicitly.
 
 ## Sequencing
 
-This work blocks the privacy policy commitment around deletion. With the architecture in place, the policy can confidently say:
+This work unblocks the privacy policy commitment around deletion. With the architecture in place, the policy can confidently say:
 
 > When you close your account, we will scrub your name, handle, email, and other identifying details from records of group decisions you participated in. The decisions themselves and their outcomes are preserved, with your participation marked as `[deleted account]`. The cryptographic audit trail that proves these decisions weren't tampered with continues to function correctly.
-
-Without the three remaining items, the architecture works but the surfaces around it haven't been finished — display would say "unknown user", export/import would lose the new fields on round-trip, and there's no documented guarantee about `metadata` PII.

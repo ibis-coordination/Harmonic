@@ -350,6 +350,17 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     assert_equal :tamper_or_scrub_inconsistent, DecisionAuditVerifier.verify_actor_binding(entry)
   end
 
+  test "verify_actor_binding returns :tamper_or_scrub_inconsistent when only actor_handle was swapped" do
+    # actor_handle is part of the token derivation (anchored to first entry by
+    # decision+actor), so changing just the displayed handle to misattribute
+    # an action must fail binding even though actor_id is intact.
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    entry.update_columns(actor_handle: "different-handle")
+    assert_equal :tamper_or_scrub_inconsistent, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
   # === verify_chain binding fields ===
 
   test "verify_chain populates binding_statuses for every entry" do
