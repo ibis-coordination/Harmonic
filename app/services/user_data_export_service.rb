@@ -52,6 +52,7 @@ class UserDataExportService
         gather_votes(tmpdir)
         gather_decision_audit_entries(tmpdir)
         gather_commitment_participants(tmpdir)
+        gather_note_history_events(tmpdir)
         gather_links(tmpdir)
         gather_users(tmpdir)
         gather_tenant_users(tmpdir)
@@ -301,6 +302,34 @@ class UserDataExportService
     end
     write_json(tmpdir, "decision_audit_entries.json", data)
     @record_counts["decision_audit_entries"] = data.length
+  end
+
+  # NoteHistoryEvent records the subject's actions on notes — read
+  # confirmations, reminder acknowledgments, edits. Like votes and
+  # commitment participations, the action is the user's regardless of who
+  # authored the parent note. Includes the note_title snapshot so the user
+  # can see what they acknowledged/read/edited without the parent note
+  # being in the export.
+  sig { params(tmpdir: String).void }
+  def gather_note_history_events(tmpdir)
+    events = NoteHistoryEvent
+               .where(collective_id: @collective.id, user_id: @subject_user_ids)
+               .includes(:note)
+    data = events.map do |e|
+      note = e.note
+      {
+        "source_id" => e.id,
+        "source_note_id" => e.note_id,
+        "source_user_id" => e.user_id,
+        "event_type" => e.event_type,
+        "note_title" => note&.title,
+        "happened_at" => e.happened_at&.iso8601,
+        "created_at" => e.created_at.iso8601,
+        "updated_at" => e.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "note_history_events.json", data)
+    @record_counts["note_history_events"] = data.length
   end
 
   # Links have no created_by column (they're relationship metadata). Include

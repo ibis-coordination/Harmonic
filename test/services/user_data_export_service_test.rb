@@ -380,6 +380,27 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
            "binary content of other user's attachment must NOT be in the ZIP"
   end
 
+  test "note_history_events.json includes the subject's events (read confirmations, edits) on any note" do
+    # Other user's note. Their create event is auto-recorded; subject reads it.
+    their_note = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Theirs", text: "hi")
+    my_read = NoteHistoryEvent.create!(
+      tenant: @tenant, collective: @collective, note: their_note, user: @user,
+      event_type: "read_confirmation", happened_at: Time.current,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    events = read_json_from_zip("note_history_events.json")
+    source_ids = events.map { |e| e["source_id"] }
+    assert_includes source_ids, my_read.id, "subject's read confirmation on another user's note must be included"
+    refute events.any? { |e| e["source_user_id"] == @other_user.id }, "other users' events must be excluded"
+
+    # Denormalized note context so the user can see WHAT they read
+    my_entry = events.find { |e| e["source_id"] == my_read.id }
+    assert_equal "Theirs", my_entry["note_title"], "denormalized note_title snapshot"
+    assert_equal "read_confirmation", my_entry["event_type"]
+  end
+
   test "excludes soft-deleted content" do
     kept = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Kept", text: "x")
     deleted = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Deleted", text: "y")
