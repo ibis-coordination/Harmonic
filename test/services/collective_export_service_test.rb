@@ -141,7 +141,7 @@ class CollectiveExportServiceTest < ActiveSupport::TestCase
     assert notes_data.first["deleted_at"].present?
   end
 
-  test "exports decision audit entries" do
+  test "exports decision audit entries with v2 fields" do
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     option = create_option(decision: decision, created_by: @user, title: "Option A")
     DecisionAuditService.record_option!(decision: decision, option: option, actor: @user, action: "option_added")
@@ -151,8 +151,15 @@ class CollectiveExportServiceTest < ActiveSupport::TestCase
 
     audit_data = read_json_from_zip("decision_audit_entries.json")
     assert audit_data.length >= 1
-    assert_equal "option_added", audit_data.first["action"]
-    assert audit_data.first["entry_hash"].present?
+    actor_entry = audit_data.find { |e| e["action"] == "option_added" }
+    assert actor_entry.present?
+    assert actor_entry["entry_hash"].present?
+
+    # v2 fields must be present so a target instance can preserve them on import.
+    # actor_token and actor_token_salt are 64-char hex when an actor is present.
+    assert_equal 2, actor_entry["schema_version"]
+    assert_match(/\A[0-9a-f]{64}\z/, actor_entry["actor_token"])
+    assert_match(/\A[0-9a-f]{64}\z/, actor_entry["actor_token_salt"])
   end
 
   test "exports note history events" do

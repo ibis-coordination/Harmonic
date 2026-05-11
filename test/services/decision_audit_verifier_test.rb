@@ -183,6 +183,30 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     assert result[:valid], "Expected valid but got errors: #{result[:errors]}"
   end
 
+  test "verify_vote_tallies still verifies after the participant changes their handle between vote_cast and vote_updated" do
+    # Regression: replay_vote_totals dedupes votes by actor_token. If the
+    # token derivation depends on the actor's current handle, a rename
+    # between vote_cast and vote_updated produces two different tokens for
+    # the same voter and the tally check double-counts them. The fix is to
+    # anchor token derivation to the participant's first handle in the
+    # decision (same lookup we already do for the salt).
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user)
+
+    @user.handle = "renamed-#{SecureRandom.hex(4)}"
+    vote.update_columns(accepted: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user, is_update: true)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert result[:valid],
+           "Vote tally must verify after a handle change: #{result[:errors].inspect}"
+  end
+
   test "verify_vote_tallies skips with no votes" do
     result = DecisionAuditVerifier.verify_vote_tallies(@decision)
     assert result[:valid]
@@ -251,6 +275,189 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
   end
 
   # --- verify_all tests ---
+
+  # === verify_actor_binding ===
+
+  test "verify_actor_binding returns :verified when stored token matches the derived hash" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    assert_equal :verified, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :no_actor for system entries with no actor" do
+    entry = DecisionAuditService.record_beacon!(decision: @decision, round: 99, randomness: "deadbeef")
+    assert_equal :no_actor, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :v1_chain_only for v1 entries (binding enforced by chain hash)" do
+    entry = DecisionAuditEntry.new(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      sequence_number: 1, schema_version: 1, action: "option_added",
+      actor_id: @user.id, actor_handle: @user.handle,
+      option_title: "Option A",
+      created_at: Time.current.change(usec: 0),
+      entry_hash: "abc",
+    )
+    assert_equal :v1_chain_only, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :unattributable when actor_id has been scrubbed" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    entry.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    assert_equal :unattributable, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :imported for entries imported from another instance" do
+    # Imported entries have salt NULL'd but metadata.imported=true; this
+    # distinguishes them from PII-scrubbed entries (NULL salt, no flag) so
+    # downstream tooling can render an accurate explanation rather than
+    # implying account-closure scrubbing happened.
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    new_metadata = (entry.metadata || {}).merge("imported" => true)
+    # The immutability trigger blocks metadata updates; tests forge the
+    # imported state by toggling the trigger off briefly.
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    entry.update_columns(actor_token_salt: nil, metadata: new_metadata)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    assert_equal :imported, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :unattributable (not :imported) when salt is NULL but no imported flag" do
+    # Defensive: an entry with NULL salt and no imported flag is the scrub
+    # case, regardless of what other metadata contents might look like.
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    entry.update_columns(actor_token_salt: nil)
+    assert_equal :unattributable, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :tamper_or_scrub_inconsistent when actor_id was changed without scrub" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    other_user = create_user(name: "Other")
+    entry.update_columns(actor_id: other_user.id, actor_handle: other_user.handle)
+    assert_equal :tamper_or_scrub_inconsistent, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  test "verify_actor_binding returns :tamper_or_scrub_inconsistent when only actor_handle was swapped" do
+    # actor_handle is part of the token derivation (anchored to first entry by
+    # decision+actor), so changing just the displayed handle to misattribute
+    # an action must fail binding even though actor_id is intact.
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    entry.update_columns(actor_handle: "different-handle")
+    assert_equal :tamper_or_scrub_inconsistent, DecisionAuditVerifier.verify_actor_binding(entry)
+  end
+
+  # === verify_chain binding fields ===
+
+  test "verify_chain populates binding_statuses for every entry" do
+    DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    DecisionAuditService.record_beacon!(decision: @decision, round: 99, randomness: "deadbeef")
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert_equal 2, result[:binding_statuses].size
+    assert_equal :verified, result[:binding_statuses][1]
+    assert_equal :no_actor, result[:binding_statuses][2]
+  end
+
+  test "verify_chain.scrubbed_count counts unattributable entries" do
+    DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    DecisionAuditService.record_close!(decision: @decision, actor: @user)
+    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: @user.id).find_each do |e|
+      e.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    end
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert_equal 2, result[:scrubbed_count]
+    assert_equal 0, result[:imported_count]
+    assert_equal 0, result[:binding_inconsistent_count]
+  end
+
+  test "verify_chain.imported_count tracks imported entries separately from scrubbed" do
+    e1 = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    e2 = DecisionAuditService.record_close!(decision: @decision, actor: @user)
+    # e1 simulates account-closure scrub; e2 simulates a cross-instance import.
+    # The metadata change on e2 invalidates its entry_hash, so we recompute
+    # under a trigger-disabled window. (Real imports leave a hash mismatch on
+    # disk; this test isolates the verifier accounting logic.)
+    e1.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    e2.metadata = (e2.metadata || {}).merge("imported" => true)
+    e2.actor_token_salt = nil
+    new_hash = DecisionAuditService.compute_hash(e2)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries DISABLE TRIGGER enforce_audit_entry_immutability"
+    )
+    e2.update_columns(metadata: e2.metadata, actor_token_salt: nil, entry_hash: new_hash)
+    ActiveRecord::Base.connection.execute(
+      "ALTER TABLE decision_audit_entries ENABLE TRIGGER enforce_audit_entry_immutability"
+    )
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert result[:valid], "Chain stays valid: both states are intentional, not tamper. Errors: #{result[:errors].inspect}"
+    assert_equal 1, result[:scrubbed_count]
+    assert_equal 1, result[:imported_count]
+    assert_equal 0, result[:binding_inconsistent_count]
+  end
+
+  test "verify_chain.binding_inconsistent_count drives valid to false" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    # Tamper: swap actor_id (the trigger permits this; the chain hash itself is
+    # unchanged because v2 hashes actor_token, not actor_id).
+    other_user = create_user(name: "Other")
+    entry.update_columns(actor_id: other_user.id, actor_handle: other_user.handle)
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert_equal 1, result[:binding_inconsistent_count]
+    assert_equal({ 1 => :tamper_or_scrub_inconsistent }, result[:binding_statuses])
+    assert_empty result[:errors]
+    refute result[:valid], "Chain with tampered identity must be invalid even though hashes match"
+  end
+
+  # === Scrub flow: chain still verifies ===
+
+  test "chain verifies after PII scrub (NULL actor_id, scrub salt, replace handle)" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    DecisionAuditService.record_close!(decision: @decision, actor: @user)
+
+    # Simulate account-closure scrub for @user: NULL actor_id and salt, replace handle
+    DecisionAuditEntry.where(decision_id: @decision.id, actor_id: @user.id).find_each do |e|
+      e.update_columns(actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil)
+    end
+
+    # Chain integrity check still passes
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert result[:valid], "Chain must still verify after scrub: #{result[:errors].inspect}"
+
+    # And every scrubbed entry's actor binding is :unattributable
+    DecisionAuditEntry.where(decision_id: @decision.id).find_each do |e|
+      next if e.action == "beacon_drawn" # no actor
+
+      assert_equal :unattributable, DecisionAuditVerifier.verify_actor_binding(e)
+    end
+  end
 
   test "verify_all returns combined results for all checks" do
     DecisionAuditService.record_option!(

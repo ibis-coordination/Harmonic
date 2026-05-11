@@ -16,8 +16,8 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
     assert_equal expected.sort, DecisionAuditEntry::ACTIONS.sort
   end
 
-  test "CURRENT_SCHEMA_VERSION is 1" do
-    assert_equal 1, DecisionAuditEntry::CURRENT_SCHEMA_VERSION
+  test "CURRENT_SCHEMA_VERSION is 2" do
+    assert_equal 2, DecisionAuditEntry::CURRENT_SCHEMA_VERSION
   end
 
   test "validates action inclusion" do
@@ -37,21 +37,23 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
     assert entry.errors[:action].present?
   end
 
-  test "validates schema_version presence" do
-    entry = DecisionAuditEntry.new(
-      tenant: @tenant,
-      collective: @collective,
-      decision: @decision,
-      sequence_number: 1,
-      schema_version: nil,
-      action: "option_added",
-      actor_id: @user.id,
-      actor_handle: @user.handle,
-      option_title: @option.title,
-      entry_hash: "abc123",
-    )
-    assert_not entry.valid?
-    assert entry.errors[:schema_version].present?
+  test "validates schema_version is present and known" do
+    [nil, 0, 3, 99].each do |bad_version|
+      entry = DecisionAuditEntry.new(
+        tenant: @tenant,
+        collective: @collective,
+        decision: @decision,
+        sequence_number: 1,
+        schema_version: bad_version,
+        action: "option_added",
+        actor_id: @user.id,
+        actor_handle: @user.handle,
+        option_title: @option.title,
+        entry_hash: "abc123",
+      )
+      assert_not entry.valid?, "schema_version=#{bad_version.inspect} should be invalid"
+      assert entry.errors[:schema_version].present?
+    end
   end
 
   test "validates sequence_number presence" do

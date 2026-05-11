@@ -1,6 +1,7 @@
 import type {
   VerifyData,
   AuditEntry,
+  ActorBindingStatus,
   ChainResult,
   VoteTalliesResult,
   BeaconResult,
@@ -20,15 +21,16 @@ async function sha256hex(input: string): Promise<string> {
     .join("")
 }
 
-function hashInputV1(entry: AuditEntry): string {
+// Identity is bound via actor_token = SHA256(decision_id || actor_id || actor_handle || salt).
+// The salt is destroyable on PII scrub without invalidating the chain.
+function hashInput(entry: AuditEntry): string {
   const normalizedTitle = entry.option_title ? entry.option_title.normalize("NFC") : ""
   return [
-    "v1",
+    "v2",
     entry.previous_hash,
     String(entry.sequence_number),
     entry.action,
-    entry.actor_id,
-    entry.actor_handle,
+    entry.actor_token,
     normalizedTitle,
     entry.accepted,
     entry.preferred,
@@ -38,16 +40,53 @@ function hashInputV1(entry: AuditEntry): string {
 }
 
 export async function computeEntryHash(entry: AuditEntry): Promise<string> {
-  return sha256hex(hashInputV1(entry))
+  return sha256hex(hashInput(entry))
+}
+
+// Imported entries are stamped with metadata.imported = true on import. The
+// metadata field arrives as a JSON-encoded string (matches the wire format
+// used in the entry hash); we parse it to distinguish imported entries from
+// scrubbed ones in the binding check.
+function isImported(entry: AuditEntry): boolean {
+  if (!entry.metadata) return false
+  try {
+    const parsed = JSON.parse(entry.metadata) as Record<string, unknown>
+    return parsed.imported === true
+  } catch {
+    return false
+  }
+}
+
+// Independent identity-binding check: recompute the actor_token from the
+// stored identity and salt, compare to the stored token. Outcomes:
+//   - "verified": token matches the recomputed value
+//   - "unattributable": actor_id or salt has been scrubbed (intentional, expected)
+//   - "imported": cross-instance import — binding can't validate against
+//     remapped target IDs (intentional, not a tamper)
+//   - "tamper_or_scrub_inconsistent": fields don't match (incomplete scrub or tamper)
+//   - "no_actor": entry has no actor (e.g., beacon_drawn)
+export async function verifyActorBinding(
+  entry: AuditEntry,
+  decisionId: string,
+): Promise<ActorBindingStatus> {
+  if (!entry.actor_token) return "no_actor"
+  if (!entry.actor_id || !entry.actor_token_salt) {
+    return isImported(entry) ? "imported" : "unattributable"
+  }
+  const expected = await sha256hex(
+    `${decisionId}|${entry.actor_id}|${entry.actor_handle}|${entry.actor_token_salt}`,
+  )
+  return expected === entry.actor_token ? "verified" : "tamper_or_scrub_inconsistent"
 }
 
 export async function verifyChain(data: VerifyData): Promise<ChainResult> {
   const entries = data.audit_chain
   const errors: string[] = []
+  const bindingStatuses: Record<number, ActorBindingStatus> = {}
   let previousHash = ""
 
   for (const entry of entries) {
-    const computed = await sha256hex(hashInputV1(entry))
+    const computed = await sha256hex(hashInput(entry))
 
     if (computed !== entry.entry_hash) {
       errors.push(`Entry #${entry.sequence_number}: hash mismatch`)
@@ -55,6 +94,7 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
     if (entry.previous_hash !== previousHash) {
       errors.push(`Entry #${entry.sequence_number}: chain link broken`)
     }
+    bindingStatuses[entry.sequence_number] = await verifyActorBinding(entry, data.decision.id)
     previousHash = entry.entry_hash
   }
 
@@ -66,11 +106,21 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
     }
   }
 
+  const bindingInconsistentCount = Object.values(bindingStatuses).filter(
+    (s) => s === "tamper_or_scrub_inconsistent",
+  ).length
+  const scrubbedCount = Object.values(bindingStatuses).filter((s) => s === "unattributable").length
+  const importedCount = Object.values(bindingStatuses).filter((s) => s === "imported").length
+
   return {
-    valid: errors.length === 0,
+    valid: errors.length === 0 && bindingInconsistentCount === 0,
     entryCount: entries.length,
     errors,
     lastHash: entries.length > 0 ? entries[entries.length - 1].entry_hash : null,
+    bindingStatuses,
+    bindingInconsistentCount,
+    scrubbedCount,
+    importedCount,
   }
 }
 
@@ -83,11 +133,13 @@ export function verifyVoteTallies(data: VerifyData): VoteTalliesResult {
     return { valid: true, skipped: true, errors: ["No votes have been cast yet — vote tally verification will be available after voting begins."] }
   }
 
-  // Replay votes: keep latest per (actor_id, option_title) pair
+  // Replay votes: keep latest per (actor, option_title) pair. We dedupe by
+  // actor_token so the count stays correct even if the voter's PII has since
+  // been scrubbed (actor_id may be NULL post-scrub).
   const votes = new Map<string, { accepted: number; preferred: number }>()
   for (const entry of data.audit_chain) {
     if (entry.action === "vote_cast" || entry.action === "vote_updated") {
-      const key = `${entry.actor_id}|${entry.option_title}`
+      const key = `${entry.actor_token}|${entry.option_title}`
       votes.set(key, {
         accepted: parseInt(entry.accepted) || 0,
         preferred: parseInt(entry.preferred) || 0,

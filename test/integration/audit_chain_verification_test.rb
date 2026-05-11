@@ -503,9 +503,13 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
     # Verify every entry has all required fields as strings (hash-ready)
     chain.each_with_index do |entry, i|
       assert entry["sequence_number"].is_a?(Integer), "entry #{i}: sequence_number should be integer"
+      assert entry["schema_version"].is_a?(Integer), "entry #{i}: schema_version should be integer"
+      assert_equal 2, entry["schema_version"], "entry #{i}: schema_version should be 2 for new entries"
       assert entry["action"].is_a?(String), "entry #{i}: action should be string"
       assert entry["actor_id"].is_a?(String), "entry #{i}: actor_id should be string"
       assert entry["actor_handle"].is_a?(String), "entry #{i}: actor_handle should be string"
+      assert entry["actor_token"].is_a?(String), "entry #{i}: actor_token should be string"
+      assert entry["actor_token_salt"].is_a?(String), "entry #{i}: actor_token_salt should be string"
       assert entry["option_title"].is_a?(String), "entry #{i}: option_title should be string"
       assert entry["accepted"].is_a?(String), "entry #{i}: accepted should be string"
       assert entry["preferred"].is_a?(String), "entry #{i}: preferred should be string"
@@ -515,6 +519,18 @@ class AuditChainVerificationTest < ActionDispatch::IntegrationTest
       assert_equal 64, entry["entry_hash"].length, "entry #{i}: entry_hash should be 64-char hex"
       assert entry["created_at"].is_a?(String), "entry #{i}: created_at should be string"
       assert_match(/\d{4}-\d{2}-\d{2}T/, entry["created_at"], "entry #{i}: created_at should be ISO8601")
+
+      # Entries with an actor must have a derived token + 64-hex salt; entries
+      # without (e.g., beacon_drawn) must have empty strings for both.
+      if entry["actor_id"].empty?
+        assert_equal "", entry["actor_token"], "entry #{i}: system entry must have empty actor_token"
+        assert_equal "", entry["actor_token_salt"], "entry #{i}: system entry must have empty actor_token_salt"
+      else
+        assert_equal 64, entry["actor_token"].length, "entry #{i}: actor_token should be 64-char hex"
+        assert_match(/\A[0-9a-f]{64}\z/, entry["actor_token"], "entry #{i}: actor_token should be hex")
+        assert_equal 64, entry["actor_token_salt"].length, "entry #{i}: actor_token_salt should be 64-char hex"
+        assert_match(/\A[0-9a-f]{64}\z/, entry["actor_token_salt"], "entry #{i}: actor_token_salt should be hex")
+      end
     end
 
     # Verify chain linking in JSON

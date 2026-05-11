@@ -122,9 +122,12 @@ describe("AuditVerifyController", () => {
     // Build a chain with a tampered hash
     const entry: AuditEntry = {
       sequence_number: 1,
+      schema_version: 2,
       action: "option_added",
       actor_id: "user-1",
       actor_handle: "alice",
+      actor_token: "",
+      actor_token_salt: "",
       option_title: "Option A",
       accepted: "",
       preferred: "",
@@ -163,9 +166,12 @@ describe("AuditVerifyController", () => {
   it("renders vote tally failure with tampering warning", async () => {
     const entry: AuditEntry = {
       sequence_number: 1,
+      schema_version: 2,
       action: "vote_cast",
       actor_id: "user-1",
       actor_handle: "alice",
+      actor_token: "",
+      actor_token_salt: "",
       option_title: "Option A",
       accepted: "1",
       preferred: "0",
@@ -294,9 +300,12 @@ describe("AuditVerifyController", () => {
   it("shows overall failure when any check fails", async () => {
     const entry: AuditEntry = {
       sequence_number: 1,
+      schema_version: 2,
       action: "option_added",
       actor_id: "user-1",
       actor_handle: "alice",
+      actor_token: "",
+      actor_token_salt: "",
       option_title: "Option A",
       accepted: "",
       preferred: "",
@@ -327,14 +336,172 @@ describe("AuditVerifyController", () => {
     expect(text).toContain("One or more checks failed")
   })
 
+  // --- Actor identity binding (v2) ---
+
+  it("renders chain failure when v2 actor identity has been tampered with", async () => {
+    const decisionId = "d1"
+    const salt = "deadbeef".repeat(8)
+    const encoder = new TextEncoder()
+    const sha = async (s: string): Promise<string> => {
+      const buf = await crypto.subtle.digest("SHA-256", encoder.encode(s))
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("")
+    }
+    const actorToken = await sha(`${decisionId}|user-1|alice|${salt}`)
+
+    const entry: AuditEntry = {
+      sequence_number: 1,
+      schema_version: 2,
+      action: "vote_cast",
+      actor_id: "user-1",
+      actor_handle: "alice",
+      actor_token: actorToken,
+      actor_token_salt: salt,
+      option_title: "Option A",
+      accepted: "1",
+      preferred: "0",
+      metadata: "",
+      previous_hash: "",
+      entry_hash: "",
+      created_at: "2026-05-05T12:00:00Z",
+    }
+    entry.entry_hash = await computeEntryHash(entry)
+    // Tamper: swap actor_id to a different user. Hash chain still verifies
+    // (token is in the hash, identity fields are not), but binding detection should fail.
+    entry.actor_id = "user-2"
+
+    const tamperedData: VerifyData = {
+      decision: { ...validData.decision, id: decisionId, audit_chain_hash: entry.entry_hash },
+      audit_chain: [entry],
+    }
+
+    setupDOM("/verify.json")
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(tamperedData),
+    })
+
+    await startController()
+
+    const text = resultsText()
+    expect(text).toMatch(/Chain integrity:.*FAIL/)
+    expect(text).toContain("actor identity does not match")
+    expect(text).toContain("altered after the fact")
+
+    const html = resultsHtml()
+    expect(html).toContain("verification-fail")
+  })
+
+  it("notes scrubbed entries in the pass message", async () => {
+    const decisionId = "d1"
+    const salt = "deadbeef".repeat(8)
+    const encoder = new TextEncoder()
+    const sha = async (s: string): Promise<string> => {
+      const buf = await crypto.subtle.digest("SHA-256", encoder.encode(s))
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("")
+    }
+    const actorToken = await sha(`${decisionId}|user-1|alice|${salt}`)
+
+    const entry: AuditEntry = {
+      sequence_number: 1,
+      schema_version: 2,
+      action: "vote_cast",
+      actor_id: "user-1",
+      actor_handle: "alice",
+      actor_token: actorToken,
+      actor_token_salt: salt,
+      option_title: "Option A",
+      accepted: "1",
+      preferred: "0",
+      metadata: "",
+      previous_hash: "",
+      entry_hash: "",
+      created_at: "2026-05-05T12:00:00Z",
+    }
+    entry.entry_hash = await computeEntryHash(entry)
+    // Simulate scrub: NULL actor_id and salt; entry_hash still matches.
+    entry.actor_id = ""
+    entry.actor_token_salt = ""
+
+    const scrubbedData: VerifyData = {
+      decision: { ...validData.decision, id: decisionId, audit_chain_hash: entry.entry_hash },
+      audit_chain: [entry],
+      results: [
+        { position: 1, option_title: "Option A", accepted_yes: 1, preferred: 0, lottery_sort_key: null },
+      ],
+    }
+
+    setupDOM("/verify.json")
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(scrubbedData),
+    })
+
+    await startController()
+
+    const text = resultsText()
+    expect(text).toMatch(/Chain integrity:.*PASS/)
+    expect(text).toContain("identifying information removed")
+    expect(text).toContain("unattributable by design")
+  })
+
+  it("uses calmer chain-failure wording when has_imported_entries is true", async () => {
+    // Real imports add metadata.imported=true after entry_hash is stamped,
+    // which always produces a hash mismatch. The JS controller should not
+    // alarm the user with "altered or corrupted" language for this expected
+    // case; instead it should say the mismatch is the import-induced change.
+    const entry: AuditEntry = {
+      sequence_number: 1,
+      schema_version: 2,
+      action: "vote_cast",
+      actor_id: "user-1",
+      actor_handle: "alice",
+      actor_token: "abc123",
+      actor_token_salt: "",
+      option_title: "Option A",
+      accepted: "1",
+      preferred: "0",
+      metadata: JSON.stringify({ imported: true }),
+      previous_hash: "",
+      entry_hash: "fake_hash_will_not_match",
+      created_at: "2026-05-05T12:00:00Z",
+    }
+
+    const importedData: VerifyData = {
+      decision: { ...validData.decision, audit_chain_hash: entry.entry_hash },
+      audit_chain: [entry],
+      has_imported_entries: true,
+    }
+
+    setupDOM("/verify.json")
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(importedData),
+    })
+
+    await startController()
+
+    const text = resultsText()
+    expect(text).toMatch(/Chain integrity:.*FAIL/)
+    // Calmer wording for imports
+    expect(text).toContain("is expected")
+    expect(text).toContain("import process")
+    expect(text).toContain("not tampering on this instance")
+    // The alarmist native-tamper language should NOT appear
+    expect(text).not.toContain("altered or corrupted")
+    expect(text).not.toContain("serious integrity issue")
+  })
+
   // --- HTML escaping ---
 
   it("escapes HTML in error messages to prevent XSS", async () => {
     const entry: AuditEntry = {
       sequence_number: 1,
+      schema_version: 2,
       action: "vote_cast",
       actor_id: "user-1",
       actor_handle: "alice",
+      actor_token: "",
+      actor_token_salt: "",
       option_title: '<img src=x onerror=alert(1)>',
       accepted: "1",
       preferred: "0",

@@ -1,8 +1,11 @@
 export interface AuditEntry {
   sequence_number: number
+  schema_version: number
   action: string
   actor_id: string
   actor_handle: string
+  actor_token: string
+  actor_token_salt: string
   option_title: string
   accepted: string
   preferred: string
@@ -11,6 +14,13 @@ export interface AuditEntry {
   entry_hash: string
   created_at: string
 }
+
+export type ActorBindingStatus =
+  | "verified"
+  | "unattributable"
+  | "imported"
+  | "tamper_or_scrub_inconsistent"
+  | "no_actor"
 
 export interface DecisionMeta {
   id: string
@@ -41,6 +51,7 @@ export interface VerifyData {
   audit_chain: AuditEntry[]
   beacon?: BeaconInfo
   results?: ResultEntry[]
+  has_imported_entries?: boolean
 }
 
 export interface ChainResult {
@@ -48,6 +59,10 @@ export interface ChainResult {
   entryCount: number
   errors: string[]
   lastHash: string | null
+  bindingStatuses: Record<number, ActorBindingStatus>
+  bindingInconsistentCount: number
+  scrubbedCount: number
+  importedCount: number
 }
 
 export interface VoteTalliesResult {

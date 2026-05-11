@@ -64,17 +64,23 @@ export default class AuditVerifyController extends Controller {
       return
     }
 
-    this.renderResult(result)
+    this.renderResult(result, data.has_imported_entries === true)
   }
 
-  private renderResult(result: VerificationResult): void {
+  private renderResult(result: VerificationResult, hasImportedEntries: boolean): void {
     const lines: string[] = []
 
-    // Chain integrity
+    // Chain integrity (covers hash chain + actor-identity binding for v2 entries)
     if (result.chain.valid) {
-      lines.push(this.passLine("Chain integrity", `All ${result.chain.entryCount} entries verified — every hash is correct and links to the previous entry.`))
+      const scrubbed = result.chain.scrubbedCount
+      const detail = `All ${result.chain.entryCount} entries verified — every hash is correct and links to the previous entry.` +
+        (scrubbed > 0 ? ` ${scrubbed} ${scrubbed === 1 ? "entry has" : "entries have"} had identifying information removed (account closure); binding for ${scrubbed === 1 ? "that entry is" : "those entries are"} unattributable by design.` : "")
+      lines.push(this.passLine("Chain integrity", detail))
+    } else if (result.chain.errors.length > 0) {
+      lines.push(this.failLine("Chain integrity", this.explainChainFailure(result.chain.errors, hasImportedEntries)))
     } else {
-      lines.push(this.failLine("Chain integrity", this.explainChainFailure(result.chain.errors)))
+      // No hash/link errors — failure is from actor-identity binding mismatch
+      lines.push(this.failLine("Chain integrity", this.explainBindingFailure(result.chain.bindingInconsistentCount)))
     }
 
     // Vote tallies
@@ -120,10 +126,15 @@ export default class AuditVerifyController extends Controller {
     return `<div style="margin-bottom: 8px;"><strong>${label}:</strong> <span class="verification-error">SKIPPED</span><div style="margin: 4px 0 0 8px; color: var(--color-fg-muted);">${this.escapeHtml(detail)}</div></div>`
   }
 
-  private explainChainFailure(errors: string[]): string {
-    const parts = ["The audit chain has been altered or corrupted. This is a serious integrity issue — " +
-      "it means the recorded history of this decision may not be trustworthy. " +
-      "Do not rely on the displayed results until this is investigated."]
+  private explainChainFailure(errors: string[], hasImportedEntries: boolean): string {
+    const parts = hasImportedEntries
+      ? ["The recorded history of imported entries doesn't match what they originally hashed to. " +
+         "This is expected: the import process adds a metadata flag to each entry to mark it as imported, " +
+         "which changes the recorded hash. The differences below are the import-induced changes, " +
+         "not tampering on this instance. See the imported-records notice at the top for context."]
+      : ["The audit chain has been altered or corrupted. This is a serious integrity issue — " +
+         "it means the recorded history of this decision may not be trustworthy. " +
+         "Do not rely on the displayed results until this is investigated."]
     if (errors.length > 0) {
       parts.push("Details: " + errors.join("; ") + ".")
     }
@@ -138,6 +149,12 @@ export default class AuditVerifyController extends Controller {
       parts.push("Details: " + errors.join("; ") + ".")
     }
     return parts.join(" ")
+  }
+
+  private explainBindingFailure(count: number): string {
+    return `${count} ${count === 1 ? "entry's" : "entries'"} actor identity does not match the recorded identity token. ` +
+      "This means the displayed actor for those entries may have been altered after the fact, or that PII scrubbing was performed inconsistently. " +
+      "The hash chain itself is intact, but you should not trust the displayed actor information until this is investigated."
   }
 
   private explainBeaconFailure(errors: string[]): string {

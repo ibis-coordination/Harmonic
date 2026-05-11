@@ -19,7 +19,7 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
   # these tests break — which is the point. The hash formula is a public contract
   # documented on the verify page and implemented in the Python script.
 
-  test "hash formula produces stable output for known inputs" do
+  test "v2 hash formula produces stable output for known inputs" do
     decision = Decision.new(
       tenant: @tenant, collective: @collective, created_by: @user,
       question: "Stable Hash Test", description: "", deadline: 1.week.from_now,
@@ -29,36 +29,36 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
 
     entry = DecisionAuditEntry.where(decision_id: decision.id).first
 
-    # Manually compute what the hash should be
-    input = [
-      "v1",
-      "",  # first entry, no previous_hash
-      "1",
-      "decision_created",
-      @user.id,
-      @user.handle,
-      "",  # no option_title
-      "",  # no accepted
-      "",  # no preferred
-      entry.metadata.sort.to_h.to_json.gsub(": ", ":"), # sorted JSON, compact
-      entry.created_at.iso8601,
-    ].join("|")
-
-    # The metadata is stored with transform_keys(&:to_s), so keys are strings.
-    # Re-derive the expected hash from the raw fields.
+    # Re-derive the expected v2 hash from the stored fields.
     raw_metadata = entry.metadata
     sorted_metadata = JSON.generate(raw_metadata.sort.to_h)
     expected_input = [
-      "v1", "", "1", "decision_created",
-      entry.actor_id, entry.actor_handle,
+      "v2", "", "1", "decision_created",
+      entry.actor_token,
       "", "", "", sorted_metadata,
       entry.created_at.iso8601,
     ].join("|")
     expected_hash = Digest::SHA256.hexdigest(expected_input)
 
     assert_equal expected_hash, entry.entry_hash,
-      "Hash formula changed! The audit chain hash is a public contract — " \
-      "changing it breaks all existing chains and the Python verification script."
+      "v2 hash formula changed! The audit chain hash is a public contract — " \
+      "changing it without bumping schema_version breaks existing chains."
+  end
+
+  test "v2 actor_token is SHA256(decision_id || actor_id || actor_handle || actor_token_salt)" do
+    decision = Decision.new(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      question: "Token Derivation Test", description: "", deadline: 1.week.from_now,
+      options_open: true, subtype: "vote",
+    )
+    DecisionActionService.create_decision!(decision: decision, actor: @user)
+    entry = DecisionAuditEntry.where(decision_id: decision.id).first
+
+    expected_token = Digest::SHA256.hexdigest(
+      "#{entry.decision_id}|#{entry.actor_id}|#{entry.actor_handle}|#{entry.actor_token_salt}",
+    )
+    assert_equal expected_token, entry.actor_token,
+      "actor_token derivation is a public contract — changing it breaks identity verification"
   end
 
   test "hash uses pipe delimiter between fields" do
@@ -72,12 +72,13 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
 
     hash_input = DecisionAuditService.hash_input(entry)
     assert_match(/\|/, hash_input, "Hash input must use pipe delimiters")
-    # Exactly 10 pipes (11 fields)
-    assert_equal 10, hash_input.count("|"),
-      "Hash input must have exactly 11 fields separated by 10 pipes"
+    # v2: exactly 9 pipes (10 fields). v1 had 10 pipes (11 fields) — this changed
+    # because actor_id and actor_handle (two fields) were collapsed into actor_token.
+    assert_equal 9, hash_input.count("|"),
+      "v2 hash input must have exactly 10 fields separated by 9 pipes"
   end
 
-  test "hash input starts with version prefix v1" do
+  test "hash input starts with version prefix v2" do
     decision = Decision.new(
       tenant: @tenant, collective: @collective, created_by: @user,
       question: "Version Test", description: "", deadline: 1.week.from_now,
@@ -87,8 +88,8 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
     entry = DecisionAuditEntry.where(decision_id: decision.id).first
 
     hash_input = DecisionAuditService.hash_input(entry)
-    assert hash_input.start_with?("v1|"),
-      "Hash input must start with 'v1|' — changing the version breaks existing chains"
+    assert hash_input.start_with?("v2|"),
+      "v2 hash input must start with 'v2|' — changing the version prefix without bumping schema_version breaks existing chains"
   end
 
   # === DB trigger existence ===
@@ -141,6 +142,73 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
     assert tgtype & 4 > 0, "Trigger MUST fire on INSERT"
     assert tgtype & 16 > 0, "Trigger MUST fire on UPDATE"
     assert_equal 0, tgtype & 8, "Trigger should NOT fire on DELETE"
+  end
+
+  # === Audit-immutability trigger column-level allow/block ===
+  # The trigger permits PII-scrub mutations (actor_id, actor_handle,
+  # actor_token_salt) and rejects everything else. Each column listed in the
+  # trigger function is a hard part of the immutability contract — anyone who
+  # widens or narrows the allow-list must update these tests deliberately.
+
+  setup_decision_with_audit_entry = -> (test) {
+    test.instance_eval do
+      @audit_decision ||= begin
+        d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+        DecisionAuditService.record_option!(
+          decision: d,
+          option: create_option(decision: d, created_by: @user, title: "Opt"),
+          actor: @user, action: "option_added",
+        )
+        d
+      end
+      DecisionAuditEntry.where(decision_id: @audit_decision.id).order(:sequence_number).first
+    end
+  }
+
+  # PII-scrub allowed columns: NULLing or replacing must succeed
+  {
+    actor_id: "NULL",
+    actor_handle: "'[deleted account]'",
+    actor_token_salt: "NULL",
+  }.each do |column, new_value|
+    test "audit immutability trigger ALLOWS update to #{column} (PII scrub path)" do
+      entry = setup_decision_with_audit_entry.call(self)
+      assert_nothing_raised do
+        ActiveRecord::Base.connection.execute(
+          ActiveRecord::Base.sanitize_sql([
+            "UPDATE decision_audit_entries SET #{column} = #{new_value} WHERE id = ?", entry.id,
+          ]),
+        )
+      end
+    end
+  end
+
+  # Immutable columns: any change must raise. We test each column the trigger
+  # function lists explicitly (db/migrate/20260510000001_allow_pii_scrub_on_audit_entries.rb).
+  IMMUTABLE_COLUMN_UPDATES = {
+    schema_version: "schema_version = 99",
+    action: "action = 'vote_cast'",
+    actor_token: "actor_token = 'forged-token'",
+    option_title: "option_title = 'forged'",
+    accepted: "accepted = 99",
+    preferred: "preferred = 99",
+    metadata: "metadata = '{\"forged\":true}'::jsonb",
+    previous_hash: "previous_hash = 'forged'",
+    entry_hash: "entry_hash = 'forged'",
+    sequence_number: "sequence_number = 999",
+  }.freeze
+
+  IMMUTABLE_COLUMN_UPDATES.each do |column, set_clause|
+    test "audit immutability trigger BLOCKS update to #{column}" do
+      entry = setup_decision_with_audit_entry.call(self)
+      assert_raises(ActiveRecord::StatementInvalid, "Trigger must reject UPDATE to #{column}") do
+        ActiveRecord::Base.connection.execute(
+          ActiveRecord::Base.sanitize_sql([
+            "UPDATE decision_audit_entries SET #{set_clause} WHERE id = ?", entry.id,
+          ]),
+        )
+      end
+    end
   end
 
   # === Unique constraint on (decision_id, sequence_number) ===

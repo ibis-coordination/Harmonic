@@ -506,6 +506,14 @@ class CollectiveImportService
     data = read_json("decision_audit_entries.json")
     data.each do |e|
       # Insert directly to avoid immutability triggers and preserve the original hash chain
+      # Preserve actor_token verbatim from source for forensic traceability.
+      # Drop actor_token_salt: the salt was the secret that allowed the source
+      # instance's binding check to recompute. Carrying it across an import
+      # would be misleading — the binding can't validate against remapped
+      # target IDs anyway, and dropping the salt makes verify_actor_binding
+      # cleanly report :imported (instead of :tamper_or_scrub_inconsistent).
+      # The "imported" => true metadata flag is what distinguishes :imported
+      # from :unattributable downstream.
       DecisionAuditEntry.insert!({
                                    tenant_id: @tenant.id,
                                    collective_id: @data_import.collective_id,
@@ -515,6 +523,8 @@ class CollectiveImportService
                                    action: e["action"],
                                    actor_id: map_id(e["source_actor_id"]),
                                    actor_handle: e["actor_handle"],
+                                   actor_token: e["actor_token"],
+                                   actor_token_salt: nil,
                                    option_title: e["option_title"],
                                    accepted: e["accepted"],
                                    preferred: e["preferred"],

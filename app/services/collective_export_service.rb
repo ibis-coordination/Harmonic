@@ -269,6 +269,8 @@ class CollectiveExportService
         "action" => e.action,
         "source_actor_id" => e.actor_id,
         "actor_handle" => e.actor_handle,
+        "actor_token" => e.actor_token,
+        "actor_token_salt" => e.actor_token_salt,
         "option_title" => e.option_title,
         "accepted" => e.accepted,
         "preferred" => e.preferred,

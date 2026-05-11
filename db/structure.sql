@@ -52,7 +52,25 @@ CREATE FUNCTION public.prevent_audit_entry_mutation() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  RAISE EXCEPTION 'decision_audit_entries are immutable — updates are not allowed';
+  IF NEW.id IS DISTINCT FROM OLD.id
+     OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
+     OR NEW.collective_id IS DISTINCT FROM OLD.collective_id
+     OR NEW.decision_id IS DISTINCT FROM OLD.decision_id
+     OR NEW.sequence_number IS DISTINCT FROM OLD.sequence_number
+     OR NEW.schema_version IS DISTINCT FROM OLD.schema_version
+     OR NEW.action IS DISTINCT FROM OLD.action
+     OR NEW.actor_token IS DISTINCT FROM OLD.actor_token
+     OR NEW.option_title IS DISTINCT FROM OLD.option_title
+     OR NEW.accepted IS DISTINCT FROM OLD.accepted
+     OR NEW.preferred IS DISTINCT FROM OLD.preferred
+     OR NEW.metadata IS DISTINCT FROM OLD.metadata
+     OR NEW.previous_hash IS DISTINCT FROM OLD.previous_hash
+     OR NEW.entry_hash IS DISTINCT FROM OLD.entry_hash
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at
+  THEN
+    RAISE EXCEPTION 'decision_audit_entries are immutable except for PII scrubbing (actor_id, actor_handle, actor_token_salt)';
+  END IF;
+  RETURN NEW;
 END;
 $$;
 
@@ -633,7 +651,7 @@ CREATE TABLE public.decision_audit_entries (
     collective_id uuid NOT NULL,
     decision_id uuid NOT NULL,
     sequence_number integer NOT NULL,
-    schema_version integer DEFAULT 1 NOT NULL,
+    schema_version integer DEFAULT 2 NOT NULL,
     action character varying NOT NULL,
     actor_id uuid,
     actor_handle character varying,
@@ -643,7 +661,9 @@ CREATE TABLE public.decision_audit_entries (
     metadata jsonb,
     previous_hash character varying,
     entry_hash character varying NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL
+    created_at timestamp(6) without time zone NOT NULL,
+    actor_token character varying,
+    actor_token_salt character varying
 );
 
 
@@ -9374,6 +9394,10 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260510000003'),
+('20260510000002'),
+('20260510000001'),
+('20260510000000'),
 ('20260509000000'),
 ('20260508185124'),
 ('20260508060114'),

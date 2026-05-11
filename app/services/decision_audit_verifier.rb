@@ -7,6 +7,7 @@ class DecisionAuditVerifier
   def self.verify_chain(decision)
     entries = DecisionAuditEntry.where(decision_id: decision.id).order(:sequence_number).to_a
     errors = []
+    binding_statuses = T.let({}, T::Hash[Integer, Symbol])
     previous_hash = T.let(nil, T.nilable(String))
 
     entries.each_with_index do |entry, index|
@@ -26,6 +27,10 @@ class DecisionAuditVerifier
         errors << "Entry ##{entry.sequence_number}: hash mismatch (stored: #{entry.entry_hash[0..7]}..., computed: #{recomputed[0..7]}...)"
       end
 
+      # Per-entry actor-identity binding status (v2 only).
+      # :verified / :unattributable / :tamper_or_scrub_inconsistent / :no_actor / :v1_chain_only
+      binding_statuses[entry.sequence_number] = verify_actor_binding(entry)
+
       previous_hash = entry.entry_hash
     end
 
@@ -36,11 +41,20 @@ class DecisionAuditVerifier
       errors << "Decision chain hash mismatch (stored: #{chain_hash[0..7]}..., last entry: #{last_hash&.slice(0, 8)}...)" if chain_hash != last_hash
     end
 
+    # Surface tamper detection from the binding check separately from chain
+    # integrity. Scrubbed and imported entries are expected and shouldn't
+    # fail the chain — only :tamper_or_scrub_inconsistent is a failure.
+    binding_inconsistent = binding_statuses.values.count(:tamper_or_scrub_inconsistent)
+
     {
-      valid: errors.empty?,
+      valid: errors.empty? && binding_inconsistent.zero?,
       entry_count: entries.size,
       errors: errors,
       last_hash: entries.last&.entry_hash,
+      binding_statuses: binding_statuses,
+      binding_inconsistent_count: binding_inconsistent,
+      scrubbed_count: binding_statuses.values.count(:unattributable),
+      imported_count: binding_statuses.values.count(:imported),
     }
   end
 
@@ -55,6 +69,52 @@ class DecisionAuditVerifier
       error: valid ? nil : "hash mismatch",
     }
   end
+
+  # Independent actor-identity binding check for v2 entries. The chain itself
+  # proves that the stored actor_token wasn't silently changed (the token is
+  # in the hashed content). This check additionally confirms the token actually
+  # binds to the stored identity.
+  #
+  # Outcomes:
+  #   :verified                       — token matches the recomputed derivation
+  #   :unattributable                 — actor_id or actor_token_salt is NULL
+  #                                     (PII has been scrubbed; intentional)
+  #   :imported                       — entry came from a cross-instance import;
+  #                                     binding can't validate against remapped
+  #                                     target IDs (intentional, not a tamper)
+  #   :tamper_or_scrub_inconsistent   — derivation doesn't match stored token
+  #                                     (either a tamper, or a partial scrub
+  #                                     that left the chain inconsistent —
+  #                                     cross-reference SecurityAuditLog)
+  #   :no_actor                       — v2 entry has no actor (e.g., beacon_drawn)
+  #   :v1_chain_only                  — entry is v1; binding is enforced by the
+  #                                     chain hash itself rather than a separate
+  #                                     token, so the binding check doesn't apply
+  sig { params(entry: DecisionAuditEntry).returns(Symbol) }
+  def self.verify_actor_binding(entry)
+    return :v1_chain_only if entry.schema_version != 2
+    return :no_actor if entry.actor_token.blank?
+    if entry.actor_id.blank? || entry.actor_token_salt.blank?
+      # Distinguish cross-instance imports from PII scrub. CollectiveImportService
+      # nulls the salt and stamps metadata["imported"] = true; account-closure
+      # scrubbing nulls the salt without touching metadata. The status enum is
+      # extensible — future flows (e.g., anonymous voting) can add their own
+      # labels following the same pattern.
+      return :imported if imported_entry?(entry)
+      return :unattributable
+    end
+
+    expected = Digest::SHA256.hexdigest(
+      "#{entry.decision_id}|#{entry.actor_id}|#{entry.actor_handle}|#{entry.actor_token_salt}"
+    )
+    expected == entry.actor_token ? :verified : :tamper_or_scrub_inconsistent
+  end
+
+  sig { params(entry: DecisionAuditEntry).returns(T::Boolean) }
+  def self.imported_entry?(entry)
+    entry.metadata.is_a?(Hash) && entry.metadata["imported"] == true
+  end
+  private_class_method :imported_entry?
 
   sig { params(decision: Decision).returns(T::Hash[Symbol, T.untyped]) }
   def self.verify_vote_tallies(decision)
@@ -87,10 +147,13 @@ class DecisionAuditVerifier
       .order(:sequence_number)
       .to_a
 
-    # Replay votes: keep latest per (actor_id, option_title) pair
+    # Replay votes: keep latest per (actor, option_title) pair.
+    # For v2 entries, dedupe by actor_token (actor_id may be NULL post-scrub).
+    # For v1, dedupe by actor_id.
     votes = T.let({}, T::Hash[[String, String], { accepted: Integer, preferred: Integer }])
     entries.each do |entry|
-      votes[[entry.actor_id || "", entry.option_title || ""]] = {
+      actor_key = entry.schema_version == 2 ? (entry.actor_token || "") : (entry.actor_id || "")
+      votes[[actor_key, entry.option_title || ""]] = {
         accepted: entry.accepted || 0,
         preferred: entry.preferred || 0,
       }

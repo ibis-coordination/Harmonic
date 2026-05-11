@@ -547,6 +547,16 @@ class DecisionsController < ApplicationController
     has_content = @decision.beacon_drawn? || @audit_entries.any?
     return redirect_to @decision.path unless has_content
 
+    # Detect cross-instance imports up front so all response formats can
+    # surface a banner. The chain may FAIL on imported decisions (the import
+    # adds metadata.imported=true after stamping entry_hash, which causes a
+    # hash mismatch), so we can't rely on the verifier's imported_count to
+    # render the banner — we look directly at the entries.
+    @has_imported_entries = DecisionAuditEntry
+                              .where(decision_id: @decision.id)
+                              .where("metadata @> ?", '{"imported":true}')
+                              .exists?
+
     @page_title = "Verify Results | #{@decision.question}"
     @sidebar_mode = 'resource'
 
@@ -571,6 +581,7 @@ class DecisionsController < ApplicationController
       format.json do
         json = {
           generated_at: Time.current.iso8601,
+          has_imported_entries: @has_imported_entries,
           decision: {
             id: @decision.id,
             question: @decision.question,
@@ -583,9 +594,12 @@ class DecisionsController < ApplicationController
           audit_chain: @audit_entries.map { |e|
             {
               sequence_number: e.sequence_number,
+              schema_version: e.schema_version,
               action: e.action,
               actor_id: e.actor_id || "",
               actor_handle: e.actor_handle || "",
+              actor_token: e.actor_token || "",
+              actor_token_salt: e.actor_token_salt || "",
               option_title: e.option_title || "",
               accepted: e.accepted.nil? ? "" : e.accepted.to_s,
               preferred: e.preferred.nil? ? "" : e.preferred.to_s,
@@ -636,11 +650,30 @@ class DecisionsController < ApplicationController
       end
     end
 
+    # Fetch sibling entries by the same actor. After PII scrub, actor_id is
+    # NULL but actor_token (a stable per-(decision, actor) commitment) is
+    # preserved — use it to keep the receipt page coherent even post-scrub.
+    # `where(actor_id: nil)` would otherwise sweep in unrelated NULL-actor
+    # entries (system events, other scrubbed users on the same decision).
     actor_id = receipt_entry.actor_id
-    @actor = User.find_by(id: actor_id)
-    @entries = DecisionAuditEntry
-      .where(decision_id: @decision.id, actor_id: actor_id)
-      .order(:sequence_number)
+    actor_token = receipt_entry.actor_token
+    @actor = actor_id.present? ? User.find_by(id: actor_id) : nil
+    @entries = if actor_id.present?
+      DecisionAuditEntry.where(decision_id: @decision.id, actor_id: actor_id).order(:sequence_number)
+    elsif actor_token.present?
+      DecisionAuditEntry.where(decision_id: @decision.id, actor_token: actor_token).order(:sequence_number)
+    else
+      # Receipt points at an actor-less entry (e.g., a system event); show only the entry itself.
+      DecisionAuditEntry.where(decision_id: @decision.id, id: receipt_entry.id)
+    end
+
+    # Display name precedence:
+    #   1. The current User's display name (most informative when account still exists)
+    #   2. The entry's recorded actor_handle (post-scrub this is "[deleted account]";
+    #      pre-scrub it's the historical handle so the page still shows something
+    #      meaningful even if the User row was hard-deleted by some other path)
+    #   3. "unknown user" as a last-resort fallback (e.g., system-event receipt)
+    @actor_display = @actor&.display_name || receipt_entry.actor_handle.presence || "unknown user"
 
     @page_title = "Vote receipt | #{@decision.question}"
     @sidebar_mode = "resource"
