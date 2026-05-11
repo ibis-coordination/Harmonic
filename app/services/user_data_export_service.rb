@@ -396,12 +396,19 @@ class UserDataExportService
     @record_counts["trustee_grants"] = data.length
   end
 
-  # Sessions where the subject represented another user. The subject's
-  # activity record.
+  # Sessions where the subject represented another user via a trustee grant.
+  #
+  # RepresentationSession is either user-to-user (trustee_grant_id present,
+  # collective_id NULL) or collective representation (trustee_grant_id NULL,
+  # collective_id set). The main collective has no representatives — only
+  # non-main collectives do — so the main-collective export only captures
+  # user-to-user sessions (collective_id IS NULL). Collective-representation
+  # sessions belong to their respective non-main collectives and are out of
+  # scope here.
   sig { params(tmpdir: String).void }
   def gather_representation_sessions(tmpdir)
     sessions = RepresentationSession.where(
-      collective_id: @collective.id, representative_user_id: @subject_user_ids,
+      collective_id: nil, representative_user_id: @subject_user_ids,
     )
     data = sessions.map do |s|
       {
@@ -419,11 +426,12 @@ class UserDataExportService
     @record_counts["representation_sessions"] = data.length
   end
 
-  # Events recorded within the subject's own representation sessions.
+  # Events recorded within the subject's own user-to-user representation
+  # sessions (scoped by gather_representation_sessions).
   sig { params(tmpdir: String).void }
   def gather_representation_session_events(tmpdir)
     session_ids = RepresentationSession
-                    .where(collective_id: @collective.id, representative_user_id: @subject_user_ids)
+                    .where(collective_id: nil, representative_user_id: @subject_user_ids)
                     .pluck(:id)
     events = RepresentationSessionEvent.where(representation_session_id: session_ids)
     data = events.map do |e|

@@ -339,7 +339,7 @@ During representation, users are confined to appropriate paths. Attempting to ac
 ### Collective Scope Enforcement
 
 For user representation, access to a collective requires both:
-1. The grant's `studio_scope` must allow the collective
+1. The grant's `collective_scope` must allow the collective
 2. The granting user must be a member of the collective
 
 ## Database Schema
@@ -389,7 +389,7 @@ Tracks individual actions during a session:
 | `granting_user_id` | uuid | User granting permission |
 | `trustee_user_id` | uuid | User receiving permission |
 | `permissions` | jsonb | Hash of action_name => boolean |
-| `studio_scope` | jsonb | Collective access configuration |
+| `collective_scope` | jsonb | Collective access configuration |
 | `accepted_at` | timestamp | When grant was accepted |
 | `declined_at` | timestamp | When grant was declined |
 | `revoked_at` | timestamp | When grant was revoked |

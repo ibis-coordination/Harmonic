@@ -418,13 +418,36 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal [mine.id], source_ids, "only invites the subject sent are theirs to export"
   end
 
-  test "representation_sessions.json includes only sessions where subject is the representative" do
+  test "representation_sessions.json includes only user-to-user sessions where subject is the representative" do
+    # User representation (collective_id IS NULL, trustee_grant_id present): the
+    # subject is acting on behalf of someone else via a trustee grant. This is
+    # the only kind of representation in scope for the main-collective export —
+    # the main collective itself has no representatives, and collective-rep
+    # sessions only exist inside non-main collectives.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      description: "Trust subject to act for X", accepted_at: Time.current,
+    )
     mine = RepresentationSession.create!(
-      tenant: @tenant, collective: @collective,
+      tenant: @tenant, collective_id: nil, trustee_grant: grant,
       representative_user: @user, began_at: Time.current, confirmed_understanding: true,
     )
+
+    # Collective representation in some other (non-main) collective: excluded.
+    other_collective = create_collective(tenant: @tenant, created_by: @other_user, name: "Other", handle: "other-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(@user)
     RepresentationSession.create!(
-      tenant: @tenant, collective: @collective,
+      tenant: @tenant, collective: other_collective,
+      representative_user: @user, began_at: Time.current, confirmed_understanding: true,
+    )
+
+    # Another user's user-rep session: excluded.
+    other_grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      description: "Trust other to act for subject", accepted_at: Time.current,
+    )
+    RepresentationSession.create!(
+      tenant: @tenant, collective_id: nil, trustee_grant: other_grant,
       representative_user: @other_user, began_at: Time.current, confirmed_understanding: true,
     )
 
@@ -435,23 +458,33 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_equal [mine.id], source_ids
   end
 
-  test "representation_session_events.json includes only events for the subject's sessions" do
+  test "representation_session_events.json includes only events for the subject's user-rep sessions" do
     target_note = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Target", text: "x")
+    my_grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      description: "trust", accepted_at: Time.current,
+    )
     my_session = RepresentationSession.create!(
-      tenant: @tenant, collective: @collective,
+      tenant: @tenant, collective_id: nil, trustee_grant: my_grant,
       representative_user: @user, began_at: Time.current, confirmed_understanding: true,
     )
+
+    # Session for someone else's representation: events on it must be excluded.
+    other_grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      description: "trust", accepted_at: Time.current,
+    )
     other_session = RepresentationSession.create!(
-      tenant: @tenant, collective: @collective,
+      tenant: @tenant, collective_id: nil, trustee_grant: other_grant,
       representative_user: @other_user, began_at: Time.current, confirmed_understanding: true,
     )
 
     mine = RepresentationSessionEvent.create!(
-      tenant: @tenant, collective: @collective, representation_session: my_session,
+      tenant: @tenant, representation_session: my_session,
       action_name: "read", resource: target_note, resource_collective_id: @collective.id,
     )
     RepresentationSessionEvent.create!(
-      tenant: @tenant, collective: @collective, representation_session: other_session,
+      tenant: @tenant, representation_session: other_session,
       action_name: "read", resource: target_note, resource_collective_id: @collective.id,
     )
 
@@ -459,7 +492,7 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
 
     events = read_json_from_zip("representation_session_events.json")
     source_ids = events.map { |e| e["source_id"] }
-    assert_equal [mine.id], source_ids, "only events in the subject's own sessions are included"
+    assert_equal [mine.id], source_ids, "only events in the subject's own user-rep sessions are included"
   end
 
   test "trustee_grants.json includes grants where subject is grantor or trustee" do
