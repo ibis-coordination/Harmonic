@@ -81,4 +81,33 @@ class DataExportMailerTest < ActiveSupport::TestCase
       end
     end
   end
+
+  # --- user_export_ready ---
+
+  test "user_export_ready email has correct subject and recipient" do
+    user_export = DataExport.create!(
+      tenant: @tenant, collective: @collective, user: @user,
+      status: "completed", expires_at: 7.days.from_now,
+      export_type: "user",
+      record_counts: { "notes" => 3, "votes" => 4 },
+    )
+    email = DataExportMailer.user_export_ready(data_export: user_export)
+    assert_equal [@user.email], email.to
+    assert_match(/personal data export/i, email.subject)
+    refute_includes email.subject, @collective.name, "user export subject should not name a collective"
+  end
+
+  test "user_export_ready email body includes record counts and the tenant-scoped download link" do
+    user_export = DataExport.create!(
+      tenant: @tenant, collective: @collective, user: @user,
+      status: "completed", expires_at: 7.days.from_now,
+      export_type: "user",
+      record_counts: { "notes" => 3, "votes" => 4 },
+    )
+    email = DataExportMailer.user_export_ready(data_export: user_export)
+    body = email.body.encoded
+    assert_includes body, "3 notes"
+    assert_includes body, "4 votes"
+    assert_includes body, "/settings/data_export/#{user_export.id}"
+  end
 end
