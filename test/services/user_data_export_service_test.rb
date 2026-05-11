@@ -347,6 +347,39 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     assert_includes manifest["subject"]["ai_agent_user_ids"], ai_agent.id
   end
 
+  test "attachments.json includes only attachments created by the subject, with binary content in the ZIP" do
+    my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "My note", text: "x")
+    their_note = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Their note", text: "y")
+
+    my_blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("my secret thoughts"), filename: "mine.txt", content_type: "text/plain",
+    )
+    my_attachment = Attachment.create!(
+      tenant: @tenant, collective: @collective, attachable: my_note, file: my_blob,
+      created_by: @user, updated_by: @user,
+    )
+
+    their_blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new("not mine"), filename: "theirs.txt", content_type: "text/plain",
+    )
+    Attachment.create!(
+      tenant: @tenant, collective: @collective, attachable: their_note, file: their_blob,
+      created_by: @other_user, updated_by: @other_user,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    attachments = read_json_from_zip("attachments.json")
+    source_ids = attachments.map { |a| a["source_id"] }
+    assert_equal [my_attachment.id], source_ids, "must include only the subject's attachment"
+
+    contents = read_file_from_zip("attachments/#{my_attachment.id}-mine.txt")
+    assert_equal "my secret thoughts", contents, "binary content of subject's attachment must be in the ZIP"
+
+    refute zip_contains?("attachments/#{my_blob.id}-theirs.txt"),
+           "binary content of other user's attachment must NOT be in the ZIP"
+  end
+
   test "excludes soft-deleted content" do
     kept = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Kept", text: "x")
     deleted = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Deleted", text: "y")
@@ -393,5 +426,25 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
       end
     end
     raise "#{filename} not found in ZIP"
+  end
+
+  def read_file_from_zip(suffix)
+    zip_data = @data_export.file.download
+    Zip::InputStream.open(StringIO.new(zip_data)) do |io|
+      while (entry = io.get_next_entry)
+        return io.read if entry.name.end_with?(suffix)
+      end
+    end
+    raise "#{suffix} not found in ZIP"
+  end
+
+  def zip_contains?(suffix)
+    zip_data = @data_export.file.download
+    Zip::InputStream.open(StringIO.new(zip_data)) do |io|
+      while (entry = io.get_next_entry)
+        return true if entry.name.end_with?(suffix)
+      end
+    end
+    false
   end
 end

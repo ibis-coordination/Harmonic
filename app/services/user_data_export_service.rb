@@ -58,6 +58,7 @@ class UserDataExportService
         gather_collective_members(tmpdir)
         gather_oauth_identities(tmpdir)
         gather_omni_auth_identities(tmpdir)
+        gather_attachments(tmpdir)
         write_manifest(tmpdir)
 
         zip_path = create_zip(tmpdir)
@@ -446,6 +447,42 @@ class UserDataExportService
     end
     write_json(tmpdir, "omni_auth_identities.json", data)
     @record_counts["omni_auth_identities"] = data.length
+  end
+
+  # Attachments owned by the subject. Binary content is written under
+  # attachments/ in the ZIP; metadata in attachments.json. Attachments
+  # created by others (even if attached to the subject's notes) are NOT
+  # included — that's content the subject didn't create.
+  sig { params(tmpdir: String).void }
+  def gather_attachments(tmpdir)
+    attachments = Attachment.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+    attachments_dir = File.join(tmpdir, "attachments")
+    FileUtils.mkdir_p(attachments_dir)
+
+    data = attachments.map do |a|
+      if a.file.attached?
+        filename = "#{a.id}-#{a.name}"
+        File.open(File.join(attachments_dir, filename), "wb") do |f|
+          T.unsafe(a.file).download { |chunk| f.write(chunk) }
+        end
+      end
+
+      {
+        "source_id" => a.id,
+        "attachable_type" => a.attachable_type,
+        "source_attachable_id" => a.attachable_id,
+        "source_created_by_id" => a.created_by_id,
+        "source_updated_by_id" => a.updated_by_id,
+        "name" => a.name,
+        "content_type" => a.content_type,
+        "byte_size" => a.byte_size,
+        "filename" => a.file.attached? ? "#{a.id}-#{a.name}" : nil,
+        "created_at" => a.created_at.iso8601,
+        "updated_at" => a.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "attachments.json", data)
+    @record_counts["attachments"] = data.length
   end
 
   sig { params(tmpdir: String).void }
