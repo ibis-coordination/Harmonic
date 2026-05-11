@@ -45,6 +45,10 @@ class UserDataExportService
     with_scoped_context do
       Dir.mktmpdir("harmonic-user-export") do |tmpdir|
         gather_notes(tmpdir)
+        gather_decisions(tmpdir)
+        gather_options(tmpdir)
+        gather_commitments(tmpdir)
+        gather_links(tmpdir)
         write_manifest(tmpdir)
 
         zip_path = create_zip(tmpdir)
@@ -98,6 +102,113 @@ class UserDataExportService
     end
     write_json(tmpdir, "notes.json", data)
     @record_counts["notes"] = data.length
+  end
+
+  sig { params(tmpdir: String).void }
+  def gather_decisions(tmpdir)
+    decisions = Decision.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+    data = decisions.map do |d|
+      {
+        "source_id" => d.id,
+        "truncated_id" => d.truncated_id,
+        "subtype" => d.subtype,
+        "question" => d.question,
+        "description" => d.description,
+        "options_open" => d.options_open,
+        "deadline" => d.deadline&.iso8601,
+        "source_created_by_id" => d.created_by_id,
+        "source_updated_by_id" => d.updated_by_id,
+        "source_decision_maker_id" => d.decision_maker_id,
+        "lottery_beacon_round" => d.lottery_beacon_round,
+        "lottery_beacon_randomness" => d.lottery_beacon_randomness,
+        "audit_chain_hash" => d.audit_chain_hash,
+        "created_at" => d.created_at.iso8601,
+        "updated_at" => d.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "decisions.json", data)
+    @record_counts["decisions"] = data.length
+  end
+
+  # An Option is "authored by" the user who created its decision_participant.
+  # Option doesn't have a direct created_by_id column — authorship flows through
+  # the participant. This catches both creator-seeded options (the decision
+  # creator is a participant) and participant-proposed options.
+  sig { params(tmpdir: String).void }
+  def gather_options(tmpdir)
+    participant_ids = DecisionParticipant.where(user_id: @subject_user_ids).pluck(:id)
+    options = Option.where(collective_id: @collective.id, decision_participant_id: participant_ids)
+    data = options.map do |o|
+      {
+        "source_id" => o.id,
+        "source_decision_id" => o.decision_id,
+        "source_decision_participant_id" => o.decision_participant_id,
+        "title" => o.title,
+        "description" => o.description,
+        "created_at" => o.created_at.iso8601,
+        "updated_at" => o.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "options.json", data)
+    @record_counts["options"] = data.length
+  end
+
+  sig { params(tmpdir: String).void }
+  def gather_commitments(tmpdir)
+    commitments = Commitment.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+    data = commitments.map do |c|
+      {
+        "source_id" => c.id,
+        "truncated_id" => c.truncated_id,
+        "subtype" => c.subtype,
+        "title" => c.title,
+        "description" => c.description,
+        "critical_mass" => c.critical_mass,
+        "limit" => c.limit,
+        "deadline" => c.deadline&.iso8601,
+        "source_created_by_id" => c.created_by_id,
+        "source_updated_by_id" => c.updated_by_id,
+        "created_at" => c.created_at.iso8601,
+        "updated_at" => c.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "commitments.json", data)
+    @record_counts["commitments"] = data.length
+  end
+
+  # Links have no created_by column (they're relationship metadata). Include
+  # links where either endpoint is content owned by the subject. Inbound
+  # links from others' content to the subject's are included because they
+  # disappear on account closure when the subject's content is deleted —
+  # symmetric with the deletion-scope principle.
+  sig { params(tmpdir: String).void }
+  def gather_links(tmpdir)
+    owned_note_ids = Note.where(collective_id: @collective.id, created_by_id: @subject_user_ids).pluck(:id)
+    owned_decision_ids = Decision.where(collective_id: @collective.id, created_by_id: @subject_user_ids).pluck(:id)
+    owned_commitment_ids = Commitment.where(collective_id: @collective.id, created_by_id: @subject_user_ids).pluck(:id)
+
+    links = Link.where(collective_id: @collective.id).where(
+      "(from_linkable_type = 'Note' AND from_linkable_id IN (:notes)) OR " \
+      "(to_linkable_type = 'Note' AND to_linkable_id IN (:notes)) OR " \
+      "(from_linkable_type = 'Decision' AND from_linkable_id IN (:decisions)) OR " \
+      "(to_linkable_type = 'Decision' AND to_linkable_id IN (:decisions)) OR " \
+      "(from_linkable_type = 'Commitment' AND from_linkable_id IN (:commitments)) OR " \
+      "(to_linkable_type = 'Commitment' AND to_linkable_id IN (:commitments))",
+      notes: owned_note_ids, decisions: owned_decision_ids, commitments: owned_commitment_ids,
+    )
+    data = links.map do |l|
+      {
+        "source_id" => l.id,
+        "from_linkable_type" => l.from_linkable_type,
+        "source_from_linkable_id" => l.from_linkable_id,
+        "to_linkable_type" => l.to_linkable_type,
+        "source_to_linkable_id" => l.to_linkable_id,
+        "created_at" => l.created_at.iso8601,
+        "updated_at" => l.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "links.json", data)
+    @record_counts["links"] = data.length
   end
 
   sig { params(tmpdir: String).void }

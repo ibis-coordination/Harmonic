@@ -101,6 +101,63 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "decisions.json includes only decisions authored by the subject" do
+    mine = create_decision(tenant: @tenant, collective: @collective, created_by: @user, question: "Mine")
+    create_decision(tenant: @tenant, collective: @collective, created_by: @other_user, question: "Theirs")
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    decisions = read_json_from_zip("decisions.json")
+    source_ids = decisions.map { |d| d["source_id"] }
+    assert_includes source_ids, mine.id
+    refute decisions.any? { |d| d["question"] == "Theirs" }
+  end
+
+  test "options.json includes only options proposed by the subject" do
+    others_decision = create_decision(tenant: @tenant, collective: @collective, created_by: @other_user)
+    my_option = create_option(decision: others_decision, created_by: @user, title: "Mine")
+    create_option(decision: others_decision, created_by: @other_user, title: "Theirs")
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    options = read_json_from_zip("options.json")
+    source_ids = options.map { |o| o["source_id"] }
+    assert_includes source_ids, my_option.id
+    refute options.any? { |o| o["title"] == "Theirs" }
+  end
+
+  test "commitments.json includes only commitments authored by the subject" do
+    mine = create_commitment(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine")
+    create_commitment(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Theirs")
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    commitments = read_json_from_zip("commitments.json")
+    source_ids = commitments.map { |c| c["source_id"] }
+    assert_includes source_ids, mine.id
+    refute commitments.any? { |c| c["title"] == "Theirs" }
+  end
+
+  test "links.json includes links touching the subject's content (either endpoint)" do
+    my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine A", text: "x")
+    my_other = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine B", text: "y")
+    their_note = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Theirs", text: "z")
+    unrelated_a = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Other A", text: "a")
+    unrelated_b = create_note(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Other B", text: "b")
+
+    outbound = Link.create!(tenant: @tenant, collective: @collective, from_linkable: my_note, to_linkable: their_note)
+    inbound = Link.create!(tenant: @tenant, collective: @collective, from_linkable: their_note, to_linkable: my_other)
+    unrelated = Link.create!(tenant: @tenant, collective: @collective, from_linkable: unrelated_a, to_linkable: unrelated_b)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    links = read_json_from_zip("links.json")
+    source_ids = links.map { |l| l["source_id"] }
+    assert_includes source_ids, outbound.id, "outbound link from subject's note must be included"
+    assert_includes source_ids, inbound.id, "inbound link to subject's note must be included"
+    refute_includes source_ids, unrelated.id, "links between others' content must be excluded"
+  end
+
   private
 
   def read_json_from_zip(filename)
