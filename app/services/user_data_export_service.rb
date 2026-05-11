@@ -48,6 +48,9 @@ class UserDataExportService
         gather_decisions(tmpdir)
         gather_options(tmpdir)
         gather_commitments(tmpdir)
+        gather_decision_participants(tmpdir)
+        gather_votes(tmpdir)
+        gather_commitment_participants(tmpdir)
         gather_links(tmpdir)
         write_manifest(tmpdir)
 
@@ -174,6 +177,72 @@ class UserDataExportService
     end
     write_json(tmpdir, "commitments.json", data)
     @record_counts["commitments"] = data.length
+  end
+
+  # Participation records: each carries a denormalized label snapshot
+  # (decision_question / option_title / commitment_title) so the archive is
+  # legible without including the parent records it points at. The snapshot
+  # reflects the current label at export time; if the parent has been edited
+  # since the user's action, the export reflects "what it's called now."
+  sig { params(tmpdir: String).void }
+  def gather_decision_participants(tmpdir)
+    participants = DecisionParticipant.where(user_id: @subject_user_ids).includes(:decision)
+    data = participants.map do |p|
+      decision = p.decision
+      {
+        "source_id" => p.id,
+        "source_decision_id" => p.decision_id,
+        "source_user_id" => p.user_id,
+        "decision_question" => decision&.question,
+        "created_at" => p.created_at.iso8601,
+        "updated_at" => p.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "decision_participants.json", data)
+    @record_counts["decision_participants"] = data.length
+  end
+
+  sig { params(tmpdir: String).void }
+  def gather_votes(tmpdir)
+    participant_ids = DecisionParticipant.where(user_id: @subject_user_ids).pluck(:id)
+    votes = Vote.where(decision_participant_id: participant_ids).includes(:decision, :option)
+    data = votes.map do |v|
+      decision = v.decision
+      option = v.option
+      {
+        "source_id" => v.id,
+        "source_decision_id" => v.decision_id,
+        "source_option_id" => v.option_id,
+        "source_decision_participant_id" => v.decision_participant_id,
+        "accepted" => v.accepted,
+        "preferred" => v.preferred,
+        "option_title" => option&.title,
+        "decision_question" => decision&.question,
+        "created_at" => v.created_at.iso8601,
+        "updated_at" => v.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "votes.json", data)
+    @record_counts["votes"] = data.length
+  end
+
+  sig { params(tmpdir: String).void }
+  def gather_commitment_participants(tmpdir)
+    participants = CommitmentParticipant.where(user_id: @subject_user_ids).includes(:commitment)
+    data = participants.map do |p|
+      commitment = p.commitment
+      {
+        "source_id" => p.id,
+        "source_commitment_id" => p.commitment_id,
+        "source_user_id" => p.user_id,
+        "committed_at" => p.committed_at&.iso8601,
+        "commitment_title" => commitment&.title,
+        "created_at" => p.created_at.iso8601,
+        "updated_at" => p.updated_at.iso8601,
+      }
+    end
+    write_json(tmpdir, "commitment_participants.json", data)
+    @record_counts["commitment_participants"] = data.length
   end
 
   # Links have no created_by column (they're relationship metadata). Include

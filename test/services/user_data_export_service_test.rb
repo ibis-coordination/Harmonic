@@ -138,6 +138,60 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     refute commitments.any? { |c| c["title"] == "Theirs" }
   end
 
+  test "votes.json includes only the subject's votes with denormalized option_title and decision_question" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @other_user, question: "Pizza or tacos?")
+    option = create_option(decision: decision, created_by: @other_user, title: "Tacos")
+    my_participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
+    other_participant = DecisionParticipantManager.new(decision: decision, user: @other_user).find_or_create_participant
+    my_vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: decision, option: option,
+      decision_participant: my_participant, accepted: 1, preferred: 0,
+    )
+    Vote.create!(
+      tenant: @tenant, collective: @collective, decision: decision, option: option,
+      decision_participant: other_participant, accepted: 1, preferred: 1,
+    )
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    votes = read_json_from_zip("votes.json")
+    assert_equal 1, votes.length, "should include exactly the subject's vote"
+    v = votes.first
+    assert_equal my_vote.id, v["source_id"]
+    assert_equal "Tacos", v["option_title"], "denormalized option_title snapshot"
+    assert_equal "Pizza or tacos?", v["decision_question"], "denormalized decision_question snapshot"
+  end
+
+  test "decision_participants.json includes only the subject's participations with denormalized decision_question" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @other_user, question: "Which way?")
+    my_participant = DecisionParticipantManager.new(decision: decision, user: @user).find_or_create_participant
+    DecisionParticipantManager.new(decision: decision, user: @other_user).find_or_create_participant
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    participants = read_json_from_zip("decision_participants.json")
+    assert_equal 1, participants.length
+    p = participants.first
+    assert_equal my_participant.id, p["source_id"]
+    assert_equal "Which way?", p["decision_question"]
+  end
+
+  test "commitment_participants.json includes only the subject's participations with denormalized commitment_title" do
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @other_user, title: "Show up Saturday")
+    my_cp = CommitmentParticipantManager.new(commitment: commitment, user: @user).find_or_create_participant
+    my_cp.update!(committed_at: Time.current)
+    other_cp = CommitmentParticipantManager.new(commitment: commitment, user: @other_user).find_or_create_participant
+    other_cp.update!(committed_at: Time.current)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    participants = read_json_from_zip("commitment_participants.json")
+    assert_equal 1, participants.length
+    p = participants.first
+    assert_equal my_cp.id, p["source_id"]
+    assert_equal "Show up Saturday", p["commitment_title"]
+  end
+
   test "links.json includes links touching the subject's content (either endpoint)" do
     my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine A", text: "x")
     my_other = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Mine B", text: "y")
