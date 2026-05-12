@@ -302,7 +302,7 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: other_collective.handle)
 
     other_decision = create_decision(tenant: @tenant, collective: other_collective, created_by: @user, question: "Other group decision")
-    other_option = create_option(decision: other_decision, created_by: @user, title: "Other option")
+    other_option = create_option(tenant: @tenant, collective: other_collective, decision: other_decision, created_by: @user, title: "Other option")
     other_participant = DecisionParticipantManager.new(decision: other_decision, user: @user).find_or_create_participant
     Vote.create!(
       tenant: @tenant, collective: other_collective, decision: other_decision, option: other_option,

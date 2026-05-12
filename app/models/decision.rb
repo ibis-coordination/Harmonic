@@ -245,15 +245,33 @@ class Decision < ApplicationRecord
   end
 
   def content_snapshot
-    { question: question, description: description }
+    { question: raw_question, description: raw_description }
+  end
+
+  # Accessor masking for soft-deleted records. See SoftDeletable comments.
+  sig { returns(T.nilable(String)) }
+  def raw_question
+    attributes["question"]
+  end
+
+  sig { returns(T.nilable(String)) }
+  def raw_description
+    attributes["description"]
+  end
+
+  sig { returns(T.nilable(String)) }
+  def question
+    return "[deleted]" if deleted?
+    super
+  end
+
+  sig { returns(T.nilable(String)) }
+  def description
+    return "[deleted]" if deleted?
+    super
   end
 
   private
-
-  def scrub_content!
-    self.question = "[deleted]"
-    self.description = "[deleted]"
-  end
 
   # Track the creator of this decision
   def user_item_status_updates

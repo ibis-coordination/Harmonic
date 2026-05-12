@@ -74,7 +74,30 @@ class Commitment < ApplicationRecord
   end
 
   def content_snapshot
-    { title: title, description: description }
+    { title: raw_title, description: raw_description }
+  end
+
+  # Accessor masking for soft-deleted records. See SoftDeletable comments.
+  sig { returns(T.nilable(String)) }
+  def raw_title
+    attributes["title"]
+  end
+
+  sig { returns(T.nilable(String)) }
+  def raw_description
+    attributes["description"]
+  end
+
+  sig { returns(T.nilable(String)) }
+  def title
+    return "[deleted]" if deleted?
+    super
+  end
+
+  sig { returns(T.nilable(String)) }
+  def description
+    return "[deleted]" if deleted?
+    super
   end
 
   sig { returns(String) }
@@ -184,11 +207,6 @@ class Commitment < ApplicationRecord
   end
 
   private
-
-  def scrub_content!
-    self.title = "[deleted]"
-    self.description = "[deleted]"
-  end
 
   # Track the creator of this commitment
   def user_item_status_updates

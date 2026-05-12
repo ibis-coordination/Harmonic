@@ -113,6 +113,7 @@ class Note < ApplicationRecord
 
   sig { returns(String) }
   def title
+    return "[deleted]" if deleted?
     persisted = super
     persisted.presence || T.must(T.must(text).split("\n").first).truncate(256)
   end
@@ -120,6 +121,37 @@ class Note < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def persisted_title
     attributes["title"]
+  end
+
+  # Accessor masking: when soft-deleted, the public readers return placeholders
+  # even though the DB row preserves the real content for the grace period.
+  # raw_* methods are the escape hatch for legitimate readers (audit snapshots,
+  # undo verification, admin recovery).
+  sig { returns(T.nilable(String)) }
+  def raw_title
+    attributes["title"]
+  end
+
+  sig { returns(T.nilable(String)) }
+  def raw_text
+    attributes["text"]
+  end
+
+  sig { returns(T.untyped) }
+  def raw_table_data
+    attributes["table_data"]
+  end
+
+  sig { returns(T.nilable(String)) }
+  def text
+    return "[deleted]" if deleted?
+    super
+  end
+
+  sig { returns(T.untyped) }
+  def table_data
+    return nil if deleted?
+    super
   end
 
   sig { returns(Integer) }
@@ -316,7 +348,7 @@ class Note < ApplicationRecord
   SEARCHABLE_COMMENTABLE_TYPES = ["Note", "Decision", "Commitment"].freeze
 
   def content_snapshot
-    { title: persisted_title, text: text }
+    { title: raw_title, text: raw_text }
   end
 
   private
@@ -345,10 +377,7 @@ class Note < ApplicationRecord
     end
   end
 
-  def scrub_content!
-    self.title = "[deleted]"
-    self.text = "[deleted]"
-    self.table_data = nil if is_table?
+  def on_soft_delete
     reminder_service.cancel! if is_reminder? && reminder_notification_id.present?
   end
 
