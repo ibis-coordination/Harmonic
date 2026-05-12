@@ -73,6 +73,15 @@ class ReminderDeliveryJob < SystemJob
     # If this reminder is linked to a note, use the note's collective for context.
     # Otherwise fall back to find_collective_for_user (for any legacy standalone reminders).
     note = Note.tenant_scoped_only(tenant.id).find_by(reminder_notification_id: notification.id)
+
+    # Defense-in-depth: the note is the source of truth. If it has been soft-
+    # deleted, the reminder should not fire even if the notification record is
+    # still around (e.g. a partial cancel! that didn't fully clean up).
+    if note && note.deleted?
+      Rails.logger.warn("ReminderDeliveryJob: skipping #{reminders.size} reminder(s) for soft-deleted note #{note.id}")
+      return
+    end
+
     collective = if note
       Collective.find_by(id: note.collective_id)
     else

@@ -267,6 +267,35 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     assert_equal @collective.identity_user.id, event.user_id
   end
 
+  test "skips delivery when the linked note has been soft-deleted" do
+    # Defense-in-depth: if Note#soft_delete! ran on_soft_delete to cancel the
+    # reminder, the notification + recipient would already be destroyed and
+    # the job's main query wouldn't find them. This test simulates a partial-
+    # cleanup state (note marked deleted but notification still around) and
+    # asserts the job refuses to deliver.
+    notification = ReminderService.create!(
+      user: @user, title: "Orphan reminder", scheduled_for: 1.day.from_now,
+    )
+    nr = notification.notification_recipients.first
+    nr.update!(scheduled_for: 1.minute.ago)
+
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Remember", subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+    # Bypass soft_delete! to leave notification + recipient intact.
+    note.update_columns(deleted_at: Time.current)
+
+    Collective.clear_thread_scope
+    ReminderDeliveryJob.perform_now
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+
+    nr.reload
+    assert_equal "pending", nr.status, "reminder for soft-deleted note must not be delivered"
+  end
+
   test "does not create NoteHistoryEvent for standalone reminders" do
     notification = ReminderService.create!(
       user: @user,

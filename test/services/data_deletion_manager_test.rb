@@ -119,6 +119,67 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_equal 0, Decision.where(id: decision.id).count
   end
 
+  # --- system_tombstone_note! ---
+
+  test "system_tombstone_note! nulls content, preserves row, sets tombstoned_at" do
+    note = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Original Title", text: "Original body",
+    )
+
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+    DataDeletionManager.system_tombstone_note!(note: note)
+
+    persisted = Note.unscoped.find_by(id: note.id)
+    assert persisted, "row must remain"
+    assert_not_nil persisted.tombstoned_at
+    raw = Note.connection.select_one(
+      "SELECT title, text, table_data FROM notes WHERE id = #{Note.connection.quote(note.id)}"
+    )
+    assert_nil raw["title"]
+    assert_nil raw["text"]
+    assert_nil raw["table_data"]
+  end
+
+  test "system_tombstone_note! destroys Link records involving the note" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    other_user = create_user(email: "tomblink-#{SecureRandom.hex(4)}@example.com", name: "Tomb Link #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    other_note = create_note(tenant: @tenant, collective: @collective, created_by: other_user, title: "B note")
+    Link.create!(tenant: @tenant, collective: @collective, from_linkable: other_note, to_linkable: note)
+
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+    DataDeletionManager.system_tombstone_note!(note: note)
+
+    assert_equal 0, Link.where(to_linkable_id: note.id).count, "links must be destroyed"
+    assert Note.unscoped.where(id: other_note.id).exists?, "the other note must survive"
+  end
+
+  test "system_tombstone_note! preserves NoteHistoryEvents and child comments" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    other_user = create_user(email: "pres-other-#{SecureRandom.hex(4)}@example.com", name: "Preserve #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    comment = create_note(
+      tenant: @tenant, collective: @collective, created_by: other_user,
+      text: "B's comment", subtype: "comment", commentable: note,
+    )
+    NoteHistoryEvent.create!(
+      tenant: @tenant, collective: @collective, note: note, user: other_user,
+      event_type: "read_confirmation", happened_at: Time.current,
+    )
+
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+    DataDeletionManager.system_tombstone_note!(note: note)
+
+    assert Note.unscoped.where(id: comment.id).exists?, "comment must survive"
+    assert NoteHistoryEvent.where(note_id: note.id).exists?, "history events must survive"
+  end
+
   test "delete_collective! cleans up events referencing the collective" do
     # Reproduces a FK violation: Tracked callbacks insert Event rows that
     # reference the collective. delete_collective! must clear them or

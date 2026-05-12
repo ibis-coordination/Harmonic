@@ -116,26 +116,49 @@ class DataDeletionManager
   sig { params(note: Note, confirmation_token: String).returns(String) }
   def delete_note!(note:, confirmation_token:)
     validate_confirmation_token!(confirmation_token)
-    note_title = note.title
+    note_title = note.raw_title || note.title
     note_id = note.id
+    self.class.send(:cascade_delete_note, note)
+    "Note '#{note_title}' (ID: #{note_id}) has been deleted successfully."
+  end
+
+  # System-job entry point invoked by HardDeleteExpiredRecordsJob once a soft-
+  # deleted note's grace period has expired. Tombstones the note: nulls
+  # the authored content (title/text/table_data), purges attachments, destroys
+  # Link records, and sets tombstoned_at. The row stays in the DB so any
+  # external references (B's comments, NoteHistoryEvents) continue to resolve
+  # to a real row that renders as [deleted]. Full hard-delete remains available
+  # via the console admin delete_note! method.
+  #
+  # Wrapped in a transaction with a row lock so concurrent updates are
+  # serialized. Bypasses the user+token guard; the naming and class-method
+  # placement signal it's intended for SystemJob callers only.
+  sig { params(note: Note).void }
+  def self.system_tombstone_note!(note:)
     ActiveRecord::Base.transaction do
-      # Delete all associated data (always in same collective as parent)
-      NoteHistoryEvent.where(note_id: note.id).each do |event|
-        event.destroy!
-      end
-      # Links can be cross-collective, so query tenant-wide
+      note.lock!
+      note.attachments.destroy_all if note.respond_to?(:attachments) && note.attachments.exists?
       Link.tenant_scoped_only(note.tenant_id).where(from_linkable: note).or(
         Link.tenant_scoped_only(note.tenant_id).where(to_linkable: note)
-      ).each do |link|
-        link.destroy!
-      end
-      # Delete the note itself
+      ).each(&:destroy!)
+      note.update_columns(
+        title: nil,
+        text: nil,
+        table_data: nil,
+        tombstoned_at: Time.current,
+      )
+    end
+  end
+
+  sig { params(note: Note).void }
+  private_class_method def self.cascade_delete_note(note)
+    ActiveRecord::Base.transaction do
+      NoteHistoryEvent.where(note_id: note.id).each(&:destroy!)
+      Link.tenant_scoped_only(note.tenant_id).where(from_linkable: note).or(
+        Link.tenant_scoped_only(note.tenant_id).where(to_linkable: note)
+      ).each(&:destroy!)
       note.destroy!
     end
-    # Log the deletion
-    # Rails.logger.info "Note '#{note_title}' (ID: #{note_id}) has been deleted by user '#{@user.name}' (ID: #{@user.id})."
-    # Notify the user about the deletion
-    "Note '#{note_title}' (ID: #{note_id}) has been deleted successfully."
   end
 
   sig { params(decision: Decision, confirmation_token: String).returns(String) }

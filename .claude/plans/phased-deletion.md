@@ -1,6 +1,8 @@
 # Phase 2: Phased Deletion
 
-Add a 30-day grace period between user-initiated soft-delete and permanent hard-delete. Phase 2's auto hard-delete pipeline applies to **Notes only**; `Decision` and `Commitment` soft-delete works (grace period, accessor masking, undo) but never auto-hard-deletes — their deletion semantics are a separate design conversation deferred to a follow-up phase.
+Add a 30-day grace period between user-initiated soft-delete and **tombstoning** of Notes (null content, preserve row). Phase 2's auto-finalize pipeline applies to **Notes only** and only tombstones — never hard-destroys the row. Hard-destroy remains available via the existing console admin `delete_note!` method.
+
+`Decision` and `Commitment` soft-delete works (grace period, accessor masking, undo) but never auto-finalizes — their deletion semantics are a separate design conversation deferred to a follow-up phase.
 
 ## Context
 
@@ -34,19 +36,19 @@ From the user's perspective, soft-delete **is** deletion. It:
 
 Undo is possible within the 30-day window.
 
-### Hard-delete-or-tombstone (decided at expiry, Notes only)
+### Tombstone (at expiry, Notes only)
 
-When `hard_delete_after` passes, the `HardDeleteExpiredRecordsJob` calls `DataDeletionManager.system_finalize_note!(note:)`, which inspects the note for **non-creator-owned associated records**:
+When `hard_delete_after` passes, the `HardDeleteExpiredRecordsJob` calls `DataDeletionManager.system_tombstone_note!(note:)`, which:
 
-- Child comments (`subtype = "comment"` notes with `commentable_id` pointing at the parent) created by anyone other than the note's creator
-- `NoteHistoryEvent` rows where `user_id != note.created_by_id` (read confirmations and reminder acknowledgments by other users)
-- `Link` rows where the *other* end of the link belongs to a note owned by someone other than the creator (i.e. another user referenced this note)
+- Nulls `title`, `text`, `table_data` via `update_columns`
+- Purges attachments
+- Destroys all `Link` records involving the note (links are system-generated from parsed `@`-references; they don't belong to any user, and `LinkParser` already treats soft-deleted items as unresolvable, so destroying them on tombstone keeps behavior consistent)
+- Sets `tombstoned_at = Time.current`
+- **Leaves the row in place** — `NoteHistoryEvent` rows, child comments, and any other records that reference the note continue to resolve
 
-**If any such records exist**: tombstone — null `title`/`text`/`table_data` via `update_columns`, purge attachments, set `tombstoned_at`. The note row remains in the DB so external FK references stay valid. B's comment, B's read confirmation, and B's incoming link all continue to resolve to a real (but content-stripped) parent row.
+Always tombstones — no conditional logic, no audit of who-owns-what among references. The row stays forever (until an admin invokes the console `delete_note!` to nuke it). This avoids the complex "who owns this reference?" question and keeps the system pipeline minimal.
 
-**If no such records exist**: hard-delete — destroy the row entirely. The cascade also clears A's own `NoteHistoryEvent` rows and `Link` rows (existing `cascade_delete_note` logic).
-
-The decision is made *at expiry*, not at soft-delete. A note with no other-user activity at delete time may still tombstone if other-user activity has accrued before the grace period ends. The check happens inside the same transaction as the finalize action.
+The action runs inside a transaction with a row lock on the note so concurrent updates are serialized.
 
 ### Why Notes only
 
@@ -60,8 +62,8 @@ That ambiguity ("does a Decision belong to its creator once others engage?") is 
 
 ### DataDeletionManager API
 
-- Existing `delete_note!` / `delete_decision!` / `delete_commitment!` instance methods are unchanged — console admin nuke remains available.
-- New `DataDeletionManager.system_finalize_note!(note:)` class method dispatches at expiry: tombstones if other-user references exist, otherwise destroys via the existing cascade. Only system entry point this PR introduces.
+- Existing `delete_note!` / `delete_decision!` / `delete_commitment!` instance methods are unchanged — console admin nuke remains available for full row destruction.
+- New `DataDeletionManager.system_tombstone_note!(note:)` class method is the only system entry point this PR introduces. Always tombstones; never destroys the row.
 
 ### Bug fixes
 
@@ -94,24 +96,24 @@ Indexed datetime on `notes`, `decisions`, `commitments`. Backfills existing soft
 - Update tests: remove `hard_delete_after` assertions from Decision/Commitment soft-delete tests.
 - Add migration: `tombstoned_at :datetime` column on `notes` (indexed).
 
-### Commit 6 — `system_finalize_note!` on DataDeletionManager
+### Commit 6 — `system_tombstone_note!` on DataDeletionManager
 
-Class method that, inside a transaction:
-- Inspects the note for non-creator-owned references (child comments, history events by other users, links from other users' notes).
-- **If any exist**: tombstone — `update_columns(title: nil, text: nil, table_data: nil, tombstoned_at: Time.current)`. Purge `attachments` if present. Leave NoteHistoryEvent rows, Link rows, child comments untouched.
-- **If none exist**: call existing private `cascade_delete_note` (destroys row + A's own NoteHistoryEvent/Link rows).
+Class method that, inside a transaction with a row lock on the note:
+- Purges attachments
+- Destroys all Link records involving the note
+- `update_columns(title: nil, text: nil, table_data: nil, tombstoned_at: Time.current)`
 
-The other-user-reference predicates live as small private class methods (`has_other_user_comments?`, `has_other_user_history?`, `has_other_user_link?`) so they're independently testable.
+`delete_note!` is refactored to share `cascade_delete_note` (private class helper) so the console admin nuke path stays available unchanged.
 
 ### Commit 7 — `HardDeleteExpiredRecordsJob`
 
-`class HardDeleteExpiredRecordsJob < SystemJob`. Daily schedule. Scoped to `Note` only. Across all tenants, finds notes where `hard_delete_after < Time.current AND tombstoned_at IS NULL`, calls `DataDeletionManager.system_finalize_note!(note:)` on each. One-record-per-transaction so a failure on one note doesn't poison the batch.
+`class HardDeleteExpiredRecordsJob < SystemJob`. Daily schedule. Scoped to `Note` only. Across all tenants, finds notes where `hard_delete_after < Time.current AND tombstoned_at IS NULL`, calls `DataDeletionManager.system_tombstone_note!(note:)` on each. One-record-per-transaction so a failure on one note doesn't poison the batch.
 
 ### Commit 8 — Tests
 
-- `soft_deletable_test.rb`: tombstoned? predicate, undo behavior under non-participating model, `participates_in_hard_delete` semantics.
-- `data_deletion_manager_test.rb`: `system_finalize_note!` — tombstones when other-user comments exist; tombstones when other-user read confirmation exists; tombstones when other-user link exists; hard-deletes when only creator-owned references exist; preserves children/history/links on tombstone; sets tombstoned_at.
-- `hard_delete_expired_records_job_test.rb`: finalizes eligible notes, skips fresh ones, skips already-tombstoned, cross-tenant safe, one-failure-doesn't-block-rest.
+- `soft_deletable_test.rb`: tombstoned? predicate, undo behavior under non-participating model, `participates_in_hard_delete` semantics. (Done in commit 5.)
+- `data_deletion_manager_test.rb`: `system_tombstone_note!` — nulls content fields, sets tombstoned_at, preserves row, destroys Link records, preserves NoteHistoryEvents and child comments. (Done in commit 6.)
+- `hard_delete_expired_records_job_test.rb`: tombstones eligible notes, skips fresh ones, skips already-tombstoned, cross-tenant safe, one-failure-doesn't-block-rest.
 
 ### Commit 9 — Plan doc cleanup
 
@@ -121,7 +123,7 @@ Update `data-lifecycle-management.md` to reflect Phase 2 status (Notes-only hard
 
 - **Decision/Commitment soft-delete is open-ended**: with `participates_in_hard_delete = false`, a soft-deleted Decision sits indefinitely. `default_scope` hides it from feeds, undo works forever. There's no UI today that surfaces "your soft-deleted decisions" — so they're effectively trash that the user can only get back to via the URL. Acceptable as an interim; the follow-up phase needs to address it.
 - **Tombstone UX for orphan comments**: when B's comment's `commentable` returns a tombstoned note, controllers/views need to render `[deleted]` instead of crashing or returning 404. Tombstoned notes still have `deleted_at` set so the accessor masking returns `[deleted]` and `default_scope` hides them from listings — but `with_deleted` lookups will find the row. Verify that existing rendering paths for "view a note with comments" handle a deleted (with_deleted) parent gracefully.
-- **Hard-delete-or-tombstone decision is racy at the boundary**: a non-creator user could add a read confirmation in the ~minute between the job's predicate check and the row deletion. Mitigation: do the predicate check inside the same transaction as the finalize action; lock the note row with `note.lock!` before the check.
+- **Tombstones accumulate**: the row stays forever once tombstoned. For very high-volume tenants this is mostly empty rows, but they're not free. If table size becomes a problem later, a focused follow-up can decide which old tombstones are safe to drop (e.g. no remaining child comments or history events) and add a separate cleanup pass.
 - **Attachment purging timing**: attachments preserved during grace period, purged at tombstone time. If a note has multi-GB attachments, the tombstone update gets slow. Acceptable for now — most notes have small attachments — but watch for it.
 
 ## Out of scope (deferred)

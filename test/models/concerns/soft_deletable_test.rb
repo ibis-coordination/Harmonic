@@ -322,6 +322,30 @@ class SoftDeletableTest < ActiveSupport::TestCase
     assert_not d.tombstoned?
   end
 
+  # --- Reminder cancellation on soft_delete (Note) ---
+
+  test "Note#soft_delete! cancels a scheduled reminder and destroys the notification" do
+    notification = ReminderService.create!(
+      user: @user, title: "Due", scheduled_for: 1.day.from_now,
+    )
+    notification_id = notification.id
+    recipient_id = notification.notification_recipients.first.id
+
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Remember", subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note.soft_delete!(by: @user)
+    note.reload
+
+    assert_nil note.reminder_notification_id, "note's reminder_notification_id must be cleared"
+    assert_nil Notification.find_by(id: notification_id), "notification must be destroyed"
+    assert_nil NotificationRecipient.find_by(id: recipient_id), "notification_recipient must be destroyed"
+  end
+
   # --- Content preservation in DB (defense-in-depth assertion) ---
 
   test "Note#soft_delete! does NOT scrub the underlying DB columns" do
