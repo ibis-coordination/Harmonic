@@ -299,6 +299,10 @@ Rails.application.routes.draw do
     get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
     get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
     post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
+    # Per-user data export
+    get  'settings/data-export'              => 'user_data_exports#index',    on: :member
+    post 'settings/data-export'              => 'user_data_exports#create',   on: :member
+    get  'settings/data-export/:export_id'   => 'user_data_exports#download', on: :member, as: :user_data_export_download
     # Trustee grant management (TrusteeGrants)
     get 'settings/trustee-grants' => 'trustee_grants#index', on: :member
     get 'settings/trustee-grants/actions' => 'trustee_grants#actions_index', on: :member

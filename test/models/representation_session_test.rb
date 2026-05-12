@@ -518,7 +518,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       granting_user: granting_user,
       trustee_user: @user,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" },
+      collective_scope: { "mode" => "all" },
     )
     grant.accept!
 
@@ -551,7 +551,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
       granting_user: granting_user,
       trustee_user: @user,
       permissions: { "create_notes" => true },
-      studio_scope: { "mode" => "all" },
+      collective_scope: { "mode" => "all" },
     )
     grant.accept!
 

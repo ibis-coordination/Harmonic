@@ -309,7 +309,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "all" },
+      collective_scope: { "mode" => "all" },
     )
 
     assert permission.allows_collective?(@collective)
@@ -321,7 +321,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "include", "studio_ids" => [@collective.id] },
+      collective_scope: { "mode" => "include", "collective_ids" => [@collective.id] },
     )
 
     assert permission.allows_collective?(@collective)
@@ -335,7 +335,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "include", "studio_ids" => [other_collective.id] },
+      collective_scope: { "mode" => "include", "collective_ids" => [other_collective.id] },
     )
 
     assert_not permission.allows_collective?(@collective)
@@ -348,7 +348,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "exclude", "studio_ids" => [@collective.id] },
+      collective_scope: { "mode" => "exclude", "collective_ids" => [@collective.id] },
     )
 
     assert_not permission.allows_collective?(@collective)
@@ -362,20 +362,20 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: { "mode" => "exclude", "studio_ids" => [other_collective.id] },
+      collective_scope: { "mode" => "exclude", "collective_ids" => [other_collective.id] },
     )
 
     assert permission.allows_collective?(@collective)
     assert_not permission.allows_collective?(other_collective)
   end
 
-  test "allows_collective? defaults to mode 'all' when studio_scope is nil" do
+  test "allows_collective? defaults to mode 'all' when collective_scope is nil" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: {},
-      studio_scope: nil,
+      collective_scope: nil,
     )
 
     assert permission.allows_collective?(@collective)
@@ -533,7 +533,7 @@ class TrusteeGrantTest < ActiveSupport::TestCase
       granting_user: @granting_user,
       trustee_user: @trustee_user,
       permissions: TrusteeGrant::GRANTABLE_ACTIONS.index_with { true },
-      studio_scope: { "mode" => "all" },
+      collective_scope: { "mode" => "all" },
       accepted_at: Time.current,
     )
 

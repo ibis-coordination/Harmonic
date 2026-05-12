@@ -111,25 +111,19 @@ class TrusteeGrant < ApplicationRecord
   # COLLECTIVE SCOPING METHODS
   # =========================================================================
 
-  # Alias for the studio_scope DB column (to be renamed in a future migration)
-  def collective_scope
-    studio_scope
-  end
-
   sig { params(collective: Collective).returns(T::Boolean) }
   def allows_collective?(collective)
     # Private workspaces are never accessible during representation
     return false if collective.private_workspace?
 
-    # Note: reads from studio_scope DB column (to be renamed in a future migration)
-    scope = studio_scope || { "mode" => "all" }
+    scope = collective_scope || { "mode" => "all" }
     case scope["mode"]
     when "all"
       true
     when "include"
-      scope["studio_ids"]&.include?(collective.id) || false
+      scope["collective_ids"]&.include?(collective.id) || false
     when "exclude"
-      !scope["studio_ids"]&.include?(collective.id)
+      !scope["collective_ids"]&.include?(collective.id)
     else
       false
     end

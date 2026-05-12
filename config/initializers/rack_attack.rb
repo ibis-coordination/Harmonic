@@ -89,6 +89,16 @@ class Rack::Attack
     end
   end
 
+  # Throttle per-user data export creation: 3 per hour per IP. The endpoint
+  # is browser-only (API tokens are blocked at the controller level) and
+  # already has an in-process "one active per user" check; this is a backstop
+  # against an attacker with a hijacked session enqueuing serial exports.
+  throttle('user_data_exports/ip', limit: 3, period: 1.hour) do |req|
+    if req.path.match?(%r{/u/[^/]+/settings/data-export\z}) && req.post?
+      req.ip
+    end
+  end
+
   # Throttle data import requests: 100 per hour per IP. Imports are tenant-admin
   # only and already gated by reverification + ensure_tenant_admin; this throttle
   # is a backstop against compromised-admin or misconfigured-automation abuse, not

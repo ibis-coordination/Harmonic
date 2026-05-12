@@ -334,6 +334,22 @@
       </div>
     <% end %>
 
+    <%# Download My Data — gated by the user_data_export feature flag %>
+    <% if @settings_user.human? && is_own_settings && @current_tenant.feature_enabled?("user_data_export") %>
+      <%= render 'shared/pulse_accordion', title: 'Download My Data' do %>
+        <p class="pulse-form-hint" style="margin-bottom:16px;">
+          Download a ZIP of the data you've shared publicly and the actions you've taken in public spaces.
+          See the export page for what's included.
+        </p>
+        <div class="pulse-form-actions">
+          <a href="<%= @settings_user.path %>/settings/data-export" class="pulse-action-btn">
+            <%= octicon 'download', height: 14 %>
+            Download My Data
+          </a>
+        </div>
+      <% end %>
+    <% end %>
+
     <% if @settings_user.human? && is_own_settings %>
       <% blocked_count = @settings_user.user_blocks_given.count %>
       <%= render 'shared/pulse_accordion', title: 'Blocked Users', count: blocked_count > 0 ? blocked_count : nil do %>

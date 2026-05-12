@@ -53,7 +53,7 @@
                   <code class="pulse-code"><%= job.jid %></code>
                 </a>
               </td>
-              <td><%= job.retry_count %></td>
+              <td><%= job["retry_count"] || 0 %></td>
             </tr>
           <% end %>
         </tbody>

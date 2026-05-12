@@ -6,14 +6,19 @@ High-level roadmap for data portability, phased deletion, GDPR compliance, and u
 
 Harmonic needs a unified data lifecycle for GDPR-like compliance and user trust. Users should be able to export their data, understand what "deleted" means, and have confidence that deletion is thorough. The existing `DataDeletionManager` is admin-only and console-only. `SoftDeletable` exists for content but has no grace period or hard-delete pipeline. There is no data export capability.
 
-## Phase 1: Collective Data Export & Import (Portability)
+## Phase 1: Data Export & Import (Portability)
 
-*Detailed plan: [data-export.md](data-export.md)*
+### Phase 1a: Collective export + import — **shipped**
 
-Export an entire collective as a ZIP of JSON files + attachments, designed for re-import into another Harmonic instance (e.g., hosted → self-hosted migration). Export is a collective-admin action; import is a tenant-admin action (creates a new collective, not self-service). Users are matched by email on import; unmatched users become placeholder accounts that can be claimed later.
+*Detailed plan: [completed/2026/05/data-export.md](completed/2026/05/data-export.md)*
 
-Phase 1a: Collective export + import (built simultaneously, each validates the other)
-Phase 1b: User-level personal data export (GDPR Article 20, separate scope)
+Export an entire collective as a ZIP of JSON files + attachments, designed for re-import into another Harmonic instance (e.g., hosted → self-hosted migration). Export is a collective-admin action; import is a tenant-admin action (creates a new collective, not self-service). Users are matched by UUID on import; unmatched users become placeholder accounts.
+
+### Phase 1b: Per-user data export — **planned**
+
+*Detailed plan: [per-user-data-export.md](per-user-data-export.md)*
+
+User-triggered export of records the user owns within a collective (GDPR Article 20 portability). Scope mirrors account-closure deletion scope — only records that would be deleted/scrubbed on closure are in the export. Main collective only initially; private-collective export deferred until ownership policy is resolved. One-way archive (no import).
 
 ## Phase 2: Phased Deletion
 

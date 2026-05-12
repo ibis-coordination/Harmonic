@@ -615,7 +615,8 @@ CREATE TABLE public.data_exports (
     started_at timestamp(6) without time zone,
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    export_type character varying DEFAULT 'collective'::character varying NOT NULL
 );
 
 
@@ -1642,7 +1643,7 @@ CREATE TABLE public.trustee_grants (
     accepted_at timestamp(6) without time zone,
     declined_at timestamp(6) without time zone,
     revoked_at timestamp(6) without time zone,
-    studio_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
+    collective_scope jsonb DEFAULT '{"mode": "all"}'::jsonb,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
     trustee_user_id uuid NOT NULL
 );
@@ -3805,6 +3806,13 @@ CREATE UNIQUE INDEX index_content_reports_unique_per_reporter_and_reportable ON 
 --
 
 CREATE INDEX index_data_exports_on_collective_id ON public.data_exports USING btree (collective_id);
+
+
+--
+-- Name: index_data_exports_on_export_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_data_exports_on_export_type ON public.data_exports USING btree (export_type);
 
 
 --
@@ -9394,6 +9402,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260511000001'),
+('20260511000000'),
 ('20260510000003'),
 ('20260510000002'),
 ('20260510000001'),

@@ -606,7 +606,7 @@ class User < ApplicationRecord
       trustee_user: parent_user,        # The parent is the trustee
       accepted_at: Time.current,        # Pre-accepted
       permissions: all_permissions,     # All actions allowed
-      studio_scope: { "mode" => "all" } # All collectives
+      collective_scope: { "mode" => "all" } # All collectives
     )
   end
 

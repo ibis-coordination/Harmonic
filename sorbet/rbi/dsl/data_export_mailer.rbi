@@ -9,5 +9,8 @@ class DataExportMailer
   class << self
     sig { params(data_export: T.untyped).returns(::ActionMailer::MessageDelivery) }
     def export_ready(data_export:); end
+
+    sig { params(data_export: T.untyped).returns(::ActionMailer::MessageDelivery) }
+    def user_export_ready(data_export:); end
   end
 end

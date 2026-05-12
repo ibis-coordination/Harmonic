@@ -1,6 +1,14 @@
 {
   "ignored_warnings": [
     {
+      "fingerprint": "87f5e5342dddf1d3c74d4a8d3dcbe591a79536e4113973a11d73a70caa3fda5d",
+      "code": "FileUtils.mkdir_p(File.join(tmpdir, \"ai_agents\", (safe_subdir_name(TenantUser.where(:tenant_id => T.let(T.must(data_export.tenant), Tenant).id).pluck(:user_id, :handle).to_h[agent.id]) or agent.id)))",
+      "message": "Model attribute used in file name",
+      "file": "app/services/user_data_export_service.rb",
+      "line": 111,
+      "note": "safe_subdir_name validates the handle against /\\A[a-z0-9][a-z0-9_-]{0,63}\\z/i and returns nil for anything outside that alphabet, so path traversal characters can never reach File.join. Falls back to the agent's UUID otherwise. Test pinned in user_data_export_service_test.rb ('a malformed agent handle falls back to UUID')."
+    },
+    {
       "fingerprint": "26768f6475c5c711dbb57eaac7a6a05349c1b6b547152eed68bbc980a972d33b",
       "code": "T.must(T.must(@relation).where(\"search_index.#{column} >= ?\", min_val.to_i)).where(\"search_index.#{column} <= ?\", max_val.to_i)",
       "message": "Possible SQL injection",

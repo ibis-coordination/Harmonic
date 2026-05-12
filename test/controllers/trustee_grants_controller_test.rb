@@ -152,8 +152,8 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     permission = TrusteeGrant.unscoped.order(created_at: :desc).first
-    assert_equal "include", permission.studio_scope["mode"]
-    assert_includes permission.studio_scope["studio_ids"], @collective.id
+    assert_equal "include", permission.collective_scope["mode"]
+    assert_includes permission.collective_scope["collective_ids"], @collective.id
   end
 
   # === Show Tests ===

@@ -153,7 +153,7 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
       granting_user: @bob,
       trustee_user: @alice,
       permissions: TrusteeGrant::GRANTABLE_ACTIONS.index_with { true },
-      studio_scope: { "mode" => "all" },
+      collective_scope: { "mode" => "all" },
       accepted_at: Time.current,
     )
 
@@ -180,7 +180,7 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
       granting_user: @bob,
       trustee_user: @alice,
       permissions: TrusteeGrant::GRANTABLE_ACTIONS.index_with { true },
-      studio_scope: { "mode" => "all" },
+      collective_scope: { "mode" => "all" },
       accepted_at: Time.current,
     )
 

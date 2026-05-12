@@ -1,0 +1,14 @@
+Your personal data export is ready.
+
+<% if @data_export.record_counts.present? %>
+Exported: <%= @data_export.record_counts.map { |k, v| "#{v} #{k}" }.join(", ") %>
+
+<% end -%>
+Download: <%= @download_url %>
+
+You'll need to verify your identity (2FA) before downloading.
+<% if @data_export.expires_at %>
+This download expires on <%= @data_export.expires_at.strftime("%B %d, %Y") %>.
+<% end %>
+---
+You requested a copy of your data from Harmonic. If you didn't request it, please contact support.
