@@ -447,7 +447,8 @@ CREATE TABLE public.commitments (
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
     subtype character varying DEFAULT 'action'::character varying NOT NULL,
-    deadline_event_fired_at timestamp(6) without time zone
+    deadline_event_fired_at timestamp(6) without time zone,
+    hard_delete_after timestamp(6) without time zone
 );
 
 
@@ -728,7 +729,8 @@ CREATE TABLE public.decisions (
     lottery_beacon_round bigint,
     lottery_beacon_randomness character varying,
     deadline_event_fired_at timestamp(6) without time zone,
-    audit_chain_hash character varying
+    audit_chain_hash character varying,
+    hard_delete_after timestamp(6) without time zone
 );
 
 
@@ -844,7 +846,8 @@ CREATE TABLE public.notes (
     reminder_notification_id uuid,
     reminder_scheduled_for timestamp(6) without time zone,
     statementable_type character varying,
-    statementable_id uuid
+    statementable_id uuid,
+    hard_delete_after timestamp(6) without time zone
 );
 
 
@@ -3739,6 +3742,13 @@ CREATE INDEX index_commitments_on_deleted_at ON public.commitments USING btree (
 
 
 --
+-- Name: index_commitments_on_hard_delete_after; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_commitments_on_hard_delete_after ON public.commitments USING btree (hard_delete_after);
+
+
+--
 -- Name: index_commitments_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3932,6 +3942,13 @@ CREATE INDEX index_decisions_on_created_by_id ON public.decisions USING btree (c
 --
 
 CREATE INDEX index_decisions_on_deleted_at ON public.decisions USING btree (deleted_at);
+
+
+--
+-- Name: index_decisions_on_hard_delete_after; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_decisions_on_hard_delete_after ON public.decisions USING btree (hard_delete_after);
 
 
 --
@@ -4149,6 +4166,13 @@ CREATE INDEX index_notes_on_created_by_id ON public.notes USING btree (created_b
 --
 
 CREATE INDEX index_notes_on_deleted_at ON public.notes USING btree (deleted_at);
+
+
+--
+-- Name: index_notes_on_hard_delete_after; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notes_on_hard_delete_after ON public.notes USING btree (hard_delete_after);
 
 
 --
@@ -9402,6 +9426,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260511000002'),
 ('20260511000001'),
 ('20260511000000'),
 ('20260510000003'),
