@@ -259,7 +259,19 @@ class SoftDeletableTest < ActiveSupport::TestCase
     assert_equal 5000, snapshot[:text].length
   end
 
-  # --- Grace period: hard_delete_after ---
+  # --- Grace period: hard_delete_after only set when model opts in ---
+
+  test "Note opts into the hard-delete pipeline" do
+    assert Note.participates_in_hard_delete?
+  end
+
+  test "Decision does NOT opt into the hard-delete pipeline" do
+    assert_not Decision.participates_in_hard_delete?
+  end
+
+  test "Commitment does NOT opt into the hard-delete pipeline" do
+    assert_not Commitment.participates_in_hard_delete?
+  end
 
   test "Note#soft_delete! sets hard_delete_after to deleted_at + grace period" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
@@ -269,16 +281,45 @@ class SoftDeletableTest < ActiveSupport::TestCase
     assert_in_delta expected, note.hard_delete_after, 1.second
   end
 
-  test "Decision#soft_delete! sets hard_delete_after" do
+  test "Decision#soft_delete! does NOT set hard_delete_after (no auto hard-delete)" do
     d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     d.soft_delete!(by: @user)
-    assert_not_nil d.hard_delete_after
+    assert_nil d.hard_delete_after
   end
 
-  test "Commitment#soft_delete! sets hard_delete_after" do
+  test "Commitment#soft_delete! does NOT set hard_delete_after" do
     c = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     c.soft_delete!(by: @user)
-    assert_not_nil c.hard_delete_after
+    assert_nil c.hard_delete_after
+  end
+
+  test "Decision#undo_delete! works indefinitely (no grace-period cutoff)" do
+    d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    d.soft_delete!(by: @user)
+    # Even far in the future, undo works because Decision doesn't participate in hard-delete.
+    travel_to 1.year.from_now do
+      assert_nothing_raised { d.undo_delete!(by: @user) }
+    end
+    d.reload
+    assert_not d.deleted?
+  end
+
+  # --- tombstoned? predicate ---
+
+  test "Note#tombstoned? is false by default and true when tombstoned_at is set" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_not note.tombstoned?
+
+    note.update_columns(tombstoned_at: Time.current)
+    assert note.tombstoned?
+  end
+
+  test "Decision#tombstoned? always returns false (no tombstoned_at column)" do
+    d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_not d.tombstoned?
+
+    d.soft_delete!(by: @user)
+    assert_not d.tombstoned?
   end
 
   # --- Content preservation in DB (defense-in-depth assertion) ---

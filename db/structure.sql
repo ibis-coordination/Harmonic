@@ -847,7 +847,8 @@ CREATE TABLE public.notes (
     reminder_scheduled_for timestamp(6) without time zone,
     statementable_type character varying,
     statementable_id uuid,
-    hard_delete_after timestamp(6) without time zone
+    hard_delete_after timestamp(6) without time zone,
+    tombstoned_at timestamp(6) without time zone
 );
 
 
@@ -4194,6 +4195,13 @@ CREATE UNIQUE INDEX index_notes_on_statementable_type_and_statementable_id ON pu
 --
 
 CREATE INDEX index_notes_on_tenant_id ON public.notes USING btree (tenant_id);
+
+
+--
+-- Name: index_notes_on_tombstoned_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notes_on_tombstoned_at ON public.notes USING btree (tombstoned_at);
 
 
 --
@@ -9426,6 +9434,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260512000000'),
 ('20260511000002'),
 ('20260511000001'),
 ('20260511000000'),

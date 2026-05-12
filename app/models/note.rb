@@ -13,6 +13,7 @@ class Note < ApplicationRecord
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
   include SoftDeletable
+  participates_in_hard_delete
   SUBTYPES = %w[text reminder table comment statement].freeze
 
   self.implicit_order_column = "created_at"
