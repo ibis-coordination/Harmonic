@@ -1,125 +1,134 @@
 # Phase 2: Phased Deletion
 
-Add a 30-day grace period between user-initiated soft-delete and permanent hard-delete. Fix two pre-existing bugs in `DataDeletionManager` that the hard-delete pipeline will rely on.
+Add a 30-day grace period between user-initiated soft-delete and permanent hard-delete. Phase 2's auto hard-delete pipeline applies to **Notes only**; `Decision` and `Commitment` soft-delete works (grace period, accessor masking, undo) but never auto-hard-deletes — their deletion semantics are a separate design conversation deferred to a follow-up phase.
 
 ## Context
 
 Today's `SoftDeletable#soft_delete!` is misleadingly named: it sets `deleted_at` **and immediately scrubs content** (writes `[deleted]` over titles/text via `scrub_content!`). There is no grace period, no undo, and no hard-delete pipeline. A "30-day undo" on top of the current scheme would be hollow because the content is gone the moment soft-delete runs.
 
-`DataDeletionManager` has two known bugs (currently captured as `skip`'d tests in `test/services/data_deletion_manager_test.rb`):
+`DataDeletionManager` has two known bugs (originally captured as `skip`'d tests in `test/services/data_deletion_manager_test.rb`):
 - `delete_collective!` doesn't include `Event` in its deletion list → FK violation on `events.collective_id`.
-- `delete_collective!` has no validation that all child records were deleted, so a partial deletion (e.g. options that landed in the wrong collective during a buggy code path) leaves orphans that trip later FK violations.
+- Child records (`Option`, `Vote`, `DecisionParticipant`, `CommitmentParticipant`, `DecisionAuditEntry`) can drift from their parent's `collective_id`, evading collective-scoped cleanup.
 
-Phase 2 builds the grace-period machinery on top of `SoftDeletable` and fixes both bugs so the daily hard-delete job can safely delegate to `DataDeletionManager`.
+Both bugs are prerequisites for the hard-delete pipeline.
 
 ## Resolved decisions
 
-- **Grace-period content semantics**: `soft_delete!` becomes purely metadata — sets `deleted_at` and `hard_delete_after`, removes from search index, unpins. **No DB content scrubbing.** Content is preserved at rest during the grace period, so undo is just clearing timestamps. The DB row is destroyed entirely by `HardDeleteExpiredRecordsJob` at expiry.
-- **Defense-in-depth via accessor masking**: Override the content attribute readers on each soft-deletable model so that when `deleted?` is true they return `[deleted]` (or `nil` for `table_data`), even though the DB still has the real values. This preserves the current behavior of "soft-deleted content reads as `[deleted]` everywhere" without actually destroying the content — so existing tests that assert `[deleted]` keep passing, and any code path that bypasses `default_scope` (e.g. `with_deleted`) still can't accidentally render real content. Provide `raw_*` escape hatches (`raw_title`, `raw_text`, `raw_question`, `raw_description`, `raw_table_data`) for the few legitimate readers: `content_snapshot`, admin recovery, and undo verification.
-- **Daily job ↔ DataDeletionManager**: Add new system-job entry points on `DataDeletionManager` (e.g. `system_delete_note!`, `system_delete_decision!`, `system_delete_commitment!`) that skip the user+token guard but require an explicit `from_system_job: true` kwarg. Existing `delete_*!` methods stay unchanged for the console workflow.
-- **Bug fixes**: Land in the same PR as Phase 2 work, as separate prerequisite commits before the grace-period machinery.
+### Grace-period content semantics
 
-## Scope
+`soft_delete!` becomes purely metadata — sets `deleted_at`, `deleted_by_id`, and (for models that participate in auto hard-delete) `hard_delete_after`. Removes from search index, unpins. **No DB content scrubbing.** Content is preserved at rest during the grace period, so undo is just clearing timestamps.
 
-Three models include `SoftDeletable` today: `Note`, `Decision`, `Commitment`. Phase 2 applies to all three uniformly.
+### Defense-in-depth via accessor masking
+
+Override the content attribute readers on each soft-deletable model so that when `deleted?` is true they return `[deleted]` (or `nil` for `table_data`), even though the DB still has the real values. `raw_*` escape hatches (`raw_title`, `raw_text`, `raw_question`, `raw_description`, `raw_table_data`) read the real values for legitimate consumers (`content_snapshot`, admin recovery, undo verification).
+
+### Soft-delete behavior (Notes)
+
+From the user's perspective, soft-delete **is** deletion. It:
+- Sets `deleted_at`, `deleted_by_id`, `hard_delete_after = now + 30 days`
+- Hides the note from all default queries (via `default_scope`)
+- Masks `title`, `text`, `table_data` via accessor overrides so content is no longer accessible to any reader path
+- Removes the note from the search index
+- Cancels any scheduled reminder for the note
+- Unpins the note from its collective
+
+Undo is possible within the 30-day window.
+
+### Hard-delete-or-tombstone (decided at expiry, Notes only)
+
+When `hard_delete_after` passes, the `HardDeleteExpiredRecordsJob` calls `DataDeletionManager.system_finalize_note!(note:)`, which inspects the note for **non-creator-owned associated records**:
+
+- Child comments (`subtype = "comment"` notes with `commentable_id` pointing at the parent) created by anyone other than the note's creator
+- `NoteHistoryEvent` rows where `user_id != note.created_by_id` (read confirmations and reminder acknowledgments by other users)
+- `Link` rows where the *other* end of the link belongs to a note owned by someone other than the creator (i.e. another user referenced this note)
+
+**If any such records exist**: tombstone — null `title`/`text`/`table_data` via `update_columns`, purge attachments, set `tombstoned_at`. The note row remains in the DB so external FK references stay valid. B's comment, B's read confirmation, and B's incoming link all continue to resolve to a real (but content-stripped) parent row.
+
+**If no such records exist**: hard-delete — destroy the row entirely. The cascade also clears A's own `NoteHistoryEvent` rows and `Link` rows (existing `cascade_delete_note` logic).
+
+The decision is made *at expiry*, not at soft-delete. A note with no other-user activity at delete time may still tombstone if other-user activity has accrued before the grace period ends. The check happens inside the same transaction as the finalize action.
+
+### Why Notes only
+
+For `Decision` and `Commitment`, the parent record is a *container* for collectively-authored data (options, votes, audit-chain entries, participants). The question/description are A's contribution; everything else belongs to other users. Nulling the question would render every existing vote semantically meaningless (`B voted accept on [deleted]`) and the audit chain pins option titles via hashed `option_title` fields, so option content can't be altered without destroying the chain.
+
+That ambiguity ("does a Decision belong to its creator once others engage?") is a real philosophy question we shouldn't half-answer inside this PR. Scope decision: `Decision` and `Commitment` still get the grace-period soft-delete machinery (visibility hidden, content masked, undo within grace period) but the auto hard-delete job never picks them up. Engagement-gating, withdrawal semantics, and audit-chain preservation become a focused follow-up.
+
+### participates_in_hard_delete
+
+`SoftDeletable` exposes a `participates_in_hard_delete` class-level opt-in. Only `Note` opts in. For non-participating models, `soft_delete!` does not set `hard_delete_after`, and `undo_delete!` does not raise on time-based grounds — undo remains possible indefinitely.
+
+### DataDeletionManager API
+
+- Existing `delete_note!` / `delete_decision!` / `delete_commitment!` instance methods are unchanged — console admin nuke remains available.
+- New `DataDeletionManager.system_finalize_note!(note:)` class method dispatches at expiry: tombstones if other-user references exist, otherwise destroys via the existing cascade. Only system entry point this PR introduces.
+
+### Bug fixes
+
+Land in the same PR as prerequisite commits before the grace-period machinery.
 
 ## Implementation plan
 
-### Commit 1 — Bug fix: add Event to `delete_collective!` cascade
+### ✅ Commit 1 — Bug fix: add Event to `delete_collective!` cascade
 
-- `Event` has `belongs_to :tenant, :collective` and `has_many :notifications, :webhook_deliveries, dependent: :destroy`.
-- Add `Event` to the model list in `delete_collective!`. Use `.destroy_all` (not `.delete_all`) so the `dependent: :destroy` cascades fire for notifications and webhook_deliveries. Order: before `Decision`/`Note`/`Commitment` (since events reference those as polymorphic subjects — though that FK is not DB-enforced, ordering still keeps the cleanup sane).
-- Un-skip `test "BUG: delete_collective! fails when collective has events"` and rewrite it as a real test that creates an Event, calls `delete_collective!`, and asserts no FK violation.
+Clear `Event` (and its dependent `Notification`/`NotificationRecipient`/`WebhookDelivery` rows) before the rest of the cascade. Replaces the `skip`'d BUG test with a real reproduction.
 
-### Commit 2 — Bug fix: validate all child records cleared in `delete_collective!`
+### ✅ Commit 2 — Validate parent/child `collective_id` consistency
 
-- After the deletion loop, query each model class to confirm zero rows remain with `collective_id: collective.id`. If any class has leftovers, raise with a clear message (the transaction will roll back).
-- This converts silent partial-deletion bugs into loud failures and gives the hard-delete job a safety net.
-- Un-skip the second BUG test and rewrite it as a real test that exercises the validation path.
+Add `CollectiveIdMatchesParent` concern. Include in `Option`, `Vote`, `DecisionParticipant`, `CommitmentParticipant`, `DecisionAuditEntry`. `NoteHistoryEvent`/`ChatMessage`/`AutomationRuleRun` already have inline equivalents.
 
-### Commit 3 — Migration: add `hard_delete_after` to soft-deletable tables
+### ✅ Commit 3 — Migration: add `hard_delete_after` to soft-deletable tables
 
-- `add_column :notes, :hard_delete_after, :datetime` (indexed). Same for `decisions`, `commitments`.
-- No default; populated by `soft_delete!`. Existing soft-deleted rows are out of scope (none in production yet for this codebase, or any that exist are old enough to skip the grace period — confirm with a console check before deploying).
+Indexed datetime on `notes`, `decisions`, `commitments`. Backfills existing soft-deleted rows.
 
-### Commit 4 — Rework `SoftDeletable#soft_delete!` semantics + accessor masking
+### ✅ Commit 4 — Rework `SoftDeletable#soft_delete!` + accessor masking
 
-- Remove the `scrub_content!` call from `soft_delete!`. Delete the `scrub_content!` method from each model — accessor masking replaces it.
-- Remove `attachments.destroy_all` from `soft_delete!`. Attachments are preserved during grace period and purged by the hard-delete job.
-- Keep search index removal and unpin (these are visibility concerns, correct on soft-delete).
-- `soft_delete!` now sets `deleted_at`, `deleted_by_id`, and `hard_delete_after = deleted_at + grace_period`.
-- Grace period: constant `SoftDeletable::DEFAULT_GRACE_PERIOD = 30.days` for now. Per-tenant override deferred to a follow-up.
-- Add `undo_delete!(by:)` that clears `deleted_at`, `deleted_by_id`, `hard_delete_after`. Re-adds to search index. Raises if `hard_delete_after` has passed (defensive — the row should already be gone by then; if the job is behind, undo should still refuse rather than resurrect something past its window).
-- **Accessor masking** on each soft-deletable model. Pattern (illustrative, per-model):
+`soft_delete!` becomes metadata-only. Accessor masking on Note/Decision/Commitment, with `raw_*` escape hatches. `undo_delete!` added. `scrub_content!` removed; reminder cancellation moved to `on_soft_delete` hook.
 
-  ```ruby
-  # Note
-  alias_method :raw_title, :title
-  alias_method :raw_text, :text
-  alias_method :raw_table_data, :table_data
+### Commit 5 — `participates_in_hard_delete` opt-in + Note tombstone schema
 
-  def title;      deleted? ? "[deleted]" : raw_title; end
-  def text;       deleted? ? "[deleted]" : raw_text;  end
-  def table_data; deleted? ? nil         : raw_table_data; end
-  ```
+- Add `participates_in_hard_delete` class attribute to `SoftDeletable`.
+- Have `Note` opt in.
+- Update `soft_delete!` to only set `hard_delete_after` when the model opts in.
+- Update `undo_delete!` to only enforce the grace-period cutoff when the model opts in.
+- Update tests: remove `hard_delete_after` assertions from Decision/Commitment soft-delete tests.
+- Add migration: `tombstoned_at :datetime` column on `notes` (indexed).
 
-  Fields to mask per model:
-  - `Note`: `title`, `text`, `table_data` (→ nil)
-  - `Decision`: `question`, `description`
-  - `Commitment`: `title`, `description`
-- `content_snapshot` switches to reading `raw_*` so it captures real content even when called on a deleted record. Callers (`api_helper.rb` snapshot capture for abuse reports / admin-deletion audit logs) become safer — order-of-operations no longer matters.
-- Write-path is untouched: setters still write to the real columns. Tests that assert `[deleted]` after `soft_delete!` keep passing because they read through the masked accessor.
+### Commit 6 — `system_finalize_note!` on DataDeletionManager
 
-### Commit 5 — System-job entry points on `DataDeletionManager`
+Class method that, inside a transaction:
+- Inspects the note for non-creator-owned references (child comments, history events by other users, links from other users' notes).
+- **If any exist**: tombstone — `update_columns(title: nil, text: nil, table_data: nil, tombstoned_at: Time.current)`. Purge `attachments` if present. Leave NoteHistoryEvent rows, Link rows, child comments untouched.
+- **If none exist**: call existing private `cascade_delete_note` (destroys row + A's own NoteHistoryEvent/Link rows).
 
-- Add `DataDeletionManager.system_delete_note!(note:)`, `system_delete_decision!(decision:)`, `system_delete_commitment!(commitment:)` as class methods (no actor required).
-- Internally these call the same cascade logic as the existing `delete_*!` methods but skip the user/token guard. Refactor the cascade bodies into private class methods shared between the instance and class entry points.
-- Guard: each system entry checks it's running inside a `SystemJob` (by checking a thread-local set by `SystemJob#before_perform`, or by accepting an explicit `from_system_job: true` kwarg). Simpler: just require explicit `from_system_job: true` — no thread-local needed.
+The other-user-reference predicates live as small private class methods (`has_other_user_comments?`, `has_other_user_history?`, `has_other_user_link?`) so they're independently testable.
 
-### Commit 6 — `HardDeleteExpiredRecordsJob`
+### Commit 7 — `HardDeleteExpiredRecordsJob`
 
-- `class HardDeleteExpiredRecordsJob < SystemJob`.
-- Daily schedule (sidekiq-cron config).
-- Across all tenants, finds `Note`, `Decision`, `Commitment` with `hard_delete_after < Time.current` (use `with_deleted` since `default_scope` hides them; need `unscoped_for_system_job` semantics).
-- For each, calls the appropriate `DataDeletionManager.system_delete_*!` and logs the result. Wrap each in its own transaction so one failing record doesn't block the rest.
-- Counts and reports per-tenant totals to the existing `SecurityAuditLog` or `Rails.logger` (sketch — confirm during impl).
+`class HardDeleteExpiredRecordsJob < SystemJob`. Daily schedule. Scoped to `Note` only. Across all tenants, finds notes where `hard_delete_after < Time.current AND tombstoned_at IS NULL`, calls `DataDeletionManager.system_finalize_note!(note:)` on each. One-record-per-transaction so a failure on one note doesn't poison the batch.
 
-### Commit 7 — Tests
+### Commit 8 — Tests
 
-- `test/models/concerns/soft_deletable_test.rb`: new test class. Cases:
-  - `soft_delete!` sets `deleted_at` + `hard_delete_after`
-  - `soft_delete!` does NOT scrub the DB (raw columns retain real values)
-  - Accessors return `[deleted]` after soft-delete; `raw_*` returns the original content
-  - `soft_delete!` removes from search index
-  - `undo_delete!` clears all three timestamps and restores search index
-  - After `undo_delete!`, accessors return real content again
-  - `undo_delete!` raises if `hard_delete_after` has passed
-  - `content_snapshot` returns real content even when called after soft_delete (via `raw_*`)
-- `test/jobs/hard_delete_expired_records_job_test.rb`: new test class. Cases:
-  - Hard-deletes records past `hard_delete_after`, leaves fresh ones alone
-  - Crosses tenants safely
-  - One failing record doesn't block siblings
-  - Cascades correctly (links, votes, audit entries, etc. — the existing DDM tests already cover this; spot-check end-to-end)
-- Existing model tests asserting `[deleted]` text after `soft_delete!` should continue to pass without modification — the accessor masking preserves that contract.
+- `soft_deletable_test.rb`: tombstoned? predicate, undo behavior under non-participating model, `participates_in_hard_delete` semantics.
+- `data_deletion_manager_test.rb`: `system_finalize_note!` — tombstones when other-user comments exist; tombstones when other-user read confirmation exists; tombstones when other-user link exists; hard-deletes when only creator-owned references exist; preserves children/history/links on tombstone; sets tombstoned_at.
+- `hard_delete_expired_records_job_test.rb`: finalizes eligible notes, skips fresh ones, skips already-tombstoned, cross-tenant safe, one-failure-doesn't-block-rest.
 
-### Commit 8 — Plan doc cleanup
+### Commit 9 — Plan doc cleanup
 
-- Update `data-lifecycle-management.md` to mark Phase 2 status.
-- Move this plan to `completed/2026/05/phased-deletion.md` at PR-merge time.
+Update `data-lifecycle-management.md` to reflect Phase 2 status (Notes-only hard-delete shipped; Decision/Commitment hard-delete deferred). Move this plan to `completed/2026/05/phased-deletion.md` on PR-merge.
 
 ## Risks / things to watch
 
-- **Edit-form footgun (accessor masking)**: if an admin view loads a soft-deleted record (via `with_deleted`) and renders an editable form, the form field will pre-fill with `[deleted]` and a save would write `[deleted]` to the real column. Mitigation: any admin view that uses `with_deleted` MUST render read-only or explicitly use `raw_*` for form prefill. Add a comment in the concern and a brief note in `docs/ARCHITECTURE.md` if applicable.
-- **Other masking bypass paths**: `read_attribute(:title)`, `record[:title]`, `record.attributes`, raw SQL, and JSON serialization that goes through `attributes_for_database` would return real values. We rely on `default_scope` keeping deleted rows out of normal queries. Document this explicitly so future developers know the masking is "render-layer defense", not absolute.
-- **Search index after undo**: undo needs to re-add the record. Confirm `SearchIndexer` exposes an `add`/`upsert` method symmetric to `delete`.
-- **Attachments during grace period**: blob storage costs persist for 30 days post-delete. Acceptable for now; revisit if it becomes a real cost.
-- **Existing soft-deleted rows in production**: their DB content is already scrubbed to `[deleted]` and they have no `hard_delete_after`. Backfill option: set `hard_delete_after = deleted_at + 30.days` for existing rows. They'll be hard-deleted immediately by the first job run, which is correct. Confirm count before deploying.
-- **`Event` cascade order**: Events have polymorphic `subject_type/id` that's not DB-enforced, but deleting Events first is the safe order. Double-check that Notifications/WebhookDeliveries' `dependent: :destroy` is preserved when using `.destroy_all` instead of `.delete_all`.
+- **Decision/Commitment soft-delete is open-ended**: with `participates_in_hard_delete = false`, a soft-deleted Decision sits indefinitely. `default_scope` hides it from feeds, undo works forever. There's no UI today that surfaces "your soft-deleted decisions" — so they're effectively trash that the user can only get back to via the URL. Acceptable as an interim; the follow-up phase needs to address it.
+- **Tombstone UX for orphan comments**: when B's comment's `commentable` returns a tombstoned note, controllers/views need to render `[deleted]` instead of crashing or returning 404. Tombstoned notes still have `deleted_at` set so the accessor masking returns `[deleted]` and `default_scope` hides them from listings — but `with_deleted` lookups will find the row. Verify that existing rendering paths for "view a note with comments" handle a deleted (with_deleted) parent gracefully.
+- **Hard-delete-or-tombstone decision is racy at the boundary**: a non-creator user could add a read confirmation in the ~minute between the job's predicate check and the row deletion. Mitigation: do the predicate check inside the same transaction as the finalize action; lock the note row with `note.lock!` before the check.
+- **Attachment purging timing**: attachments preserved during grace period, purged at tombstone time. If a note has multi-GB attachments, the tombstone update gets slow. Acceptable for now — most notes have small attachments — but watch for it.
 
-## Out of scope (deferred to later phases)
+## Out of scope (deferred)
 
-- Per-tenant grace period configuration (Phase 4 transparency UI).
-- "Deleted on DATE" placeholder UI (Phase 4).
+- Decision/Commitment hard-delete and tombstone semantics — needs design conversation about ownership-after-engagement, withdrawal, audit chain.
+- Close-on-soft-delete for Decisions/Commitments — depends on the above design.
+- Per-tenant grace period configuration.
+- "Deleted on DATE" placeholder UI (Phase 4 transparency).
 - Account closure flow (Phase 3).
-- Audit chain tombstoning for Decisions (Phase 5) — but the hard-delete job will need to be aware of it once Phase 5 lands.
-- Restoring purged attachments — once hard-deleted, attachments are gone. No restore path.
+- Audit chain tombstoning for Decisions (Phase 5).
