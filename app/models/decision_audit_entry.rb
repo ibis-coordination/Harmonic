@@ -3,6 +3,8 @@
 class DecisionAuditEntry < ApplicationRecord
   extend T::Sig
 
+  include CollectiveIdMatchesParent
+
   ACTIONS = %w[decision_created decision_updated option_added option_removed option_updated vote_cast vote_updated decision_closed beacon_drawn].freeze
   CURRENT_SCHEMA_VERSION = 2
 
@@ -11,6 +13,7 @@ class DecisionAuditEntry < ApplicationRecord
   belongs_to :tenant
   belongs_to :collective
   belongs_to :decision
+  collective_id_matches :decision
 
   validates :action, inclusion: { in: ACTIONS }
   validates :schema_version, inclusion: { in: [1, 2] }

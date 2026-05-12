@@ -6,6 +6,7 @@ class Option < ApplicationRecord
   include Tracked
   include InvalidatesSearchIndex
   include HasRepresentationSessionEvents
+  include CollectiveIdMatchesParent
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -14,6 +15,7 @@ class Option < ApplicationRecord
   before_validation :set_collective_id
   belongs_to :decision_participant
   belongs_to :decision
+  collective_id_matches :decision
 
   has_many :votes, dependent: :destroy
 

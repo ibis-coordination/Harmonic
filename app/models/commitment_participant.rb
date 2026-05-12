@@ -6,6 +6,7 @@ class CommitmentParticipant < ApplicationRecord
   include InvalidatesSearchIndex
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
+  include CollectiveIdMatchesParent
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -14,6 +15,7 @@ class CommitmentParticipant < ApplicationRecord
   before_validation :set_collective_id
   belongs_to :commitment
   belongs_to :user
+  collective_id_matches :commitment
 
   sig { void }
   def set_tenant_id
