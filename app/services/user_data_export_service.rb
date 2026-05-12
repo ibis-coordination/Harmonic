@@ -90,18 +90,22 @@ class UserDataExportService
         gather_view(top_view)
         accumulate_counts(top_view.record_counts)
 
-        # Nested views: one per AI agent child. Each is a fully self-
-        # contained export rooted at its own directory.
+        # Nested views: one per AI agent child that lives in THIS tenant.
+        # The User table is shared across tenants — agent membership in
+        # a tenant is established via a TenantUser row. Without scoping
+        # by that, agents created for the parent in OTHER tenants would
+        # leak into this export as empty subdirectories, revealing their
+        # existence cross-tenant.
         #
-        # Directory name is the agent's handle in this tenant for
-        # readability (e.g. `ai_agents/research-bot/`). Handles are
-        # `user.name.parameterize`-derived (lowercase + hyphens, no
-        # slashes) so they're filesystem-safe. Falls back to the agent
-        # UUID if no TenantUser row exists in this tenant — shouldn't
-        # happen via create_ai_agent, but defensive against direct DB
-        # creation.
-        User.where(parent_id: @user.id).find_each do |agent|
-          subdir_name = agent.tenant_users.find_by(tenant_id: @tenant.id)&.handle.presence || agent.id
+        # Directory name is the agent's handle in this tenant (e.g.
+        # `ai_agents/research-bot/`). Handles are `name.parameterize`-
+        # derived (lowercase + hyphens, no slashes) so they're
+        # filesystem-safe.
+        tenant_user_handles = TenantUser.where(tenant_id: @tenant.id)
+                                        .pluck(:user_id, :handle)
+                                        .to_h
+        User.where(parent_id: @user.id, id: tenant_user_handles.keys).find_each do |agent|
+          subdir_name = tenant_user_handles[agent.id].presence || agent.id
           agent_dir = File.join(tmpdir, "ai_agents", subdir_name)
           FileUtils.mkdir_p(agent_dir)
           agent_view = View.new(user: agent, output_dir: agent_dir)

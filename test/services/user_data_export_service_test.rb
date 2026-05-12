@@ -330,6 +330,37 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
            "commitment_participants must not include participations from other collectives"
   end
 
+  test "AI agents from other tenants are NOT included — each export is tenant-scoped" do
+    # The User table is shared across tenants (no tenant_id column).
+    # An AI agent's "membership" in a tenant lives in TenantUser. A naive
+    # `User.where(parent_id: @user.id)` would return agents from OTHER
+    # tenants, leaking their existence into this tenant's export and
+    # creating empty/UUID-named subdirectories. The fix scopes the agent
+    # enumeration via TenantUser to the export's tenant.
+    agent_here = create_ai_agent(parent: @user, name: "Local Agent")
+    @tenant.add_user!(agent_here)
+
+    # Another tenant with the same parent user; an agent only in that tenant.
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}", name: "Other Tenant")
+    other_tenant.add_user!(@user)
+    agent_elsewhere = create_ai_agent(parent: @user, name: "Elsewhere Agent")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    other_tenant.add_user!(agent_elsewhere)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    here_handle = TenantUser.unscoped.find_by!(tenant_id: @tenant.id, user_id: agent_here.id).handle
+    elsewhere_handle = TenantUser.unscoped.find_by!(tenant_id: other_tenant.id, user_id: agent_elsewhere.id).handle
+
+    assert zip_contains_path?("ai_agents/#{here_handle}/manifest.json"),
+           "agent that lives in this tenant should have a subdirectory"
+    refute zip_contains_path?("ai_agents/#{elsewhere_handle}/manifest.json"),
+           "agent that only exists in another tenant must NOT appear in this tenant's export (cross-tenant existence leak)"
+    refute zip_contains_path?("ai_agents/#{agent_elsewhere.id}/manifest.json"),
+           "agent from another tenant must not show up under a UUID-named fallback either"
+  end
+
   test "AI agent data is nested in ai_agents/<handle>/, mirroring the parent's structure" do
     ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(ai_agent)
