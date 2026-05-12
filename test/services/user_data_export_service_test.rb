@@ -330,21 +330,49 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
            "commitment_participants must not include participations from other collectives"
   end
 
-  test "includes data authored by AI agent children of the subject" do
+  test "AI agent data is nested in ai_agents/<handle>/, mirroring the parent's structure" do
     ai_agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(ai_agent)
     @collective.add_user!(ai_agent)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     agent_note = create_note(tenant: @tenant, collective: @collective, created_by: ai_agent, title: "Agent note", text: "by agent")
+    parent_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Parent note", text: "by parent")
 
     UserDataExportService.new(data_export: @data_export).perform!
 
-    notes = read_json_from_zip("notes.json")
-    source_ids = notes.map { |n| n["source_id"] }
-    assert_includes source_ids, agent_note.id, "AI agent's note must appear in the parent's export"
+    # Agent's subdirectory is named by its handle (user-friendly).
+    agent_handle = ai_agent.tenant_users.find_by!(tenant_id: @tenant.id).handle
+    agent_dir = "ai_agents/#{agent_handle}"
 
-    manifest = read_json_from_zip("manifest.json")
-    assert_includes manifest["subject"]["ai_agent_user_ids"], ai_agent.id
+    # Top-level is the parent's data only — agent's note is NOT here.
+    top_notes = read_json_at_path("notes.json")
+    top_ids = top_notes.map { |n| n["source_id"] }
+    assert_includes top_ids, parent_note.id
+    refute_includes top_ids, agent_note.id, "parent's top-level notes.json must NOT contain agent's notes"
+
+    # Agent's data lives in ai_agents/<handle>/.
+    agent_notes = read_json_at_path("#{agent_dir}/notes.json")
+    agent_ids = agent_notes.map { |n| n["source_id"] }
+    assert_includes agent_ids, agent_note.id
+    refute_includes agent_ids, parent_note.id, "agent's notes.json must NOT contain parent's notes"
+
+    # Each view has its own manifest scoped to that user.
+    top_manifest = read_json_at_path("manifest.json")
+    assert_equal @user.id, top_manifest["subject"]["user_id"]
+    assert_equal "human", top_manifest["subject"]["user_type"]
+    assert_nil top_manifest["subject"]["source_parent_id"]
+
+    agent_manifest = read_json_at_path("#{agent_dir}/manifest.json")
+    assert_equal ai_agent.id, agent_manifest["subject"]["user_id"]
+    assert_equal "ai_agent", agent_manifest["subject"]["user_type"]
+    assert_equal @user.id, agent_manifest["subject"]["source_parent_id"]
+
+    # Each view's users.json contains exactly one user (their own).
+    top_users = read_json_at_path("users.json")
+    assert_equal [@user.id], top_users.map { |u| u["source_id"] }
+    agent_users = read_json_at_path("#{agent_dir}/users.json")
+    assert_equal [ai_agent.id], agent_users.map { |u| u["source_id"] }
   end
 
   test "attachments.json includes only attachments created by the subject, with binary content in the ZIP" do
@@ -522,6 +550,7 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
 
   test "agent_configuration is sliced to a fixed key allowlist — unknown sub-keys do not leak" do
     ai_agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(ai_agent)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     # Simulate a future code path that stores a sensitive key on the AI agent.
@@ -531,7 +560,9 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
 
     UserDataExportService.new(data_export: @data_export).perform!
 
-    users = read_json_from_zip("users.json")
+    # Agent's user row lives in its own nested view, dir named by handle.
+    agent_handle = ai_agent.tenant_users.find_by!(tenant_id: @tenant.id).handle
+    users = read_json_at_path("ai_agents/#{agent_handle}/users.json")
     agent_row = users.find { |u| u["source_id"] == ai_agent.id }
     refute_nil agent_row
     refute agent_row["agent_configuration"].key?("api_key"),
@@ -603,21 +634,29 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "trustee_grants.json includes AI agent's auto-created parent grant" do
+  test "AI agent auto-grant appears in BOTH the parent's and the agent's trustee_grants.json" do
     # create_ai_agent triggers User#create_parent_trustee_grant! which creates
     # a grant where granting_user = agent and trustee_user = parent. Both
-    # users are in the subject set, so the grant appears in the parent's export.
+    # parties are subjects (parent at top level, agent nested), so under the
+    # recursive-view design the grant appears in both files — each view is
+    # self-contained from its user's perspective.
     ai_agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(ai_agent)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     UserDataExportService.new(data_export: @data_export).perform!
 
-    grants = read_json_from_zip("trustee_grants.json")
-    refute_empty grants, "AI agent auto-grant should appear in parent's export"
-    grant = grants.first
-    assert_equal ai_agent.id, grant["source_granting_user_id"]
-    assert_equal @user.id, grant["source_trustee_user_id"]
+    parent_grants = read_json_at_path("trustee_grants.json")
+    assert_equal 1, parent_grants.length
+    parent_grant = parent_grants.first
+    assert_equal ai_agent.id, parent_grant["source_granting_user_id"]
+    assert_equal @user.id, parent_grant["source_trustee_user_id"]
+
+    agent_handle = ai_agent.tenant_users.find_by!(tenant_id: @tenant.id).handle
+    agent_grants = read_json_at_path("ai_agents/#{agent_handle}/trustee_grants.json")
+    assert_equal 1, agent_grants.length
+    assert_equal parent_grant["source_id"], agent_grants.first["source_id"], "same grant row appears in both views"
   end
 
   test "excludes soft-deleted content" do
@@ -655,17 +694,45 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
 
   private
 
+  # Reads the top-level JSON file (e.g. `notes.json`). The export has a
+  # single top-level prefix dir (`harmonic-user-export-...`), then files
+  # underneath. With nested ai_agents/ subdirectories, multiple files of
+  # the same name exist — this helper specifically returns the top-level
+  # one. Use `read_json_at_path` for nested paths.
   def read_json_from_zip(filename)
+    read_json_at_path(filename)
+  end
+
+  # Read a JSON file at a specific path relative to the export root.
+  # e.g. read_json_at_path("ai_agents/<agent_id>/notes.json"). Strips the
+  # ZIP's auto-generated wrapper directory before matching so the relative
+  # path is unambiguous.
+  def read_json_at_path(relative_path)
     assert @data_export.file.attached?, "No file attached to data_export"
     zip_data = @data_export.file.download
     Zip::InputStream.open(StringIO.new(zip_data)) do |io|
       while (entry = io.get_next_entry)
-        if entry.name.end_with?("/#{filename}") || entry.name == filename
-          return JSON.parse(io.read)
-        end
+        return JSON.parse(io.read) if entry_relative_path(entry.name) == relative_path
       end
     end
-    raise "#{filename} not found in ZIP"
+    raise "#{relative_path} not found in ZIP"
+  end
+
+  def zip_contains_path?(relative_path)
+    zip_data = @data_export.file.download
+    Zip::InputStream.open(StringIO.new(zip_data)) do |io|
+      while (entry = io.get_next_entry)
+        return true if entry_relative_path(entry.name) == relative_path
+      end
+    end
+    false
+  end
+
+  def entry_relative_path(zip_entry_name)
+    # Drop the first segment (the wrapper directory the ZIP code adds).
+    parts = zip_entry_name.split("/")
+    parts.shift
+    parts.join("/")
   end
 
   def read_file_from_zip(suffix)

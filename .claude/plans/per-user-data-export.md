@@ -118,14 +118,45 @@ Beyond the cheap denormalization listed in the in-scope section, v1 does not inc
 
 ## Format
 
-Same ZIP + JSON shape as the existing collective export ([CollectiveExportService](../../app/services/collective_export_service.rb)):
+**Recursive nested structure.** The top level is the human user's export. Inside, an `ai_agents/` directory contains one subdirectory per AI agent child, each of which is a fully self-contained export with the same file layout and its own `manifest.json`. An agent's directory is tarball-able and would be a valid standalone export on its own.
 
-- `manifest.json` — metadata: `export_type: "user"`, subject (`user_id`, `collective_id`, `ai_agent_user_ids`), timestamp, schema version, record counts, SHA-256 checksums
-- Per-record-type JSON files:
-  - Content: `notes.json`, `decisions.json`, `options.json`, `commitments.json`, `links.json`, `attachments.json`
-  - Participation: `votes.json`, `decision_participants.json`, `commitment_participants.json`, `note_history_events.json`, `decision_audit_entries.json`, `invites.json`, `trustee_grants.json`, `representation_sessions.json`, `representation_session_events.json`
-  - Account: `users.json`, `tenant_users.json`, `collective_members.json`, `oauth_identities.json`, `omni_auth_identities.json`
-- `attachments/` — binary blobs referenced by `attachments.json`
+```
+harmonic-user-export-<date>-<id>/
+├── manifest.json            # describes THIS view (the parent)
+├── users.json               # just the parent user
+├── tenant_users.json
+├── collective_members.json
+├── oauth_identities.json
+├── omni_auth_identities.json
+├── notes.json
+├── decisions.json
+├── options.json
+├── commitments.json
+├── votes.json
+├── decision_participants.json
+├── commitment_participants.json
+├── decision_audit_entries.json
+├── note_history_events.json
+├── invites.json
+├── trustee_grants.json
+├── representation_sessions.json
+├── representation_session_events.json
+├── links.json
+├── attachments.json
+├── attachments/             # binary blobs referenced by attachments.json
+└── ai_agents/
+    └── <agent_handle>/      # mirror of the layout above, scoped to this agent
+        ├── manifest.json
+        ├── users.json       # just the agent
+        ├── ...
+        └── attachments/
+```
+
+Each view's `manifest.json` declares its own subject (`user_id`, `user_type`, `source_parent_id`, `collective_id`), record counts, and SHA-256 checksums of the files in that view. Manifests don't cross-reference other views — each is self-contained.
+
+### Cross-subject records appear in both views
+
+Records that span two subjects (e.g., a TrusteeGrant where the agent is granting_user and the parent is trustee_user; or a Link with one endpoint on the parent's content and the other on the agent's) appear in **both** the parent's and the agent's directories. Each view stays consistent from its user's perspective. This is intentional duplication — not redundancy in a relational sense, because each view is "what this user did / was party to."
 
 Each JSON file contains an array of records with their database fields preserved. Foreign keys to records not in the export (e.g., a Vote's `decision_id`) remain as UUIDs — orphan FKs are accepted as a v1 constraint. The user can always look up the parent decision in the main collective UI while their account is active.
 

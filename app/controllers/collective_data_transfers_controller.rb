@@ -5,6 +5,7 @@ class CollectiveDataTransfersController < ApplicationController
 
   before_action :reject_api_token_auth
   before_action :require_export_feature_enabled
+  before_action :reject_main_collective
   before_action :require_admin
   before_action -> { require_reverification(scope: "data_transfer") }
 
@@ -70,6 +71,18 @@ class CollectiveDataTransfersController < ApplicationController
     return unless api_token_present?
 
     render plain: "API tokens cannot trigger data exports. Sign in via the web UI.", status: :forbidden
+  end
+
+  # The tenant's main collective is the public-by-default sharing space.
+  # A "collective export" of it would conflate the collective's data with
+  # every member's public data — that's handled by per-user exports
+  # instead. Refuse with a clear message rather than producing a
+  # confusing artifact.
+  def reject_main_collective
+    return unless @current_tenant&.main_collective_id == @current_collective&.id
+
+    flash[:alert] = "The main collective is not directly exportable. Each member can export their own data from their settings."
+    redirect_to @current_collective&.path || root_path
   end
 
   def require_export_feature_enabled

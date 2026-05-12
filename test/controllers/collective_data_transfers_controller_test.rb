@@ -66,6 +66,32 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # === Main collective cannot be exported ===
+
+  test "exports index is blocked for the tenant's main collective" do
+    # The main collective is the public-by-default sharing space. It's not
+    # owned by an admin in the same way other collectives are, and an
+    # export of it would conflate "the collective's data" with "every
+    # member's public data" — handled by per-user exports instead.
+    @tenant.update!(main_collective: @collective)
+    sign_in_with_reverification(@admin_user, tenant: @tenant, path: "/collectives/#{@collective.handle}/exports")
+
+    get "/collectives/#{@collective.handle}/exports"
+    assert_response :redirect
+    assert_match(/main collective/i, flash[:alert])
+  end
+
+  test "create export is blocked for the tenant's main collective" do
+    @tenant.update!(main_collective: @collective)
+    sign_in_with_reverification(@admin_user, tenant: @tenant, path: "/collectives/#{@collective.handle}/exports", method: :post)
+
+    assert_no_difference "DataExport.count" do
+      post "/collectives/#{@collective.handle}/exports"
+    end
+    assert_response :redirect
+    assert_match(/main collective/i, flash[:alert])
+  end
+
   # === Authorization: admin required ===
 
   test "non-admin user is redirected from exports index" do

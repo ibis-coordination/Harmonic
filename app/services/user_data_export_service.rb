@@ -2,16 +2,59 @@
 
 require "zip"
 
-# Per-user data export.
+# Per-user data export with a recursive nested structure.
 #
-# Scope: the records that would be deleted or scrubbed on the parent user's
-# account closure. Subject = parent user + every User row where
-# `parent_id = user.id` (the user's AI agent children). Their data is
-# included in the parent's export, not a separate one.
+# The export is rooted at the parent user's data. Inside, an `ai_agents/`
+# directory contains a subdirectory per AI agent child, each of which is
+# a fully self-contained export of that agent's data with the same file
+# layout (same JSON files, its own manifest). An agent's directory is
+# tarball-able and would be a valid standalone export on its own.
+#
+# Each "view" (the parent at top level, each agent under ai_agents/) is
+# scoped to one user. Records that span two subjects (e.g., a TrusteeGrant
+# between the parent and one of their agents) appear in BOTH directories
+# — both perspectives are accurate and each view stays self-contained.
+#
+# Scope rule per record type: a record belongs to the view of the user
+# who acted on / created it. Notes by created_by_id. Audit entries by
+# actor_id. Trustee grants by either party. Links by either endpoint.
+# Etc.
 #
 # See `.claude/plans/per-user-data-export.md` for the full design.
 class UserDataExportService
   extend T::Sig
+
+  # A "view" is one user's slice of the export: their user record, their
+  # content, their actions, written to one directory. The export contains
+  # one view per (human + each AI agent child).
+  class View
+    extend T::Sig
+
+    sig { returns(User) }
+    attr_reader :user
+
+    sig { returns(String) }
+    attr_reader :output_dir
+
+    sig { returns(T::Hash[String, Integer]) }
+    attr_accessor :record_counts
+
+    sig { returns(T::Hash[String, String]) }
+    attr_accessor :checksums
+
+    sig { params(user: User, output_dir: String).void }
+    def initialize(user:, output_dir:)
+      @user = user
+      @output_dir = output_dir
+      @record_counts = {}
+      @checksums = {}
+    end
+
+    sig { returns(String) }
+    def user_id
+      @user.id
+    end
+  end
 
   sig { params(data_export: DataExport).void }
   def initialize(data_export:)
@@ -33,9 +76,7 @@ class UserDataExportService
       raise ArgumentError, "v1 only supports export from the tenant's main collective"
     end
 
-    @subject_user_ids = T.let(resolve_subject_user_ids, T::Array[String])
-    @record_counts = T.let({}, T::Hash[String, Integer])
-    @checksums = T.let({}, T::Hash[String, String])
+    @flat_record_counts = T.let({}, T::Hash[String, Integer])
   end
 
   sig { void }
@@ -44,27 +85,29 @@ class UserDataExportService
 
     with_scoped_context do
       Dir.mktmpdir("harmonic-user-export") do |tmpdir|
-        gather_notes(tmpdir)
-        gather_decisions(tmpdir)
-        gather_options(tmpdir)
-        gather_commitments(tmpdir)
-        gather_decision_participants(tmpdir)
-        gather_votes(tmpdir)
-        gather_decision_audit_entries(tmpdir)
-        gather_commitment_participants(tmpdir)
-        gather_note_history_events(tmpdir)
-        gather_invites(tmpdir)
-        gather_trustee_grants(tmpdir)
-        gather_representation_sessions(tmpdir)
-        gather_representation_session_events(tmpdir)
-        gather_links(tmpdir)
-        gather_users(tmpdir)
-        gather_tenant_users(tmpdir)
-        gather_collective_members(tmpdir)
-        gather_oauth_identities(tmpdir)
-        gather_omni_auth_identities(tmpdir)
-        gather_attachments(tmpdir)
-        write_manifest(tmpdir)
+        # Top-level view: the human user's data.
+        top_view = View.new(user: @user, output_dir: tmpdir)
+        gather_view(top_view)
+        accumulate_counts(top_view.record_counts)
+
+        # Nested views: one per AI agent child. Each is a fully self-
+        # contained export rooted at its own directory.
+        #
+        # Directory name is the agent's handle in this tenant for
+        # readability (e.g. `ai_agents/research-bot/`). Handles are
+        # `user.name.parameterize`-derived (lowercase + hyphens, no
+        # slashes) so they're filesystem-safe. Falls back to the agent
+        # UUID if no TenantUser row exists in this tenant — shouldn't
+        # happen via create_ai_agent, but defensive against direct DB
+        # creation.
+        User.where(parent_id: @user.id).find_each do |agent|
+          subdir_name = agent.tenant_users.find_by(tenant_id: @tenant.id)&.handle.presence || agent.id
+          agent_dir = File.join(tmpdir, "ai_agents", subdir_name)
+          FileUtils.mkdir_p(agent_dir)
+          agent_view = View.new(user: agent, output_dir: agent_dir)
+          gather_view(agent_view)
+          accumulate_counts(agent_view.record_counts)
+        end
 
         zip_path = create_zip(tmpdir)
         begin
@@ -83,7 +126,7 @@ class UserDataExportService
       status: "completed",
       completed_at: Time.current,
       expires_at: 7.days.from_now,
-      record_counts: @record_counts,
+      record_counts: @flat_record_counts,
     )
   rescue StandardError => e
     @data_export.update_columns(status: "failed", error_message: e.message, updated_at: Time.current)
@@ -92,16 +135,43 @@ class UserDataExportService
 
   private
 
-  sig { returns(T::Array[String]) }
-  def resolve_subject_user_ids
-    ids = [@user.id]
-    ids.concat(User.where(parent_id: @user.id).pluck(:id))
-    ids.uniq
+  # The `data_export.record_counts` DB field stays as a flat
+  # `{type => total_count}` map summed across all views. Mailer/UI
+  # surfaces consume this shape; the per-view breakdown lives in each
+  # view's own manifest.json inside the ZIP.
+  sig { params(view_counts: T::Hash[String, Integer]).void }
+  def accumulate_counts(view_counts)
+    view_counts.each { |type, n| @flat_record_counts[type] = (@flat_record_counts[type] || 0) + n }
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_notes(tmpdir)
-    notes = Note.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+  sig { params(view: View).void }
+  def gather_view(view)
+    gather_notes(view)
+    gather_decisions(view)
+    gather_options(view)
+    gather_commitments(view)
+    gather_decision_participants(view)
+    gather_votes(view)
+    gather_decision_audit_entries(view)
+    gather_commitment_participants(view)
+    gather_note_history_events(view)
+    gather_invites(view)
+    gather_trustee_grants(view)
+    gather_representation_sessions(view)
+    gather_representation_session_events(view)
+    gather_links(view)
+    gather_users(view)
+    gather_tenant_users(view)
+    gather_collective_members(view)
+    gather_oauth_identities(view)
+    gather_omni_auth_identities(view)
+    gather_attachments(view)
+    write_manifest(view)
+  end
+
+  sig { params(view: View).void }
+  def gather_notes(view)
+    notes = Note.where(collective_id: @collective.id, created_by_id: view.user_id)
     data = notes.map do |n|
       {
         "source_id" => n.id,
@@ -115,13 +185,13 @@ class UserDataExportService
         "updated_at" => n.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "notes.json", data)
-    @record_counts["notes"] = data.length
+    write_json(view, "notes.json", data)
+    view.record_counts["notes"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_decisions(tmpdir)
-    decisions = Decision.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+  sig { params(view: View).void }
+  def gather_decisions(view)
+    decisions = Decision.where(collective_id: @collective.id, created_by_id: view.user_id)
     data = decisions.map do |d|
       {
         "source_id" => d.id,
@@ -141,17 +211,16 @@ class UserDataExportService
         "updated_at" => d.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "decisions.json", data)
-    @record_counts["decisions"] = data.length
+    write_json(view, "decisions.json", data)
+    view.record_counts["decisions"] = data.length
   end
 
   # An Option is "authored by" the user who created its decision_participant.
-  # Option doesn't have a direct created_by_id column — authorship flows through
-  # the participant. This catches both creator-seeded options (the decision
-  # creator is a participant) and participant-proposed options.
-  sig { params(tmpdir: String).void }
-  def gather_options(tmpdir)
-    participant_ids = DecisionParticipant.where(user_id: @subject_user_ids).pluck(:id)
+  # Option doesn't have a direct created_by_id column — authorship flows
+  # through the participant.
+  sig { params(view: View).void }
+  def gather_options(view)
+    participant_ids = DecisionParticipant.where(user_id: view.user_id).pluck(:id)
     options = Option.where(collective_id: @collective.id, decision_participant_id: participant_ids)
     data = options.map do |o|
       {
@@ -164,13 +233,13 @@ class UserDataExportService
         "updated_at" => o.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "options.json", data)
-    @record_counts["options"] = data.length
+    write_json(view, "options.json", data)
+    view.record_counts["options"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_commitments(tmpdir)
-    commitments = Commitment.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+  sig { params(view: View).void }
+  def gather_commitments(view)
+    commitments = Commitment.where(collective_id: @collective.id, created_by_id: view.user_id)
     data = commitments.map do |c|
       {
         "source_id" => c.id,
@@ -187,26 +256,23 @@ class UserDataExportService
         "updated_at" => c.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "commitments.json", data)
-    @record_counts["commitments"] = data.length
+    write_json(view, "commitments.json", data)
+    view.record_counts["commitments"] = data.length
   end
 
   # Participation records: each carries a denormalized label snapshot
   # (decision_question / option_title / commitment_title) so the archive is
   # legible without including the parent records it points at. The snapshot
-  # reflects the current label at export time; if the parent has been edited
-  # since the user's action, the export reflects "what it's called now."
+  # reflects the current label at export time.
   #
   # The explicit `collective_id: @collective.id` filter is defense-in-depth.
   # The default scope inside `with_scoped_context` would filter anyway, but
-  # callers that bypass that context would otherwise leak the user's
-  # participations from other collectives in the same tenant. The user
-  # exports from the main collective only; their data in other collectives
-  # is not in scope.
-  sig { params(tmpdir: String).void }
-  def gather_decision_participants(tmpdir)
+  # callers that bypass that context would otherwise leak participations
+  # from other collectives in the same tenant.
+  sig { params(view: View).void }
+  def gather_decision_participants(view)
     participants = DecisionParticipant
-                     .where(collective_id: @collective.id, user_id: @subject_user_ids)
+                     .where(collective_id: @collective.id, user_id: view.user_id)
                      .includes(:decision)
     data = participants.map do |p|
       decision = p.decision
@@ -219,14 +285,14 @@ class UserDataExportService
         "updated_at" => p.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "decision_participants.json", data)
-    @record_counts["decision_participants"] = data.length
+    write_json(view, "decision_participants.json", data)
+    view.record_counts["decision_participants"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_votes(tmpdir)
+  sig { params(view: View).void }
+  def gather_votes(view)
     participant_ids = DecisionParticipant
-                        .where(collective_id: @collective.id, user_id: @subject_user_ids)
+                        .where(collective_id: @collective.id, user_id: view.user_id)
                         .pluck(:id)
     votes = Vote
               .where(collective_id: @collective.id, decision_participant_id: participant_ids)
@@ -247,14 +313,14 @@ class UserDataExportService
         "updated_at" => v.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "votes.json", data)
-    @record_counts["votes"] = data.length
+    write_json(view, "votes.json", data)
+    view.record_counts["votes"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_commitment_participants(tmpdir)
+  sig { params(view: View).void }
+  def gather_commitment_participants(view)
     participants = CommitmentParticipant
-                     .where(collective_id: @collective.id, user_id: @subject_user_ids)
+                     .where(collective_id: @collective.id, user_id: view.user_id)
                      .includes(:commitment)
     data = participants.map do |p|
       commitment = p.commitment
@@ -268,17 +334,16 @@ class UserDataExportService
         "updated_at" => p.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "commitment_participants.json", data)
-    @record_counts["commitment_participants"] = data.length
+    write_json(view, "commitment_participants.json", data)
+    view.record_counts["commitment_participants"] = data.length
   end
 
-  # Audit entries are included as receipts of the user's own actions, NOT as
-  # a verifiable chain (the surrounding entries belong to the collective).
-  # The user can verify any individual entry via the public receipt URL
-  # using the entry_hash + decision_truncated_id snapshot.
-  sig { params(tmpdir: String).void }
-  def gather_decision_audit_entries(tmpdir)
-    entries = DecisionAuditEntry.where(collective_id: @collective.id, actor_id: @subject_user_ids)
+  # Audit entries are receipts of the view-user's own actions, NOT a
+  # verifiable chain (surrounding entries belong to the collective). The
+  # user can verify any individual entry via the public receipt URL.
+  sig { params(view: View).void }
+  def gather_decision_audit_entries(view)
+    entries = DecisionAuditEntry.where(collective_id: @collective.id, actor_id: view.user_id)
                                 .includes(:decision)
                                 .order(:decision_id, :sequence_number)
     data = entries.map do |e|
@@ -304,20 +369,16 @@ class UserDataExportService
         "created_at" => e.created_at.iso8601,
       }
     end
-    write_json(tmpdir, "decision_audit_entries.json", data)
-    @record_counts["decision_audit_entries"] = data.length
+    write_json(view, "decision_audit_entries.json", data)
+    view.record_counts["decision_audit_entries"] = data.length
   end
 
-  # NoteHistoryEvent records the subject's actions on notes — read
-  # confirmations, reminder acknowledgments, edits. Like votes and
-  # commitment participations, the action is the user's regardless of who
-  # authored the parent note. Includes the note_title snapshot so the user
-  # can see what they acknowledged/read/edited without the parent note
-  # being in the export.
-  sig { params(tmpdir: String).void }
-  def gather_note_history_events(tmpdir)
+  # The view-user's actions on notes — read confirmations, reminder
+  # acknowledgments, edits — regardless of who authored the parent note.
+  sig { params(view: View).void }
+  def gather_note_history_events(view)
     events = NoteHistoryEvent
-               .where(collective_id: @collective.id, user_id: @subject_user_ids)
+               .where(collective_id: @collective.id, user_id: view.user_id)
                .includes(:note)
     data = events.map do |e|
       note = e.note
@@ -332,17 +393,15 @@ class UserDataExportService
         "updated_at" => e.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "note_history_events.json", data)
-    @record_counts["note_history_events"] = data.length
+    write_json(view, "note_history_events.json", data)
+    view.record_counts["note_history_events"] = data.length
   end
 
-  # Invites the subject sent. `invited_user_id` is a FK to another user
-  # (opaque UUID, no PII denormalized onto the row). Received invites are
-  # excluded — they're data others provided about the subject, not data
-  # the subject provided themselves.
-  sig { params(tmpdir: String).void }
-  def gather_invites(tmpdir)
-    invites = Invite.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
+  # Invites the view-user sent. `invited_user_id` is a FK to another user
+  # (opaque UUID, no PII denormalized onto the row).
+  sig { params(view: View).void }
+  def gather_invites(view)
+    invites = Invite.where(collective_id: @collective.id, created_by_id: view.user_id)
     data = invites.map do |i|
       {
         "source_id" => i.id,
@@ -354,26 +413,19 @@ class UserDataExportService
         "updated_at" => i.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "invites.json", data)
-    @record_counts["invites"] = data.length
+    write_json(view, "invites.json", data)
+    view.record_counts["invites"] = data.length
   end
 
-  # Trustee grants where the subject is either party. Includes:
-  # - Grants the subject issued (granting_user_id ∈ subject): unambiguously
-  #   theirs (they authored the description, granted the permissions).
-  # - Grants given TO the subject (trustee_user_id ∈ subject): the subject's
-  #   accept/decline actions on grants others issued. The description was
-  #   authored by the grantor, but the subject saw it when accepting, so
-  #   it's not a new disclosure — same shape as snapshot context on votes.
+  # Trustee grants where the view-user is either party. Grants between
+  # the parent and an AI agent (in either direction) appear in BOTH the
+  # parent's and the agent's directories — each view stays self-contained.
   #
-  # Note: TrusteeGrant is tenant-scoped but not collective-scoped. Scoping
-  # by @tenant.id captures all grants in this tenant regardless of which
-  # collective the grant's permissions might apply to.
-  sig { params(tmpdir: String).void }
-  def gather_trustee_grants(tmpdir)
+  # Note: TrusteeGrant is tenant-scoped but not collective-scoped.
+  sig { params(view: View).void }
+  def gather_trustee_grants(view)
     grants = TrusteeGrant.where(tenant_id: @tenant.id).where(
-      "granting_user_id IN (:ids) OR trustee_user_id IN (:ids)",
-      ids: @subject_user_ids,
+      "granting_user_id = :id OR trustee_user_id = :id", id: view.user_id,
     )
     data = grants.map do |g|
       {
@@ -392,23 +444,17 @@ class UserDataExportService
         "updated_at" => g.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "trustee_grants.json", data)
-    @record_counts["trustee_grants"] = data.length
+    write_json(view, "trustee_grants.json", data)
+    view.record_counts["trustee_grants"] = data.length
   end
 
-  # Sessions where the subject represented another user via a trustee grant.
-  #
-  # RepresentationSession is either user-to-user (trustee_grant_id present,
-  # collective_id NULL) or collective representation (trustee_grant_id NULL,
-  # collective_id set). The main collective has no representatives — only
-  # non-main collectives do — so the main-collective export only captures
-  # user-to-user sessions (collective_id IS NULL). Collective-representation
-  # sessions belong to their respective non-main collectives and are out of
-  # scope here.
-  sig { params(tmpdir: String).void }
-  def gather_representation_sessions(tmpdir)
+  # User-to-user representation sessions where the view-user was the
+  # representative. The main collective has no representatives, so only
+  # collective_id IS NULL (trustee-grant-driven) sessions appear.
+  sig { params(view: View).void }
+  def gather_representation_sessions(view)
     sessions = RepresentationSession.where(
-      collective_id: nil, representative_user_id: @subject_user_ids,
+      collective_id: nil, representative_user_id: view.user_id,
     )
     data = sessions.map do |s|
       {
@@ -422,16 +468,14 @@ class UserDataExportService
         "updated_at" => s.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "representation_sessions.json", data)
-    @record_counts["representation_sessions"] = data.length
+    write_json(view, "representation_sessions.json", data)
+    view.record_counts["representation_sessions"] = data.length
   end
 
-  # Events recorded within the subject's own user-to-user representation
-  # sessions (scoped by gather_representation_sessions).
-  sig { params(tmpdir: String).void }
-  def gather_representation_session_events(tmpdir)
+  sig { params(view: View).void }
+  def gather_representation_session_events(view)
     session_ids = RepresentationSession
-                    .where(collective_id: nil, representative_user_id: @subject_user_ids)
+                    .where(collective_id: nil, representative_user_id: view.user_id)
                     .pluck(:id)
     events = RepresentationSessionEvent.where(representation_session_id: session_ids)
     data = events.map do |e|
@@ -449,20 +493,18 @@ class UserDataExportService
         "updated_at" => e.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "representation_session_events.json", data)
-    @record_counts["representation_session_events"] = data.length
+    write_json(view, "representation_session_events.json", data)
+    view.record_counts["representation_session_events"] = data.length
   end
 
-  # Links have no created_by column (they're relationship metadata). Include
-  # links where either endpoint is content owned by the subject. Inbound
-  # links from others' content to the subject's are included because they
-  # disappear on account closure when the subject's content is deleted —
-  # symmetric with the deletion-scope principle.
-  sig { params(tmpdir: String).void }
-  def gather_links(tmpdir)
-    owned_note_ids = Note.where(collective_id: @collective.id, created_by_id: @subject_user_ids).pluck(:id)
-    owned_decision_ids = Decision.where(collective_id: @collective.id, created_by_id: @subject_user_ids).pluck(:id)
-    owned_commitment_ids = Commitment.where(collective_id: @collective.id, created_by_id: @subject_user_ids).pluck(:id)
+  # Links where either endpoint is content owned by the view-user. Links
+  # spanning the parent's content and an agent's content appear in BOTH
+  # views — each is self-contained.
+  sig { params(view: View).void }
+  def gather_links(view)
+    owned_note_ids = Note.where(collective_id: @collective.id, created_by_id: view.user_id).pluck(:id)
+    owned_decision_ids = Decision.where(collective_id: @collective.id, created_by_id: view.user_id).pluck(:id)
+    owned_commitment_ids = Commitment.where(collective_id: @collective.id, created_by_id: view.user_id).pluck(:id)
 
     links = Link.where(collective_id: @collective.id).where(
       "(from_linkable_type = 'Note' AND from_linkable_id IN (:notes)) OR " \
@@ -484,12 +526,12 @@ class UserDataExportService
         "updated_at" => l.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "links.json", data)
-    @record_counts["links"] = data.length
+    write_json(view, "links.json", data)
+    view.record_counts["links"] = data.length
   end
 
-  # Allowlists for JSONB columns. Open-ended jsonb is dangerous in an export
-  # because a new sub-key (e.g. a future cached API key on a User) would
+  # Allowlists for JSONB columns. Open-ended jsonb is dangerous in an
+  # export because a new sub-key (e.g. a future cached API key) would
   # silently start leaking. Each allowlist names the keys we deliberately
   # export; everything else is dropped.
   USER_AGENT_CONFIGURATION_KEYS = %w[mode model capabilities identity_prompt].freeze
@@ -503,40 +545,30 @@ class UserDataExportService
     allowed.each_with_object({}) { |key, acc| acc[key] = jsonb[key] if jsonb.key?(key) }
   end
 
-  # Account-level data. The parent user + AI agent children. Includes
-  # personal data the user provided (email, name, avatar) and provider
-  # linkages. Credentials (password digests, OTP secrets, OAuth tokens)
-  # are excluded — they're not "personal data" in the GDPR Article 20
-  # sense and exporting them would create an unnecessary attack surface
-  # if the archive is intercepted.
-  #
-  # JSONB columns (agent_configuration, settings) are sliced to a fixed
-  # allowlist of keys to prevent future sub-key additions from silently
-  # leaking via this export.
-  sig { params(tmpdir: String).void }
-  def gather_users(tmpdir)
-    users = User.where(id: @subject_user_ids)
-    data = users.map do |u|
-      {
-        "source_id" => u.id,
-        "email" => u.email,
-        "name" => u.name,
-        "user_type" => u.user_type,
-        "source_parent_id" => u.parent_id,
-        "picture_url" => u.picture_url,
-        "image_url" => u.image_url,
-        "agent_configuration" => slice_jsonb(u.agent_configuration, USER_AGENT_CONFIGURATION_KEYS),
-        "created_at" => u.created_at.iso8601,
-        "updated_at" => u.updated_at.iso8601,
-      }
-    end
-    write_json(tmpdir, "users.json", data)
-    @record_counts["users"] = data.length
+  # Account-level data for the view-user only. Credentials (password
+  # digests, OTP secrets, OAuth tokens) are never exported.
+  sig { params(view: View).void }
+  def gather_users(view)
+    u = view.user
+    data = [{
+      "source_id" => u.id,
+      "email" => u.email,
+      "name" => u.name,
+      "user_type" => u.user_type,
+      "source_parent_id" => u.parent_id,
+      "picture_url" => u.picture_url,
+      "image_url" => u.image_url,
+      "agent_configuration" => slice_jsonb(u.agent_configuration, USER_AGENT_CONFIGURATION_KEYS),
+      "created_at" => u.created_at.iso8601,
+      "updated_at" => u.updated_at.iso8601,
+    }]
+    write_json(view, "users.json", data)
+    view.record_counts["users"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_tenant_users(tmpdir)
-    rows = TenantUser.where(tenant_id: @tenant.id, user_id: @subject_user_ids)
+  sig { params(view: View).void }
+  def gather_tenant_users(view)
+    rows = TenantUser.where(tenant_id: @tenant.id, user_id: view.user_id)
     data = rows.map do |t|
       {
         "source_id" => t.id,
@@ -549,13 +581,13 @@ class UserDataExportService
         "updated_at" => t.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "tenant_users.json", data)
-    @record_counts["tenant_users"] = data.length
+    write_json(view, "tenant_users.json", data)
+    view.record_counts["tenant_users"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def gather_collective_members(tmpdir)
-    rows = CollectiveMember.where(collective_id: @collective.id, user_id: @subject_user_ids)
+  sig { params(view: View).void }
+  def gather_collective_members(view)
+    rows = CollectiveMember.where(collective_id: @collective.id, user_id: view.user_id)
     data = rows.map do |m|
       {
         "source_id" => m.id,
@@ -567,16 +599,15 @@ class UserDataExportService
         "updated_at" => m.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "collective_members.json", data)
-    @record_counts["collective_members"] = data.length
+    write_json(view, "collective_members.json", data)
+    view.record_counts["collective_members"] = data.length
   end
 
-  # OAuth provider linkages. The `auth_data` jsonb column carries access
-  # and refresh tokens — those are credentials, not personal data, and are
-  # NEVER exported.
-  sig { params(tmpdir: String).void }
-  def gather_oauth_identities(tmpdir)
-    rows = OauthIdentity.where(user_id: @subject_user_ids)
+  # OAuth provider linkages. `auth_data` (carries access/refresh tokens)
+  # is NEVER exported. AI agents typically have no OauthIdentity rows.
+  sig { params(view: View).void }
+  def gather_oauth_identities(view)
+    rows = OauthIdentity.where(user_id: view.user_id)
     data = rows.map do |o|
       {
         "source_id" => o.id,
@@ -591,17 +622,16 @@ class UserDataExportService
         "updated_at" => o.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "oauth_identities.json", data)
-    @record_counts["oauth_identities"] = data.length
+    write_json(view, "oauth_identities.json", data)
+    view.record_counts["oauth_identities"] = data.length
   end
 
-  # Email/password identity. The credential fields (password_digest,
+  # Email/password identity. Credential fields (password_digest,
   # otp_secret, otp_recovery_codes, reset_password_token) are NEVER
-  # exported — they're credentials, not personal data, and including
-  # them would create an unnecessary attack surface.
-  sig { params(tmpdir: String).void }
-  def gather_omni_auth_identities(tmpdir)
-    rows = OmniAuthIdentity.where(user_id: @subject_user_ids)
+  # exported. AI agents have no OmniAuthIdentity rows.
+  sig { params(view: View).void }
+  def gather_omni_auth_identities(view)
+    rows = OmniAuthIdentity.where(user_id: view.user_id)
     data = rows.map do |o|
       {
         "source_id" => o.id,
@@ -614,18 +644,16 @@ class UserDataExportService
         "updated_at" => o.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "omni_auth_identities.json", data)
-    @record_counts["omni_auth_identities"] = data.length
+    write_json(view, "omni_auth_identities.json", data)
+    view.record_counts["omni_auth_identities"] = data.length
   end
 
-  # Attachments owned by the subject. Binary content is written under
-  # attachments/ in the ZIP; metadata in attachments.json. Attachments
-  # created by others (even if attached to the subject's notes) are NOT
-  # included — that's content the subject didn't create.
-  sig { params(tmpdir: String).void }
-  def gather_attachments(tmpdir)
-    attachments = Attachment.where(collective_id: @collective.id, created_by_id: @subject_user_ids)
-    attachments_dir = File.join(tmpdir, "attachments")
+  # Attachments created by the view-user. Binary content is written under
+  # the view's own attachments/ directory.
+  sig { params(view: View).void }
+  def gather_attachments(view)
+    attachments = Attachment.where(collective_id: @collective.id, created_by_id: view.user_id)
+    attachments_dir = File.join(view.output_dir, "attachments")
     FileUtils.mkdir_p(attachments_dir)
 
     data = attachments.map do |a|
@@ -650,12 +678,15 @@ class UserDataExportService
         "updated_at" => a.updated_at.iso8601,
       }
     end
-    write_json(tmpdir, "attachments.json", data)
-    @record_counts["attachments"] = data.length
+    write_json(view, "attachments.json", data)
+    view.record_counts["attachments"] = data.length
   end
 
-  sig { params(tmpdir: String).void }
-  def write_manifest(tmpdir)
+  # Each view's manifest describes the view's own user, record counts,
+  # and checksums. An AI agent's manifest stands on its own — the agent's
+  # subdirectory is a complete, valid export when read in isolation.
+  sig { params(view: View).void }
+  def write_manifest(view)
     manifest = {
       "format_version" => "1.0",
       "export_type" => "user",
@@ -664,22 +695,23 @@ class UserDataExportService
       "source_instance" => ENV.fetch("HOSTNAME", "unknown"),
       "source_subdomain" => @tenant.subdomain,
       "subject" => {
-        "user_id" => @user.id,
+        "user_id" => view.user_id,
+        "user_type" => view.user.user_type,
+        "source_parent_id" => view.user.parent_id,
         "collective_id" => @collective.id,
-        "ai_agent_user_ids" => (@subject_user_ids - [@user.id]),
       },
-      "record_counts" => @record_counts,
-      "checksums" => @checksums,
+      "record_counts" => view.record_counts,
+      "checksums" => view.checksums,
     }
-    write_json(tmpdir, "manifest.json", manifest)
+    write_json(view, "manifest.json", manifest)
   end
 
-  sig { params(tmpdir: String, filename: String, data: T.untyped).void }
-  def write_json(tmpdir, filename, data)
-    path = File.join(tmpdir, filename)
+  sig { params(view: View, filename: String, data: T.untyped).void }
+  def write_json(view, filename, data)
+    path = File.join(view.output_dir, filename)
     json = JSON.pretty_generate(data)
     File.write(path, json)
-    @checksums[filename] = "sha256:#{Digest::SHA256.hexdigest(json)}"
+    view.checksums[filename] = "sha256:#{Digest::SHA256.hexdigest(json)}"
   end
 
   sig { params(tmpdir: String).returns(String) }
