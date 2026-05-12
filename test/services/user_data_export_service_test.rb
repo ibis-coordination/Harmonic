@@ -330,6 +330,25 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
            "commitment_participants must not include participations from other collectives"
   end
 
+  test "a malformed agent handle falls back to UUID — no path traversal risk in subdir name" do
+    # Handles are normally name.parameterize'd (alphanumeric + hyphens),
+    # but defense-in-depth: if a handle were ever set outside that flow
+    # to contain `..` or `/`, the service must NOT use it as part of a
+    # filesystem path. Falls back to the agent's UUID.
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    agent.tenant_users.find_by!(tenant_id: @tenant.id).update_columns(handle: "../escape/attempt")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+
+    UserDataExportService.new(data_export: @data_export).perform!
+
+    refute zip_contains_path?("ai_agents/../escape/attempt/manifest.json")
+    refute zip_contains_path?("escape/attempt/manifest.json")
+    assert zip_contains_path?("ai_agents/#{agent.id}/manifest.json"),
+           "must fall back to UUID directory when handle is unsafe"
+  end
+
   test "AI agents from other tenants are NOT included — each export is tenant-scoped" do
     # The User table is shared across tenants (no tenant_id column).
     # An AI agent's "membership" in a tenant lives in TenantUser. A naive

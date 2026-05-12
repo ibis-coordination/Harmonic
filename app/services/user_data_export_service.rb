@@ -98,14 +98,15 @@ class UserDataExportService
         # existence cross-tenant.
         #
         # Directory name is the agent's handle in this tenant (e.g.
-        # `ai_agents/research-bot/`). Handles are `name.parameterize`-
-        # derived (lowercase + hyphens, no slashes) so they're
-        # filesystem-safe.
+        # `ai_agents/research-bot/`), sanitized via
+        # `safe_subdir_name` so it cannot contain path-traversal
+        # characters even if a handle were somehow set outside the
+        # usual `name.parameterize` flow.
         tenant_user_handles = TenantUser.where(tenant_id: @tenant.id)
                                         .pluck(:user_id, :handle)
                                         .to_h
         User.where(parent_id: @user.id, id: tenant_user_handles.keys).find_each do |agent|
-          subdir_name = tenant_user_handles[agent.id].presence || agent.id
+          subdir_name = safe_subdir_name(tenant_user_handles[agent.id]) || agent.id
           agent_dir = File.join(tmpdir, "ai_agents", subdir_name)
           FileUtils.mkdir_p(agent_dir)
           agent_view = View.new(user: agent, output_dir: agent_dir)
@@ -146,6 +147,23 @@ class UserDataExportService
   sig { params(view_counts: T::Hash[String, Integer]).void }
   def accumulate_counts(view_counts)
     view_counts.each { |type, n| @flat_record_counts[type] = (@flat_record_counts[type] || 0) + n }
+  end
+
+  # The handle column on TenantUser is typically derived from
+  # `name.parameterize` (lowercase + hyphens, no slashes), but a handle
+  # could in principle be set to anything via direct DB write or a
+  # future code path that bypasses parameterize. Refuse anything outside
+  # the safe alphabet so a malicious or malformed handle can't escape
+  # the export directory via path traversal (e.g. "../../etc/passwd").
+  # Returns nil if the handle is missing or unsafe, letting the caller
+  # fall back to the agent's UUID.
+  SAFE_SUBDIR_RE = /\A[a-z0-9][a-z0-9_-]{0,63}\z/i
+  sig { params(handle: T.nilable(String)).returns(T.nilable(String)) }
+  def safe_subdir_name(handle)
+    return nil if handle.blank?
+    return nil unless SAFE_SUBDIR_RE.match?(handle)
+
+    handle
   end
 
   sig { params(view: View).void }

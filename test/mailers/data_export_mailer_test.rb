@@ -194,6 +194,7 @@ class DataExportMailerTest < ActiveSupport::TestCase
 
   test "user_export_ready renders cleanly when an AI agent contributes too (counts include both views)" do
     ai_agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(ai_agent)
     @collective.add_user!(ai_agent)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
