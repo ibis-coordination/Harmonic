@@ -33,8 +33,18 @@ class DataDeletionManager
     collective_name = collective.name
     collective_id_value = collective.id
     ActiveRecord::Base.transaction do
+      # Events have notifications and webhook_deliveries with DB-enforced FKs;
+      # clear those (and notification_recipients) before deleting events themselves.
+      event_ids = Event.tenant_scoped_only(collective.tenant_id).where(collective_id: collective.id).pluck(:id)
+      if event_ids.any?
+        notification_ids = Notification.where(event_id: event_ids).pluck(:id)
+        NotificationRecipient.where(notification_id: notification_ids).delete_all if notification_ids.any?
+        Notification.where(event_id: event_ids).delete_all
+        WebhookDelivery.where(event_id: event_ids).delete_all
+      end
       # Delete all associated data (all within same tenant, cross-collective)
       [
+        Event,
         RepresentationSessionEvent, RepresentationSession,
         Link, NoteHistoryEvent, Note,
         DecisionAuditEntry, Vote, Option, DecisionParticipant, Decision,
