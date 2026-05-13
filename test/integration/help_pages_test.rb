@@ -25,7 +25,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
     commitments cycles search links
-    agents automations api notifications
+    agents automations api notifications representation
   ].freeze
 
   # =========================================================================
@@ -55,7 +55,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     get "/help"
     assert_response :success
     assert_includes response.body, "/help/automations"
-    assert_match(/Automation (&amp;|&) Integration/, response.body)
+    assert_match(/Agency (&amp;|&) Integration/, response.body)
   end
 
   TOPICS.each do |topic|
