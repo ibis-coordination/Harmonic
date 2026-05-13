@@ -25,7 +25,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
     commitments cycles search links
-    agents automations api
+    agents automations api notifications
   ].freeze
 
   # =========================================================================
