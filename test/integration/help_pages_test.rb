@@ -39,6 +39,32 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "/help/privacy"
   end
 
+  test "help index lists subtype topics nested under their parents" do
+    get "/help"
+    assert_response :success
+    assert_includes response.body, "/help/reminder-notes"
+    assert_includes response.body, "/help/table-notes"
+    assert_includes response.body, "/help/executive-decisions"
+    assert_includes response.body, "/help/lottery-decisions"
+  end
+
+  test "help index hides Automation & Integration section when all gated topics are disabled" do
+    @tenant.disable_feature_flag!("api")
+    @tenant.disable_feature_flag!("ai_agents")
+    get "/help"
+    assert_response :success
+    refute_includes response.body, "Automation &amp; Integration"
+    refute_includes response.body, "Automation & Integration"
+  end
+
+  test "help index shows Automation & Integration section when at least one gated topic is enabled" do
+    @tenant.disable_feature_flag!("api")
+    @tenant.enable_feature_flag!("ai_agents")
+    get "/help"
+    assert_response :success
+    assert_match(/Automation (&amp;|&) Integration/, response.body)
+  end
+
   TOPICS.each do |topic|
     test "help #{topic} renders HTML" do
       get "/help/#{topic}"
