@@ -20,18 +20,21 @@ Export an entire collective as a ZIP of JSON files + attachments, designed for r
 
 User-triggered export of records the user owns within a collective (GDPR Article 20 portability). Scope mirrors account-closure deletion scope — only records that would be deleted/scrubbed on closure are in the export. Main collective only initially; private-collective export deferred until ownership policy is resolved. One-way archive (no import).
 
-## Phase 2: Phased Deletion
+## Phase 2: Phased Deletion — **shipped (Notes only); Decisions/Commitments deferred**
 
-Extend `SoftDeletable` with a grace period before hard-delete:
+*Detailed plan: [phased-deletion.md](phased-deletion.md)*
 
-1. **`hard_delete_after` column**: Set automatically in `soft_delete!` to `deleted_at + 30.days`. Configurable per-tenant.
-2. **`HardDeleteExpiredRecordsJob < SystemJob`**: Runs daily. Finds records past grace period across all tenants. Calls `DataDeletionManager` for cascading associated data cleanup.
-3. **Undo window**: `undo_delete!` clears `deleted_at` and `hard_delete_after` during grace period. Content is already scrubbed via `scrub_content!`, but `content_snapshot` preserves original text for admin recovery.
-4. **Admin override**: Immediate hard-delete via existing `DataDeletionManager` console workflow.
+`SoftDeletable` extended with a 30-day grace period and accessor-masking defense-in-depth. `soft_delete!` is metadata-only — content is preserved at rest, hidden by `default_scope`, and masked to `[deleted]` via overridden readers (with `raw_*` escape hatches for audit/undo paths). `undo_delete!` clears the timestamps and restores accessors.
 
-Also fix the two known `DataDeletionManager` bugs:
-- FK violation on events table during `delete_collective!` (missing `Event` in deletion list)
-- Options with wrong `collective_id` during test setup
+**Notes** opt into `participates_in_hard_delete`. Once `hard_delete_after` passes, `HardDeleteExpiredRecordsJob` (daily) calls `DataDeletionManager.system_tombstone_note!` which always tombstones: nulls `title`/`text`/`table_data`, purges attachments, destroys Link records, sets `tombstoned_at`. The row stays in the DB so external references (other-user comments, NoteHistoryEvents) keep resolving. Full row destruction remains available via the console admin `delete_note!` method.
+
+**Decisions** and **Commitments** still soft-delete (hidden, content masked, undo reversible) but never auto-finalize. Their deletion semantics — ownership-after-engagement, audit-chain preservation, withdrawal vs. delete — are deferred to a follow-up phase.
+
+Bug fixes shipped alongside:
+- `Event` cleanup added to `delete_collective!` cascade (FK violation fix)
+- `CollectiveIdMatchesParent` concern enforces `collective_id` consistency on `Option`, `Vote`, `DecisionParticipant`, `CommitmentParticipant`, `DecisionAuditEntry`
+
+Defense-in-depth guard added to `ReminderDeliveryJob` to skip delivery if the linked note has been soft-deleted (in case a partial `cancel!` left an orphan notification).
 
 ## Phase 3: Account Closure (GDPR Right to Erasure)
 
@@ -71,9 +74,9 @@ Decisions use a tamper-evident SHA-256 hash chain (`DecisionAuditEntry`). Hard-d
 
 ## Implementation Order
 
-1. **Data Export** — this sprint (see detailed plan)
-2. **DataDeletionManager bug fixes** — FK violation on events, options collective_id
-3. **`hard_delete_after` + `HardDeleteExpiredRecordsJob`**
+1. ✅ **Data Export** — shipped (Phase 1a + 1b)
+2. ✅ **Phase 2 Notes pipeline** — shipped (grace period, accessor masking, tombstone job, bug fixes)
+3. **Decision/Commitment deletion semantics** — design follow-up (ownership-after-engagement, withdrawal vs. delete, audit-chain preservation)
 4. **Account closure flow** (UI + `force_delete: true`)
 5. **Transparency UI** updates
 6. **Audit chain tombstoning**
