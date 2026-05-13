@@ -3,6 +3,8 @@
 class DecisionParticipant < ApplicationRecord
   extend T::Sig
 
+  include CollectiveIdMatchesParent
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -10,6 +12,7 @@ class DecisionParticipant < ApplicationRecord
   before_validation :set_collective_id
   belongs_to :decision
   belongs_to :user
+  collective_id_matches :decision
 
   has_many :votes, dependent: :destroy
   has_many :options, dependent: :destroy

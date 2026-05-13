@@ -38,6 +38,11 @@ Sidekiq.configure_server do |_config|
       "class" => "SweepStuckDataImportsJob",
       "description" => "Mark stuck data imports as failed",
     },
+    "hard_delete_expired_records" => {
+      "cron" => "30 3 * * *", # Daily at 3:30 AM
+      "class" => "HardDeleteExpiredRecordsJob",
+      "description" => "Tombstone soft-deleted Notes whose grace period has expired",
+    },
   }
 
   Sidekiq::Cron::Job.load_from_hash(schedule)

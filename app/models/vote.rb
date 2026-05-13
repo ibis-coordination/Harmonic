@@ -7,6 +7,7 @@ class Vote < ApplicationRecord
   include InvalidatesSearchIndex
   include TracksUserItemStatus
   include HasRepresentationSessionEvents
+  include CollectiveIdMatchesParent
 
   # Transient attribute — set by DecisionActionService.cast_vote! after recording the audit entry
   attr_accessor :audit_receipt
@@ -19,6 +20,7 @@ class Vote < ApplicationRecord
   belongs_to :option
   belongs_to :decision
   belongs_to :decision_participant
+  collective_id_matches :decision
 
   validates :accepted, inclusion: { in: [0, 1] }
   validates :preferred, inclusion: { in: [0, 1] }

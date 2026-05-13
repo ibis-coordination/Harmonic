@@ -258,4 +258,222 @@ class SoftDeletableTest < ActiveSupport::TestCase
     snapshot = note.content_snapshot
     assert_equal 5000, snapshot[:text].length
   end
+
+  # --- Grace period: hard_delete_after only set when model opts in ---
+
+  test "Note opts into the hard-delete pipeline" do
+    assert Note.participates_in_hard_delete?
+  end
+
+  test "Decision does NOT opt into the hard-delete pipeline" do
+    assert_not Decision.participates_in_hard_delete?
+  end
+
+  test "Commitment does NOT opt into the hard-delete pipeline" do
+    assert_not Commitment.participates_in_hard_delete?
+  end
+
+  test "Note#soft_delete! sets hard_delete_after to deleted_at + grace period" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    note.soft_delete!(by: @user)
+    assert_not_nil note.hard_delete_after
+    expected = note.deleted_at + SoftDeletable::DEFAULT_GRACE_PERIOD
+    assert_in_delta expected, note.hard_delete_after, 1.second
+  end
+
+  test "Decision#soft_delete! does NOT set hard_delete_after (no auto hard-delete)" do
+    d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    d.soft_delete!(by: @user)
+    assert_nil d.hard_delete_after
+  end
+
+  test "Commitment#soft_delete! does NOT set hard_delete_after" do
+    c = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
+    c.soft_delete!(by: @user)
+    assert_nil c.hard_delete_after
+  end
+
+  test "Decision#undo_delete! works indefinitely (no grace-period cutoff)" do
+    d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    d.soft_delete!(by: @user)
+    # Even far in the future, undo works because Decision doesn't participate in hard-delete.
+    travel_to 1.year.from_now do
+      assert_nothing_raised { d.undo_delete!(by: @user) }
+    end
+    d.reload
+    assert_not d.deleted?
+  end
+
+  # --- tombstoned? predicate ---
+
+  test "Note#tombstoned? is false by default and true when tombstoned_at is set" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_not note.tombstoned?
+
+    note.update_columns(tombstoned_at: Time.current)
+    assert note.tombstoned?
+  end
+
+  test "Decision#tombstoned? always returns false (no tombstoned_at column)" do
+    d = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_not d.tombstoned?
+
+    d.soft_delete!(by: @user)
+    assert_not d.tombstoned?
+  end
+
+  # --- Reminder cancellation on soft_delete (Note) ---
+
+  test "Note#soft_delete! cancels a scheduled reminder and destroys the notification" do
+    notification = ReminderService.create!(
+      user: @user, title: "Due", scheduled_for: 1.day.from_now,
+    )
+    notification_id = notification.id
+    recipient_id = notification.notification_recipients.first.id
+
+    note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      text: "Remember", subtype: "reminder",
+      reminder_notification_id: notification.id,
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+    )
+
+    note.soft_delete!(by: @user)
+    note.reload
+
+    assert_nil note.reminder_notification_id, "note's reminder_notification_id must be cleared"
+    assert_nil Notification.find_by(id: notification_id), "notification must be destroyed"
+    assert_nil NotificationRecipient.find_by(id: recipient_id), "notification_recipient must be destroyed"
+  end
+
+  # --- Content preservation in DB (defense-in-depth assertion) ---
+
+  test "Note#soft_delete! does NOT scrub the underlying DB columns" do
+    note = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Original Title", text: "Original text content"
+    )
+    note.soft_delete!(by: @user)
+
+    # Raw DB columns still hold the original values
+    raw = Note.connection.select_one(
+      "SELECT title, text FROM notes WHERE id = #{Note.connection.quote(note.id)}"
+    )
+    assert_equal "Original Title", raw["title"]
+    assert_equal "Original text content", raw["text"]
+  end
+
+  test "Decision#soft_delete! does NOT scrub the underlying DB columns" do
+    d = create_decision(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      question: "Should we?", description: "Details here"
+    )
+    d.soft_delete!(by: @user)
+    raw = Decision.connection.select_one(
+      "SELECT question, description FROM decisions WHERE id = #{Decision.connection.quote(d.id)}"
+    )
+    assert_equal "Should we?", raw["question"]
+    assert_equal "Details here", raw["description"]
+  end
+
+  test "Commitment#soft_delete! does NOT scrub the underlying DB columns" do
+    c = create_commitment(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Do the thing", description: "Details here"
+    )
+    c.soft_delete!(by: @user)
+    raw = Commitment.connection.select_one(
+      "SELECT title, description FROM commitments WHERE id = #{Commitment.connection.quote(c.id)}"
+    )
+    assert_equal "Do the thing", raw["title"]
+    assert_equal "Details here", raw["description"]
+  end
+
+  # --- raw_* escape hatches return real content even when deleted ---
+
+  test "Note#raw_title and Note#raw_text return real values after soft_delete" do
+    note = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Real Title", text: "Real text"
+    )
+    note.soft_delete!(by: @user)
+
+    assert_equal "[deleted]", note.title
+    assert_equal "[deleted]", note.text
+    assert_equal "Real Title", note.raw_title
+    assert_equal "Real text", note.raw_text
+  end
+
+  test "Decision#raw_question and Decision#raw_description return real values after soft_delete" do
+    d = create_decision(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      question: "Real Q?", description: "Real D"
+    )
+    d.soft_delete!(by: @user)
+
+    assert_equal "[deleted]", d.question
+    assert_equal "[deleted]", d.description
+    assert_equal "Real Q?", d.raw_question
+    assert_equal "Real D", d.raw_description
+  end
+
+  test "Commitment#raw_title and Commitment#raw_description return real values after soft_delete" do
+    c = create_commitment(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Real T", description: "Real D"
+    )
+    c.soft_delete!(by: @user)
+
+    assert_equal "[deleted]", c.title
+    assert_equal "[deleted]", c.description
+    assert_equal "Real T", c.raw_title
+    assert_equal "Real D", c.raw_description
+  end
+
+  test "Note#content_snapshot returns real values even after soft_delete" do
+    note = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Snap Title", text: "Snap text"
+    )
+    note.soft_delete!(by: @user)
+
+    assert_equal({ title: "Snap Title", text: "Snap text" }, note.content_snapshot)
+  end
+
+  # --- undo_delete! ---
+
+  test "Note#undo_delete! clears all three timestamps and restores visibility" do
+    note = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Restore me", text: "body"
+    )
+    note.soft_delete!(by: @user)
+    assert note.deleted?
+
+    note.undo_delete!(by: @user)
+    note.reload
+
+    assert_not note.deleted?
+    assert_nil note.deleted_at
+    assert_nil note.deleted_by_id
+    assert_nil note.hard_delete_after
+    assert_equal "Restore me", note.title
+    assert_equal "body", note.text
+  end
+
+  test "undo_delete! raises if hard_delete_after has passed" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    note.soft_delete!(by: @user)
+    note.update_columns(hard_delete_after: 1.minute.ago)
+
+    assert_raises(SoftDeletable::GracePeriodExpired) do
+      note.undo_delete!(by: @user)
+    end
+  end
+
+  test "undo_delete! is a no-op on a non-deleted record" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_nothing_raised { note.undo_delete!(by: @user) }
+    assert_not note.deleted?
+  end
 end

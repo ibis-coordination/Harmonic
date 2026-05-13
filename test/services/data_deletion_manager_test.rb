@@ -119,25 +119,88 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_equal 0, Decision.where(id: decision.id).count
   end
 
-  # === Pre-existing bugs in delete_collective! ===
-  # These tests document FK violations that exist in the current delete_collective! implementation.
-  # They are skipped so they show up in test output as a reminder to fix.
+  # --- system_tombstone_note! ---
 
-  test "BUG: delete_collective! fails when collective has events (FK violation on events table)" do
-    skip "Pre-existing bug: delete_collective! does not delete events records. " \
-         "When a collective contains decisions/votes that triggered Tracked callbacks, " \
-         "the events table has rows referencing the collective. delete_collective! doesn't " \
-         "include Event in its deletion list, causing: PG::ForeignKeyViolation on collectives. " \
-         "Fix: add Event to the model list in delete_collective! (before other models that events reference)."
+  test "system_tombstone_note! nulls content, preserves row, sets tombstoned_at" do
+    note = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Original Title", text: "Original body",
+    )
+
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+    DataDeletionManager.system_tombstone_note!(note: note)
+
+    persisted = Note.unscoped.find_by(id: note.id)
+    assert persisted, "row must remain"
+    assert_not_nil persisted.tombstoned_at
+    raw = Note.connection.select_one(
+      "SELECT title, text, table_data FROM notes WHERE id = #{Note.connection.quote(note.id)}"
+    )
+    assert_nil raw["title"]
+    assert_nil raw["text"]
+    assert_nil raw["table_data"]
   end
 
-  test "BUG: delete_collective! with separate tenant fails to delete options (FK violation)" do
-    skip "Pre-existing bug: delete_collective! with a freshly created tenant/collective can fail " \
-         "if the test helper create_option uses default @tenant/@collective instead of the local ones, " \
-         "causing options to land in the wrong collective. The bulk delete_all then misses them, " \
-         "and DecisionParticipant deletion hits a FK violation from orphaned options. " \
-         "This is a test setup issue but also reveals that delete_collective! has no error handling " \
-         "for partial deletion failures — it should validate all child records were removed."
+  test "system_tombstone_note! destroys Link records involving the note" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    other_user = create_user(email: "tomblink-#{SecureRandom.hex(4)}@example.com", name: "Tomb Link #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    other_note = create_note(tenant: @tenant, collective: @collective, created_by: other_user, title: "B note")
+    Link.create!(tenant: @tenant, collective: @collective, from_linkable: other_note, to_linkable: note)
+
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+    DataDeletionManager.system_tombstone_note!(note: note)
+
+    assert_equal 0, Link.where(to_linkable_id: note.id).count, "links must be destroyed"
+    assert Note.unscoped.where(id: other_note.id).exists?, "the other note must survive"
+  end
+
+  test "system_tombstone_note! preserves NoteHistoryEvents and child comments" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+    other_user = create_user(email: "pres-other-#{SecureRandom.hex(4)}@example.com", name: "Preserve #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    comment = create_note(
+      tenant: @tenant, collective: @collective, created_by: other_user,
+      text: "B's comment", subtype: "comment", commentable: note,
+    )
+    NoteHistoryEvent.create!(
+      tenant: @tenant, collective: @collective, note: note, user: other_user,
+      event_type: "read_confirmation", happened_at: Time.current,
+    )
+
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+    DataDeletionManager.system_tombstone_note!(note: note)
+
+    assert Note.unscoped.where(id: comment.id).exists?, "comment must survive"
+    assert NoteHistoryEvent.where(note_id: note.id).exists?, "history events must survive"
+  end
+
+  test "delete_collective! cleans up events referencing the collective" do
+    # Reproduces a FK violation: Tracked callbacks insert Event rows that
+    # reference the collective. delete_collective! must clear them or
+    # PG::ForeignKeyViolation is raised on the final collective.destroy!.
+    tenant, collective, user = create_tenant_collective_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+    assert Event.where(collective_id: collective.id).exists?,
+           "expected Tracked callbacks to have created Event rows for the collective"
+
+    ddm = DataDeletionManager.new(user: user)
+    assert_difference -> { Collective.count }, -1 do
+      ddm.delete_collective!(collective: collective, confirmation_token: ddm.confirmation_token)
+    end
+    assert_equal 0, Event.where(collective_id: collective.id).count,
+                 "events referencing the deleted collective must be removed"
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   test "DataDeletionManager deletes user PII and marks user as deleted with correct confirmation_token" do
