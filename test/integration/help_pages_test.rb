@@ -24,7 +24,8 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   TOPICS = %w[
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
-    commitments cycles search links agents api
+    commitments cycles search links
+    agents automations api
   ].freeze
 
   # =========================================================================
@@ -48,20 +49,12 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "/help/lottery-decisions"
   end
 
-  test "help index hides Automation & Integration section when all gated topics are disabled" do
+  test "help index links to automations (always shown, not feature-gated)" do
     @tenant.disable_feature_flag!("api")
     @tenant.disable_feature_flag!("ai_agents")
     get "/help"
     assert_response :success
-    refute_includes response.body, "Automation &amp; Integration"
-    refute_includes response.body, "Automation & Integration"
-  end
-
-  test "help index shows Automation & Integration section when at least one gated topic is enabled" do
-    @tenant.disable_feature_flag!("api")
-    @tenant.enable_feature_flag!("ai_agents")
-    get "/help"
-    assert_response :success
+    assert_includes response.body, "/help/automations"
     assert_match(/Automation (&amp;|&) Integration/, response.body)
   end
 

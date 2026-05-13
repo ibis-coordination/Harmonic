@@ -1,7 +1,12 @@
 # typed: false
 
 class HelpController < ApplicationController
-  TOPICS = %w[privacy collectives notes reminder_notes table_notes decisions executive_decisions lottery_decisions commitments cycles search links agents api].freeze
+  TOPICS = %w[
+    privacy collectives notes reminder_notes table_notes
+    decisions executive_decisions lottery_decisions
+    commitments cycles search links
+    agents automations api
+  ].freeze
 
   # Topics that are only available when a feature flag is enabled.
   # The hidden topic returns 404 and is omitted from the index — see app/views/help/index.md.erb.
