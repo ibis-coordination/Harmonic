@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-05-12
+
+### Added
+
+- **Collective data export and import** for instance portability — export a collective to a JSON archive (notes, decisions, options, votes, commitments, links, attachments, audit chains) and import it on another instance. Tenant-admin-only; UUID-based user matching with an admin-controlled email map; streaming archive extraction; rate-limited; feature-flagged. Email notification when exports are ready, with a settings UI under collective and tenant-admin pages. Stuck-import sweeper, expired-export cleanup, and security audit logging for both directions.
+- **Per-user data export** (Phase 1b) — users can request a download of all their personal data: notes, decisions, options, votes/participations (with denormalized labels), commitments, links, attachments, note-history events, decision audit entries (where the user was actor), trustee grants (as grantor or trustee), invites sent, representation sessions and session events, and account-level data. AI agents owned by the user are exported recursively into nested per-user subdirectories with sanitized handles. Cross-collective, AI-agent, and soft-delete invariants are pinned by tests. Credentials and API tokens are explicitly excluded. Rate-limited; feature-flagged; email notification on completion.
+- **Audit chain v2 — PII decoupled from hashes** — audit entries now hash an `actor_token` instead of the raw handle, so display fields (handle, metadata) can be scrubbed without breaking the chain. Existing chains migrate automatically. Verify page and the TypeScript/Python verifiers handle both schema versions. Audit chain export/import across instances uses an `:imported` binding so cross-instance receipts remain verifiable. Honest trust-model copy on the verify page explains what each verification step actually proves.
+- **Phased deletion with grace period** (Phase 2) — soft-deleted records leave a tombstone with `hard_delete_after`, and content stays masked via accessors during the grace period rather than being scrubbed at delete time. `HardDeleteExpiredRecordsJob` sweeps expired Note tombstones daily. Notes opt in via `participates_in_hard_delete`; decisions and commitments carry the column for future phases. `system_tombstone_note!` for moderation deletions; reminder delivery now guards against soft-deleted targets.
+- `minimum-release-age` set in `.npmrc` (root, agent-runner, mcp-server) for supply-chain protection against typosquatting and recently-published malicious packages.
+- Brakeman ignore entries and AI agent handle sanitization to keep export subdirectory paths safe.
+
+### Changed
+
+- Renamed `trustee_grants.studio_scope` to `collective_scope` (legacy "studio" terminology removed from this column).
+- Data import moved from collective settings to the tenant admin area; tenant admins now own cross-instance restore.
+- ActiveStorage URL TTLs tightened; import archives are purged from blob storage after successful processing.
+- Import side effects (search indexing, link parsing, tracked events, user-item-status updates) are suppressed via `Current.importing_data` so re-importing a collective doesn't fire spurious notifications or re-tally votes. Vote DB trigger updated to use `updated_at`.
+- Collective import respects archived `TenantUser` state — archived users stay archived after restore.
+
+### Fixed
+
+- FK violation when deleting a collective that had tracked events referencing it.
+- Flaky comment-order assertions in collective import tests.
+- Representation session filter in per-user export now correctly returns only user-to-user sessions.
+- Enforce `collective_id` consistency between decision/commitment parents and their children (options, votes, audit entries, participants) via a shared concern, preventing cross-collective drift.
+
+### Security
+
+- Bump `nokogiri`, `sidekiq-cron`, and `view_component` for upstream security advisories.
+- Bump `fast-uri` (3.1.0 → 3.1.2) and `hono` (4.12.14 → 4.12.18) in `mcp-server`.
+- Per-user and collective data export endpoints reject API-token sessions, are rate-limited via `rack-attack`, and write to a dedicated security audit log.
+- User emails dropped from collective export payload; cross-instance user matching now relies on UUID plus an admin-supplied email map at import time.
+
 ## [1.14.0] - 2026-05-07
 
 ### Added
