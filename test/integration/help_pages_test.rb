@@ -4,6 +4,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
+    @tenant.enable_feature_flag!("ai_agents")
     @user = @global_user
     @api_token = ApiToken.create!(
       user: @user,
@@ -20,7 +21,11 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
   end
 
-  TOPICS = %w[privacy collectives notes reminder-notes table-notes decisions commitments cycles search links agents api].freeze
+  TOPICS = %w[
+    privacy collectives notes reminder-notes table-notes
+    decisions executive-decisions lottery-decisions
+    commitments cycles search links agents api
+  ].freeze
 
   # =========================================================================
   # HTML rendering
@@ -71,5 +76,42 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     get "/help", headers: @md_headers
     assert_response :success
     refute_includes response.body, "actions:"
+  end
+
+  # =========================================================================
+  # Feature flag gating
+  # =========================================================================
+
+  GATED_TOPICS = {
+    "api" => "api",
+    "agents" => "ai_agents",
+  }.freeze
+
+  GATED_TOPICS.each do |topic, flag|
+    test "help #{topic} returns 404 when #{flag} feature flag is disabled" do
+      @tenant.disable_feature_flag!(flag)
+      get "/help/#{topic}"
+      assert_response :not_found
+    end
+
+    test "help #{topic} renders when #{flag} feature flag is enabled" do
+      @tenant.enable_feature_flag!(flag)
+      get "/help/#{topic}"
+      assert_response :success
+    end
+
+    test "help index hides #{topic} link when #{flag} feature flag is disabled" do
+      @tenant.disable_feature_flag!(flag)
+      get "/help"
+      assert_response :success
+      refute_includes response.body, "/help/#{topic}"
+    end
+
+    test "help index shows #{topic} link when #{flag} feature flag is enabled" do
+      @tenant.enable_feature_flag!(flag)
+      get "/help"
+      assert_response :success
+      assert_includes response.body, "/help/#{topic}"
+    end
   end
 end
