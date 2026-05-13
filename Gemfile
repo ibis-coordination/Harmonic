@@ -121,7 +121,7 @@ gem 'redcarpet'
 gem 'octicons_helper'
 
 # ViewComponent - component-based view architecture
-gem "view_component", "~> 4.0"
+gem "view_component", "~> 4.9.0"
 
 gem 'aws-sdk-s3', '~> 1.208'
 
