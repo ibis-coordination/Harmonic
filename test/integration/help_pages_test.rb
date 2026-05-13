@@ -25,7 +25,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
     commitments cycles search links
-    agents automations api notifications representation
+    agents automations api markdown-ui notifications representation
   ].freeze
 
   # =========================================================================
@@ -63,8 +63,9 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
       get "/help/#{topic}"
       assert_response :success
       assert_includes response.body, "pulse-prose"
-      # Should not contain YAML frontmatter from markdown layout
-      refute_includes response.body, "---\napp: Harmonic"
+      # Should not start with raw YAML frontmatter — that would mean the
+      # markdown layout leaked into the HTML response.
+      refute_match(/\A\s*---\napp: Harmonic/, response.body)
     end
   end
 

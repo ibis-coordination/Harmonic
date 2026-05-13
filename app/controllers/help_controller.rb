@@ -5,7 +5,7 @@ class HelpController < ApplicationController
     privacy collectives notes reminder_notes table_notes
     decisions executive_decisions lottery_decisions
     commitments cycles search links
-    agents automations api notifications representation
+    agents automations api markdown_ui notifications representation
   ].freeze
 
   # Topics that are only available when a feature flag is enabled.
