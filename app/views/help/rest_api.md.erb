@@ -1,0 +1,105 @@
+# REST API
+
+The Harmonic REST API is a JSON HTTP API for managing notes, decisions, commitments, and related resources. Use it when you want structured request/response semantics rather than the page-based navigation of the [Markdown UI](/help/markdown-ui).
+
+## Base URL
+
+The API has two scopes:
+
+- **Tenant-level** — `https://{your-tenant}.{domain}/api/v1`
+- **Collective-scoped** — `https://{your-tenant}.{domain}/collectives/{handle}/api/v1`
+
+Most resources work in either scope. Use the collective-scoped form when you want operations to apply within a specific collective; the tenant-level form is convenient for cross-collective operations and admin tasks.
+
+## Authentication
+
+Send your token as a Bearer header. See [API](/help/api) for token creation, scopes, and enabling API access.
+
+```
+Authorization: Bearer {your_token}
+```
+
+If either the tenant or the collective has API access disabled, requests return `403 Forbidden`.
+
+## Discovery
+
+`GET /api/v1` returns the available routes:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://my-tenant.harmonic.social/api/v1
+```
+
+The response lists every endpoint with its HTTP methods.
+
+## Resources
+
+The API follows standard REST conventions — `GET` to list/read, `POST` to create, `PATCH`/`PUT` to update, `DELETE` to remove.
+
+| Resource | Path | Scope |
+|----------|------|-------|
+| Notes | `/notes`, `/notes/:id` | Either |
+| Decisions | `/decisions`, `/decisions/:id` | Either |
+| Options | `/decisions/:id/options[/:option_id]` | Either |
+| Votes | `/decisions/:id/votes[/:vote_id]`, also under `/options/:option_id` and `/participants/:participant_id` | Either |
+| Decision results | `GET /decisions/:id/results` | Either |
+| Decision participants | `/decisions/:id/participants[/:participant_id]` | Either |
+| Commitments | `/commitments`, `/commitments/:id` | Either |
+| Commitment participants | `/commitments/:id/participants[/:participant_id]` | Either |
+| Cycles | `/cycles[/:id]` | Either |
+| Collectives | `/collectives[/:id]` | Tenant only |
+| Users | `/users[/:id]` | Tenant only |
+| API tokens | `/users/:user_id/tokens[/:id]` | Tenant only |
+
+There are also a couple of action-style endpoints that don't fit pure REST:
+
+- `POST /notes/:id/confirm` — Confirm you've read a note
+- `POST /commitments/:id/join` — Join a commitment
+
+### Token Endpoints
+
+The token endpoints behave slightly differently from other resources:
+
+- `POST /users/:user_id/tokens` creates a token. The response includes a `token` field with the **plaintext value** — save it immediately, it can't be retrieved later.
+- `GET` responses (index, show) omit the `token` field entirely. The plaintext is never recoverable after creation because the database stores only a hash. They include a `token_prefix` field (the first four characters of the token) which can be used to visually identify a token.
+- `PATCH`/`PUT` updates only the `name`. Tokens are otherwise **immutable** — sending `expires_at`, `scopes`, or any other field returns `400 Bad Request`. To change a token's scopes or expiration, create a new token and delete the old one.
+- `DELETE` revokes the token.
+- On create, the requested scopes must be a subset of the scopes the calling token itself has. Attempting to grant a broader scope returns `403 Forbidden`. This prevents privilege escalation through token chaining.
+- A user can hold at most **<%= ApiToken::MAX_ACTIVE_TOKENS_PER_USER %> active tokens** at a time. Once the cap is reached, creating a new token returns `400 Bad Request` until an existing token is deleted or expires.
+
+## The `include` Parameter
+
+Many endpoints accept `?include=` with a comma-separated list of related resources to embed in the response. This avoids extra round trips when you need related data.
+
+| Resource | Available `include` values |
+|----------|----------------------------|
+| Notes | `history_events`, `backlinks` |
+| Decisions | `options`, `votes`, `participants`, `results`, `backlinks` |
+| Commitments | `participants`, `backlinks` |
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://my-tenant.harmonic.social/collectives/my-team/api/v1/decisions/abc12345?include=options,results"
+```
+
+## Responses
+
+All responses are JSON. Success responses return the resource (or an array). Error responses have this shape:
+
+```json
+{ "error": "Description of what went wrong" }
+```
+
+Common status codes:
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 400 | Bad request — validation error or malformed input |
+| 401 | Unauthorized — invalid, expired, or missing token |
+| 403 | Forbidden — token scope insufficient, or API not enabled for this tenant/collective |
+| 404 | Resource not found |
+
+For markdown-driven navigation with action discovery instead of JSON CRUD, see the [Markdown UI](/help/markdown-ui).

@@ -2,161 +2,84 @@
 
 ## Context
 
-The in-app help system at `/help` currently has 10 topics. Several significant features have no help coverage at all, and the index page is a flat list with a brief quick-start section. As the app has grown, the help hasn't kept pace — users (both human and AI) have no in-app guidance for automations, webhooks, notifications, billing, representation, and more.
+The in-app help system at `/help` had grown to 14 topics but several major features had no coverage (automations, notifications, REST API, representation), the index was a flat list mixing concepts and features, and a parallel `/learn` system with mostly-redundant content sat alongside it. The first round of work has landed; this doc tracks what's done and what's still open.
 
-## Current State
+## Status
 
-**Existing topics (10):** privacy, collectives, notes, decisions, commitments, cycles, search, links, agents, api
+### Done — shipped on branch `improve-help-topics`
 
-**Controller:** `app/controllers/help_controller.rb` — defines `TOPICS` array, dynamically generates routes/actions  
-**Content:** `app/views/help/{topic}.md.erb` — markdown with ERB  
-**Routes:** `config/routes.rb:158-161` — `/help` index + `/help/{topic}` for each  
-**Tests:** `test/integration/help_pages_test.rb`
+Each is a separate commit on the branch (most recent first):
 
-## Gap Analysis
+1. **Add REST API help topic, make /api/v1 info endpoint dynamic** ([app/views/help/rest_api.md.erb](app/views/help/rest_api.md.erb), [app/controllers/api/v1/info_controller.rb](app/controllers/api/v1/info_controller.rb), [test/integration/api_info_test.rb](test/integration/api_info_test.rb))
+2. **Harden API token model: immutability, cap, scope downscoping, safer responses** ([app/controllers/api/v1/api_tokens_controller.rb](app/controllers/api/v1/api_tokens_controller.rb), [app/models/api_token.rb](app/models/api_token.rb)) — security work that surfaced while writing the REST API docs; see PR description for full list
+3. **Split markdown UI out of the API help topic** ([app/views/help/markdown_ui.md.erb](app/views/help/markdown_ui.md.erb))
+4. **Add representation help topic and regroup the index** ([app/views/help/representation.md.erb](app/views/help/representation.md.erb))
+5. **Add notifications help topic** ([app/views/help/notifications.md.erb](app/views/help/notifications.md.erb))
+6. **Add automations help topic** ([app/views/help/automations.md.erb](app/views/help/automations.md.erb))
+7. **Reorganize help index into categories** (How Harmonic Works / Content / Finding & Following / Agency & Integration)
+8. **Retire /learn pages, fold content into /help** — content merged into notes (awareness indicators), decisions (acceptance voting framing), commitments (reciprocal commitment framing), agents (accountability section); 3 tooltip partials updated; entire `/learn` directory + controller + tests removed
+9. **Gate api and agents help topics behind feature flags** — `FEATURE_GATED_TOPICS` constant; topic returns 404 and disappears from index when flag is off
 
-### Missing Topics (no help page exists)
+### Current topic surface
 
-| Feature | Coverage Gap | Key Source Files |
-|---------|-------------|-----------------|
-| **Automations** | Major feature with no help page. Comprehensive docs exist at `docs/AUTOMATIONS.md` but nothing in-app. Covers agent automations, collective automations, triggers, conditions, actions, YAML config. | `app/controllers/agent_automations_controller.rb`, `app/controllers/collective_automations_controller.rb` |
-| **Webhooks** | Incoming webhooks (external systems triggering automations) have no help page. Related to automations but distinct enough for its own section or page. | `app/controllers/incoming_webhooks_controller.rb` |
-| **Notifications** | No help page. Users can receive, dismiss, and manage notifications. Reminders can be created from notifications. | `app/controllers/notifications_controller.rb` |
-| **Billing** | No help page. Subscriptions, per-identity pricing, credit topups, agent activation costs. | `app/controllers/billing_controller.rb` |
-| **Representation & Trustees** | Collectives page briefly mentions representation, but trustee grants (delegating authority to act on your behalf) and representation sessions have no dedicated coverage. | `app/controllers/trustee_grants_controller.rb`, `app/controllers/representation_sessions_controller.rb` |
-| **Comments** | Mentioned in one sentence on the notes page ("A comment is itself a note"), but no dedicated explanation of the commenting system, replies, or threading. | Part of notes/decisions/commitments |
-| **Attachments** | No mention in help. Users can attach files to notes, decisions, commitments. | `Attachable` concern |
-| **Pinning** | No mention in help. Content can be pinned for visibility within a collective. | `Pinnable` concern |
-| **Heartbeats** | Mentioned in cycles page but could use more context — it's a distinctive feature that new users encounter immediately. | Part of cycles |
-| **Content Reporting** | No mention. Users can report content for moderation. | Moderation controllers |
-| **Two-Factor Authentication (2FA)** | No mention. Users can set up TOTP 2FA, manage backup codes. | 2FA controllers |
-| **User Profiles & Settings** | No help page. Handles, avatars, personal settings. | `app/controllers/users_controller.rb` |
+| Section | Topics |
+|---------|--------|
+| **How Harmonic Works** | Privacy, Collectives, Cycles |
+| **Content** | Notes (+ Reminder, Table), Decisions (+ Executive, Lottery), Commitments |
+| **Finding & Following** | Search, Links, Notifications |
+| **Agency & Integration** | Representation, Agents *(gated)*, Automations, API *(gated)*, Markdown UI, REST API *(gated)* |
 
-### Existing Topics with Minimal Coverage
+### Topic ↔ Feature Flag mapping (live)
 
-| Topic | What's Missing |
+| Topic | Flag | Behavior when off |
+|-------|------|-------------------|
+| `api` | `api` | Topic 404s; link hidden from index |
+| `rest_api` | `api` | Same |
+| `agents` | `ai_agents` | Same |
+| All others | (none) | Always visible |
+
+## Remaining work
+
+### Topics still missing
+
+| Topic | Feature flag | Notes |
+|-------|--------------|-------|
+| **Billing** | `stripe_billing` | Pricing model, subscriptions, credits, identity-based pricing. Gated. |
+| **Settings** | none | User profile, 2FA, account management. (API tokens are already covered in `/help/api`.) |
+| **Webhooks** | none | Brief mention exists in `/help/automations`; may deserve its own page or stay as a section there. |
+
+### Existing topics with thin coverage
+
+| Topic | What's missing |
 |-------|---------------|
-| **API** | Very brief (38 lines). Only shows 4 example endpoints. Missing: full endpoint list, scopes (now 4: read/create/update/delete not just read/write), error handling, rate limits, pagination, include params. |
-| **Agents** | No mention of automations (the primary way agents act autonomously). No mention of agent billing. Task runs not explained. |
-| **Collectives** | No mention of: invitations workflow, adding AI agents, enabling API access, collective automations, heartbeat requirement, collective identity user. |
-| **Notes** | No mention of: subtypes (text, reminder, table), attachments, pinning, links/backlinks from notes, deadlines, content reporting. |
+| **Agents** | Mention of agent automations (now exists; link), task runs, agent billing/usage |
+| **Collectives** | Invitations workflow, adding AI agents, enabling API access, collective automations, heartbeat requirement |
+| **Notes** | Attachments (`file_attachments`-gated section), pinning, links/backlinks from notes, deadlines, content reporting |
 
-### Index Page Organization
+### Possible additions (not yet decided)
 
-Current index is a flat list of 10 items plus a 3-step quick start. With more topics, it needs categorical organization.
+- Comments — currently a sentence in notes; could expand to cover threading, where comments can be posted
+- Pinning — small concept used across notes/decisions/commitments
+- Content reporting / moderation
+- Attachments as a standalone section under notes (feature-gated)
 
-## Remove Stale Learn Pages
+## Out of scope but related
 
-The `/learn` section is a separate set of conceptual explainer pages that predates the help system. These should be retired — their content merged into help pages where useful, and all references updated.
+- **v1 REST API read-only proposal** — see [.claude/plans/v1-api-readonly.md](.claude/plans/v1-api-readonly.md). The token-hardening work surfaced concerns about the v1 API's drift and the parallel write paths between REST and action routes. Pulling that forward as its own branch.
 
-**Note:** `/motto` is its own route (`motto#index`, `config/routes.rb:195`) with its own controller — completely independent of the learn system. It is linked in the application layout footer and must NOT be touched. The learn index merely linked to it.
+## Implementation pattern (for the remaining topics)
 
-### Learn Pages Inventory
+Each new topic follows the same recipe:
 
-| Page | Content Summary | Merge Target |
-|------|----------------|--------------|
-| `/learn` (index) | Links to all learn pages + `/motto` | Remove entirely (help index replaces it) |
-| `/learn/awareness-indicators` | Explains confirmed reads as awareness signals for group coordination | Merge into `help/notes` — expand the "Confirming Read" section with this conceptual framing |
-| `/learn/acceptance-voting` | Explains acceptance voting as a negotiation-oriented method | Merge into `help/decisions` — the existing page already covers mechanics well; add the "why" from this page |
-| `/learn/reciprocal-commitment` | Explains conditional commitment with critical mass (like Kickstarter for participation) | Merge into `help/commitments` — add the "why" framing to the existing page |
-| `/learn/ai-agency` | Parent responsibility and visible accountability for AI agents | Merge into `help/agents` — add accountability/parent responsibility section |
-| `/learn/superagency` | Collectives acting as unified agents through representation | Merge into `help/representation` (new page) or `help/collectives` |
-| `/learn/memory` | Route exists but **no content file** — currently 404s | Remove entirely |
+1. Add to `TOPICS` in [app/controllers/help_controller.rb](app/controllers/help_controller.rb)
+2. Add to the route list in [config/routes.rb](config/routes.rb)
+3. Add to `FEATURE_GATED_TOPICS` if applicable
+4. Create `app/views/help/{topic}.md.erb` — verify every factual claim against source code before showing
+5. Add a link in [app/views/help/index.md.erb](app/views/help/index.md.erb) (gated if applicable)
+6. Add to `TOPICS` (and `GATED_TOPICS` if applicable) in [test/integration/help_pages_test.rb](test/integration/help_pages_test.rb) — the parameterized test sweep handles the rest
 
-### References to Update
+## Lessons from the first round
 
-3 tooltip partials link to learn pages and need URL updates:
-- `app/views/notes/_awareness_indicators_tooltip.html.erb` → change `/learn/awareness-indicators` to `/help/notes#confirming-read`
-- `app/views/decisions/_acceptance_voting_tooltip.html.erb` → change `/learn/acceptance-voting` to `/help/decisions#how-acceptance-voting-works`
-- `app/views/commitments/_reciprocal_commitment_tooltip.html.erb` → change `/learn/reciprocal-commitment` to `/help/commitments#how-critical-mass-works`
-
-### Files to Remove
-- `app/controllers/learn_controller.rb`
-- `app/views/learn/` (entire directory — index.md.erb, show.html.erb, all .md and .md.erb files)
-- `test/controllers/learn_controller_test.rb`
-- Learn routes from `config/routes.rb:188-194`
-- Any learn-related entries in `test/integration/markdown_ui_test.rb`
-
-## Proposed Changes
-
-### 1. New Help Topics to Add
-
-**Priority 1 — Major missing features:**
-- `automations` — Condensed version of docs/AUTOMATIONS.md for in-app consumption. Cover both agent and collective automations, trigger types, basic YAML examples. Link to full docs for schema reference.
-- `notifications` — How notifications work, dismissing, reminders.
-- `billing` — Pricing model, subscriptions, credits, what costs what.
-
-**Priority 2 — Important supporting features:**
-- `representation` — Trustee grants, representation sessions, collective agency in practice. (Currently a brief section in collectives — deserves its own page given its complexity.)
-- `settings` — User profile, 2FA, API tokens, managing your account. (API tokens currently in the api page; 2FA and profile have no coverage.)
-
-**Priority 3 — Smaller features to fold into existing pages rather than new pages:**
-- Expand `notes` to cover subtypes, attachments, pinning, deadlines, content reporting
-- Expand `agents` to mention automations (with link), task runs, billing
-- Expand `collectives` to mention invitations, adding agents, enabling API, collective automations
-- Expand `api` with more endpoints, correct scopes, pagination
-
-### 2. Reorganize the Index
-
-Group topics into categories:
-
-```
-## Getting Started
-- Privacy — Public, shared, and private spaces
-- Collectives — Groups with shared spaces and external identities
-- Settings — Your profile, security, and preferences
-
-## Content
-- Notes — Posts, updates, and reflections
-- Decisions — Group choices via acceptance voting
-- Commitments — Conditional action pledges with critical mass
-- Cycles — Repeating time windows and heartbeats
-- Search — Finding content across collectives
-- Links — Bidirectional references between content
-
-## Automation & Integration
-- Agents — AI agents that navigate and act in Harmonic
-- Automations — Event-driven and scheduled workflows
-- API — Programmatic access via tokens and REST
-- Notifications — Alerts, reminders, and updates
-
-## Account
-- Billing — Subscriptions, credits, and pricing
-- Representation — Trustee grants and acting on behalf of others
-```
-
-### 3. Implementation Steps
-
-For each new/expanded topic:
-
-1. Add topic name to `TOPICS` array in `app/controllers/help_controller.rb`
-2. Add route in `config/routes.rb` (already dynamic from TOPICS array — just needs the controller constant updated)
-3. Create `app/views/help/{topic}.md.erb` with content
-4. Update `app/views/help/index.md.erb` with new organization
-5. Update `test/integration/help_pages_test.rb` to cover new topics
-
-### 4. Files to Modify
-
-- `app/controllers/help_controller.rb` — add new topic names to TOPICS
-- `config/routes.rb:158-161` — update the topic list (mirrors TOPICS)
-- `app/views/help/index.md.erb` — reorganize with categories
-- `app/views/help/notes.md.erb` — expand coverage
-- `app/views/help/agents.md.erb` — expand coverage  
-- `app/views/help/collectives.md.erb` — expand coverage
-- `app/views/help/api.md.erb` — expand coverage
-
-### 5. New Files to Create
-
-- `app/views/help/automations.md.erb`
-- `app/views/help/notifications.md.erb`
-- `app/views/help/billing.md.erb`
-- `app/views/help/representation.md.erb`
-- `app/views/help/settings.md.erb`
-
-## Verification
-
-1. Run help integration tests: `docker compose exec web bundle exec rails test test/integration/help_pages_test.rb`
-2. Run type checker: `docker compose exec web bundle exec srb tc`
-3. Visit `/help` in browser to verify index organization
-4. Visit each new topic page to verify rendering
-5. Test markdown format with `Accept: text/markdown` header
+- **Verify every claim against source.** I made several confident-sounding errors in early drafts (claimed system notifications get sent, claimed participation notifications exist when the dispatcher's trigger events are never emitted in production, claimed update could change scopes/expiration). Each one got caught only when the user pushed back. Better to read the source first and write second.
+- **Mind the audience.** AI agents also read these docs; second-person framing addressed at humans is misleading when the topic applies to anyone with a token. Third-person is safer.
+- **Help-doc work tends to surface real bugs.** The drift in InfoController, the participation-notification gap, the v1 scope-update escalation, the token-extension vulnerability — all came up while trying to write accurate help text. Worth budgeting for that.

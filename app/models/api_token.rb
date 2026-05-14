@@ -31,11 +31,17 @@ class ApiToken < ApplicationRecord
     super
   end
 
+  # Cap on active external tokens per user — prevents unbounded token creation
+  # from a compromised or buggy script. Internal tokens are system-managed and
+  # excluded from this count.
+  MAX_ACTIVE_TOKENS_PER_USER = 50
+
   validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
   validate :validate_scopes
   validate :internal_tokens_require_allow_flag
   validate :context_matches_internal_flag
+  validate :active_token_count_within_limit, on: :create
 
   before_validation :generate_token_hash
 
@@ -93,15 +99,11 @@ class ApiToken < ApplicationRecord
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
   def api_json(include: [])
-    # Return full plaintext token if still in memory (just created)
-    # Otherwise return obfuscated token
-    token_value = plaintext_token.present? ? plaintext_token : obfuscated_token
-
-    {
+    response = {
       id: id,
       name: name,
       user_id: user_id,
-      token: token_value,
+      token_prefix: token_prefix,
       scopes: scopes,
       active: active?,
       expires_at: expires_at,
@@ -109,6 +111,10 @@ class ApiToken < ApplicationRecord
       created_at: created_at,
       updated_at: updated_at,
     }
+    # Plaintext is only available immediately after creation; include it then
+    # so the caller can save it. The full token is never recoverable later.
+    response[:token] = plaintext_token if plaintext_token.present?
+    response
   end
 
   sig { returns(String) }
@@ -309,6 +315,23 @@ class ApiToken < ApplicationRecord
       errors.add(:context, "is required for internal tokens")
     elsif !internal? && context.present?
       errors.add(:context, "must be blank for external tokens")
+    end
+  end
+
+  # Cap external tokens per user at MAX_ACTIVE_TOKENS_PER_USER. Counts only
+  # tokens that are not deleted and not expired. Internal tokens are excluded.
+  sig { void }
+  def active_token_count_within_limit
+    return if internal?
+    return if user_id.nil? || tenant_id.nil?
+
+    active_count = ApiToken
+      .where(user_id: user_id, tenant_id: tenant_id, internal: false, deleted_at: nil)
+      .where("expires_at IS NULL OR expires_at > ?", Time.current)
+      .count
+
+    if active_count >= MAX_ACTIVE_TOKENS_PER_USER
+      errors.add(:base, "Maximum of #{MAX_ACTIVE_TOKENS_PER_USER} active API tokens reached. Delete an existing token before creating a new one.")
     end
   end
 end

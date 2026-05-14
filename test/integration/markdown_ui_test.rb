@@ -715,23 +715,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_match(/Test&#39;s apostrophe/, response.body, "Title should contain escaped apostrophe")
   end
 
-  # Learn pages should return markdown, not HTML
-  test "GET /learn returns proper markdown without HTML tags" do
-    get "/learn", headers: @headers
-    assert_equal 200, response.status
-    assert is_markdown?
-
-    # Should NOT contain HTML tags
-    refute_match(/<h1>/, response.body, "Learn page should not contain <h1> HTML tags")
-    refute_match(/<ul>/, response.body, "Learn page should not contain <ul> HTML tags")
-    refute_match(/<li>/, response.body, "Learn page should not contain <li> HTML tags")
-    refute_match(/<a /, response.body, "Learn page should not contain <a> HTML tags")
-
-    # Should contain markdown syntax
-    assert_match(/^# Learn/, response.body, "Learn page should have markdown heading")
-    assert_match(/^\* \[/, response.body, "Learn page should have markdown list items with links")
-  end
-
   # Error page tests - should return markdown, not 500
   test "GET note edit without permission returns 403 markdown" do
     # Create a note by a different user

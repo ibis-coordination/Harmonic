@@ -203,7 +203,7 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert json[:active]
   end
 
-  test "api_json returns obfuscated token after reload" do
+  test "api_json omits the plaintext token after reload, but keeps token_prefix" do
     token = ApiToken.create!(
       tenant: @tenant,
       user: @user,
@@ -215,8 +215,8 @@ class ApiTokenTest < ActiveSupport::TestCase
     token.reload
     json = token.api_json
 
-    assert json[:token].include?("*")
-    assert_equal token.obfuscated_token, json[:token]
+    assert_not json.key?(:token), "plaintext token should not be returned after reload"
+    assert_equal token.token_prefix, json[:token_prefix]
   end
 
   test "obfuscated_token shows first 4 characters from token_prefix" do

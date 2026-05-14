@@ -1,7 +1,22 @@
 # typed: false
 
 class HelpController < ApplicationController
-  TOPICS = %w[privacy collectives notes reminder_notes table_notes decisions executive_decisions lottery_decisions commitments cycles search links agents api].freeze
+  TOPICS = %w[
+    privacy collectives notes reminder_notes table_notes
+    decisions executive_decisions lottery_decisions
+    commitments cycles search links
+    agents automations api rest_api markdown_ui notifications representation
+  ].freeze
+
+  # Topics that are only available when a feature flag is enabled.
+  # The hidden topic returns 404 and is omitted from the index — see app/views/help/index.md.erb.
+  FEATURE_GATED_TOPICS = {
+    "api" => "api",
+    "rest_api" => "api",
+    "agents" => "ai_agents",
+  }.freeze
+
+  helper_method :help_topic_available?
 
   def index
     @page_title = "Help"
@@ -14,6 +29,11 @@ class HelpController < ApplicationController
 
   TOPICS.each do |topic|
     define_method(topic) do
+      unless help_topic_available?(topic)
+        @sidebar_mode = "minimal"
+        render "shared/404", status: :not_found
+        return
+      end
       @page_title = "Help — #{topic.titleize}"
       @sidebar_mode = "minimal"
       respond_to do |format|
@@ -21,6 +41,13 @@ class HelpController < ApplicationController
         format.md
       end
     end
+  end
+
+  def help_topic_available?(topic)
+    flag = FEATURE_GATED_TOPICS[topic.to_s]
+    return true if flag.nil?
+
+    current_tenant.feature_enabled?(flag)
   end
 
   private

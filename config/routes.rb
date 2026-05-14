@@ -159,7 +159,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents api].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents automations api rest-api markdown-ui notifications representation].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
@@ -182,14 +182,6 @@ Rails.application.routes.draw do
   post 'notifications/actions/dismiss_all' => 'notifications#execute_dismiss_all'
   get 'notifications/actions/dismiss_for_collective' => 'notifications#describe_dismiss_for_collective'
   post 'notifications/actions/dismiss_for_collective' => 'notifications#execute_dismiss_for_collective'
-
-  get 'learn' => 'learn#index'
-  get 'learn/awareness-indicators' => 'learn#awareness_indicators'
-  get 'learn/acceptance-voting' => 'learn#acceptance_voting'
-  get 'learn/reciprocal-commitment' => 'learn#reciprocal_commitment'
-  get 'learn/ai-agency' => 'learn#ai_agency'
-  get 'learn/superagency' => 'learn#superagency'
-  get 'learn/memory' => 'learn#memory'
 
   get 'whoami' => 'whoami#index'
   get 'whoami/actions' => 'whoami#actions_index'
