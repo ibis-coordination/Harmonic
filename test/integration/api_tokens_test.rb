@@ -34,13 +34,20 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert body.any? { |t| t["id"] == @api_token.id }
   end
 
-  test "index returns obfuscated token values" do
+  test "index does not include the plaintext token field" do
     get api_path, headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
     token_data = body.find { |t| t["id"] == @api_token.id }
-    assert token_data["token"].include?("*")
-    assert_not_equal @plaintext_token, token_data["token"]
+    assert_not token_data.key?("token"), "plaintext token field should be omitted from index responses"
+  end
+
+  test "index includes token_prefix for identification" do
+    get api_path, headers: @headers
+    assert_response :success
+    body = JSON.parse(response.body)
+    token_data = body.find { |t| t["id"] == @api_token.id }
+    assert_equal @api_token.token_prefix, token_data["token_prefix"]
   end
 
   test "index includes token metadata" do
@@ -68,16 +75,14 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "show always returns obfuscated token (plaintext is only available on creation)" do
+  test "show does not return the plaintext token (only available on creation)" do
     # With hashed tokens, we can never retrieve the full plaintext after creation
     # because we only store the hash, not the plaintext
     get api_path("/#{@api_token.id}?include=full_token"), headers: @headers
     assert_response :success
     body = JSON.parse(response.body)
-    # Should return obfuscated token even with include=full_token
-    # because plaintext is not available after initial creation
-    assert_includes body["token"], "*"
-    assert_equal @api_token.obfuscated_token, body["token"]
+    assert_not body.key?("token"), "plaintext token should not be returned after creation"
+    assert_equal @api_token.token_prefix, body["token_prefix"]
   end
 
   test "create returns full plaintext token in response" do
@@ -139,6 +144,93 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  test "external AI agent cannot create a token via the v1 API" do
+    # Blocked twice: by the capability system (create_api_token isn't a
+    # grantable action for agents) and by the controller's human-only check
+    # added as defense in depth. We only assert the result, not which layer
+    # rejected the request.
+    agent = create_ai_agent(
+      parent: @user,
+      name: "ApiCreator",
+      agent_configuration: { "mode" => "external" },
+    )
+    @tenant.add_user!(agent)
+    agent_token = ApiToken.create!(
+      tenant: @tenant,
+      user: agent,
+      name: "Agent's token",
+      scopes: ApiToken.valid_scopes,
+    )
+    agent_headers = {
+      "Authorization" => "Bearer #{agent_token.plaintext_token}",
+      "Content-Type" => "application/json",
+    }
+    post "/api/v1/users/#{agent.id}/tokens",
+      params: { name: "Agent-minted", scopes: ["read:all"] }.to_json, headers: agent_headers
+    assert_response :forbidden
+  end
+
+  test "create rejects when user is at the active token cap" do
+    # Fill to the cap (setup already creates 1; create MAX-1 more)
+    (ApiToken::MAX_ACTIVE_TOKENS_PER_USER - 1).times do |i|
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Filler #{i}", scopes: ["read:all"])
+    end
+
+    token_params = { name: "Over Cap", scopes: ["read:all"] }
+    post api_path, params: token_params.to_json, headers: @headers
+    assert_response :bad_request
+    body = JSON.parse(response.body)
+    assert_match(/maximum.*active.*token|cap|limit/i, body["error"])
+  end
+
+  test "create allows new tokens after deleting old ones below the cap" do
+    fillers = (ApiToken::MAX_ACTIVE_TOKENS_PER_USER - 1).times.map do |i|
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Filler #{i}", scopes: ["read:all"])
+    end
+    # At the cap — next create should fail
+    post api_path, params: { name: "Over", scopes: ["read:all"] }.to_json, headers: @headers
+    assert_response :bad_request
+
+    # Soft-delete one filler — should now have room
+    fillers.first.delete!
+    post api_path, params: { name: "Below cap", scopes: ["read:all"] }.to_json, headers: @headers
+    assert_response :success
+  end
+
+  test "create cap does not count expired tokens" do
+    (ApiToken::MAX_ACTIVE_TOKENS_PER_USER - 1).times do |i|
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Filler #{i}", scopes: ["read:all"], expires_at: 1.day.ago)
+    end
+    post api_path, params: { name: "Fresh", scopes: ["read:all"] }.to_json, headers: @headers
+    assert_response :success
+  end
+
+  test "create cannot grant scopes the creating token does not have" do
+    # Token can create api_tokens and read notes, but cannot delete anything.
+    @api_token.update!(scopes: ["create:api_tokens", "read:notes"])
+    token_params = { name: "Escalation Attempt", scopes: ["delete:all"] }
+    post api_path, params: token_params.to_json, headers: @headers
+    assert_response :forbidden
+    body = JSON.parse(response.body)
+    assert_match(/scope/i, body["error"])
+  end
+
+  test "create cannot grant *:all when creating token only has a narrow scope for that action" do
+    @api_token.update!(scopes: ["create:api_tokens", "read:notes"])
+    token_params = { name: "Read All Attempt", scopes: ["read:all"] }
+    post api_path, params: token_params.to_json, headers: @headers
+    assert_response :forbidden
+  end
+
+  test "create can grant a scope when the creating token has the *:all wildcard for that action" do
+    @api_token.update!(scopes: ["create:all"])
+    token_params = { name: "Narrower Token", scopes: ["create:notes"] }
+    post api_path, params: token_params.to_json, headers: @headers
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal ["create:notes"], body["scopes"]
+  end
+
   # Update
   test "update returns 404 for non-existent token" do
     put api_path("/nonexistent-uuid"), params: { name: "Updated" }.to_json, headers: @headers
@@ -175,6 +267,76 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
     assert_equal "New Name", body["name"]
     token_to_update.reload
     assert_equal "New Name", token_to_update.name
+  end
+
+  test "update rejects changes to expires_at (tokens are immutable except for name)" do
+    target = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Target",
+      scopes: ["read:all"],
+      expires_at: 1.month.from_now,
+    )
+    original_expires_at = target.expires_at
+    put api_path("/#{target.id}"), params: { expires_at: 10.years.from_now }.to_json, headers: @headers
+    assert_response :bad_request
+    body = JSON.parse(response.body)
+    assert_match(/immutable|cannot.*change|create a new token/i, body["error"])
+    target.reload
+    assert_in_delta original_expires_at, target.expires_at, 1.second
+  end
+
+  test "update rejects changes to scopes (tokens are immutable except for name)" do
+    target = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Target",
+      scopes: ["read:notes"]
+    )
+    put api_path("/#{target.id}"), params: { scopes: ["create:notes"] }.to_json, headers: @headers
+    assert_response :bad_request
+    target.reload
+    assert_equal ["read:notes"], target.scopes
+  end
+
+  test "ai agent cannot update its own token" do
+    agent = create_ai_agent(parent: @user, name: "Helper", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    # Give the agent's token broad scopes so the AI-agent block fires, not the scope check
+    agent_token = ApiToken.create!(
+      tenant: @tenant,
+      user: agent,
+      name: "Agent's token",
+      scopes: ApiToken.valid_scopes,
+    )
+    agent_headers = {
+      "Authorization" => "Bearer #{agent_token.plaintext_token}",
+      "Content-Type" => "application/json",
+    }
+    put "/api/v1/users/#{agent.id}/tokens/#{agent_token.id}",
+      params: { name: "Renamed by agent" }.to_json, headers: agent_headers
+    assert_response :forbidden
+    agent_token.reload
+    assert_equal "Agent's token", agent_token.name
+  end
+
+  test "ai agent cannot delete its own token" do
+    agent = create_ai_agent(parent: @user, name: "Helper2", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    agent_token = ApiToken.create!(
+      tenant: @tenant,
+      user: agent,
+      name: "Agent's token",
+      scopes: ApiToken.valid_scopes,
+    )
+    agent_headers = {
+      "Authorization" => "Bearer #{agent_token.plaintext_token}",
+      "Content-Type" => "application/json",
+    }
+    delete "/api/v1/users/#{agent.id}/tokens/#{agent_token.id}", headers: agent_headers
+    assert_response :forbidden
+    agent_token.reload
+    assert_not agent_token.deleted?
   end
 
   # Delete
