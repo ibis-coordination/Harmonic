@@ -268,4 +268,71 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
+
+  # === System agent (Trio) billing exemption ===
+
+  test "dispatches task for system agent without billing setup" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.create_main_collective!(created_by: @user)
+    trio = TrioSeeder.ensure_for(@tenant)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: trio, initiated_by: @user,
+      task: "Where are my decisions?", max_steps: 10, status: "queued",
+    )
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    AgentRunnerDispatchService.dispatch(task_run)
+
+    task_run.reload
+    assert_equal "queued", task_run.status, "system agent dispatch should not fail: #{task_run.error}"
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == task_run.id }
+    assert_not_nil entry, "system agent task should be dispatched to the stream"
+    assert_equal "", entry[1]["stripe_customer_stripe_id"]
+    redis.close
+  end
+
+  test "does not stamp stripe_customer_id on system agent task run" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.create_main_collective!(created_by: @user)
+    trio = TrioSeeder.ensure_for(@tenant)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: trio, initiated_by: @user,
+      task: "Hello", max_steps: 10, status: "queued",
+    )
+
+    AgentRunnerDispatchService.dispatch(task_run)
+
+    task_run.reload
+    assert_equal "queued", task_run.status, "dispatch must succeed: #{task_run.error}"
+    assert_nil task_run.stripe_customer_id
+  end
+
+  test "skips credit balance check for system agent in stripe_gateway mode" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.create_main_collective!(created_by: @user)
+    trio = TrioSeeder.ensure_for(@tenant)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: trio, initiated_by: @user,
+      task: "Hello", max_steps: 10, status: "queued",
+    )
+
+    previous_mode = ENV["LLM_GATEWAY_MODE"]
+    ENV["LLM_GATEWAY_MODE"] = "stripe_gateway"
+    begin
+      # StripeService.get_credit_balance must not be called for system agents.
+      # If it were, this stub would raise.
+      StripeService.stub :get_credit_balance, ->(_) { raise "should not be called for system agent" } do
+        AgentRunnerDispatchService.dispatch(task_run)
+      end
+    ensure
+      if previous_mode.nil?
+        ENV.delete("LLM_GATEWAY_MODE")
+      else
+        ENV["LLM_GATEWAY_MODE"] = previous_mode
+      end
+    end
+
+    task_run.reload
+    assert_equal "queued", task_run.status
+  end
 end
