@@ -114,28 +114,29 @@ Rails.application.routes.draw do
   end
 
   namespace :api do
+    # The v1 REST API is read-only. All writes go through the markdown UI
+    # action routes (/foo/actions/{action_name}), where the capability system,
+    # scope downscoping, and other policy checks live.
+    # See .claude/plans/v1-api-readonly.md and app/views/help/rest-api.md.erb.
     namespace :v1 do
       get '/', to: 'info#index'
-      resources :notes do
-        post :confirm, to: 'note#confirm'
-      end
-      resources :decisions do
+      resources :notes, only: [:index, :show]
+      resources :decisions, only: [:index, :show] do
         get :results, to: 'results#index'
-        resources :participants do
-          resources :votes
+        resources :participants, only: [:index, :show] do
+          resources :votes, only: [:index, :show]
         end
-        resources :options do
-          resources :votes
+        resources :options, only: [:index, :show] do
+          resources :votes, only: [:index, :show]
         end
-        resources :votes
+        resources :votes, only: [:index, :show]
       end
-      resources :commitments do
-        post :join, to: 'commitments#join'
-        resources :participants
+      resources :commitments, only: [:index, :show] do
+        resources :participants, only: [:index, :show]
       end
-      resources :cycles
-      resources :users do
-        resources :api_tokens, path: 'tokens'
+      resources :cycles, only: [:index, :show]
+      resources :users, only: [:index, :show] do
+        resources :api_tokens, path: 'tokens', only: [:index, :show]
       end
     end
 
@@ -578,32 +579,30 @@ Rails.application.routes.draw do
       post '/settings/actions/delete_commitment' => 'commitments#execute_delete_commitment'
     end
 
+    # See top-level :api namespace above for the read-only v1 API policy.
     namespace :api, path: "#{prefix}/api" do
       namespace :v1 do
         get '/', to: 'info#index'
-        resources :notes do
-          post :confirm, to: 'note#confirm'
-        end
-        resources :decisions do
+        resources :notes, only: [:index, :show]
+        resources :decisions, only: [:index, :show] do
           get :results, to: 'results#index'
-          resources :participants do
-            resources :votes
+          resources :participants, only: [:index, :show] do
+            resources :votes, only: [:index, :show]
           end
-          resources :options do
-            resources :votes
+          resources :options, only: [:index, :show] do
+            resources :votes, only: [:index, :show]
           end
-          resources :votes
+          resources :votes, only: [:index, :show]
         end
-        resources :commitments do
-          post :join, to: 'commitments#join'
-          resources :participants
+        resources :commitments, only: [:index, :show] do
+          resources :participants, only: [:index, :show]
         end
         if prefix == 'collectives/:collective_handle'
           # Cycles must be scoped to a collective
-          resources :cycles
+          resources :cycles, only: [:index, :show]
         else
           # Collectives must not be scoped to a collective (doesn't make sense)
-          resources :collectives
+          resources :collectives, only: [:index, :show]
         end
       end
     end

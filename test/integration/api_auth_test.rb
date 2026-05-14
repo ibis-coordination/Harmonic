@@ -74,29 +74,12 @@ class ApiTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  test "allows write access with write scope" do
+  test "v1 API does not accept POST writes regardless of scope (read-only API)" do
     @api_token.update!(scopes: ApiToken.valid_scopes)
     @headers["Authorization"] = "Bearer #{@plaintext_token}"
-    note_params = {
-      title: "Test Note",
-      text: "This is a test note.",
-      deadline: Time.current + 1.week
-    }
-    post "#{v1_api_base_path}/notes", params: note_params.to_json, headers: @headers
-    assert_response :success
-    assert_equal "Test Note", JSON.parse(response.body)["title"]
-  end
-
-  test "denies write access with read-only scope" do
-    @api_token.update!(scopes: ApiToken.read_scopes)
-    @headers["Authorization"] = "Bearer #{@plaintext_token}"
-    note_params = {
-      title: "Test Note",
-      text: "This is a test note.",
-      deadline: Time.current + 1.week
-    }
-    post "#{v1_api_base_path}/notes", params: note_params.to_json, headers: @headers
-    assert_response :forbidden
+    assert_raises(ActionController::RoutingError) do
+      post "#{v1_api_base_path}/notes", params: { title: "x" }.to_json, headers: @headers
+    end
   end
 
   # === API Enabled/Disabled Tests ===
@@ -200,25 +183,6 @@ class ApiTest < ActionDispatch::IntegrationTest
     get v1_api_endpoint, headers: @headers
     assert_response :forbidden
     assert_match /API not enabled/, JSON.parse(response.body)["error"]
-  end
-
-  test "API ignores internal param when creating tokens" do
-    # The V1 API only passes whitelisted params (name, scopes, expires_at)
-    # The internal param should be ignored, resulting in an external token
-    token_params = {
-      name: "Attempted Internal Token",
-      scopes: ApiToken.read_scopes,
-      expires_at: 1.year.from_now,
-      internal: true,  # This should be ignored
-    }
-
-    post "/api/v1/users/#{@user.id}/tokens", params: token_params.to_json, headers: @headers
-    assert_response :success
-
-    # The created token should NOT be internal - the param was ignored
-    response_data = JSON.parse(response.body)
-    created_token = ApiToken.find(response_data["id"])
-    assert_not created_token.internal?, "Token should be external even though internal: true was passed"
   end
 
   # === Token Scope Edge Cases ===

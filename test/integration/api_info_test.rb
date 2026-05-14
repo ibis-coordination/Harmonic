@@ -91,13 +91,31 @@ class ApiInfoTest < ActionDispatch::IntegrationTest
     assert_equal expected_paths, response_paths, "Collective-scoped /api/v1 routes drifted"
   end
 
-  test "each route's methods list reflects the actual HTTP verbs for that path" do
+  test "v1 API is read-only: every listed route is GET" do
     get "/api/v1", headers: @headers
     body = JSON.parse(response.body)
-    notes_route = body["routes"].find { |r| r["path"] == "/api/v1/notes" }
-    refute_nil notes_route
-    # /api/v1/notes is a Rails `resources :notes` collection — index (GET) + create (POST)
-    assert_includes notes_route["methods"], "GET"
-    assert_includes notes_route["methods"], "POST"
+    refute body["routes"].empty?, "Expected at least one route in the response"
+    body["routes"].each do |route|
+      assert_equal ["GET"], route["methods"],
+        "v1 routes should be GET-only; #{route['path']} reports #{route['methods'].inspect}"
+    end
+  end
+
+  test "POST to /api/v1/notes has no route (v1 API is read-only)" do
+    assert_raises(ActionController::RoutingError) do
+      post "/api/v1/notes", params: { text: "should not work" }.to_json, headers: @headers
+    end
+  end
+
+  test "PATCH to /api/v1/users/:id has no route (v1 API is read-only)" do
+    assert_raises(ActionController::RoutingError) do
+      patch "/api/v1/users/#{@user.id}", params: { display_name: "should not work" }.to_json, headers: @headers
+    end
+  end
+
+  test "DELETE to /api/v1/users/:user_id/tokens/:id has no route (v1 API is read-only)" do
+    assert_raises(ActionController::RoutingError) do
+      delete "/api/v1/users/#{@user.id}/tokens/#{@api_token.id}", headers: @headers
+    end
   end
 end

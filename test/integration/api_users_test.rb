@@ -58,118 +58,20 @@ class ApiUsersTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  # Create (ai_agent users only)
-  test "create creates a ai_agent user" do
-    user_params = {
-      name: "AiAgent Test User",
-      email: "ai_agent-#{SecureRandom.hex(4)}@example.com",
-      handle: "ai_agent-#{SecureRandom.hex(4)}"
-    }
-    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
-      post api_path, params: user_params.to_json, headers: @headers
+  # === v1 API is read-only — user writes happen via action routes ===
+  # AI agent creation: /ai-agents/new/actions/create_ai_agent
+  # User profile updates: /u/:handle/settings/actions/update_profile
+  # User deletion: HTML resource route at /u/:handle (UI button)
+
+  test "v1 users API has no write routes (read-only API)" do
+    assert_raises(ActionController::RoutingError) do
+      post api_path, params: { name: "x", email: "y@z.com" }.to_json, headers: @headers
     end
-    assert_response :success
-    body = JSON.parse(response.body)
-    assert_equal "ai_agent", body["user_type"]
-    assert_equal "AiAgent Test User", body["display_name"]
-  end
-
-  test "create with generate_token returns token" do
-    user_params = {
-      name: "AiAgent User with Token",
-      email: "ai_agent-token-#{SecureRandom.hex(4)}@example.com",
-      handle: "ai_agent-token-#{SecureRandom.hex(4)}",
-      generate_token: true
-    }
-    post api_path, params: user_params.to_json, headers: @headers
-    assert_response :success
-    body = JSON.parse(response.body)
-    assert body.key?("token")
-    assert body["token"].present?
-  end
-
-  test "create without generate_token does not return token" do
-    user_params = {
-      name: "AiAgent User No Token",
-      email: "ai_agent-notoken-#{SecureRandom.hex(4)}@example.com",
-      handle: "ai_agent-notoken-#{SecureRandom.hex(4)}"
-    }
-    post api_path, params: user_params.to_json, headers: @headers
-    assert_response :success
-    body = JSON.parse(response.body)
-    assert_not body.key?("token")
-  end
-
-  test "create with read-only token returns forbidden" do
-    @api_token.update!(scopes: ApiToken.read_scopes)
-    user_params = {
-      name: "Test",
-      email: "test-#{SecureRandom.hex(4)}@example.com"
-    }
-    post api_path, params: user_params.to_json, headers: @headers
-    assert_response :forbidden
-  end
-
-  # Update
-  # Note: Controller only allows updating display_name and handle, not name
-  # (name comes from OAuth and shouldn't be user-editable for person users)
-  test "update updates own user record" do
-    update_params = { display_name: "Updated Display Name" }
-    put api_path("/#{@user.id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    # display_name is stored on TenantUser, not User — query it directly
-    # since CurrentAttributes auto-reset clears Tenant.current_id after the request
-    assert_equal "Updated Display Name", @tenant.tenant_users.find_by(user: @user).display_name
-  end
-
-  test "update can update ai_agent user created by current user" do
-    # Create a ai_agent user
-    ai_agent = create_ai_agent(parent: @user, name: "AiAgent for Update")
-    @tenant.add_user!(ai_agent)
-    update_params = { display_name: "Updated AiAgent Name" }
-    put api_path("/#{ai_agent.id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    assert_equal "Updated AiAgent Name", @tenant.tenant_users.find_by(user: ai_agent).display_name
-  end
-
-  test "update cannot update other person user" do
-    other_user = create_user(email: "other@example.com", name: "Other User")
-    @tenant.add_user!(other_user)
-    update_params = { display_name: "Hacked Name" }
-    put api_path("/#{other_user.id}"), params: update_params.to_json, headers: @headers
-    assert_response :unauthorized
-  end
-
-  test "update can archive ai_agent user" do
-    ai_agent = create_ai_agent(parent: @user, name: "AiAgent for Archive")
-    @tenant.add_user!(ai_agent)
-    update_params = { archived: true }
-    put api_path("/#{ai_agent.id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    # User#tenant_user is memoized, so we need to query fresh
-    tenant_user = TenantUser.find_by(user_id: ai_agent.id, tenant_id: @tenant.id)
-    assert tenant_user.archived_at.present?, "AiAgent should be archived"
-  end
-
-  # Delete
-  test "delete deletes ai_agent user with no data" do
-    ai_agent = create_ai_agent(parent: @user, name: "AiAgent for Delete")
-    @tenant.add_user!(ai_agent)
-    assert_difference "User.count", -1 do
-      delete api_path("/#{ai_agent.id}"), headers: @headers
+    assert_raises(ActionController::RoutingError) do
+      put api_path("/#{@user.id}"), params: { display_name: "x" }.to_json, headers: @headers
     end
-    assert_response :success
-  end
-
-  test "delete returns 404 for non-existent user" do
-        delete api_path("/nonexistent-uuid"), headers: @headers
-    assert_response :not_found
-  end
-
-  test "delete returns unauthorized for other person user" do
-        other_user = create_user(email: "other@example.com", name: "Other User")
-    @tenant.add_user!(other_user)
-    delete api_path("/#{other_user.id}"), headers: @headers
-    assert_response :unauthorized
+    assert_raises(ActionController::RoutingError) do
+      delete api_path("/#{@user.id}"), headers: @headers
+    end
   end
 end

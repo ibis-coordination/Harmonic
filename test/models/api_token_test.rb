@@ -592,4 +592,50 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert token.internal?
     assert_equal @context, token.context
   end
+
+  # === Active token cap (MAX_ACTIVE_TOKENS_PER_USER) ===
+
+  test "create raises when user is at the active token cap" do
+    ApiToken::MAX_ACTIVE_TOKENS_PER_USER.times do |i|
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Filler #{i}", scopes: ["read:all"])
+    end
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Over cap", scopes: ["read:all"])
+    end
+    assert_match(/maximum.*active.*token|cap|limit/i, error.message)
+  end
+
+  test "cap allows new tokens after a soft delete frees a slot" do
+    fillers = ApiToken::MAX_ACTIVE_TOKENS_PER_USER.times.map do |i|
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Filler #{i}", scopes: ["read:all"])
+    end
+    assert_raises(ActiveRecord::RecordInvalid) do
+      ApiToken.create!(tenant: @tenant, user: @user, name: "Over", scopes: ["read:all"])
+    end
+    fillers.first.delete!
+    assert ApiToken.create!(tenant: @tenant, user: @user, name: "Below cap", scopes: ["read:all"]).persisted?
+  end
+
+  test "cap does not count expired tokens" do
+    ApiToken::MAX_ACTIVE_TOKENS_PER_USER.times do |i|
+      ApiToken.create!(
+        tenant: @tenant,
+        user: @user,
+        name: "Filler #{i}",
+        scopes: ["read:all"],
+        expires_at: 1.day.ago,
+      )
+    end
+    assert ApiToken.create!(tenant: @tenant, user: @user, name: "Fresh", scopes: ["read:all"]).persisted?
+  end
+
+  test "cap does not count internal tokens" do
+    ApiToken::MAX_ACTIVE_TOKENS_PER_USER.times do |i|
+      ApiToken.create!(tenant: @tenant, user: @user, name: "External #{i}", scopes: ["read:all"])
+    end
+    # An internal token can still be created even though the external cap is full
+    internal = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: @context)
+    assert internal.persisted?
+    assert internal.internal?
+  end
 end

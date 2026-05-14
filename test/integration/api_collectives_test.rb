@@ -74,107 +74,17 @@ class ApiCollectivesTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  # Create
-  test "create creates a new collective" do
-    collective_params = {
-      name: "New Collective",
-      handle: "new-collective-#{SecureRandom.hex(4)}",
-      description: "A new collective created via API",
-      timezone: "America/New_York",
-      tempo: "weekly"
-    }
-    assert_difference "Collective.count", 1 do
-      post api_path, params: collective_params.to_json, headers: @headers
+  # === v1 API is read-only — collective writes happen via action routes ===
+
+  test "v1 collectives API has no write routes (read-only API)" do
+    assert_raises(ActionController::RoutingError) do
+      post api_path, params: { name: "x", handle: "y" }.to_json, headers: @headers
     end
-    assert_response :success
-    body = JSON.parse(response.body)
-    assert_equal "New Collective", body["name"]
-  end
-
-  test "create adds creator as member" do
-    collective_params = {
-      name: "New Collective",
-      handle: "new-collective-#{SecureRandom.hex(4)}"
-    }
-    post api_path, params: collective_params.to_json, headers: @headers
-    assert_response :success
-    body = JSON.parse(response.body)
-    new_collective = Collective.find(body["id"])
-    assert new_collective.users.include?(@user)
-  end
-
-  test "create with duplicate handle returns error" do
-    collective_params = {
-      name: "Duplicate Handle Collective",
-      handle: @collective.handle
-    }
-    post api_path, params: collective_params.to_json, headers: @headers
-    assert_response :bad_request
-    body = JSON.parse(response.body)
-    assert body["error"].include?("Handle")
-  end
-
-  test "create with read-only token returns forbidden" do
-    skip "Bug: collectives not recognized as valid resource for scope validation"
-    @api_token.update!(scopes: ApiToken.read_scopes)
-    collective_params = { name: "Test", handle: "test-#{SecureRandom.hex(4)}" }
-    post api_path, params: collective_params.to_json, headers: @headers
-    assert_response :forbidden
-  end
-
-  # Update
-  test "update updates a collective" do
-    skip "Bug: typo in collectives_controller.rb - references 'note' instead of 'collective'"
-    update_params = {
-      name: "Updated Collective Name",
-      description: "Updated description"
-    }
-    put api_path("/#{@collective.id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    @collective.reload
-    assert_equal "Updated Collective Name", @collective.name
-  end
-
-  test "update can change tempo" do
-    skip "Bug: typo in collectives_controller.rb - references 'note' instead of 'collective'"
-    update_params = { tempo: "daily" }
-    put api_path("/#{@collective.id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    @collective.reload
-    assert_equal "daily", @collective.tempo
-  end
-
-  test "update handle without force_update returns error" do
-    skip "Bug: typo in collectives_controller.rb - references 'note' instead of 'collective'"
-    update_params = { handle: "new-handle-#{SecureRandom.hex(4)}" }
-    put api_path("/#{@collective.id}"), params: update_params.to_json, headers: @headers
-    assert_response :bad_request
-    body = JSON.parse(response.body)
-    assert body["error"].include?("force_update")
-  end
-
-  # Note: handle update with force_update test would need more setup
-  # as it requires the controller to properly handle that case
-
-  # Delete
-  test "delete deletes a collective" do
-    skip "Bug: Collective#delete! raises 'Delete not implemented'"
-    collective_to_delete = Collective.create!(
-      tenant: @tenant,
-      created_by: @user,
-      name: "Collective to Delete",
-      handle: "delete-me-#{SecureRandom.hex(4)}"
-    )
-    collective_to_delete.add_user!(@user)
-    assert_difference "Collective.count", -1 do
-      delete api_path("/#{collective_to_delete.id}"), headers: @headers
+    assert_raises(ActionController::RoutingError) do
+      put api_path("/#{@collective.id}"), params: { name: "x" }.to_json, headers: @headers
     end
-    assert_response :success
-  end
-
-  test "delete returns 404 for non-existent collective" do
-    skip "Bug: typo in collectives_controller.rb - references 'collective' column"
-    delete api_path("/nonexistent"), headers: @headers
-    assert_response :not_found
+    assert_raises(ActionController::RoutingError) do
+      delete api_path("/#{@collective.id}"), headers: @headers
+    end
   end
 end
