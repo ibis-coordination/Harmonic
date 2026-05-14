@@ -119,6 +119,33 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "You are a helpful assistant for scheduling meetings."
   end
 
+  test "whoami shows the Trio identity prompt for the system agent (no parent)" do
+    @tenant.enable_api!
+    trio = TrioSeeder.ensure_for(@tenant)
+
+    api_token = ApiToken.create!(
+      user: trio,
+      tenant: @tenant,
+      name: "Trio Token",
+      scopes: %w[read:users],
+    )
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+
+    assert_response :success
+    # The Identity Prompt section must render for system agents even though
+    # they have no parent user — earlier the wrapping conditional silently
+    # skipped Motto/IdentityPrompt/Capabilities for parent-less agents.
+    assert_includes response.body, "## Identity Prompt"
+    # Lead sentence should be the system-agent variant, not the parent-name one.
+    assert_includes response.body, "built-in Harmonic system agent"
+    # Actual prompt content (a stable fragment of Trio::SystemPrompt.text).
+    assert_includes response.body, "You are Trio"
+  end
+
   test "whoami does not show identity prompt section when not set" do
     @tenant.enable_api!
 

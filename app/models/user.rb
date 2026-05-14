@@ -112,6 +112,18 @@ class User < ApplicationRecord
     system_role.present?
   end
 
+  # Returns the identity prompt the agent-runner should use for this user.
+  # For system agents we read from their static source on every call so
+  # prompt edits go live without needing to refresh agent_configuration.
+  # For ordinary user-created agents the prompt lives on the User row.
+  sig { returns(T.nilable(String)) }
+  def effective_identity_prompt
+    case system_role
+    when "trio" then Trio::SystemPrompt.text
+    else agent_configuration&.dig("identity_prompt")
+    end
+  end
+
   sig { returns(T::Boolean) }
   def human?
     user_type == "human"

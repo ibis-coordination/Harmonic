@@ -453,6 +453,42 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
+  test "effective_identity_prompt returns the static Trio prompt for trio users, ignoring stale agent_configuration" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio",
+      user_type: "ai_agent",
+      system_role: "trio",
+      parent_id: nil,
+      agent_configuration: { "identity_prompt" => "stale cached prompt" },
+    )
+
+    assert_equal Trio::SystemPrompt.text, trio.effective_identity_prompt
+  end
+
+  test "effective_identity_prompt returns agent_configuration value for ordinary ai_agents" do
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "User Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+      agent_configuration: { "identity_prompt" => "user-provided prompt" },
+    )
+
+    assert_equal "user-provided prompt", agent.effective_identity_prompt
+  end
+
+  test "effective_identity_prompt returns nil for ordinary agents without a configured prompt" do
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "User Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+
+    assert_nil agent.effective_identity_prompt
+  end
+
   test "system_agents scope returns only users with system_role set" do
     trio = User.create!(
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",

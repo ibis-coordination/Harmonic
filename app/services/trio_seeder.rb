@@ -83,9 +83,12 @@ class TrioSeeder
 
   sig { returns(T::Hash[String, T.untyped]) }
   def build_agent_configuration
+    # identity_prompt is intentionally omitted — system agents resolve their
+    # prompt dynamically via User#effective_identity_prompt, which reads from
+    # the static source on every call. Storing a snapshot here would just
+    # invite drift.
     {
       "mode" => "internal",
-      "identity_prompt" => Trio::SystemPrompt.text,
       "capabilities" => [],
     }
   end

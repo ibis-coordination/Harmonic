@@ -53,19 +53,28 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert_equal "internal", trio.agent_configuration["mode"]
   end
 
-  test "trio's identity_prompt is the static Trio system prompt" do
+  test "trio resolves its identity prompt from the static source" do
     trio = TrioSeeder.ensure_for(@tenant)
 
-    assert_equal Trio::SystemPrompt.text, trio.agent_configuration["identity_prompt"]
+    assert_equal Trio::SystemPrompt.text, trio.effective_identity_prompt
   end
 
-  test "ensure_for refreshes identity_prompt on subsequent calls" do
+  test "trio's agent_configuration does not cache identity_prompt" do
+    trio = TrioSeeder.ensure_for(@tenant)
+
+    # No stale snapshot — User#effective_identity_prompt reads from the
+    # static source instead, so /whoami always renders the latest prompt
+    # without requiring a re-seed.
+    assert_nil trio.agent_configuration["identity_prompt"]
+  end
+
+  test "ensure_for clears any pre-existing cached identity_prompt" do
     trio = TrioSeeder.ensure_for(@tenant)
     trio.update!(agent_configuration: trio.agent_configuration.merge("identity_prompt" => "stale prompt"))
 
     TrioSeeder.ensure_for(@tenant)
 
-    assert_equal Trio::SystemPrompt.text, trio.reload.agent_configuration["identity_prompt"]
+    assert_nil trio.reload.agent_configuration["identity_prompt"]
   end
 
   test "trio has no stripe_customer" do
