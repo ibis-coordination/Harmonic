@@ -37,8 +37,16 @@ function makeTask(overrides?: Partial<TaskPayload>): TaskPayload {
     agentId: "agent-1",
     tenantSubdomain: "test",
     stripeCustomerStripeId: undefined,
+    mode: "task",
+    chatSessionId: undefined,
     ...overrides,
   };
+}
+
+interface ChatHistoryMsg {
+  readonly role: "user" | "assistant" | "system";
+  readonly content: string;
+  readonly timestamp?: string;
 }
 
 const WHOAMI_CONTENT = "# About You\n\nYou are Test Agent.\n\n## Available Actions\n- update_scratchpad: Update scratchpad";
@@ -113,6 +121,7 @@ interface MockOptions {
   readonly executeResults?: Record<string, { content: string; success: boolean }>;
   readonly navigateErrors?: Record<string, string>;  // path → error message
   readonly llmErrorOnCall?: number;  // fail on the Nth LLM call (0-indexed)
+  readonly chatHistory?: readonly ChatHistoryMsg[];
 }
 
 function buildTestLayers(
@@ -167,6 +176,14 @@ function buildTestLayers(
       state.executeActionPaths.push(path);
       const result = (options?.executeResults ?? executeResults)?.[action] ?? { content: "Action completed", success: true };
       return Effect.succeed(result);
+    },
+    fetchChatHistory: () => {
+      const messages = (options?.chatHistory ?? []).map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp ?? new Date().toISOString(),
+      }));
+      return Effect.succeed({ messages, current_state: {} });
     },
   });
 
@@ -929,5 +946,100 @@ describe("AgentLoop", () => {
     ]);
 
     expect(outcome).toEqual({ outcome: "cancelled" });
+  });
+
+  // --- chat_turn mode ---
+
+  describe("chat_turn mode", () => {
+    const chatTask = (taskText: string) =>
+      makeTask({ mode: "chat_turn", chatSessionId: "chat-1", task: taskText });
+
+    const userTurnCount = (messages: readonly Message[], content: string) =>
+      messages.filter((m) => m.role === "user" && m.content === content).length;
+
+    it("does not duplicate the user's message when history already contains it", async () => {
+      // Rails creates the ChatMessage *before* dispatching the task, so the
+      // history fetch returns the message that triggered the task. Appending
+      // task.task on top would show the LLM the same message twice in a row.
+      const state = createMockState();
+      const text = "Hey, what's up?";
+      await runWithMocks(
+        chatTask(text),
+        state,
+        [makeLLMResponse({ content: "All good." })],
+        undefined,
+        undefined,
+        {
+          chatHistory: [
+            { role: "user", content: "First question" },
+            { role: "assistant", content: "First answer" },
+            { role: "user", content: text },
+          ],
+        },
+      );
+
+      const firstPrompt = state.llmMessages[0] ?? [];
+      expect(userTurnCount(firstPrompt, text)).toBe(1);
+    });
+
+    it("appends task.task when history is empty (history fetch fallback)", async () => {
+      const state = createMockState();
+      const text = "Anyone home?";
+      await runWithMocks(
+        chatTask(text),
+        state,
+        [makeLLMResponse({ content: "Yes." })],
+        undefined,
+        undefined,
+        { chatHistory: [] },
+      );
+
+      const firstPrompt = state.llmMessages[0] ?? [];
+      expect(userTurnCount(firstPrompt, text)).toBe(1);
+    });
+
+    it("appends task.task when the last history message is from the assistant", async () => {
+      // Defends against a race where history loads slightly stale and doesn't
+      // yet include the just-sent user message. We must surface the user's
+      // intent rather than silently drop it.
+      const state = createMockState();
+      const text = "follow-up question";
+      await runWithMocks(
+        chatTask(text),
+        state,
+        [makeLLMResponse({ content: "ok." })],
+        undefined,
+        undefined,
+        {
+          chatHistory: [
+            { role: "user", content: "earlier question" },
+            { role: "assistant", content: "earlier answer" },
+          ],
+        },
+      );
+
+      const firstPrompt = state.llmMessages[0] ?? [];
+      expect(userTurnCount(firstPrompt, text)).toBe(1);
+    });
+
+    it("appends task.task when last history message is from a different user content", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        chatTask("brand new question"),
+        state,
+        [makeLLMResponse({ content: "ok." })],
+        undefined,
+        undefined,
+        {
+          chatHistory: [
+            { role: "user", content: "stale prior question" },
+          ],
+        },
+      );
+
+      const firstPrompt = state.llmMessages[0] ?? [];
+      expect(userTurnCount(firstPrompt, "brand new question")).toBe(1);
+      expect(userTurnCount(firstPrompt, "stale prior question")).toBe(1);
+    });
   });
 });
