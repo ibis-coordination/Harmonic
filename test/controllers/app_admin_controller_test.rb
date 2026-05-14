@@ -110,6 +110,20 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/app-admin/tenants/testtenant/complete"
   end
 
+  test "creating a new tenant seeds the Trio system agent" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/tenants", params: { tenant: { name: "Trio Hook Tenant", subdomain: "triohook" } }
+
+    new_tenant = T.must(Tenant.find_by(subdomain: "triohook"))
+    trio = User.joins(:tenant_users)
+      .where(tenant_users: { tenant_id: new_tenant.id }, system_role: "trio")
+      .first
+    assert trio, "Expected a trio system agent to be seeded for the new tenant"
+    assert_equal "ai_agent", trio.user_type
+    assert_nil trio.parent_id
+  end
+
   test "app admin can view tenant details" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 

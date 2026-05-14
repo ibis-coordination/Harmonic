@@ -69,6 +69,7 @@ class AppAdminController < ApplicationController
     t.create_main_collective!(created_by: @current_user)
     tu = t.add_user!(@current_user)
     tu.add_role!('admin')
+    TrioSeeder.ensure_for(t)
     redirect_to "/app-admin/tenants/#{t.subdomain}/complete"
   end
 
@@ -471,6 +472,7 @@ class AppAdminController < ApplicationController
     t.create_main_collective!(created_by: @current_user)
     tu = t.add_user!(@current_user)
     tu.add_role!('admin')
+    TrioSeeder.ensure_for(t)
 
     respond_to do |format|
       format.md do
