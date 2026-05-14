@@ -118,6 +118,30 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_equal "collective_identity", collective.identity_user.user_type
   end
 
+  test "Collective#trio_user is nil by default and links to a User when set" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Trio FK Collective",
+      handle: "trio-fk-collective"
+    )
+    assert_nil collective.trio_user
+
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio",
+      user_type: "ai_agent",
+      system_role: "trio",
+      parent_id: nil
+    )
+    collective.update!(trio_user: trio)
+
+    assert_equal trio.id, collective.reload.trio_user_id
+    assert_equal trio, collective.trio_user
+  end
+
   test "Collective.within_file_upload_limit? returns true when usage is below limit" do
     tenant = create_tenant
     user = create_user

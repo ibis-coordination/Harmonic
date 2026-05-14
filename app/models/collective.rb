@@ -11,6 +11,7 @@ class Collective < ApplicationRecord
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
   belongs_to :identity_user, class_name: "User", optional: true
+  belongs_to :trio_user, class_name: "User", optional: true
   before_validation :create_identity_user!
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [

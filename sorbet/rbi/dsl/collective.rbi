@@ -412,6 +412,20 @@ class Collective
 
   module GeneratedAssociationMethods
     sig { returns(T::Array[T.untyped]) }
+    def agent_session_step_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def agent_session_step_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :agent_session_steps`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AgentSessionStep::PrivateCollectionProxy) }
+    def agent_session_steps; end
+
+    sig { params(value: T::Enumerable[::AgentSessionStep]).void }
+    def agent_session_steps=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def ai_agent_task_run_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -511,7 +525,38 @@ class Collective
     def build_tenant(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def build_trio_user(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_updated_by(*args, &blk); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def chat_message_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def chat_message_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :chat_messages`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::ChatMessage::PrivateCollectionProxy) }
+    def chat_messages; end
+
+    sig { params(value: T::Enumerable[::ChatMessage]).void }
+    def chat_messages=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def chat_session_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def chat_session_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :chat_sessions`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::ChatSession::PrivateCollectionProxy) }
+    def chat_sessions; end
+
+    sig { params(value: T::Enumerable[::ChatSession]).void }
+    def chat_sessions=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def collective_member_ids; end
@@ -555,6 +600,20 @@ class Collective
     sig { params(value: T::Enumerable[::Commitment]).void }
     def commitments=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def content_report_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def content_report_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :content_reports`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::ContentReport::PrivateCollectionProxy) }
+    def content_reports; end
+
+    sig { params(value: T::Enumerable[::ContentReport]).void }
+    def content_reports=(value); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by(*args, &blk); end
 
@@ -586,6 +645,12 @@ class Collective
     def create_tenant!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_trio_user(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
+    def create_trio_user!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_updated_by(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
@@ -602,6 +667,48 @@ class Collective
 
     sig { returns(T::Boolean) }
     def created_by_previously_changed?; end
+
+    sig { returns(T::Array[T.untyped]) }
+    def data_export_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def data_export_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :data_exports`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::DataExport::PrivateCollectionProxy) }
+    def data_exports; end
+
+    sig { params(value: T::Enumerable[::DataExport]).void }
+    def data_exports=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def data_import_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def data_import_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :data_imports`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::DataImport::PrivateCollectionProxy) }
+    def data_imports; end
+
+    sig { params(value: T::Enumerable[::DataImport]).void }
+    def data_imports=(value); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :decision_audit_entries`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::DecisionAuditEntry::PrivateCollectionProxy) }
+    def decision_audit_entries; end
+
+    sig { params(value: T::Enumerable[::DecisionAuditEntry]).void }
+    def decision_audit_entries=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def decision_audit_entry_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def decision_audit_entry_ids=(ids); end
 
     sig { returns(T::Array[T.untyped]) }
     def decision_ids; end
@@ -811,6 +918,9 @@ class Collective
     def reload_tenant; end
 
     sig { returns(T.nilable(::User)) }
+    def reload_trio_user; end
+
+    sig { returns(T.nilable(::User)) }
     def reload_updated_by; end
 
     sig { returns(T::Array[T.untyped]) }
@@ -857,6 +967,9 @@ class Collective
     def reset_tenant; end
 
     sig { void }
+    def reset_trio_user; end
+
+    sig { void }
     def reset_updated_by; end
 
     # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :search_index`.
@@ -899,6 +1012,18 @@ class Collective
     sig { returns(T::Boolean) }
     def tenant_previously_changed?; end
 
+    sig { returns(T.nilable(::User)) }
+    def trio_user; end
+
+    sig { params(value: T.nilable(::User)).void }
+    def trio_user=(value); end
+
+    sig { returns(T::Boolean) }
+    def trio_user_changed?; end
+
+    sig { returns(T::Boolean) }
+    def trio_user_previously_changed?; end
+
     sig { returns(T::Array[T.untyped]) }
     def trustee_grant_ids; end
 
@@ -924,6 +1049,20 @@ class Collective
 
     sig { returns(T::Boolean) }
     def updated_by_previously_changed?; end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_block_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_block_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :user_blocks`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserBlock::PrivateCollectionProxy) }
+    def user_blocks; end
+
+    sig { params(value: T::Enumerable[::UserBlock]).void }
+    def user_blocks=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def user_ids; end
@@ -996,6 +1135,9 @@ class Collective
     def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def chat(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def create_with(*args, &blk); end
 
     sig { params(value: T::Boolean).returns(PrivateAssociationRelation) }
@@ -1047,6 +1189,9 @@ class Collective
     def limit(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def listable(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def lock(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -1077,6 +1222,9 @@ class Collective
     def preload(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def private_workspaces(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def readonly(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -1100,6 +1248,9 @@ class Collective
     sig { params(args: T.untyped).returns(PrivateAssociationRelation) }
     sig { params(blk: T.proc.params(record: ::Collective).returns(BasicObject)).returns(T::Array[::Collective]) }
     def select(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def standard(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def strict_loading(*args, &blk); end
@@ -1230,14 +1381,41 @@ class Collective
     sig { returns(T::Boolean) }
     def collective_type?; end
 
+    sig { returns(T.nilable(::String)) }
+    def collective_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def collective_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def collective_type_came_from_user?; end
+
     sig { returns(T.nilable([::String, ::String])) }
     def collective_type_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_type_change_to_be_saved; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def collective_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::String)) }
+    def collective_type_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def collective_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def collective_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def collective_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
     def collective_type_was; end
+
+    sig { void }
+    def collective_type_will_change!; end
 
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
@@ -1696,6 +1874,9 @@ class Collective
     def restore_billing_exempt!; end
 
     sig { void }
+    def restore_collective_type!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -1732,6 +1913,9 @@ class Collective
     def restore_tenant_id!; end
 
     sig { void }
+    def restore_trio_user_id!; end
+
+    sig { void }
     def restore_updated_at!; end
 
     sig { void }
@@ -1748,6 +1932,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_collective_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_collective_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1820,6 +2010,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_trio_user_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_trio_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1923,6 +2119,51 @@ class Collective
     sig { void }
     def tenant_id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def trio_user_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def trio_user_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def trio_user_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def trio_user_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def trio_user_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def trio_user_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def trio_user_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def trio_user_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def trio_user_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def trio_user_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def trio_user_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def trio_user_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def trio_user_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def trio_user_id_was; end
+
+    sig { void }
+    def trio_user_id_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -2020,6 +2261,9 @@ class Collective
     def will_save_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_collective_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2056,6 +2300,9 @@ class Collective
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_trio_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2074,6 +2321,9 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def arel_columns(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def chat(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def create_with(*args, &blk); end
@@ -2127,6 +2377,9 @@ class Collective
     def limit(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def listable(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def lock(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -2157,6 +2410,9 @@ class Collective
     def preload(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def private_workspaces(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def readonly(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
@@ -2180,6 +2436,9 @@ class Collective
     sig { params(args: T.untyped).returns(PrivateRelation) }
     sig { params(blk: T.proc.params(record: ::Collective).returns(BasicObject)).returns(T::Array[::Collective]) }
     def select(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def standard(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def strict_loading(*args, &blk); end
