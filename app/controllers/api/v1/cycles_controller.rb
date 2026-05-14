@@ -22,18 +22,5 @@ module Api::V1
       cycle = Cycle.new(name: params[:id], tenant: @current_tenant, collective: @current_collective)
       render json: cycle.api_json(include: ['notes', 'decisions', 'commitments', 'backlinks'])
     end
-
-    def create
-      render_404
-    end
-
-    def update
-      render_404
-    end
-
-    def destroy
-      render_404
-    end
-
   end
 end

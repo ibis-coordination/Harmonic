@@ -66,127 +66,21 @@ class ApiCommitmentsTest < ActionDispatch::IntegrationTest
     assert body.key?("backlinks")
   end
 
-  # Create
-  test "create creates a commitment" do
-    commitment_params = {
-      title: "Team Lunch",
-      description: "Let's have lunch together",
-      deadline: (Time.current + 1.week).iso8601,
-      critical_mass: 5
-    }
-    assert_difference "Commitment.count", 1 do
-      post api_path, params: commitment_params.to_json, headers: @headers
+  # === v1 API is read-only — commitment writes happen via action routes ===
+
+  test "v1 commitments API has no write routes (read-only API)" do
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_raises(ActionController::RoutingError) do
+      post api_path, params: { title: "x", critical_mass: 1 }.to_json, headers: @headers
     end
-    assert_response :success
-    body = JSON.parse(response.body)
-    assert_equal "Team Lunch", body["title"]
-    assert_equal 5, body["critical_mass"]
-  end
-
-  test "create without required fields returns error" do
-    commitment_params = { description: "Missing title and critical_mass" }
-    post api_path, params: commitment_params.to_json, headers: @headers
-    assert_response :bad_request
-  end
-
-  test "create with read-only token returns forbidden" do
-    @api_token.update!(scopes: ApiToken.read_scopes)
-    commitment_params = {
-      title: "Test",
-      deadline: (Time.current + 1.week).iso8601,
-      critical_mass: 3
-    }
-    post api_path, params: commitment_params.to_json, headers: @headers
-    assert_response :forbidden
-  end
-
-  test "create with zero critical_mass returns error" do
-    commitment_params = {
-      title: "Invalid Commitment",
-      deadline: (Time.current + 1.week).iso8601,
-      critical_mass: 0
-    }
-    post api_path, params: commitment_params.to_json, headers: @headers
-    assert_response :bad_request
-  end
-
-  # Update
-  test "update updates a commitment by creator" do
-    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
-    update_params = {
-      title: "Updated Title",
-      description: "Updated description"
-    }
-    put api_path("/#{commitment.truncated_id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    commitment.reload
-    assert_equal "Updated Title", commitment.title
-  end
-
-  test "update can change critical_mass" do
-    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
-    update_params = { critical_mass: 10 }
-    put api_path("/#{commitment.truncated_id}"), params: update_params.to_json, headers: @headers
-    assert_response :success
-    commitment.reload
-    assert_equal 10, commitment.critical_mass
-  end
-
-  test "update by non-creator returns forbidden" do
-    other_user = create_user(email: "other@example.com", name: "Other User")
-    @tenant.add_user!(other_user)
-    @collective.add_user!(other_user)
-    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: other_user)
-    update_params = { title: "Hacked title" }
-    put api_path("/#{commitment.truncated_id}"), params: update_params.to_json, headers: @headers
-    assert_response :forbidden
-  end
-
-  # Join
-  test "join adds user to commitment" do
-    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
-    initial_count = commitment.participant_count
-    join_params = { committed: true }
-    post api_path("/#{commitment.truncated_id}/join"), params: join_params.to_json, headers: @headers
-    assert_response :success
-    commitment.reload
-    assert_equal initial_count + 1, commitment.participant_count
-  end
-
-  test "join closed commitment returns error" do
-    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
-    commitment.update!(deadline: Time.current - 1.day)
-    join_params = { committed: true }
-    post api_path("/#{commitment.truncated_id}/join"), params: join_params.to_json, headers: @headers
-    assert_response :bad_request
-    body = JSON.parse(response.body)
-    assert body["error"].include?("closed")
-  end
-
-  test "join returns error for non-existent commitment" do
-    join_params = { committed: true }
-    post api_path("/nonexistent/join"), params: join_params.to_json, headers: @headers
-    assert_includes [400, 404], response.status
-  end
-
-  # Participants
-  # Note: Skipping participant list test due to api_json method signature issue in CommitmentParticipant
-
-  # Critical mass behavior
-  test "commitment reaches critical mass" do
-    commitment = Commitment.create!(
-      tenant: @tenant,
-      collective: @collective,
-      created_by: @user,
-      title: "Small Commitment",
-      description: "Only needs 1 person",
-      critical_mass: 1,
-      deadline: Time.current + 1.week
-    )
-    join_params = { committed: true }
-    post api_path("/#{commitment.truncated_id}/join"), params: join_params.to_json, headers: @headers
-    assert_response :success
-    commitment.reload
-    assert commitment.critical_mass_achieved?
+    assert_raises(ActionController::RoutingError) do
+      put api_path("/#{commitment.truncated_id}"), params: { title: "x" }.to_json, headers: @headers
+    end
+    assert_raises(ActionController::RoutingError) do
+      delete api_path("/#{commitment.truncated_id}"), headers: @headers
+    end
+    assert_raises(ActionController::RoutingError) do
+      post api_path("/#{commitment.truncated_id}/join"), params: { committed: true }.to_json, headers: @headers
+    end
   end
 end

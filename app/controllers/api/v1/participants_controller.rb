@@ -2,18 +2,7 @@
 
 module Api::V1
   class ParticipantsController < BaseController
-    # Participants are read only
-    def create
-      render_404
-    end
-
-    def update
-      render_404
-    end
-
-    def destroy
-      render_404
-    end
+    # Read-only API: index and show inherited from BaseController.
 
     private
 
@@ -39,17 +28,20 @@ module Api::V1
 
     def current_commitment
       return @current_commitment if defined?(@current_commitment)
+
       commitment_id = params[:commitment_id]
       return @current_commitment = nil unless commitment_id
+
       @current_commitment = Commitment.find(commitment_id)
     end
 
     def current_decision
       return @current_decision if defined?(@current_decision)
+
       decision_id = params[:decision_id]
       return @current_decision = nil unless decision_id
+
       @current_decision = Decision.find(decision_id)
     end
-
   end
 end

@@ -1,6 +1,6 @@
 # REST API
 
-The Harmonic REST API is a JSON HTTP API for managing notes, decisions, commitments, and related resources. Use it when you want structured request/response semantics rather than the page-based navigation of the [Markdown UI](/help/markdown-ui).
+The Harmonic REST API is a **read-only** JSON HTTP API for inspecting notes, decisions, commitments, and related resources. For writes, use the [Markdown UI](/help/markdown-ui) — the action routes there are where the capability system, scope downscoping, and other policy checks live.
 
 ## Base URL
 
@@ -9,7 +9,7 @@ The API has two scopes:
 - **Tenant-level** — `https://{your-tenant}.{domain}/api/v1`
 - **Collective-scoped** — `https://{your-tenant}.{domain}/collectives/{handle}/api/v1`
 
-Most resources work in either scope. Use the collective-scoped form when you want operations to apply within a specific collective; the tenant-level form is convenient for cross-collective operations and admin tasks.
+Most resources work in either scope. Use the collective-scoped form when you want to query within a specific collective; the tenant-level form is convenient for cross-collective queries.
 
 ## Authentication
 
@@ -23,49 +23,33 @@ If either the tenant or the collective has API access disabled, requests return 
 
 ## Discovery
 
-`GET /api/v1` returns the available routes:
+`GET /api/v1` returns the available routes (which are all `GET`):
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   https://my-tenant.harmonic.social/api/v1
 ```
 
-The response lists every endpoint with its HTTP methods.
-
 ## Resources
 
-The API follows standard REST conventions — `GET` to list/read, `POST` to create, `PATCH`/`PUT` to update, `DELETE` to remove.
+All endpoints are `GET`-only. Writes are not supported — see the [Markdown UI](/help/markdown-ui).
 
 | Resource | Path | Scope |
 |----------|------|-------|
-| Notes | `/notes`, `/notes/:id` | Either |
-| Decisions | `/decisions`, `/decisions/:id` | Either |
+| Notes | `/notes/:id` | Either |
+| Decisions | `/decisions/:id` | Either |
 | Options | `/decisions/:id/options[/:option_id]` | Either |
 | Votes | `/decisions/:id/votes[/:vote_id]`, also under `/options/:option_id` and `/participants/:participant_id` | Either |
-| Decision results | `GET /decisions/:id/results` | Either |
+| Decision results | `/decisions/:id/results` | Either |
 | Decision participants | `/decisions/:id/participants[/:participant_id]` | Either |
-| Commitments | `/commitments`, `/commitments/:id` | Either |
+| Commitments | `/commitments/:id` | Either |
 | Commitment participants | `/commitments/:id/participants[/:participant_id]` | Either |
 | Cycles | `/cycles[/:id]` | Either |
 | Collectives | `/collectives[/:id]` | Tenant only |
 | Users | `/users[/:id]` | Tenant only |
 | API tokens | `/users/:user_id/tokens[/:id]` | Tenant only |
 
-There are also a couple of action-style endpoints that don't fit pure REST:
-
-- `POST /notes/:id/confirm` — Confirm you've read a note
-- `POST /commitments/:id/join` — Join a commitment
-
-### Token Endpoints
-
-The token endpoints behave slightly differently from other resources:
-
-- `POST /users/:user_id/tokens` creates a token. The response includes a `token` field with the **plaintext value** — save it immediately, it can't be retrieved later.
-- `GET` responses (index, show) omit the `token` field entirely. The plaintext is never recoverable after creation because the database stores only a hash. They include a `token_prefix` field (the first four characters of the token) which can be used to visually identify a token.
-- `PATCH`/`PUT` updates only the `name`. Tokens are otherwise **immutable** — sending `expires_at`, `scopes`, or any other field returns `400 Bad Request`. To change a token's scopes or expiration, create a new token and delete the old one.
-- `DELETE` revokes the token.
-- On create, the requested scopes must be a subset of the scopes the calling token itself has. Attempting to grant a broader scope returns `403 Forbidden`. This prevents privilege escalation through token chaining.
-- A user can hold at most **<%= ApiToken::MAX_ACTIVE_TOKENS_PER_USER %> active tokens** at a time. Once the cap is reached, creating a new token returns `400 Bad Request` until an existing token is deleted or expires.
+Notes, decisions, and commitments **do not** have list endpoints — their `index` returns 404 pointing to `/cycles`, since cycle-grouped lists are the canonical way to enumerate content. For a single resource, hit `:show` directly.
 
 ## The `include` Parameter
 
@@ -97,9 +81,24 @@ Common status codes:
 | Code | Meaning |
 |------|---------|
 | 200 | Success |
-| 400 | Bad request — validation error or malformed input |
 | 401 | Unauthorized — invalid, expired, or missing token |
 | 403 | Forbidden — token scope insufficient, or API not enabled for this tenant/collective |
-| 404 | Resource not found |
+| 404 | Resource not found, or a write method (POST/PUT/PATCH/DELETE) was used |
 
-For markdown-driven navigation with action discovery instead of JSON CRUD, see the [Markdown UI](/help/markdown-ui).
+## Token Endpoints
+
+`GET /users/:user_id/tokens` and `GET /users/:user_id/tokens/:id` return tokens without the plaintext `token` field — the database stores only a hash. The response includes a `token_prefix` field (the first four characters) for visual identification. The full plaintext is only ever shown at the moment of creation, in the HTML/UI flow at `/u/:handle/settings/tokens/new`.
+
+## Writes
+
+The REST API is read-only. For every write that used to live here, there's an equivalent **action route** in the [Markdown UI](/help/markdown-ui). For example:
+
+| Old REST write | Action-route equivalent |
+|---|---|
+| `POST /api/v1/notes` | `POST /{collective}/note/actions/create_note` |
+| `PUT /api/v1/decisions/:id` | `POST /{collective}/d/:id/settings/actions/update_decision_settings` |
+| `POST /api/v1/decisions/:id/votes` | `POST /{collective}/d/:id/actions/vote` |
+| `POST /api/v1/commitments/:id/join` | `POST /{collective}/c/:id/actions/join_commitment` |
+| `POST /api/v1/users` (create AI agent) | `POST /ai-agents/new/actions/create_ai_agent` |
+
+The action route discovery loop is described on the [Markdown UI](/help/markdown-ui) page: navigate to a resource, read the available actions from the YAML frontmatter, POST JSON to one of them.

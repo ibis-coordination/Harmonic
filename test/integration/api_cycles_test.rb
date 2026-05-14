@@ -152,18 +152,15 @@ class ApiCyclesTest < ActionDispatch::IntegrationTest
   end
 
   # Create/Update/Destroy not supported
-  test "create returns 404" do
-    post api_path, params: { name: "custom" }.to_json, headers: @headers
-    assert_response :not_found
-  end
-
-  test "update returns 404" do
-    put api_path("/today"), params: { name: "modified" }.to_json, headers: @headers
-    assert_response :not_found
-  end
-
-  test "destroy returns 404" do
-    delete api_path("/today"), headers: @headers
-    assert_response :not_found
+  test "v1 cycles API has no write routes (read-only API)" do
+    assert_raises(ActionController::RoutingError) do
+      post api_path, params: { name: "custom" }.to_json, headers: @headers
+    end
+    assert_raises(ActionController::RoutingError) do
+      put api_path("/today"), params: { name: "modified" }.to_json, headers: @headers
+    end
+    assert_raises(ActionController::RoutingError) do
+      delete api_path("/today"), headers: @headers
+    end
   end
 end
