@@ -166,9 +166,9 @@ Rails.application.routes.draw do
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
 
-  # LLM Chat - Trio (with voting ensemble)
+  # Trio in-app assistant. The page renders a chat with the per-tenant
+  # trio system agent; message POSTs go through /chat/:handle.
   get 'trio' => 'trio#index'
-  post 'trio' => 'trio#create'
 
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"

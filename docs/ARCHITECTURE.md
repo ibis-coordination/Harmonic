@@ -337,16 +337,15 @@ Harmonic includes optional LLM-powered features. These run as separate Docker se
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Rails Application                                                   │
-│  ├── TrioController (/trio)                                           │
-│  └── TrioClient (app/services/trio_client.rb)                       │
+│  └── AgentRunnerDispatchService → Redis Stream "agent_tasks"        │
 └────────┬────────────────────────────────────────────────────────────┘
-         │ HTTP (OpenAI-compatible API)
+         │ Redis Streams
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Trio (port 8000)                                                    │
-│  Voting ensemble service - queries multiple models, picks best      │
+│  agent-runner (Node.js)                                              │
+│  Consumes agent_tasks; calls LiteLLM; reports results back to Rails │
 └────────┬────────────────────────────────────────────────────────────┘
-         │
+         │ HTTP (OpenAI-compatible API)
          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  LiteLLM (port 4000)                                                 │
@@ -360,13 +359,20 @@ Harmonic includes optional LLM-powered features. These run as separate Docker se
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+User-created AI agents and the built-in **Trio** assistant (a system ai_agent
+User with `system_role: "trio"`, seeded per tenant by `TrioSeeder`) all flow
+through the same path. `/trio` is just a dedicated chat page that opens a
+`ChatSession` with the tenant's trio user; the rest is identical to any
+agent chat at `/chat/:handle`.
+
 ### Key Components
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `TrioClient` | `app/services/trio_client.rb` | Ruby client for Trio API |
-| `HarmonicAssistant` | `app/services/concerns/harmonic_assistant.rb` | System prompt and response processing |
-| Trio | `trio/` | Python voting ensemble service |
+| `AgentRunnerDispatchService` | `app/services/agent_runner_dispatch_service.rb` | Publishes tasks to Redis Stream |
+| `TrioSeeder` | `app/services/trio_seeder.rb` | Ensures one trio system agent per tenant |
+| `Trio::SystemPrompt` | `app/services/trio/system_prompt.rb` | Static identity prompt for trio |
+| agent-runner | `agent-runner/` | Node.js consumer that executes tasks |
 | LiteLLM config | `config/litellm_config.yaml` | Model routing configuration |
 
 ### Starting LLM Services
@@ -377,22 +383,14 @@ docker compose --profile llm up -d
 
 # Pull required Ollama models
 docker compose exec ollama ollama pull llama3.2:1b
-
-# Verify Trio is running
-curl http://localhost:8000/health
 ```
 
 ### Environment Variables
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `TRIO_BASE_URL` | `http://trio:8000` | Trio service URL |
-| `TRIO_TIMEOUT` | `120` | Request timeout in seconds |
-| `TRIO_MODELS` | `default,default,default` | Comma-separated model list for ensemble |
 | `ANTHROPIC_API_KEY` | - | For Claude models via LiteLLM |
 | `OPENAI_API_KEY` | - | For OpenAI models via LiteLLM |
-
-See [trio/README.md](../trio/README.md) for full Trio documentation.
 
 ## Frontend Architecture
 

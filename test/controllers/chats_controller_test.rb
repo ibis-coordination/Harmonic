@@ -98,6 +98,14 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "show allows any tenant member to chat with a system agent" do
+    trio = TrioSeeder.ensure_for(@tenant)
+    trio_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: trio).handle
+
+    get "/chat/#{trio_handle}"
+    assert_response :success
+  end
+
   test "show paginates messages to last 50" do
     session = create_chat_session
     with_chat_scope(session) do

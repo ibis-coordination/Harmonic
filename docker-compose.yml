@@ -214,22 +214,6 @@ services:
       - frontend  # needs external access for API calls
       - backend
 
-  trio:
-    image: ghcr.io/ibis-coordination/trio:latest
-    profiles: ["llm"]
-    ports:
-      - "8000:8000"
-    depends_on:
-      - litellm
-    env_file:
-      - .env
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-    networks:
-      - backend
-
 networks:
   frontend:
   backend:

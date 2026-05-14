@@ -277,7 +277,10 @@ module Internal
         return
       end
 
-      if tenant.feature_enabled?("stripe_billing")
+      # System agents (e.g. Trio) have no billing_customer and are never
+      # charged; skip all billing-related preflight checks. Mirrors the
+      # parallel skip in AgentRunnerDispatchService.
+      if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
         billing_customer = ai_agent.billing_customer
         unless billing_customer&.active?
           render json: { status: "fail", reason: "Billing is not set up" }

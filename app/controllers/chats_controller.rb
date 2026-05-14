@@ -196,8 +196,9 @@ class ChatsController < ApplicationController
     end
 
     # Authorization: must be on same tenant (handled by query above)
-    # For human→agent: must be the user's own agent
-    if current_user.human? && @partner.ai_agent? && !current_user.ai_agents.include?(@partner)
+    # For human→agent: must be the user's own agent, OR a system agent (e.g. Trio)
+    # which is visible to every member of the tenant.
+    if current_user.human? && @partner.ai_agent? && !@partner.system? && !current_user.ai_agents.include?(@partner)
       render status: :not_found, plain: "404 Not Found"
       return
     end
