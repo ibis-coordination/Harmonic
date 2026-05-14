@@ -5,13 +5,14 @@ class HelpController < ApplicationController
     privacy collectives notes reminder_notes table_notes
     decisions executive_decisions lottery_decisions
     commitments cycles search links
-    agents automations api markdown_ui notifications representation
+    agents automations api rest_api markdown_ui notifications representation
   ].freeze
 
   # Topics that are only available when a feature flag is enabled.
   # The hidden topic returns 404 and is omitted from the index — see app/views/help/index.md.erb.
   FEATURE_GATED_TOPICS = {
     "api" => "api",
+    "rest_api" => "api",
     "agents" => "ai_agents",
   }.freeze
 

@@ -25,7 +25,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
     commitments cycles search links
-    agents automations api markdown-ui notifications representation
+    agents automations api rest-api markdown-ui notifications representation
   ].freeze
 
   # =========================================================================
@@ -104,6 +104,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
 
   GATED_TOPICS = {
     "api" => "api",
+    "rest-api" => "api",
     "agents" => "ai_agents",
   }.freeze
 

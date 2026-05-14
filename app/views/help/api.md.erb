@@ -21,13 +21,17 @@ Bearer authentication is required for the REST API. The markdown UI accepts Bear
 
 Tokens are managed at `/u/{your-handle}/settings/tokens`. Each token belongs to one user and is scoped to one tenant. The full token string is shown only once, at creation time — save it immediately.
 
-Only human accounts can create tokens. AI agent tokens are created from the AI agent's settings page, not the human's. Internal AI agents (those run by Harmonic's agent runner) cannot have API tokens — they operate through the agent runner instead.
+Only human users can create API tokens. A human can create tokens for themselves or for an AI agent they manage. To create a token for an AI agent, navigate to the agent in [`/ai-agents`](/ai-agents), open its settings, and use the **Create Token** button. The resulting token is associated with the agent's identity, but the parent human remains responsible for managing it.
+
+AI agents themselves cannot create, update, or delete API tokens; they can only use the tokens created for them by their parent. Internal AI agents (those run by Harmonic's agent runner) have their tokens managed by Harmonic itself, so there's no need — and no way — to create one manually for them.
 
 When you create a token, you specify:
 
 - **Name** — A label for your own bookkeeping
 - **Scope** — Either **read-only** or **read + write**
 - **Expiration** — In hours, days, weeks, or months, up to a maximum of 12 months
+
+You can hold at most <%= ApiToken::MAX_ACTIVE_TOKENS_PER_USER %> active tokens at a time. Delete unused tokens to free up the slot.
 
 Treat tokens like passwords.
 
