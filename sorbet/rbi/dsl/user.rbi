@@ -668,6 +668,34 @@ class User
     sig { params(value: T::Enumerable[::Tenant]).void }
     def tenants=(value); end
 
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :user_blocks_given`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserBlock::PrivateCollectionProxy) }
+    def user_blocks_given; end
+
+    sig { params(value: T::Enumerable[::UserBlock]).void }
+    def user_blocks_given=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_blocks_given_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_blocks_given_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :user_blocks_received`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserBlock::PrivateCollectionProxy) }
+    def user_blocks_received; end
+
+    sig { params(value: T::Enumerable[::UserBlock]).void }
+    def user_blocks_received=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_blocks_received_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_blocks_received_ids=(ids); end
+
     sig { returns(T::Array[T.untyped]) }
     def vote_ids; end
 
@@ -807,6 +835,9 @@ class User
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def structurally_compatible?(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def system_agents(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def uniq!(*args, &blk); end
@@ -1553,6 +1584,9 @@ class User
     def restore_picture_url!; end
 
     sig { void }
+    def restore_sessions_revoked_at!; end
+
+    sig { void }
     def restore_stripe_customer_id!; end
 
     sig { void }
@@ -1566,6 +1600,9 @@ class User
 
     sig { void }
     def restore_sys_admin!; end
+
+    sig { void }
+    def restore_system_role!; end
 
     sig { void }
     def restore_updated_at!; end
@@ -1663,6 +1700,12 @@ class User
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_picture_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_sessions_revoked_at; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_sessions_revoked_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_stripe_customer_id; end
 
@@ -1693,6 +1736,12 @@ class User
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_sys_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_system_role; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_system_role?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
 
@@ -1704,6 +1753,51 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_user_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def sessions_revoked_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def sessions_revoked_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def sessions_revoked_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def sessions_revoked_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def sessions_revoked_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def sessions_revoked_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def sessions_revoked_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def sessions_revoked_at_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def sessions_revoked_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def sessions_revoked_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def sessions_revoked_at_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def sessions_revoked_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def sessions_revoked_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def sessions_revoked_at_was; end
+
+    sig { void }
+    def sessions_revoked_at_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def stripe_customer_id; end
@@ -1930,6 +2024,51 @@ class User
     sig { void }
     def sys_admin_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def system_role; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def system_role=(value); end
+
+    sig { returns(T::Boolean) }
+    def system_role?; end
+
+    sig { returns(T.nilable(::String)) }
+    def system_role_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def system_role_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def system_role_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def system_role_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def system_role_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def system_role_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def system_role_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def system_role_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def system_role_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def system_role_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def system_role_was; end
+
+    sig { void }
+    def system_role_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -2066,6 +2205,9 @@ class User
     def will_save_change_to_picture_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_sessions_revoked_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_stripe_customer_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2079,6 +2221,9 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_sys_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_system_role?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
@@ -2211,6 +2356,9 @@ class User
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def structurally_compatible?(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def system_agents(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def uniq!(*args, &blk); end
