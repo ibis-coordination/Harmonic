@@ -103,6 +103,42 @@ class TrioActivatorTest < ActiveSupport::TestCase
     assert_nil @collective.reload.trio_user_id
   end
 
+  # === reconcile! ===
+
+  test "reconcile! activates when flag is on and trio_user_id is nil" do
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", true)
+    assert_nil @collective.reload.trio_user_id, "precondition: trio inactive"
+
+    TrioActivator.reconcile!(@collective)
+
+    assert_not_nil @collective.reload.trio_user_id
+  end
+
+  test "reconcile! deactivates when flag is off and trio_user_id is set" do
+    TrioActivator.activate!(@collective)
+    assert_not_nil @collective.reload.trio_user_id, "precondition: trio active"
+    @tenant.disable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", false)
+
+    TrioActivator.reconcile!(@collective)
+
+    assert_nil @collective.reload.trio_user_id
+  end
+
+  test "activate! sets the explicit trio feature flag to true" do
+    TrioActivator.activate!(@collective)
+
+    assert_equal true, @collective.reload.settings.dig("feature_flags", "trio")
+  end
+
+  test "deactivate! sets the explicit trio feature flag to false" do
+    TrioActivator.activate!(@collective)
+    TrioActivator.deactivate!(@collective)
+
+    assert_equal false, @collective.reload.settings.dig("feature_flags", "trio")
+  end
+
   # === activate! after deactivate! (restore) ===
 
   test "activate! after deactivate! restores the previous trio user" do

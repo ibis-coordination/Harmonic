@@ -31,10 +31,10 @@ feature_flags:
 
   trio:
     name: "Trio AI Assistant"
-    description: "Enables the Trio AI ensemble chat feature for answering questions"
+    description: "Enables the Trio AI assistant for this collective. When on, @trio mentions in this collective route to the collective's Trio agent and default automations are seeded."
     app_enabled: true
     default_tenant: false
-    default_collective: true
+    default_collective: false
     collective_level: true
 
   ai_agents:

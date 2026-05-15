@@ -360,18 +360,29 @@ Harmonic includes optional LLM-powered features. These run as separate Docker se
 ```
 
 User-created AI agents and the built-in **Trio** assistant (a system ai_agent
-User with `system_role: "trio"`, seeded per tenant by `TrioSeeder`) all flow
-through the same path. `/trio` is just a dedicated chat page that opens a
-`ChatSession` with the tenant's trio user; the rest is identical to any
-agent chat at `/chat/:handle`.
+User with `system_role: "trio"`) all flow through the same path. Trio is
+provisioned **per collective** that opted in: a collective admin enables the
+`trio` feature flag in collective settings, which calls `TrioActivator` to
+seed a trio User (via `TrioSeeder`), add it as a `CollectiveMember`, and
+seed three default mention-driven automation rules (note/decision/commitment
+created with `mention_filter: "self"`). For private workspaces, the opt-in
+toggle lives on the user-settings page; the same `TrioActivator` runs.
+
+`@trio` mentions resolve via `MentionParser.parse(..., collective:)`: the
+parser checks `collective.trio_user` when the text contains `@trio`. The
+main collective's trio claims the literal handle `"trio"` so its profile
+lives at `/u/trio` via the normal handle index; non-main collective trios
+get hex-suffixed handles to avoid the tenant-wide `(tenant_id, handle)`
+uniqueness collision.
 
 ### Key Components
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | `AgentRunnerDispatchService` | `app/services/agent_runner_dispatch_service.rb` | Publishes tasks to Redis Stream |
-| `TrioSeeder` | `app/services/trio_seeder.rb` | Ensures one trio system agent per tenant |
-| `Trio::SystemPrompt` | `app/services/trio/system_prompt.rb` | Static identity prompt for trio |
+| `TrioActivator` | `app/services/trio_activator.rb` | Turns Trio on/off for one collective; seeds defaults or restores prior state |
+| `TrioSeeder` | `app/services/trio_seeder.rb` | Creates the per-collective Trio User and CollectiveMember |
+| `Trio::SystemPrompt` | `app/services/trio/system_prompt.rb` | Static identity prompt for trio (resolved dynamically per request) |
 | agent-runner | `agent-runner/` | Node.js consumer that executes tasks |
 | LiteLLM config | `config/litellm_config.yaml` | Model routing configuration |
 

@@ -72,7 +72,12 @@ class TrioSeeder
   def build_agent_configuration
     # identity_prompt is intentionally omitted — system agents resolve their
     # prompt dynamically via User#effective_identity_prompt.
-    { "mode" => "internal", "capabilities" => [] }
+    #
+    # `capabilities` key is intentionally omitted — absent means "all
+    # grantable actions allowed" per CapabilityCheck. An empty array would
+    # mean "no actions allowed", which would prevent Trio from posting any
+    # comment or other response.
+    { "mode" => "internal" }
   end
 
   sig { returns(String) }

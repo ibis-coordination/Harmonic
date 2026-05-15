@@ -1,21 +1,18 @@
-# Trio Per-Collective Refactor (revised)
+# Trio Per-Collective Refactor (completed)
 
-## Current state (as of branch `trio-system-role-column`)
+## Final state — shipped on branch `trio-system-role-column`
 
-Already shipped on the branch:
-
-- **Earlier (pre-refactor) work** — the per-tenant Trio system agent and `/trio` chat UI. About to be torn down in Phase 5.
 - **Phase 1 (9dffc1e):** schema migration adding `collectives.trio_user_id` + `Collective#trio_user` association.
 - **Phase 4 (78419ef):** `MentionParser.parse` `collective:` kwarg + `@trio` magic resolver; collective context threaded through `AutomationMentionFilter` (uses `event.collective`) and `NotificationDispatcher`; `trio_unavailable` hint notification added (with workspace vs collective URL split). New `Notification::NOTIFICATION_TYPES` entry + default preferences entry.
-- **Handle reservation (e017ee8):** `TenantUser::RESERVED_HANDLES = { "trio" => "trio" }` validation; `TenantUser#set_defaults` auto-suffixes a name-derived handle that would land on a reserved value; `Tenant#add_user!` delegates handle generation to `set_defaults` rather than computing inline.
+- **Handle reservation (e017ee8):** `TenantUser::RESERVED_HANDLES = { "trio" => "trio" }` validation; `TenantUser#set_defaults` auto-suffixes a name-derived handle that would land on a reserved value.
+- **Phase 2 stage 1 (08513c4):** `TrioSeeder` rewritten for per-collective; tenant-creation hook in `AppAdminController` removed.
+- **Phase 2 stage 2 (3e4a2f3):** `TrioActivator` service + flag-flip wiring in `CollectivesController#update_settings`. Activation either bootstraps fresh (seeds three default mention-driven automation rules for `note.created`, `decision.created`, `commitment.created`) or restores previously deactivated state (unarchives the CollectiveMember, re-enables rules). Deactivation archives the membership, disables the rules, and nils out `collective.trio_user_id`; user customizations survive off→on→off→on cycles.
+- **Phase 3 (befd42d):** workspace-trio opt-in via `UsersController#update_workspace_trio` (workspaces reject writes through `CollectivesController#update_settings`, so the toggle lives in user settings). `Collective#add_user!` now allows system agents to join private workspaces. **UI view toggle deferred** — backend wired, view change is a small follow-up that needs browser verification.
+- **Phase 5 (049f804):** legacy trios adopted as main-collective trios via non-destructive migration `20260514000001_adopt_legacy_trio_for_main_collectives`; existing tenants are grandfathered in with Trio active in their main collective. `/trio` controller, view, test, route, and `lib/tasks/trio.rake` deleted. Trefoil logo JS (utils + Stimulus controller) kept for future reuse. `docs/ARCHITECTURE.md` Trio section refreshed.
 
-Remaining work (see "Suggested implementation order" at the bottom):
-- Phase 2: rewrite `TrioSeeder` for per-collective + `TrioActivator` + flag-flip wiring in `CollectivesController` + default automation templates.
-- Phase 3: workspace trio opt-in via `UsersController#update_settings`.
-- Phase 5: destructive migration removing per-tenant trios + delete `/trio` controller/view/route/tests/JS/rake task + remove tenant-creation hook in `AppAdminController`.
-- Phase 6: verify end-to-end in browser.
+Phase 6 (end-to-end browser verification) is left to the user.
 
-Test status: all targeted tests green. One pre-existing flaky test (`AgentRunnerDispatchServiceTest#test_skips_dispatch_for_non-ai-agent_user`) fails occasionally in parallel sweeps due to Redis-stream contention — unrelated to this refactor.
+Test status: all targeted tests green (372 passing across the touched files).
 
 ## Goal
 

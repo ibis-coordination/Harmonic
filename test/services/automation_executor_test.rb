@@ -642,6 +642,45 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_includes result["error"], "illing"
   end
 
+  test "system agent (e.g., Trio) skips billing gate even when stripe_billing is enabled" do
+    enable_stripe_billing_flag!(@tenant)
+
+    # Build a Trio-shaped system agent: ai_agent with system_role: "trio" and
+    # no billing_customer. The executor's billing gate must skip it.
+    system_agent = User.create!(
+      name: "Trio",
+      email: "trio-test-#{SecureRandom.hex(4)}@system.harmonic.local",
+      user_type: "ai_agent",
+      system_role: "trio",
+    )
+    @tenant.add_user!(system_agent)
+    @collective.add_user!(system_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: system_agent,
+      created_by: system_agent,
+      name: "System agent rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Respond" },
+      enabled: true,
+    )
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    dispatched = []
+    AgentRunnerDispatchService.stub :dispatch, ->(tr) { dispatched << tr } do
+      assert_difference "AiAgentTaskRun.count", 1 do
+        AutomationExecutor.execute(run)
+      end
+    end
+
+    run.reload
+    assert_not_equal "failed", run.status, "system agent should not fail the billing gate: #{run.error_message}"
+    assert_equal 1, dispatched.length
+  end
+
   test "agent rule runs normally when stripe_billing flag disabled" do
     # stripe_billing NOT enabled — should work as before
     rule = create_agent_rule(task: "Run this task")

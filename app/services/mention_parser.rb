@@ -19,21 +19,28 @@ class MentionParser
     handles = extract_handles(text)
     return [] if handles.empty?
 
-    # Normal handle-based resolution. Trio's TenantUser handle is random hex,
-    # so "trio" never matches via this index.
-    users = TenantUser.where(tenant_id: tenant_id, handle: handles)
-      .includes(:user)
-      .map(&:user)
+    # When a collective is provided, "@trio" ALWAYS means this collective's
+    # trio. The handle index would otherwise also resolve "@trio" to the
+    # main collective's trio (which claims the literal handle "trio") even
+    # when mentioned in some other collective, fanning out the mention to a
+    # trio that isn't local to the conversation.
+    index_handles = if collective
+      handles - [TRIO_HANDLE]
+    else
+      handles
+    end
 
-    # @trio is a magic handle that resolves to the current collective's trio
-    # system agent. Only applies when a collective context is provided. The
-    # `unless include?` guard catches the rare case where the text contains
-    # both @trio and @<trio's-actual-random-hex-handle>; without it, trio
-    # would appear twice in the result and downstream would send duplicate
-    # notifications.
+    users = if index_handles.any?
+      TenantUser.where(tenant_id: tenant_id, handle: index_handles)
+        .includes(:user)
+        .map(&:user)
+    else
+      []
+    end
+
     if collective && handles.include?(TRIO_HANDLE)
       trio = collective.trio_user
-      users << trio if trio && !users.include?(trio)
+      users << trio if trio
     end
 
     users

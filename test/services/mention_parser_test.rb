@@ -105,6 +105,37 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal [], result
   end
 
+  # The main-collective trio claims the literal TenantUser handle "trio" so its
+  # /u/trio profile resolves via the normal handle index. Without this guard,
+  # mentioning @trio in a non-main collective would resolve to BOTH the
+  # non-main collective's trio (via the magic) AND the main collective's trio
+  # (via the index) — fanning the mention out to a trio that isn't part of
+  # the conversation.
+  test "parse with collective context does not also resolve @trio to the index user with handle 'trio'" do
+    tenant, main_collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: main_collective.handle)
+
+    main_trio = User.create!(
+      email: "main_trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Main Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    tenant.add_user!(main_trio, handle: "trio")  # claims the literal handle
+    main_collective.update!(trio_user: main_trio)
+
+    other_collective = create_collective(tenant: tenant, created_by: user, handle: "other-#{SecureRandom.hex(4)}")
+    other_trio = User.create!(
+      email: "other_trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Other Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    tenant.add_user!(other_trio, handle: "trio-#{SecureRandom.hex(4)}")
+    other_collective.update!(trio_user: other_trio)
+
+    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: other_collective)
+
+    assert_equal [other_trio.id], result.map(&:id),
+      "expected only the other collective's trio, got #{result.map { |u| [u.id, u.name] }.inspect}"
+  end
+
   test "parse resolves @trio in one collective to that collective's trio, not another" do
     tenant, collective_a, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective_a.handle)

@@ -27,66 +27,23 @@ class TrioActivator
     new(collective).deactivate!
   end
 
+  # Drives Trio state into agreement with the collective's `trio` feature
+  # flag. Idempotent: if the flag is on and trio is already active, no-op;
+  # likewise for the off case. Safe to call after every settings save.
+  #
+  # Compares desired (`trio_enabled?`) to actual (`trio_user_id.present?`),
+  # not flag-transition deltas — a delta-based check would miss the first
+  # activation when the flag was already true via config default.
   sig { params(collective: Collective).void }
-  def initialize(collective)
-    @collective = collective
-  end
+  def self.reconcile!(collective)
+    desired = collective.trio_enabled?
+    actual = collective.trio_user_id.present?
 
-  sig { returns(User) }
-  def activate!
-    ActiveRecord::Base.transaction do
-      existing = find_existing_trio
-      existing ? restore!(existing) : bootstrap!
+    if desired && !actual
+      activate!(collective)
+    elsif !desired && actual
+      deactivate!(collective)
     end
-  end
-
-  sig { void }
-  def deactivate!
-    trio = @collective.trio_user
-    return unless trio
-
-    ActiveRecord::Base.transaction do
-      member = @collective.collective_members.find_by(user_id: trio.id)
-      member&.archive!
-
-      AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: false)
-
-      @collective.update!(trio_user_id: nil)
-    end
-  end
-
-  private
-
-  # Returns the trio User previously linked to this collective, even if its
-  # CollectiveMember is currently archived. Returns nil if Trio has never
-  # been activated here.
-  sig { returns(T.nilable(User)) }
-  def find_existing_trio
-    return @collective.trio_user if @collective.trio_user
-
-    member = @collective.collective_members
-      .joins(:user)
-      .where(users: { system_role: "trio" })
-      .first
-    member&.user
-  end
-
-  sig { params(trio: User).returns(User) }
-  def restore!(trio)
-    member = @collective.collective_members.find_by(user_id: trio.id)
-    member.unarchive! if member&.archived?
-
-    AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: true)
-
-    @collective.update!(trio_user: trio)
-    trio
-  end
-
-  sig { returns(User) }
-  def bootstrap!
-    trio = TrioSeeder.ensure_for(@collective)
-    self.class.seed_default_automations!(trio, T.must(@collective.tenant_id))
-    trio
   end
 
   # Idempotent: skips any default whose (ai_agent_id, event_type) row already
@@ -118,6 +75,82 @@ class TrioActivator
         enabled: true,
       )
     end
+  end
+
+  sig { params(collective: Collective).void }
+  def initialize(collective)
+    @collective = collective
+  end
+
+  sig { returns(User) }
+  def activate!
+    ActiveRecord::Base.transaction do
+      ensure_flag!(true)
+      existing = find_existing_trio
+      existing ? restore!(existing) : bootstrap!
+    end
+  end
+
+  sig { void }
+  def deactivate!
+    ActiveRecord::Base.transaction do
+      ensure_flag!(false)
+
+      trio = @collective.trio_user
+      next unless trio
+
+      member = @collective.collective_members.find_by(user_id: trio.id)
+      member&.archive!
+
+      AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: false)
+
+      @collective.update!(trio_user_id: nil)
+    end
+  end
+
+  private
+
+  # Keep the explicit flag in lockstep with the materialized state. Without
+  # this, calling activate!/deactivate! out-of-band (rake task, migration,
+  # console) would leave a state where reconcile! reads the flag and undoes
+  # the change on the next save.
+  sig { params(value: T::Boolean).void }
+  def ensure_flag!(value)
+    return if @collective.feature_flags_hash["trio"] == value
+
+    @collective.set_feature_flag!("trio", value)
+  end
+
+  # Returns the trio User previously linked to this collective, even if its
+  # CollectiveMember is currently archived. Returns nil if Trio has never
+  # been activated here.
+  sig { returns(T.nilable(User)) }
+  def find_existing_trio
+    return @collective.trio_user if @collective.trio_user
+
+    member = @collective.collective_members
+      .joins(:user)
+      .where(users: { system_role: "trio" })
+      .first
+    member&.user
+  end
+
+  sig { params(trio: User).returns(User) }
+  def restore!(trio)
+    member = @collective.collective_members.find_by(user_id: trio.id)
+    member.unarchive! if member&.archived?
+
+    AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: true)
+
+    @collective.update!(trio_user: trio)
+    trio
+  end
+
+  sig { returns(User) }
+  def bootstrap!
+    trio = TrioSeeder.ensure_for(@collective)
+    self.class.seed_default_automations!(trio, T.must(@collective.tenant_id))
+    trio
   end
 
   DEFAULT_AUTOMATIONS = T.let(

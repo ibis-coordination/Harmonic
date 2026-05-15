@@ -242,17 +242,10 @@ class UsersController < ApplicationController
     workspace = settings_user.private_workspace
     return render "404", status: 404 if workspace.nil?
 
-    was_enabled = workspace.trio_enabled?
     workspace.set_feature_flag!("trio", params[:feature_trio].to_s == "true")
-    is_enabled = workspace.trio_enabled?
+    TrioActivator.reconcile!(workspace)
 
-    if !was_enabled && is_enabled
-      TrioActivator.activate!(workspace)
-    elsif was_enabled && !is_enabled
-      TrioActivator.deactivate!(workspace)
-    end
-
-    flash[:notice] = "Workspace Trio is now #{is_enabled ? 'enabled' : 'disabled'}."
+    flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? 'enabled' : 'disabled'}."
     redirect_to "#{settings_user.path}/settings"
   end
 
