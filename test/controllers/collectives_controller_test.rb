@@ -170,6 +170,40 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # === Trio Flag Wiring ===
+
+  test "enabling the trio feature flag activates trio for the collective" do
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", false)
+    assert_nil @collective.trio_user_id, "precondition: trio should be off"
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    @collective.reload
+    assert_not_nil @collective.trio_user_id, "expected trio to be activated"
+    assert AutomationRule.where(ai_agent_id: @collective.trio_user_id).exists?, "expected default automations to be seeded"
+  end
+
+  test "disabling the trio feature flag deactivates trio for the collective" do
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", true)
+    TrioActivator.activate!(@collective)
+    trio_id = T.must(@collective.reload.trio_user_id)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { feature_trio: "false" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    @collective.reload
+    assert_nil @collective.trio_user_id, "expected trio to be deactivated"
+    rules = AutomationRule.where(ai_agent_id: trio_id)
+    assert rules.all? { |r| !r.enabled? }, "expected default automations to be disabled"
+  end
+
   # === Members Tests ===
 
   test "authenticated user can view collective members" do

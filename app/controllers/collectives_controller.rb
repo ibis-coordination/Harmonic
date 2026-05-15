@@ -249,6 +249,9 @@ class CollectivesController < ApplicationController
       @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
 
+    # Capture pre-update trio state so we can detect a flag flip after save.
+    trio_was_enabled = @current_collective.trio_enabled?
+
     # Handle feature flags via unified system
     FeatureFlagService.all_flags.each do |flag_name|
       param_key = "feature_#{flag_name}"
@@ -263,6 +266,14 @@ class CollectivesController < ApplicationController
 
     @current_collective.updated_by = @current_user if @current_collective.changed?
     @current_collective.save!
+
+    trio_is_enabled = @current_collective.trio_enabled?
+    if !trio_was_enabled && trio_is_enabled
+      TrioActivator.activate!(@current_collective)
+    elsif trio_was_enabled && !trio_is_enabled
+      TrioActivator.deactivate!(@current_collective)
+    end
+
     flash[:notice] = "Settings successfully updated. [Return to collective homepage.](#{@current_collective.url})"
     redirect_to request.referrer
   end
