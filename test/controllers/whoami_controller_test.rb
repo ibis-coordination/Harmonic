@@ -121,7 +121,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
 
   test "whoami shows the Trio identity prompt for the system agent (no parent)" do
     @tenant.enable_api!
-    trio = TrioSeeder.ensure_for(@tenant)
+    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
 
     api_token = ApiToken.create!(
       user: trio,

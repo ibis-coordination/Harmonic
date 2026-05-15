@@ -16,7 +16,7 @@ namespace :trio do
         .where(tenant_users: { tenant_id: tenant.id })
         .count
 
-      TrioSeeder.ensure_for(tenant)
+      TrioSeeder.ensure_for(tenant.main_collective)
 
       if pre_count.zero?
         seeded += 1

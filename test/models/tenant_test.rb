@@ -47,6 +47,7 @@ class TenantTest < ActiveSupport::TestCase
     assert tu.handle.start_with?("trio-"), "expected suffixed handle, got #{tu.handle.inspect}"
   end
 
+
   test "Tenant.create_main_collective! creates a main collective" do
     tenant = create_tenant
     user = create_user

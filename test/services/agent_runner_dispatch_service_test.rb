@@ -274,7 +274,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "dispatches task for system agent without billing setup" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(@tenant)
+    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
     task_run = AiAgentTaskRun.create!(
       tenant: @tenant, ai_agent: trio, initiated_by: @user,
       task: "Where are my decisions?", max_steps: 10, status: "queued",
@@ -294,7 +294,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "does not stamp stripe_customer_id on system agent task run" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(@tenant)
+    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
     task_run = AiAgentTaskRun.create!(
       tenant: @tenant, ai_agent: trio, initiated_by: @user,
       task: "Hello", max_steps: 10, status: "queued",
@@ -310,7 +310,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "skips credit balance check for system agent in stripe_gateway mode" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(@tenant)
+    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
     task_run = AiAgentTaskRun.create!(
       tenant: @tenant, ai_agent: trio, initiated_by: @user,
       task: "Hello", max_steps: 10, status: "queued",

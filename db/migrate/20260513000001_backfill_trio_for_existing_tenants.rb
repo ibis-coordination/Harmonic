@@ -8,7 +8,8 @@ class BackfillTrioForExistingTenants < ActiveRecord::Migration[7.2]
     Tenant.find_each do |tenant|
       next unless tenant.main_collective_id
 
-      TrioSeeder.ensure_for(tenant)
+      main = tenant.main_collective
+      TrioSeeder.ensure_for(main) if main
     end
   end
 

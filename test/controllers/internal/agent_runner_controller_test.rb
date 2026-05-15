@@ -427,7 +427,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
   test "preflight passes for system agent without billing setup" do
     @tenant.set_feature_flag!("stripe_billing", true)
     @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(@tenant)
+    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
     system_task = AiAgentTaskRun.create!(
       tenant: @tenant, ai_agent: trio, initiated_by: @user,
       task: "test", max_steps: 10, status: "queued",

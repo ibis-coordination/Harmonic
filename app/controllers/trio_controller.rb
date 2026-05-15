@@ -13,7 +13,7 @@ class TrioController < ApplicationController
 
   def index
     @page_title = "Trio"
-    @partner = TrioSeeder.ensure_for(@current_tenant)
+    @partner = TrioSeeder.ensure_for(T.must(@current_tenant.main_collective))
     @chat_session = ChatSession.find_or_create_between(
       user_a: @current_user,
       user_b: @partner,
