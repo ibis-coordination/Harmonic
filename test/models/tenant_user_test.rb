@@ -134,4 +134,18 @@ class TenantUserTest < ActiveSupport::TestCase
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
+
+  test "handle 'trio' is rejected when set via update! on an existing TenantUser" do
+    # Defense in depth: even if a caller bypasses the controller layer and
+    # calls update! directly, the reserved-handle validation rejects "trio"
+    # for a non-trio user.
+    tenant = create_tenant(subdomain: "rh-update-#{SecureRandom.hex(4)}")
+    user = create_user(email: "regular-#{SecureRandom.hex(4)}@example.com")
+    tu = tenant.add_user!(user)
+    assert_not_equal "trio", tu.handle
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      tu.update!(handle: "trio")
+    end
+  end
 end

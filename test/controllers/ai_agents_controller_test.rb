@@ -625,6 +625,35 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/ai-agents/new}, response.location
   end
 
+  test "execute_create_ai_agent ignores system_role param" do
+    # `system_role: "trio"` would grant billing exemption + workspace-membership
+    # + reserved-handle privileges. Only TrioSeeder may assign it; user-supplied
+    # params must not.
+    @tenant.set_feature_flag!("ai_agents", true)
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
+      post "/ai-agents/new/actions/create_ai_agent",
+        params: { name: "Sneaky Agent", mode: "external", system_role: "trio" }
+    end
+
+    created = User.where(user_type: "ai_agent").order(created_at: :desc).first
+    assert_nil created.system_role
+    assert_equal @user.id, created.parent_id
+  end
+
+  test "update_settings cannot rename an agent's handle to the reserved 'trio'" do
+    sign_in_as(@user, tenant: @tenant)
+    begin
+      post "/ai-agents/#{@ai_agent_handle}/settings", params: { new_handle: "trio" }
+    rescue ActiveRecord::RecordInvalid
+      # Expected — TenantUser validation rejects the reserved handle.
+    end
+
+    @ai_agent.tenant_users.find_by(tenant: @tenant).reload
+    assert_equal @ai_agent_handle, @ai_agent.tenant_users.find_by(tenant: @tenant).handle
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

@@ -123,4 +123,21 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert_equal trio_main.id, @main.reload.trio_user_id
     assert_equal trio_other.id, other.reload.trio_user_id
   end
+
+  test "TrioSeeder is the only production source creating system_role: 'trio' users" do
+    # Scans app/ for hash-literal assignments shaped like
+    # `system_role: "trio",` — the form that appears inside User.create!(...).
+    # Query usage (`.where(users: { system_role: "trio" })`) ends with `}`
+    # instead of a comma and is intentionally not flagged.
+    #
+    # If this list ever contains another file, a new code path is creating
+    # privileged system users — re-evaluate the security model before merging.
+    sources = Dir.glob("app/**/*.rb").select do |file|
+      File.read(file).match?(/system_role:\s*["']trio["']\s*,/)
+    end
+
+    assert_equal ["app/services/trio_seeder.rb"], sources.sort,
+      "Expected TrioSeeder to be the sole creator of system_role: 'trio' users; " \
+      "found additional sources: #{sources.inspect}"
+  end
 end

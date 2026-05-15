@@ -77,6 +77,40 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_nil T.must(@user.private_workspace).reload.trio_user_id
   end
 
+  # === Profile Updates ===
+
+  test "update_profile ignores system_role param" do
+    # `system_role: "trio"` would grant the user system-agent privileges
+    # (billing exemption, workspace membership exception, reserved handle).
+    # update_profile does not accept this attribute.
+    sign_in_as(@user, tenant: @tenant)
+    refute @user.system?
+
+    post "/u/#{@user.handle}/settings/profile",
+      params: { name: "Renamed", system_role: "trio" }
+
+    @user.reload
+    assert_nil @user.system_role
+    refute @user.system?
+  end
+
+  test "update_profile cannot rename a non-trio user's handle to 'trio'" do
+    sign_in_as(@user, tenant: @tenant)
+    original_handle = @user.tenant_user.handle
+
+    # TenantUser's reserved-handle validation raises ActiveRecord::RecordInvalid
+    # at the update! call site. What matters for security is that the handle
+    # is not persisted as "trio".
+    begin
+      post "/u/#{@user.handle}/settings/profile", params: { new_handle: "trio" }
+    rescue ActiveRecord::RecordInvalid
+      # Expected — validation rejected the change.
+    end
+
+    @user.tenant_user.reload
+    assert_equal original_handle, @user.tenant_user.handle
+  end
+
   # === Show (GET /u/:handle) Tests ===
 
   test "can view user profile" do
