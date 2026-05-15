@@ -7,7 +7,7 @@ class AutomationYamlParser
   class ValidationError < StandardError; end
 
   VALID_TRIGGER_TYPES = ["event", "schedule", "webhook", "manual"].freeze
-  VALID_MENTION_FILTERS = ["self", "any_agent"].freeze
+  VALID_MENTION_FILTERS = ["self", "self_or_reply", "any_agent"].freeze
   VALID_CONDITION_OPERATORS = ["==", "!=", ">", ">=", "<", "<=", "contains", "not_contains", "matches", "not_matches"].freeze
   VALID_ACTION_TYPES = ["internal_action", "webhook", "trigger_agent"].freeze
 

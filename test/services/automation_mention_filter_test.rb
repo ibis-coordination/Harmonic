@@ -119,6 +119,39 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     assert_not AutomationMentionFilter.matches?(event, @ai_agent, "any_agent")
   end
 
+  # === self_or_reply Filter ===
+
+  test "self_or_reply filter matches when agent is mentioned" do
+    handle = agent_handle(@ai_agent)
+    note = create_note(text: "Hey @#{handle}, what do you think?")
+    event = create_event_for_note(note)
+
+    assert AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
+  test "self_or_reply filter matches when the event subject is a reply to a note the agent authored" do
+    agent_note = create_note(text: "My note", created_by: @ai_agent)
+    reply = create_note(text: "Thanks!", commentable: agent_note)
+    event = create_event_for_note(reply)
+
+    assert AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
+  test "self_or_reply filter does not match when the reply is to a note authored by someone else" do
+    other_note = create_note(text: "Someone else's note", created_by: @user)
+    reply = create_note(text: "Cool", commentable: other_note)
+    event = create_event_for_note(reply)
+
+    assert_not AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
+  test "self_or_reply filter does not match a top-level note that doesn't mention the agent" do
+    note = create_note(text: "Just a normal note, no mention.")
+    event = create_event_for_note(note)
+
+    assert_not AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
   # === Unknown Filter ===
 
   test "unknown filter type returns false" do

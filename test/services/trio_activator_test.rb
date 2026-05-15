@@ -34,7 +34,8 @@ class TrioActivatorTest < ActiveSupport::TestCase
     assert rules.exists?, "expected at least one default automation rule"
     assert rules.all? { |r| r.enabled? }, "default rules should be enabled"
     assert rules.all? { |r| r.trigger_type == "event" }, "default rules should be event-triggered"
-    assert rules.all? { |r| r.mention_filter == "self" }, "default rules should filter on self-mentions"
+    assert rules.all? { |r| %w[self self_or_reply].include?(r.mention_filter) },
+      "default rules should filter on self-mentions (or self+reply)"
   end
 
   test "activate! seeds rules for note, decision, and commitment events" do

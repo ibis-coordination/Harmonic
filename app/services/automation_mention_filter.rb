@@ -11,6 +11,12 @@ class AutomationMentionFilter
     case mention_filter
     when "self"
       agent_mentioned_in_event?(event, ai_agent)
+    when "self_or_reply"
+      # Self-mention OR the event's subject is a reply to something the agent
+      # authored — so trio (or any agent using this filter) responds both
+      # when @mentioned and when someone replies to its content/comment.
+      agent_mentioned_in_event?(event, ai_agent) ||
+        agent_authored_commentable?(event, ai_agent)
     when "any_agent"
       any_agent_mentioned_in_event?(event)
     else
@@ -18,6 +24,20 @@ class AutomationMentionFilter
       false
     end
   end
+
+  # True if the event's subject is a comment (has a commentable) and that
+  # commentable was created by the given agent.
+  sig { params(event: Event, ai_agent: User).returns(T::Boolean) }
+  def self.agent_authored_commentable?(event, ai_agent)
+    subject = event.subject
+    return false unless subject.respond_to?(:commentable_id) && subject.commentable_id
+
+    commentable = subject.respond_to?(:commentable) ? subject.commentable : nil
+    return false unless commentable&.respond_to?(:created_by_id)
+
+    commentable.created_by_id == ai_agent.id
+  end
+  private_class_method :agent_authored_commentable?
 
   # Check if a specific agent was mentioned in the event's subject content
   sig { params(event: Event, ai_agent: User).returns(T::Boolean) }

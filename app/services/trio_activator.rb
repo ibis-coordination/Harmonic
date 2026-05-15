@@ -67,7 +67,7 @@ class TrioActivator
         trigger_type: "event",
         trigger_config: {
           "event_type" => event_type,
-          "mention_filter" => "self",
+          "mention_filter" => attrs.fetch(:mention_filter, "self"),
           "max_steps" => attrs.fetch(:max_steps, 20),
         },
         conditions: [],
@@ -156,13 +156,15 @@ class TrioActivator
   DEFAULT_AUTOMATIONS = T.let(
     [
       {
-        name: "Respond to mentions",
-        description: "When @trio is mentioned in a note or comment, navigate and respond.",
+        name: "Respond to mentions and replies",
+        description: "When @trio is mentioned, or when someone replies to a comment Trio wrote, navigate and respond.",
         event_type: "note.created",
+        mention_filter: "self_or_reply",
         max_steps: 20,
         task: <<~TASK,
-          You were mentioned by {{event.actor.name}} in {{subject.path}}.
-          Navigate there, read the context, and respond appropriately with a comment.
+          You were mentioned (or replied to) by {{event.actor.name}} in {{subject.path}}.
+          Navigate there, read the context — including the parent thread if this
+          is a reply — and respond appropriately with a comment.
         TASK
       },
       {

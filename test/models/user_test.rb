@@ -441,6 +441,26 @@ class UserTest < ActiveSupport::TestCase
     assert_nil agent.system_role
   end
 
+  test "trio system agent's handle is always 'trio' regardless of stored TenantUser handle" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio",
+    )
+    @tenant.add_user!(trio, handle: "trio-abc12345")
+
+    assert_equal "trio", trio.handle, "expected trio's handle to be 'trio' even when TenantUser stores a hex-suffixed value"
+  end
+
+  test "trio system agent's path is always /u/trio regardless of stored TenantUser handle" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio",
+    )
+    @tenant.add_user!(trio, handle: "trio-abc12345")
+
+    assert_equal "/u/trio", trio.path
+  end
+
   test "creating a system ai_agent does not create a TrusteeGrant" do
     assert_difference -> { TrusteeGrant.count }, 0 do
       User.create!(
