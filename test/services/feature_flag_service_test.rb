@@ -122,8 +122,8 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert_not FeatureFlagService.default_for_collective("api")
     # file_attachments default_collective is true in config
     assert FeatureFlagService.default_for_collective("file_attachments")
-    # trio default_collective is true in config
-    assert FeatureFlagService.default_for_collective("trio")
+    # trio default_collective is false in config — explicit per-collective opt-in
+    assert_not FeatureFlagService.default_for_collective("trio")
   end
 
   test "trio flag is app enabled" do

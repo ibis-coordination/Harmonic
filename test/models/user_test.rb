@@ -393,6 +393,143 @@ class UserTest < ActiveSupport::TestCase
     assert_includes test_user.errors[:parent_id], "user cannot be its own parent"
   end
 
+  # === System Agent Tests (system_role) ===
+
+  test "system ai_agent can be created with nil parent_id" do
+    agent = User.new(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio",
+      user_type: "ai_agent",
+      system_role: "trio",
+      parent_id: nil,
+    )
+    assert agent.valid?, agent.errors.full_messages.to_sentence
+  end
+
+  test "system? returns true when system_role is set" do
+    agent = User.new(user_type: "ai_agent", system_role: "trio", parent_id: nil)
+    assert agent.system?
+  end
+
+  test "system? returns false when system_role is nil" do
+    assert_not @user.system?
+  end
+
+  test "system_role rejects unknown values" do
+    agent = User.new(
+      email: "bad_#{SecureRandom.hex(4)}@example.com",
+      name: "Bad",
+      user_type: "ai_agent",
+      system_role: "not_a_real_role",
+      parent_id: nil,
+    )
+    assert_not agent.valid?
+    assert_includes agent.errors[:system_role], "is not included in the list"
+  end
+
+  test "system_role allows nil for ordinary users and user-created agents" do
+    assert @user.valid?
+    assert_nil @user.system_role
+
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "User Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+    assert agent.valid?
+    assert_nil agent.system_role
+  end
+
+  test "trio system agent's handle is always 'trio' regardless of stored TenantUser handle" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio",
+    )
+    @tenant.add_user!(trio, handle: "trio-abc12345")
+
+    assert_equal "trio", trio.handle, "expected trio's handle to be 'trio' even when TenantUser stores a hex-suffixed value"
+  end
+
+  test "trio system agent's path is always /u/trio regardless of stored TenantUser handle" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio",
+    )
+    @tenant.add_user!(trio, handle: "trio-abc12345")
+
+    assert_equal "/u/trio", trio.path
+  end
+
+  test "creating a system ai_agent does not create a TrusteeGrant" do
+    assert_difference -> { TrusteeGrant.count }, 0 do
+      User.create!(
+        email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+        name: "Trio",
+        user_type: "ai_agent",
+        system_role: "trio",
+        parent_id: nil,
+      )
+    end
+  end
+
+  test "effective_identity_prompt returns the static Trio prompt for trio users, ignoring stale agent_configuration" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio",
+      user_type: "ai_agent",
+      system_role: "trio",
+      parent_id: nil,
+      agent_configuration: { "identity_prompt" => "stale cached prompt" },
+    )
+
+    assert_equal Trio::SystemPrompt.text, trio.effective_identity_prompt
+  end
+
+  test "effective_identity_prompt returns agent_configuration value for ordinary ai_agents" do
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "User Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+      agent_configuration: { "identity_prompt" => "user-provided prompt" },
+    )
+
+    assert_equal "user-provided prompt", agent.effective_identity_prompt
+  end
+
+  test "effective_identity_prompt returns nil for ordinary agents without a configured prompt" do
+    agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "User Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+
+    assert_nil agent.effective_identity_prompt
+  end
+
+  test "system_agents scope returns only users with system_role set" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio",
+      user_type: "ai_agent",
+      system_role: "trio",
+      parent_id: nil,
+    )
+    user_agent = User.create!(
+      email: "agent_#{SecureRandom.hex(4)}@example.com",
+      name: "User Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+
+    system_agents = User.system_agents
+    assert_includes system_agents, trio
+    assert_not_includes system_agents, user_agent
+    assert_not_includes system_agents, @user
+  end
+
   # === Global Roles Tests (HasGlobalRoles concern) ===
 
   test "app_admin? returns false by default" do

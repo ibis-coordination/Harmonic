@@ -119,6 +119,39 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     assert_not AutomationMentionFilter.matches?(event, @ai_agent, "any_agent")
   end
 
+  # === self_or_reply Filter ===
+
+  test "self_or_reply filter matches when agent is mentioned" do
+    handle = agent_handle(@ai_agent)
+    note = create_note(text: "Hey @#{handle}, what do you think?")
+    event = create_event_for_note(note)
+
+    assert AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
+  test "self_or_reply filter matches when the event subject is a reply to a note the agent authored" do
+    agent_note = create_note(text: "My note", created_by: @ai_agent)
+    reply = create_note(text: "Thanks!", commentable: agent_note)
+    event = create_event_for_note(reply)
+
+    assert AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
+  test "self_or_reply filter does not match when the reply is to a note authored by someone else" do
+    other_note = create_note(text: "Someone else's note", created_by: @user)
+    reply = create_note(text: "Cool", commentable: other_note)
+    event = create_event_for_note(reply)
+
+    assert_not AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
+  test "self_or_reply filter does not match a top-level note that doesn't mention the agent" do
+    note = create_note(text: "Just a normal note, no mention.")
+    event = create_event_for_note(note)
+
+    assert_not AutomationMentionFilter.matches?(event, @ai_agent, "self_or_reply")
+  end
+
   # === Unknown Filter ===
 
   test "unknown filter type returns false" do
@@ -238,6 +271,44 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     )
 
     assert AutomationMentionFilter.matches?(event, @ai_agent, "self")
+  end
+
+  # === @trio (per-collective system agent) ===
+
+  test "self filter matches when @trio is mentioned and agent is the collective's trio_user" do
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    # Trio's stored handle is intentionally non-"trio" (random hex). The literal
+    # string @trio is resolved by the MentionParser via collective.trio_user, so
+    # the handle index never collides across collectives.
+    @tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
+    @collective.add_user!(trio)
+    @collective.update!(trio_user: trio)
+
+    note = create_note(text: "Hey @trio, what should we do?")
+    event = create_event_for_note(note)
+
+    assert AutomationMentionFilter.matches?(event, trio, "self")
+  end
+
+  test "self filter does not match @trio when agent is a different collective's trio" do
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
+    other_trio = User.create!(
+      email: "trio_other_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    @tenant.add_user!(other_trio, handle: "trio-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(other_trio)
+    other_collective.update!(trio_user: other_trio)
+
+    note = create_note(text: "Hey @trio")
+    event = create_event_for_note(note)
+
+    # Event is in @collective, not other_collective — so other_collective's trio
+    # is not in scope here.
+    assert_not AutomationMentionFilter.matches?(event, other_trio, "self")
   end
 
   # === Mention Format Variations ===

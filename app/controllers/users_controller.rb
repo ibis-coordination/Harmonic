@@ -226,6 +226,29 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   end
 
+  # POST /u/:handle/settings/workspace_trio
+  # Toggles Trio on/off in the user's private workspace. Only the workspace
+  # owner can toggle. The collective-settings UI rejects writes against
+  # workspaces (CollectivesController#update_settings returns 403), so this
+  # endpoint is the user-facing entry point.
+  def update_workspace_trio
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: 404 if tu.nil?
+
+    settings_user = tu.user
+    # Only the workspace owner toggles their own workspace flag.
+    return render plain: "403 Unauthorized", status: 403 unless settings_user == current_user
+
+    workspace = settings_user.private_workspace
+    return render "404", status: 404 if workspace.nil?
+
+    workspace.set_feature_flag!("trio", params[:feature_trio].to_s == "true")
+    TrioActivator.reconcile!(workspace)
+
+    flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? 'enabled' : 'disabled'}."
+    redirect_to "#{settings_user.path}/settings"
+  end
+
   # PATCH /u/:handle/settings/email
   EMAIL_CHANGE_TOKEN_EXPIRY = 24.hours
 

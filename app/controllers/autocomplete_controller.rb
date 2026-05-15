@@ -42,13 +42,39 @@ class AutocompleteController < ApplicationController
       .order(:handle)
       .limit(10)
 
+    # Display the collective's trio with the magic handle "trio" rather
+    # than its stored TenantUser handle (which is hex-suffixed for non-main
+    # collectives to avoid the tenant-wide handle collision). The mention
+    # parser resolves "@trio" back to this collective's trio via the
+    # collective.trio_user link.
+    trio_user_id = @current_collective.trio_user_id
+
     results = tenant_users.map do |tu|
+      display_handle = tu.user_id == trio_user_id ? MentionParser::TRIO_HANDLE : tu.handle
       {
         id: tu.user_id,
-        handle: tu.handle,
+        handle: display_handle,
         display_name: tu.display_name,
         avatar_url: tu.user.image_url,
       }
+    end
+
+    # If the query is a prefix of "trio" (e.g., "", "t", "tr", "tri", "trio")
+    # and chariot's trio didn't surface via the substring search above
+    # (e.g., the alphabetical top-10 with no query didn't include it),
+    # inject it so "@trio" autocomplete always works.
+    query_is_trio_prefix = query.empty? || MentionParser::TRIO_HANDLE.start_with?(query)
+    if trio_user_id && query_is_trio_prefix && results.none? { |r| r[:id] == trio_user_id }
+      trio_tu = TenantUser.where(tenant_id: @current_tenant.id, user_id: trio_user_id).includes(:user).first
+      if trio_tu
+        results.unshift(
+          id: trio_tu.user_id,
+          handle: MentionParser::TRIO_HANDLE,
+          display_name: trio_tu.display_name,
+          avatar_url: trio_tu.user.image_url,
+        )
+        results = results.first(10)
+      end
     end
 
     render json: results

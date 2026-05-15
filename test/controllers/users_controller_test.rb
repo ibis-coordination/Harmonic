@@ -8,6 +8,109 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
+  # === Workspace Trio Settings View ===
+
+  test "user settings page shows Workspace AI Assistant section when tenant has trio enabled" do
+    @tenant.enable_feature_flag!("trio")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/u/#{@user.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Workspace AI Assistant"
+    assert_includes response.body, "feature_trio"
+  end
+
+  test "user settings page hides Workspace AI Assistant section when tenant has trio disabled" do
+    @tenant.disable_feature_flag!("trio")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/u/#{@user.handle}/settings"
+    assert_response :success
+    assert_not_includes response.body, "Workspace AI Assistant"
+  end
+
+  # === Workspace Trio Toggle ===
+
+  test "workspace owner can enable Trio in their private workspace" do
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_not_nil workspace.trio_user_id, "expected trio to be activated in workspace"
+    assert AutomationRule.where(ai_agent_id: workspace.trio_user_id).exists?
+  end
+
+  test "workspace owner can disable Trio in their private workspace" do
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", true)
+    TrioActivator.activate!(workspace)
+    trio_id = T.must(workspace.reload.trio_user_id)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "false" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_nil workspace.trio_user_id, "expected trio to be deactivated in workspace"
+    assert AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? }
+  end
+
+  test "non-owner cannot toggle Trio in someone else's workspace" do
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+    @tenant.enable_feature_flag!("trio")
+
+    sign_in_as(other_user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    assert_response :forbidden
+    assert_nil T.must(@user.private_workspace).reload.trio_user_id
+  end
+
+  # === Profile Updates ===
+
+  test "update_profile ignores system_role param" do
+    # `system_role: "trio"` would grant the user system-agent privileges
+    # (billing exemption, workspace membership exception, reserved handle).
+    # update_profile does not accept this attribute.
+    sign_in_as(@user, tenant: @tenant)
+    refute @user.system?
+
+    post "/u/#{@user.handle}/settings/profile",
+      params: { name: "Renamed", system_role: "trio" }
+
+    @user.reload
+    assert_nil @user.system_role
+    refute @user.system?
+  end
+
+  test "update_profile cannot rename a non-trio user's handle to 'trio'" do
+    sign_in_as(@user, tenant: @tenant)
+    original_handle = @user.tenant_user.handle
+
+    # TenantUser's reserved-handle validation raises ActiveRecord::RecordInvalid
+    # at the update! call site. What matters for security is that the handle
+    # is not persisted as "trio".
+    begin
+      post "/u/#{@user.handle}/settings/profile", params: { new_handle: "trio" }
+    rescue ActiveRecord::RecordInvalid
+      # Expected — validation rejected the change.
+    end
+
+    @user.tenant_user.reload
+    assert_equal original_handle, @user.tenant_user.handle
+  end
+
   # === Show (GET /u/:handle) Tests ===
 
   test "can view user profile" do

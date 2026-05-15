@@ -282,7 +282,16 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         }
       }
 
-      chatMessages.push(userMessage(task.task));
+      // Rails commits the user's ChatMessage before dispatching the task, so
+      // the just-fetched history normally already ends with task.task. Only
+      // append it when missing — covers the history-fetch-failed fallback
+      // (empty history) and the race where history loads slightly stale.
+      const lastHistoryMsg = history[history.length - 1];
+      const taskAlreadyTrailing =
+        lastHistoryMsg?.role === "user" && lastHistoryMsg.content === task.task;
+      if (!taskAlreadyTrailing) {
+        chatMessages.push(userMessage(task.task));
+      }
       messages = chatMessages;
     } else {
       // Task mode: always start at /whoami

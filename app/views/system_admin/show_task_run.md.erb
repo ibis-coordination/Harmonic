@@ -1,6 +1,11 @@
+<% redacted = !@task_run.ai_agent&.system? -%>
 # Task Run <%= @task_run.id[0..7] %>
 
+<% if redacted -%>
 > Privacy note: Task prompt and page content are redacted in the admin view.
+<% else -%>
+> System agent: full step details are visible (no human parent, sys admins are accountable).
+<% end -%>
 
 ## Summary
 
@@ -39,6 +44,12 @@
 <% case step[:type] -%>
 <% when "navigate" -%>
 Path: `<%= detail[:path] %>`
+<% if !redacted && detail[:content_preview].present? -%>
+
+```
+<%= detail[:content_preview] %>
+```
+<% end -%>
 <% when "execute" -%>
 Action: `<%= detail[:action] %>` — <%= detail[:success] ? "success" : "failed" %>
 <% if detail[:error].present? -%>
@@ -48,8 +59,18 @@ Error: <%= detail[:error] %>
 <% if detail[:llm_error].present? -%>
 LLM Error: <%= detail[:llm_error] %>
 <% end -%>
+<% if !redacted && detail[:response_preview].present? -%>
+
+```
+<%= detail[:response_preview] %>
+```
+<% end -%>
 <% when "done" -%>
+<% if redacted -%>
 Task completed
+<% else -%>
+<%= detail[:message] %>
+<% end -%>
 <% when "error" -%>
 <%= detail[:message] %>
 <% when "security_warning" -%>

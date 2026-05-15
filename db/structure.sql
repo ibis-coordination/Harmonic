@@ -405,7 +405,8 @@ CREATE TABLE public.collectives (
     archived_at timestamp(6) without time zone,
     billing_exempt boolean DEFAULT false NOT NULL,
     pending_billing_setup boolean DEFAULT false NOT NULL,
-    collective_type character varying DEFAULT 'standard'::character varying NOT NULL
+    collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
+    trio_user_id uuid
 );
 
 
@@ -2069,7 +2070,8 @@ CREATE TABLE public.users (
     pending_email character varying,
     email_confirmation_token character varying,
     email_confirmation_sent_at timestamp(6) without time zone,
-    sessions_revoked_at timestamp(6) without time zone
+    sessions_revoked_at timestamp(6) without time zone,
+    system_role character varying
 );
 
 
@@ -4566,6 +4568,13 @@ CREATE INDEX index_users_on_stripe_customer_id ON public.users USING btree (stri
 --
 
 CREATE INDEX index_users_on_suspended_at ON public.users USING btree (suspended_at);
+
+
+--
+-- Name: index_users_on_system_role; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_system_role ON public.users USING btree (system_role) WHERE (system_role IS NOT NULL);
 
 
 --
@@ -9434,6 +9443,12 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260514000003'),
+('20260514000002'),
+('20260514000001'),
+('20260514000000'),
+('20260513000001'),
+('20260513000000'),
 ('20260512000000'),
 ('20260511000002'),
 ('20260511000001'),

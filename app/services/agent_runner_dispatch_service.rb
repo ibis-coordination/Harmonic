@@ -54,9 +54,12 @@ class AgentRunnerDispatchService
       return
     end
 
-    # Billing checks
+    # Billing checks. System agents (e.g., Trio) are exempt: they have no
+    # billing_customer, are never charged, and the agent-runner already
+    # tolerates a missing stripe_customer_stripe_id by skipping the
+    # X-Stripe-Customer-ID header.
     billing_customer = ai_agent.billing_customer
-    if tenant.feature_enabled?("stripe_billing")
+    if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
       unless billing_customer&.active?
         fail_task!("Billing is not set up. Please set up billing at /billing before running AI agents.")
         return

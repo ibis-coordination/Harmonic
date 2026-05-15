@@ -4,17 +4,46 @@ class MentionParser
   extend T::Sig
 
   MENTION_PATTERN = /@([a-zA-Z0-9_-]+)/
+  TRIO_HANDLE = "trio"
 
-  sig { params(text: T.nilable(String), tenant_id: T.nilable(String)).returns(T::Array[User]) }
-  def self.parse(text, tenant_id:)
+  sig do
+    params(
+      text: T.nilable(String),
+      tenant_id: T.nilable(String),
+      collective: T.nilable(Collective),
+    ).returns(T::Array[User])
+  end
+  def self.parse(text, tenant_id:, collective: nil)
     return [] if text.blank? || tenant_id.blank?
 
     handles = extract_handles(text)
     return [] if handles.empty?
 
-    TenantUser.where(tenant_id: tenant_id, handle: handles)
-      .includes(:user)
-      .map(&:user)
+    # When a collective is provided, "@trio" ALWAYS means this collective's
+    # trio. The handle index would otherwise also resolve "@trio" to the
+    # main collective's trio (which claims the literal handle "trio") even
+    # when mentioned in some other collective, fanning out the mention to a
+    # trio that isn't local to the conversation.
+    index_handles = if collective
+      handles - [TRIO_HANDLE]
+    else
+      handles
+    end
+
+    users = if index_handles.any?
+      TenantUser.where(tenant_id: tenant_id, handle: index_handles)
+        .includes(:user)
+        .map(&:user)
+    else
+      []
+    end
+
+    if collective && handles.include?(TRIO_HANDLE)
+      trio = collective.trio_user
+      users << trio if trio
+    end
+
+    users
   end
 
   # Parse mentions and filter to valid notification recipients:
@@ -29,7 +58,7 @@ class MentionParser
     ).returns(T::Array[User])
   end
   def self.parse_for_notification(text, tenant_id:, collective:, exclude_user: nil)
-    users = parse(text, tenant_id: tenant_id)
+    users = parse(text, tenant_id: tenant_id, collective: collective)
     users
       .reject { |u| exclude_user && u.id == exclude_user.id }
       .select { |u| collective.user_is_member?(u) }

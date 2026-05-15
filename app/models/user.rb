@@ -43,10 +43,15 @@ class User < ApplicationRecord
   # Auto-create TrusteeGrant when an AI agent is created
   after_create :create_parent_trustee_grant!, if: :ai_agent?
 
+  SYSTEM_ROLES = T.let(["trio"].freeze, T::Array[String])
+
   validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_identity", "imported_placeholder"] }
   validates :email, presence: true
   validates :name, presence: true
+  validates :system_role, inclusion: { in: SYSTEM_ROLES, allow_nil: true }
   validate :ai_agent_must_have_parent
+
+  scope :system_agents, -> { where.not(system_role: nil) }
 
   # Clear memoized associations on reload
   sig { params(options: T.untyped).returns(User) }
@@ -94,12 +99,29 @@ class User < ApplicationRecord
   def ai_agent_must_have_parent
     if parent_id.present? && !ai_agent?
       errors.add(:parent_id, "can only be set for AI agent users")
-    elsif parent_id.nil? && ai_agent?
+    elsif parent_id.nil? && ai_agent? && !system?
       errors.add(:parent_id, "must be set for AI agent users")
     end
     return unless persisted? && parent_id == id
 
     errors.add(:parent_id, "user cannot be its own parent")
+  end
+
+  sig { returns(T::Boolean) }
+  def system?
+    system_role.present?
+  end
+
+  # Returns the identity prompt the agent-runner should use for this user.
+  # For system agents we read from their static source on every call so
+  # prompt edits go live without needing to refresh agent_configuration.
+  # For ordinary user-created agents the prompt lives on the User row.
+  sig { returns(T.nilable(String)) }
+  def effective_identity_prompt
+    case system_role
+    when "trio" then Trio::SystemPrompt.text
+    else agent_configuration&.dig("identity_prompt")
+    end
   end
 
   sig { returns(T::Boolean) }
@@ -331,6 +353,14 @@ class User < ApplicationRecord
     if collective_identity?
       collective = Collective.where(identity_user: self).first
       collective ? "collectives/" + T.must(collective.handle) : nil
+    elsif system_role == "trio"
+      # Trio's stored TenantUser handle is hex-suffixed for non-main
+      # collectives to avoid the tenant-wide handle collision, but the
+      # public-facing handle is always "trio" so mentions and profile
+      # links render consistently regardless of which collective the
+      # trio belongs to. UsersController#show makes /u/trio
+      # context-aware so the link resolves to the local trio.
+      MentionParser::TRIO_HANDLE
     else
       tenant_user&.handle
     end
@@ -340,6 +370,8 @@ class User < ApplicationRecord
   def path
     if collective_identity?
       Collective.where(identity_user: self).first&.path
+    elsif system_role == "trio"
+      "/u/#{MentionParser::TRIO_HANDLE}"
     else
       tenant_user&.path
     end

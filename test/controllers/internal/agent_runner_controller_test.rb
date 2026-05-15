@@ -424,6 +424,23 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.parsed_body["reason"], "suspended"
   end
 
+  test "preflight passes for system agent without billing setup" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    @tenant.create_main_collective!(created_by: @user)
+    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
+    system_task = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: trio, initiated_by: @user,
+      task: "test", max_steps: 10, status: "queued",
+    )
+
+    body = {}.to_json
+    url = "/internal/agent-runner/tasks/#{system_task.id}/preflight"
+    post url, params: body, headers: signed_headers(body)
+
+    assert_response :success
+    assert_equal "ok", response.parsed_body["status"]
+  end
+
   # --- Tenant isolation ---
 
   test "request with a different tenant subdomain cannot access this task run" do

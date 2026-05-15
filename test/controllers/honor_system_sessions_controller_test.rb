@@ -79,6 +79,18 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "human", new_user.user_type
   end
 
+  test "login ignores system_role param when creating a user" do
+    skip "Honor system routes not loaded" unless honor_system_routes_available?
+
+    new_email = "newuser_#{SecureRandom.hex(4)}@example.com"
+    post "/login", params: { email: new_email, name: "New User", system_role: "trio" }
+
+    new_user = User.find_by(email: new_email)
+    assert_not_nil new_user
+    assert_nil new_user.system_role, "system_role must not be set by the login flow"
+    assert_not new_user.system?
+  end
+
   # === Single Tenant Mode Tests ===
 
   test "login works without subdomain in single-tenant mode" do

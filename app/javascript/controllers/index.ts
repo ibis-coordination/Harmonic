@@ -11,7 +11,6 @@ application.debug = false
 window.Stimulus = application
 
 // Import all controllers
-import TrioChatController from "./trio_chat_controller"
 import ClipboardController from "./clipboard_controller"
 import CodeBlockController from "./code_block_controller"
 import CollapsableSectionController from "./collapseable_section_controller"
@@ -67,7 +66,6 @@ import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
 
 // Register all controllers
-application.register("trio-chat", TrioChatController)
 application.register("clipboard", ClipboardController)
 application.register("code-block", CodeBlockController)
 application.register("csv-import", CsvImportController)

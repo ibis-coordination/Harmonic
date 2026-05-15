@@ -160,15 +160,11 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents automations api rest-api markdown-ui notifications representation].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents trio automations api rest-api markdown-ui notifications representation].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
-
-  # LLM Chat - Trio (with voting ensemble)
-  get 'trio' => 'trio#index'
-  post 'trio' => 'trio#create'
 
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
@@ -272,6 +268,7 @@ Rails.application.routes.draw do
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member
+    post 'settings/workspace_trio' => 'users#update_workspace_trio', on: :member
     patch 'settings/email' => 'users#update_email', on: :member
     delete 'settings/email' => 'users#cancel_email_change', on: :member
     get 'settings/email/confirm/:token' => 'users#confirm_email', on: :member, as: 'confirm_email'

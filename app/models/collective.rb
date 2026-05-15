@@ -11,6 +11,7 @@ class Collective < ApplicationRecord
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
   belongs_to :identity_user, class_name: "User", optional: true
+  belongs_to :trio_user, class_name: "User", optional: true
   before_validation :create_identity_user!
   before_create :set_defaults
   tables = ActiveRecord::Base.connection.tables - [
@@ -497,7 +498,9 @@ class Collective < ApplicationRecord
 
   sig { params(user: User, roles: T::Array[String]).returns(CollectiveMember) }
   def add_user!(user, roles: [])
-    if private_workspace? && user != created_by
+    # Workspaces are private to their owner — but the trio system agent is
+    # added by the owner opt-in flow (TrioSeeder), not as a normal member.
+    if private_workspace? && user != created_by && !user.system?
       raise "Cannot add other users to a private workspace"
     end
 

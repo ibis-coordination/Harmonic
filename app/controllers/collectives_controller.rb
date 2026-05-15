@@ -263,6 +263,9 @@ class CollectivesController < ApplicationController
 
     @current_collective.updated_by = @current_user if @current_collective.changed?
     @current_collective.save!
+
+    TrioActivator.reconcile!(@current_collective)
+
     flash[:notice] = "Settings successfully updated. [Return to collective homepage.](#{@current_collective.url})"
     redirect_to request.referrer
   end

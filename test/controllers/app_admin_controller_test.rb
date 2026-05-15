@@ -110,6 +110,20 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/app-admin/tenants/testtenant/complete"
   end
 
+  test "creating a new tenant does not auto-seed a Trio system agent" do
+    # Trio is now per-collective and opt-in. A fresh tenant has no trio until
+    # a collective admin enables the `trio` flag in collective settings.
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/tenants", params: { tenant: { name: "No Trio Tenant", subdomain: "notrio" } }
+
+    new_tenant = T.must(Tenant.find_by(subdomain: "notrio"))
+    trio = User.joins(:tenant_users)
+      .where(tenant_users: { tenant_id: new_tenant.id }, system_role: "trio")
+      .first
+    assert_nil trio, "Expected no trio agent for a freshly created tenant"
+  end
+
   test "app admin can view tenant details" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 

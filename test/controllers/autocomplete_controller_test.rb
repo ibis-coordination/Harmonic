@@ -8,6 +8,45 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
+  # === Trio Autocomplete ===
+
+  test "trio displays with magic handle 'trio' instead of its stored hex handle" do
+    TrioActivator.activate!(@collective)
+    trio = T.must(@collective.reload.trio_user)
+    stored_handle = trio.tenant_users.find_by(tenant_id: @tenant.id).handle
+    # Sanity check: the main collective's trio claims literal "trio"; non-main
+    # collectives get hex handles. Test is meaningful only when these differ.
+    unless stored_handle == "trio"
+      sign_in_as(@user, tenant: @tenant)
+
+      get "/collectives/#{@collective.handle}/autocomplete/users",
+        params: { q: "trio" },
+        headers: { "Accept" => "application/json" }
+
+      json = JSON.parse(response.body)
+      trio_entry = json.find { |entry| entry["id"] == trio.id }
+      assert trio_entry, "expected trio to appear in autocomplete results"
+      assert_equal "trio", trio_entry["handle"], "expected the magic handle, not #{stored_handle}"
+    end
+  end
+
+  test "trio is injected into autocomplete results even when its stored handle doesn't match" do
+    TrioActivator.activate!(@collective)
+    trio = T.must(@collective.reload.trio_user)
+    sign_in_as(@user, tenant: @tenant)
+
+    # Query "tr" — a prefix of "trio" — should surface @trio even if its
+    # hex handle wouldn't sort into the top 10 alphabetically.
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+      params: { q: "tr" },
+      headers: { "Accept" => "application/json" }
+
+    json = JSON.parse(response.body)
+    trio_entry = json.find { |entry| entry["id"] == trio.id }
+    assert trio_entry, "expected trio to be present for query 'tr'"
+    assert_equal "trio", trio_entry["handle"]
+  end
+
   # === Unauthenticated Access Tests ===
 
   test "unauthenticated user gets 401 for users autocomplete" do
