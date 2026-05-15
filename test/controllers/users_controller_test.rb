@@ -8,6 +8,54 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
+  # === Workspace Trio Toggle ===
+
+  test "workspace owner can enable Trio in their private workspace" do
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_not_nil workspace.trio_user_id, "expected trio to be activated in workspace"
+    assert AutomationRule.where(ai_agent_id: workspace.trio_user_id).exists?
+  end
+
+  test "workspace owner can disable Trio in their private workspace" do
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", true)
+    TrioActivator.activate!(workspace)
+    trio_id = T.must(workspace.reload.trio_user_id)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "false" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_nil workspace.trio_user_id, "expected trio to be deactivated in workspace"
+    assert AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? }
+  end
+
+  test "non-owner cannot toggle Trio in someone else's workspace" do
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+    @tenant.enable_feature_flag!("trio")
+
+    sign_in_as(other_user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    assert_response :forbidden
+    assert_nil T.must(@user.private_workspace).reload.trio_user_id
+  end
+
   # === Show (GET /u/:handle) Tests ===
 
   test "can view user profile" do

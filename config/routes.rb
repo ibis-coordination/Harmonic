@@ -272,6 +272,7 @@ Rails.application.routes.draw do
   resources :users, path: 'u', param: :handle, only: [:show] do
     get 'settings', on: :member
     post 'settings/profile' => 'users#update_profile', on: :member
+    post 'settings/workspace_trio' => 'users#update_workspace_trio', on: :member
     patch 'settings/email' => 'users#update_email', on: :member
     delete 'settings/email' => 'users#cancel_email_change', on: :member
     get 'settings/email/confirm/:token' => 'users#confirm_email', on: :member, as: 'confirm_email'
