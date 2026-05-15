@@ -1,5 +1,22 @@
 # Trio Per-Collective Refactor (revised)
 
+## Current state (as of branch `trio-system-role-column`)
+
+Already shipped on the branch:
+
+- **Earlier (pre-refactor) work** — the per-tenant Trio system agent and `/trio` chat UI. About to be torn down in Phase 5.
+- **Phase 1 (9dffc1e):** schema migration adding `collectives.trio_user_id` + `Collective#trio_user` association.
+- **Phase 4 (78419ef):** `MentionParser.parse` `collective:` kwarg + `@trio` magic resolver; collective context threaded through `AutomationMentionFilter` (uses `event.collective`) and `NotificationDispatcher`; `trio_unavailable` hint notification added (with workspace vs collective URL split). New `Notification::NOTIFICATION_TYPES` entry + default preferences entry.
+- **Handle reservation (e017ee8):** `TenantUser::RESERVED_HANDLES = { "trio" => "trio" }` validation; `TenantUser#set_defaults` auto-suffixes a name-derived handle that would land on a reserved value; `Tenant#add_user!` delegates handle generation to `set_defaults` rather than computing inline.
+
+Remaining work (see "Suggested implementation order" at the bottom):
+- Phase 2: rewrite `TrioSeeder` for per-collective + `TrioActivator` + flag-flip wiring in `CollectivesController` + default automation templates.
+- Phase 3: workspace trio opt-in via `UsersController#update_settings`.
+- Phase 5: destructive migration removing per-tenant trios + delete `/trio` controller/view/route/tests/JS/rake task + remove tenant-creation hook in `AppAdminController`.
+- Phase 6: verify end-to-end in browser.
+
+Test status: all targeted tests green. One pre-existing flaky test (`AgentRunnerDispatchServiceTest#test_skips_dispatch_for_non-ai-agent_user`) fails occasionally in parallel sweeps due to Redis-stream contention — unrelated to this refactor.
+
 ## Goal
 
 Replace the single per-tenant Trio user with one Trio ai_agent **per
@@ -37,11 +54,15 @@ So this revision deletes ~70% of the previous plan's surface area.
 | Chat UI | None. No trio chat in this iteration. (Group chat for all collectives is future work, out of scope.) |
 | How trio gets triggered | Existing automation system, `event` trigger + `mention_filter: "self"`. |
 | How trio responds | Whatever the automation's task template says — most often "post a comment on the mentioning item". Trio uses the existing `execute_action` path. |
-| Opt-in: collective | Collective admin toggles the existing `trio` feature flag in collective settings. On enable, trio user is created + default automations seeded. On disable, trio user + its automations are removed. |
-| Opt-in: private workspace | Private workspaces are collectives too. Same flag, same UI affordance — though the "settings" page for a private workspace is owned by the user, not by admins. |
-| `@trio` resolution | Trio's TenantUser gets a random hex handle (mirroring `collective_identity`). `MentionParser` gets a small special case: when `@trio` appears and the parser has a collective context, also include that collective's `trio_user` in the result. |
-| Existing per-tenant trios | Deleted in the migration. Old ChatSessions / ChatMessages with the old per-tenant trio go too. |
-| Default automations | Seeded when the flag is enabled. User-editable thereafter via the existing `CollectiveAutomationsController` and `AgentAutomationsController`. |
+| Opt-in: collective | Collective admin toggles the existing `trio` feature flag in collective settings. On enable, trio user is created + default automations seeded. On disable, trio user + its automations are soft-deleted (archive-and-restore on re-enable). |
+| Opt-in: private workspace | `CollectivesController#update_settings` *rejects* writes against `private_workspace` collectives. The trio opt-in for a workspace therefore lives in user settings (`UsersController#update_settings` / `/u/:handle/settings`), not collective settings. Same `TrioActivator` service is invoked from a different controller. |
+| Trio as `CollectiveMember` | **Trio IS added as a CollectiveMember** of its collective (added by `TrioSeeder.ensure_for`). This was a correction from the initial draft — making trio a member removes the need for special-case `\|\| trio_user_id` allowances in `user_is_member?` / `user_can_access_collective?` filters. Trio participates in collective-membership-based authorization like any other agent. |
+| Trio's stored TenantUser handle | The **main collective's trio gets the literal handle `"trio"`** (so its profile lives at `/u/trio` via the normal handle index — no `User#handle` / `User#path` overrides, no special routing logic). **Non-main per-collective trios get random hex handles** (e.g., `"trio-abc12345"`) to avoid the tenant-wide `(tenant_id, handle)` uniqueness collision. The TrioSeeder picks the handle based on `collective.is_main_collective?`. |
+| Handle reservation | `TenantUser::RESERVED_HANDLES = { "trio" => "trio" }` (handle → required `system_role`). Validation rejects handle `"trio"` for any user without `system_role: "trio"`. `TenantUser#set_defaults` calls `generated_default_handle`, which suffixes a name-derived handle (e.g., a human named "Trio" gets `"trio-XX"`, not `"trio"`). Already shipped — commit e017ee8. |
+| `@trio` resolution | `MentionParser.parse(text, tenant_id:, collective: nil)` — added optional `collective:` kwarg. When supplied and `@trio` is in the text, the parser also includes `collective.trio_user` (the magic; `"trio"` never reaches the handle index for non-main trios since their stored handle is hex). `parse_for_notification` forwards `collective:` to `parse`. `AutomationMentionFilter` and `NotificationDispatcher` thread `event.collective` through. Already shipped — commit 78419ef. |
+| `trio_unavailable` hint | When `@trio` is mentioned in a collective that hasn't enabled trio, the actor receives a one-shot `notification_type: "trio_unavailable"` notification. URL splits by collective type: standard → `"#{collective.path}/settings"` (nil for main collective by existing convention); private workspace → `/settings` (redirects to user settings). Already shipped in 78419ef. |
+| Existing per-tenant trios | Deleted in the Phase 5 cleanup migration. Old ChatSessions / ChatMessages with the old per-tenant trio go too. |
+| Default automations | Seeded when the flag is enabled. **Target `note.created` event** (not `comment.created`) — comments are stored as Note records and fire `note.created`; nothing actually fires `comment.created` (the latter is referenced in `AutomationTemplateGallery` templates but never invoked). User-editable thereafter via the existing `CollectiveAutomationsController` / `AgentAutomationsController`. |
 
 ## Out of scope
 
