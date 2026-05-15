@@ -5,6 +5,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @tenant.enable_api!
     @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("trio")
     @user = @global_user
     @api_token = ApiToken.create!(
       user: @user,
@@ -25,7 +26,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
     commitments cycles search links
-    agents automations api rest-api markdown-ui notifications representation
+    agents trio automations api rest-api markdown-ui notifications representation
   ].freeze
 
   # =========================================================================
@@ -106,6 +107,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     "api" => "api",
     "rest-api" => "api",
     "agents" => "ai_agents",
+    "trio" => "trio",
   }.freeze
 
   GATED_TOPICS.each do |topic, flag|

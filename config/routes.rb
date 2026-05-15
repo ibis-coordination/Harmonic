@@ -160,14 +160,11 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents automations api rest-api markdown-ui notifications representation].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments cycles search links agents trio automations api rest-api markdown-ui notifications representation].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
-
-  # Trio in-app assistant. The page renders a chat with the per-tenant
-  # trio system agent; message POSTs go through /chat/:handle.
 
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
