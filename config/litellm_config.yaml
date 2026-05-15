@@ -1,11 +1,21 @@
 model_list:
-  # Anthropic Claude (requires ANTHROPIC_API_KEY env var).
-  # LiteLLM requires the `anthropic/` provider prefix on the underlying model.
+  # Default: Arcee's trinity-large-thinking via their OpenAI-compatible API
+  # (requires ARCEE_API_KEY env var). LiteLLM routes OpenAI-compatible
+  # endpoints through the `openai/` provider prefix + api_base.
   - model_name: default
     litellm_params:
-      model: anthropic/claude-sonnet-4-6
-      api_key: os.environ/ANTHROPIC_API_KEY
+      model: openai/trinity-large-thinking
+      api_base: https://api.arcee.ai/api/v1
+      api_key: os.environ/ARCEE_API_KEY
 
+  - model_name: trinity-large-thinking
+    litellm_params:
+      model: openai/trinity-large-thinking
+      api_base: https://api.arcee.ai/api/v1
+      api_key: os.environ/ARCEE_API_KEY
+
+  # Anthropic Claude (requires ANTHROPIC_API_KEY env var).
+  # LiteLLM requires the `anthropic/` provider prefix on the underlying model.
   - model_name: claude-sonnet-4
     litellm_params:
       model: anthropic/claude-sonnet-4-6
