@@ -8,6 +8,27 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
+  # === Workspace Trio Settings View ===
+
+  test "user settings page shows Workspace AI Assistant section when tenant has trio enabled" do
+    @tenant.enable_feature_flag!("trio")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/u/#{@user.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Workspace AI Assistant"
+    assert_includes response.body, "feature_trio"
+  end
+
+  test "user settings page hides Workspace AI Assistant section when tenant has trio disabled" do
+    @tenant.disable_feature_flag!("trio")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/u/#{@user.handle}/settings"
+    assert_response :success
+    assert_not_includes response.body, "Workspace AI Assistant"
+  end
+
   # === Workspace Trio Toggle ===
 
   test "workspace owner can enable Trio in their private workspace" do

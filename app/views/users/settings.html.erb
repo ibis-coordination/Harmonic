@@ -156,7 +156,36 @@
     <% end %>
   <% end %>
 
-  <% if is_own_settings && @settings_user.human? %>
+  <% if is_own_settings && @settings_user.human? && @current_tenant.trio_enabled? %>
+    <%# Workspace AI Assistant — opt-in to Trio inside the user's private workspace.
+        CollectivesController#settings redirects workspace owners away from the
+        collective-settings page, so the per-workspace flag is exposed here. %>
+    <% workspace = @settings_user.private_workspace %>
+    <% if workspace %>
+      <% trio_active = workspace.trio_user_id.present? %>
+      <%= render 'shared/pulse_accordion', title: 'Workspace AI Assistant' do %>
+        <%= form_with url: "/u/#{@settings_user.handle}/settings/workspace_trio", class: 'pulse-form' do |form| %>
+          <div class="pulse-form-section">
+            <label class="pulse-checkbox-label">
+              <%= form.check_box :feature_trio, { checked: trio_active }, "true", "false" %>
+              <span>
+                <strong>Enable Trio in my workspace</strong>
+                <span class="pulse-form-hint" style="display: block; margin-top: 2px;">
+                  When on, @trio in your workspace notes and comments routes to a Trio
+                  agent dedicated to your workspace, and Trio responds to mentions and
+                  replies on its own comments. Turning it off archives the agent —
+                  re-enabling restores it and preserves any rule customizations.
+                </span>
+              </span>
+            </label>
+          </div>
+          <div class="pulse-form-actions">
+            <%= form.submit 'Save', class: 'pulse-action-btn-primary' %>
+          </div>
+        <% end %>
+      <% end %>
+    <% end %>
+
     <%# Email Section %>
     <%= render 'shared/pulse_accordion', title: 'Email' do %>
       <div class="pulse-form-section">
