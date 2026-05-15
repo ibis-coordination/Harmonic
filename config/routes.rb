@@ -168,7 +168,6 @@ Rails.application.routes.draw do
 
   # Trio in-app assistant. The page renders a chat with the per-tenant
   # trio system agent; message POSTs go through /chat/:handle.
-  get 'trio' => 'trio#index'
 
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"

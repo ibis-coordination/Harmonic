@@ -85,22 +85,31 @@ class TrioActivator
   sig { returns(User) }
   def bootstrap!
     trio = TrioSeeder.ensure_for(@collective)
-    seed_default_automations!(trio)
+    self.class.seed_default_automations!(trio, T.must(@collective.tenant_id))
     trio
   end
 
-  sig { params(trio: User).void }
-  def seed_default_automations!(trio)
+  # Idempotent: skips any default whose (ai_agent_id, event_type) row already
+  # exists. Called from `bootstrap!` and from the legacy-trio adoption
+  # migration; safe to invoke either way.
+  sig { params(trio: User, tenant_id: String).void }
+  def self.seed_default_automations!(trio, tenant_id)
+    existing_event_types = AutomationRule.where(ai_agent_id: trio.id, trigger_type: "event")
+      .map(&:event_type)
+
     DEFAULT_AUTOMATIONS.each do |attrs|
+      event_type = attrs.fetch(:event_type)
+      next if existing_event_types.include?(event_type)
+
       AutomationRule.create!(
-        tenant_id: T.must(@collective.tenant_id),
+        tenant_id: tenant_id,
         ai_agent_id: trio.id,
         created_by_id: trio.id,
         name: attrs.fetch(:name),
         description: attrs.fetch(:description),
         trigger_type: "event",
         trigger_config: {
-          "event_type" => attrs.fetch(:event_type),
+          "event_type" => event_type,
           "mention_filter" => "self",
           "max_steps" => attrs.fetch(:max_steps, 20),
         },
