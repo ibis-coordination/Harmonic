@@ -71,11 +71,25 @@
   </p>
 </div>
 
-<div class="pulse-alert pulse-alert-warning" style="margin-bottom: 24px;">
-  <%= octicon 'shield-lock', height: 14 %>
-  <strong>Privacy note:</strong> Task prompt and page content are redacted in the admin view.
-  The task owner can view full details from their agent's run history.
-</div>
+<%# System agents (e.g., Trio) have no human parent, so the parent's
+    runs UI is unreachable. Sys admins are accountable for system agents,
+    so the system-admin view shows full step content for them. Other
+    (user-owned) agents stay redacted — sys admins shouldn't see private
+    user content from a deployment-operations vantage point. %>
+<% redacted = !@task_run.ai_agent&.system? %>
+
+<% if redacted %>
+  <div class="pulse-alert pulse-alert-warning" style="margin-bottom: 24px;">
+    <%= octicon 'shield-lock', height: 14 %>
+    <strong>Privacy note:</strong> Task prompt and page content are redacted in the admin view.
+    The task owner can view full details from their agent's run history.
+  </div>
+<% else %>
+  <div class="pulse-alert pulse-alert-info" style="margin-bottom: 24px;">
+    <%= octicon 'shield-check', height: 14 %>
+    <strong>System agent:</strong> Full step details are visible because this agent has no human parent and sys admins are accountable for system agents.
+  </div>
+<% end %>
 
 <!-- Steps Timeline -->
 <div class="pulse-section-label" style="margin-bottom: 16px;">
@@ -83,7 +97,7 @@
 </div>
 
 <% if @task_run.agent_session_steps.any? %>
-  <%= render 'shared/task_run_steps_timeline', task_run: @task_run, debug: false, redacted: true %>
+  <%= render 'shared/task_run_steps_timeline', task_run: @task_run, debug: false, redacted: redacted %>
 <% else %>
   <p class="pulse-text-secondary">No step data recorded.</p>
 <% end %>
