@@ -246,10 +246,13 @@ class Tenant < ApplicationRecord
 
   sig { params(user: User, handle: T.nilable(String)).returns(TenantUser) }
   def add_user!(user, handle: nil)
+    # When handle is nil, TenantUser#set_defaults derives one from the user's
+    # name, suffixing if the derived handle would land on a reserved value
+    # (e.g., a human named "Trio" gets "trio-XX" rather than "trio").
     tu = tenant_users.create!(
       user: user,
       display_name: user.name,
-      handle: handle || user.name.parameterize,
+      handle: handle,
     )
     create_private_workspace_for!(user, tu) unless user.collective_identity?
     tu

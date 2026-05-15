@@ -105,16 +105,9 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert_not_equal trio_a.id, trio_b.id
   end
 
-  test "falls back to alternate handle when 'trio' is taken by another user" do
-    # Pre-existing user that already has the "trio" handle in this tenant
-    impostor = create_user(email: "impostor_#{SecureRandom.hex(4)}@example.com", name: "Imposter")
-    @tenant.add_user!(impostor, handle: "trio")
-
-    trio = TrioSeeder.ensure_for(@tenant)
-
-    assert trio.persisted?
-    handle = trio.tenant_users.find_by(tenant_id: @tenant.id).handle
-    assert_not_equal "trio", handle
-    assert handle.start_with?("trio-")
-  end
+  # The previous per-tenant seeder needed a "fall back when 'trio' is taken"
+  # path because nothing prevented a regular user from claiming the handle.
+  # That case is now structurally impossible: TenantUser validates that
+  # handle "trio" is only claimable by a user with system_role == "trio".
+  # The fallback test was removed with that validation.
 end

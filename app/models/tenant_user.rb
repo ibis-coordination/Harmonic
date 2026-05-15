@@ -11,15 +11,45 @@ class TenantUser < ApplicationRecord
   belongs_to :user
   before_create :set_defaults
 
+  # Handles claimable only by a system agent with the matching system_role.
+  # Currently: "trio" is reserved for the trio system agent (only the main
+  # collective's trio actually claims it; other per-collective trios use
+  # random hex handles to avoid the tenant-wide uniqueness collision).
+  RESERVED_HANDLES = T.let({ "trio" => "trio" }.freeze, T::Hash[String, String])
+
+  validate :reserved_handle_requires_matching_system_role
+
   sig { void }
   def set_defaults
-    self.handle = handle.presence || T.must(user).name.parameterize
+    self.handle = handle.presence || generated_default_handle
     self.display_name = display_name.presence || T.must(user).name
     self.settings ||= {}
     T.must(self.settings)["pinned"] ||= {}
     T.must(self.settings)["roles"] ||= []
     T.must(T.must(self.settings)["roles"]) << "default"
   end
+
+  sig { void }
+  def reserved_handle_requires_matching_system_role
+    required_role = RESERVED_HANDLES[handle]
+    return unless required_role
+    return if T.must(user).system_role == required_role
+
+    errors.add(:handle, "is reserved")
+  end
+
+  # When auto-generating a handle from the user's name, suffix it if the
+  # parameterized form lands on a reserved handle the user isn't entitled
+  # to claim — so a human named "Trio" gets "trio-XX", not "trio".
+  sig { returns(String) }
+  def generated_default_handle
+    base = T.must(user).name.parameterize
+    required_role = RESERVED_HANDLES[base]
+    return base if required_role.nil? || T.must(user).system_role == required_role
+
+    "#{base}-#{SecureRandom.hex(2)}"
+  end
+  private :generated_default_handle
 
   sig { returns(User) }
   def user

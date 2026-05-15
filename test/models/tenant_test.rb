@@ -36,6 +36,17 @@ class TenantTest < ActiveSupport::TestCase
     assert tenant.tenant_users.exists?(user_id: user.id)
   end
 
+  test "Tenant.add_user! does not auto-generate the reserved handle 'trio' for a non-trio user" do
+    tenant = create_tenant
+    # User whose name parameterizes to "trio"
+    user = create_user(name: "Trio")
+
+    tu = tenant.add_user!(user)
+
+    assert_not_equal "trio", tu.handle, "expected an alternative handle, got 'trio'"
+    assert tu.handle.start_with?("trio-"), "expected suffixed handle, got #{tu.handle.inspect}"
+  end
+
   test "Tenant.create_main_collective! creates a main collective" do
     tenant = create_tenant
     user = create_user
