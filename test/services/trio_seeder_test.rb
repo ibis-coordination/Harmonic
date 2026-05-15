@@ -67,6 +67,29 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert_equal "internal", trio.agent_configuration["mode"]
   end
 
+  test "trio is seeded with the model from TRIO_DEFAULT_MODEL env var" do
+    previous = ENV["TRIO_DEFAULT_MODEL"]
+    ENV["TRIO_DEFAULT_MODEL"] = "trinity-large-thinking-free"
+
+    trio = TrioSeeder.ensure_for(@main)
+
+    assert_equal "trinity-large-thinking-free", trio.agent_configuration["model"]
+  ensure
+    ENV["TRIO_DEFAULT_MODEL"] = previous
+  end
+
+  test "trio omits the model key when TRIO_DEFAULT_MODEL is unset" do
+    previous = ENV["TRIO_DEFAULT_MODEL"]
+    ENV.delete("TRIO_DEFAULT_MODEL")
+
+    trio = TrioSeeder.ensure_for(@main)
+
+    assert_not trio.agent_configuration.key?("model"),
+      "expected model key absent so the agent-runner falls back to its default model alias"
+  ensure
+    ENV["TRIO_DEFAULT_MODEL"] = previous
+  end
+
   test "trio resolves its identity prompt from the static source" do
     trio = TrioSeeder.ensure_for(@main)
 

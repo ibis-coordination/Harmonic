@@ -68,6 +68,17 @@ class TrioSeeder
     trio
   end
 
+  # Default LLM model for new Trio agents. Resolved from the
+  # TRIO_DEFAULT_MODEL env var so deployments can switch Trio's model
+  # without a code change. The value must match a `model_name` alias in
+  # config/litellm_config.yaml. Operators can override per-trio later via
+  # the agent settings page — TrioSeeder.refresh does not overwrite
+  # existing values.
+  sig { returns(T.nilable(String)) }
+  def self.default_model
+    ENV["TRIO_DEFAULT_MODEL"].presence
+  end
+
   sig { returns(T::Hash[String, T.untyped]) }
   def build_agent_configuration
     # identity_prompt is intentionally omitted — system agents resolve their
@@ -77,7 +88,10 @@ class TrioSeeder
     # grantable actions allowed" per CapabilityCheck. An empty array would
     # mean "no actions allowed", which would prevent Trio from posting any
     # comment or other response.
-    { "mode" => "internal" }
+    cfg = { "mode" => "internal" }
+    model = self.class.default_model
+    cfg["model"] = model if model
+    cfg
   end
 
   sig { returns(String) }
