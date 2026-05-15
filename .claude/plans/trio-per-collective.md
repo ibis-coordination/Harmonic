@@ -104,16 +104,17 @@ The collective admin can edit / disable / add more via the existing CollectiveAu
 
 ---
 
-## Phase 3 — Per-private-workspace opt-in
+## Phase 3 — Per-private-workspace opt-in (via user settings)
 
-Private workspaces are already collectives (`collective_type: "private_workspace"`), so the same flag/activator/deactivator works at the model layer. The UI is different:
+Private workspaces are collectives (`collective_type: "private_workspace"`), so the same `TrioActivator.activate!(collective)` works at the model layer. The UI is different: `CollectivesController#update_settings` actively rejects writes against private workspaces ([collectives_controller.rb:228-229](app/controllers/collectives_controller.rb#L228-L229)). The opt-in toggle therefore lives in user settings (`/u/:handle/settings`, handled by `UsersController#update_settings`), not collective settings.
 
-- Private-workspace settings are owned by the user (the workspace's owner), not "collective admins" plural — but `CollectivesController#update_settings` already gates on collective-admin role, and the owner of a private workspace *is* the only admin. So the same controller path works.
-- Add the `trio` feature flag toggle to the private-workspace settings view if it isn't already there. (The settings form is rendered for every collective type via the FeatureFlagService loop, so this might be free already — confirm in the view.)
+- Add a `trio_in_workspace` (or similar) toggle to the user settings view.
+- `UsersController#update_settings` reads the param and, on flip, calls `TrioActivator.activate!(current_user.private_workspace)` or `deactivate!`. Same activator service as for standard collectives — just invoked from a different controller.
 
 **Tests:**
-- Private workspace + `trio` flag enabled → user gets a private trio.
-- Same activate/deactivate behavior.
+- User enables the workspace-trio toggle → `current_user.private_workspace.trio_user` is present.
+- User disables it → trio user + automations are soft-deleted; re-enable restores them with prior edits.
+- The trio_unavailable hint URL in a workspace points to `/settings` (which redirects to the user's settings page), not the collective settings page.
 
 ---
 

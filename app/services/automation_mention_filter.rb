@@ -25,7 +25,7 @@ class AutomationMentionFilter
     text = extract_mentionable_text(event.subject)
     return false if text.blank?
 
-    mentioned_users = MentionParser.parse(text, tenant_id: event.tenant_id)
+    mentioned_users = MentionParser.parse(text, tenant_id: event.tenant_id, collective: collective_for(event))
     mentioned_users.any? { |user| user.id == ai_agent.id }
   end
 
@@ -35,9 +35,18 @@ class AutomationMentionFilter
     text = extract_mentionable_text(event.subject)
     return false if text.blank?
 
-    mentioned_users = MentionParser.parse(text, tenant_id: event.tenant_id)
+    mentioned_users = MentionParser.parse(text, tenant_id: event.tenant_id, collective: collective_for(event))
     mentioned_users.any?(&:ai_agent?)
   end
+
+  # The collective context for `@trio` resolution. Events always carry a
+  # collective via the belongs_to (non-optional), and the association is
+  # cached after first access.
+  sig { params(event: Event).returns(T.nilable(Collective)) }
+  def self.collective_for(event)
+    event.collective
+  end
+  private_class_method :collective_for
 
   # Extract text content from various subject types that might contain mentions
   sig { params(subject: T.untyped).returns(T.nilable(String)) }

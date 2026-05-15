@@ -73,6 +73,7 @@ class TenantUser < ApplicationRecord
     "system" => { "in_app" => true, "email" => true },
     "reminder" => { "in_app" => true, "email" => false },
     "chat_message" => { "in_app" => true, "email" => false },
+    "trio_unavailable" => { "in_app" => true, "email" => false },
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }

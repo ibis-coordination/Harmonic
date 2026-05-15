@@ -40,7 +40,7 @@ class NotificationDispatcher
     handle_reply_notification(event, note) if note.is_comment?
 
     # Find mentioned users from the note text
-    mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id)
+    mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id, collective: note.collective)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -61,6 +61,8 @@ class NotificationDispatcher
         url: note.path
       )
     end
+
+    maybe_send_trio_unavailable_hint(event, note.text, note.collective)
   end
 
   sig { params(event: Event).void }
@@ -219,7 +221,7 @@ class NotificationDispatcher
 
     # Parse mentions from question and description fields
     text_to_parse = [decision.question, decision.description].compact.join(" ")
-    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id)
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: decision.collective)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -240,6 +242,8 @@ class NotificationDispatcher
         url: decision.path
       )
     end
+
+    maybe_send_trio_unavailable_hint(event, text_to_parse, decision.collective)
   end
 
   sig { params(event: Event).void }
@@ -251,7 +255,7 @@ class NotificationDispatcher
 
     # Parse mentions from title and description fields
     text_to_parse = [commitment.title, commitment.description].compact.join(" ")
-    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id)
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: commitment.collective)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -272,6 +276,8 @@ class NotificationDispatcher
         url: commitment.path
       )
     end
+
+    maybe_send_trio_unavailable_hint(event, text_to_parse, commitment.collective)
   end
 
   sig { params(event: Event).void }
@@ -284,7 +290,7 @@ class NotificationDispatcher
 
     # Parse mentions from title and description fields
     text_to_parse = [option.title, option.description].compact.join(" ")
-    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id)
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: option.collective)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -305,6 +311,8 @@ class NotificationDispatcher
         url: decision&.path
       )
     end
+
+    maybe_send_trio_unavailable_hint(event, text_to_parse, option.collective)
   end
 
   # Helper method to create notifications with preference-based channel selection
@@ -345,6 +353,53 @@ class NotificationDispatcher
     return ["in_app"] unless tenant_user
 
     tenant_user.notification_channels_for(notification_type)
+  end
+
+  # If @trio appears in mention-bearing content and the collective hasn't
+  # enabled trio, send a one-shot hint notification to the actor so they know
+  # why nothing happened. Agents receive this just like humans do — an agent
+  # whose automation posts @trio still needs to know the mention went nowhere
+  # so its owner can fix it. The trio-as-actor case is naturally excluded by
+  # the trio_user check above: if trio is the actor, trio_user is set.
+  sig do
+    params(
+      event: Event,
+      text: T.nilable(String),
+      collective: T.nilable(Collective),
+    ).void
+  end
+  def self.maybe_send_trio_unavailable_hint(event, text, collective)
+    return if text.blank?
+    return unless collective
+    return unless MentionParser.extract_handles(text).include?(MentionParser::TRIO_HANDLE)
+    return if collective.trio_user
+
+    actor = event.actor
+    return unless actor
+
+    # In a private workspace there's no collective settings page — the trio
+    # opt-in lives in user settings. For other collectives we use the model's
+    # path helper, which returns nil for the main collective (intentional —
+    # main collective settings live in tenant admin, not under /collectives/);
+    # in that edge case the notification carries no link.
+    if collective.private_workspace?
+      settings_url = "/settings"
+      body = "You mentioned @trio in your workspace, but Trio isn't enabled there. " \
+             "Enable it in your user settings."
+    else
+      settings_url = collective.path ? "#{collective.path}/settings" : nil
+      body = "You mentioned @trio, but Trio isn't enabled in this collective. " \
+             "Ask an admin to enable it in collective settings."
+    end
+
+    notify_user(
+      event: event,
+      recipient: actor,
+      notification_type: "trio_unavailable",
+      title: "Trio isn't enabled in #{collective.name}",
+      body: body,
+      url: settings_url,
+    )
   end
 
   # Helper to safely get created_by from polymorphic objects

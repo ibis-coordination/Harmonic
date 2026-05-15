@@ -36,6 +36,73 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal mentioned_user.id, recipient.user_id
   end
 
+  test "handle_note_event notifies the actor when @trio is mentioned but trio is not enabled in the collective" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+    assert_nil collective.trio_user, "precondition: trio not enabled"
+
+    create_note(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      text: "Hey @trio, can you help with this?",
+    )
+
+    hint = Notification.where(notification_type: "trio_unavailable").last
+    assert_not_nil hint, "Expected a trio_unavailable hint notification for the actor"
+    recipient = hint.notification_recipients.first
+    assert_equal user.id, recipient&.user_id
+    assert_includes hint.title, "Trio"
+    assert_equal "#{collective.path}/settings", hint.url
+  end
+
+  test "handle_note_event sends a workspace-flavored trio_unavailable hint in a private workspace" do
+    tenant, _collective, user = create_tenant_collective_user
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    workspace = user.private_workspace
+    assert workspace.present?, "precondition: user has a private workspace"
+    assert_nil workspace.trio_user, "precondition: trio not enabled in workspace"
+
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: workspace.handle)
+
+    create_note(
+      tenant: tenant,
+      collective: workspace,
+      created_by: user,
+      text: "Hey @trio, help me organize this.",
+    )
+
+    hint = Notification.where(notification_type: "trio_unavailable").last
+    assert_not_nil hint, "Expected a trio_unavailable hint in workspace"
+    assert_equal "/settings", hint.url
+    assert_includes hint.body, "your workspace"
+  end
+
+  test "handle_note_event does NOT send a trio_unavailable hint when trio is enabled" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
+    collective.add_user!(trio)
+    collective.update!(trio_user: trio)
+
+    create_note(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      text: "Hey @trio, can you help?",
+    )
+
+    hint = Notification.where(notification_type: "trio_unavailable").last
+    assert_nil hint, "No hint should be sent when trio is enabled"
+  end
+
   test "handle_note_event does not notify the actor" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
