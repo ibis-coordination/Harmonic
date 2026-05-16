@@ -1768,4 +1768,112 @@ class NoteTest < ActiveSupport::TestCase
     note2 = Note.new(subtype: "text", tenant: tenant, collective: collective, created_by: user, updated_by: user)
     assert_not note2.is_statement?
   end
+
+  # --- Comment path / root_commentable ---
+  #
+  # Comments are notes with their own /n/<id> URL, but for navigation purposes
+  # we want callers (mention dispatch, search, feed) to land on the comment's
+  # root context (the Decision / non-comment Note / Commitment the conversation
+  # is *about*) with the specific comment identified via ?comment_id=. That
+  # gives an agent or human the full surrounding context in one navigation
+  # instead of an isolated comment page that links back via "Replying to X".
+
+  test "non-comment Note#path is unchanged by the comment redirect" do
+    tenant, collective, user = create_tenant_collective_user
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "A standalone note", text: "hello",
+    )
+
+    assert_equal "#{collective.path}/n/#{note.truncated_id}", note.path
+  end
+
+  test "Note#root_commentable returns self for non-comments" do
+    tenant, collective, user = create_tenant_collective_user
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "A standalone note", text: "hello",
+    )
+
+    assert_equal note, note.root_commentable
+  end
+
+  test "Note#root_commentable walks one hop up to the commentable for direct comments" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+    comment = decision.add_comment(text: "hi", created_by: user)
+
+    assert_equal decision, comment.root_commentable
+  end
+
+  test "Note#root_commentable walks up the full chain for nested comments" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+    top = decision.add_comment(text: "top", created_by: user)
+    mid = top.add_comment(text: "mid", created_by: user)
+    leaf = mid.add_comment(text: "leaf", created_by: user)
+
+    assert_equal decision, leaf.root_commentable
+  end
+
+  test "comment on a decision: #path points at the decision with comment_id query param" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+    comment = decision.add_comment(text: "hi", created_by: user)
+
+    assert_equal "#{decision.path}?comment_id=#{comment.truncated_id}", comment.path
+  end
+
+  test "comment on a standalone Note: #path points at the parent note" do
+    tenant, collective, user = create_tenant_collective_user
+    parent = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "parent", text: "body",
+    )
+    comment = parent.add_comment(text: "a comment", created_by: user)
+
+    assert_equal "#{parent.path}?comment_id=#{comment.truncated_id}", comment.path
+  end
+
+  test "nested comment: #path still points at the root commentable, not the parent comment" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+    top = decision.add_comment(text: "top", created_by: user)
+    leaf = top.add_comment(text: "leaf", created_by: user)
+
+    assert_equal "#{decision.path}?comment_id=#{leaf.truncated_id}", leaf.path
+  end
+
+  test "comments_with_threads injects root_commentable so #path is O(1) per comment" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+    top = decision.add_comment(text: "top", created_by: user)
+    mid = top.add_comment(text: "mid", created_by: user)
+    leaf = mid.add_comment(text: "leaf", created_by: user)
+
+    data = decision.comments_with_threads
+
+    # Calling .path on the deepest comment must not trigger any new
+    # commentable lookups — the root has been injected during the bulk
+    # preload, so the walk is bypassed entirely.
+    leaf_from_threads = data[:threads][top.id].find { |c| c.id == leaf.id }
+    queries = capture_sql { leaf_from_threads.path }
+
+    assert_equal 0, queries.length,
+      "Expected zero SQL queries for #path after root injection; got: #{queries.inspect}"
+  end
+
+  private
+
+  # Capture SQL queries issued during the block.
+  def capture_sql
+    queries = []
+    callback = ->(_name, _start, _finish, _id, payload) do
+      sql = payload[:sql]
+      next if payload[:name] == "SCHEMA" || sql.start_with?("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE SAVEPOINT")
+      queries << sql
+    end
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { yield }
+    queries
+  end
 end

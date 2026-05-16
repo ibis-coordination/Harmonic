@@ -44,11 +44,11 @@
   <% end %>
 
   <% if @comment.deleted? %>
-    <div class="pulse-comment-body pulse-body-text-muted">
+    <div class="pulse-comment-body markdown-body pulse-body-text-muted">
       <em>[deleted]</em>
     </div>
   <% else %>
-    <div class="pulse-comment-body">
+    <div class="pulse-comment-body markdown-body">
       <%= helpers.markdown_inline(@comment.text) %>
     </div>
   <% end %>

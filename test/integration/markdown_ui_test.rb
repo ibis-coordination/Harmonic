@@ -2147,7 +2147,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert is_markdown?
     assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with count 1")
     assert_match(/This is a test comment/, response.body, "Should show comment text")
-    assert_match(/\[This is a test comment\]\(#{comment.path}\)/, response.body, "Should link to comment")
+    assert_match(/\[This is a test comment\]\(#{Regexp.escape(comment.path)}\)/, response.body, "Should link to comment")
   ensure
     comment&.destroy
     note&.destroy
@@ -2298,6 +2298,67 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   ensure
     task_run&.destroy
     destroy_user!(ai_agent)
+  end
+
+  test "GET decision with ?comment_id= marks the targeted comment inline (preserves chronological order)" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    target = decision.add_comment(text: "this is the linked one", created_by: @user)
+    other = decision.add_comment(text: "unrelated comment", created_by: @user)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?comment_id=#{target.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+
+    # Inline marker on the matching comment only
+    assert_match(/📌.+this is the linked one/, response.body,
+      "Should mark the targeted comment inline with 📌")
+    assert_no_match(/📌.+unrelated comment/, response.body,
+      "Should not mark unrelated comments")
+
+    # Frontmatter `path:` preserves comment_id so agents see the canonical URL
+    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}\?comment_id=#{target.truncated_id}$/,
+      response.body, "Frontmatter path should retain comment_id")
+  end
+
+  test "GET decision without ?comment_id= shows no inline marker and bare path in frontmatter" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    decision.add_comment(text: "regular comment", created_by: @user)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+
+    assert_no_match(/📌/, response.body, "Should not render any marker without comment_id")
+    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}$/, response.body,
+      "Frontmatter path should be the bare path when no comment_id")
+  end
+
+  test "GET decision with ?comment_id= matching a nested reply marks the nested reply" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    top = decision.add_comment(text: "top-level", created_by: @user)
+    nested = top.add_comment(text: "deep nested target", created_by: @user)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?comment_id=#{nested.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+
+    assert_match(/📌.+deep nested target/, response.body)
+    assert_no_match(/📌.+top-level/, response.body)
+  end
+
+  test "GET search with ?q= preserves the query in the frontmatter path" do
+    get "/search?q=hello", headers: @headers
+    assert_equal 200, response.status
+    assert_match(/^path: \/search\?q=hello$/, response.body,
+      "Frontmatter path should preserve ?q= for search")
+  end
+
+  test "frontmatter path drops query params not on the preserved whitelist" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test?")
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?debug=1&unknown=foo", headers: @headers
+    assert_equal 200, response.status
+
+    # Unknown params are stripped from the frontmatter path
+    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}$/, response.body,
+      "Whitelisted-only: unknown query params shouldn't appear in the canonical path")
   end
 
   test "GET ai_agent task run markdown surfaces tool_calls and reasoning on think steps" do

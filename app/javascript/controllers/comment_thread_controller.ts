@@ -6,8 +6,48 @@ import { getCsrfToken } from "../utils/csrf"
  * - Shows/hides reply forms
  * - Updates the reply target when replying to nested comments
  * - Submits replies via AJAX and refreshes the thread
+ * - On page load, scrolls to and highlights the comment in `?comment_id=` if present
  */
 export default class CommentThreadController extends Controller {
+  connect(): void {
+    this.highlightCommentFromUrl()
+  }
+
+  private highlightCommentFromUrl(): void {
+    const params = new URLSearchParams(window.location.search)
+    const commentId = params.get("comment_id")
+    if (!commentId) return
+
+    const target = document.getElementById(`n-${commentId}`)
+    if (!target) return
+
+    // If the target is inside a collapsed replies group, expand it first so
+    // the scroll lands on a visible element.
+    const collapsedReplies = target.closest(".pulse-comment-replies[hidden]") as HTMLElement | null
+    if (collapsedReplies) {
+      collapsedReplies.hidden = false
+      const toggleButton = document.querySelector(
+        `.pulse-replies-toggle[aria-controls="${collapsedReplies.id}"]`
+      ) as HTMLElement | null
+      if (toggleButton) {
+        toggleButton.classList.remove("is-collapsed")
+        toggleButton.setAttribute("aria-expanded", "true")
+        const textSpan = toggleButton.querySelector(".pulse-replies-toggle-text") as HTMLElement | null
+        const replyCount = toggleButton.dataset.replyCount
+        if (textSpan && replyCount) {
+          const count = parseInt(replyCount, 10)
+          const replyWord = count === 1 ? "reply" : "replies"
+          textSpan.textContent = `Hide ${replyWord}`
+        }
+      }
+    }
+
+    // Run after layout so smooth-scroll picks up the now-visible element.
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" })
+      target.classList.add("pulse-comment-highlighted")
+    })
+  }
 
   private async refreshCommentsList(): Promise<void> {
     // Find the parent comments section and get the refresh URL

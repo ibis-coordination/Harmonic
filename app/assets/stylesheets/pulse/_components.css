@@ -461,6 +461,18 @@
   border-bottom: none;
 }
 
+.pulse-comment-highlighted {
+  background-color: var(--color-attention-subtle, #fff8c5);
+  border-left: 3px solid var(--color-attention-emphasis, #d4a72c);
+  padding-left: 8px;
+  animation: pulse-comment-flash 1.5s ease-out;
+}
+
+@keyframes pulse-comment-flash {
+  0% { background-color: var(--color-attention-emphasis, #d4a72c); }
+  100% { background-color: var(--color-attention-subtle, #fff8c5); }
+}
+
 .pulse-comment-header {
   display: flex;
   align-items: center;
