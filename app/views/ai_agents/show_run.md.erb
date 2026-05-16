@@ -78,6 +78,22 @@ LLM reasoning (step <%= detail[:step_number].to_i + 1 %>)<% if detail[:llm_error
 
 **LLM Error:** <%= detail[:llm_error] %>
 <% end -%>
+<% if detail[:tool_calls].is_a?(Array) && detail[:tool_calls].any? -%>
+
+Tool calls:
+<% detail[:tool_calls].each do |tc| -%>
+<% tc = tc.is_a?(Hash) ? tc.with_indifferent_access : {} -%>
+- `<%= tc[:name] %>(<%= tc[:arguments] %>)`
+<% end -%>
+<% end -%>
+<% if detail[:reasoning].present? -%>
+
+**Model reasoning:**
+
+```
+<%= detail[:reasoning] %>
+```
+<% end -%>
 <% if params[:debug] == "true" && detail[:prompt_preview].present? -%>
 
 <details>

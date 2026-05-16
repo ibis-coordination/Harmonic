@@ -58,6 +58,7 @@ function makeLLMResponse(overrides?: Partial<LLMResponse>): LLMResponse {
     finishReason: "stop",
     model: "test-model",
     usage: { inputTokens: 100, outputTokens: 50 },
+    reasoning: undefined,
     ...overrides,
   };
 }
@@ -1095,6 +1096,88 @@ describe("AgentLoop", () => {
       );
 
       expect(state.navigatePaths).toEqual(["/whoami"]);
+    });
+  });
+
+  // --- Sprint A: think-step observability ---
+
+  describe("think step observability", () => {
+    it("records tool_calls on the think step when the LLM emits tool calls", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        makeTask(),
+        state,
+        [
+          makeLLMResponse({
+            content: undefined,
+            toolCalls: [
+              makeNavigateToolCall("/notifications", "call_1"),
+              makeExecuteToolCall("mark_read", { id: 42 }, "call_2"),
+            ],
+            finishReason: "tool_calls",
+          }),
+          makeLLMResponse({ content: "Done", toolCalls: [], finishReason: "stop" }),
+          makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+        ],
+        {
+          "/whoami": { content: WHOAMI_CONTENT, availableActions: ["mark_read"] },
+          "/notifications": { content: "# Notifications", availableActions: ["mark_read"] },
+        },
+        { "mark_read": { content: "Marked", success: true } },
+      );
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      const firstThink = thinkSteps[0];
+      expect(firstThink).toBeDefined();
+      const toolCalls = firstThink?.detail["tool_calls"] as ReadonlyArray<{ name: string; arguments: string }>;
+      expect(toolCalls).toBeDefined();
+      expect(toolCalls.length).toBe(2);
+      expect(toolCalls[0]?.name).toBe("navigate");
+      expect(toolCalls[0]?.arguments).toContain('"path":"/notifications"');
+      expect(toolCalls[1]?.name).toBe("execute_action");
+      expect(toolCalls[1]?.arguments).toContain('"action":"mark_read"');
+    });
+
+    it("omits tool_calls on the think step when the LLM only emitted text", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        makeTask(),
+        state,
+        [makeLLMResponse({ content: "Done", toolCalls: [], finishReason: "stop" })],
+      );
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      expect(thinkSteps[0]?.detail).not.toHaveProperty("tool_calls");
+    });
+
+    it("records reasoning on the think step when the LLM response carries it", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        makeTask(),
+        state,
+        [
+          makeLLMResponse({
+            content: "Done",
+            toolCalls: [],
+            finishReason: "stop",
+            reasoning: "The user just said hello; respond and stop.",
+          }),
+          makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+        ],
+      );
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      expect(thinkSteps[0]?.detail["reasoning"]).toBe(
+        "The user just said hello; respond and stop.",
+      );
+    });
+
+    it("omits reasoning on the think step when the LLM response carries none", async () => {
+      const state = createMockState();
+      await runWithMocks(makeTask(), state, [makeLLMResponse()]);
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      expect(thinkSteps[0]?.detail).not.toHaveProperty("reasoning");
     });
   });
 });

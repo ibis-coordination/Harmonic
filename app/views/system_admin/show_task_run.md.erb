@@ -59,6 +59,22 @@ Error: <%= detail[:error] %>
 <% if detail[:llm_error].present? -%>
 LLM Error: <%= detail[:llm_error] %>
 <% end -%>
+<% if !redacted && detail[:tool_calls].is_a?(Array) && detail[:tool_calls].any? -%>
+
+Tool calls:
+<% detail[:tool_calls].each do |tc| -%>
+<% tc = tc.is_a?(Hash) ? tc.with_indifferent_access : {} -%>
+- `<%= tc[:name] %>(<%= tc[:arguments] %>)`
+<% end -%>
+<% end -%>
+<% if !redacted && detail[:reasoning].present? -%>
+
+Model reasoning:
+
+```
+<%= detail[:reasoning] %>
+```
+<% end -%>
 <% if !redacted && detail[:response_preview].present? -%>
 
 ```

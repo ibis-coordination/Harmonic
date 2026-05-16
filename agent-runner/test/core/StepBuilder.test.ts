@@ -120,6 +120,80 @@ describe("StepBuilder", () => {
 
       expect(step.detail).not.toHaveProperty("llm_error");
     });
+
+    it("includes tool_calls when present", () => {
+      const step = thinkStep({
+        stepNumber: 1,
+        promptPreview: "prompt",
+        responsePreview: "",
+        llmError: null,
+        toolCalls: [
+          { name: "navigate", arguments: '{"path":"/notifications"}' },
+          { name: "execute_action", arguments: '{"action":"create_note","params":{"body":"hi"}}' },
+        ],
+      }, timestamp);
+
+      expect(step.detail["tool_calls"]).toEqual([
+        { name: "navigate", arguments: '{"path":"/notifications"}' },
+        { name: "execute_action", arguments: '{"action":"create_note","params":{"body":"hi"}}' },
+      ]);
+    });
+
+    it("omits tool_calls when none were emitted", () => {
+      const step = thinkStep({
+        stepNumber: 1,
+        promptPreview: "prompt",
+        responsePreview: "All done",
+        llmError: null,
+        toolCalls: [],
+      }, timestamp);
+
+      expect(step.detail).not.toHaveProperty("tool_calls");
+    });
+
+    it("omits tool_calls when undefined", () => {
+      const step = thinkStep({
+        stepNumber: 0,
+        promptPreview: "prompt",
+        responsePreview: "response",
+        llmError: null,
+      }, timestamp);
+
+      expect(step.detail).not.toHaveProperty("tool_calls");
+    });
+
+    it("includes reasoning when present", () => {
+      const step = thinkStep({
+        stepNumber: 2,
+        promptPreview: "prompt",
+        responsePreview: "",
+        llmError: null,
+        reasoning: "The user asked about notifications, so I should navigate there first.",
+      }, timestamp);
+
+      expect(step.detail["reasoning"]).toBe(
+        "The user asked about notifications, so I should navigate there first.",
+      );
+    });
+
+    it("omits reasoning when undefined or empty", () => {
+      const stepUndefined = thinkStep({
+        stepNumber: 0,
+        promptPreview: "prompt",
+        responsePreview: "response",
+        llmError: null,
+      }, timestamp);
+      const stepEmpty = thinkStep({
+        stepNumber: 0,
+        promptPreview: "prompt",
+        responsePreview: "response",
+        llmError: null,
+        reasoning: "",
+      }, timestamp);
+
+      expect(stepUndefined.detail).not.toHaveProperty("reasoning");
+      expect(stepEmpty.detail).not.toHaveProperty("reasoning");
+    });
   });
 
   describe("errorStep", () => {

@@ -373,12 +373,21 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           }
         }
 
-        // Record "think" step (matches Ruby think() recording)
+        // Record "think" step (matches Ruby think() recording).
+        // Capture toolCalls + reasoning so the timeline can show *what the LLM
+        // asked for* even when content is empty — common when the model emits
+        // only tool calls (no prose), or when reasoning lives in a separate
+        // field (DeepSeek R1, Claude extended thinking, OpenAI o-series).
         yield* addStep(thinkStep({
           stepNumber: stepNumberForThink,
           promptPreview: messages[messages.length - 1]?.content ?? "",
           responsePreview: response.content ?? "",
           llmError: null,
+          toolCalls: response.toolCalls.map((tc) => ({
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          })),
+          reasoning: response.reasoning,
         }, new Date()));
 
         // Add assistant response to history

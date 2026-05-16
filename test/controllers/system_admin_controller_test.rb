@@ -261,7 +261,16 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     task_run.agent_session_steps.create!(position: 0, step_type: "navigate",
       detail: { "path" => "/collectives/test", "content_preview" => "SENSITIVE_PAGE_CONTENT" })
     task_run.agent_session_steps.create!(position: 1, step_type: "think",
-      detail: { "step_number" => 0, "prompt_preview" => "SENSITIVE_PROMPT", "response_preview" => "SENSITIVE_LLM_RESPONSE" })
+      detail: {
+        "step_number" => 0,
+        "prompt_preview" => "SENSITIVE_PROMPT",
+        "response_preview" => "SENSITIVE_LLM_RESPONSE",
+        "reasoning" => "SENSITIVE_REASONING",
+        "tool_calls" => [
+          { "name" => "execute_action",
+            "arguments" => '{"action":"create_note","params":{"body":"SENSITIVE_TOOL_ARGS"}}' },
+        ],
+      })
     task_run.agent_session_steps.create!(position: 2, step_type: "execute",
       detail: { "action" => "create_note", "params" => { "text" => "SENSITIVE_PARAMS" }, "success" => true, "content_preview" => "SENSITIVE_RESULT" })
     task_run.agent_session_steps.create!(position: 3, step_type: "done",
@@ -283,6 +292,10 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/SENSITIVE_PAGE_CONTENT/, response.body)
     assert_no_match(/SENSITIVE_PROMPT/, response.body)
     assert_no_match(/SENSITIVE_LLM_RESPONSE/, response.body)
+    assert_no_match(/SENSITIVE_REASONING/, response.body,
+      "Model reasoning is treated like LLM response — redacted for non-system agents")
+    assert_no_match(/SENSITIVE_TOOL_ARGS/, response.body,
+      "Tool call arguments can contain tenant content (note bodies, etc.) — redact for non-system agents")
     assert_no_match(/SENSITIVE_PARAMS/, response.body)
     assert_no_match(/SENSITIVE_RESULT/, response.body)
     assert_no_match(/SENSITIVE_DONE_MESSAGE/, response.body)

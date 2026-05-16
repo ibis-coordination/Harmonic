@@ -2299,4 +2299,51 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     task_run&.destroy
     destroy_user!(ai_agent)
   end
+
+  test "GET ai_agent task run markdown surfaces tool_calls and reasoning on think steps" do
+    @tenant.enable_feature_flag!("ai_agents")
+
+    ai_agent = User.create!(
+      name: "Observability Test Agent",
+      email: "obs-test-#{SecureRandom.hex(4)}@not-real.com",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant,
+      ai_agent: ai_agent,
+      initiated_by: @user,
+      task: "Check notifications",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "completed",
+      success: true,
+      final_message: "Done",
+      steps_count: 1,
+      started_at: 1.minute.ago,
+      completed_at: Time.current,
+    )
+    task_run.agent_session_steps.create!(position: 0, step_type: "think", detail: {
+      "step_number" => 0,
+      "response_preview" => "",
+      "tool_calls" => [
+        { "name" => "navigate", "arguments" => '{"path":"/notifications"}' },
+      ],
+      "reasoning" => "I should check the user's notifications first.",
+    })
+
+    get "/ai-agents/#{ai_agent.handle}/runs/#{task_run.id}", headers: @headers
+    assert_equal 200, response.status
+
+    assert_match(/Tool calls:/, response.body, "Should label tool calls")
+    assert_match(/`navigate\(/, response.body, "Should show tool name")
+    assert_match(%r{/notifications}, response.body, "Should show tool arguments path")
+    assert_match(/Model reasoning:/, response.body, "Should label model reasoning")
+    assert_match(/notifications first\./, response.body, "Should include reasoning text")
+  ensure
+    task_run&.destroy
+    destroy_user!(ai_agent)
+  end
 end

@@ -392,6 +392,8 @@ export default class TaskRunStatusController extends Controller<HTMLElement> {
     const stepNumber = (detail.step_number as number) || 0
     const llmError = detail.llm_error as string | undefined
     const responsePreview = detail.response_preview as string | undefined
+    const toolCalls = detail.tool_calls as Array<{ name?: string; arguments?: string }> | undefined
+    const reasoning = detail.reasoning as string | undefined
 
     let html = `<div class="pulse-feed-item-content">LLM reasoning (step ${stepNumber + 1})`
 
@@ -405,6 +407,31 @@ export default class TaskRunStatusController extends Controller<HTMLElement> {
 
     if (llmError) {
       html += `<p style="color: var(--color-danger-fg); margin: 8px 0 0 0; font-size: 13px;">${this.escapeHtml(llmError)}</p>`
+    }
+
+    if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+      const tcParts = toolCalls.map((tc, i) => {
+        const name = this.escapeHtml(String(tc?.name ?? ""))
+        const args = this.escapeHtml(String(tc?.arguments ?? ""))
+        const sep = i < toolCalls.length - 1 ? "," : ""
+        return `<code class="pulse-code" style="font-size: 11px; margin-right: 4px;">${name}(${args})</code>${sep}`
+      })
+      html += `<p class="pulse-muted" style="margin: 8px 0 0 0;">Tool calls: ${tcParts.join(" ")}</p>`
+    }
+
+    if (reasoning) {
+      // Open by default — for reasoning models this is the most useful field.
+      html += `
+        <details class="pulse-accordion" style="margin-top: 12px;" open>
+          <summary class="pulse-accordion-header">
+            <span class="pulse-accordion-title">View model reasoning</span>
+            <span class="pulse-accordion-icon"><svg class="octicon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14"><path fill-rule="evenodd" d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 010-1.06z"></path></svg></span>
+          </summary>
+          <div class="pulse-accordion-content">
+            <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;">${this.escapeHtml(reasoning)}</pre>
+          </div>
+        </details>
+      `
     }
 
     if (responsePreview) {
