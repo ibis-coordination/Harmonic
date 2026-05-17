@@ -91,6 +91,31 @@
   </div>
 <% end %>
 
+<% if %w[queued running].include?(@task_run.status) %>
+  <%= render 'shared/pulse_accordion', title: 'Actions', icon: 'zap', open: true do %>
+    <div class="pulse-form-actions" style="flex-direction: column; align-items: flex-start;">
+      <details>
+        <summary class="pulse-action-btn-danger" style="cursor: pointer; display: inline-block;">
+          <%= octicon 'stop', height: 14 %> Cancel Task Run
+        </summary>
+        <div style="background: var(--color-canvas-subtle); padding: 16px; margin-top: 8px; border-radius: 6px;">
+          <p class="pulse-form-hint" style="margin-bottom: 16px;">
+            <%= octicon 'alert', height: 12 %>
+            Cancelling marks the task as <code class="pulse-code">cancelled</code>,
+            revokes its ephemeral API tokens, and notifies any parent automation
+            run. The runner may still complete the current step before noticing.
+          </p>
+          <%= form_tag cancel_system_admin_task_run_path(@task_run.id), method: :post do %>
+            <div class="pulse-form-actions">
+              <button type="submit" class="pulse-action-btn-danger">Confirm Cancel</button>
+            </div>
+          <% end %>
+        </div>
+      </details>
+    </div>
+  <% end %>
+<% end %>
+
 <!-- Steps Timeline -->
 <div class="pulse-section-label" style="margin-bottom: 16px;">
   <%= octicon 'list-ordered', height: 12 %> Execution Steps (<%= @task_run.steps_count %>)

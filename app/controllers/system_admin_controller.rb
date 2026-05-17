@@ -149,7 +149,9 @@ class SystemAdminController < ApplicationController
     redis&.close
 
     @status_filter = params[:status]
-    scope = AiAgentTaskRun.unscoped_for_admin(@current_user).order(created_at: :desc)
+    base = AiAgentTaskRun.unscoped_for_admin(@current_user)
+    @queued_task_count = base.where(status: "queued").count
+    scope = base.order(created_at: :desc)
     scope = scope.where(status: @status_filter) if @status_filter.present?
     @recent_task_runs = scope.limit(20)
 
@@ -170,7 +172,118 @@ class SystemAdminController < ApplicationController
     end
   end
 
+  # POST /system-admin/agent-runner/actions/redispatch-queued
+  def execute_redispatch_queued_tasks
+    queued = AiAgentTaskRun.unscoped_for_admin(@current_user).where(status: "queued")
+    total = queued.count
+    dispatched = 0
+    failed = 0
+
+    # Each task's dispatch needs its own tenant scope; restore the request's
+    # tenant context once the loop finishes (or aborts) so the response can
+    # log, render, and redirect normally.
+    with_admin_scope_restored do
+      queued.find_each do |task_run|
+        Tenant.scope_thread_to_tenant(subdomain: task_run.tenant.subdomain)
+        Collective.clear_thread_scope
+        AgentRunnerDispatchService.dispatch(task_run)
+        dispatched += 1
+      rescue StandardError => e
+        failed += 1
+        Rails.logger.warn("[SystemAdmin] redispatch failed for #{task_run.id}: #{e.class} #{e.message}")
+      end
+    end
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "redispatch_queued_tasks",
+      details: { total: total, dispatched: dispatched, failed: failed },
+    )
+
+    message = "Redispatched #{dispatched} of #{total} queued task#{'s' unless total == 1}."
+    message += " #{failed} failed." if failed.positive?
+
+    respond_to do |format|
+      format.md { render plain: message }
+      format.html do
+        flash[:notice] = message
+        redirect_to "/system-admin/agent-runner"
+      end
+    end
+  end
+
+  # POST /system-admin/agent-runner/runs/:id/cancel
+  def execute_cancel_task_run
+    task_run = AiAgentTaskRun.unscoped_for_admin(@current_user).find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless task_run
+
+    unless %w[queued running].include?(task_run.status)
+      respond_to do |format|
+        format.md { render plain: "Task is not running or queued (status: #{task_run.status}).", status: :unprocessable_entity }
+        format.html do
+          flash[:alert] = "Task is not running or queued (status: #{task_run.status})."
+          redirect_to system_admin_task_run_path(task_run.id)
+        end
+      end
+      return
+    end
+
+    # Mutations and parent-run lookups run in the task's own tenant scope so
+    # default-scoped queries (AutomationRuleRun, etc.) target the right rows
+    # even when admin and task live in different tenants.
+    with_admin_scope_restored do
+      Tenant.scope_thread_to_tenant(subdomain: task_run.tenant.subdomain)
+      Collective.clear_thread_scope
+      task_run.update!(
+        status: "cancelled",
+        completed_at: Time.current,
+        error: "Cancelled by admin",
+      )
+      task_run.notify_parent_automation_runs!
+      # Revoke the ephemeral runner token (`internal: true`, so the default external
+      # scope hides it). Use admin scope so we find tokens belonging to other tenants too.
+      ApiToken.unscoped_for_admin(@current_user)
+        .where(context_id: task_run.id, context_type: "AiAgentTaskRun", deleted_at: nil)
+        .find_each(&:delete!)
+    end
+
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "cancel_agent_task_run",
+      details: { task_run_id: task_run.id, agent_id: task_run.ai_agent_id, tenant_id: task_run.tenant_id },
+    )
+
+    respond_to do |format|
+      format.md do
+        @task_run = task_run.reload
+        @task_run.agent_session_steps.load
+        @page_title = "Task Run"
+        render 'show_task_run'
+      end
+      format.html do
+        flash[:notice] = "Task run cancelled."
+        redirect_to system_admin_task_run_path(task_run.id)
+      end
+    end
+  end
+
   private
+
+  # Run a block under a (possibly different) tenant/collective scope and
+  # always restore the request's original scope afterwards. Cross-tenant
+  # admin actions need this so the response (logging, redirect) runs under
+  # the admin's normal context.
+  def with_admin_scope_restored
+    saved_collective_id = Collective.current_id
+    saved_collective_handle = Current.collective_handle
+    yield
+  ensure
+    Tenant.scope_thread_to_tenant(subdomain: @current_tenant.subdomain) if @current_tenant
+    Current.collective_id = saved_collective_id
+    Current.collective_handle = saved_collective_handle
+  end
 
   def ensure_primary_tenant
     unless @current_tenant&.subdomain == ENV['PRIMARY_SUBDOMAIN']
@@ -227,6 +340,7 @@ class SystemAdminController < ApplicationController
     @webhook_health = load_webhook_health_stats
     @event_activity = load_event_activity_stats
     @system_resources = load_system_resource_stats
+    @system_health = load_system_health_stats
   end
 
   # Lightweight runner-process stats for the dashboard row.
@@ -287,5 +401,40 @@ class SystemAdminController < ApplicationController
       workers_busy: Sidekiq::ProcessSet.new.sum { |p| p["busy"] },
       workers_total: Sidekiq::ProcessSet.new.sum { |p| p["concurrency"] },
     }
+  end
+
+  def load_system_health_stats
+    db_pool = load_db_pool_stats
+    redis_info = load_redis_info
+    {
+      db_pool: db_pool,
+      redis_used_memory: redis_info[:used_memory_human],
+      redis_clients_connected: redis_info[:connected_clients],
+    }
+  end
+
+  def load_db_pool_stats
+    stat = ActiveRecord::Base.connection_pool.stat
+    {
+      size: stat[:size],
+      connections: stat[:connections],
+      busy: stat[:busy],
+      waiting: stat[:waiting],
+    }
+  rescue StandardError
+    nil
+  end
+
+  def load_redis_info
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    info = redis.info
+    {
+      used_memory_human: info["used_memory_human"],
+      connected_clients: info["connected_clients"],
+    }
+  rescue StandardError
+    { used_memory_human: nil, connected_clients: nil }
+  ensure
+    redis&.close
   end
 end

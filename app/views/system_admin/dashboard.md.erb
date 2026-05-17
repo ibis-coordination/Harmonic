@@ -55,3 +55,16 @@ Node.js service that executes AI agent task runs.
 - Queued jobs: <%= @system_resources[:queue_depth] %>
 - Redis memory: <%= @system_resources[:redis_memory] %>
 - Workers: <%= @system_resources[:workers_busy] %>/<%= @system_resources[:workers_total] %> busy
+
+#### System Health
+<% if @system_health[:db_pool] -%>
+<% pool = @system_health[:db_pool] -%>
+- DB pool: <%= pool[:busy] %>/<%= pool[:size] %> busy, <%= pool[:connections] %> open, <%= pool[:waiting] %> waiting
+<% else -%>
+- DB pool: unavailable
+<% end -%>
+<% if @system_health[:redis_used_memory] -%>
+- Redis: <%= @system_health[:redis_used_memory] %> used, <%= @system_health[:redis_clients_connected] %> clients
+<% else -%>
+- Redis: unavailable
+<% end -%>

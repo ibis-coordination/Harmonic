@@ -211,7 +211,9 @@ Rails.application.routes.draw do
   get 'system-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'system_admin#describe_retry_sidekiq_job'
   post 'system-admin/sidekiq/jobs/:jid/actions/retry_sidekiq_job' => 'system_admin#execute_retry_sidekiq_job'
   get 'system-admin/agent-runner' => 'system_admin#agent_runner'
+  post 'system-admin/agent-runner/actions/redispatch-queued' => 'system_admin#execute_redispatch_queued_tasks'
   get 'system-admin/agent-runner/runs/:id' => 'system_admin#show_task_run', as: 'system_admin_task_run'
+  post 'system-admin/agent-runner/runs/:id/cancel' => 'system_admin#execute_cancel_task_run', as: 'cancel_system_admin_task_run'
 
   # App Admin (primary tenant only, app_admin role on User)
   # For cross-tenant management: tenants, users across all tenants

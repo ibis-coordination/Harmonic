@@ -322,4 +322,335 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     get "/system-admin/agent-runner/runs/#{SecureRandom.uuid}"
     assert_response :forbidden
   end
+
+  # ============================================================================
+  # SECTION 6: Redispatch Queued Tasks
+  # ============================================================================
+
+  test "sys_admin sees redispatch button when queued tasks exist" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Q Agent", email: "q-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "Some queued task",
+      max_steps: 10,
+      status: "queued",
+    )
+
+    get "/system-admin/agent-runner"
+    assert_response :success
+    assert_match "Redispatch 1 queued task", response.body
+  end
+
+  test "sys_admin executes redispatch and gets flash message" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Q Agent", email: "q-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "Queued task",
+      max_steps: 10,
+      status: "queued",
+    )
+
+    AgentRunnerDispatchService.stub :dispatch, ->(_tr) { nil } do
+      post "/system-admin/agent-runner/actions/redispatch-queued"
+    end
+
+    assert_redirected_to "/system-admin/agent-runner"
+    assert_match(/Redispatched 1 of 1 queued task/, flash[:notice].to_s)
+    assert_equal "queued", task_run.reload.status
+  end
+
+  test "redispatch reports failures without aborting" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Q Agent", email: "q-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    2.times do |i|
+      AiAgentTaskRun.create!(
+        tenant: @primary_tenant,
+        ai_agent: ai_agent,
+        initiated_by: @sys_admin_user,
+        task: "Task #{i}",
+        max_steps: 10,
+        status: "queued",
+      )
+    end
+
+    call_count = 0
+    boom = ->(_tr) {
+      call_count += 1
+      raise StandardError, "boom" if call_count == 1
+    }
+    AgentRunnerDispatchService.stub :dispatch, boom do
+      post "/system-admin/agent-runner/actions/redispatch-queued"
+    end
+
+    assert_redirected_to "/system-admin/agent-runner"
+    assert_match(/Redispatched 1 of 2 queued tasks\. 1 failed\./, flash[:notice].to_s)
+  end
+
+  test "redispatch restores request tenant scope even when a task dispatch fails" do
+    # Create a task run in a non-primary tenant so a leaked scope would be visible.
+    @primary_tenant.add_user!(@sys_admin_user)
+    @other_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @other_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Q Agent", email: "q-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @other_tenant.add_user!(ai_agent)
+    AiAgentTaskRun.create!(
+      tenant: @other_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "task",
+      max_steps: 10,
+      status: "queued",
+    )
+    Tenant.clear_thread_scope
+
+    AgentRunnerDispatchService.stub :dispatch, ->(_tr) { raise "explode" } do
+      post "/system-admin/agent-runner/actions/redispatch-queued"
+    end
+    assert_redirected_to "/system-admin/agent-runner"
+  end
+
+  test "non-sys-admin cannot redispatch queued tasks" do
+    @primary_tenant.add_user!(@non_sys_admin_user)
+    tu = @primary_tenant.tenant_users.find_by(user: @non_sys_admin_user)
+    tu.add_role!('admin')
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_sys_admin_user, tenant: @primary_tenant)
+
+    post "/system-admin/agent-runner/actions/redispatch-queued"
+    assert_response :forbidden
+  end
+
+  # ============================================================================
+  # SECTION 7: Cancel Task Run
+  # ============================================================================
+
+  test "sys_admin can cancel a running task run" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Run Agent", email: "run-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "running task",
+      max_steps: 10,
+      status: "running",
+      started_at: Time.current,
+    )
+
+    post cancel_system_admin_task_run_path(task_run.id)
+
+    assert_redirected_to system_admin_task_run_path(task_run.id)
+    task_run.reload
+    assert_equal "cancelled", task_run.status
+    assert_equal "Cancelled by admin", task_run.error
+    assert_not_nil task_run.completed_at
+  end
+
+  test "sys_admin can cancel a queued task run" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Q Agent", email: "qc-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "queued task",
+      max_steps: 10,
+      status: "queued",
+    )
+
+    post cancel_system_admin_task_run_path(task_run.id)
+
+    assert_redirected_to system_admin_task_run_path(task_run.id)
+    assert_equal "cancelled", task_run.reload.status
+  end
+
+  test "cancel deletes active api tokens for the task run" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Tok Agent", email: "tok-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "task",
+      max_steps: 10,
+      status: "running",
+      started_at: Time.current,
+    )
+    token = ApiToken.create_internal_token(
+      user: ai_agent,
+      tenant: @primary_tenant,
+      context: task_run,
+      expires_in: 1.hour,
+    )
+
+    post cancel_system_admin_task_run_path(task_run.id)
+
+    # Internal tokens are hidden by the default scope, so query unscoped
+    refreshed = ApiToken.unscope(where: :internal).unscope(where: :tenant_id).find(token.id)
+    assert_not_nil refreshed.deleted_at, "API token should be marked deleted"
+  end
+
+  test "cancel refuses for already-completed task" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "C Agent", email: "c-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "task",
+      max_steps: 10,
+      status: "completed",
+      success: true,
+      completed_at: 1.minute.ago,
+    )
+
+    post cancel_system_admin_task_run_path(task_run.id)
+
+    assert_redirected_to system_admin_task_run_path(task_run.id)
+    follow_redirect!
+    assert_equal "completed", task_run.reload.status
+  end
+
+  test "cancel returns 404 for unknown task" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    post cancel_system_admin_task_run_path(SecureRandom.uuid)
+    assert_response :not_found
+  end
+
+  test "non-sys-admin cannot cancel a task run" do
+    @primary_tenant.add_user!(@non_sys_admin_user)
+    tu = @primary_tenant.tenant_users.find_by(user: @non_sys_admin_user)
+    tu.add_role!('admin')
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(@non_sys_admin_user, tenant: @primary_tenant)
+
+    post cancel_system_admin_task_run_path(SecureRandom.uuid)
+    assert_response :forbidden
+  end
+
+  test "show_task_run renders cancel button for running task" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    email = "cancel-#{SecureRandom.hex(4)}@test.com"
+    ai_agent = User.create!(name: "Cancel Agent", email: email, user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "task",
+      max_steps: 10,
+      status: "running",
+      started_at: Time.current,
+    )
+
+    get system_admin_task_run_path(task_run.id)
+    assert_response :success
+    assert_match "Cancel Task Run", response.body
+  end
+
+  test "show_task_run hides cancel button for completed task" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(name: "Done Agent", email: "done-#{SecureRandom.hex(4)}@test.com", user_type: "ai_agent", parent_id: @sys_admin_user.id)
+    @primary_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @primary_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "task",
+      max_steps: 10,
+      status: "completed",
+      success: true,
+      completed_at: 1.minute.ago,
+    )
+
+    get system_admin_task_run_path(task_run.id)
+    assert_response :success
+    assert_no_match(/Cancel Task Run/, response.body)
+  end
+
+  # ============================================================================
+  # SECTION 8: System Health Panel
+  # ============================================================================
+
+  test "dashboard includes DB pool and Redis health stats" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    get "/system-admin"
+    assert_response :success
+
+    # New labels introduced by the system health panel — not present before.
+    assert_match(/DB Pool/, response.body)
+    assert_match(/clients/, response.body)
+    assert_match(/waiting/, response.body)
+  end
+
+  test "dashboard markdown includes system health section" do
+    @primary_tenant.add_user!(@sys_admin_user)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    get "/system-admin", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/System Health/, response.body)
+    assert_match(/DB pool:/, response.body)
+  end
 end
