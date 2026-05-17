@@ -37,6 +37,15 @@ class AiAgentTaskRunResource < ApplicationRecord
     record&.ai_agent_task_run
   end
 
+  # Return the stored value of the `display_path` column.
+  # ApplicationRecord defines `display_path` as a fallback that returns `path`,
+  # which assumes the model has a `collective` and `path_prefix`. This model
+  # doesn't — the precomputed URL lives in the column of the same name.
+  sig { returns(T.nilable(String)) }
+  def display_path
+    self[:display_path]
+  end
+
   # Load the resource bypassing default scope (needed because resources may be in different collectives)
   sig { returns(T.untyped) }
   def resource_unscoped
