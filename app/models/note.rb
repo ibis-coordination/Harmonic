@@ -327,18 +327,22 @@ class Note < ApplicationRecord
     @root_commentable = cur
   end
 
-  # For comments, return the root commentable's path with a `?comment_id=`
-  # query param pointing at this specific comment. Callers landing on that
-  # URL see the full surrounding conversation in one navigation instead of
-  # the isolated /n/<comment-id> page. Non-comments use the standard
-  # `{collective_path}/n/{truncated_id}` form inherited from ApplicationRecord.
+  # The URL to link to when surfacing this note in a display context —
+  # comment lists, mention notifications, agent task prompts. For comments,
+  # returns the root commentable's path with `?comment_id=<truncated_id>` so
+  # the caller lands on the full thread with this comment marked, rather
+  # than the isolated /n/<comment-id> page. For non-comments, equals `path`.
+  #
+  # Use `path` (not `display_path`) when building API URLs by suffix
+  # concatenation (form actions, JS action endpoints, etc.) — `path` is the
+  # canonical bare resource URL.
   sig { returns(T.nilable(String)) }
-  def path
-    return super unless is_comment? && has_commentable?
+  def display_path
+    return path unless is_comment? && has_commentable?
 
     root = root_commentable
     root_path = root.respond_to?(:path) ? root.path : nil
-    return super if root_path.blank?
+    return path if root_path.blank?
 
     "#{root_path}?comment_id=#{truncated_id}"
   end

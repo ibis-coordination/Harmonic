@@ -145,6 +145,15 @@ class ApiHelper
 
   sig { params(commentable: T.nilable(T.any(Note, Decision, Commitment, RepresentationSession))).returns(Note) }
   def create_note(commentable: nil)
+    # If a caller passes `replying_to_id`, the new note nests under that
+    # specific comment. The original `commentable` (from the URL) only
+    # determines the thread — `replying_to_id` selects the parent within it.
+    # Validation: the target must share a root commentable with the original.
+    if commentable.present? && params[:replying_to_id].present?
+      thread_root = commentable.is_a?(Note) ? commentable.root_commentable : commentable
+      commentable = resolve_replying_to(thread_root)
+    end
+
     note = T.let(nil, T.nilable(Note))
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(commentable) if commentable
@@ -1304,6 +1313,30 @@ class ApiHelper
 
   def check_not_blocked_for_comment!(commentable)
     check_not_blocked!(commentable, action: "comment on")
+  end
+
+  # Resolve `params[:replying_to_id]` to a Note in the current thread, or
+  # raise a RecordInvalid the controller can surface to the caller. Validates
+  # both existence and thread membership — a comment whose root commentable
+  # is a different resource is rejected to prevent agents accidentally
+  # threading into the wrong conversation.
+  sig do
+    params(root: T.any(Note, Decision, Commitment, RepresentationSession))
+      .returns(Note)
+  end
+  def resolve_replying_to(root)
+    target = Note.where(subtype: "comment").find_by(truncated_id: params[:replying_to_id])
+    if target.nil?
+      raise ActiveRecord::RecordInvalid.new(
+        Note.new.tap { |r| r.errors.add(:replying_to_id, "no such comment in this thread (id: #{params[:replying_to_id]})") }
+      )
+    end
+    if target.root_commentable != root
+      raise ActiveRecord::RecordInvalid.new(
+        Note.new.tap { |r| r.errors.add(:replying_to_id, "the comment is in a different thread") }
+      )
+    end
+    target
   end
 
   def check_not_blocked!(resource, action: "interact with")

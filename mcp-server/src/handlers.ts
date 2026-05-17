@@ -111,9 +111,15 @@ export async function handleExecuteAction(
   }
 
   try {
-    // Get the base resource path (strip any /actions suffix or /actions/... suffix)
-    // This handles the case where user navigated to an actions index or action description page
+    // Get the base resource path (strip query string + any /actions suffix
+    // or /actions/... suffix). The query string strip matters for URLs like
+    // /d/<id>?comment_id=<id> — we want /d/<id>/actions/<name>, not
+    // /d/<id>?comment_id=.../actions/<name>.
     let basePath = state.currentPath;
+    const queryIndex = basePath.indexOf("?");
+    if (queryIndex !== -1) {
+      basePath = basePath.substring(0, queryIndex);
+    }
     const actionsWithSlashIndex = basePath.indexOf("/actions/");
     if (actionsWithSlashIndex !== -1) {
       // Path like /notifications/actions/mark_read -> /notifications

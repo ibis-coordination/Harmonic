@@ -1769,16 +1769,18 @@ class NoteTest < ActiveSupport::TestCase
     assert_not note2.is_statement?
   end
 
-  # --- Comment path / root_commentable ---
+  # --- Comment display_path / root_commentable ---
   #
-  # Comments are notes with their own /n/<id> URL, but for navigation purposes
-  # we want callers (mention dispatch, search, feed) to land on the comment's
-  # root context (the Decision / non-comment Note / Commitment the conversation
-  # is *about*) with the specific comment identified via ?comment_id=. That
-  # gives an agent or human the full surrounding context in one navigation
-  # instead of an isolated comment page that links back via "Replying to X".
+  # Comments are notes with their own /n/<id> URL (returned by Note#path,
+  # used for API endpoints — forms, action POSTs). For *display* purposes
+  # (mention dispatch, comment lists, notification URLs) we want callers
+  # to land on the comment's root context — the Decision / non-comment
+  # Note / Commitment the conversation is *about* — with the specific
+  # comment identified via ?comment_id=. That's what Note#display_path
+  # returns. Path stays bare so suffix-concat patterns (form actions,
+  # /actions/<name> endpoints) keep working.
 
-  test "non-comment Note#path is unchanged by the comment redirect" do
+  test "Note#path stays bare canonical for non-comments" do
     tenant, collective, user = create_tenant_collective_user
     note = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
@@ -1786,6 +1788,25 @@ class NoteTest < ActiveSupport::TestCase
     )
 
     assert_equal "#{collective.path}/n/#{note.truncated_id}", note.path
+  end
+
+  test "Note#path stays bare canonical for comments (so form/API concat still works)" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+    comment = decision.add_comment(text: "hi", created_by: user)
+
+    assert_equal "#{collective.path}/n/#{comment.truncated_id}", comment.path,
+      "Note#path must remain the bare /n/<id> URL — callers concatenate /comments, /actions/<name>"
+  end
+
+  test "Note#display_path equals #path for non-comments" do
+    tenant, collective, user = create_tenant_collective_user
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "A standalone note", text: "hello",
+    )
+
+    assert_equal note.path, note.display_path
   end
 
   test "Note#root_commentable returns self for non-comments" do
@@ -1816,15 +1837,15 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal decision, leaf.root_commentable
   end
 
-  test "comment on a decision: #path points at the decision with comment_id query param" do
+  test "comment on a decision: #display_path points at the decision with comment_id query param" do
     tenant, collective, user = create_tenant_collective_user
     decision = create_decision(tenant: tenant, collective: collective, created_by: user)
     comment = decision.add_comment(text: "hi", created_by: user)
 
-    assert_equal "#{decision.path}?comment_id=#{comment.truncated_id}", comment.path
+    assert_equal "#{decision.path}?comment_id=#{comment.truncated_id}", comment.display_path
   end
 
-  test "comment on a standalone Note: #path points at the parent note" do
+  test "comment on a standalone Note: #display_path points at the parent note" do
     tenant, collective, user = create_tenant_collective_user
     parent = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
@@ -1832,19 +1853,19 @@ class NoteTest < ActiveSupport::TestCase
     )
     comment = parent.add_comment(text: "a comment", created_by: user)
 
-    assert_equal "#{parent.path}?comment_id=#{comment.truncated_id}", comment.path
+    assert_equal "#{parent.path}?comment_id=#{comment.truncated_id}", comment.display_path
   end
 
-  test "nested comment: #path still points at the root commentable, not the parent comment" do
+  test "nested comment: #display_path still points at the root commentable, not the parent comment" do
     tenant, collective, user = create_tenant_collective_user
     decision = create_decision(tenant: tenant, collective: collective, created_by: user)
     top = decision.add_comment(text: "top", created_by: user)
     leaf = top.add_comment(text: "leaf", created_by: user)
 
-    assert_equal "#{decision.path}?comment_id=#{leaf.truncated_id}", leaf.path
+    assert_equal "#{decision.path}?comment_id=#{leaf.truncated_id}", leaf.display_path
   end
 
-  test "comments_with_threads injects root_commentable so #path is O(1) per comment" do
+  test "comments_with_threads injects root_commentable so #display_path is O(1) per comment" do
     tenant, collective, user = create_tenant_collective_user
     decision = create_decision(tenant: tenant, collective: collective, created_by: user)
     top = decision.add_comment(text: "top", created_by: user)
@@ -1853,14 +1874,14 @@ class NoteTest < ActiveSupport::TestCase
 
     data = decision.comments_with_threads
 
-    # Calling .path on the deepest comment must not trigger any new
+    # Calling .display_path on the deepest comment must not trigger any new
     # commentable lookups — the root has been injected during the bulk
     # preload, so the walk is bypassed entirely.
     leaf_from_threads = data[:threads][top.id].find { |c| c.id == leaf.id }
-    queries = capture_sql { leaf_from_threads.path }
+    queries = capture_sql { leaf_from_threads.display_path }
 
     assert_equal 0, queries.length,
-      "Expected zero SQL queries for #path after root injection; got: #{queries.inspect}"
+      "Expected zero SQL queries for #display_path after root injection; got: #{queries.inspect}"
   end
 
   private

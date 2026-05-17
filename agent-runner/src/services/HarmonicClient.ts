@@ -169,10 +169,15 @@ export const HarmonicClientLive = Layer.effect(
     const executeAction: HarmonicClientService["executeAction"] = (path, action, params, token, subdomain) =>
       Effect.tryPromise({
         try: async () => {
+          // Strip the query string before appending `/actions/<name>` —
+          // the agent's currentPath can include `?comment_id=…`, but
+          // action URLs are on the bare resource path.
+          const basePath = path.split("?")[0] ?? path;
+          const actionPath = `${basePath}/actions/${action}`;
           const response = await railsHttp.request({
             method: "POST",
             subdomain,
-            path: `${path}/actions/${action}`,
+            path: actionPath,
             headers: {
               "X-Forwarded-Proto": "https",
               "Content-Type": "application/json",
@@ -192,7 +197,7 @@ export const HarmonicClientLive = Layer.effect(
         catch: (error) =>
           new HarmonicApiError({
             message: error instanceof Error ? error.message : String(error),
-            path: `${path}/actions/${action}`,
+            path: `${(path.split("?")[0] ?? path)}/actions/${action}`,
           }),
       });
 

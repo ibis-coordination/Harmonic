@@ -99,8 +99,10 @@ class AutomationTemplateRenderer
       "type" => subject.class.name.underscore,
     }
 
-    # Add common fields if available
-    context["path"] = subject.path if subject.respond_to?(:path)
+    # Add common fields if available. Use display_path so comment subjects
+    # surface as {root}?comment_id={id} — landing recipients (humans + agents)
+    # in the full thread with the comment marked, in one navigation.
+    context["path"] = subject.display_path if subject.respond_to?(:display_path)
     context["title"] = extract_title(subject)
     context["text"] = extract_text(subject)
     context["created_by"] = build_user_context(subject.created_by) if subject.respond_to?(:created_by) && subject.created_by

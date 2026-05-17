@@ -151,6 +151,14 @@ class ApplicationRecord < ActiveRecord::Base
     "#{T.unsafe(self).collective.path}/#{T.unsafe(self).path_prefix}/#{T.unsafe(self).truncated_id}"
   end
 
+  # Default to `path`. Override in models where a display URL differs from
+  # the canonical resource URL — Note does this for comments to surface them
+  # inside their parent thread (see Note#display_path).
+  sig { returns(T.nilable(String)) }
+  def display_path
+    path
+  end
+
   sig { returns(T.nilable(String)) }
   def shareable_link
     subdomain = T.unsafe(self).tenant.subdomain
