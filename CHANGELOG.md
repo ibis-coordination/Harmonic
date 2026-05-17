@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.1] - 2026-05-17
+
+### Fixed
+
+- Legacy-Trio backfill migration (`20260513000001`) failed on deploy with `can't write unknown attribute 'trio_user_id'`. The migration delegated to `TrioSeeder.ensure_for`, which has since been rewritten for the per-collective model and now writes `Collective#trio_user_id` — a column not added until `20260514000000`. Inlined the legacy per-tenant create logic in the migration so it matches the schema-of-record at its version; the next-day migrations still adopt these trios into each main collective's `trio_user_id`.
+
 ## [1.16.0] - 2026-05-17
 
 ### Added
