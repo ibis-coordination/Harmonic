@@ -51,6 +51,47 @@ function runNavigate(
   return Effect.runPromiseExit(program.pipe(Effect.provide(layer)));
 }
 
+function runExecuteAction(
+  requestHandler: (opts: RailsRequestOptions) => RailsResponse,
+  path: string,
+  action: string,
+  params: Record<string, unknown> = {},
+): Promise<Exit.Exit<{ content: string; success: boolean }, HarmonicApiError>> {
+  const layer = buildTestLayer(requestHandler);
+  const program = Effect.gen(function* () {
+    const client = yield* HarmonicClient;
+    return yield* client.executeAction(path, action, params, "test-token", "app");
+  });
+  return Effect.runPromiseExit(program.pipe(Effect.provide(layer)));
+}
+
+describe("executeAction URL construction", () => {
+  it("strips ?query string from path before appending /actions/<name>", async () => {
+    let observedPath = "";
+    const handler = (opts: RailsRequestOptions) => {
+      observedPath = opts.path;
+      return makeResponse(200, "Comment added");
+    };
+
+    const exit = await runExecuteAction(handler, "/d/abc?comment_id=xyz", "add_comment", { text: "hi" });
+
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(observedPath).toBe("/d/abc/actions/add_comment");
+  });
+
+  it("works correctly when path has no query string", async () => {
+    let observedPath = "";
+    const handler = (opts: RailsRequestOptions) => {
+      observedPath = opts.path;
+      return makeResponse(200, "OK");
+    };
+
+    await runExecuteAction(handler, "/d/abc", "vote", { option_title: "yes" });
+
+    expect(observedPath).toBe("/d/abc/actions/vote");
+  });
+});
+
 describe("navigate redirect following", () => {
   it("follows a single redirect", async () => {
     const requests: string[] = [];

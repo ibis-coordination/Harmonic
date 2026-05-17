@@ -64,6 +64,11 @@ module Commentable
       threads[comment.id] = descendants
     end
 
+    # Every comment returned here has `self` as its root commentable.
+    # Inject it so render-time calls to `comment.path` /
+    # `comment.root_commentable` don't walk the polymorphic chain.
+    (top_level + threads.values.flatten).each { |c| c.root_commentable = self }
+
     { top_level: top_level, threads: threads }
   end
 end

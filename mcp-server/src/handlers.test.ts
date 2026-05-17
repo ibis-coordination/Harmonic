@@ -192,6 +192,20 @@ describe("handleExecuteAction", () => {
       expect.anything()
     );
   });
+
+  it("strips ?query string from path before constructing action URL", async () => {
+    // After navigating to a comment-context URL like /d/abc?comment_id=xyz,
+    // the action URL is on the bare resource path — concatenating
+    // /actions/<name> after the query produces a malformed URL.
+    state.currentPath = "/d/abc?comment_id=xyz";
+    const mockFn = mockFetch(200, "Comment added");
+    await handleExecuteAction("add_comment", { text: "hi", replying_to_id: "xyz" }, config, state, mockFn);
+
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/d/abc/actions/add_comment",
+      expect.anything()
+    );
+  });
 });
 
 describe("handleSearch", () => {

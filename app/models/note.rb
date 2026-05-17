@@ -298,6 +298,55 @@ class Note < ApplicationRecord
     !is_comment? && !is_statement?
   end
 
+  # The non-comment ancestor this conversation is *about* — the Decision /
+  # standalone Note / Commitment / etc. that the thread is rooted on. Returns
+  # self for non-comments. Walks up the polymorphic `commentable` chain while
+  # the parent is itself a Note (i.e. another comment).
+  #
+  # Result is memoized per instance. Bulk callers that already know the root
+  # (e.g. Commentable#comments_with_threads) should set it via
+  # `root_commentable=` after preloading to avoid the polymorphic walk
+  # entirely — that's the hot path for rendering a thread.
+  sig { params(value: T.untyped).void }
+  def root_commentable=(value)
+    @root_commentable = value
+  end
+
+  sig { returns(T.untyped) }
+  def root_commentable
+    return @root_commentable if defined?(@root_commentable)
+    return @root_commentable = self unless is_comment? && has_commentable?
+
+    cur = T.let(T.unsafe(self).commentable, T.untyped)
+    depth = 0
+    while cur.is_a?(Note) && T.unsafe(cur).is_comment? && T.unsafe(cur).has_commentable?
+      cur = T.unsafe(cur).commentable
+      depth += 1
+      break if depth > 20 # cycle / depth guard
+    end
+    @root_commentable = cur
+  end
+
+  # The URL to link to when surfacing this note in a display context —
+  # comment lists, mention notifications, agent task prompts. For comments,
+  # returns the root commentable's path with `?comment_id=<truncated_id>` so
+  # the caller lands on the full thread with this comment marked, rather
+  # than the isolated /n/<comment-id> page. For non-comments, equals `path`.
+  #
+  # Use `path` (not `display_path`) when building API URLs by suffix
+  # concatenation (form actions, JS action endpoints, etc.) — `path` is the
+  # canonical bare resource URL.
+  sig { returns(T.nilable(String)) }
+  def display_path
+    return path unless is_comment? && has_commentable?
+
+    root = root_commentable
+    root_path = root.respond_to?(:path) ? root.path : nil
+    return path if root_path.blank?
+
+    "#{root_path}?comment_id=#{truncated_id}"
+  end
+
   # Returns all descendants (replies, replies to replies, etc.) chronologically
   # Uses PostgreSQL recursive CTE for efficient single-query fetching
   # IMPORTANT: find_by_sql bypasses default_scope, so we must filter by tenant/collective

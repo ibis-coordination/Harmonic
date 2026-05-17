@@ -249,7 +249,17 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       const whoamiResult = yield* navigateTo("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
 
-      // Navigate to saved path if different from /whoami
+      // Replay the previous turn's navigation. This is load-bearing for two
+      // reasons, not just a "resume where we left off" nicety:
+      //   1. Action validity is page-scoped. `executeAction` rejects any
+      //      action that isn't in `currentActions`, and `currentActions` is
+      //      set by `navigate`. If turn 1 read a note and turn 2 says "add a
+      //      comment", the LLM's execute_action("add_comment") fails unless
+      //      we restore the note's page state.
+      //   2. The chat-history rehydration only carries user/assistant text
+      //      across turns — the agent's prior navigation results aren't in
+      //      the new message context. Re-navigating restores the page
+      //      content the LLM may need to reason about.
       if (savedPath && savedPath !== "/whoami") {
         yield* navigateTo(savedPath);
       }
@@ -363,12 +373,21 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           }
         }
 
-        // Record "think" step (matches Ruby think() recording)
+        // Record "think" step (matches Ruby think() recording).
+        // Capture toolCalls + reasoning so the timeline can show *what the LLM
+        // asked for* even when content is empty — common when the model emits
+        // only tool calls (no prose), or when reasoning lives in a separate
+        // field (DeepSeek R1, Claude extended thinking, OpenAI o-series).
         yield* addStep(thinkStep({
           stepNumber: stepNumberForThink,
           promptPreview: messages[messages.length - 1]?.content ?? "",
           responsePreview: response.content ?? "",
           llmError: null,
+          toolCalls: response.toolCalls.map((tc) => ({
+            name: tc.function.name,
+            arguments: tc.function.arguments,
+          })),
+          reasoning: response.reasoning,
         }, new Date()));
 
         // Add assistant response to history

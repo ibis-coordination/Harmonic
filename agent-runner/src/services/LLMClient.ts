@@ -18,6 +18,13 @@ export interface LLMResponse {
     readonly inputTokens: number;
     readonly outputTokens: number;
   };
+  /**
+   * Model-emitted chain-of-thought / reasoning text, when the provider exposes
+   * it as a separate field. Different vendors use different shapes — we
+   * normalize to a single optional string. Undefined when: not a reasoning
+   * model, or reasoning hidden by the provider.
+   */
+  readonly reasoning: string | undefined;
 }
 
 export interface LLMClientService {
@@ -35,7 +42,14 @@ interface CompletionChoice {
   readonly message?: {
     readonly content?: string | null;
     readonly tool_calls?: readonly RawToolCall[];
+    // Reasoning models surface chain-of-thought in different fields:
+    //   reasoning_content — DeepSeek R1, Anthropic via LiteLLM passthrough
+    //   reasoning         — some OpenRouter providers
+    readonly reasoning_content?: string | null;
+    readonly reasoning?: string | null;
   };
+  // OpenAI o-series surfaces reasoning at the choice level instead.
+  readonly reasoning?: string | null;
   readonly finish_reason?: string;
 }
 
@@ -131,6 +145,12 @@ export const LLMClientLive = Layer.effect(
               },
             }));
 
+          const reasoning =
+            message?.reasoning_content ??
+            message?.reasoning ??
+            choice?.reasoning ??
+            undefined;
+
           return {
             content: message?.content ?? undefined,
             toolCalls,
@@ -140,6 +160,7 @@ export const LLMClientLive = Layer.effect(
               inputTokens: data.usage?.prompt_tokens ?? 0,
               outputTokens: data.usage?.completion_tokens ?? 0,
             },
+            reasoning: reasoning ?? undefined,
           } satisfies LLMResponse;
         },
         catch: (error) =>

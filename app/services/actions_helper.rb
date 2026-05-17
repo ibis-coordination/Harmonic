@@ -455,9 +455,11 @@ class ActionsHelper
     # Comment action (shared across notes, decisions, commitments)
     "add_comment" => {
       description: "Add a comment",
-      params_string: "(text)",
+      params_string: "(text, replying_to_id)",
       params: [
         { name: "text", type: "string", description: "The text of the comment" },
+        { name: "replying_to_id", type: "string", required: false,
+          description: "Optional for comment threads", },
       ],
       authorization: :collective_member,
     },

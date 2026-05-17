@@ -58,7 +58,7 @@ class NotificationDispatcher
         notification_type: "mention",
         title: "#{actor_name} mentioned you",
         body: note.text.to_s.truncate(200),
-        url: note.path
+        url: note.display_path
       )
     end
 
@@ -133,7 +133,7 @@ class NotificationDispatcher
       notification_type: "participation",
       title: "#{actor_name} #{vote_type} on your decision",
       body: decision.description.to_s.truncate(200),
-      url: decision.path
+      url: decision.display_path
     )
   end
 
@@ -155,7 +155,7 @@ class NotificationDispatcher
         notification_type: "participation",
         title: "A decision you participated in was resolved",
         body: decision.description.to_s.truncate(200),
-        url: decision.path
+        url: decision.display_path
       )
     end
   end
@@ -178,7 +178,7 @@ class NotificationDispatcher
       notification_type: "participation",
       title: "#{actor_name} joined your commitment",
       body: commitment.description.to_s.truncate(200),
-      url: commitment.path
+      url: commitment.display_path
     )
   end
 
@@ -200,7 +200,7 @@ class NotificationDispatcher
         notification_type: "participation",
         title: "Critical mass reached on a commitment you joined",
         body: commitment.description.to_s.truncate(200),
-        url: commitment.path
+        url: commitment.display_path
       )
     end
   end
@@ -239,7 +239,7 @@ class NotificationDispatcher
         notification_type: "mention",
         title: "#{actor_name} mentioned you in a decision",
         body: decision.question.to_s.truncate(200),
-        url: decision.path
+        url: decision.display_path
       )
     end
 
@@ -273,7 +273,7 @@ class NotificationDispatcher
         notification_type: "mention",
         title: "#{actor_name} mentioned you in a commitment",
         body: commitment.title.to_s.truncate(200),
-        url: commitment.path
+        url: commitment.display_path
       )
     end
 
@@ -308,7 +308,7 @@ class NotificationDispatcher
         notification_type: "mention",
         title: "#{actor_name} mentioned you in a decision option",
         body: option.title.to_s.truncate(200),
-        url: decision&.path
+        url: decision&.display_path
       )
     end
 
@@ -410,12 +410,14 @@ class NotificationDispatcher
     obj.created_by
   end
 
-  # Helper to safely get path from polymorphic objects
+  # Helper to safely get the display URL from polymorphic objects. Uses
+  # `display_path` so comment-subtype Notes surface the in-thread URL
+  # (`{root}?comment_id={id}`) — recipients land on the full conversation.
   sig { params(obj: T.untyped).returns(T.nilable(String)) }
   def self.get_path(obj)
-    return nil unless obj.respond_to?(:path)
+    return nil unless obj.respond_to?(:display_path)
 
-    obj.path
+    obj.display_path
   end
 
   sig { params(decision: Decision).returns(T::Array[User]) }

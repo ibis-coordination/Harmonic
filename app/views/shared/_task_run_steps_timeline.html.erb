@@ -107,6 +107,26 @@
             </p>
           <% end %>
           <% unless is_redacted %>
+            <% if detail[:tool_calls].is_a?(Array) && detail[:tool_calls].any? %>
+              <p class="pulse-muted" style="margin: 8px 0 0 0;">
+                Tool calls:
+                <% detail[:tool_calls].each_with_index do |tc, tc_idx| %>
+                  <% tc = tc.is_a?(Hash) ? tc.with_indifferent_access : {} %>
+                  <code class="pulse-code" style="font-size: 11px; margin-right: 4px;"><%= tc[:name] %>(<%= tc[:arguments] %>)</code><%= "," if tc_idx < detail[:tool_calls].length - 1 %>
+                <% end %>
+              </p>
+            <% end %>
+            <% if detail[:reasoning].present? %>
+              <details class="pulse-accordion" style="margin-top: 12px;" open>
+                <summary class="pulse-accordion-header">
+                  <span class="pulse-accordion-title">View model reasoning</span>
+                  <span class="pulse-accordion-icon"><%= octicon 'chevron-right', height: 14 %></span>
+                </summary>
+                <div class="pulse-accordion-content">
+                  <pre style="font-size: 12px; overflow-x: auto; white-space: pre-wrap; margin: 0;"><%= detail[:reasoning] %></pre>
+                </div>
+              </details>
+            <% end %>
             <% if show_debug && detail[:prompt_preview].present? %>
               <details class="pulse-accordion" style="margin-top: 12px;">
                 <summary class="pulse-accordion-header">

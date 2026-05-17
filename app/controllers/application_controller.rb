@@ -76,8 +76,31 @@ class ApplicationController < ActionController::Base
     @current_collective
   end
 
+  # Query params preserved in the canonical `current_path` (used in the
+  # markdown frontmatter `path:`). Add params here when they carry meaning
+  # the agent needs to see — search queries, comment highlights, pagination
+  # cursors, time-range filters. Anything not listed is dropped so the
+  # frontmatter URL stays clean and predictable.
+  PRESERVED_QUERY_PARAMS = %w[
+    q
+    comment_id
+    cycle
+    cursor
+    offset
+    status
+    before
+    after
+  ].freeze
+
   def current_path
-    @current_path ||= request.path
+    return @current_path if defined?(@current_path) && @current_path
+
+    preserved = PRESERVED_QUERY_PARAMS.each_with_object({}) do |key, h|
+      val = params[key]
+      h[key] = val.to_s if val.present?
+    end
+
+    @current_path = preserved.any? ? "#{request.path}?#{preserved.to_query}" : request.path
   end
 
   def api_token_present?

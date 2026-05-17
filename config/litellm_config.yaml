@@ -14,6 +14,11 @@ model_list:
       api_base: https://api.arcee.ai/api/v1
       api_key: os.environ/ARCEE_API_KEY
 
+  - model_name: trinity-large-thinking-free
+    litellm_params:
+      model: openrouter/arcee-ai/trinity-large-thinking:free
+      api_key: os.environ/OPENROUTER_API_KEY
+
   # Anthropic Claude (requires ANTHROPIC_API_KEY env var).
   # LiteLLM requires the `anthropic/` provider prefix on the underlying model.
   - model_name: claude-sonnet-4

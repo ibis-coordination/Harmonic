@@ -59,15 +59,27 @@ export function executeStep(detail: {
 }
 
 /**
+ * Compact summary of a single tool call emitted by the LLM, stored on the
+ * think step so the timeline can show *what the LLM asked for* even when
+ * response_preview is empty (common when the model emits only tool calls).
+ */
+export interface ToolCallSummary {
+  readonly name: string;
+  readonly arguments: string;
+}
+
+/**
  * Build a think step record.
  * Matches Ruby: add_step("think", { step_number:, prompt_preview:, response_preview:, llm_error: })
- * llm_error is only included if present (non-null).
+ * llm_error, tool_calls, and reasoning are only included when present.
  */
 export function thinkStep(detail: {
   readonly stepNumber: number;
   readonly promptPreview: string;
   readonly responsePreview: string;
   readonly llmError: string | null;
+  readonly toolCalls?: readonly ToolCallSummary[] | undefined;
+  readonly reasoning?: string | undefined;
 }, timestamp: Date): StepRecord {
   const stepDetail: Record<string, unknown> = {
     step_number: detail.stepNumber,
@@ -76,6 +88,15 @@ export function thinkStep(detail: {
   };
   if (detail.llmError !== null) {
     stepDetail["llm_error"] = detail.llmError;
+  }
+  if (detail.toolCalls !== undefined && detail.toolCalls.length > 0) {
+    stepDetail["tool_calls"] = detail.toolCalls.map((tc) => ({
+      name: tc.name,
+      arguments: tc.arguments,
+    }));
+  }
+  if (detail.reasoning !== undefined && detail.reasoning !== "") {
+    stepDetail["reasoning"] = detail.reasoning;
   }
   return {
     type: "think",

@@ -58,6 +58,7 @@ function makeLLMResponse(overrides?: Partial<LLMResponse>): LLMResponse {
     finishReason: "stop",
     model: "test-model",
     usage: { inputTokens: 100, outputTokens: 50 },
+    reasoning: undefined,
     ...overrides,
   };
 }
@@ -122,6 +123,7 @@ interface MockOptions {
   readonly navigateErrors?: Record<string, string>;  // path → error message
   readonly llmErrorOnCall?: number;  // fail on the Nth LLM call (0-indexed)
   readonly chatHistory?: readonly ChatHistoryMsg[];
+  readonly chatCurrentPath?: string;  // historyResponse.current_state.current_path
 }
 
 function buildTestLayers(
@@ -183,7 +185,10 @@ function buildTestLayers(
         content: m.content,
         timestamp: m.timestamp ?? new Date().toISOString(),
       }));
-      return Effect.succeed({ messages, current_state: {} });
+      const current_state = options?.chatCurrentPath !== undefined
+        ? { current_path: options.chatCurrentPath }
+        : {};
+      return Effect.succeed({ messages, current_state });
     },
   });
 
@@ -1040,6 +1045,139 @@ describe("AgentLoop", () => {
       const firstPrompt = state.llmMessages[0] ?? [];
       expect(userTurnCount(firstPrompt, "brand new question")).toBe(1);
       expect(userTurnCount(firstPrompt, "stale prior question")).toBe(1);
+    });
+
+    it("replays the previous turn's current_path so cross-turn actions remain valid", async () => {
+      // Each chat turn replays the saved current_path right after /whoami.
+      // This is intentional and load-bearing: `executeAction` validates the
+      // action name against `currentActions`, which is set by `navigate`. If
+      // turn 1 navigates to a note and turn 2 says "add a comment", the
+      // LLM's execute_action("add_comment") would fail validation unless we
+      // re-establish the page state on turn 2. The replay also re-loads the
+      // page content into the new turn's message context — the chat history
+      // rehydration only carries user/assistant text, not prior navigation
+      // results, so without the replay the LLM has no memory of the page.
+      const state = createMockState();
+      await runWithMocks(
+        chatTask("now add a comment"),
+        state,
+        [makeLLMResponse({ content: "ok" })],
+        undefined,
+        undefined,
+        {
+          chatHistory: [
+            { role: "user", content: "please read this note" },
+            { role: "assistant", content: "got it" },
+          ],
+          chatCurrentPath: "/collectives/chariot/n/abc123",
+        },
+      );
+
+      expect(state.navigatePaths).toEqual([
+        "/whoami",
+        "/collectives/chariot/n/abc123",
+      ]);
+    });
+
+    it("does not replay current_path when it equals /whoami", async () => {
+      // /whoami is the always-first navigation; skipping the replay when it
+      // would land on the same place avoids a duplicate fetch.
+      const state = createMockState();
+      await runWithMocks(
+        chatTask("hello"),
+        state,
+        [makeLLMResponse({ content: "hi" })],
+        undefined,
+        undefined,
+        {
+          chatHistory: [{ role: "user", content: "first" }],
+          chatCurrentPath: "/whoami",
+        },
+      );
+
+      expect(state.navigatePaths).toEqual(["/whoami"]);
+    });
+  });
+
+  // --- Sprint A: think-step observability ---
+
+  describe("think step observability", () => {
+    it("records tool_calls on the think step when the LLM emits tool calls", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        makeTask(),
+        state,
+        [
+          makeLLMResponse({
+            content: undefined,
+            toolCalls: [
+              makeNavigateToolCall("/notifications", "call_1"),
+              makeExecuteToolCall("mark_read", { id: 42 }, "call_2"),
+            ],
+            finishReason: "tool_calls",
+          }),
+          makeLLMResponse({ content: "Done", toolCalls: [], finishReason: "stop" }),
+          makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+        ],
+        {
+          "/whoami": { content: WHOAMI_CONTENT, availableActions: ["mark_read"] },
+          "/notifications": { content: "# Notifications", availableActions: ["mark_read"] },
+        },
+        { "mark_read": { content: "Marked", success: true } },
+      );
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      const firstThink = thinkSteps[0];
+      expect(firstThink).toBeDefined();
+      const toolCalls = firstThink?.detail["tool_calls"] as ReadonlyArray<{ name: string; arguments: string }>;
+      expect(toolCalls).toBeDefined();
+      expect(toolCalls.length).toBe(2);
+      expect(toolCalls[0]?.name).toBe("navigate");
+      expect(toolCalls[0]?.arguments).toContain('"path":"/notifications"');
+      expect(toolCalls[1]?.name).toBe("execute_action");
+      expect(toolCalls[1]?.arguments).toContain('"action":"mark_read"');
+    });
+
+    it("omits tool_calls on the think step when the LLM only emitted text", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        makeTask(),
+        state,
+        [makeLLMResponse({ content: "Done", toolCalls: [], finishReason: "stop" })],
+      );
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      expect(thinkSteps[0]?.detail).not.toHaveProperty("tool_calls");
+    });
+
+    it("records reasoning on the think step when the LLM response carries it", async () => {
+      const state = createMockState();
+      await runWithMocks(
+        makeTask(),
+        state,
+        [
+          makeLLMResponse({
+            content: "Done",
+            toolCalls: [],
+            finishReason: "stop",
+            reasoning: "The user just said hello; respond and stop.",
+          }),
+          makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+        ],
+      );
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      expect(thinkSteps[0]?.detail["reasoning"]).toBe(
+        "The user just said hello; respond and stop.",
+      );
+    });
+
+    it("omits reasoning on the think step when the LLM response carries none", async () => {
+      const state = createMockState();
+      await runWithMocks(makeTask(), state, [makeLLMResponse()]);
+
+      const thinkSteps = state.stepsCalled.filter((s) => s.type === "think");
+      expect(thinkSteps[0]?.detail).not.toHaveProperty("reasoning");
     });
   });
 });

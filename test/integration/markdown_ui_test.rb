@@ -472,6 +472,136 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert commitment.comments.exists?, "Comment should have been created on commitment"
   end
 
+  test "HTML inline reply form on a comment posts to the bare /n/<id>/comments endpoint" do
+    # Regression guard: if Note#path ever silently shifts to a query-decorated
+    # URL again, the inline reply form's action becomes
+    # `/d/<id>?comment_id=<x>/comments` — malformed; submitting POSTs to
+    # `/d/<id>` with a garbage query and 404s the reply. Inspecting the
+    # rendered form action and round-tripping a submit catches that
+    # silently-broken case.
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test?")
+    comment = decision.add_comment(text: "the original", created_by: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}"
+    assert_response :success
+    assert response.content_type.starts_with?("text/html"), "Should be the HTML view, not markdown"
+
+    expected_action = "#{@collective.path}/n/#{comment.truncated_id}/comments"
+    assert_match(
+      %r{<form\b[^>]*\bclass="pulse-reply-form"[^>]*\baction="#{Regexp.escape(expected_action)}"|<form\b[^>]*\baction="#{Regexp.escape(expected_action)}"[^>]*\bclass="pulse-reply-form"}m,
+      response.body,
+      "HTML reply form's action must be the bare comment-note /comments endpoint — " \
+        "if it includes ?comment_id=, comment.path has wrongly shifted to display semantics",
+    )
+
+    # Round-trip: post a reply to that exact URL and verify the threading.
+    post expected_action, params: { text: "html reply works" }
+    assert response.successful? || response.redirect?,
+      "POST to the form action should succeed; got #{response.status}"
+
+    reply = Note.find_by(text: "html reply works")
+    assert_equal comment, reply.commentable,
+      "Reply should be nested under the comment whose form was used"
+  end
+
+  test "POST add_comment with replying_to_id creates a nested reply, not a sibling" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    target = decision.add_comment(text: "the original comment", created_by: @user)
+
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/add_comment",
+      params: { text: "the reply", replying_to_id: target.truncated_id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+
+    reply = Note.find_by(text: "the reply")
+    assert reply.present?, "Reply note should have been created"
+    assert_equal target, reply.commentable,
+      "Reply's commentable should be the target comment, not the decision"
+    assert_equal decision, reply.root_commentable,
+      "Reply's root_commentable should walk up to the decision"
+  end
+
+  test "POST add_comment on a comment-note URL with replying_to_id targets the replying_to_id, not the URL" do
+    # If a caller posts to /n/<comment-id>/actions/add_comment and also
+    # passes replying_to_id, the param wins — the new note nests under the
+    # comment named by replying_to_id, even if it's a sibling of the URL's
+    # comment in the same thread.
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test?")
+    url_comment = decision.add_comment(text: "the URL target", created_by: @user)
+    sibling = decision.add_comment(text: "a sibling in the same thread", created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{url_comment.truncated_id}/actions/add_comment",
+      params: { text: "should nest under sibling", replying_to_id: sibling.truncated_id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+
+    reply = Note.find_by(text: "should nest under sibling")
+    assert_equal sibling, reply.commentable,
+      "replying_to_id should override the URL's comment target"
+    assert_equal decision, reply.root_commentable
+  end
+
+  test "POST add_comment with replying_to_id also works when the root is a standalone Note" do
+    # A standalone Note is itself a Note instance, but it's the *root* of the
+    # thread (subtype != "comment"). Earlier the guard incorrectly skipped
+    # replying_to_id handling for any Note commentable, breaking this case.
+    note = create_note(collective: @collective, created_by: @user, title: "A note")
+    target = note.add_comment(text: "first comment on the note", created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_comment",
+      params: { text: "reply to first", replying_to_id: target.truncated_id }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+
+    reply = Note.find_by(text: "reply to first")
+    assert_equal target, reply.commentable,
+      "Reply's commentable should be the target comment, not the parent note"
+    assert_equal note, reply.root_commentable
+  end
+
+  test "POST add_comment without replying_to_id creates a top-level sibling (existing behavior)" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    decision.add_comment(text: "earlier comment", created_by: @user)
+
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/add_comment",
+      params: { text: "top-level reply" }.to_json,
+      headers: @headers
+    assert_equal 200, response.status
+
+    new_comment = Note.find_by(text: "top-level reply")
+    assert_equal decision, new_comment.commentable,
+      "Without replying_to_id, new comment should be a direct child of the decision"
+  end
+
+  test "POST add_comment with non-existent replying_to_id returns an error" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/add_comment",
+      params: { text: "the reply", replying_to_id: "deadbeef" }.to_json,
+      headers: @headers
+
+    # api_helper raises RecordInvalid which the controller surfaces as an
+    # action_error markdown response (200 OK with error text in body).
+    assert_match(/no such comment/i, response.body, "Should surface a clear error")
+    refute Note.exists?(text: "the reply"), "Should not have created the comment"
+  end
+
+  test "POST add_comment with a replying_to_id from a different thread is rejected" do
+    decision_a = create_decision(collective: @collective, created_by: @user, question: "Decision A?")
+    decision_b = create_decision(collective: @collective, created_by: @user, question: "Decision B?")
+    target_in_b = decision_b.add_comment(text: "comment on B", created_by: @user)
+
+    post "/collectives/#{@collective.handle}/d/#{decision_a.truncated_id}/actions/add_comment",
+      params: { text: "wrong-thread reply", replying_to_id: target_in_b.truncated_id }.to_json,
+      headers: @headers
+
+    assert_match(/different thread/i, response.body,
+      "Should reject cross-thread replying_to_id with a clear error")
+    refute Note.exists?(text: "wrong-thread reply"), "Should not have created the comment"
+  end
+
   # Conditional action display tests
   test "commitment show page shows join_commitment action when user has not joined" do
     commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")
@@ -2147,7 +2277,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert is_markdown?
     assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with count 1")
     assert_match(/This is a test comment/, response.body, "Should show comment text")
-    assert_match(/\[This is a test comment\]\(#{comment.path}\)/, response.body, "Should link to comment")
+    # Comment line links via the truncated_id, not the body text. The href
+    # is the comment's display_path (root with ?comment_id=), not the bare
+    # /n/<id> path which is reserved for API endpoints.
+    assert_match(/\[`#{comment.truncated_id}`\]\(#{Regexp.escape(comment.display_path)}\)/, response.body,
+      "Should link via comment truncated_id pointing at display_path")
   ensure
     comment&.destroy
     note&.destroy
@@ -2180,8 +2314,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get note.path, headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    # The nested reply should show "↳ Replying to @handle:" because it's a reply to first_reply, not top_level_comment
-    assert_match(/↳ Replying to @#{@user.handle}:/, response.body, "Should show 'Replying to @handle' for nested reply")
+    # The nested reply should show "↳ Replying to `<parent-id>` (@handle)" because it's a reply to first_reply, not top_level_comment
+    assert_match(/↳ Replying to `#{first_reply.truncated_id}` \(@#{@user.handle}\)/, response.body,
+      "Should show 'Replying to <id> (@handle)' for nested reply")
     assert_match(/Nested reply to first reply/, response.body, "Should show nested reply text")
   ensure
     nested_reply&.destroy
@@ -2295,6 +2430,114 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Should NOT include the JSON block (it's stripped for display)
     assert_no_match(/```json/, response.body, "Should not include fenced JSON block")
     assert_no_match(/"type":\s*"navigate"/, response.body, "Should not include JSON action")
+  ensure
+    task_run&.destroy
+    destroy_user!(ai_agent)
+  end
+
+  test "GET decision with ?comment_id= marks the targeted comment inline (preserves chronological order)" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    target = decision.add_comment(text: "this is the linked one", created_by: @user)
+    other = decision.add_comment(text: "unrelated comment", created_by: @user)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?comment_id=#{target.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+
+    # Inline marker on the matching comment only
+    assert_match(/📌.+this is the linked one/, response.body,
+      "Should mark the targeted comment inline with 📌")
+    assert_no_match(/📌.+unrelated comment/, response.body,
+      "Should not mark unrelated comments")
+
+    # Frontmatter `path:` preserves comment_id so agents see the canonical URL
+    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}\?comment_id=#{target.truncated_id}$/,
+      response.body, "Frontmatter path should retain comment_id")
+  end
+
+  test "GET decision without ?comment_id= shows no inline marker and bare path in frontmatter" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    decision.add_comment(text: "regular comment", created_by: @user)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+
+    assert_no_match(/📌/, response.body, "Should not render any marker without comment_id")
+    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}$/, response.body,
+      "Frontmatter path should be the bare path when no comment_id")
+  end
+
+  test "GET decision with ?comment_id= matching a nested reply marks the nested reply" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
+    top = decision.add_comment(text: "top-level", created_by: @user)
+    nested = top.add_comment(text: "deep nested target", created_by: @user)
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?comment_id=#{nested.truncated_id}", headers: @headers
+    assert_equal 200, response.status
+
+    assert_match(/📌.+deep nested target/, response.body)
+    assert_no_match(/📌.+top-level/, response.body)
+  end
+
+  test "GET search with ?q= preserves the query in the frontmatter path" do
+    get "/search?q=hello", headers: @headers
+    assert_equal 200, response.status
+    assert_match(/^path: \/search\?q=hello$/, response.body,
+      "Frontmatter path should preserve ?q= for search")
+  end
+
+  test "frontmatter path drops query params not on the preserved whitelist" do
+    decision = create_decision(collective: @collective, created_by: @user, question: "Test?")
+
+    get "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?debug=1&unknown=foo", headers: @headers
+    assert_equal 200, response.status
+
+    # Unknown params are stripped from the frontmatter path
+    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}$/, response.body,
+      "Whitelisted-only: unknown query params shouldn't appear in the canonical path")
+  end
+
+  test "GET ai_agent task run markdown surfaces tool_calls and reasoning on think steps" do
+    @tenant.enable_feature_flag!("ai_agents")
+
+    ai_agent = User.create!(
+      name: "Observability Test Agent",
+      email: "obs-test-#{SecureRandom.hex(4)}@not-real.com",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+    tu = @tenant.add_user!(ai_agent)
+    ai_agent.tenant_user = tu
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant,
+      ai_agent: ai_agent,
+      initiated_by: @user,
+      task: "Check notifications",
+      max_steps: AiAgentTaskRun::DEFAULT_MAX_STEPS,
+      status: "completed",
+      success: true,
+      final_message: "Done",
+      steps_count: 1,
+      started_at: 1.minute.ago,
+      completed_at: Time.current,
+    )
+    task_run.agent_session_steps.create!(position: 0, step_type: "think", detail: {
+      "step_number" => 0,
+      "response_preview" => "",
+      "tool_calls" => [
+        { "name" => "navigate", "arguments" => '{"path":"/notifications"}' },
+      ],
+      "reasoning" => "I should check the user's notifications first.",
+    })
+
+    get "/ai-agents/#{ai_agent.handle}/runs/#{task_run.id}", headers: @headers
+    assert_equal 200, response.status
+
+    assert_match(/Tool calls:/, response.body, "Should label tool calls")
+    assert_match(/`navigate\(/, response.body, "Should show tool name")
+    assert_match(%r{/notifications}, response.body, "Should show tool arguments path")
+    assert_match(/Model reasoning:/, response.body, "Should label model reasoning")
+    assert_match(/notifications first\./, response.body, "Should include reasoning text")
   ensure
     task_run&.destroy
     destroy_user!(ai_agent)

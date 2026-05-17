@@ -23,9 +23,6 @@ class SearchController < ApplicationController
     @end_position = @offset + @results.size
     @next_offset = @offset + @results.size
 
-    # Set current_path to include query string for markdown frontmatter
-    @current_path = params[:q].present? ? "/search?q=#{ERB::Util.url_encode(params[:q])}" : "/search"
-
     respond_to do |format|
       format.html
       format.md
