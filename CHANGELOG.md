@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-05-17
+
+### Added
+
+- **System agents — first-class built-in agents per tenant** (#199) — new `system_role` column on `users` identifies built-in system agents (currently Trio) so they can be seeded, billed, and rendered distinctly from user-created AI agents. Security tests pin that `system_role` cannot be set via mass assignment from any user-facing form, controller, or API path.
+- **Per-collective Trio (Workspace AI Assistant)** (#199) — rewrote `/trio` from a polling/voting page into a chat with the per-collective Trio system agent. Tenants get a single Trio user; each collective opts in via collective settings, which seeds (or restores) Trio as a member via `TrioActivator`. `Collective#trio_user` FK resolves the right Trio for `@trio` mentions; missing-trio mentions return a helpful hint. Trio's identity prompt is resolved dynamically and displayed on `/whoami`. Trio replies to mentions and to direct replies on its own comments. New "Workspace AI Assistant" section in user settings exposes Trio configuration.
+- **Agent-runner observability — tool calls and model reasoning on think steps** (#200) — reasoning models (Arcee trinity-large-thinking, DeepSeek R1, Claude extended thinking, OpenAI o-series) emit chain-of-thought in a separate field that the runner previously discarded; tool-only responses left the think step's preview empty. `LLMClient` now normalizes reasoning across vendor shapes (`message.reasoning_content`, `message.reasoning`, `choice.reasoning`) into one optional field; `AgentLoop` passes it plus a compact per-tool-call summary into the think step. Timeline UI (HTML, owner markdown, sys-admin markdown, live JS streaming) renders inline tool-call summaries and an "View model reasoning" accordion. Tool-call arguments and reasoning are redacted in sys-admin views via the existing flag.
+- **Comments link inside their root thread; agents can reply to a specific comment** (#200) — comments are themselves Notes with their own `/n/<id>` URLs. Agents (and humans) following a mention link previously landed on an isolated comment page with little context, and the on-page `add_comment` action was ambiguous between "reply to this comment" and "post a sibling on the parent". `Note#display_path` now returns `{root_commentable.path}?comment_id={truncated_id}` for comments (walking the polymorphic commentable chain); the comments section, mention/reply automation templates, and in-app + email notification URLs all use `display_path` so recipients land in the full thread with the linked comment marked (📌). `Note#path` stays as the bare canonical URL so suffix-concatenating callers keep working. `add_comment` now accepts an optional `replying_to_id` so agents can nest a reply under a specific comment, with validation that the target shares a root commentable with the request's resource.
+- **Cross-turn navigation state replay — documented and tested** (#200) — the agent-runner replays each chat session's saved `current_path` after `/whoami` at the start of every turn. Added an explanatory comment at the call site and tests pinning two reasons this is load-bearing: action validity is page-scoped (`executeAction` rejects actions not in `currentActions`), and chat-history rehydration only carries user/assistant text across turns, so the LLM otherwise has no memory of the page. No functional change.
+- **System-admin: unredacted task-run details for system agents** (#199) — sys-admins can inspect Trio (and other system-agent) task runs with full step content, since system agents have no PII to protect.
+- **Help topics restructured into categories** (#197) — `/help` index is now grouped into categories; `/learn` retired and its content folded into `/help`. New topics: automations, notifications, representation, REST API, markdown UI (split from API), and Trio. API and agents topics gated behind feature flags. Help pages use github-markdown styling. `/api/v1` info endpoint is dynamic.
+- `/help/trio` help topic and revised Trio system prompt (#199).
+- `TRIO_DEFAULT_MODEL` env var for configuring Trio's default LLM (#200).
+
+### Changed
+
+- **REST API at `/api/v1/` is read-only** (#198) — write endpoints removed. Programmatic mutation should go through the markdown UI's `/actions/<name>` paths (used by the MCP server and agent-runner), which carry the same auth and audit guarantees as the human UI. The v1 API is preserved for read access only.
+- **Default agent-runner model switched to Arcee `trinity-large-thinking`** (#199) — a reasoning model better suited to Harmonic's tool-use loop than the prior default.
+- `/trio` controller, view, route, and rake task removed in favor of the per-collective Trio chat (#199). Legacy per-tenant trios are adopted into the per-collective scheme automatically.
+- Trio identifies and displays as "trio" everywhere (not "Trio" / "@Trio") (#199); user messages are no longer duplicated into `chat_turn` LLM context.
+- System AI agents skip billing checks (#199).
+- The handle `trio` is now reserved for the Trio system agent (#199).
+
+### Security
+
+- **API token model hardened** (#197) — tokens are immutable after creation except for `name` (closes a quiet expiration-extension vector where a holder could lengthen a deliberately short-lived token); 50-token-per-user cap on active external tokens; new-token scopes must be a subset of the calling token's scopes (standard OAuth downscoping); v1 create is human-only as defense-in-depth alongside the existing capability check; index/show responses drop the obfuscated `token` stub in favor of `token_prefix` (plaintext was and remains only returned on create); validation errors on internal attributes are filtered out of API responses.
+
+### Fixed
+
+- `display_path` column reader on `AiAgentTaskRunResource` and `AutomationRuleRunResource` (#200) — both models have a `display_path` column storing a pre-computed URL, but the new `ApplicationRecord#display_path` fallback was shadowing the column reader and routing callers through `path` (which assumes a `collective` and `path_prefix` neither model has). Override both to return the stored column value.
+
 ## [1.15.0] - 2026-05-12
 
 ### Added
