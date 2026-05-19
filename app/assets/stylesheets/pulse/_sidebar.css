@@ -444,3 +444,47 @@
 }
 
 /* Note: Resource icons use CSS classes like .note-icon instead of <img> tags */
+
+/* Recent Cycles */
+.pulse-recent-cycles-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-recent-cycles-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-recent-cycles-list li {
+  margin-bottom: 2px;
+}
+
+.pulse-recent-cycles-list li:last-child {
+  margin-bottom: 0;
+}
+
+.pulse-recent-cycle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.pulse-recent-cycle-item:hover {
+  background-color: var(--color-canvas-subtle);
+  color: var(--color-accent-fg);
+}
+
+.pulse-recent-cycle-item.current {
+  font-weight: 600;
+}
+
+.pulse-recent-cycle-label {
+  flex: 1;
+}

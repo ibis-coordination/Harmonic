@@ -43,6 +43,10 @@ class PulseController < ApplicationController
     @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
     @pinned_items = @current_collective.pinned_items
+    @recent_cycle_summaries = Cycle.recent_summaries(
+      collective: @current_collective,
+      tenant: current_tenant
+    )
 
     # Build unified feed (sorted by created_at desc)
     build_unified_feed
@@ -85,7 +89,7 @@ class PulseController < ApplicationController
       reminder_events_scope: NoteHistoryEvent
         .where(event_type: "reminder", collective_id: @current_collective.id)
         .where("note_history_events.happened_at >= ?", cycle_start),
-      limit: 100,
+      limit: 100
     ).feed_items
   end
 end

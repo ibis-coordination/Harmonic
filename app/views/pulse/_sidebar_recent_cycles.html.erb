@@ -1,0 +1,33 @@
+<%
+  unit = @current_collective.tempo_unit
+  tz = @current_collective.timezone.name
+  current_cycle_start = Time.current.in_time_zone(tz).send("beginning_of_#{unit}")
+%>
+<div class="pulse-recent-cycles-section">
+  <div class="pulse-section-label">Recent Cycles</div>
+  <ul class="pulse-recent-cycles-list">
+    <% @recent_cycle_summaries.each do |summary| %>
+      <%
+        bucket_start = summary.cycle_start.in_time_zone(tz)
+        offset = case unit
+                 when "day" then (bucket_start.to_date - current_cycle_start.to_date).to_i
+                 when "week" then ((bucket_start.to_date - current_cycle_start.to_date) / 7).to_i
+                 when "month" then (bucket_start.year - current_cycle_start.year) * 12 + (bucket_start.month - current_cycle_start.month)
+                 when "year" then bucket_start.year - current_cycle_start.year
+                 end
+        next if offset > 0
+        cycle_name = ::Cycle.cycle_name_for_offset(offset, unit)
+        is_current = offset.zero?
+        href = is_current ? @current_collective.path : "#{@current_collective.path}?cycle=#{cycle_name}"
+      %>
+      <li>
+        <a href="<%= href %>"
+           class="pulse-recent-cycle-item<%= ' current' if is_current %>"
+           title="<%= "#{summary.notes_count} notes, #{summary.decisions_count} decisions, #{summary.commitments_count} commitments" %>">
+          <span class="pulse-recent-cycle-label"><%= cycle_name.titleize %></span>
+          <span class="pulse-nav-count"><%= summary.total_count %></span>
+        </a>
+      </li>
+    <% end %>
+  </ul>
+</div>
