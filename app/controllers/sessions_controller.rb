@@ -216,15 +216,15 @@ class SessionsController < ApplicationController
 
     tenant_user = tenant.tenant_users.find_by(user: @current_user)
     is_accepting_invite = cookies[:collective_invite_code].present?
-    if tenant_user || is_accepting_invite
-      session[:user_id] = @current_user.id
-      session[:logged_in_at] = Time.current.to_i
-      session[:last_activity_at] = Time.current.to_i
+    session[:user_id] = @current_user.id
+    session[:logged_in_at] = Time.current.to_i
+    session[:last_activity_at] = Time.current.to_i
+    if tenant_user || is_accepting_invite || !tenant.require_invite?
       redirect_to_resource_or_invite_or_root
     else
-      # user is not allowed to access this tenant
-      @sidebar_mode = 'none'
-      render status: 403, layout: 'application', template: 'sessions/403_to_logout'
+      # user is signed in but not a member of this tenant and there's no
+      # invite cookie — send them to the friendly explainer rather than a 403
+      redirect_to "/needs-invite"
     end
   end
 

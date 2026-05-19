@@ -113,6 +113,14 @@ Rails.application.routes.draw do
     raise 'Invalid AUTH_MODE'
   end
 
+  # Invite-gated signup landing page (auth-mode-agnostic).
+  # Two-step flow: POST /needs-invite validates the code and renders a
+  # confirmation page; POST /needs-invite/accept performs the atomic
+  # tenant + collective join.
+  get 'needs-invite' => 'signup#needs_invite', as: :needs_invite
+  post 'needs-invite' => 'signup#confirm_invite'
+  post 'needs-invite/accept' => 'signup#accept_invite', as: :accept_invite
+
   namespace :api do
     # The v1 REST API is read-only. All writes go through the markdown UI
     # action routes (/foo/actions/{action_name}), where the capability system,

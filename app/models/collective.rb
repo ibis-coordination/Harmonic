@@ -571,6 +571,7 @@ class Collective < ApplicationRecord
 
   sig { params(created_by: User).returns(Invite) }
   def find_or_create_shareable_invite(created_by)
+    raise "Cannot create invites for the main collective" if is_main_collective?
     raise "Cannot create invites for private workspaces" if private_workspace?
     raise "Cannot create invites for chat collectives" if chat?
 

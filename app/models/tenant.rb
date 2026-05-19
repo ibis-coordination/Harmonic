@@ -305,6 +305,11 @@ class Tenant < ApplicationRecord
     settings['require_login'].to_s == 'false' ? false : true
   end
 
+  sig { returns(T::Boolean) }
+  def require_invite?
+    settings['require_invite'].to_s == 'false' ? false : true
+  end
+
   sig { returns(String) }
   def domain
     if self.class.single_tenant_mode?

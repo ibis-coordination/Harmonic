@@ -457,9 +457,14 @@ class ApplicationController < ActionController::Base
     tu = @current_tenant.tenant_users.find_by(user: @current_user)
     if tu.nil?
       accepting_invite = current_invite && current_invite.collective == @current_collective
-      if @current_tenant.require_login? && controller_name != "sessions" && !accepting_invite
-        @sidebar_mode = "none"
-        render status: :forbidden, layout: "application", template: "sessions/403_to_logout"
+      gate_controller = controller_name == "sessions" || controller_name == "signup"
+      if !@current_tenant.require_invite? && @current_tenant.require_login? && !gate_controller
+        @current_tenant.add_user!(@current_user)
+      elsif @current_tenant.require_login? && !gate_controller && !accepting_invite
+        redirect_to "/needs-invite"
+        return # CRITICAL: must return after redirect — otherwise execution
+        # falls through to the collective_members.add_user! branch below and
+        # creates a spurious main-collective membership for non-tenant-members.
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
         # The user still has to click "accept" to accept the invite to the collective,
         # but they need to access the tenant to do so.
@@ -631,7 +636,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
