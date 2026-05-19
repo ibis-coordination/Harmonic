@@ -16,6 +16,8 @@ class Cycle
     T::Hash[String, T::Hash[Symbol, String]],
   )
 
+  ALLOWED_BUCKET_UNITS = T.let(["day", "week", "month", "year"].freeze, T::Array[String])
+
   RecentCycleSummary = Struct.new(
     :cycle_start, :notes_count, :decisions_count, :commitments_count, :total_count,
     keyword_init: true,
@@ -78,7 +80,7 @@ class Cycle
   end
   def self.recent_summaries(collective:, tenant:, limit: 6)
     unit = T.must(collective.tempo_unit)
-    raise "Invalid unit: #{unit}" unless ["day", "week", "month", "year"].include?(unit)
+    raise "Invalid unit: #{unit}" unless ALLOWED_BUCKET_UNITS.include?(unit)
 
     bucket_sql = bucket_sql_for(unit, collective.timezone.tzinfo.name)
     cutoff = (limit + 1).send(unit.pluralize).ago
@@ -92,8 +94,12 @@ class Cycle
 
   sig { params(unit: String, tz_name: String).returns(Arel::Nodes::SqlLiteral) }
   def self.bucket_sql_for(unit, tz_name)
-    quoted_tz = ApplicationRecord.connection.quote(tz_name)
-    Arel.sql("date_trunc('#{unit}', (created_at AT TIME ZONE 'UTC' AT TIME ZONE #{quoted_tz}))")
+    Arel.sql(
+      ApplicationRecord.sanitize_sql_for_conditions([
+        "date_trunc(?, (created_at AT TIME ZONE 'UTC' AT TIME ZONE ?))",
+        unit, tz_name,
+      ])
+    )
   end
   private_class_method :bucket_sql_for
 
