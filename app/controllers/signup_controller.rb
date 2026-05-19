@@ -3,20 +3,20 @@
 # Two-step signup flow for users who arrive at a tenant without an existing
 # TenantUser record on a require_invite tenant:
 #
-#   1. /needs-invite (GET)         — landing page with invite-code form
-#   2. /needs-invite (POST)        — validate code, render confirmation
-#                                    page showing the collective + tenant
-#                                    the user is about to join. No
-#                                    membership is created yet.
-#   3. /needs-invite/accept (POST) — atomic tenant + collective join,
-#                                    redirect to the collective homepage.
+#   1. /invite-required (GET)         — landing page with invite-code form
+#   2. /invite-required (POST)        — validate code, render confirmation
+#                                       page showing the collective + tenant
+#                                       the user is about to join. No
+#                                       membership is created yet.
+#   3. /invite-required/accept (POST) — atomic tenant + collective join,
+#                                       redirect to the collective homepage.
 #
 # Splitting validate and accept gives the user a "wait, what am I joining?"
 # beat before they commit, and lets us keep both writes inside a single
 # transaction so we never leave an orphan TenantUser if collective join
 # fails.
 class SignupController < ApplicationController
-  def needs_invite
+  def invite_required
     return redirect_to "/login" unless @current_user
     return redirect_to root_path if @current_tenant.tenant_users.exists?(user: @current_user)
 
@@ -46,7 +46,7 @@ class SignupController < ApplicationController
     invite = lookup_invite(params[:code])
     unless invite&.is_acceptable_by_user?(@current_user)
       flash[:alert] = "That invite code is not valid or has expired."
-      return redirect_to needs_invite_path
+      return redirect_to invite_required_path
     end
 
     # Tenant add is conditional so this action is idempotent even if the user
@@ -73,7 +73,7 @@ class SignupController < ApplicationController
     @sidebar_mode = "none"
     @hide_header = true
     @page_title = "Invite required | #{@current_tenant.name}"
-    render "signup/needs_invite", layout: "application", status: status
+    render "signup/invite_required", layout: "application", status: status
   end
 
   # Treated as an auth-flow controller so it's exempt from the billing gate,

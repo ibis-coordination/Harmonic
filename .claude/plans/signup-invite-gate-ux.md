@@ -57,7 +57,7 @@ else
   session[:user_id] = @current_user.id  # keep them signed in so the explainer can show their identity + log out
   session[:logged_in_at] = Time.current.to_i
   session[:last_activity_at] = Time.current.to_i
-  redirect_to needs_invite_path
+  redirect_to invite_required_path
 end
 ```
 
@@ -77,7 +77,7 @@ def validate_authenticated_access
     if !@current_tenant.require_invite? && @current_tenant.require_login?
       @current_tenant.add_user!(@current_user)
     elsif @current_tenant.require_login? && controller_name != "sessions" && !accepting_invite
-      redirect_to needs_invite_path
+      redirect_to invite_required_path
       return
     elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
       @current_tenant.add_user!(@current_user)
@@ -96,8 +96,8 @@ Note the order: the `require_login? && require_invite?` check still gates open-b
 **File:** `config/routes.rb`
 
 ```ruby
-get "/needs-invite", to: "signup#needs_invite", as: :needs_invite
-post "/needs-invite", to: "signup#accept_invite_code"
+get "/invite-required", to: "signup#invite_required", as: :invite_required
+post "/invite-required", to: "signup#accept_invite_code"
 ```
 
 **File:** `app/controllers/signup_controller.rb` (new)
@@ -108,13 +108,13 @@ class SignupController < ApplicationController
   skip_before_action :validate_authenticated_access
   before_action :require_signed_in_user
 
-  def needs_invite
+  def invite_required
     @sidebar_mode = "none"
     if @current_tenant.tenant_users.exists?(user: @current_user)
       redirect_to root_path
       return
     end
-    render "signup/needs_invite", layout: "application"
+    render "signup/invite_required", layout: "application"
   end
 
   def accept_invite_code
@@ -126,7 +126,7 @@ class SignupController < ApplicationController
     else
       flash.now[:alert] = "That invite code is not valid or has expired."
       @sidebar_mode = "none"
-      render "signup/needs_invite", layout: "application", status: :unprocessable_entity
+      render "signup/invite_required", layout: "application", status: :unprocessable_entity
     end
   end
 
@@ -142,14 +142,14 @@ Skipping `validate_authenticated_access` is the right move here — this control
 
 ### 5. New view
 
-**File:** `app/views/signup/needs_invite.html.erb` (new)
+**File:** `app/views/signup/invite_required.html.erb` (new)
 
 Replaces the no-invite path of [403_to_logout.html.erb](../../app/views/sessions/403_to_logout.html.erb). Layout matches the existing `pulse-auth-*` class pattern from that file.
 
 Contents:
 - Heading: "An invite is required to join *<tenant.name>*"
 - Subtitle: short explanation that this community is invite-only and that codes come from existing members
-- Invite-code form (POST `/needs-invite`, single `code` text input, submit button)
+- Invite-code form (POST `/invite-required`, single `code` text input, submit button)
 - Flash alert when the code is invalid
 - "Signed in as <name> <email>" block (preserved from the 403 page)
 - Log-out link
@@ -170,12 +170,12 @@ grep -rn "403_to_logout" app/
 
 **File:** `test/controllers/signup_controller_test.rb` (new)
 
-- `GET /needs-invite` as authenticated user with no `tenant_user` renders the page.
-- `GET /needs-invite` as authenticated user *with* a `tenant_user` redirects to root.
-- `GET /needs-invite` unauthenticated redirects to `/login`.
-- `POST /needs-invite` with a valid code → user is added to tenant, redirected to collective join page.
-- `POST /needs-invite` with an invalid code → re-renders with flash alert, status 422.
-- `POST /needs-invite` with an expired code → re-renders with flash alert.
+- `GET /invite-required` as authenticated user with no `tenant_user` renders the page.
+- `GET /invite-required` as authenticated user *with* a `tenant_user` redirects to root.
+- `GET /invite-required` unauthenticated redirects to `/login`.
+- `POST /invite-required` with a valid code → user is added to tenant, redirected to collective join page.
+- `POST /invite-required` with an invalid code → re-renders with flash alert, status 422.
+- `POST /invite-required` with an expired code → re-renders with flash alert.
 
 **File:** `test/models/tenant_test.rb`
 
@@ -184,7 +184,7 @@ grep -rn "403_to_logout" app/
 
 **File:** `test/controllers/sessions_controller_test.rb` (extend existing)
 
-- `internal_callback` for a user with no `tenant_user` and no invite cookie on a `require_invite=true` tenant redirects to `/needs-invite`.
+- `internal_callback` for a user with no `tenant_user` and no invite cookie on a `require_invite=true` tenant redirects to `/invite-required`.
 - `internal_callback` for the same user on a `require_invite=false` tenant proceeds to root (and `tenant_user` is created via the existing lazy path on the next request).
 
 **File:** `test/integration/invite_signup_flow_test.rb` (new) — **the missing end-to-end test**
@@ -194,7 +194,7 @@ Simulates the full unauth-user-clicks-invite-link flow:
 1. GET `/login?code=<valid_invite_code>` → asserts `collective_invite_code` cookie is set on the shared domain.
 2. Simulate the OAuth callback by directly calling `sessions#internal_callback` with a token (using the existing test helpers / `encrypt_token`) → asserts the cookie is still present and the user is redirected to the collective join page.
 3. Assert that after acceptance, the cookie is cleared and a `TenantUser` + `CollectiveMember` exist.
-4. Negative case: same flow with an expired invite → user ends up at root or `/needs-invite`, no membership created.
+4. Negative case: same flow with an expired invite → user ends up at root or `/invite-required`, no membership created.
 
 This is the test that today's codebase is missing. It does not actually exercise the external OAuth provider — it exercises the cookie-survives-redirects-and-is-read-by-callback contract, which is the load-bearing part.
 
@@ -203,11 +203,11 @@ This is the test that today's codebase is missing. It does not actually exercise
 | File | Change |
 |------|--------|
 | `app/models/tenant.rb` | Add `require_invite?` reader |
-| `app/controllers/sessions_controller.rb` | Gate respects `require_invite?`; redirect to `/needs-invite` instead of render 403 |
+| `app/controllers/sessions_controller.rb` | Gate respects `require_invite?`; redirect to `/invite-required` instead of render 403 |
 | `app/controllers/application_controller.rb` | Same gate change in `validate_authenticated_access`; auto-join open tenants |
-| `app/controllers/signup_controller.rb` | NEW — `needs_invite` + `accept_invite_code` actions |
-| `app/views/signup/needs_invite.html.erb` | NEW — friendly explainer + invite-code form |
-| `config/routes.rb` | Add `/needs-invite` GET + POST |
+| `app/controllers/signup_controller.rb` | NEW — `invite_required` + `accept_invite_code` actions |
+| `app/views/signup/invite_required.html.erb` | NEW — friendly explainer + invite-code form |
+| `config/routes.rb` | Add `/invite-required` GET + POST |
 | `app/views/sessions/403_to_logout.html.erb` | Delete if unused after migration; otherwise leave for other forbidden states |
 | `test/controllers/signup_controller_test.rb` | NEW |
 | `test/controllers/sessions_controller_test.rb` | Add gate-redirect cases |
@@ -230,17 +230,17 @@ This is the test that today's codebase is missing. It does not actually exercise
    docker compose exec web bundle exec rails test test/controllers/signup_controller_test.rb test/models/tenant_test.rb test/controllers/sessions_controller_test.rb test/integration/invite_signup_flow_test.rb
    ```
 3. Manual smoke test in Docker:
-   - Sign up via OAuth with no invite → land on `/needs-invite`, see tenant name + form.
+   - Sign up via OAuth with no invite → land on `/invite-required`, see tenant name + form.
    - Submit a bogus code → flash alert.
    - Submit a valid code → land on collective join page.
-   - Log out and sign back in → still hits `/needs-invite` (record preserved as pending).
-   - Toggle `require_invite=false` on a tenant via console → next signup auto-joins, no `/needs-invite` redirect.
+   - Log out and sign back in → still hits `/invite-required` (record preserved as pending).
+   - Toggle `require_invite=false` on a tenant via console → next signup auto-joins, no `/invite-required` redirect.
 4. Static analysis: `docker compose exec web bundle exec rubocop` + `docker compose exec web bundle exec srb tc`.
 5. CI runs the full suite.
 
 ## Out of scope (deferred)
 
-- Self-serve tenant creation from the `/needs-invite` page
+- Self-serve tenant creation from the `/invite-required` page
 - Admin UI for toggling `require_invite` per tenant
 - `approval_required` signup mode (admins approve a pending queue)
 - Onboarding flow for newly-admitted users (separate plan)

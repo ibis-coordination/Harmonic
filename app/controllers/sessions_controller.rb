@@ -224,7 +224,7 @@ class SessionsController < ApplicationController
     else
       # user is signed in but not a member of this tenant and there's no
       # invite cookie — send them to the friendly explainer rather than a 403
-      redirect_to "/needs-invite"
+      redirect_to "/invite-required"
     end
   end
 

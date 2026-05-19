@@ -114,12 +114,12 @@ Rails.application.routes.draw do
   end
 
   # Invite-gated signup landing page (auth-mode-agnostic).
-  # Two-step flow: POST /needs-invite validates the code and renders a
-  # confirmation page; POST /needs-invite/accept performs the atomic
+  # Two-step flow: POST /invite-required validates the code and renders a
+  # confirmation page; POST /invite-required/accept performs the atomic
   # tenant + collective join.
-  get 'needs-invite' => 'signup#needs_invite', as: :needs_invite
-  post 'needs-invite' => 'signup#confirm_invite'
-  post 'needs-invite/accept' => 'signup#accept_invite', as: :accept_invite
+  get 'invite-required' => 'signup#invite_required', as: :invite_required
+  post 'invite-required' => 'signup#confirm_invite'
+  post 'invite-required/accept' => 'signup#accept_invite', as: :accept_invite
 
   namespace :api do
     # The v1 REST API is read-only. All writes go through the markdown UI

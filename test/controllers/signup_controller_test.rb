@@ -25,7 +25,7 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     token = crypt.encrypt_and_sign("#{tenant.id}:#{user.id}:#{timestamp}")
     cookies[:token] = token
     get "/login/callback"
-    # callback should set session and redirect to /needs-invite for uninvited users
+    # callback should set session and redirect to /invite-required for uninvited users
   end
 
   def create_invite(collective: @collective, invited_user: nil, expires_at: 1.week.from_now)
@@ -39,53 +39,53 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  # === GET /needs-invite ===
+  # === GET /invite-required ===
 
-  test "GET /needs-invite renders the explainer page for a signed-in non-member" do
+  test "GET /invite-required renders the explainer page for a signed-in non-member" do
     sign_in_without_membership(@uninvited_user)
 
-    get "/needs-invite"
+    get "/invite-required"
 
     assert_response :success
     assert_select "h1", text: /invite/i
-    assert_select "form[action='/needs-invite']"
+    assert_select "form[action='/invite-required']"
     assert_select "input[name='code']"
     # Tenant name should appear so the user knows where they tried to join
     assert_match(/#{Regexp.escape(@tenant.name)}/, response.body)
   end
 
-  test "GET /needs-invite hides the app header (non-members shouldn't see tenant chrome)" do
+  test "GET /invite-required hides the app header (non-members shouldn't see tenant chrome)" do
     sign_in_without_membership(@uninvited_user)
 
-    get "/needs-invite"
+    get "/invite-required"
 
     assert_response :success
     assert_select "header.pulse-top-header", false,
                   "expected app header to be hidden for users without tenant access"
   end
 
-  test "GET /needs-invite redirects to root when user is already a tenant member" do
+  test "GET /invite-required redirects to root when user is already a tenant member" do
     @tenant.add_user!(@uninvited_user)
     sign_in_without_membership(@uninvited_user)
 
-    get "/needs-invite"
+    get "/invite-required"
 
     assert_response :redirect
     assert_match(%r{^/$|/$}, URI.parse(response.location).path)
   end
 
-  test "GET /needs-invite redirects to /login when user is not authenticated" do
-    get "/needs-invite"
+  test "GET /invite-required redirects to /login when user is not authenticated" do
+    get "/invite-required"
 
     assert_response :redirect
     assert_match(/login/, response.location)
   end
 
-  test "GET /needs-invite is not redirected to /billing when stripe_billing is enabled" do
+  test "GET /invite-required is not redirected to /billing when stripe_billing is enabled" do
     @tenant.set_feature_flag!("stripe_billing", true)
     sign_in_without_membership(@uninvited_user)
 
-    get "/needs-invite"
+    get "/invite-required"
 
     assert_response :success
     assert_no_match(%r{/billing}, response.body)
@@ -93,11 +93,11 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
 
   # === Pricing disclosure ===
 
-  test "GET /needs-invite mentions the monthly cost when stripe_billing is enabled" do
+  test "GET /invite-required mentions the monthly cost when stripe_billing is enabled" do
     @tenant.set_feature_flag!("stripe_billing", true)
     sign_in_without_membership(@uninvited_user)
 
-    get "/needs-invite"
+    get "/invite-required"
 
     assert_response :success
     assert_match(/\$3/, response.body,
@@ -106,23 +106,23 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
                  "expected billing cadence to be mentioned")
   end
 
-  test "GET /needs-invite does NOT mention pricing when stripe_billing is disabled" do
+  test "GET /invite-required does NOT mention pricing when stripe_billing is disabled" do
     # stripe_billing flag not enabled — tenant is free
     sign_in_without_membership(@uninvited_user)
 
-    get "/needs-invite"
+    get "/invite-required"
 
     assert_response :success
     assert_no_match(/\$3/, response.body,
                     "free tenants must not show a billing disclosure")
   end
 
-  test "POST /needs-invite confirmation page mentions the monthly cost when stripe_billing is enabled" do
+  test "POST /invite-required confirmation page mentions the monthly cost when stripe_billing is enabled" do
     @tenant.set_feature_flag!("stripe_billing", true)
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: invite.code }
+    post "/invite-required", params: { code: invite.code }
 
     assert_response :success
     assert_match(/\$3/, response.body,
@@ -130,25 +130,25 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_match(/month/i, response.body)
   end
 
-  test "POST /needs-invite confirmation page does NOT mention pricing when stripe_billing is disabled" do
+  test "POST /invite-required confirmation page does NOT mention pricing when stripe_billing is disabled" do
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: invite.code }
+    post "/invite-required", params: { code: invite.code }
 
     assert_response :success
     assert_no_match(/\$3/, response.body)
   end
 
-  # === POST /needs-invite (validate code + render confirmation) ===
+  # === POST /invite-required (validate code + render confirmation) ===
 
-  test "POST /needs-invite with valid code renders confirmation page without joining anything yet" do
+  test "POST /invite-required with valid code renders confirmation page without joining anything yet" do
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
 
-    post "/needs-invite", params: { code: invite.code }
+    post "/invite-required", params: { code: invite.code }
 
     assert_response :success
     # Confirmation page must name the collective and tenant the user is about to join
@@ -157,7 +157,7 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_match(/#{Regexp.escape(@tenant.name)}/, response.body,
                  "expected tenant name on confirmation page")
     # An Accept form posts to the accept endpoint with the code preserved
-    assert_select "form[action='/needs-invite/accept']"
+    assert_select "form[action='/invite-required/accept']"
     assert_select "input[type='hidden'][name='code'][value='#{invite.code}']"
     # Crucially, no joins happened yet — the user is still consenting
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user),
@@ -166,49 +166,49 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
                "confirmation step must not create CollectiveMember"
   end
 
-  test "POST /needs-invite confirmation page hides the app header" do
+  test "POST /invite-required confirmation page hides the app header" do
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: invite.code }
+    post "/invite-required", params: { code: invite.code }
 
     assert_response :success
     assert_select "header.pulse-top-header", false,
                   "expected app header to be hidden on confirmation page"
   end
 
-  test "POST /needs-invite with invalid code re-renders form with alert and no membership" do
+  test "POST /invite-required with invalid code re-renders form with alert and no membership" do
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: "bogus-code-#{SecureRandom.hex(4)}" }
+    post "/invite-required", params: { code: "bogus-code-#{SecureRandom.hex(4)}" }
 
     assert_response :unprocessable_entity
-    assert_select "form[action='/needs-invite']"
+    assert_select "form[action='/invite-required']"
     assert_match(/not valid|expired/i, flash[:alert].to_s)
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
   end
 
-  test "POST /needs-invite with expired code re-renders form with alert" do
+  test "POST /invite-required with expired code re-renders form with alert" do
     invite = create_invite(expires_at: 1.day.ago)
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: invite.code }
+    post "/invite-required", params: { code: invite.code }
 
     assert_response :unprocessable_entity
     assert_match(/not valid|expired/i, flash[:alert].to_s)
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
   end
 
-  test "POST /needs-invite with blank code re-renders form with alert" do
+  test "POST /invite-required with blank code re-renders form with alert" do
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: "" }
+    post "/invite-required", params: { code: "" }
 
     assert_response :unprocessable_entity
     assert_match(/not valid|expired/i, flash[:alert].to_s)
   end
 
-  test "POST /needs-invite with code for a different tenant is rejected" do
+  test "POST /invite-required with code for a different tenant is rejected" do
     other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}", name: "Other Tenant")
     other_tenant.add_user!(@host_user)
     other_tenant.create_main_collective!(created_by: @host_user)
@@ -227,33 +227,33 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: other_invite.code }
+    post "/invite-required", params: { code: other_invite.code }
 
     assert_response :unprocessable_entity
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
   end
 
-  test "POST /needs-invite is not blocked by billing gate" do
+  test "POST /invite-required is not blocked by billing gate" do
     @tenant.set_feature_flag!("stripe_billing", true)
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite", params: { code: invite.code }
+    post "/invite-required", params: { code: invite.code }
 
     assert_response :success
     assert_no_match(%r{/billing}, response.body)
   end
 
-  # === POST /needs-invite/accept (atomic tenant + collective join) ===
+  # === POST /invite-required/accept (atomic tenant + collective join) ===
 
-  test "POST /needs-invite/accept with valid code joins tenant AND collective atomically and redirects" do
+  test "POST /invite-required/accept with valid code joins tenant AND collective atomically and redirects" do
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
     assert_not @collective.user_is_member?(@uninvited_user)
 
-    post "/needs-invite/accept", params: { code: invite.code }
+    post "/invite-required/accept", params: { code: invite.code }
 
     assert_response :redirect
     assert_match(%r{#{Regexp.escape(@collective.path)}/?$}, URI.parse(response.location).path,
@@ -264,23 +264,23 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
            "expected CollectiveMember created on accept"
   end
 
-  test "POST /needs-invite/accept with invalid code redirects back with alert and no state changes" do
+  test "POST /invite-required/accept with invalid code redirects back with alert and no state changes" do
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite/accept", params: { code: "bogus-#{SecureRandom.hex(4)}" }
+    post "/invite-required/accept", params: { code: "bogus-#{SecureRandom.hex(4)}" }
 
     assert_response :redirect
-    assert_match(%r{/needs-invite$}, response.location)
+    assert_match(%r{/invite-required$}, response.location)
     assert_match(/not valid|expired/i, flash[:alert].to_s)
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
     assert_not @collective.user_is_member?(@uninvited_user)
   end
 
-  test "POST /needs-invite/accept with expired code rolls back any partial state" do
+  test "POST /invite-required/accept with expired code rolls back any partial state" do
     invite = create_invite(expires_at: 1.day.ago)
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite/accept", params: { code: invite.code }
+    post "/invite-required/accept", params: { code: invite.code }
 
     assert_response :redirect
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user),
@@ -289,7 +289,7 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
                "expected no CollectiveMember created for expired invite"
   end
 
-  test "POST /needs-invite/accept rejects code targeting a different tenant" do
+  test "POST /invite-required/accept rejects code targeting a different tenant" do
     other_tenant = create_tenant(subdomain: "x-#{SecureRandom.hex(4)}", name: "X")
     other_tenant.add_user!(@host_user)
     other_tenant.create_main_collective!(created_by: @host_user)
@@ -308,18 +308,18 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite/accept", params: { code: other_invite.code }
+    post "/invite-required/accept", params: { code: other_invite.code }
 
     assert_response :redirect
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
   end
 
-  test "POST /needs-invite/accept is not blocked by billing gate" do
+  test "POST /invite-required/accept is not blocked by billing gate" do
     @tenant.set_feature_flag!("stripe_billing", true)
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite/accept", params: { code: invite.code }
+    post "/invite-required/accept", params: { code: invite.code }
 
     assert_response :redirect
     assert_no_match(%r{/billing}, response.location)
@@ -327,7 +327,7 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert @collective.user_is_member?(@uninvited_user)
   end
 
-  test "POST /needs-invite/accept still adds user to invite collective when they are already a tenant member" do
+  test "POST /invite-required/accept still adds user to invite collective when they are already a tenant member" do
     # Race / edge case: user was added to the tenant between the confirm page
     # and the accept post (e.g., by an admin, or a concurrent request).
     # Previously we silently bounced them to root and never joined the
@@ -336,17 +336,17 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(@uninvited_user)
     sign_in_without_membership(@uninvited_user)
 
-    post "/needs-invite/accept", params: { code: invite.code }
+    post "/invite-required/accept", params: { code: invite.code }
 
     assert_response :redirect
     assert @collective.user_is_member?(@uninvited_user),
            "expected invite collective membership even when tenant membership pre-existed"
   end
 
-  test "POST /needs-invite/accept redirects to /login if not authenticated" do
+  test "POST /invite-required/accept redirects to /login if not authenticated" do
     invite = create_invite
 
-    post "/needs-invite/accept", params: { code: invite.code }
+    post "/invite-required/accept", params: { code: invite.code }
 
     assert_response :redirect
     assert_match(/login/, response.location)

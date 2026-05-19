@@ -122,28 +122,28 @@ class InviteSignupFlowTest < ActionDispatch::IntegrationTest
     host! tenant_host(@host_tenant)
     cookies[:token] = generate_test_token(@host_tenant, @invited_user)
 
-    # First request: log in via the callback (redirects to /needs-invite).
+    # First request: log in via the callback (redirects to /invite-required).
     get "/login/callback"
     assert_response :redirect
 
     # Second request: simulate the user navigating to any non-signup page.
     get "/"
     assert_response :redirect
-    assert_match(%r{/needs-invite$}, response.location)
+    assert_match(%r{/invite-required$}, response.location)
     assert_not main.user_is_member?(@invited_user),
                "expected no CollectiveMember to be created on the redirect path"
     assert_not @host_tenant.tenant_users.exists?(user: @invited_user),
                "expected no TenantUser to be created on the redirect path"
   end
 
-  test "callback without invite cookie and no tenant membership redirects to /needs-invite" do
+  test "callback without invite cookie and no tenant membership redirects to /invite-required" do
     host! tenant_host(@host_tenant)
     cookies[:token] = generate_test_token(@host_tenant, @invited_user)
 
     get "/login/callback"
 
     assert_response :redirect
-    assert_match(%r{/needs-invite$}, response.location)
+    assert_match(%r{/invite-required$}, response.location)
     assert_equal @invited_user.id, session[:user_id]
     assert_not @host_tenant.tenant_users.exists?(user: @invited_user),
                "no auto-join on require_invite tenant"

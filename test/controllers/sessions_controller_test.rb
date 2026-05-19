@@ -171,7 +171,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
   # === Invite-Gate Tests ===
 
-  test "internal callback redirects uninvited user to /needs-invite on require_invite tenant" do
+  test "internal callback redirects uninvited user to /invite-required on require_invite tenant" do
     gated_tenant = create_tenant(subdomain: "gated-#{SecureRandom.hex(4)}", name: "Gated Tenant")
     gated_user = create_user(email: "gated-#{SecureRandom.hex(4)}@example.com", name: "Gated")
     gated_tenant.add_user!(gated_user)
@@ -184,7 +184,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     get "/login/callback"
 
     assert_response :redirect
-    assert_match(%r{/needs-invite$}, response.location)
+    assert_match(%r{/invite-required$}, response.location)
     assert_equal outsider.id, session[:user_id],
                  "expected user to be signed in so the explainer page can identify them"
     assert_not gated_tenant.tenant_users.exists?(user: outsider),
@@ -206,7 +206,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     get "/login/callback"
 
     assert_response :redirect
-    refute_match(%r{/needs-invite}, response.location)
+    refute_match(%r{/invite-required}, response.location)
     assert_equal newcomer.id, session[:user_id]
   end
 
@@ -219,7 +219,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     get "/login/callback"
 
     assert_response :redirect
-    refute_match(%r{/needs-invite}, response.location)
+    refute_match(%r{/invite-required}, response.location)
     assert_equal member_user.id, session[:user_id]
   end
 

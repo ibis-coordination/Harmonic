@@ -1,6 +1,6 @@
 <div class="pulse-auth-page">
   <div class="pulse-auth-error">
-    <div class="pulse-auth-error-icon">
+    <div class="pulse-auth-error-icon" style="color: var(--color-fg-default);">
       <%= octicon 'mail', height: 48 %>
     </div>
     <h1 class="pulse-auth-title">invite required</h1>
@@ -20,7 +20,7 @@
       </div>
     <% end %>
 
-    <%= form_with url: needs_invite_path, method: :post, class: "pulse-auth-form", local: true do %>
+    <%= form_with url: invite_required_path, method: :post, class: "pulse-auth-form", local: true do %>
       <input type="text" name="code" class="pulse-form-input" placeholder="Invite code" autocomplete="off" autofocus>
       <div class="pulse-form-actions">
         <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Continue</button>

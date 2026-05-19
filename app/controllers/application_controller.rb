@@ -461,7 +461,7 @@ class ApplicationController < ActionController::Base
       if !@current_tenant.require_invite? && @current_tenant.require_login? && !gate_controller
         @current_tenant.add_user!(@current_user)
       elsif @current_tenant.require_login? && !gate_controller && !accepting_invite
-        redirect_to "/needs-invite"
+        redirect_to "/invite-required"
         return # CRITICAL: must return after redirect — otherwise execution
         # falls through to the collective_members.add_user! branch below and
         # creates a spurious main-collective membership for non-tenant-members.
