@@ -111,13 +111,13 @@ class CycleTest < ActiveSupport::TestCase
 
   test "start_date for yesterday is beginning of yesterday" do
     cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
-    expected = (Time.current - 1.day).in_time_zone("UTC").beginning_of_day.to_date
+    expected = 1.day.ago.in_time_zone("UTC").beginning_of_day.to_date
     assert_equal expected, cycle.start_date.to_date
   end
 
   test "start_date for tomorrow is beginning of tomorrow" do
     cycle = Cycle.new(name: "tomorrow", tenant: @tenant, collective: @collective)
-    expected = (Time.current + 1.day).in_time_zone("UTC").beginning_of_day.to_date
+    expected = 1.day.from_now.in_time_zone("UTC").beginning_of_day.to_date
     assert_equal expected, cycle.start_date.to_date
   end
 
@@ -158,7 +158,7 @@ class CycleTest < ActiveSupport::TestCase
       cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
       display = cycle.display_window
       # Should not have double spaces (e.g., "January  9" should be "January 9")
-      refute_match(/  /, display, "display_window should not contain double spaces: #{display}")
+      assert_no_match(/  /, display, "display_window should not contain double spaces: #{display}")
       # Should contain the single-digit day without leading space padding
       assert_match(/January 9/, display, "display_window should format single-digit day without padding: #{display}")
     end
@@ -166,7 +166,7 @@ class CycleTest < ActiveSupport::TestCase
 
   test "display_window formats week as range" do
     cycle = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
-    assert_match(/-/, cycle.display_window)  # Contains dash for range
+    assert_match(/-/, cycle.display_window) # Contains dash for range
   end
 
   test "display_duration returns 1 day for day unit" do
@@ -259,17 +259,17 @@ class CycleTest < ActiveSupport::TestCase
 
   test "is_current_cycle? returns false for yesterday" do
     cycle = Cycle.new(name: "yesterday", tenant: @tenant, collective: @collective)
-    refute cycle.is_current_cycle?
+    assert_not cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns false for last-week" do
     cycle = Cycle.new(name: "last-week", tenant: @tenant, collective: @collective)
-    refute cycle.is_current_cycle?
+    assert_not cycle.is_current_cycle?
   end
 
   test "is_current_cycle? returns false for last-month" do
     cycle = Cycle.new(name: "last-month", tenant: @tenant, collective: @collective)
-    refute cycle.is_current_cycle?
+    assert_not cycle.is_current_cycle?
   end
 
   # === Multi-step Navigation Tests ===
@@ -420,8 +420,274 @@ class CycleTest < ActiveSupport::TestCase
     cycle = Cycle.new(name: "today", tenant: @tenant, collective: @collective)
     options = cycle.sort_by_options
 
-    assert options.any? { |o| o[1].include?("deadline") }
-    assert options.any? { |o| o[1].include?("created_at") }
-    assert options.any? { |o| o[1].include?("updated_at") }
+    assert(options.any? { |o| o[1].include?("deadline") })
+    assert(options.any? { |o| o[1].include?("created_at") })
+    assert(options.any? { |o| o[1].include?("updated_at") })
+  end
+
+  # === Recent Summaries Tests ===
+
+  test "recent_summaries returns empty when collective has no content" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant)
+    assert_equal [], summaries.to_a
+  end
+
+  test "recent_summaries returns one row per cycle bucket with counts" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      # This week (May 11-17, 2026): 2 notes, 1 decision
+      create_note(title: "n1")
+      create_note(title: "n2")
+      create_decision(question: "d1?")
+
+      # Last week
+      last_week_note = create_note(title: "n3")
+      last_week_commitment = create_commitment(title: "c1")
+      last_week_time = Time.zone.local(2026, 5, 8, 12, 0, 0)
+      last_week_note.update_columns(created_at: last_week_time)
+      last_week_commitment.update_columns(created_at: last_week_time)
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+
+      assert_equal 2, summaries.length
+
+      this_week = summaries.find { |s| s.notes_count == 2 }
+      last_week = summaries.find { |s| s.notes_count == 1 }
+      assert_not_nil this_week
+      assert_not_nil last_week
+
+      assert_equal 3, this_week.total_count
+      assert_equal 2, this_week.notes_count
+      assert_equal 1, this_week.decisions_count
+      assert_equal 0, this_week.commitments_count
+
+      assert_equal 2, last_week.total_count
+      assert_equal 1, last_week.notes_count
+      assert_equal 0, last_week.decisions_count
+      assert_equal 1, last_week.commitments_count
+    end
+  end
+
+  test "recent_summaries orders most recent first" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      create_note(title: "this-week")
+      last_week_note = create_note(title: "last-week")
+      last_week_note.update_columns(created_at: Time.zone.local(2026, 5, 8, 12, 0, 0))
+      two_weeks_ago_note = create_note(title: "two-weeks-ago")
+      two_weeks_ago_note.update_columns(created_at: Time.zone.local(2026, 5, 1, 12, 0, 0))
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+      starts = summaries.map(&:cycle_start)
+      assert_equal starts.sort.reverse, starts
+    end
+  end
+
+  test "recent_summaries is scoped to collective" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+    other_collective = create_collective(
+      tenant: @tenant,
+      created_by: @user,
+      handle: "other-collective-#{SecureRandom.hex(4)}"
+    )
+
+    create_note(collective: @collective, title: "ours")
+    create_note(collective: other_collective, title: "theirs")
+
+    summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+    total = summaries.sum(&:total_count)
+    assert_equal 1, total
+  end
+
+  test "recent_summaries excludes cycles older than limit" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      create_note(title: "recent")
+      ancient = create_note(title: "ancient")
+      ancient.update_columns(created_at: Time.zone.local(2025, 1, 1, 12, 0, 0))
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant, limit: 6).to_a
+      assert_equal 1, summaries.length
+    end
+  end
+
+  test "recent_summaries excludes comments from note count" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      parent = create_note(title: "parent")
+      create_note(title: "real note")
+      create_note(title: "comment-1", commentable: parent)
+      create_note(title: "comment-2", commentable: parent)
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+      # parent + real note = 2 (comments excluded)
+      assert_equal 2, summaries.first.notes_count
+    end
+  end
+
+  test "recent_summaries excludes soft-deleted items" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      kept = create_note(title: "kept")
+      deleted = create_note(title: "deleted")
+      deleted.soft_delete!(by: @user)
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+      assert_equal 1, summaries.length
+      assert_equal 1, summaries.first.notes_count
+      assert_equal 1, summaries.first.total_count
+      kept.destroy
+    end
+  end
+
+  test "recent_summaries buckets by day when tempo is daily" do
+    @collective.settings["tempo"] = "daily"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      create_note(title: "today")
+      yest = create_note(title: "yesterday")
+      yest.update_columns(created_at: Time.zone.local(2026, 5, 14, 12, 0, 0))
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+      assert_equal 2, summaries.length
+    end
+  end
+
+  test "recent_summaries buckets by month when tempo is monthly" do
+    @collective.settings["tempo"] = "monthly"
+    @collective.save!
+
+    travel_to Time.zone.local(2026, 5, 15, 12, 0, 0) do
+      create_note(title: "may")
+      april = create_note(title: "april")
+      april.update_columns(created_at: Time.zone.local(2026, 4, 10, 12, 0, 0))
+      march = create_note(title: "march")
+      march.update_columns(created_at: Time.zone.local(2026, 3, 5, 12, 0, 0))
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+      assert_equal 3, summaries.length
+    end
+  end
+
+  test "recent_summaries is scoped to tenant" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}")
+    other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com")
+    other_tenant.add_user!(other_user)
+    other_collective = Collective.create!(
+      tenant: other_tenant,
+      created_by: other_user,
+      handle: "other-#{SecureRandom.hex(4)}",
+      name: "Other",
+    )
+
+    create_note(collective: @collective, title: "ours")
+    Note.create!(
+      tenant: other_tenant,
+      collective: other_collective,
+      created_by: other_user,
+      title: "theirs",
+      text: "x",
+      subtype: "text",
+      deadline: 1.week.from_now,
+    )
+
+    summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+    assert_equal 1, summaries.sum(&:total_count)
+  end
+
+  test "recent_summaries respects collective timezone for bucket boundaries" do
+    @collective.settings["tempo"] = "daily"
+    @collective.settings["timezone"] = "Australia/Sydney"
+    @collective.save!
+
+    # Sydney is UTC+10/+11. A note created at 23:00 UTC on May 14 is May 15 in Sydney.
+    travel_to Time.zone.local(2026, 5, 16, 12, 0, 0) do
+      sydney_may_15 = create_note(title: "sydney-may-15")
+      sydney_may_15.update_columns(created_at: Time.utc(2026, 5, 14, 23, 0, 0))
+
+      sydney_may_14 = create_note(title: "sydney-may-14")
+      sydney_may_14.update_columns(created_at: Time.utc(2026, 5, 13, 23, 0, 0))
+
+      summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+      # Two distinct day buckets in Sydney time
+      assert_equal 2, summaries.length
+    end
+  end
+
+  test "recent_summaries returns RecentCycleSummary structs" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+    create_note(title: "n")
+    summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
+    assert_kind_of Cycle::RecentCycleSummary, summaries.first
+  end
+
+  # === cycle_name_for_offset Tests ===
+
+  test "cycle_name_for_offset returns named cycles for current and recent offsets in day unit" do
+    assert_equal "today", Cycle.cycle_name_for_offset(0, "day")
+    assert_equal "yesterday", Cycle.cycle_name_for_offset(-1, "day")
+    assert_equal "2-days-ago", Cycle.cycle_name_for_offset(-2, "day")
+    assert_equal "5-days-ago", Cycle.cycle_name_for_offset(-5, "day")
+  end
+
+  test "cycle_name_for_offset returns named cycles for week unit" do
+    assert_equal "this-week", Cycle.cycle_name_for_offset(0, "week")
+    assert_equal "last-week", Cycle.cycle_name_for_offset(-1, "week")
+    assert_equal "3-weeks-ago", Cycle.cycle_name_for_offset(-3, "week")
+  end
+
+  test "cycle_name_for_offset returns named cycles for month unit" do
+    assert_equal "this-month", Cycle.cycle_name_for_offset(0, "month")
+    assert_equal "last-month", Cycle.cycle_name_for_offset(-1, "month")
+    assert_equal "4-months-ago", Cycle.cycle_name_for_offset(-4, "month")
+  end
+
+  test "cycle_name_for_offset handles offset 1 as next" do
+    assert_equal "tomorrow", Cycle.cycle_name_for_offset(1, "day")
+    assert_equal "next-week", Cycle.cycle_name_for_offset(1, "week")
+    assert_equal "next-month", Cycle.cycle_name_for_offset(1, "month")
+    assert_equal "next-year", Cycle.cycle_name_for_offset(1, "year")
+  end
+
+  test "cycle_name_for_offset raises for offsets beyond +1 (no name)" do
+    assert_raises(RuntimeError) { Cycle.cycle_name_for_offset(2, "week") }
+    assert_raises(RuntimeError) { Cycle.cycle_name_for_offset(5, "day") }
+  end
+
+  test "cycle_name_for_offset raises for invalid unit" do
+    assert_raises(RuntimeError) { Cycle.cycle_name_for_offset(0, "decade") }
+  end
+
+  test "cycle_name_for_offset round-trips through Cycle parsing" do
+    # Names produced should parse back to the same offset via Cycle#offset
+    [
+      [0, "day"], [-1, "day"], [-3, "day"],
+      [0, "week"], [-1, "week"], [-2, "week"],
+      [0, "month"], [-1, "month"], [-5, "month"],
+    ].each do |offset, unit|
+      name = Cycle.cycle_name_for_offset(offset, unit)
+      cycle = Cycle.new(name: name, tenant: @tenant, collective: @collective)
+      assert_equal offset, cycle.offset, "expected #{name} to have offset #{offset}"
+      assert_equal unit, cycle.unit, "expected #{name} to have unit #{unit}"
+    end
   end
 end

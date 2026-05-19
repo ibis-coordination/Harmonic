@@ -6,6 +6,21 @@ class Cycle
   sig { returns(String) }
   attr_accessor :name
 
+  CYCLE_NAME_PREFIXES = T.let(
+    {
+      "day" => { current: "today", previous: "yesterday", next: "tomorrow" },
+      "week" => { current: "this-week", previous: "last-week", next: "next-week" },
+      "month" => { current: "this-month", previous: "last-month", next: "next-month" },
+      "year" => { current: "this-year", previous: "last-year", next: "next-year" },
+    }.freeze,
+    T::Hash[String, T::Hash[Symbol, String]],
+  )
+
+  RecentCycleSummary = Struct.new(
+    :cycle_start, :notes_count, :decisions_count, :commitments_count, :total_count,
+    keyword_init: true,
+  )
+
   sig { params(tempo: String).returns(T::Array[String]) }
   def self.end_of_cycle_options(tempo:)
     [
@@ -45,6 +60,101 @@ class Cycle
   sig { params(collective: Collective).returns(Cycle) }
   def self.new_from_collective(collective)
     new_from_tempo(tenant: T.must(collective.tenant), collective: collective)
+  end
+
+  # Returns one summary struct per cycle period (bucketed by the collective's
+  # tempo) within the last `limit` periods. Only periods that contain at least
+  # one (non-deleted) note, decision, or commitment will appear.
+  #
+  # Queries Note/Decision/Commitment directly rather than the `cycle_data`
+  # view so the default soft-delete scope is applied. Comments are excluded
+  # from the note count to match the homepage feed.
+  sig do
+    params(
+      collective: Collective,
+      tenant: Tenant,
+      limit: Integer
+    ).returns(T::Array[RecentCycleSummary])
+  end
+  def self.recent_summaries(collective:, tenant:, limit: 6)
+    unit = T.must(collective.tempo_unit)
+    raise "Invalid unit: #{unit}" unless ["day", "week", "month", "year"].include?(unit)
+
+    bucket_sql = bucket_sql_for(unit, collective.timezone.tzinfo.name)
+    cutoff = (limit + 1).send(unit.pluralize).ago
+
+    notes = counts_by_bucket(Note.where(commentable_type: nil), tenant, collective, cutoff, bucket_sql)
+    decisions = counts_by_bucket(Decision, tenant, collective, cutoff, bucket_sql)
+    commitments = counts_by_bucket(Commitment, tenant, collective, cutoff, bucket_sql)
+
+    build_summaries(notes, decisions, commitments).first(limit)
+  end
+
+  sig { params(unit: String, tz_name: String).returns(Arel::Nodes::SqlLiteral) }
+  def self.bucket_sql_for(unit, tz_name)
+    quoted_tz = ApplicationRecord.connection.quote(tz_name)
+    Arel.sql("date_trunc('#{unit}', (created_at AT TIME ZONE 'UTC' AT TIME ZONE #{quoted_tz}))")
+  end
+  private_class_method :bucket_sql_for
+
+  sig do
+    params(
+      notes: T::Hash[T.untyped, Integer],
+      decisions: T::Hash[T.untyped, Integer],
+      commitments: T::Hash[T.untyped, Integer]
+    ).returns(T::Array[RecentCycleSummary])
+  end
+  def self.build_summaries(notes, decisions, commitments)
+    all_buckets = notes.keys | decisions.keys | commitments.keys
+    summaries = all_buckets.map do |bucket|
+      n = notes[bucket].to_i
+      d = decisions[bucket].to_i
+      c = commitments[bucket].to_i
+      RecentCycleSummary.new(
+        cycle_start: bucket,
+        notes_count: n,
+        decisions_count: d,
+        commitments_count: c,
+        total_count: n + d + c
+      )
+    end
+    summaries.sort_by { |s| -s.cycle_start.to_i }
+  end
+  private_class_method :build_summaries
+
+  sig do
+    params(
+      scope: T.any(T.class_of(ApplicationRecord), ActiveRecord::Relation),
+      tenant: Tenant,
+      collective: Collective,
+      cutoff: ActiveSupport::TimeWithZone,
+      bucket_sql: Arel::Nodes::SqlLiteral
+    ).returns(T::Hash[T.untyped, Integer])
+  end
+  def self.counts_by_bucket(scope, tenant, collective, cutoff, bucket_sql)
+    scope
+      .where(tenant_id: tenant.id, collective_id: collective.id)
+      .where(created_at: cutoff..)
+      .group(bucket_sql)
+      .pluck(bucket_sql, Arel.sql("COUNT(*)"))
+      .to_h
+  end
+  private_class_method :counts_by_bucket
+
+  # Converts a numeric offset + unit into a cycle name string
+  # (e.g. -1, "week" -> "last-week"; -3, "day" -> "3-days-ago").
+  sig { params(offset: Integer, unit: String).returns(String) }
+  def self.cycle_name_for_offset(offset, unit)
+    names = CYCLE_NAME_PREFIXES[unit] or raise "Invalid unit: #{unit}"
+    case offset
+    when 0 then T.must(names[:current])
+    when -1 then T.must(names[:previous])
+    when 1 then T.must(names[:next])
+    else
+      raise "Future #{unit} offsets not named" if offset.positive?
+
+      "#{-offset}-#{unit.pluralize}-ago"
+    end
   end
 
   sig do

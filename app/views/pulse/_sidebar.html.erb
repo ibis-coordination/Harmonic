@@ -2,6 +2,9 @@
   <%= render 'pulse/sidebar_collective_info' %>
   <%= render 'pulse/sidebar_pinned' %>
   <%= render 'pulse/sidebar_cycle' %>
+  <% if @recent_cycle_summaries.present? %>
+    <%= render 'pulse/sidebar_recent_cycles' %>
+  <% end %>
   <% unless @current_collective&.private_workspace? %>
     <%= render 'pulse/sidebar_heartbeats' %>
   <% end %>
