@@ -53,10 +53,16 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
     tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
     StripeCustomer.create!(billable: user1, stripe_id: "cus_fail_recon", active: true, stripe_subscription_id: "sub_fail_recon")
+    # Each user needs at least one billable resource so sync_subscription_quantity!
+    # actually issues a Stripe request (it short-circuits when billable_quantity == 0).
+    user1_agent = create_ai_agent(parent: user1, name: "Recon Agent 1 #{SecureRandom.hex(4)}")
+    tenant.add_user!(user1_agent)
 
     user2 = create_user(email: "recon2-#{SecureRandom.hex(4)}@example.com", name: "Recon User 2 #{SecureRandom.hex(4)}")
     tenant.add_user!(user2)
     StripeCustomer.create!(billable: user2, stripe_id: "cus_ok_recon", active: true, stripe_subscription_id: "sub_ok_recon")
+    user2_agent = create_ai_agent(parent: user2, name: "Recon Agent 2 #{SecureRandom.hex(4)}")
+    tenant.add_user!(user2_agent)
 
     # First user fails
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_fail_recon")
