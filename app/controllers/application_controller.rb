@@ -1120,6 +1120,17 @@ class ApplicationController < ActionController::Base
     # Exempt user settings page
     return if controller_name == "users" && action_name.in?(%w[settings show update_profile update_email cancel_email_change confirm_email])
 
+    # Preserve where the user was headed so BillingController can resume the
+    # flow after Stripe Checkout completes, and explain the bounce so the
+    # user understands why they were redirected mid-task. Only stash top-level
+    # HTML navigations: POST/PATCH/DELETE bodies can't be replayed, and
+    # JSON/XHR polls (e.g. /notifications/unread_count) would otherwise
+    # clobber the real destination since they fire from the same page load.
+    if request.get? && request.format.html? && !request.xhr?
+      session[:billing_return_to] = request.fullpath
+      flash[:notice] = "Set up billing to continue. We'll bring you back here when you're done."
+    end
+
     redirect_to "/billing"
   end
 

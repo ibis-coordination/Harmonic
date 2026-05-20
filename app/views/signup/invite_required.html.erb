@@ -8,12 +8,6 @@
       <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code> requires an invite code to join.
     </p>
 
-    <% if @current_tenant.feature_enabled?("stripe_billing") %>
-      <p class="pulse-form-hint" style="margin: 0 0 16px 0; font-size: 13px;">
-        Accounts cost <strong>$3/month</strong>. Payment is set up after joining; there's no free trial.
-      </p>
-    <% end %>
-
     <% if flash[:alert].present? %>
       <div class="pulse-form-alert" style="background:var(--color-danger-subtle);color:var(--color-danger-fg);padding:12px;border-radius:6px;margin-bottom:16px;font-size:13px;">
         <%= flash[:alert] %>

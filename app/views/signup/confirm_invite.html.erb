@@ -8,12 +8,6 @@
       on <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
     </p>
 
-    <% if @current_tenant.feature_enabled?("stripe_billing") %>
-      <div style="background:var(--color-attention-subtle);border:1px solid var(--color-attention-muted);padding:12px;border-radius:6px;margin:0 0 16px 0;font-size:13px;text-align:left;">
-        Your account will cost <strong>$3/month</strong>. You'll be asked to set up payment immediately after accepting. There is no free trial.
-      </div>
-    <% end %>
-
     <%= form_with url: accept_invite_path, method: :post, class: "pulse-auth-form", local: true do %>
       <input type="hidden" name="code" value="<%= @invite.code %>">
       <div class="pulse-form-actions">

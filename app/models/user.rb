@@ -578,11 +578,15 @@ class User < ApplicationRecord
 
   # Compute the total billable quantity for this user across all billing-enabled tenants.
   # One subscription covers all billing-enabled tenants.
+  #
+  # Humans are always free under the current pricing model. Only AI agents and
+  # additional (non-main) collectives owned by this user contribute to the
+  # billable quantity. The `billing_exempt` flag is retained on User for
+  # forward compatibility / admin overrides but does not affect billing today.
   sig { returns(Integer) }
   def billable_quantity
     tenant_ids = billing_tenant_ids
-    user_count = billing_exempt? ? 0 : 1
-    user_count + active_billable_agent_count(tenant_ids) + active_billable_collective_count(tenant_ids)
+    active_billable_agent_count(tenant_ids) + active_billable_collective_count(tenant_ids)
   end
 
   # Count active (not archived, not suspended, not exempt) AI agents on billing-enabled tenants.

@@ -1076,6 +1076,47 @@ class UserTest < ActiveSupport::TestCase
 
   # === Stripe Billing Tests ===
 
+  # === Humans-free billing model ===
+
+  test "billable_quantity treats a human user as 0 (humans are free, agents and extra collectives are billed)" do
+    fresh_tenant = create_tenant(subdomain: "fresh-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    assert_equal 0, fresh_user.billable_quantity,
+                 "expected a fresh human with no agents or non-main collectives to contribute 0 to billable_quantity"
+  end
+
+  test "stripe_billing_setup? returns true for a fresh human with no billable resources" do
+    fresh_tenant = create_tenant(subdomain: "fresh-setup-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    assert fresh_user.stripe_billing_setup?,
+           "fresh humans should not be required to set up billing"
+  end
+
+  test "stripe_billing_setup? becomes false once a human creates a billable agent" do
+    fresh_tenant = create_tenant(subdomain: "fresh-agent-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+    assert fresh_user.stripe_billing_setup?, "sanity check: free before creating anything"
+
+    Tenant.scope_thread_to_tenant(subdomain: fresh_tenant.subdomain)
+    agent = create_ai_agent(parent: fresh_user, name: "Agent #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(agent)
+
+    assert_not fresh_user.reload.stripe_billing_setup?,
+               "creating a billable agent should require billing setup"
+    assert_equal 1, fresh_user.billable_quantity
+  end
+
   test "stripe_billing_setup? returns true when user has active stripe customer" do
     StripeCustomer.create!(
       billable: @user,

@@ -91,33 +91,23 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(%r{/billing}, response.body)
   end
 
-  # === Pricing disclosure ===
+  # === Pricing disclosure (humans are free; no per-user cost to disclose) ===
 
-  test "GET /invite-required mentions the monthly cost when stripe_billing is enabled" do
+  test "GET /invite-required does NOT mention pricing even when stripe_billing is enabled" do
+    # Humans are free under the current pricing model. The invite landing
+    # page should not show a per-account cost — only AI agents and additional
+    # collectives carry a charge, surfaced at point of creation.
     @tenant.set_feature_flag!("stripe_billing", true)
-    sign_in_without_membership(@uninvited_user)
-
-    get "/invite-required"
-
-    assert_response :success
-    assert_match(/\$3/, response.body,
-                 "expected price to be disclosed up front on landing page")
-    assert_match(/month/i, response.body,
-                 "expected billing cadence to be mentioned")
-  end
-
-  test "GET /invite-required does NOT mention pricing when stripe_billing is disabled" do
-    # stripe_billing flag not enabled — tenant is free
     sign_in_without_membership(@uninvited_user)
 
     get "/invite-required"
 
     assert_response :success
     assert_no_match(/\$3/, response.body,
-                    "free tenants must not show a billing disclosure")
+                    "joining is free; no price should be quoted on the invite-required page")
   end
 
-  test "POST /invite-required confirmation page mentions the monthly cost when stripe_billing is enabled" do
+  test "POST /invite-required confirmation page does NOT mention pricing even when stripe_billing is enabled" do
     @tenant.set_feature_flag!("stripe_billing", true)
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
@@ -125,19 +115,8 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     post "/invite-required", params: { code: invite.code }
 
     assert_response :success
-    assert_match(/\$3/, response.body,
-                 "expected price disclosed on confirmation page so the user can decide before committing")
-    assert_match(/month/i, response.body)
-  end
-
-  test "POST /invite-required confirmation page does NOT mention pricing when stripe_billing is disabled" do
-    invite = create_invite
-    sign_in_without_membership(@uninvited_user)
-
-    post "/invite-required", params: { code: invite.code }
-
-    assert_response :success
-    assert_no_match(/\$3/, response.body)
+    assert_no_match(/\$3/, response.body,
+                    "joining is free; no price should be quoted on the confirmation page")
   end
 
   # === POST /invite-required (validate code + render confirmation) ===
