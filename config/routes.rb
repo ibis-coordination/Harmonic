@@ -121,6 +121,13 @@ Rails.application.routes.draw do
   post 'invite-required' => 'signup#confirm_invite'
   post 'invite-required/accept' => 'signup#accept_invite', as: :accept_invite
 
+  # Activation checklist (post-signup gate that ensures a user has joined a
+  # workspace, verified their email, and enabled 2FA — see Phase 4 in the
+  # signup-invite-gate-ux plan). Reachable directly via the user menu while
+  # any of those are incomplete.
+  get 'activate' => 'activation#show', as: :activation
+  post 'activate/send-confirmation' => 'activation#send_email_confirmation', as: :resend_email_confirmation
+
   namespace :api do
     # The v1 REST API is read-only. All writes go through the markdown UI
     # action routes (/foo/actions/{action_name}), where the capability system,

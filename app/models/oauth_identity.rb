@@ -28,7 +28,11 @@ class OauthIdentity < ApplicationRecord
     # We want to make sure that every user has an oaid record even if
     # they use an oauth provider like github. This ensures that the email address
     # cannot be claimed by a different user signing up for the first time.
-    user.find_or_create_omni_auth_identity!
+    omni = user.find_or_create_omni_auth_identity!
+
+    # Trust the OAuth provider's verified-email claim — only set on first sight so
+    # repeat sign-ins don't bump the timestamp away from the original confirmation.
+    omni.update!(email_confirmed_at: Time.current) if omni.email_confirmed_at.nil?
 
     # Link identity to user
     identity.update!(

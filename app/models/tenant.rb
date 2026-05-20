@@ -310,6 +310,16 @@ class Tenant < ApplicationRecord
     settings['require_invite'].to_s == 'false' ? false : true
   end
 
+  sig { returns(T::Boolean) }
+  def require_2fa?
+    settings['require_2fa'].to_s == 'false' ? false : true
+  end
+
+  sig { returns(T::Boolean) }
+  def require_verified_email?
+    settings['require_verified_email'].to_s == 'false' ? false : true
+  end
+
   sig { returns(String) }
   def domain
     if self.class.single_tenant_mode?

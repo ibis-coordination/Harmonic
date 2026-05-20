@@ -85,6 +85,54 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   end
 
   # =============================================================================
+  # Email Confirmation
+  # =============================================================================
+
+  EMAIL_CONFIRMATION_VALIDITY = 7.days
+
+  sig { returns(T::Boolean) }
+  def email_verified?
+    email_confirmed_at.present?
+  end
+
+  # Generates a fresh confirmation token and returns the raw value to be put in
+  # the confirmation email. The stored value is a SHA256 hash, so a leaked DB
+  # row can't be used to confirm someone else's email.
+  sig { returns(String) }
+  def send_email_confirmation!
+    raw_token = SecureRandom.urlsafe_base64(32)
+    self.email_confirmation_token = Digest::SHA256.hexdigest(raw_token)
+    self.email_confirmation_sent_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
+    save!
+    raw_token
+  end
+
+  sig { params(raw_token: T.nilable(String)).returns(T.nilable(OmniAuthIdentity)) }
+  def self.find_by_email_confirmation_token(raw_token)
+    return nil if raw_token.blank?
+    find_by(email_confirmation_token: Digest::SHA256.hexdigest(raw_token))
+  end
+
+  # Idempotent: returns true if already verified (re-clicked link case).
+  # Otherwise validates the token and the time window, flips email_confirmed_at,
+  # and clears the confirmation columns.
+  sig { params(raw_token: String).returns(T::Boolean) }
+  def confirm_email!(raw_token)
+    return true if email_verified?
+    return false if email_confirmation_token.blank?
+    return false if email_confirmation_sent_at.blank?
+    return false if T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_VALIDITY.ago
+    return false unless Digest::SHA256.hexdigest(raw_token.to_s) == email_confirmation_token
+
+    update!(
+      email_confirmed_at: Time.current,
+      email_confirmation_token: nil,
+      email_confirmation_sent_at: nil,
+    )
+    true
+  end
+
+  # =============================================================================
   # Two-Factor Authentication (TOTP)
   # =============================================================================
 

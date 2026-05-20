@@ -317,6 +317,127 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
     assert_nil identity.reset_password_sent_at
   end
 
+  # === Email Confirmation Tests ===
+
+  test "email_verified? returns false when email_confirmed_at is nil" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil)
+    assert_not identity.email_verified?
+  end
+
+  test "email_verified? returns true when email_confirmed_at is set" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: Time.current)
+    assert identity.email_verified?
+  end
+
+  test "send_email_confirmation! returns raw token and stores hash" do
+    user = create_user(email: "confirm-#{SecureRandom.hex(4)}@example.com", name: "Confirm Send")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: user.email,
+      name: user.name,
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+
+    raw_token = identity.send_email_confirmation!
+
+    assert raw_token.present?
+    assert_equal 43, raw_token.length # urlsafe_base64(32)
+    assert identity.email_confirmation_token.present?
+    assert_equal 64, identity.email_confirmation_token.length # SHA256 hex
+    assert_not_equal raw_token, identity.email_confirmation_token
+    assert_equal Digest::SHA256.hexdigest(raw_token), identity.email_confirmation_token
+    assert identity.email_confirmation_sent_at.present?
+  end
+
+  test "find_by_email_confirmation_token returns the identity for a valid raw token" do
+    user = create_user(email: "findc-#{SecureRandom.hex(4)}@example.com", name: "Find Confirm")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: user.email,
+      name: user.name,
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    raw = identity.send_email_confirmation!
+
+    assert_equal identity.id, OmniAuthIdentity.find_by_email_confirmation_token(raw).id
+  end
+
+  test "find_by_email_confirmation_token returns nil for blank or invalid tokens" do
+    assert_nil OmniAuthIdentity.find_by_email_confirmation_token(nil)
+    assert_nil OmniAuthIdentity.find_by_email_confirmation_token("")
+    assert_nil OmniAuthIdentity.find_by_email_confirmation_token("not-a-real-token")
+  end
+
+  test "confirm_email! flips email_confirmed_at and clears the token" do
+    user = create_user(email: "flip-#{SecureRandom.hex(4)}@example.com", name: "Flip Confirm")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: user.email,
+      name: user.name,
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    raw = identity.send_email_confirmation!
+
+    assert_not identity.email_verified?
+    assert identity.confirm_email!(raw)
+    identity.reload
+    assert identity.email_verified?
+    assert_nil identity.email_confirmation_token
+    assert_nil identity.email_confirmation_sent_at
+  end
+
+  test "confirm_email! returns false for a token that doesn't match" do
+    user = create_user(email: "bad-#{SecureRandom.hex(4)}@example.com", name: "Bad Token")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: user.email,
+      name: user.name,
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    identity.send_email_confirmation!
+
+    assert_not identity.confirm_email!("wrong-token-value")
+    assert_not identity.reload.email_verified?
+  end
+
+  test "confirm_email! is idempotent — second call returns true and leaves verified" do
+    # Once verified, calling confirm_email! again with any token is a no-op success
+    # so re-clicked email links don't confuse the user with errors.
+    user = create_user(email: "idemp-#{SecureRandom.hex(4)}@example.com", name: "Idemp Confirm")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: user.email,
+      name: user.name,
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    raw = identity.send_email_confirmation!
+    assert identity.confirm_email!(raw)
+    assert identity.confirm_email!(raw)
+    assert identity.reload.email_verified?
+  end
+
+  test "confirm_email! rejects tokens older than the validity window" do
+    user = create_user(email: "stale-#{SecureRandom.hex(4)}@example.com", name: "Stale Token")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: user.email,
+      name: user.name,
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    raw = identity.send_email_confirmation!
+    # Force the sent_at into the past beyond the window
+    identity.update_columns(email_confirmation_sent_at: 8.days.ago)
+
+    assert_not identity.confirm_email!(raw)
+    assert_not identity.reload.email_verified?
+  end
+
   # === User Association Tests ===
 
   test "belongs_to user" do

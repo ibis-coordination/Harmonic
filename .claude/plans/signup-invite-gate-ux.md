@@ -64,91 +64,111 @@ Umbrella plan for the signup-invite-gate-ux branch. The first three phases have 
 
 ---
 
-## Phase 4 — full account activation (planned)
+## Phase 4 — activation gate (planned)
 
-**Goal**: a freshly signed-up user is not "fully activated" until they have all three of:
+**Framing**: a general auth-time check, not signup-specific. Whenever a logged-in human user lands anywhere, we verify three preconditions; if any fail, they're sent to a `/activate` checklist page that guides them through the missing pieces. The mechanism is reusable for future "you must do X before continuing" gates (privacy-policy acceptance, T&C updates, etc.).
 
-1. A valid invite (= `TenantUser` exists)
-2. A verified email
-3. 2FA enabled
+### The three checks
 
-Until all three are satisfied, the account is "pending activation." Today, only the invite requirement is enforced. Email verification has no signup-time path (only an email-change confirmation flow exists). 2FA is optional and tucked away in settings.
+1. **Tenant access**: user has a `TenantUser` on the current tenant, **OR** they have a valid invite-code cookie (`current_invite` resolves to a still-acceptable invite). Invite acceptance itself is not changed by this phase — it remains a user action via the existing `/invite-required` flow, and is the ordinary path to satisfy this check.
+2. **Verified email**: identity-managed (`OmniAuthIdentity#email_confirmed_at`) for email/password accounts; OAuth identities auto-mark verified at creation (we trust Google/GitHub's verified-email claim).
+3. **2FA enabled**: `OmniAuthIdentity#otp_enabled` is true. Existing `/settings/two-factor` flow is the action; the checklist just links to it.
 
-This phase makes activation a coherent, visible state with a checklist UI.
+Checks 2 and 3 are gated by per-tenant flags: `Tenant#require_verified_email?` and `Tenant#require_2fa?`. Default true; falsy = skip that check for that tenant.
 
-### The three requirements
+Sys/app admins are exempt from the activation gate (platform operators, not customers).
 
-| # | Requirement | Today | What's new |
-|---|---|---|---|
-| 1 | Invite | Enforced at signup ([signup_controller.rb](../../app/controllers/signup_controller.rb)). Joining a tenant requires accepting a valid invite. | No change — already part of the activation checklist. |
-| 2 | Verified email | Only OAuth flow implicitly verifies (provider asserts email ownership). Email-password signups don't verify at signup time — only email *changes* trigger a confirmation. See `confirm_email` action at [users_controller.rb:307](../../app/controllers/users_controller.rb#L307). | New: trigger a signup-time confirmation email for email/password accounts; mark `OmniAuthIdentity#email_confirmed_at` (new column) when the link is clicked. OAuth identities auto-mark verified on creation. |
-| 3 | 2FA enabled | Optional. TOTP setup lives at `/settings/two-factor` ([two_factor_auth_controller.rb](../../app/controllers/two_factor_auth_controller.rb), [omni_auth_identity.rb#L206](../../app/models/omni_auth_identity.rb#L206) `enable_otp!`). Required only for elevated actions (via `require_reverification`). | Required during onboarding. The onboarding checklist links directly to the existing 2FA setup flow. |
-
-### Activation state model
-
-Add a derived predicate `User#fully_activated?` that returns true when **all three** requirements are met:
+### Activation predicates
 
 ```ruby
-def fully_activated?
-  human? &&
-    tenant_users.any? &&                       # 1. invite accepted (at least one tenant)
-    email_verified? &&                         # 2. (new method — checks OAuth provider asserts OR confirmation timestamp)
-    omni_auth_identity&.otp_enabled            # 3. 2FA enabled
+# User
+def email_verified?
+  omni_auth_identity&.email_confirmed_at.present? || external_oauth_identities.exists?
+end
+
+def two_factor_enabled?
+  omni_auth_identity&.otp_enabled || false
+end
+
+# OmniAuthIdentity
+def email_verified?
+  email_confirmed_at.present?
 end
 ```
 
-Until `fully_activated?` is true:
+The composite "is this user activated for this tenant right now" check lives in the controller filter (because it depends on `current_invite`, which is per-request cookie state):
 
-- Browser navigation that lands on most pages redirects to `/activate` (the checklist page), similar to how the billing gate redirects to `/billing`.
-- The checklist page exempts itself from this gate (same `is_auth_controller?` pattern used by `SignupController`).
-- API access is also gated — human-owned tokens issued to not-fully-activated users get the same `billing_required`-style 403 (but with `error: "activation_required"`). This stops a partially-onboarded user from generating + using a token.
+```ruby
+def check_activation_gate
+  return unless @current_user&.human?
+  return if @current_user.sys_admin? || @current_user.app_admin?
+  return if is_auth_controller?
+  return if api_token_present?
+  return if request.path.start_with?("/api/")
+  return if exempt_controller_for_activation?  # activation, signup, two_factor_auth, email confirmation
 
-Sys/app admins are exempt from the activation gate (operators, not customers).
+  # Check 1
+  has_access = @current_tenant.tenant_users.exists?(user: @current_user) ||
+               (current_invite && current_invite.is_acceptable_by_user?(@current_user))
+  return redirect_to_activate unless has_access
 
-### The `/activate` checklist UX
+  # Check 2
+  return redirect_to_activate if @current_tenant.require_verified_email? && !@current_user.email_verified?
 
-A single page with three checkboxes, each linking to the action that satisfies it:
+  # Check 3
+  return redirect_to_activate if @current_tenant.require_2fa? && !@current_user.two_factor_enabled?
+end
+```
+
+`api_authorize!` gains a parallel `activation_required` 403 for human-owned external tokens AND for AI-agent-owned tokens when the agent's parent human is not fully activated. (Closes the loophole where a partly-activated user spawns an agent and uses the agent's tokens to bypass the gate.)
+
+### The `/activate` checklist page
+
+Single page with three items, each showing current status (✓ done, ○ pending) and an action link to the existing flow that satisfies it:
 
 ```
-✓ Joined a collective                — Marketing Team
-○ Verify your email                  — Resend verification link
-○ Enable two-factor authentication   — Set up
+✓ Joined Marketing Team                — change collective
+○ Verify your email                    — resend verification link
+○ Enable two-factor authentication     — set up
 ```
 
-- The page hides the app chrome (header), same pattern as `/invite-required` and `/confirm_invite`.
-- Each item shows current status (checkmark, in-progress, or empty circle) and an action link.
-- Once all three are checked, the page auto-redirects to root with a success flash ("Welcome to Harmonic.").
+- Header hidden (same pattern as `/invite-required`).
+- Items hidden when their tenant flag is off.
+- Once all checks pass, the page redirects to root (or to a stashed `return_to` from the gate).
 - Reachable any time from the user menu while incomplete.
-- The checklist replaces (or precedes) the existing post-signup landing — the user goes from `/invite-required/accept` directly to `/activate` instead of straight to the collective homepage.
 
-### Wiring summary
+### Files to add / modify
 
 | File | Change |
 |---|---|
-| `db/migrate/...` | Add `email_confirmed_at` and `email_confirmation_token` columns to `omni_auth_identities` (email/password identities only). OAuth identities mark `email_confirmed_at = created_at` automatically. |
-| `app/models/omni_auth_identity.rb` | `email_verified?` predicate; `send_email_confirmation!`, `confirm_email!(token)`; OAuth `find_or_create_from_auth` sets `email_confirmed_at`. |
-| `app/models/user.rb` | `email_verified?` delegates to identity; `fully_activated?` predicate. |
-| `app/controllers/activation_controller.rb` (new) | `show` (the checklist), `resend_email_confirmation`, mirrors `SignupController`'s auth-controller exemption. |
-| `app/views/activation/show.html.erb` (new) | Three-item checklist. |
-| `app/controllers/application_controller.rb` | New `check_activation_gate` before_action that redirects to `/activate` when `current_user && !current_user.fully_activated? && !is_auth_controller? && !api_token_present?`. Mirrors the billing-gate pattern (HTML-GET-only, save return_to, flash). |
-| `app/controllers/application_controller.rb` (`api_authorize!`) | Add `activation_required` 403 for human-owned tokens issued to non-activated users. |
-| `app/controllers/users_controller.rb` (or a new `email_confirmations_controller`) | `GET /confirm-email/:token` to flip `email_confirmed_at`. |
-| `app/controllers/signup_controller.rb#accept_invite` | After successful invite acceptance, redirect to `/activate` (not the collective homepage) when `!fully_activated?`. |
-| `app/views/two_factor_auth/setup.html.erb` | After successful enable, redirect to `/activate` if the user came from there (use return_to pattern). |
+| `db/migrate/...` | `omni_auth_identities`: add `email_confirmed_at`, `email_confirmation_token`, `email_confirmation_sent_at`. `tenants`: add `require_2fa` (bool, default true), `require_verified_email` (bool, default true). |
+| `app/models/omni_auth_identity.rb` | `email_verified?`, `send_email_confirmation!`, `confirm_email!(token)`. Existing TOTP machinery untouched. |
+| `app/models/oauth_identity.rb` | On create, set the linked `OmniAuthIdentity#email_confirmed_at = created_at` for the matching email (trust the provider's claim). |
+| `app/models/user.rb` | `email_verified?`, `two_factor_enabled?` predicates. |
+| `app/models/tenant.rb` | `require_2fa?`, `require_verified_email?` readers. |
+| `app/controllers/activation_controller.rb` (new) | `show` (checklist), `send_email_confirmation` (resend action). Mirrors `SignupController`'s `is_auth_controller? = true`. |
+| `app/views/activation/show.html.erb` (new) | Checklist UI. |
+| `app/controllers/email_confirmations_controller.rb` (new) | `GET /confirm-email/:token` flips `email_confirmed_at`. Token-authenticated, no login required. |
+| `app/controllers/application_controller.rb` | Add `check_activation_gate` before_action after `check_stripe_billing_gate`. Add `activation_required` 403 in `api_authorize!`. |
+| `app/mailers/email_confirmation_mailer.rb` (new or extend existing) | Sends the confirmation email at signup-time. |
+| `config/routes.rb` | `get "/activate" => "activation#show"`, `post "/activate/send-confirmation" => "activation#send_email_confirmation"`, `get "/confirm-email/:token" => "email_confirmations#confirm"`. |
 
-### Open questions to resolve before implementing phase 4
+### Resolved design decisions
 
-1. **OAuth providers and email verification**: should we *trust* the OAuth provider's `verified_email` claim, or always require our own confirmation email? Trusting Google/GitHub is standard; if we ever add a provider without this claim (e.g., a custom SSO), the trust assumption breaks.
-2. **2FA recovery codes**: do we hand out recovery codes during onboarding setup, or defer to settings? Existing flow at [two_factor_auth_controller.rb](../../app/controllers/two_factor_auth_controller.rb) has `regenerate_codes` — we should make sure the onboarding setup surfaces them too.
-3. **Existing users without 2FA**: this becomes a forced upgrade for them. Migration story: grandfathered (existing users keep working until next login), or hard-cutover (everyone hits `/activate` on next request)? Per the earlier humans-free decision the project has no production paying users, so a hard cutover is acceptable — but the dev / test environments will need a sweep.
-4. **What does "joined a collective" actually mean for #1**: just `TenantUser` exists, or also `CollectiveMember` on at least one non-main collective? Current behavior (via the invite flow) creates both — but you could imagine a user who's a tenant member with only the auto-created private workspace. Probably require ≥1 non-main, non-private-workspace `CollectiveMember`.
-5. **Per-tenant config**: should the three-requirement activation be a tenant setting (mirroring `require_invite`)? Some self-hosted instances might not want to require 2FA. Probably yes — `require_2fa` and `require_verified_email` flags, default true, falsy = skip that checklist item.
-6. **AI agent tokens during onboarding**: an AI agent owned by a not-yet-activated human — should the agent's tokens work? Probably not (otherwise the loophole reopens: create a half-activated account, spin up an agent, use the agent's tokens). Need to bake this into the API auth gate.
+| Question | Decision |
+|---|---|
+| Trust OAuth `verified_email` claim? | **Yes.** Google/GitHub identities auto-mark `email_confirmed_at = created_at`. Only email/password identities need a confirmation round-trip. |
+| What satisfies check #1? | **TenantUser membership OR valid invite-code cookie for an acceptable invite.** Invite acceptance is a separate user action, unchanged from today. |
+| Per-tenant config? | **Yes.** `Tenant#require_2fa?` and `Tenant#require_verified_email?`, default true. Self-hosted instances can opt out. |
+| AI agent tokens when parent not activated? | **Block.** `api_authorize!` checks parent's activation state for agent-owned tokens, mirrors human-token gate. |
+| Existing user migration? | **Hard cutover.** Users without verified email or 2FA hit `/activate` on next request. No production paying users to grandfather. |
+| Final invite acceptance? | **Unchanged.** The existing `/invite-required` → confirm → accept flow is the user action that creates `TenantUser`. The activation gate does not auto-accept invites. |
 
 ### Out of scope for phase 4
 
 - Self-serve tenant creation
-- Onboarding video / tour / explainer content (the checklist itself is the onboarding)
+- Onboarding tour / explainer content (the checklist itself is the onboarding)
 - "Skip 2FA for now" escape hatch — requirement is hard
-- Multi-factor methods beyond TOTP (SMS, hardware keys, etc.) — future
-- Org-level activation policies (e.g., "all members must have 2FA within 7 days") — future
+- Multi-factor methods beyond TOTP (SMS, hardware keys) — future
+- Org-level activation policies ("all members must have 2FA within 7 days") — future
+- Reuse of the activation framework for privacy-policy / T&C acceptance — future, but the mechanism is built to extend

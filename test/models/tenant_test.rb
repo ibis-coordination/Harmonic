@@ -99,6 +99,26 @@ class TenantTest < ActiveSupport::TestCase
     assert tenant.require_invite?
   end
 
+  test "Tenant.require_2fa? returns true by default" do
+    assert create_tenant.require_2fa?
+  end
+
+  test "Tenant.require_2fa? returns false when disabled" do
+    tenant = create_tenant
+    tenant.settings["require_2fa"] = false
+    assert_not tenant.require_2fa?
+  end
+
+  test "Tenant.require_verified_email? returns true by default" do
+    assert create_tenant.require_verified_email?
+  end
+
+  test "Tenant.require_verified_email? returns false when disabled" do
+    tenant = create_tenant
+    tenant.settings["require_verified_email"] = false
+    assert_not tenant.require_verified_email?
+  end
+
   test "Tenant.auth_providers returns default providers" do
     tenant = create_tenant
     assert_equal ["github"], tenant.auth_providers

@@ -929,7 +929,10 @@ CREATE TABLE public.omni_auth_identities (
     otp_failed_attempts integer DEFAULT 0 NOT NULL,
     otp_locked_until timestamp(6) without time zone,
     last_otp_at integer,
-    user_id uuid
+    user_id uuid,
+    email_confirmed_at timestamp without time zone,
+    email_confirmation_token character varying,
+    email_confirmation_sent_at timestamp without time zone
 );
 
 
@@ -9443,6 +9446,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260520133331'),
 ('20260514000003'),
 ('20260514000002'),
 ('20260514000001'),

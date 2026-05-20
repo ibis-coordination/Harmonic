@@ -590,6 +590,40 @@ class UserTest < ActiveSupport::TestCase
     assert_match /Invalid global role/, error.message
   end
 
+  # === Activation Predicate Tests ===
+
+  test "email_verified? returns false when there's no omni_auth_identity and no oauth identity" do
+    assert_nil @user.omni_auth_identity
+    assert_not @user.email_verified?
+  end
+
+  test "email_verified? returns false when the omni_auth_identity is unverified" do
+    @user.find_or_create_omni_auth_identity!
+    assert_not @user.email_verified?
+  end
+
+  test "email_verified? returns true when the omni_auth_identity is verified" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.update!(email_confirmed_at: Time.current)
+    assert @user.email_verified?
+  end
+
+  test "two_factor_enabled? is false when there is no identity" do
+    assert_not @user.two_factor_enabled?
+  end
+
+  test "two_factor_enabled? is false when otp_enabled is false" do
+    @user.find_or_create_omni_auth_identity!
+    assert_not @user.two_factor_enabled?
+  end
+
+  test "two_factor_enabled? is true when otp_enabled is true" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    assert @user.two_factor_enabled?
+  end
+
   # === User Suspension Tests ===
 
   test "suspended? returns false by default" do

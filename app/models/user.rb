@@ -549,6 +549,18 @@ class User < ApplicationRecord
       .reject { |user, _| user.nil? }
   end
 
+  # Activation predicates (see check_activation_gate in ApplicationController)
+
+  sig { returns(T::Boolean) }
+  def email_verified?
+    omni_auth_identity&.email_verified? || false
+  end
+
+  sig { returns(T::Boolean) }
+  def two_factor_enabled?
+    omni_auth_identity&.otp_enabled || false
+  end
+
   # Stripe billing helpers
 
   # Check if this user's billing is set up.
