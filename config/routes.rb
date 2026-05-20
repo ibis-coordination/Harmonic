@@ -285,7 +285,11 @@ Rails.application.routes.draw do
     patch 'image' => 'users#update_image', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
-              only: [:new, :create, :show, :destroy]
+              only: [:new, :create, :show, :destroy] do
+      # Completion step after Stripe Checkout for users who needed to set
+      # up billing as part of creating their first billable token.
+      get :finalize, on: :collection
+    end
     # Representation routes
     post 'represent' => 'users#represent', on: :member
     delete 'represent' => 'users#stop_representing', on: :member

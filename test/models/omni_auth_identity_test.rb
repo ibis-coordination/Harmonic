@@ -113,6 +113,108 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
     assert_not identity.verify_otp(code), "Replayed TOTP code should be rejected"
   end
 
+  # === Dev-only TOTP bypass ===
+
+  test "verify_otp accepts the configured bypass code in development environment when ENV is set" do
+    user = create_user(email: "devbypass-#{SecureRandom.hex(4)}@example.com", name: "Dev Bypass")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: "devbypass-#{SecureRandom.hex(4)}@example.com",
+      name: "Dev Bypass",
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    identity.generate_otp_secret!
+
+    with_env("DEV_2FA_BYPASS_CODE" => "test-bypass-#{SecureRandom.hex(4)}") do |code|
+      Rails.stub :env, ActiveSupport::StringInquirer.new("development") do
+        assert identity.verify_otp(code),
+               "expected the dev bypass code to be accepted in development when ENV is set"
+        assert_not identity.verify_otp("999999"),
+                   "non-matching codes must still be rejected"
+      end
+    end
+  end
+
+  test "verify_otp rejects the bypass code in development when ENV is unset" do
+    user = create_user(email: "noenv-#{SecureRandom.hex(4)}@example.com", name: "No Env")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: "noenv-#{SecureRandom.hex(4)}@example.com",
+      name: "No Env",
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    identity.generate_otp_secret!
+
+    # Ensure env var is NOT set even in development
+    with_env("DEV_2FA_BYPASS_CODE" => nil) do
+      Rails.stub :env, ActiveSupport::StringInquirer.new("development") do
+        assert_not identity.verify_otp("111111"),
+                   "with no env var set, no code should bypass"
+        assert_not identity.verify_otp(""),
+                   "empty string must not bypass either"
+      end
+    end
+  end
+
+  test "verify_otp rejects the bypass code outside development environment even when ENV is set" do
+    user = create_user(email: "nobypass-#{SecureRandom.hex(4)}@example.com", name: "No Bypass")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: "nobypass-#{SecureRandom.hex(4)}@example.com",
+      name: "No Bypass",
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    identity.generate_otp_secret!
+
+    with_env("DEV_2FA_BYPASS_CODE" => "configured") do |code|
+      # Default test environment — bypass must NOT fire even when env is set
+      assert_not identity.verify_otp(code),
+                 "dev bypass must NOT be accepted outside development, even with env set"
+
+      Rails.stub :env, ActiveSupport::StringInquirer.new("production") do
+        assert_not identity.verify_otp(code),
+                   "dev bypass must NOT be accepted in production, even with env set"
+      end
+    end
+  end
+
+  test "verify_otp dev bypass does NOT bypass otp_locked? lockout" do
+    user = create_user(email: "lockbypass-#{SecureRandom.hex(4)}@example.com", name: "Locked")
+    identity = OmniAuthIdentity.create!(
+      user: user,
+      email: "lockbypass-#{SecureRandom.hex(4)}@example.com",
+      name: "Locked",
+      password: "validpassword123",
+      password_confirmation: "validpassword123",
+    )
+    identity.generate_otp_secret!
+    # Force the lockout state
+    identity.update_columns(
+      otp_failed_attempts: OmniAuthIdentity::MAX_OTP_ATTEMPTS,
+      otp_locked_until: 1.hour.from_now,
+    )
+
+    with_env("DEV_2FA_BYPASS_CODE" => "anycode") do |code|
+      Rails.stub :env, ActiveSupport::StringInquirer.new("development") do
+        assert_not identity.verify_otp(code),
+                   "dev bypass should not override a real lockout"
+      end
+    end
+  end
+
+  # Stub env vars for the block, then restore the prior value(s).
+  # Yields the value of the LAST key in the hash for convenience when there's only one.
+  def with_env(env_vars)
+    original = env_vars.keys.to_h { |k| [k, ENV[k]] }
+    env_vars.each { |k, v| ENV[k] = v }
+    yield env_vars.values.last
+  ensure
+    original.each { |k, v| ENV[k] = v }
+  end
+
   # === Password Reset Token Tests ===
 
   test "generate_reset_password_token! returns raw token and stores hash" do

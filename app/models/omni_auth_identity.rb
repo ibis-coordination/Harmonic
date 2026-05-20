@@ -114,6 +114,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   def verify_otp(code)
     return false if otp_secret.blank?
     return false if otp_locked?
+    return true if dev_2fa_bypass?(code)
 
     totp = ROTP::TOTP.new(otp_secret, issuer: OTP_ISSUER)
     # drift_behind and drift_ahead allow for 30 seconds of clock drift.
@@ -220,5 +221,24 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     self.otp_locked_until = nil
     self.last_otp_at = nil
     save!
+  end
+
+  private
+
+  # Dev-only TOTP bypass. Quadruple-guarded:
+  #   1. Rails.env.development?   — won't fire in test, staging, or production
+  #   2. !Rails.env.production?   — defense-in-depth against env-spoofing
+  #   3. ENV["DEV_2FA_BYPASS_CODE"] must be set — won't exist in production
+  #   4. Code must match the env-var value exactly
+  # The env-var design means the code value is never in this repo — even if
+  # the env checks somehow failed, an attacker would still need to know a
+  # value that isn't published anywhere.
+  sig { params(code: String).returns(T::Boolean) }
+  def dev_2fa_bypass?(code)
+    return false unless Rails.env.development?
+    return false if Rails.env.production?
+    bypass_code = ENV["DEV_2FA_BYPASS_CODE"]
+    return false if bypass_code.blank?
+    code == bypass_code
   end
 end

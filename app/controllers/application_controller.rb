@@ -134,6 +134,18 @@ class ApplicationController < ActionController::Base
     end
     return render json: { error: "API only supports JSON or Markdown formats" }, status: :forbidden unless json_or_markdown_request?
 
+    # Bill humans-with-tokens at the same $3/mo as agents. Internal tokens and
+    # ai_agent-owned tokens are exempt — agents are billed via their parent's
+    # subscription, enforced at agent creation (pending pattern).
+    if current_token && !current_token.internal? &&
+       current_token.user.human? &&
+       current_token.user.requires_stripe_billing?(current_tenant)
+      return render json: {
+        error: "billing_required",
+        message: "Your API token is inactive. Set up billing at #{billing_show_url} to activate it.",
+      }, status: :forbidden
+    end
+
     request.format = :md unless request.format == :json
     current_token || render(json: { error: "Unauthorized" }, status: :unauthorized)
   end
@@ -1115,7 +1127,15 @@ class ApplicationController < ActionController::Base
     # not ApplicationController, so they're inherently exempt)
     return if is_auth_controller?
     return if self.is_a?(BillingController)
+    # ApiTokensController routes the user through its own Stripe Checkout
+    # flow on create (and resumes via #finalize). Bouncing to /billing here
+    # would prevent it from running.
+    return if self.is_a?(ApiTokensController)
     return if request.path.start_with?("/api/")
+    # API requests (any path) have their own billing check inside api_authorize!.
+    # Without this, collective-scoped API paths like /collectives/X/api/v1/...
+    # would be redirected to /billing instead of returning a clean 403 JSON.
+    return if api_token_present?
 
     # Exempt user settings page
     return if controller_name == "users" && action_name.in?(%w[settings show update_profile update_email cancel_email_change confirm_email])

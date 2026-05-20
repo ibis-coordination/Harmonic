@@ -58,6 +58,32 @@
         </p>
       </section>
 
+      <% if @showing_user.human? && @current_tenant.feature_enabled?("stripe_billing") &&
+            !@showing_user.app_admin? && !@showing_user.sys_admin? %>
+        <% if @showing_user.counts_self_for_api_access? %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-canvas-subtle);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              API access is already on your subscription ($3/mo). Adding more tokens does not increase the cost.
+            </div>
+          </section>
+        <% elsif @showing_user.stripe_customer&.active? %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-attention-subtle);border:1px solid var(--color-attention-muted);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              <strong>Creating an API token will add $3/month to your subscription</strong>, prorated for the current billing period.
+            </div>
+          </section>
+        <% else %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-attention-subtle);border:1px solid var(--color-attention-muted);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              <strong>Creating an API token costs $3/month.</strong> When you click <em>Create Token</em>, you'll be sent to Stripe to set up billing. The token is created once payment succeeds.
+            </div>
+          </section>
+        <% end %>
+      <% end %>
+
       <section class="pulse-settings-section pulse-action-row">
         <%= form.submit 'Create Token', class: "pulse-action-btn pulse-action-btn-primary" %>
         <a href="<%= @showing_user.path %>/settings" class="pulse-action-btn">Cancel</a>

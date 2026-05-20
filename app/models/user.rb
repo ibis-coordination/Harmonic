@@ -579,14 +579,42 @@ class User < ApplicationRecord
   # Compute the total billable quantity for this user across all billing-enabled tenants.
   # One subscription covers all billing-enabled tenants.
   #
-  # Humans are always free under the current pricing model. Only AI agents and
-  # additional (non-main) collectives owned by this user contribute to the
-  # billable quantity. The `billing_exempt` flag is retained on User for
-  # forward compatibility / admin overrides but does not affect billing today.
+  # Humans are free unless they hold an active external API token (same
+  # $3/month as an AI agent — closes the loophole where a "human" account
+  # could front for agent-style usage). AI agents and additional non-main
+  # collectives are always billed. Sys/app admins are exempt from all
+  # billing as platform operators.
   sig { returns(Integer) }
   def billable_quantity
+    return 0 if sys_admin? || app_admin?
+
     tenant_ids = billing_tenant_ids
-    active_billable_agent_count(tenant_ids) + active_billable_collective_count(tenant_ids)
+    return 0 if tenant_ids.empty?
+
+    active_billable_agent_count(tenant_ids) +
+      active_billable_collective_count(tenant_ids) +
+      (counts_self_for_api_access? ? 1 : 0)
+  end
+
+  # True when this human user has at least one active external API token in a
+  # billing-enabled tenant. AI agents are billed via active_billable_agent_count;
+  # their tokens are not separately surcharged. Sys/app admins are exempt.
+  sig { returns(T::Boolean) }
+  def counts_self_for_api_access?
+    return false unless human?
+    return false if sys_admin? || app_admin?
+
+    tenant_ids = billing_tenant_ids
+    return false if tenant_ids.empty?
+
+    # Use for_user_across_tenants to bypass the default tenant scope so this
+    # works regardless of Tenant.current_id. The user_id constraint is implicit
+    # via the helper. Reapply the external (non-internal) filter explicitly
+    # since for_user_across_tenants uses unscoped.
+    ApiToken.for_user_across_tenants(self)
+      .where(internal: false, tenant_id: tenant_ids, deleted_at: nil)
+      .where("expires_at IS NULL OR expires_at > ?", Time.current)
+      .exists?
   end
 
   # Count active (not archived, not suspended, not exempt) AI agents on billing-enabled tenants.
