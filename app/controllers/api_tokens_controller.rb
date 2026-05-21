@@ -67,7 +67,10 @@ class ApiTokensController < ApplicationController
   def finalize
     pending = session[:pending_token_creation]
     if pending.nil? || pending["user_handle"] != @showing_user.handle
-      flash[:alert] = "No pending API token to create."
+      # No flash — a user landing here without a pending creation is usually
+      # following a stale link or got redirected from some other flow that
+      # remembered this URL. Silently bouncing to settings is less alarming
+      # than telling them a token they weren't trying to create is missing.
       return redirect_to "#{@showing_user.path}/settings"
     end
 

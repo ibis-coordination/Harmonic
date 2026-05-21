@@ -128,6 +128,10 @@ Rails.application.routes.draw do
   get 'activate' => 'activation#show', as: :activation
   post 'activate/send-confirmation' => 'activation#send_email_confirmation', as: :resend_email_confirmation
 
+  # Signup-time email confirmation. Token-authenticated, no login required —
+  # the email link is the proof of ownership.
+  get 'confirm-email/:token' => 'email_confirmations#confirm', as: :confirm_email
+
   namespace :api do
     # The v1 REST API is read-only. All writes go through the markdown UI
     # action routes (/foo/actions/{action_name}), where the capability system,

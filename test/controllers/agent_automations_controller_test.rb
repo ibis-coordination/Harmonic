@@ -278,6 +278,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "non-parent cannot view ai_agent automations" do
     other_user = create_user
     @tenant.add_user!(other_user)
+    mark_activated!(other_user)
 
     other_token = ApiToken.create!(
       tenant: @tenant,
@@ -299,6 +300,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "non-parent cannot create automation for ai_agent" do
     other_user = create_user
     @tenant.add_user!(other_user)
+    mark_activated!(other_user)
 
     other_token = ApiToken.create!(
       tenant: @tenant,
@@ -324,6 +326,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "non-parent cannot delete automation" do
     other_user = create_user
     @tenant.add_user!(other_user)
+    mark_activated!(other_user)
 
     other_token = ApiToken.create!(
       tenant: @tenant,

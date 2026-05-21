@@ -28,6 +28,8 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     @bob = create_user(email: "bob_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@alice)
     @tenant.add_user!(@bob)
+    mark_activated!(@alice)
+    mark_activated!(@bob)
     @tenant.enable_api!
     @tenant.create_main_collective!(created_by: @alice)
     @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "api-rep-collective-#{SecureRandom.hex(4)}")
@@ -249,6 +251,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     carol = create_user(email: "carol_#{SecureRandom.hex(4)}@example.com", name: "Carol")
     @tenant.add_user!(carol)
     @collective.add_user!(carol)
+    mark_activated!(carol)
 
     # Alice grants Bob (not Carol) permission
     grant = TrusteeGrant.create!(

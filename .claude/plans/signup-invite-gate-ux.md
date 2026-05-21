@@ -9,7 +9,7 @@ Umbrella plan for the signup-invite-gate-ux branch. The first three phases have 
 | 1 | `/invite-required` page + two-step confirm flow | shipped |
 | 2 | Humans-free pricing + billing-gate `return_to` resume | shipped |
 | 3 | API-token billing (close the "free human as agent proxy" loophole) | shipped |
-| 4 | **Full account activation**: invite + verified email + 2FA, surfaced as a checklist | planned |
+| 4 | **Full account activation**: tenant membership + verified email + 2FA, surfaced as a checklist | shipped |
 
 ---
 

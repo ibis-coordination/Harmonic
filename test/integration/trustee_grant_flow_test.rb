@@ -18,6 +18,8 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     @bob = create_user(email: "bob_#{SecureRandom.hex(4)}@example.com", name: "Bob")
     @tenant.add_user!(@alice)
     @tenant.add_user!(@bob)
+    mark_activated!(@alice)
+    mark_activated!(@bob)
     # Create main collective (required for sign_in_as to work)
     @tenant.create_main_collective!(created_by: @alice)
     @collective = create_collective(tenant: @tenant, created_by: @alice, handle: "trustee-grant-collective-#{SecureRandom.hex(4)}")

@@ -624,6 +624,56 @@ class UserTest < ActiveSupport::TestCase
     assert @user.two_factor_enabled?
   end
 
+  test "fully_activated_for? returns true for a non-human user (collective_identity)" do
+    # Collective identity users are system-generated and never need activation.
+    ci_user = User.create!(email: "ci-#{SecureRandom.hex(4)}@example.com", name: "CI", user_type: "collective_identity")
+    assert ci_user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? returns true for an AI agent (parent's activation is what matters)" do
+    agent = create_ai_agent(parent: @user, name: "Agent #{SecureRandom.hex(4)}")
+    assert agent.fully_activated_for?(@tenant),
+           "expected AI agent to be considered activated regardless of its own state"
+  end
+
+  test "fully_activated_for? returns true for sys_admin even with no 2FA or unverified email" do
+    @user.update!(sys_admin: true)
+    assert @user.fully_activated_for?(@tenant),
+           "expected sys_admin to bypass activation"
+  end
+
+  test "fully_activated_for? returns false when human is not a tenant member" do
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}")
+    # @user is in @tenant but NOT in other_tenant.
+    assert_not @user.fully_activated_for?(other_tenant)
+  end
+
+  test "fully_activated_for? returns false when human's email isn't verified (and tenant requires it)" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    # email_confirmed_at left nil
+    assert_not @user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? returns false when human has no 2FA (and tenant requires it)" do
+    @user.find_or_create_omni_auth_identity!.update!(email_confirmed_at: Time.current)
+    assert_not @user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? returns true when human has everything and tenant flags are default" do
+    mark_activated!(@user)
+    assert @user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? respects tenant flags — opted-out tenant doesn't require email/2FA" do
+    @tenant.settings["require_verified_email"] = false
+    @tenant.settings["require_2fa"] = false
+    @tenant.save!
+    # No email_confirmed_at, no 2FA — but the tenant doesn't require them.
+    assert @user.fully_activated_for?(@tenant)
+  end
+
   # === User Suspension Tests ===
 
   test "suspended? returns false by default" do

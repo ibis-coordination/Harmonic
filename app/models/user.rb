@@ -561,6 +561,24 @@ class User < ApplicationRecord
     omni_auth_identity&.otp_enabled || false
   end
 
+  # Phase-4 activation predicate. True when this user satisfies all three
+  # activation checks for the given tenant. Only meaningful for human users;
+  # AI agents and collective_identity users are NOT subject to activation
+  # (agents inherit via their parent's activation enforced at creation;
+  # collective_identity users are system-generated, not real users).
+  #
+  # Sys/app admins are platform operators, exempt from all activation checks.
+  sig { params(tenant: Tenant).returns(T::Boolean) }
+  def fully_activated_for?(tenant)
+    return true unless human?
+    return true if sys_admin? || app_admin?
+    return false unless tenant.tenant_users.exists?(user: self)
+    return false if tenant.require_verified_email? && !email_verified?
+    return false if tenant.require_2fa? && !two_factor_enabled?
+
+    true
+  end
+
   # Stripe billing helpers
 
   # Check if this user's billing is set up.

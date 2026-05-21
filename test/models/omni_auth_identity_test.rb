@@ -370,7 +370,7 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
     assert_nil OmniAuthIdentity.find_by_email_confirmation_token("not-a-real-token")
   end
 
-  test "confirm_email! flips email_confirmed_at and clears the token" do
+  test "confirm_email! flips email_confirmed_at and keeps the token for re-click idempotency" do
     user = create_user(email: "flip-#{SecureRandom.hex(4)}@example.com", name: "Flip Confirm")
     identity = OmniAuthIdentity.create!(
       user: user,
@@ -385,8 +385,10 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
     assert identity.confirm_email!(raw)
     identity.reload
     assert identity.email_verified?
-    assert_nil identity.email_confirmation_token
-    assert_nil identity.email_confirmation_sent_at
+    # Token is NOT cleared — deliberate so that re-clicking the same URL
+    # resolves back to this identity and short-circuits as already-verified.
+    assert identity.email_confirmation_token.present?
+    assert identity.email_confirmation_sent_at.present?
   end
 
   test "confirm_email! returns false for a token that doesn't match" do

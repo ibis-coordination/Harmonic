@@ -1,6 +1,8 @@
 require "test_helper"
 
 class ActivationControllerTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
   def setup
     @tenant = create_tenant(subdomain: "act-test-#{SecureRandom.hex(4)}", name: "Activate Test")
     @host = create_user(email: "act-host-#{SecureRandom.hex(4)}@example.com", name: "Activate Host")
@@ -107,6 +109,33 @@ class ActivationControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_no_match(/two[- ]?factor/i, response.body,
                     "2FA item should be hidden when the tenant doesn't require 2FA")
+  end
+
+  test "POST /activate/send-confirmation enqueues a confirmation email and flashes a notice" do
+    user = create_user(email: "resend-#{SecureRandom.hex(4)}@example.com", name: "Resend User")
+    @tenant.add_user!(user)
+    @collective.add_user!(user)
+    sign_in_session(user)
+
+    assert_enqueued_jobs 1, only: ActionMailer::MailDeliveryJob do
+      post "/activate/send-confirmation"
+    end
+    assert_redirected_to activation_path
+    follow_redirect!
+    assert_match(/confirmation email sent/i, flash[:notice] || response.body)
+  end
+
+  test "POST /activate/send-confirmation says already-verified when applicable" do
+    user = create_user(email: "ver-#{SecureRandom.hex(4)}@example.com", name: "Already Verified")
+    @tenant.add_user!(user)
+    @collective.add_user!(user)
+    user.find_or_create_omni_auth_identity!.update!(email_confirmed_at: Time.current)
+    sign_in_session(user)
+
+    assert_enqueued_jobs 0, only: ActionMailer::MailDeliveryJob do
+      post "/activate/send-confirmation"
+    end
+    assert_match(/already verified/i, flash[:notice].to_s)
   end
 
   test "GET /activate skips the checklist for sys_admin users" do

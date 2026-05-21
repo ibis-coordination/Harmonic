@@ -114,8 +114,12 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   end
 
   # Idempotent: returns true if already verified (re-clicked link case).
-  # Otherwise validates the token and the time window, flips email_confirmed_at,
-  # and clears the confirmation columns.
+  # Otherwise validates the token and the time window, then flips
+  # email_confirmed_at. Deliberately does NOT clear the token/sent_at —
+  # keeping them lets a second click of the same URL resolve back to this
+  # identity and short-circuit as "already verified" rather than 404. The
+  # security profile differs from password reset (re-confirming an already-
+  # confirmed email is a no-op, not a privilege change).
   sig { params(raw_token: String).returns(T::Boolean) }
   def confirm_email!(raw_token)
     return true if email_verified?
@@ -124,11 +128,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     return false if T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_VALIDITY.ago
     return false unless Digest::SHA256.hexdigest(raw_token.to_s) == email_confirmation_token
 
-    update!(
-      email_confirmed_at: Time.current,
-      email_confirmation_token: nil,
-      email_confirmation_sent_at: nil,
-    )
+    update!(email_confirmed_at: Time.current)
     true
   end
 

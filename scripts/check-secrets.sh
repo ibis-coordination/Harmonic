@@ -19,7 +19,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Files/patterns to exclude from scanning (dev configs, tests, this script)
-EXCLUDE_FILES=".env.example|check-secrets.sh|secrets.*test|fixtures|database.yml|importmap.rb|randomness_provider/drand.rb|verify-audit-chain.py|audit_verify_controller.ts|audit_chain_verifier.test.ts|omni_auth_identity_test\.rb"
+EXCLUDE_FILES=".env.example|check-secrets.sh|secrets.*test|fixtures|database.yml|importmap.rb|randomness_provider/drand.rb|verify-audit-chain.py|audit_verify_controller.ts|audit_chain_verifier.test.ts|omni_auth_identity_test\.rb|email_confirmations_controller_test\.rb|activation_gate_test\.rb|email_confirmation_mailer_test\.rb"
 
 # Patterns that suggest secrets (high confidence)
 # These patterns look for actual values, not just variable names
@@ -201,7 +201,6 @@ if scan_files "$FILES"; then
     echo "If these are false positives, you can:"
     echo "  1. Use environment variables instead of hardcoded values"
     echo "  2. Add the pattern to EXCLUDE_FILES in this script"
-    echo "  3. Skip with: git commit --no-verify"
     exit 1
 fi
 

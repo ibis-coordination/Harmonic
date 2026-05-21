@@ -11,6 +11,7 @@ class ApplicationController < ActionController::Base
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
   before_action :check_user_suspension
+  before_action :check_activation_gate
   before_action :check_stripe_billing_gate
   before_action :check_collective_archived
 
@@ -146,6 +147,21 @@ class ApplicationController < ActionController::Base
       }, status: :forbidden
     end
 
+    # Activation gate for API tokens. For human-owned tokens, the user must be
+    # fully activated. For agent-owned tokens, the agent's PARENT human must
+    # be activated — otherwise a half-activated user could spawn an agent and
+    # use the agent's token to bypass the gate. Internal (runner) tokens are
+    # exempt; they're issued only for already-active agents.
+    if current_token && !current_token.internal?
+      token_human = current_token.user.human? ? current_token.user : current_token.user.parent
+      if token_human&.human? && !token_human.fully_activated_for?(current_tenant)
+        return render json: {
+          error: "activation_required",
+          message: "Your account isn't fully activated. Visit /activate in the browser to finish setup.",
+        }, status: :forbidden
+      end
+    end
+
     request.format = :md unless request.format == :json
     current_token || render(json: { error: "Unauthorized" }, status: :unauthorized)
   end
@@ -189,6 +205,11 @@ class ApplicationController < ActionController::Base
   # This mirrors the browser flow where a RepresentationSession must be started first.
   def resolve_api_user
     api_authorize!
+    # If api_authorize! already rendered an error (e.g., billing_required,
+    # activation_required, API-not-enabled), short-circuit so downstream
+    # representation handling doesn't try to render a second response.
+    return nil if performed?
+
     # NOTE: must set @current_user before calling validate_scope to avoid infinite loop
     user = @current_token&.user
     return nil if user.nil?
@@ -196,6 +217,7 @@ class ApplicationController < ActionController::Base
     # Set @current_user temporarily for validate_scope (which calls current_user)
     @current_user = user
     validate_scope
+    return nil if performed?
 
     # Handle representation through the API
     session_id = request.headers["X-Representation-Session-ID"]
@@ -648,7 +670,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup", "activation"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -1113,6 +1135,42 @@ class ApplicationController < ActionController::Base
     logout_user!
     flash[:alert] = "Your account has been suspended."
     redirect_to "/login"
+  end
+
+  # Activation gate: before a human can use the app, they must (1) be a member
+  # of the current tenant, (2) have a verified email (if the tenant requires
+  # it), and (3) have 2FA enabled (if the tenant requires it). When any
+  # requirement is missing the user is bounced to /activate, which walks them
+  # through the missing pieces.
+  #
+  # Exempt: non-humans, sys/app admins, auth controllers (/activate itself,
+  # signup, login, two_factor_auth, email_confirmations, etc.), API requests,
+  # and the user-settings pages they may need to update profile/email/2FA.
+  def check_activation_gate
+    # Activation is a property of the actual signed-in human (the person at the
+    # keyboard). Under representation, @current_user is the trustee identity
+    # being acted as — that's not the user we want to gate on.
+    human = @current_human_user || @current_user
+    return unless human&.human?
+    return if is_auth_controller?
+    return if api_token_present?
+    return if request.path.start_with?("/api/")
+    # User-settings actions only (not `show`, which is the public profile page
+    # and should be gated). Users need settings to manage their email + change
+    # other identity fields linked from /activate.
+    return if controller_name == "users" && action_name.in?(%w[settings update_profile update_email cancel_email_change confirm_email update_image])
+    return if controller_name == "two_factor_auth"
+
+    return if human.fully_activated_for?(@current_tenant)
+
+    # Preserve where the user was headed so /activate can resume after
+    # completion. Same HTML-GET filter as the billing gate to avoid clobbering
+    # the real destination with background polls.
+    if request.get? && request.format.html? && !request.xhr?
+      session[:activation_return_to] = request.fullpath
+    end
+
+    redirect_to "/activate"
   end
 
   # Billing gate: when stripe_billing is enabled, human users must have an active

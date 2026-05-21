@@ -114,7 +114,12 @@ class RepresentationSessionsController < ApplicationController
       return redirect_to request.referer || root_path
     end
 
-    rep_session = api_helper.start_user_representation_session(grant: grant)
+    begin
+      rep_session = api_helper.start_user_representation_session(grant: grant)
+    rescue ArgumentError => e
+      flash[:alert] = e.message
+      return redirect_to request.referer || root_path
+    end
 
     # Set session cookies (matches API headers: X-Representation-Session-ID, X-Representing-User)
     session[:representation_session_id] = rep_session.id

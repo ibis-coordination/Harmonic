@@ -21,7 +21,10 @@ class ActivationController < ApplicationController
     # When everything's done already, bounce them out so /activate isn't
     # accidentally a parking page. (The gate redirects here only when at least
     # one item is incomplete; direct visits after completion should pass through.)
-    return redirect_to root_path if @all_satisfied
+    if @all_satisfied
+      return_to = session.delete(:activation_return_to)
+      return redirect_to(safe_return_path?(return_to) ? return_to : root_path)
+    end
 
     render layout: "application"
   end
@@ -33,10 +36,9 @@ class ActivationController < ApplicationController
     if identity.email_verified?
       flash[:notice] = "Your email is already verified."
     else
-      # NOTE: EmailConfirmationMailer is wired in the next commit. Until then,
-      # this action is reachable but a no-op message — the link in the
-      # checklist will only function once the mailer ships.
-      flash[:alert] = "Email confirmation is not yet available."
+      raw_token = identity.send_email_confirmation!
+      EmailConfirmationMailer.confirm(identity, raw_token, @current_tenant).deliver_later
+      flash[:notice] = "Confirmation email sent to #{identity.email}."
     end
     redirect_to activation_path
   end
@@ -90,9 +92,21 @@ class ActivationController < ApplicationController
       title: "Enable two-factor authentication",
       body: satisfied ? "Enabled." : "Use an authenticator app (Google Authenticator, 1Password, etc.).",
       satisfied: satisfied,
-      action_path: "/settings/two-factor/setup",
+      action_path: two_factor_setup_path,
       action_label: satisfied ? "Manage" : "Set up 2FA",
     }
+  end
+
+  # Mirror BillingController#safe_return_path? — relative paths only, no
+  # protocol-relative, no control chars.
+  def safe_return_path?(path)
+    return false if path.blank?
+    return false unless path.start_with?("/")
+    return false if path.start_with?("//")
+    return false if path.match?(/[\r\n\t\0]/)
+    return false if path.match?(/[^a-zA-Z0-9\-._~:\/?#\[\]@!$&'()*+,;=%]/)
+
+    true
   end
 
   # Treated as auth-flow so the activation gate doesn't recurse on itself, and
