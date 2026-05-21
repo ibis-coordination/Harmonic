@@ -3220,6 +3220,102 @@ a.pulse-activity-title:hover {
   margin-bottom: 16px;
 }
 
+/* Activation Checklist Page (/activate) */
+.pulse-activation-page {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.pulse-activation-icon {
+  color: var(--color-fg-default);
+  margin-bottom: 16px;
+}
+
+.pulse-activation-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.pulse-activation-subtitle {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin: 0 0 32px 0;
+}
+
+.pulse-activation-flash {
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.pulse-activation-flash--notice {
+  background: var(--color-success-subtle);
+  color: var(--color-success-fg);
+}
+
+.pulse-activation-flash--alert {
+  background: var(--color-danger-subtle);
+  color: var(--color-danger-fg);
+}
+
+.pulse-activation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+.pulse-activation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.pulse-activation-item:last-child {
+  border-bottom: none;
+}
+
+.pulse-activation-item-status {
+  flex: 0 0 auto;
+  color: var(--color-fg-muted);
+}
+
+.pulse-activation-item[data-activation-state="complete"] .pulse-activation-item-status {
+  color: var(--color-success-fg);
+}
+
+.pulse-activation-item-content {
+  flex: 1 1 auto;
+}
+
+.pulse-activation-item-title {
+  margin: 0 0 4px 0;
+  font-weight: 600;
+}
+
+.pulse-activation-item-body {
+  margin: 0;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+}
+
+.pulse-activation-item-action {
+  flex: 0 0 auto;
+}
+
+.pulse-activation-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
 /* Create Tabs (for Note/Decision/Commitment) */
 .pulse-create-tabs {
   display: flex;

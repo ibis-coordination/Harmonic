@@ -68,10 +68,10 @@ class ActivationController < ApplicationController
     # bridge the two so a pending invite cookie satisfies #1 without forcing
     # acceptance first; for now we use tenant membership as the sole signal.
     satisfied = @current_tenant.tenant_users.exists?(user: @current_user)
-    body = satisfied ? "You're a member of #{@current_tenant.name}." : "Enter an invite code to continue."
+    body = satisfied ? "You have accepted your invite." : "Enter an invite code to continue."
     {
       key: :invite,
-      title: "Join #{@current_tenant.name}",
+      title: "Accept invite",
       body: body,
       satisfied: satisfied,
       action_path: invite_required_path,

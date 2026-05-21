@@ -1,51 +1,48 @@
-<div class="pulse-auth-page">
-  <div class="pulse-auth-error">
-    <div class="pulse-auth-error-icon" style="color: var(--color-fg-default);">
-      <%= octicon 'checklist', height: 48 %>
+<div class="pulse-activation-page">
+  <div class="pulse-activation-icon">
+    <%= octicon 'checklist', height: 48 %>
+  </div>
+  <h1 class="pulse-activation-title">Activate your account</h1>
+  <p class="pulse-activation-subtitle">
+    A few last steps before you can join <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>.
+  </p>
+
+  <% if flash[:notice].present? %>
+    <div class="pulse-activation-flash pulse-activation-flash--notice">
+      <%= flash[:notice] %>
     </div>
-    <h1 class="pulse-auth-title">Activate your account</h1>
-    <p class="pulse-auth-subtitle">
-      A few last steps before you can use <%= @current_tenant.name %>.
-    </p>
-
-    <% if flash[:notice].present? %>
-      <div class="pulse-form-alert" style="background:var(--color-success-subtle);color:var(--color-success-fg);padding:12px;border-radius:6px;margin-bottom:16px;font-size:13px;">
-        <%= flash[:notice] %>
-      </div>
-    <% end %>
-    <% if flash[:alert].present? %>
-      <div class="pulse-form-alert" style="background:var(--color-danger-subtle);color:var(--color-danger-fg);padding:12px;border-radius:6px;margin-bottom:16px;font-size:13px;">
-        <%= flash[:alert] %>
-      </div>
-    <% end %>
-
-    <ol style="list-style:none;padding:0;margin:0 0 24px 0;text-align:left;">
-      <% @items.each do |item| %>
-        <li data-activation-state="<%= item[:satisfied] ? 'complete' : 'pending' %>"
-            style="display:flex;align-items:flex-start;gap:12px;padding:16px;border-bottom:1px solid var(--color-border-default);">
-          <div style="flex:0 0 auto;color:<%= item[:satisfied] ? 'var(--color-success-fg)' : 'var(--color-fg-muted)' %>;">
-            <%= octicon(item[:satisfied] ? 'check-circle-fill' : 'circle', height: 22) %>
-          </div>
-          <div style="flex:1 1 auto;">
-            <p style="margin:0 0 4px 0;font-weight:600;"><%= item[:title] %></p>
-            <p style="margin:0;color:var(--color-fg-muted);font-size:13px;"><%= item[:body] %></p>
-          </div>
-          <% if item[:action_label].present? %>
-            <div style="flex:0 0 auto;">
-              <% if item[:action_method] == :post %>
-                <%= button_to item[:action_label], item[:action_path], method: :post,
-                              class: "pulse-action-btn pulse-action-btn-sm" %>
-              <% else %>
-                <%= link_to item[:action_label], item[:action_path], class: "pulse-action-btn pulse-action-btn-sm" %>
-              <% end %>
-            </div>
-          <% end %>
-        </li>
-      <% end %>
-    </ol>
-
-    <div class="pulse-form-actions" style="justify-content:center;">
-      <%= button_to 'Log out', '/logout', method: :delete, class: "pulse-action-btn" %>
+  <% end %>
+  <% if flash[:alert].present? %>
+    <div class="pulse-activation-flash pulse-activation-flash--alert">
+      <%= flash[:alert] %>
     </div>
+  <% end %>
+
+  <ol class="pulse-activation-list">
+    <% @items.each do |item| %>
+      <li class="pulse-activation-item" data-activation-state="<%= item[:satisfied] ? 'complete' : 'pending' %>">
+        <div class="pulse-activation-item-status">
+          <%= octicon(item[:satisfied] ? 'check-circle-fill' : 'circle', height: 22) %>
+        </div>
+        <div class="pulse-activation-item-content">
+          <p class="pulse-activation-item-title"><%= item[:title] %></p>
+          <p class="pulse-activation-item-body"><%= item[:body] %></p>
+        </div>
+        <% if item[:action_label].present? %>
+          <div class="pulse-activation-item-action">
+            <% if item[:action_method] == :post %>
+              <%= button_to item[:action_label], item[:action_path], method: :post,
+                            class: "pulse-action-btn pulse-action-btn-sm" %>
+            <% else %>
+              <%= link_to item[:action_label], item[:action_path], class: "pulse-action-btn pulse-action-btn-sm" %>
+            <% end %>
+          </div>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+
+  <div class="pulse-activation-footer">
+    <%= button_to 'Log out', '/logout', method: :delete, class: "pulse-action-btn" %>
   </div>
 </div>
