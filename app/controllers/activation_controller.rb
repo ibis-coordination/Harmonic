@@ -35,6 +35,9 @@ class ActivationController < ApplicationController
     identity = @current_user.find_or_create_omni_auth_identity!
     if identity.email_verified?
       flash[:notice] = "Your email is already verified."
+    elsif !identity.can_send_email_confirmation?
+      wait = identity.email_confirmation_resend_wait
+      flash[:alert] = "Please wait #{wait} #{'second'.pluralize(wait)} before requesting another confirmation email."
     else
       raw_token = identity.send_email_confirmation!
       EmailConfirmationMailer.confirm(identity, raw_token, @current_tenant).deliver_later
@@ -77,14 +80,30 @@ class ActivationController < ApplicationController
 
   def email_item
     satisfied = @current_user.email_verified?
+    identity = @current_user.omni_auth_identity
+    already_sent = identity&.email_confirmation_sent_at.present?
+    body = if satisfied
+             "Confirmed."
+           elsif already_sent
+             "We sent a confirmation link to #{@current_user.email}. Click the link to verify, or resend if it didn't arrive."
+           else
+             "We'll send a confirmation link to #{@current_user.email}."
+           end
+    label = if satisfied
+              nil
+            elsif already_sent
+              "Resend confirmation email"
+            else
+              "Send confirmation email"
+            end
     {
       key: :email,
       title: "Verify your email",
-      body: satisfied ? "Confirmed." : "We'll send a confirmation link to #{@current_user.email}.",
+      body: body,
       satisfied: satisfied,
       action_path: resend_email_confirmation_path,
       action_method: :post,
-      action_label: satisfied ? nil : "Send confirmation email",
+      action_label: label,
     }
   end
 

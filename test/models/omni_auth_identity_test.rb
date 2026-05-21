@@ -423,6 +423,37 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
     assert identity.reload.email_verified?
   end
 
+  test "can_send_email_confirmation? is true when no send has happened yet" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: nil)
+    assert identity.can_send_email_confirmation?
+  end
+
+  test "can_send_email_confirmation? is false within the resend cooldown" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: 10.seconds.ago)
+    assert_not identity.can_send_email_confirmation?
+  end
+
+  test "can_send_email_confirmation? is true once the cooldown has elapsed" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: 2.minutes.ago)
+    assert identity.can_send_email_confirmation?
+  end
+
+  test "can_send_email_confirmation? is false once the email is verified" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: Time.current, email_confirmation_sent_at: 2.minutes.ago)
+    assert_not identity.can_send_email_confirmation?
+  end
+
+  test "email_confirmation_resend_wait reports remaining seconds within the cooldown" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: 20.seconds.ago)
+    wait = identity.email_confirmation_resend_wait
+    assert wait > 30 && wait <= 40, "expected ~40s remaining, got #{wait}"
+  end
+
+  test "email_confirmation_resend_wait is 0 outside the cooldown" do
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: 5.minutes.ago)
+    assert_equal 0, identity.email_confirmation_resend_wait
+  end
+
   test "confirm_email! rejects tokens older than the validity window" do
     user = create_user(email: "stale-#{SecureRandom.hex(4)}@example.com", name: "Stale Token")
     identity = OmniAuthIdentity.create!(
@@ -465,6 +496,29 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
 
     assert_equal user.id, identity.user_id
     assert_equal user.email, identity.email
+  end
+
+  test "find_or_create_omni_auth_identity updates the user's cached association after adopting an orphan" do
+    # Regression: previously, adopting an orphaned OmniAuthIdentity (the
+    # OmniAuth Identity signup case) updated the orphan's user_id but did
+    # NOT refresh the user's cached has_one association. Callers that did
+    # `user.find_or_create_omni_auth_identity!; user.omni_auth_identity`
+    # got nil back, which silently broke any logic that depended on it
+    # (e.g., the Phase-4 auto-send-email-confirmation hook in
+    # sessions_controller#oauth_callback).
+    user = create_user(email: "cache-#{SecureRandom.hex(4)}@example.com", name: "Cache Test")
+    orphan = OmniAuthIdentity.create!(
+      email: user.email, name: user.name,
+      password: "validpassword123", password_confirmation: "validpassword123",
+    )
+
+    # Trigger the bug: read omni_auth_identity FIRST to seed the nil cache,
+    # then adopt, then re-read via the association.
+    assert_nil user.omni_auth_identity, "sanity: no identity linked yet"
+    user.find_or_create_omni_auth_identity!
+
+    assert_equal orphan.id, user.omni_auth_identity&.id,
+                 "expected the cached association to reflect the just-adopted orphan"
   end
 
   test "find_or_create_omni_auth_identity adopts orphaned record from registration" do

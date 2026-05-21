@@ -89,10 +89,31 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   # =============================================================================
 
   EMAIL_CONFIRMATION_VALIDITY = 7.days
+  EMAIL_CONFIRMATION_RESEND_COOLDOWN = 60.seconds
 
   sig { returns(T::Boolean) }
   def email_verified?
     email_confirmed_at.present?
+  end
+
+  # True if a fresh send is allowed: either we've never sent one, or the
+  # cooldown has elapsed. Used by the resend action + the auto-send path to
+  # avoid spamming.
+  sig { returns(T::Boolean) }
+  def can_send_email_confirmation?
+    return false if email_verified?
+    return true if email_confirmation_sent_at.nil?
+    T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_RESEND_COOLDOWN.ago
+  end
+
+  # Seconds remaining until the next send is allowed, or 0 if it is now.
+  sig { returns(Integer) }
+  def email_confirmation_resend_wait
+    return 0 if email_verified?
+    return 0 if email_confirmation_sent_at.nil?
+    elapsed = Time.current - T.must(email_confirmation_sent_at)
+    remaining = EMAIL_CONFIRMATION_RESEND_COOLDOWN - elapsed
+    remaining.positive? ? remaining.to_i : 0
   end
 
   # Generates a fresh confirmation token and returns the raw value to be put in

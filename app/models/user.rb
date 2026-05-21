@@ -441,10 +441,16 @@ class User < ApplicationRecord
     existing = OmniAuthIdentity.find_by(email: email)
     if existing
       existing.update!(user_id: id)
+      # Refresh the cached has_one association so callers that re-read
+      # user.omni_auth_identity in the same request see the adopted record
+      # (the `if omni_auth_identity` check above already cached nil).
+      association(:omni_auth_identity).target = existing
       return existing
     end
 
     # Create a new one (OAuth users get a random password as an email-claim placeholder)
+    # The Rails-generated `create_omni_auth_identity!` writer sets the association
+    # cache automatically, so no manual refresh needed here.
     create_omni_auth_identity!(
       email: email,
       name: name,

@@ -125,6 +125,22 @@ class ActivationControllerTest < ActionDispatch::IntegrationTest
     assert_match(/confirmation email sent/i, flash[:notice] || response.body)
   end
 
+  test "POST /activate/send-confirmation refuses while within the resend cooldown" do
+    user = create_user(email: "cool-#{SecureRandom.hex(4)}@example.com", name: "Cooldown User")
+    @tenant.add_user!(user)
+    @collective.add_user!(user)
+    identity = user.find_or_create_omni_auth_identity!
+    # Recent send — within cooldown
+    identity.update!(email_confirmation_sent_at: 10.seconds.ago, email_confirmation_token: "x" * 64)
+    sign_in_session(user)
+
+    assert_enqueued_jobs 0, only: ActionMailer::MailDeliveryJob do
+      post "/activate/send-confirmation"
+    end
+    assert_match(/please wait/i, flash[:alert].to_s)
+    assert_match(/second/i, flash[:alert].to_s)
+  end
+
   test "POST /activate/send-confirmation says already-verified when applicable" do
     user = create_user(email: "ver-#{SecureRandom.hex(4)}@example.com", name: "Already Verified")
     @tenant.add_user!(user)
