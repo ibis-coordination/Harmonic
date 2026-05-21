@@ -30,9 +30,15 @@ class OauthIdentity < ApplicationRecord
     # cannot be claimed by a different user signing up for the first time.
     omni = user.find_or_create_omni_auth_identity!
 
-    # Trust the OAuth provider's verified-email claim — only set on first sight so
-    # repeat sign-ins don't bump the timestamp away from the original confirmation.
-    omni.update!(email_confirmed_at: Time.current) if omni.email_confirmed_at.nil?
+    # Trust the OAuth provider's verified-email claim — but ONLY for real OAuth
+    # providers (Google, GitHub, etc.). The OmniAuth Identity gem uses
+    # provider="identity" for email/password signups, and that flow does NOT
+    # verify the email — those users must complete the /confirm-email
+    # round-trip. Only set on first sight so repeat sign-ins don't bump the
+    # timestamp away from the original confirmation.
+    if auth.provider.to_s != "identity" && omni.email_confirmed_at.nil?
+      omni.update!(email_confirmed_at: Time.current)
+    end
 
     # Link identity to user
     identity.update!(

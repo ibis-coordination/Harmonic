@@ -22,6 +22,18 @@ class OauthIdentityTest < ActiveSupport::TestCase
     assert omni.email_confirmed_at.present?
   end
 
+  test "find_or_create_from_auth does NOT mark email-verified for provider='identity' (email/password)" do
+    # The OmniAuth Identity gem uses provider="identity" for email/password
+    # signups, which do NOT verify the email. Those users must complete the
+    # /confirm-email round-trip. Regression for the bug where a new email/
+    # password signup landed on /activate with the email item already ✓.
+    identity = OauthIdentity.find_or_create_from_auth(fake_auth(provider: "identity"))
+    omni = identity.user.omni_auth_identity
+    assert_nil omni.email_confirmed_at,
+               "expected email/password ('identity' provider) to leave email unverified"
+    assert_not omni.email_verified?
+  end
+
   test "find_or_create_from_auth does NOT overwrite an existing email_confirmed_at" do
     # A second OAuth round-trip shouldn't bump the timestamp — the original
     # confirmation moment is the meaningful one.
