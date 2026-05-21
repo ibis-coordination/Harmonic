@@ -51,7 +51,7 @@ class ActivationControllerTest < ActionDispatch::IntegrationTest
     assert_match(/two[- ]?factor/i, response.body, "checklist should mention 2FA")
   end
 
-  test "GET /activate redirects a fully activated user to root (no parking page)" do
+  test "GET /activate redirects a fully activated user to root (no parking page) with a success flash" do
     fully = create_user(email: "fully-#{SecureRandom.hex(4)}@example.com", name: "Fully Activated")
     @tenant.add_user!(fully)
     @collective.add_user!(fully)
@@ -62,6 +62,8 @@ class ActivationControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_match(%r{//[^/]+/?\z}, response.location, "expected redirect to root after activation complete")
+    assert_match(/now active/i, flash[:notice].to_s,
+                 "expected a celebratory flash so the user knows activation completed")
   end
 
   test "GET /activate renders verified email as complete and unenabled 2FA as pending" do

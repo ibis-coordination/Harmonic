@@ -23,7 +23,11 @@ class ActivationController < ApplicationController
     # one item is incomplete; direct visits after completion should pass through.)
     if @all_satisfied
       return_to = session.delete(:activation_return_to)
-      return redirect_to(safe_return_path?(return_to) ? return_to : root_path)
+      if safe_return_path?(return_to)
+        return redirect_to(return_to)
+      end
+      flash[:notice] = "Your account is now active!"
+      return redirect_to root_path
     end
 
     render layout: "application"
