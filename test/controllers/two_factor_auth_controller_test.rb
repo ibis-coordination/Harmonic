@@ -133,4 +133,75 @@ class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
     assert_nil @identity.otp_secret
     assert_equal [], @identity.otp_recovery_codes
   end
+
+  # === Post-Setup Continue Destination ===
+
+  test "GET settings hides the Disable section when the current tenant requires 2FA" do
+    @tenant.update!(main_collective_id: @collective.id)
+    @tenant.settings["require_2fa"] = true  # explicit; this is the default
+    @tenant.save!
+    user = create_user(email: "no-disable-#{SecureRandom.hex(4)}@example.com", name: "No Disable")
+    user.find_or_create_omni_auth_identity!
+    sign_in_as(user, tenant: @tenant)
+
+    get two_factor_settings_path
+    assert_response :success
+    assert_no_match(%r{<form[^>]+action="/settings/two-factor/disable"}, response.body,
+                    "expected the disable form to be hidden when the tenant requires 2FA")
+  end
+
+  test "GET settings shows the Disable section when the current tenant does not require 2FA" do
+    @tenant.update!(main_collective_id: @collective.id)
+    @tenant.settings["require_2fa"] = false
+    @tenant.save!
+    user = create_user(email: "can-disable-#{SecureRandom.hex(4)}@example.com", name: "Can Disable")
+    user.find_or_create_omni_auth_identity!
+    sign_in_as(user, tenant: @tenant)
+
+    get two_factor_settings_path
+    assert_response :success
+    assert_match(%r{<form[^>]+action="/settings/two-factor/disable"}, response.body,
+                 "expected the disable form to be present when the tenant doesn't require 2FA")
+  end
+
+  test "POST disable refuses when the current tenant requires 2FA (server-side guard)" do
+    @tenant.update!(main_collective_id: @collective.id)
+    # Default require_2fa = true
+    user = create_user(email: "block-#{SecureRandom.hex(4)}@example.com", name: "Block User")
+    identity = user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    sign_in_as(user, tenant: @tenant)
+
+    totp = ROTP::TOTP.new(identity.otp_secret)
+    post two_factor_disable_path, params: { code: totp.now }
+
+    assert_redirected_to two_factor_settings_path
+    assert_match(/required/i, flash[:alert].to_s)
+    assert identity.reload.otp_enabled,
+           "expected 2FA to remain enabled — the tenant requires it"
+  end
+
+  test "post-setup Continue button defaults to the user's settings page" do
+    # The shared setup uses create_tenant_collective_user, which doesn't set
+    # main_collective_id — sign_in_as needs it to resolve current_collective.
+    @tenant.update!(main_collective_id: @collective.id)
+    user = create_user(email: "post2fa-#{SecureRandom.hex(4)}@example.com", name: "Post 2FA")
+    # 2FA setup requires an OmniAuthIdentity (it's identity-provider-only).
+    # The signup flow normally creates one; here we create it explicitly.
+    user.find_or_create_omni_auth_identity!
+    sign_in_as(user, tenant: @tenant, activate: false)
+    # Visit setup to seed session[:pending_otp_secret], then complete it.
+    get two_factor_setup_path
+    secret = session[:pending_otp_secret]
+    raise "expected pending_otp_secret to be seeded by GET setup" if secret.blank?
+    totp = ROTP::TOTP.new(secret)
+    post two_factor_confirm_path, params: { code: totp.now }
+
+    expected_path = "/u/#{user.tenant_users.find_by(tenant_id: @tenant.id).handle}/settings"
+    assert_match(/href="#{Regexp.escape(expected_path)}"/, response.body,
+                 "expected the Continue link to point to the user's settings page by default")
+    assert_no_match(%r{href="/settings/two-factor/manage"}, response.body,
+                    "should no longer default to the awkward 2FA management page")
+  end
 end
