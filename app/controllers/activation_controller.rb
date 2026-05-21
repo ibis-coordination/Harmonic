@@ -68,7 +68,10 @@ class ActivationController < ApplicationController
       body: body,
       satisfied: satisfied,
       action_path: invite_required_path,
-      action_label: satisfied ? "Manage invite" : "Enter invite code",
+      # No action button when satisfied — there's no separate invite-management
+      # UI to send the user to, and /invite-required would just bounce them
+      # back here via root_path.
+      action_label: satisfied ? nil : "Enter invite code",
     }
   end
 
