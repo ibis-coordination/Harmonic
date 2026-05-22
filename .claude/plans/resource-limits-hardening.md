@@ -22,10 +22,18 @@ Existing protections are strong in spots (login, 2FA, table notes, decision opti
 | 2FA verification | 10 | 15 min |
 | Email change | 5 | 1 hour |
 | OAuth callback | 10 | 5 min |
-| Data export | 3 | 1 hour |
+| Identity register | 5 | 1 hour |
+| Invite-required submit | 5/IP + 10/user | 1 hour |
+| Invite accept | 10 | 1 hour |
+| Collective data export | 3 | 1 hour |
+| Per-user data export | 3 | 1 hour |
 | Data import | 100 | 1 hour |
 
-App-level: 2FA OTP lockout after 10 failed attempts, single active export per collective, single active import per tenant.
+App-level protections:
+- 2FA OTP lockout after 10 failed attempts
+- Single active export per collective; single active import per tenant
+- `BotProtection` concern (honeypot + min-form-time gate, optional Cloudflare Turnstile) on `/login`, `/auth/identity/register`, `/password`, `/password/reset/:token`, `/invite-required(/accept)`, `/login/verify-2fa` — see [app/controllers/concerns/bot_protection.rb](app/controllers/concerns/bot_protection.rb)
+- 30s email-confirmation send cooldown via `OmniAuthIdentity#email_confirmation_sent_at`
 
 ## Axis 1: Rate Limits — gaps (prioritized)
 
@@ -59,8 +67,10 @@ App-level: 2FA OTP lockout after 10 failed attempts, single active export per co
    - 15MB per file (and 10MB per attachment record at the model — discrepancy worth resolving) but no cumulative cap
    - **Fix**: Per-user and per-tenant cumulative storage quota
 
+### Low
+
 7. **Password reset enables email enumeration** — [app/controllers/password_resets_controller.rb:19-38](app/controllers/password_resets_controller.rb#L19-L38)
-   - IP-throttled but not per-email
+   - IP-throttled but not per-email. Honeypot + min-form-time + (when configured) Turnstile now gate `POST /password`, so practical bot-driven enumeration is largely defeated; the per-email throttle is still worth adding as defense in depth.
    - **Fix**: Add per-email throttle (3/hour)
 
 ---
@@ -107,9 +117,9 @@ Reference points (existing good limits):
 
 ### High (DB bloat / query slowdown)
 
-4. **Soft-deleted records never hard-deleted** — [app/models/concerns/soft_deletable.rb](app/models/concerns/soft_deletable.rb)
-   - Only API tokens have a cleanup job; notes/decisions/commitments accumulate forever
-   - **Fix**: `CleanupSoftDeletedItemsJob` (e.g. hard-delete > 90 days old)
+4. **Soft-deleted Decisions/Commitments never hard-deleted** — [app/models/concerns/soft_deletable.rb](app/models/concerns/soft_deletable.rb)
+   - Notes now hard-delete after a 30-day grace via `HardDeleteExpiredRecordsJob` (see [completed/2026/05/phased-deletion.md](.claude/plans/completed/2026/05/phased-deletion.md)). Decisions/Commitments still accumulate forever; phased-deletion was deferred for them pending the ownership-after-engagement / withdrawal-vs-delete design.
+   - **Fix**: Extend phased-deletion pipeline to Decisions/Commitments once their deletion semantics are decided. Tracking issue / design doc lives with the data-lifecycle plan.
 
 5. **Notification fanout unbounded per event** — [app/models/notification.rb](app/models/notification.rb), [app/models/notification_recipient.rb](app/models/notification_recipient.rb)
    - Comment in 100K-member collective → 100K `notification_recipient` rows
@@ -187,7 +197,7 @@ Build the per-user throttle helper (concern + Redis counters), then apply to:
 - `MAX_COMMENTS_PER_ITEM` if we decide a cap is right
 
 ### Phase 4 — Retention jobs
-- Soft-deleted item cleanup
+- Soft-deleted Decision/Commitment cleanup (Notes already covered by `HardDeleteExpiredRecordsJob`; blocked on Decision/Commitment deletion semantics design)
 - Notification recipient cleanup
 - Note history retention
 - Webhook delivery / automation rule run retention
