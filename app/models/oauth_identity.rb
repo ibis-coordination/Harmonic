@@ -6,8 +6,8 @@ class OauthIdentity < ApplicationRecord
   self.implicit_order_column = "created_at"
   belongs_to :user
 
-  sig { params(auth: T.untyped).returns(OauthIdentity) }
-  def self.find_or_create_from_auth(auth)
+  sig { params(auth: T.untyped, tenant: T.nilable(Tenant)).returns(OauthIdentity) }
+  def self.find_or_create_from_auth(auth, tenant: nil)
     identity = find_or_initialize_by(
       provider: auth.provider,
       uid: auth.uid
@@ -18,29 +18,26 @@ class OauthIdentity < ApplicationRecord
       user = User.find_by(email: auth.info.email)
     end
 
-    # Create new user if needed
-    user ||= identity.user || User.create!(
-      email: auth.info.email,
-      name: auth.info.name,
-      image_url: auth.info.image,
-    )
+    # Local + explicit signup flag: more durable than later asking the user
+    # `previously_new_record?` from another method.
+    user_was_just_created = false
+    user ||= identity.user || begin
+      user_was_just_created = true
+      User.create!(email: auth.info.email, name: auth.info.name, image_url: auth.info.image)
+    end
 
-    # We want to make sure that every user has an oaid record even if
-    # they use an oauth provider like github. This ensures that the email address
-    # cannot be claimed by a different user signing up for the first time.
+    # Every user needs an OmniAuthIdentity row so the email can't be claimed
+    # by a separate signup later, even for OAuth-only users.
     omni = user.find_or_create_omni_auth_identity!
 
-    # Trust the OAuth provider's verified-email claim — but ONLY for real OAuth
-    # providers (Google, GitHub, etc.). The OmniAuth Identity gem uses
-    # provider="identity" for email/password signups, and that flow does NOT
-    # verify the email — those users must complete the /confirm-email
-    # round-trip. Only set on first sight so repeat sign-ins don't bump the
-    # timestamp away from the original confirmation.
+    # Trust real OAuth providers' verified-email claim. Email/password
+    # ("identity" provider) is NOT verified here — those users complete the
+    # /confirm-email round-trip. Only set on first sight so repeat sign-ins
+    # don't bump the timestamp away from the original confirmation.
     if auth.provider.to_s != "identity" && omni.email_confirmed_at.nil?
       omni.update!(email_confirmed_at: Time.current)
     end
 
-    # Link identity to user
     identity.update!(
       user: user,
       last_sign_in_at: Time.current,
@@ -49,6 +46,10 @@ class OauthIdentity < ApplicationRecord
       image_url: auth.info.image,
       auth_data: auth
     )
+
+    if user_was_just_created && auth.provider.to_s == "identity" && tenant
+      send_signup_confirmation_email(omni, tenant)
+    end
 
     identity
   end
@@ -60,4 +61,16 @@ class OauthIdentity < ApplicationRecord
       auth.info.urls.GitHub
     end
   end
+
+  # Identity-provider signup is the only place we ever auto-send a
+  # confirmation email — colocated with the User.create! branch in
+  # find_or_create_from_auth so it's structurally impossible to fire on a
+  # re-login. Subsequent confirmation emails come from the resend button on
+  # /activate. Tenant is required for the correct subdomain in the link.
+  sig { params(omni: OmniAuthIdentity, tenant: Tenant).void }
+  def self.send_signup_confirmation_email(omni, tenant)
+    raw_token = omni.send_email_confirmation!
+    EmailConfirmationMailer.confirm(omni, raw_token, tenant).deliver_later
+  end
+  private_class_method :send_signup_confirmation_email
 end

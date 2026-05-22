@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.1] - 2026-05-22
+
+### Fixed
+
+- Confirmation-email link returned 404 if a second send (re-login auto-send or `/activate` resend) rotated the token while the prior email's `deliver_later` job was still in the queue. `OmniAuthIdentity` now keeps the previous token alongside the current one — both resolve until each one's own 7-day expiry — so the older email's link keeps working.
+- Auto-send of the confirmation email now fires only on signup. Subsequent logins no longer trigger another email (each login past the resend cooldown was previously enqueueing a fresh email). To re-request, users click the resend button on `/activate`.
+
+### Changed
+
+- The `/activate` resend-confirmation-email button is now disabled during the 30-second cooldown with a live countdown ("Available in 25s…") instead of accepting the click and showing a "please wait" error. Cooldown shortened from 60 to 30 seconds.
+
 ## [1.17.0] - 2026-05-21
 
 ### Added

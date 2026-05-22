@@ -444,9 +444,9 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
   end
 
   test "email_confirmation_resend_wait reports remaining seconds within the cooldown" do
-    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: 20.seconds.ago)
+    identity = OmniAuthIdentity.new(email_confirmed_at: nil, email_confirmation_sent_at: 10.seconds.ago)
     wait = identity.email_confirmation_resend_wait
-    assert wait > 30 && wait <= 40, "expected ~40s remaining, got #{wait}"
+    assert wait > 15 && wait <= 20, "expected ~20s remaining, got #{wait}"
   end
 
   test "email_confirmation_resend_wait is 0 outside the cooldown" do
@@ -469,6 +469,97 @@ class OmniAuthIdentityTest < ActiveSupport::TestCase
 
     assert_not identity.confirm_email!(raw)
     assert_not identity.reload.email_verified?
+  end
+
+  # === Previous-token grace window ===
+  # send_email_confirmation! preserves the prior token in previous_email_confirmation_token
+  # so an in-flight email (auto-send on signup queued via deliver_later that hadn't
+  # arrived yet) keeps working after the user clicks the resend button on /activate.
+
+  def make_identity(prefix)
+    user = create_user(email: "#{prefix}-#{SecureRandom.hex(4)}@example.com", name: prefix)
+    OmniAuthIdentity.create!(
+      user: user, email: user.email, name: user.name,
+      password: "validpassword123", password_confirmation: "validpassword123",
+    )
+  end
+
+  test "send_email_confirmation! shifts the current token into the previous_ slot" do
+    identity = make_identity("shift")
+    raw1 = identity.send_email_confirmation!
+    hash1 = identity.email_confirmation_token
+
+    # Move sent_at past the cooldown so the second send is allowed; capture
+    # the aged value because that's what should be preserved in previous_*.
+    identity.update_columns(email_confirmation_sent_at: 2.minutes.ago)
+    pre_shift_sent_at = identity.reload.email_confirmation_sent_at
+    raw2 = identity.send_email_confirmation!
+    identity.reload
+
+    assert_not_equal raw1, raw2
+    assert_equal Digest::SHA256.hexdigest(raw2), identity.email_confirmation_token,
+                 "current token should be the new one"
+    assert_equal hash1, identity.previous_email_confirmation_token,
+                 "previous slot should hold the hash of the first token"
+    assert_in_delta pre_shift_sent_at.to_i, identity.previous_email_confirmation_sent_at.to_i, 1,
+                    "previous_sent_at should preserve the value of email_confirmation_sent_at at shift time"
+  end
+
+  test "find_by_email_confirmation_token still finds an identity via its previous token" do
+    identity = make_identity("prevfind")
+    raw1 = identity.send_email_confirmation!
+    identity.update_columns(email_confirmation_sent_at: 2.minutes.ago)
+    identity.send_email_confirmation!  # rotates; raw1 is now in the previous slot
+
+    found = OmniAuthIdentity.find_by_email_confirmation_token(raw1)
+    refute_nil found, "expected the previous token to still resolve"
+    assert_equal identity.id, found.id
+  end
+
+  test "confirm_email! succeeds with the previous token (an in-flight email)" do
+    identity = make_identity("prevconf")
+    raw1 = identity.send_email_confirmation!
+    identity.update_columns(email_confirmation_sent_at: 2.minutes.ago)
+    identity.send_email_confirmation!  # raw1 is now previous
+    identity.reload
+
+    assert identity.confirm_email!(raw1), "expected confirm via previous token to succeed"
+    assert identity.reload.email_verified?
+  end
+
+  test "confirm_email! rejects an expired previous token" do
+    identity = make_identity("prevexp")
+    raw1 = identity.send_email_confirmation!
+    # Send #2 rotates raw1 to previous; then age previous beyond the window
+    identity.update_columns(email_confirmation_sent_at: 2.minutes.ago)
+    identity.send_email_confirmation!
+    identity.update_columns(previous_email_confirmation_sent_at: 8.days.ago)
+
+    assert_not identity.confirm_email!(raw1)
+    assert_not identity.reload.email_verified?
+  end
+
+  test "third send shifts again — the oldest token (raw1) is dropped" do
+    identity = make_identity("threeshift")
+    raw1 = identity.send_email_confirmation!
+    identity.update_columns(email_confirmation_sent_at: 2.minutes.ago)
+    raw2 = identity.send_email_confirmation!  # raw1 → previous, raw2 is current
+    identity.update_columns(email_confirmation_sent_at: 2.minutes.ago)
+    identity.send_email_confirmation!         # raw2 → previous, raw1 is GONE
+    identity.reload
+
+    # raw1 should no longer be findable
+    assert_nil OmniAuthIdentity.find_by_email_confirmation_token(raw1),
+               "after two rotations, the oldest token should be gone"
+    # raw2 should still resolve (it's now in the previous slot)
+    refute_nil OmniAuthIdentity.find_by_email_confirmation_token(raw2)
+  end
+
+  test "find_by_email_confirmation_token returns nil when only current is set and miss" do
+    identity = make_identity("missfind")
+    identity.send_email_confirmation!
+    # No previous yet; a bogus token should miss both slots
+    assert_nil OmniAuthIdentity.find_by_email_confirmation_token("not-the-token-#{SecureRandom.hex(8)}")
   end
 
   # === User Association Tests ===

@@ -3310,6 +3310,23 @@ a.pulse-activity-title:hover {
   flex: 0 0 auto;
 }
 
+.pulse-activation-cooldown {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  text-align: right;
+}
+
+/* Fixed inline-block width on the digits so the "s" suffix doesn't hop left
+   when the countdown drops from two digits (e.g. 10) to one (9). 2ch holds
+   two tabular digits with the same width across all numerals. */
+.pulse-activation-cooldown-num {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .pulse-activation-footer {
   display: flex;
   justify-content: center;

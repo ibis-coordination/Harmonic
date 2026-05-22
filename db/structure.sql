@@ -932,7 +932,9 @@ CREATE TABLE public.omni_auth_identities (
     user_id uuid,
     email_confirmed_at timestamp without time zone,
     email_confirmation_token character varying,
-    email_confirmation_sent_at timestamp without time zone
+    email_confirmation_sent_at timestamp without time zone,
+    previous_email_confirmation_token character varying,
+    previous_email_confirmation_sent_at timestamp without time zone
 );
 
 
@@ -3017,6 +3019,13 @@ CREATE INDEX idx_members_collective_id ON public.collective_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_collective_user ON public.collective_members USING btree (tenant_id, collective_id, user_id);
+
+
+--
+-- Name: idx_on_previous_email_confirmation_token_2a46803db5; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_on_previous_email_confirmation_token_2a46803db5 ON public.omni_auth_identities USING btree (previous_email_confirmation_token);
 
 
 --
@@ -9453,6 +9462,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260522050652'),
 ('20260521171154'),
 ('20260520133331'),
 ('20260514000003'),

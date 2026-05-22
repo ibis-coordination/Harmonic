@@ -107,6 +107,7 @@ class ActivationController < ApplicationController
     satisfied = @current_user.email_verified?
     identity = @current_user.omni_auth_identity
     already_sent = identity&.email_confirmation_sent_at.present?
+    cooldown_wait = identity&.email_confirmation_resend_wait || 0
     body = if satisfied
              "Confirmed."
            elsif already_sent
@@ -129,6 +130,11 @@ class ActivationController < ApplicationController
       action_path: resend_email_confirmation_path,
       action_method: :post,
       action_label: label,
+      # Disable the resend button while the per-identity cooldown is active.
+      # The view wires up a Stimulus controller to re-enable it client-side
+      # when the countdown reaches zero, so users don't have to refresh.
+      action_disabled: cooldown_wait > 0,
+      action_cooldown_seconds: cooldown_wait,
     }
   end
 

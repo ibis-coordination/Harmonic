@@ -4,7 +4,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   extend T::Sig
 
   # Load common passwords list for validation
-  COMMON_PASSWORDS_FILE = Rails.root.join("config", "common_passwords.txt")
+  COMMON_PASSWORDS_FILE = Rails.root.join("config/common_passwords.txt")
   COMMON_PASSWORDS = T.let(
     if File.exist?(COMMON_PASSWORDS_FILE)
       Set.new(
@@ -52,6 +52,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   sig { params(raw_token: T.nilable(String)).returns(T.nilable(OmniAuthIdentity)) }
   def self.find_by_reset_password_token(raw_token)
     return nil if raw_token.blank?
+
     hashed_token = Digest::SHA256.hexdigest(raw_token)
     find_by(reset_password_token: hashed_token)
   end
@@ -79,9 +80,9 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     return if password.nil?
     return if password_digest.present? && !password_digest_changed?
 
-    if COMMON_PASSWORDS.include?(password.downcase)
-      errors.add(:password, "is too common. Please choose a more unique password.")
-    end
+    return unless COMMON_PASSWORDS.include?(password.downcase)
+
+    errors.add(:password, "is too common. Please choose a more unique password.")
   end
 
   # =============================================================================
@@ -89,7 +90,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   # =============================================================================
 
   EMAIL_CONFIRMATION_VALIDITY = 7.days
-  EMAIL_CONFIRMATION_RESEND_COOLDOWN = 60.seconds
+  EMAIL_CONFIRMATION_RESEND_COOLDOWN = 30.seconds
 
   sig { returns(T::Boolean) }
   def email_verified?
@@ -97,12 +98,14 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   end
 
   # True if a fresh send is allowed: either we've never sent one, or the
-  # cooldown has elapsed. Used by the resend action + the auto-send path to
-  # avoid spamming.
+  # cooldown has elapsed. Used by the /activate resend button to throttle
+  # repeated clicks. Auto-send (on signup) is one-shot and doesn't gate on
+  # this predicate.
   sig { returns(T::Boolean) }
   def can_send_email_confirmation?
     return false if email_verified?
     return true if email_confirmation_sent_at.nil?
+
     T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_RESEND_COOLDOWN.ago
   end
 
@@ -111,6 +114,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   def email_confirmation_resend_wait
     return 0 if email_verified?
     return 0 if email_confirmation_sent_at.nil?
+
     elapsed = Time.current - T.must(email_confirmation_sent_at)
     remaining = EMAIL_CONFIRMATION_RESEND_COOLDOWN - elapsed
     remaining.positive? ? remaining.to_i : 0
@@ -119,8 +123,17 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   # Generates a fresh confirmation token and returns the raw value to be put in
   # the confirmation email. The stored value is a SHA256 hash, so a leaked DB
   # row can't be used to confirm someone else's email.
+  #
+  # Two-slot rotation: the prior token (if any) shifts to previous_* so an
+  # in-flight email (queued via deliver_later that hasn't arrived yet) keeps
+  # working after a subsequent send. Without this, a re-login auto-send or
+  # an impatient resend-button click would silently invalidate the unclicked
+  # confirmation email already in the user's inbox, producing a 404 on click.
   sig { returns(String) }
   def send_email_confirmation!
+    self.previous_email_confirmation_token = email_confirmation_token
+    self.previous_email_confirmation_sent_at = email_confirmation_sent_at
+
     raw_token = SecureRandom.urlsafe_base64(32)
     self.email_confirmation_token = Digest::SHA256.hexdigest(raw_token)
     self.email_confirmation_sent_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
@@ -128,30 +141,56 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     raw_token
   end
 
+  # Finds by the current OR previous token slot. Callers shouldn't care which
+  # slot held the matching hash — both should resolve to the same identity.
+  # Note: doesn't enforce the validity window. confirm_email! does that, so
+  # that an expired link still resolves to "your link expired" rather than 404.
   sig { params(raw_token: T.nilable(String)).returns(T.nilable(OmniAuthIdentity)) }
   def self.find_by_email_confirmation_token(raw_token)
     return nil if raw_token.blank?
-    find_by(email_confirmation_token: Digest::SHA256.hexdigest(raw_token))
+
+    hash = Digest::SHA256.hexdigest(raw_token)
+    find_by(email_confirmation_token: hash) ||
+      find_by(previous_email_confirmation_token: hash)
   end
 
   # Idempotent: returns true if already verified (re-clicked link case).
-  # Otherwise validates the token and the time window, then flips
-  # email_confirmed_at. Deliberately does NOT clear the token/sent_at —
-  # keeping them lets a second click of the same URL resolve back to this
-  # identity and short-circuit as "already verified" rather than 404. The
-  # security profile differs from password reset (re-confirming an already-
-  # confirmed email is a no-op, not a privilege change).
+  # Otherwise validates the token against either slot (with each slot's own
+  # sent_at expiry check), then flips email_confirmed_at. Deliberately does
+  # NOT clear the matched token — keeping it lets a second click of the same
+  # URL resolve back to this identity and short-circuit as "already verified"
+  # rather than 404. The security profile differs from password reset
+  # (re-confirming an already-confirmed email is a no-op, not a privilege
+  # change).
   sig { params(raw_token: String).returns(T::Boolean) }
   def confirm_email!(raw_token)
     return true if email_verified?
-    return false if email_confirmation_token.blank?
-    return false if email_confirmation_sent_at.blank?
-    return false if T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_VALIDITY.ago
-    return false unless Digest::SHA256.hexdigest(raw_token.to_s) == email_confirmation_token
+
+    hash = Digest::SHA256.hexdigest(raw_token.to_s)
+    matched =
+      slot_valid?(email_confirmation_token, email_confirmation_sent_at, hash) ||
+      slot_valid?(previous_email_confirmation_token, previous_email_confirmation_sent_at, hash)
+    return false unless matched
 
     update!(email_confirmed_at: Time.current)
     true
   end
+
+  sig do
+    params(
+      slot_hash: T.nilable(String),
+      slot_sent_at: T.nilable(ActiveSupport::TimeWithZone),
+      candidate_hash: String
+    ).returns(T::Boolean)
+  end
+  def slot_valid?(slot_hash, slot_sent_at, candidate_hash)
+    return false if slot_hash.blank?
+    return false if slot_sent_at.blank?
+    return false if T.must(slot_sent_at) < EMAIL_CONFIRMATION_VALIDITY.ago
+
+    slot_hash == candidate_hash
+  end
+  private :slot_valid?
 
   # =============================================================================
   # Two-Factor Authentication (TOTP)
@@ -241,6 +280,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   sig { returns(Integer) }
   def remaining_recovery_codes_count
     return 0 if otp_recovery_codes.blank?
+
     otp_recovery_codes.count { |c| c["used_at"].nil? }
   end
 
@@ -256,9 +296,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     new_count = otp_failed_attempts + 1
     self.otp_failed_attempts = new_count
 
-    if new_count >= MAX_OTP_ATTEMPTS
-      self.otp_locked_until = OTP_LOCKOUT_DURATION.from_now
-    end
+    self.otp_locked_until = OTP_LOCKOUT_DURATION.from_now if new_count >= MAX_OTP_ATTEMPTS
 
     save!
   end
@@ -306,8 +344,10 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   def dev_2fa_bypass?(code)
     return false unless Rails.env.development?
     return false if Rails.env.production?
-    bypass_code = ENV["DEV_2FA_BYPASS_CODE"]
+
+    bypass_code = ENV.fetch("DEV_2FA_BYPASS_CODE", nil)
     return false if bypass_code.blank?
+
     code == bypass_code
   end
 end
