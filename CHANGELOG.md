@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-05-21
+
+### Added
+
+- **Account activation checklist** (#202) — `/activate` gate enforces verified email + 2FA (per-tenant flags) before granting access. Existing sessions without both will be redirected on next request; sys-admins and AI agents are exempt.
+- **Signup invite-gate UX** (#202) — replaces the opaque "403 invite required" with a two-step `/invite-required` flow (validate code, confirm + accept) and an email-confirmation flow with a 60-second resend cooldown.
+- **API tokens for humans cost $3/mo; humans are otherwise free** (#202) — token creation routes through Stripe Checkout when needed and finalizes on return.
+- **Recent Cycles sidebar** on the homepage (#201).
+- **Sys-admin ops controls** (#196) — redispatch queued task runs, cancel stuck runs, and a DB/Redis health panel on the sys-admin dashboard.
+- `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` env vars (blank by default; populate in production to activate the Turnstile widget).
+
+### Security
+
+- **Bot defenses on existing auth-flow forms** (#203) — `/login`, `/auth/identity/register`, `/password`, and `/password/reset/:token` now require an empty honeypot + min-form-time and optionally a Cloudflare Turnstile token. New `Rack::Attack` throttles add per-IP caps on identity registration (5/hr) and invite-code submission (5/hr/IP + 10/hr/user). Turnstile no-ops when `TURNSTILE_SECRET_KEY` is blank, so dev/test/CI need no setup.
+
 ## [1.16.1] - 2026-05-17
 
 ### Fixed
