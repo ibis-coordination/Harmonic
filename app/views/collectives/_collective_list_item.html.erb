@@ -9,13 +9,7 @@
         <%= octicon 'heart', height: 16 %>
       </span>
     <% end %>
-    <% if collective.image.attached? %>
-      <img src="<%= collective.image_path %>" alt="" class="pulse-home-list-icon">
-    <% else %>
-      <span class="pulse-home-list-icon pulse-default-icon">
-        <%= octicon 'people', height: 14 %>
-      </span>
-    <% end %>
+    <%= inline_avatar(collective, css_class: "pulse-home-list-icon") %>
     <span class="pulse-home-list-name"><%= collective.name %></span>
     <% if collective.archived? %>
       <span class="pulse-badge pulse-badge-muted">Archived</span>

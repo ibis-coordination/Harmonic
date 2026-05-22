@@ -3,9 +3,7 @@
   <div class="pulse-users-list">
     <% @proximity_users.each do |user| %>
       <div class="pulse-user-item">
-        <div class="pulse-author-avatar">
-          <img src="<%= user.image_url %>" alt="<%= user.display_name %>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-        </div>
+        <%= render "shared/avatar_div", record: user %>
         <div class="pulse-user-item-info">
           <a href="<%= user.path %>" class="pulse-user-item-name"><%= user.display_name %></a>
           <span class="pulse-user-item-handle">@<%= user.handle %></span>

@@ -14,6 +14,55 @@ module ApplicationHelper
     end
   end
 
+  # Renders a single-tag avatar for a User or Collective. Returns an <img>
+  # tag when the record has an image, otherwise a <span> with the record's
+  # avatar_color as background and the record's initials inside.
+  #
+  # Both branches add the "inline-avatar" CSS class so styles can target
+  # either element type. Pass additional classes via css_class.
+  def inline_avatar(record, alt: nil, css_class: nil, style: nil)
+    return "".html_safe if record.nil?
+
+    display = inline_avatar_display_name(record)
+    src = inline_avatar_image_src(record)
+    title = alt || display
+    combined_class = ["inline-avatar", css_class].compact.join(" ")
+
+    if src.present?
+      image_tag(src, alt: title, class: combined_class, style: style)
+    else
+      bg = record.respond_to?(:avatar_color) ? record.avatar_color : "var(--color-fg-default)"
+      fallback_styles = [
+        "background-color: #{bg}",
+        "display: inline-flex",
+        "align-items: center",
+        "justify-content: center",
+        "color: white",
+      ]
+      fallback_styles << style if style.present?
+      content_tag(:span, class: combined_class, style: fallback_styles.join("; "), title: title) do
+        avatar_initials(display)
+      end
+    end
+  end
+
+  def inline_avatar_display_name(record)
+    return record.display_name if record.respond_to?(:display_name) && record.display_name.present?
+    return record.name if record.respond_to?(:name) && record.name.present?
+    return record.handle if record.respond_to?(:handle)
+    nil
+  end
+
+  def inline_avatar_image_src(record)
+    if record.respond_to?(:image_url) && record.image_url.present?
+      return record.image_url
+    end
+    if record.respond_to?(:image_path) && record.image_path.present?
+      return record.image_path
+    end
+    nil
+  end
+
   def timeago(datetime)
     ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'
     "<time
@@ -158,7 +207,7 @@ module ApplicationHelper
     type_label = "Collective"
     initial = collective.name.to_s.first&.upcase || "?"
 
-    avatar = content_tag(:span, class: "pulse-group-avatar") do
+    avatar = content_tag(:span, class: "pulse-group-avatar", style: "background-color: #{collective.avatar_color};") do
       content_tag(:span, initial, class: "pulse-group-avatar-initials")
     end
 
@@ -175,11 +224,10 @@ module ApplicationHelper
 
   def search_user_header(user)
     initial = user.display_name.to_s.first&.upcase || "?"
-    has_image = user.image_url.present? && user.image_url != "/placeholder.png"
 
-    avatar = content_tag(:span, class: "pulse-group-avatar") do
+    avatar = content_tag(:span, class: "pulse-group-avatar", style: "background-color: #{user.avatar_color};") do
       avatar_content = content_tag(:span, initial, class: "pulse-group-avatar-initials")
-      if has_image
+      if user.image_url.present?
         avatar_content += content_tag(:img, nil, src: user.image_url, alt: "", class: "pulse-group-avatar-img")
       end
       avatar_content

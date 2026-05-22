@@ -847,4 +847,13 @@ class CollectiveTest < ActiveSupport::TestCase
       Current.collective_handle = previous_handle
     end
   end
+
+  # === Avatar Color Tests ===
+
+  test "collective avatar_color is the collective color" do
+    tenant = create_tenant(subdomain: "avcol-#{SecureRandom.hex(4)}")
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "AvColor", handle: "avcol-#{SecureRandom.hex(4)}")
+    assert_equal HasImage::COLLECTIVE_AVATAR_COLOR, collective.avatar_color
+  end
 end

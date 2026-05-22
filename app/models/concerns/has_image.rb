@@ -5,20 +5,23 @@ require 'open-uri'
 module HasImage
   extend ActiveSupport::Concern
 
-  def image_path
-    if image.attached?
-      Rails.application.routes.url_helpers.rails_blob_url(image, only_path: true)
-    else
-      '/placeholder.png'
-    end
+  # Greyscale-only default avatars, with white text. Brightness alone
+  # distinguishes the three categories:
+  #   humans      = light grey   (brightest)
+  #   ai agents   = mid grey
+  #   collectives = dark grey    (darkest)
+  # All three pass WCAG AA against white text.
+  HUMAN_AVATAR_COLOR = "#757575".freeze
+  AI_AGENT_AVATAR_COLOR = "#555555".freeze
+  COLLECTIVE_AVATAR_COLOR = "#333333".freeze
+
+  def avatar_color
+    COLLECTIVE_AVATAR_COLOR
   end
 
-  def image_path_no_placeholder
-    if image.attached?
-      Rails.application.routes.url_helpers.rails_blob_url(image, only_path: true)
-    else
-      nil
-    end
+  def image_path
+    return nil unless image.attached?
+    Rails.application.routes.url_helpers.rails_blob_url(image, only_path: true)
   end
 
   def image_url

@@ -160,7 +160,7 @@ class Collective < ApplicationRecord
     collective_type == "standard"
   end
 
-  sig { returns(String) }
+  sig { returns(T.nilable(String)) }
   def image_path
     if private_workspace?
       created_by&.image_url || super

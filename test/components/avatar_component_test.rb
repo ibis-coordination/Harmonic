@@ -68,14 +68,14 @@ class AvatarComponentTest < ViewComponent::TestCase
     assert_selector "img.pulse-avatar-img[src='https://example.com/avatar.jpg']"
   end
 
-  test "does not render image when image_url is placeholder" do
-    user = build_user(display_name: "Alice Smith", handle: "alice", image_url: "/placeholder.png")
-    render_inline(AvatarComponent.new(user: user))
-    assert_no_selector "img"
-  end
-
   test "does not render image when image_url is blank" do
     render_inline(AvatarComponent.new(user: @user))
     assert_no_selector "img"
+  end
+
+  test "renders avatar div with inline background-color from user's avatar_color" do
+    render_inline(AvatarComponent.new(user: @user))
+    color = @user.avatar_color
+    assert_selector ".pulse-author-avatar[style*='background-color: #{color}']"
   end
 end

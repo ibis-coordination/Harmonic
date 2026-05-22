@@ -1524,6 +1524,24 @@ h1.pulse-resource-title {
   justify-content: center;
   font-size: 28px;
   font-weight: 600;
+  overflow: hidden;
+  position: relative;
+}
+
+.pulse-user-avatar-large .pulse-avatar-initials {
+  position: relative;
+  z-index: 1;
+}
+
+.pulse-user-avatar-large .pulse-avatar-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  border-radius: var(--border-radius-full);
 }
 
 .pulse-user-info {
@@ -2574,6 +2592,8 @@ a.pulse-activity-title:hover {
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .pulse-ai-agent-info {
@@ -2966,6 +2986,8 @@ a.pulse-activity-title:hover {
   border-radius: 4px;
   object-fit: cover;
   flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .pulse-home-list-name {

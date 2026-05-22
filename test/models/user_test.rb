@@ -1630,5 +1630,28 @@ class UserTest < ActiveSupport::TestCase
     # The workspace should not appear in either the explicit query or the billable count
     assert_equal workspace_in_count, count
   end
+
+  # === Avatar Color Tests ===
+
+  test "human user avatar_color is the human color" do
+    assert_equal HasImage::HUMAN_AVATAR_COLOR, @user.avatar_color
+  end
+
+  test "ai agent user avatar_color is the ai agent color" do
+    agent = create_ai_agent(parent: @user, name: "Agent-#{SecureRandom.hex(2)}")
+    assert_equal HasImage::AI_AGENT_AVATAR_COLOR, agent.avatar_color
+  end
+
+  test "collective_identity user avatar_color is the collective color" do
+    collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Identity Test",
+      handle: "ident-test-#{SecureRandom.hex(4)}",
+    )
+    identity = collective.identity_user
+    assert identity.present?
+    assert_equal HasImage::COLLECTIVE_AVATAR_COLOR, identity.avatar_color
+  end
 end
 
