@@ -1,6 +1,8 @@
 # typed: false
 
 class AiAgentsController < ApplicationController
+  TASK_RUNS_PER_MINUTE = 5
+
   before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
   before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_billing_for_creation, only: [:new]
@@ -142,6 +144,24 @@ class AiAgentsController < ApplicationController
 
     @ai_agent = find_ai_agent_by_handle
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
+
+    begin
+      enforce_rate_limit!(
+        scope: "agent_task_runs",
+        key: [current_user.id, @ai_agent.id],
+        limit: TASK_RUNS_PER_MINUTE,
+        period: 1.minute,
+      )
+    rescue RateLimits::Exceeded
+      respond_to do |format|
+        format.html do
+          flash[:alert] = "You're starting tasks too quickly. Please wait a moment and try again."
+          redirect_to ai_agent_run_task_path(@ai_agent.handle)
+        end
+        format.json { render status: :too_many_requests, json: { error: "rate_limited", message: "Too many task runs. Please wait a minute and try again." } }
+      end
+      return
+    end
 
     if current_tenant.feature_enabled?("stripe_billing")
       billing_customer = @ai_agent.billing_customer
