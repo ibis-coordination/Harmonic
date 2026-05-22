@@ -3,6 +3,8 @@
 module Linkable
   extend ActiveSupport::Concern
 
+  BACKLINKS_LIMIT = 1000
+
   included do
     has_many :links, as: :from_linkable, dependent: :destroy
     has_many :links, as: :to_linkable, dependent: :destroy
@@ -16,7 +18,7 @@ module Linkable
   end
 
   def backlinks
-    Link.where(to_linkable: self).order(updated_at: :desc).map(&:from_linkable)
+    Link.where(to_linkable: self).order(updated_at: :desc).limit(BACKLINKS_LIMIT).map(&:from_linkable)
   end
 
   def backlink_count

@@ -57,4 +57,28 @@ class RackAttackThrottlesTest < ActiveSupport::TestCase
     assert_nil matches?("identity_register/ip", path: "/auth/identity/register", method: "GET")
     assert_nil matches?("identity_register/ip", path: "/auth/identity/callback", method: "POST")
   end
+
+  test "stripe_webhooks/ip throttle matches POST /stripe/webhooks" do
+    assert_equal "1.2.3.4", matches?("stripe_webhooks/ip", path: "/stripe/webhooks", method: "POST")
+    assert_nil matches?("stripe_webhooks/ip", path: "/stripe/webhooks", method: "GET")
+    assert_nil matches?("stripe_webhooks/ip", path: "/something-else", method: "POST")
+  end
+
+  test "incoming_webhooks/path_ip throttle matches POST /hooks/:webhook_path and includes path in key" do
+    rule = Rack::Attack.throttles["incoming_webhooks/path_ip"]
+    refute_nil rule, "expected throttle 'incoming_webhooks/path_ip' to be registered"
+
+    env = Rack::MockRequest.env_for("/hooks/my-hook", method: "POST", "REMOTE_ADDR" => "1.2.3.4")
+    req = Rack::Attack::Request.new(env)
+    key = rule.block.call(req)
+    assert_equal "1.2.3.4:/hooks/my-hook", key, "key should combine IP and path so distinct webhooks don't share a bucket"
+
+    env2 = Rack::MockRequest.env_for("/hooks/my-hook", method: "GET", "REMOTE_ADDR" => "1.2.3.4")
+    req2 = Rack::Attack::Request.new(env2)
+    assert_nil rule.block.call(req2)
+
+    env3 = Rack::MockRequest.env_for("/not-a-hook", method: "POST", "REMOTE_ADDR" => "1.2.3.4")
+    req3 = Rack::Attack::Request.new(env3)
+    assert_nil rule.block.call(req3)
+  end
 end

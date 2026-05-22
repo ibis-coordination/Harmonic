@@ -15,6 +15,8 @@ class Note < ApplicationRecord
   include SoftDeletable
   participates_in_hard_delete
   SUBTYPES = %w[text reminder table comment statement].freeze
+  MAX_TITLE_LENGTH = 1000
+  MAX_TEXT_LENGTH = 1_000_000
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -38,6 +40,8 @@ class Note < ApplicationRecord
   EDIT_ACCESS_OPTIONS = %w[members owner].freeze
 
   validates :text, presence: true, unless: :is_table?
+  validates :text, length: { maximum: MAX_TEXT_LENGTH }
+  validate :validate_title_length
   validates :subtype, inclusion: { in: SUBTYPES }
   validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
   validate :comments_must_be_comment_subtype
@@ -409,6 +413,16 @@ class Note < ApplicationRecord
 
   def validate_table_data
     NoteTableValidator.validate(table_data, errors)
+  end
+
+  # Validate against the raw persisted title rather than the `.title` accessor,
+  # which derives a fallback from `text` and would mis-attribute length errors.
+  def validate_title_length
+    raw = raw_title
+    return if raw.nil?
+    return unless raw.length > MAX_TITLE_LENGTH
+
+    errors.add(:title, :too_long, count: MAX_TITLE_LENGTH)
   end
 
   def comments_must_be_comment_subtype

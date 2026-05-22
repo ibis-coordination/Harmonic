@@ -134,6 +134,20 @@ class Rack::Attack
       req.ip
     end
   end
+
+  # Stripe webhook receiver. Already gated by Stripe-Signature verification, but
+  # a flood of unsigned-but-otherwise-valid-looking requests can still cost CPU.
+  throttle('stripe_webhooks/ip', limit: 50, period: 1.minute) do |req|
+    req.ip if req.path == '/stripe/webhooks' && req.post?
+  end
+
+  # Incoming automation webhooks. Already gated by HMAC + timestamp + per-rule IP
+  # allowlist, but a leaked secret would otherwise enable unbounded LLM-agent
+  # invocation. Key on (ip, webhook_path) so a burst against one rule doesn't
+  # exhaust the bucket for unrelated rules from the same forwarder.
+  throttle('incoming_webhooks/path_ip', limit: 100, period: 1.minute) do |req|
+    "#{req.ip}:#{req.path}" if req.path.start_with?('/hooks/') && req.post?
+  end
 end
 
 # Configure cache store for Rack::Attack

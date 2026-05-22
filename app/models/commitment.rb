@@ -14,6 +14,8 @@ class Commitment < ApplicationRecord
   include SoftDeletable
   include Statementable
   SUBTYPES = %w[action calendar_event policy].freeze
+  MAX_TITLE_LENGTH = 1000
+  MAX_DESCRIPTION_LENGTH = 1_000_000
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -23,7 +25,8 @@ class Commitment < ApplicationRecord
   belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
   belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
   has_many :participants, class_name: 'CommitmentParticipant', dependent: :destroy
-  validates :title, presence: true
+  validates :title, presence: true, length: { maximum: MAX_TITLE_LENGTH }
+  validates :description, length: { maximum: MAX_DESCRIPTION_LENGTH }
   validates :critical_mass, presence: true, numericality: { greater_than: 0 }
   validates :deadline, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }

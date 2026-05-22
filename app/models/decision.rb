@@ -15,6 +15,8 @@ class Decision < ApplicationRecord
   include Statementable
   SUBTYPES = %w[vote lottery executive].freeze
   MAX_OPTIONS = 100
+  MAX_QUESTION_LENGTH = 1000
+  MAX_DESCRIPTION_LENGTH = 1_000_000
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -29,7 +31,8 @@ class Decision < ApplicationRecord
   has_many :votes # dependent: :destroy through options
   has_many :decision_audit_entries
 
-  validates :question, presence: true
+  validates :question, presence: true, length: { maximum: MAX_QUESTION_LENGTH }
+  validates :description, length: { maximum: MAX_DESCRIPTION_LENGTH }
   validates :deadline, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }
 
