@@ -31,14 +31,18 @@ module RateLimits
     end
   end
 
-  # Fixed-window counter. Returns the count after increment; raises Exceeded
-  # if the count exceeds `limit`.
+  # Sliding-window counter (window resets `period` seconds after the last
+  # request rather than the first). Returns the count after increment;
+  # raises Exceeded if the count exceeds `limit`.
+  #
+  # EXPIRE is set on every call so a transient failure between INCR and
+  # EXPIRE can't leave the key TTL-less and permanently blocked.
   def enforce_rate_limit!(scope:, key:, limit:, period:)
     redis_key = ["rate_limit", scope, *Array(key)].join(":")
 
     count = Sidekiq.redis do |conn|
       c = conn.incr(redis_key)
-      conn.expire(redis_key, period.to_i) if c == 1
+      conn.expire(redis_key, period.to_i)
       c
     end
 
