@@ -66,6 +66,30 @@ class ActivationControllerTest < ActionDispatch::IntegrationTest
                  "expected a celebratory flash so the user knows activation completed")
   end
 
+  test "GET /activate marks the invite item complete when the user has a valid invite cookie (no acceptance required yet)" do
+    # Per the activation design: an invite cookie satisfies check #1 without
+    # the user having to accept yet — they finish the rest of the checklist
+    # first and then accept as a follow-up.
+    invitee = create_user(email: "inv-#{SecureRandom.hex(4)}@example.com", name: "Cookie Invitee")
+    # Deliberately NOT calling @tenant.add_user!(invitee) — they're not a member.
+    # Use a non-main collective so the invite is acceptable (main/private/chat are rejected).
+    other_coll = create_collective(tenant: @tenant, created_by: @host, handle: "inv-coll-#{SecureRandom.hex(4)}")
+    invite = Invite.create!(
+      tenant: @tenant, collective: other_coll, created_by: @host,
+      code: "test-#{SecureRandom.hex(8)}", expires_at: 1.week.from_now,
+    )
+
+    # Establish the session, then plant the cookie before hitting /activate.
+    sign_in_session(invitee)
+    cookies[:collective_invite_code] = invite.code
+
+    get "/activate"
+    assert_response :success
+    # The invite item should be rendered as complete on the strength of the cookie alone.
+    assert_match(/Invite found/i, response.body,
+                 "expected the invite item to acknowledge the cookie")
+  end
+
   test "GET /activate renders verified email as complete and unenabled 2FA as pending" do
     half = create_user(email: "half-#{SecureRandom.hex(4)}@example.com", name: "Half Activated")
     @tenant.add_user!(half)

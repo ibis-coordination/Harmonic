@@ -4322,6 +4322,13 @@ CREATE UNIQUE INDEX index_omni_auth_identities_on_email ON public.omni_auth_iden
 
 
 --
+-- Name: index_omni_auth_identities_on_email_confirmation_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_omni_auth_identities_on_email_confirmation_token ON public.omni_auth_identities USING btree (email_confirmation_token);
+
+
+--
 -- Name: index_omni_auth_identities_on_reset_password_token; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9446,6 +9453,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260521171154'),
 ('20260520133331'),
 ('20260514000003'),
 ('20260514000002'),

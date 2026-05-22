@@ -62,13 +62,20 @@ class ActivationController < ApplicationController
   end
 
   def invite_item
-    # NOTE: The existing `current_invite` helper looks at `cookies[:invite_code]`
-    # but the cookie actually set during signup is `:collective_invite_code`
-    # (set in SessionsController#redirect_to_auth_domain). A future commit can
-    # bridge the two so a pending invite cookie satisfies #1 without forcing
-    # acceptance first; for now we use tenant membership as the sole signal.
-    satisfied = @current_tenant.tenant_users.exists?(user: @current_user)
-    body = satisfied ? "You have accepted your invite." : "Enter an invite code to continue."
+    # Check #1 in the activation flow: tenant membership OR a valid pending
+    # invite cookie. The latter lets a user clear this item just by holding
+    # a fresh invite — they don't have to actually accept yet (acceptance is
+    # a follow-up action after the whole checklist is done).
+    is_member = @current_tenant.tenant_users.exists?(user: @current_user)
+    pending_invite = pending_invite_for_current_tenant
+    satisfied = is_member || pending_invite.present?
+    body = if is_member
+             "You have accepted your invite."
+           elsif pending_invite
+             "Invite found — accept it once your account is fully active."
+           else
+             "Enter an invite code to continue."
+           end
     {
       key: :invite,
       title: "Accept invite",
@@ -80,6 +87,20 @@ class ActivationController < ApplicationController
       # back here via root_path.
       action_label: satisfied ? nil : "Enter invite code",
     }
+  end
+
+  # Tenant-wide invite-cookie lookup. The application_controller's
+  # `current_invite` helper is collective-scoped (and `/activate` lives on
+  # the bare tenant subdomain, where current_collective is the main
+  # collective), so it can't see invites for non-main collectives. This
+  # finds any invite in the current tenant matching the cookie code that
+  # the user is still able to accept.
+  def pending_invite_for_current_tenant
+    code = cookies[:collective_invite_code]
+    return nil if code.blank?
+    invite = Invite.tenant_scoped_only(@current_tenant.id).find_by(code: code)
+    return nil unless invite&.is_acceptable_by_user?(@current_user)
+    invite
   end
 
   def email_item

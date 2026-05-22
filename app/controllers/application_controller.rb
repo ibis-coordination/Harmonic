@@ -478,11 +478,12 @@ class ApplicationController < ActionController::Base
   def current_invite
     return @current_invite if defined?(@current_invite)
 
-    @current_invite = if params[:code] || cookies[:invite_code]
-                        Invite.find_by(
-                          collective: current_collective,
-                          code: params[:code] || cookies[:invite_code]
-                        )
+    # The cookie set during the cross-subdomain OAuth round-trip is
+    # `:collective_invite_code` (see SessionsController#redirect_to_auth_domain).
+    # We tolerate both names so a direct ?code= URL navigation also works.
+    code = params[:code] || cookies[:collective_invite_code] || cookies[:invite_code]
+    @current_invite = if code.present?
+                        Invite.find_by(collective: current_collective, code: code)
                       end
     @current_invite
   end
@@ -491,7 +492,11 @@ class ApplicationController < ActionController::Base
     tu = @current_tenant.tenant_users.find_by(user: @current_user)
     if tu.nil?
       accepting_invite = current_invite && current_invite.collective == @current_collective
-      gate_controller = controller_name == "sessions" || controller_name == "signup"
+      # Any auth-flow controller (sessions, signup, activation, email
+      # confirmations, reverification, etc.) bypasses the membership gate.
+      # Activation specifically needs this so a user can reach /activate via
+      # an invite cookie before they've accepted (and become a member).
+      gate_controller = is_auth_controller?
       if !@current_tenant.require_invite? && @current_tenant.require_login? && !gate_controller
         @current_tenant.add_user!(@current_user)
       elsif @current_tenant.require_login? && !gate_controller && !accepting_invite
