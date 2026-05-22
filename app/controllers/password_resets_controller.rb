@@ -1,8 +1,11 @@
 # typed: false
 
 class PasswordResetsController < ApplicationController
+  include BotProtection
+
   before_action :set_auth_layout
   before_action :find_identity_by_token, only: [:show, :update]
+  protect_from_bots only: [:create, :update]
 
   def show
     # Form to reset password with token

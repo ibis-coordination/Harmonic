@@ -82,6 +82,32 @@ class Rack::Attack
       req.env['rack.attack.matched'] && req.env['rack.attack.match_type'] == :throttle
     end
   end
+  # Invite-code submission. Tight enough to make code brute-force impractical:
+  # 5 attempts per hour from an IP, with a per-user backstop so a single bot
+  # session rotating IPs is still capped at 10/hour.
+  throttle('invite_required/ip', limit: 5, period: 1.hour) do |req|
+    req.ip if req.path == '/invite-required' && req.post?
+  end
+
+  throttle('invite_required/user', limit: 10, period: 1.hour) do |req|
+    if req.path == '/invite-required' && req.post?
+      req.env['rack.session']&.dig('user_id')
+    end
+  end
+
+  # Final tenant + collective join. The code was already validated at the
+  # confirm step, but rate-limit anyway to backstop session-hijack scenarios.
+  throttle('accept_invite/ip', limit: 10, period: 1.hour) do |req|
+    req.ip if req.path == '/invite-required/accept' && req.post?
+  end
+
+  # Identity registration. The generic writes/ip throttle (60/min) is the only
+  # existing protection on this endpoint; 5/hour is a much tighter cap on
+  # mass-account-creation attempts.
+  throttle('identity_register/ip', limit: 5, period: 1.hour) do |req|
+    req.ip if req.path == '/auth/identity/register' && req.post?
+  end
+
   # Throttle data export requests: 3 per hour per IP
   throttle('exports/ip', limit: 3, period: 1.hour) do |req|
     if req.path.match?(%r{/(?:collectives|workspace)/[^/]+/exports\z}) && req.post?

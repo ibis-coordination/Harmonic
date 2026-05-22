@@ -204,4 +204,45 @@ class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(%r{href="/settings/two-factor/manage"}, response.body,
                     "should no longer default to the awkward 2FA management page")
   end
+
+  # === Bot protection (honeypot only on verify_submit) ===
+
+  test "POST /login/verify-2fa with filled honeypot is rejected by bot protection before any OTP check" do
+    with_bot_protection do
+      @identity.generate_otp_secret!
+      @identity.enable_otp!
+      initial_attempts = @identity.otp_failed_attempts
+
+      # No pending_2fa session — but protect_from_bots runs BEFORE
+      # require_pending_2fa, so a filled honeypot still trips the bot signal
+      # and produces the "Submission could not be processed" alert.
+      post two_factor_verify_path, params: { code: "000000", company_website: "spam" }
+
+      assert_response :redirect
+      assert_match(/could not be processed/i, flash[:alert])
+      # OTP counter must not have advanced — the verify code never ran.
+      assert_equal initial_attempts, @identity.reload.otp_failed_attempts
+    end
+  end
+
+  private
+
+  def with_bot_protection
+    original_force = ENV["FORCE_BOT_PROTECTION_IN_TEST"]
+    original_turnstile = ENV["TURNSTILE_SECRET_KEY"]
+    ENV["FORCE_BOT_PROTECTION_IN_TEST"] = "1"
+    ENV.delete("TURNSTILE_SECRET_KEY")
+    yield
+  ensure
+    if original_force.nil?
+      ENV.delete("FORCE_BOT_PROTECTION_IN_TEST")
+    else
+      ENV["FORCE_BOT_PROTECTION_IN_TEST"] = original_force
+    end
+    if original_turnstile.nil?
+      ENV.delete("TURNSTILE_SECRET_KEY")
+    else
+      ENV["TURNSTILE_SECRET_KEY"] = original_turnstile
+    end
+  end
 end

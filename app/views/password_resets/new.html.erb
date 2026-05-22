@@ -10,7 +10,9 @@
   </p>
 
   <%= form_with url: password_resets_path, method: :post, data: { turbo: false }, class: "pulse-auth-form" do |form| %>
+    <%= render "shared/bot_protection_fields" %>
     <%= form.email_field :email, placeholder: 'Email', required: true, class: 'pulse-form-input' %>
+    <%= render "shared/turnstile_widget" %>
     <div class="pulse-form-actions">
       <%= submit_tag "Send reset instructions", class: "pulse-action-btn", style: "width:100%;" %>
     </div>

@@ -1,7 +1,15 @@
 # typed: false
 
 class TwoFactorAuthController < ApplicationController
+  include BotProtection
+
   before_action :set_auth_sidebar
+  # Honeypot only — skipping Turnstile here would add a second friction surface
+  # right after the user just authenticated with a password. The existing
+  # rack_attack '2fa/ip' throttle (10/15min) is the brute-force backstop.
+  # Run before require_pending_2fa so naive bots get logged-and-rejected
+  # rather than silently redirected to /login.
+  protect_from_bots only: [:verify_submit], turnstile: false
   before_action :require_pending_2fa, only: [:verify, :verify_submit]
   before_action :require_login, only: [:setup, :confirm_setup, :settings, :disable, :regenerate_codes]
   before_action :require_identity_provider, only: [:setup, :confirm_setup, :settings, :disable, :regenerate_codes]

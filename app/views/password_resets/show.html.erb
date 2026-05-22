@@ -13,6 +13,7 @@
   </p>
 
   <%= form_with url: password_reset_path(params[:token]), method: :patch, data: { turbo: false }, id: "password-reset-form", class: "pulse-auth-form" do |form| %>
+    <%= render "shared/bot_protection_fields" %>
     <div id="password-feedback" class="password-feedback"></div>
     <%= form.password_field :password, placeholder: 'New password (minimum 14 characters)',
         id: 'password-field',
@@ -27,6 +28,7 @@
         minlength: 14,
         required: true %>
 
+    <%= render "shared/turnstile_widget" %>
     <div class="pulse-form-actions">
       <%= submit_tag "Update password", id: "submit-button", class: "pulse-action-btn", style: "width:100%;", disabled: true %>
     </div>

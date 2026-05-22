@@ -9,6 +9,7 @@
     </p>
 
     <%= form_with url: accept_invite_path, method: :post, class: "pulse-auth-form", local: true do %>
+      <%= render "shared/bot_protection_fields" %>
       <input type="hidden" name="code" value="<%= @invite.code %>">
       <div class="pulse-form-actions">
         <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Accept and join</button>

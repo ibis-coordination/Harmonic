@@ -1,3 +1,10 @@
+# Bot defenses (honeypot + Turnstile) for the two OmniAuth-handled POSTs:
+# /auth/identity/register and /auth/identity/callback. The controller-level
+# BotProtection concern can't see those requests because OmniAuth consumes
+# them first — so we mount a small Rack middleware in FRONT of OmniAuth.
+require Rails.root.join("app/middleware/omni_auth_bot_protection")
+Rails.application.config.middleware.use OmniAuthBotProtection
+
 Rails.application.config.middleware.use OmniAuth::Builder do
   if Rails.env.development?
     provider :developer

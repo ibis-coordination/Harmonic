@@ -185,4 +185,53 @@ class PasswordResetsControllerTest < ActionDispatch::IntegrationTest
       assert matching_entry, "Expected to find password_changed event for #{test_email}"
     end
   end
+
+  # === Bot protection ===
+
+  test "POST /password with filled honeypot does not send a reset email" do
+    with_bot_protection do
+      assert_emails 0 do
+        post password_resets_path, params: { email: @identity.email, company_website: "spam" }
+      end
+      assert_response :redirect
+      @identity.reload
+      assert_nil @identity.reset_password_token
+    end
+  end
+
+  test "PATCH /password/reset/:token with filled honeypot does not update the password" do
+    with_bot_protection do
+      raw_token = @identity.generate_reset_password_token!
+      old_hash = @identity.reload.password_digest
+
+      patch password_reset_path(raw_token), params: {
+        password: "newverylongpassword123",
+        password_confirmation: "newverylongpassword123",
+        company_website: "spam",
+      }
+      assert_response :redirect
+      assert_equal old_hash, @identity.reload.password_digest, "honeypot should prevent password change"
+    end
+  end
+
+  private
+
+  def with_bot_protection
+    original_force = ENV["FORCE_BOT_PROTECTION_IN_TEST"]
+    original_turnstile = ENV["TURNSTILE_SECRET_KEY"]
+    ENV["FORCE_BOT_PROTECTION_IN_TEST"] = "1"
+    ENV.delete("TURNSTILE_SECRET_KEY")
+    yield
+  ensure
+    if original_force.nil?
+      ENV.delete("FORCE_BOT_PROTECTION_IN_TEST")
+    else
+      ENV["FORCE_BOT_PROTECTION_IN_TEST"] = original_force
+    end
+    if original_turnstile.nil?
+      ENV.delete("TURNSTILE_SECRET_KEY")
+    else
+      ENV["TURNSTILE_SECRET_KEY"] = original_turnstile
+    end
+  end
 end

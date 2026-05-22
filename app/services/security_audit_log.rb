@@ -334,6 +334,20 @@ class SecurityAuditLog
     )
   end
 
+  # Bot-protection events
+
+  sig { params(ip: T.nilable(String), path: String, reason: String, user_id: T.nilable(String)).void }
+  def self.log_bot_signal(ip:, path:, reason:, user_id:)
+    log_event(
+      event: "bot_signal_detected",
+      severity: :warn,
+      ip: ip,
+      path: path,
+      reason: reason,
+      user_id: user_id,
+    )
+  end
+
   # Generic event logging
 
   sig { params(event: String, severity: Symbol, data: T.untyped).void }

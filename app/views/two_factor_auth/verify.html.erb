@@ -21,6 +21,7 @@
     </div>
   <% else %>
     <%= form_with url: two_factor_verify_path, method: :post, data: { turbo: false }, class: "pulse-auth-form" do |form| %>
+      <%= render "shared/bot_protection_fields" %>
       <%= form.text_field :code,
           placeholder: 'Enter code',
           class: 'pulse-form-input',
