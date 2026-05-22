@@ -29,14 +29,23 @@
           <p class="pulse-activation-item-body"><%= item[:body] %></p>
         </div>
         <% if item[:action_label].present? %>
-          <div class="pulse-activation-item-action">
+          <% cooldown = item[:action_cooldown_seconds].to_i %>
+          <%= content_tag :div,
+                          class: "pulse-activation-item-action",
+                          data: cooldown.positive? ? { controller: "cooldown-button", "cooldown-button-seconds-value" => cooldown } : {} do %>
             <% if item[:action_method] == :post %>
               <%= button_to item[:action_label], item[:action_path], method: :post,
+                            disabled: item[:action_disabled],
                             class: "pulse-action-btn pulse-action-btn-sm" %>
             <% else %>
               <%= link_to item[:action_label], item[:action_path], class: "pulse-action-btn pulse-action-btn-sm" %>
             <% end %>
-          </div>
+            <% if cooldown.positive? %>
+              <p class="pulse-activation-cooldown" data-cooldown-button-target="countdown">
+                Available in <span class="pulse-activation-cooldown-num" data-cooldown-button-target="countdownNumber"><%= cooldown %></span>s
+              </p>
+            <% end %>
+          <% end %>
         <% end %>
       </li>
     <% end %>

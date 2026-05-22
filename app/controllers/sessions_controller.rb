@@ -38,7 +38,12 @@ class SessionsController < ApplicationController
     # This is the callback from the OAuth provider to the auth domain.
     return redirect_to root_path if request.subdomain != auth_subdomain
     if original_tenant.valid_auth_provider?(request.env['omniauth.auth'].provider)
-      identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'])
+      # Pass tenant so find_or_create_from_auth can send the signup
+      # confirmation email with the correct subdomain in the link. The
+      # auto-send fires only on identity-provider signup (colocated with
+      # User.create! inside that method) and never again — subsequent
+      # confirmation emails come from the explicit resend button on /activate.
+      identity = OauthIdentity.find_or_create_from_auth(request.env['omniauth.auth'], tenant: original_tenant)
 
       # Check if user is suspended
       if identity.user.suspended?
@@ -50,13 +55,6 @@ class SessionsController < ApplicationController
       # Check if this is an identity provider login with 2FA enabled
       if request.env['omniauth.auth'].provider == 'identity'
         omni_auth_identity = identity.user.omni_auth_identity
-        # Auto-send the email confirmation on first email/password login so the
-        # link is already in the user's inbox by the time they land on /activate.
-        # Rate limit so a re-login during the cooldown window doesn't re-trigger.
-        if omni_auth_identity && omni_auth_identity.can_send_email_confirmation?
-          raw_token = omni_auth_identity.send_email_confirmation!
-          EmailConfirmationMailer.confirm(omni_auth_identity, raw_token, original_tenant).deliver_later
-        end
         if omni_auth_identity&.otp_enabled
           # Redirect to 2FA verification instead of completing login
           session[:pending_2fa_identity_id] = omni_auth_identity.id

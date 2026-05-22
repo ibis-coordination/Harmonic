@@ -17,6 +17,7 @@ import CollapsableSectionController from "./collapseable_section_controller"
 import CommentsController from "./comments_controller"
 import CommentThreadController from "./comment_thread_controller"
 import CommitmentController from "./commitment_controller"
+import CooldownButtonController from "./cooldown_button_controller"
 import CountdownController from "./countdown_controller"
 import DatetimeInputController from "./datetime_input_controller"
 import DeadlineOptionsController from "./deadline_options_controller"
@@ -73,6 +74,7 @@ application.register("collapseable-section", CollapsableSectionController)
 application.register("comments", CommentsController)
 application.register("comment-thread", CommentThreadController)
 application.register("commitment", CommitmentController)
+application.register("cooldown-button", CooldownButtonController)
 application.register("countdown", CountdownController)
 application.register("datetime-input", DatetimeInputController)
 application.register("deadline-options", DeadlineOptionsController)
