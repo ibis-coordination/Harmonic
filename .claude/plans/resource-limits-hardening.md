@@ -9,6 +9,21 @@ Existing protections are strong in spots (login, 2FA, table notes, decision opti
 
 ---
 
+## Status (2026-05-22)
+
+**Shipped on branch `resource-limits-hardening`:**
+- ✅ **Phase 1** — webhook throttles (stripe, `/hooks/*`), backlinks cap, length validations on Note/Decision/Commitment text fields (commit `c2440d5`)
+- ✅ **Phase 2 (Critical items)** — `RateLimits` controller concern + comment, chat-message, agent-task-run throttles (commit `4527faf`)
+
+**Still open:**
+- Phase 2 deferred items: API-token-keyed throttle, password-reset per-email throttle
+- Phase 3 — comment threading hardening (Critical from Axis 2)
+- Phase 4 — retention jobs (one item blocked on deletion-semantics design)
+- Phase 5 — storage and count caps
+- Phase 6 — verification work
+
+---
+
 ## Axis 1: Rate Limits — what's already there
 
 `config/initializers/rack_attack.rb` is configured with Redis cache and these throttles (all IP-keyed):
@@ -28,31 +43,28 @@ Existing protections are strong in spots (login, 2FA, table notes, decision opti
 | Collective data export | 3 | 1 hour |
 | Per-user data export | 3 | 1 hour |
 | Data import | 100 | 1 hour |
+| Stripe webhooks | 50 | 1 min |
+| Incoming webhooks (`/hooks/*`, keyed on path+IP) | 100 | 1 min |
 
 App-level protections:
 - 2FA OTP lockout after 10 failed attempts
 - Single active export per collective; single active import per tenant
 - `BotProtection` concern (honeypot + min-form-time gate, optional Cloudflare Turnstile) on `/login`, `/auth/identity/register`, `/password`, `/password/reset/:token`, `/invite-required(/accept)`, `/login/verify-2fa` — see [app/controllers/concerns/bot_protection.rb](app/controllers/concerns/bot_protection.rb)
 - 30s email-confirmation send cooldown via `OmniAuthIdentity#email_confirmation_sent_at`
+- `RateLimits` controller concern (Redis-backed, post-auth, keyed on `(user, …)`): comments 5/min per `(user, item)`, chat messages 20/min per `(sender, partner)`, agent task runs 5/min per `(user, agent)` — see [app/controllers/concerns/rate_limits.rb](app/controllers/concerns/rate_limits.rb)
 
 ## Axis 1: Rate Limits — gaps (prioritized)
 
 ### Critical
 
-1. **Incoming webhook endpoint has no rate limit** — [app/controllers/incoming_webhooks_controller.rb:24-40](app/controllers/incoming_webhooks_controller.rb#L24-L40)
-   - HMAC + timestamp + IP allowlist gate it, but no rack-attack rule on `/hooks/*` POST
-   - A leaked secret = unbounded `AutomationRuleExecutionJob.perform_later` calls, each potentially invoking LLM agents
-   - **Fix**: Add rack-attack throttle keyed on `webhook_path` and IP
+1. ✅ **Incoming webhook endpoint has no rate limit** — *shipped in `c2440d5`*
+   - rack-attack throttle `incoming_webhooks/path_ip` at 100/min keyed on `(IP, path)`.
 
-2. **AI agent chat / task execution unthrottled** — [app/controllers/chats_controller.rb:44-79](app/controllers/chats_controller.rb#L44-L79), [app/controllers/ai_agents_controller.rb:61](app/controllers/ai_agents_controller.rb#L61)
-   - Per-message length cap (10K chars) but no message-rate cap per `(user, agent)`
-   - Each call hits LLM inference; cost is real
-   - **Fix**: Per-`(user, agent)` rate limit (e.g. 20 msgs/min, 5 task runs/min)
+2. ✅ **AI agent chat / task execution unthrottled** — *shipped in `4527faf`*
+   - `RateLimits` concern: chat messages 20/min per `(sender, partner)`, agent task runs 5/min per `(user, agent)`.
 
-3. **Comment creation unthrottled** — [app/controllers/application_controller.rb:922-967](app/controllers/application_controller.rb#L922-L967)
-   - `POST /n/:id/comments`, `POST /d/:id/comments`, `POST /c/:id/comments`
-   - No per-`(user, item)` cap; comment spam fans out to notification jobs
-   - **Fix**: Per-`(user, item)` rate limit (e.g. 5 comments/min)
+3. ✅ **Comment creation unthrottled** — *shipped in `4527faf`*
+   - `RateLimits` concern: 5/min per `(user, item)` on `ApplicationController#create_comment`.
 
 ### Medium
 
@@ -60,8 +72,8 @@ App-level protections:
    - All rack-attack rules key on `req.ip`; bot clients with valid tokens are unconstrained
    - **Fix**: Add token-keyed throttle for `/api/v1/*`
 
-5. **Stripe webhook endpoint unthrottled** — [app/controllers/stripe_webhooks_controller.rb:13-43](app/controllers/stripe_webhooks_controller.rb#L13-L43)
-   - **Fix**: Add modest throttle (50/min/IP)
+5. ✅ **Stripe webhook endpoint unthrottled** — *shipped in `c2440d5`*
+   - rack-attack throttle `stripe_webhooks/ip` at 50/min/IP.
 
 6. **No storage quota per user/tenant** — [app/controllers/concerns/attachment_actions.rb:22-108](app/controllers/concerns/attachment_actions.rb#L22-L108)
    - 15MB per file (and 10MB per attachment record at the model — discrepancy worth resolving) but no cumulative cap
@@ -95,6 +107,13 @@ Reference points (existing good limits):
 | Notification inbox load | 50 | [app/controllers/notifications_controller.rb:20](app/controllers/notifications_controller.rb#L20) |
 | Expired API token retention | 30 days | [app/jobs/cleanup_expired_tokens_job.rb:10](app/jobs/cleanup_expired_tokens_job.rb#L10) |
 | Collective team list | 100 | [app/models/collective.rb:548](app/models/collective.rb#L548) |
+| Note title length | 1000 chars | [app/models/note.rb](app/models/note.rb) |
+| Note text length | 1,000,000 chars | [app/models/note.rb](app/models/note.rb) |
+| Decision question length | 1000 chars | [app/models/decision.rb](app/models/decision.rb) |
+| Decision description length | 1,000,000 chars | [app/models/decision.rb](app/models/decision.rb) |
+| Commitment title length | 1000 chars | [app/models/commitment.rb](app/models/commitment.rb) |
+| Commitment description length | 1,000,000 chars | [app/models/commitment.rb](app/models/commitment.rb) |
+| Backlinks per item | 1000 | [app/models/concerns/linkable.rb](app/models/concerns/linkable.rb) |
 
 ## Axis 2: Data Volume Caps — gaps (prioritized)
 
@@ -105,15 +124,11 @@ Reference points (existing good limits):
    - Component renders entire tree in DOM (hidden div for replies)
    - **Fix**: `MAX_COMMENT_DEPTH` constant + paginate replies in component + cap at query level
 
-2. **Backlinks unbounded** — [app/models/concerns/linkable.rb:18-24](app/models/concerns/linkable.rb#L18-L24)
-   - `backlinks` returns `Link.where(to_linkable: self)` with no `.limit()`
-   - 10K notes all linking to one note → full table scan
-   - **Fix**: Cap query at e.g. 1000, paginate UI
+2. ✅ **Backlinks unbounded** — *shipped in `c2440d5`*
+   - `Linkable::BACKLINKS_LIMIT = 1000` applied to the query. UI pagination still open if a single record routinely exceeds 1000 inbound links.
 
-3. **Note/Decision/Commitment text field length unbounded** — [app/models/note.rb:39](app/models/note.rb#L39), [app/models/decision.rb:32-34](app/models/decision.rb#L32-L34), [app/models/commitment.rb:26-29](app/models/commitment.rb#L26-L29)
-   - No `length: { maximum: ... }` on `.text`, `.question`, `.description`, `.title`
-   - Single 100MB field → DB bloat + slow regex passes (mention parser, link parser)
-   - **Fix**: `length: { maximum: 1_000_000 }` (or domain-appropriate) on all user text fields
+3. ✅ **Note/Decision/Commitment text field length unbounded** — *shipped in `c2440d5`*
+   - Length validations: title/question fields capped at 1000 chars; body/description fields at 1,000,000 chars. Note title uses a custom validator against `raw_title` so the soft-delete-aware `.title` accessor isn't called during validation.
 
 ### High (DB bloat / query slowdown)
 
@@ -175,21 +190,21 @@ Before implementation, decide:
 
 ## Phased plan
 
-### Phase 1 — Quick wins (smallest blast radius, biggest value)
-- Rack-attack throttle on `/hooks/*` POST
-- Rack-attack throttle on `/stripe/webhooks` POST
-- Length validations on Note/Decision/Commitment text fields (after backfill check)
-- Cap `backlinks` query at 1000
+### Phase 1 — Quick wins (smallest blast radius, biggest value) — ✅ shipped (`c2440d5`)
+- ✅ Rack-attack throttle on `/hooks/*` POST
+- ✅ Rack-attack throttle on `/stripe/webhooks` POST
+- ✅ Length validations on Note/Decision/Commitment text fields
+- ✅ Cap `backlinks` query at 1000
 
-Each is a small, self-contained PR with focused tests.
+### Phase 2 — User-keyed throttles — partial (`4527faf`)
 
-### Phase 2 — User-keyed throttles
-Build the per-user throttle helper (concern + Redis counters), then apply to:
-- Comment creation (per `(user, item)`)
-- Chat messages (per `(user, agent)`)
-- Agent task runs (per `(user, agent)`)
-- Password reset (per email)
-- API requests (per token)
+`RateLimits` controller concern built (Redis via `Sidekiq.redis` pool, fixed-window counters, `Exceeded` exception carries scope/limit/period).
+
+- ✅ Comment creation (per `(user, item)`, 5/min)
+- ✅ Chat messages (per `(sender, partner)`, 20/min)
+- ✅ Agent task runs (per `(user, agent)`, 5/min)
+- ⬜ Password reset (per email) — deferred (Low priority; bot defenses cover the practical risk)
+- ⬜ API requests (per token) — deferred (Medium priority)
 
 ### Phase 3 — Comment threading hardening
 - `MAX_COMMENT_DEPTH` enforcement on creation
@@ -216,7 +231,12 @@ Build the per-user throttle helper (concern + Redis counters), then apply to:
 
 ## Open decisions for the user
 
-- Are these caps acceptable? (`MAX_COMMENTS_PER_ITEM=10000`, `MAX_COMMENT_DEPTH=5`, text field max 1MB, etc.)
-- Phase 1 first as a single PR, or split per item?
-- Do we want to introduce a `RateLimits` concern as part of Phase 2, or keep throttling logic in rack-attack only?
-- Retention windows: 90 days for soft-deleted? 365 days for note history? Audit chain explicitly excluded from retention?
+Settled:
+- ~~Phase 1 packaging~~ — bundled into one commit
+- ~~`RateLimits` concern vs rack-attack only~~ — concern shipped (Phase 2)
+- ~~Text field caps~~ — 1000 chars for title/question, 1,000,000 chars for body/description (well under Postgres' 1 GB ceiling but enough to bound mention/link regex passes)
+
+Still open:
+- `MAX_COMMENT_DEPTH` value and `MAX_COMMENTS_PER_ITEM` (if any) — Phase 3
+- Retention windows: 90 days for dismissed notifications? 365 days for note history? Audit chain explicitly excluded from retention — Phase 4
+- Storage quota numbers — Phase 5
