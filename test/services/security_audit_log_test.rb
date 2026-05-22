@@ -164,6 +164,45 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     assert_equal "req/ip", entry["matched"]
   end
 
+  test "log_bot_signal logs a warn-severity event with path, reason, and optional user_id" do
+    unique_ip = "10.10.#{rand(1..254)}.#{rand(1..254)}"
+
+    uid = SecureRandom.uuid
+    SecurityAuditLog.log_bot_signal(
+      ip: unique_ip,
+      path: "/invite-required",
+      reason: "honeypot",
+      user_id: uid,
+    )
+
+    entries = find_log_entries(event: "bot_signal_detected", ip: unique_ip)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "warn", entry["severity"]
+    assert_equal "/invite-required", entry["path"]
+    assert_equal "honeypot", entry["reason"]
+    assert_equal uid, entry["user_id"]
+  end
+
+  test "log_bot_signal accepts nil user_id" do
+    unique_ip = "10.11.#{rand(1..254)}.#{rand(1..254)}"
+
+    SecurityAuditLog.log_bot_signal(
+      ip: unique_ip,
+      path: "/auth/identity/register",
+      reason: "turnstile",
+      user_id: nil,
+    )
+
+    entries = find_log_entries(event: "bot_signal_detected", ip: unique_ip)
+    assert_equal 1, entries.size
+
+    entry = entries.first
+    assert_equal "turnstile", entry["reason"]
+    assert_nil entry["user_id"]
+  end
+
   test "log_event logs generic events with correct severity" do
     unique_path = "/login-#{SecureRandom.hex(4)}"
 

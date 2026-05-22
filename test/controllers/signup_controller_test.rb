@@ -331,4 +331,132 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_match(/login/, response.location)
     assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
   end
+
+  # === Bot protection (honeypot + min-time) ===
+  # These set FORCE_BOT_PROTECTION_IN_TEST so the BotProtection concern is
+  # active. Without the env, the concern is a no-op in test so every other
+  # test in this file keeps working without filling the honeypot.
+
+  test "POST /invite-required with filled honeypot redirects without looking up the invite" do
+    with_bot_protection do
+      invite = create_invite
+      sign_in_without_membership(@uninvited_user)
+
+      assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
+
+      post "/invite-required", params: { code: invite.code, company_website: "https://spam.example" }
+
+      assert_response :redirect
+      # No "confirm" page rendered, no membership granted, no flash leaking the reason.
+      assert_no_match(/#{Regexp.escape(@collective.name)}/, response.body)
+      assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
+    end
+  end
+
+  test "POST /invite-required with filled honeypot writes a bot_signal_detected entry to security_audit.log" do
+    with_bot_protection do
+      invite = create_invite
+      sign_in_without_membership(@uninvited_user)
+
+      log_file = Rails.root.join("log/security_audit.log")
+      offset = File.exist?(log_file) ? File.readlines(log_file).size : 0
+
+      post "/invite-required", params: { code: invite.code, company_website: "spam" }
+
+      entries = File.readlines(log_file).drop(offset).filter_map do |line|
+        JSON.parse(line) rescue nil
+      end
+      bot_entry = entries.find { |e| e["event"] == "bot_signal_detected" && e["path"] == "/invite-required" }
+      refute_nil bot_entry, "expected a bot_signal_detected audit-log entry for the honeypot trip"
+      assert_equal "honeypot", bot_entry["reason"]
+      assert_equal "warn", bot_entry["severity"]
+    end
+  end
+
+  test "POST /invite-required submitted faster than 2 seconds after render is rejected" do
+    with_bot_protection do
+      invite = create_invite
+      sign_in_without_membership(@uninvited_user)
+
+      post "/invite-required", params: {
+        code: invite.code,
+        form_render_ts: Time.current.to_i.to_s, # rendered "just now" — too fast
+      }
+
+      assert_response :redirect
+      assert_no_match(/#{Regexp.escape(@collective.name)}/, response.body)
+      assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
+    end
+  end
+
+  test "POST /invite-required with no honeypot fields at all still works (missing timestamp does not penalize)" do
+    with_bot_protection do
+      invite = create_invite
+      sign_in_without_membership(@uninvited_user)
+
+      post "/invite-required", params: { code: invite.code } # no company_website, no form_render_ts
+
+      assert_response :success
+      assert_match(/#{Regexp.escape(@collective.name)}/, response.body)
+    end
+  end
+
+  test "POST /invite-required does NOT call Turnstile even when enabled (post-auth flow uses honeypot only)" do
+    with_bot_protection do
+      ENV["TURNSTILE_SECRET_KEY"] = "test-secret"
+      # If the controller were checking Turnstile, this WebMock would fail the
+      # request (always returns success:false). Instead we expect the request
+      # to succeed without any Cloudflare call at all.
+      WebMock.stub_request(:post, "https://challenges.cloudflare.com/turnstile/v0/siteverify")
+        .to_return(status: 200, body: '{"success":false}')
+
+      invite = create_invite
+      sign_in_without_membership(@uninvited_user)
+
+      post "/invite-required", params: { code: invite.code }
+
+      assert_response :success
+      assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                   "confirm page should render — Turnstile must not gate this action")
+      assert_not_requested(:post, "https://challenges.cloudflare.com/turnstile/v0/siteverify")
+    ensure
+      ENV.delete("TURNSTILE_SECRET_KEY")
+    end
+  end
+
+  test "POST /invite-required/accept with filled honeypot does not join tenant" do
+    with_bot_protection do
+      invite = create_invite
+      sign_in_without_membership(@uninvited_user)
+
+      post "/invite-required/accept", params: { code: invite.code, company_website: "spam" }
+
+      assert_response :redirect
+      assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
+      assert_not @collective.user_is_member?(@uninvited_user)
+    end
+  end
+
+  private
+
+  def with_bot_protection
+    original_force = ENV["FORCE_BOT_PROTECTION_IN_TEST"]
+    original_turnstile = ENV["TURNSTILE_SECRET_KEY"]
+    ENV["FORCE_BOT_PROTECTION_IN_TEST"] = "1"
+    # Isolate from the dev container's ambient TURNSTILE_SECRET_KEY so the
+    # base honeypot tests don't accidentally try to call Cloudflare.
+    ENV.delete("TURNSTILE_SECRET_KEY")
+    yield
+  ensure
+    if original_force.nil?
+      ENV.delete("FORCE_BOT_PROTECTION_IN_TEST")
+    else
+      ENV["FORCE_BOT_PROTECTION_IN_TEST"] = original_force
+    end
+    if original_turnstile.nil?
+      ENV.delete("TURNSTILE_SECRET_KEY")
+    else
+      ENV["TURNSTILE_SECRET_KEY"] = original_turnstile
+    end
+  end
 end

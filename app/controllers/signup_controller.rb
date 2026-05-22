@@ -16,6 +16,11 @@
 # transaction so we never leave an orphan TenantUser if collective join
 # fails.
 class SignupController < ApplicationController
+  include BotProtection
+
+  # Honeypot only: user already passed Turnstile at /login or /register.
+  protect_from_bots only: [:confirm_invite, :accept_invite], turnstile: false
+
   def invite_required
     return redirect_to "/login" unless @current_user
     return redirect_to root_path if @current_tenant.tenant_users.exists?(user: @current_user)

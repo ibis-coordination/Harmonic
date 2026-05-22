@@ -1,0 +1,7 @@
+<% if ENV["TURNSTILE_SITE_KEY"].to_s.present? %>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <div class="cf-turnstile"
+       data-sitekey="<%= ENV["TURNSTILE_SITE_KEY"] %>"
+       data-response-field-name="cf_turnstile_response"
+       style="margin: 16px 0;"></div>
+<% end %>

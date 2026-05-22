@@ -1,0 +1,8 @@
+<%# Honeypot field — invisible to humans, irresistible to dumb bots that fill every input. %>
+<%# Off-screen positioning + aria-hidden + tabindex=-1 so screen readers and keyboard users skip it. %>
+<div style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+  <label for="company_website">Leave this field empty</label>
+  <input type="text" name="company_website" id="company_website" tabindex="-1" autocomplete="off">
+</div>
+<%# Min-form-time hidden field. BotProtection rejects submits that arrive less than 2 seconds after render. %>
+<input type="hidden" name="form_render_ts" value="<%= Time.current.to_i %>">

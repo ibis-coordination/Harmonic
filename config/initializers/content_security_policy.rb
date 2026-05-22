@@ -32,8 +32,14 @@ Rails.application.configure do
       policy.img_src :self, :data
     end
 
-    # Scripts: self only (no inline scripts without nonce)
-    policy.script_src :self
+    # Scripts: self only (no inline scripts without nonce). Cloudflare Turnstile
+    # adds challenges.cloudflare.com when the auth-flow bot defense is enabled —
+    # without it the widget silently fails to load and every submit is rejected
+    # for missing the token.
+    turnstile_origin = "https://challenges.cloudflare.com"
+    script_sources = [:self]
+    script_sources << turnstile_origin if ENV["TURNSTILE_SITE_KEY"].present?
+    policy.script_src(*script_sources)
 
     # Styles: self and unsafe-inline (needed for Turbo/Stimulus and inline styles)
     # TODO: Consider using nonces for inline styles in the future
@@ -42,7 +48,13 @@ Rails.application.configure do
     # Connect: allow self (for fetch/XHR requests) and drand API (for audit chain beacon verification)
     policy.connect_src :self, "https://api.drand.sh"
 
-    # Frames: prevent clickjacking by disallowing framing
+    # Frames: the Turnstile widget renders its challenge in an iframe served
+    # from challenges.cloudflare.com.
+    if ENV["TURNSTILE_SITE_KEY"].present?
+      policy.frame_src :self, turnstile_origin
+    end
+
+    # Frames: prevent clickjacking by disallowing framing of OUR pages.
     policy.frame_ancestors :none
   end
 
