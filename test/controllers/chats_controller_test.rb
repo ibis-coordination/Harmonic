@@ -223,6 +223,30 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "send_message is rate-limited per (sender, partner)" do
+    create_chat_session
+
+    Sidekiq.redis do |conn|
+      keys = conn.keys("rate_limit:chat_messages:*")
+      conn.del(*keys) if keys.any?
+    end
+
+    begin
+      ChatsController::CHAT_MESSAGES_PER_MINUTE.times do |i|
+        post "/chat/#{@agent_handle}/message", params: { message: "Burst #{i}" }
+        assert_response :ok, "Message #{i + 1} should succeed: #{response.status}"
+      end
+
+      post "/chat/#{@agent_handle}/message", params: { message: "Over limit" }
+      assert_response :too_many_requests
+    ensure
+      Sidekiq.redis do |conn|
+        keys = conn.keys("rate_limit:chat_messages:*")
+        conn.del(*keys) if keys.any?
+      end
+    end
+  end
+
   test "send_message queues message when turn is running" do
     session = create_chat_session
     with_tenant_scope do

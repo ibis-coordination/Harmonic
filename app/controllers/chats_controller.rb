@@ -3,6 +3,7 @@
 class ChatsController < ApplicationController
   MAX_MESSAGE_LENGTH = 10_000
   MESSAGES_PER_PAGE = 50
+  CHAT_MESSAGES_PER_MINUTE = 20
 
   before_action :find_partner_and_session, only: [:show, :send_message, :poll_messages, :actions_index, :describe_send_message, :execute_send_message]
   before_action :deny_if_blocked, only: [:send_message, :execute_send_message]
@@ -45,6 +46,18 @@ class ChatsController < ApplicationController
     message_text = params[:message].to_s.strip.truncate(MAX_MESSAGE_LENGTH)
     if message_text.blank?
       render plain: "Message cannot be empty", status: :unprocessable_entity
+      return
+    end
+
+    begin
+      enforce_rate_limit!(
+        scope: "chat_messages",
+        key: [current_user.id, @partner.id],
+        limit: CHAT_MESSAGES_PER_MINUTE,
+        period: 1.minute,
+      )
+    rescue RateLimits::Exceeded
+      render plain: "You're sending messages too quickly. Please wait a moment.", status: :too_many_requests
       return
     end
 

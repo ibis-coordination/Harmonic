@@ -47,6 +47,36 @@ class DecisionTest < ActiveSupport::TestCase
     assert_includes decision.errors[:question], "can't be blank"
   end
 
+  test "Decision.question length is capped at MAX_QUESTION_LENGTH" do
+    decision = Decision.new(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      question: "x" * (Decision::MAX_QUESTION_LENGTH + 1),
+      description: "valid",
+      deadline: 1.day.from_now
+    )
+
+    assert_not decision.valid?
+    assert_includes decision.errors[:question], "is too long (maximum is #{Decision::MAX_QUESTION_LENGTH} characters)"
+  end
+
+  test "Decision.description length is capped at MAX_DESCRIPTION_LENGTH" do
+    decision = Decision.new(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      question: "Valid?",
+      description: "x" * (Decision::MAX_DESCRIPTION_LENGTH + 1),
+      deadline: 1.day.from_now
+    )
+
+    assert_not decision.valid?
+    assert_includes decision.errors[:description], "is too long (maximum is #{Decision::MAX_DESCRIPTION_LENGTH} characters)"
+  end
+
   test "Decision requires a deadline" do
     decision = Decision.new(
       tenant: @tenant,

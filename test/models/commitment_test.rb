@@ -49,6 +49,46 @@ class CommitmentTest < ActiveSupport::TestCase
     assert_includes commitment.errors[:title], "can't be blank"
   end
 
+  test "Commitment.title length is capped at MAX_TITLE_LENGTH" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "x" * (Commitment::MAX_TITLE_LENGTH + 1),
+      description: "valid",
+      critical_mass: 5,
+      deadline: 1.week.from_now
+    )
+
+    assert_not commitment.valid?
+    assert_includes commitment.errors[:title], "is too long (maximum is #{Commitment::MAX_TITLE_LENGTH} characters)"
+  end
+
+  test "Commitment.description length is capped at MAX_DESCRIPTION_LENGTH" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Valid",
+      description: "x" * (Commitment::MAX_DESCRIPTION_LENGTH + 1),
+      critical_mass: 5,
+      deadline: 1.week.from_now
+    )
+
+    assert_not commitment.valid?
+    assert_includes commitment.errors[:description], "is too long (maximum is #{Commitment::MAX_DESCRIPTION_LENGTH} characters)"
+  end
+
   test "Commitment requires a critical mass greater than 0" do
     tenant = create_tenant
     user = create_user

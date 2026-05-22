@@ -265,6 +265,48 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal initial_count + 1, Note.unscoped.count, "Note count should have increased by 1"
   end
 
+  test "create_comment is rate-limited per user+item" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      title: "Rate Limit Test Note",
+      text: "Test content"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # Clear any leftover counters before exercising the limit
+    Sidekiq.redis do |conn|
+      keys = conn.keys("rate_limit:comments:*")
+      conn.del(*keys) if keys.any?
+    end
+
+    begin
+      # Limit is 5 per minute per (user, item)
+      5.times do |i|
+        post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments",
+          params: { text: "Comment #{i}" },
+          headers: { "Accept" => "application/json" }
+        assert_response :success, "Comment #{i + 1} should succeed: #{response.status} #{response.body}"
+      end
+
+      post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments",
+        params: { text: "Over limit" },
+        headers: { "Accept" => "application/json" }
+      assert_response :too_many_requests
+    ensure
+      Sidekiq.redis do |conn|
+        keys = conn.keys("rate_limit:comments:*")
+        conn.del(*keys) if keys.any?
+      end
+    end
+  end
+
   test "comments_partial returns HTML" do
     sign_in_as(@user, tenant: @tenant)
 

@@ -269,6 +269,72 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal 1, note2.backlink_count
   end
 
+  test "Note.title length is capped at MAX_TITLE_LENGTH" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "x" * (Note::MAX_TITLE_LENGTH + 1),
+      text: "valid"
+    )
+
+    assert_not note.valid?
+    assert_includes note.errors[:title], "is too long (maximum is #{Note::MAX_TITLE_LENGTH} characters)"
+  end
+
+  test "Note.text length is capped at MAX_TEXT_LENGTH" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Valid",
+      text: "x" * (Note::MAX_TEXT_LENGTH + 1)
+    )
+
+    assert_not note.valid?
+    assert_includes note.errors[:text], "is too long (maximum is #{Note::MAX_TEXT_LENGTH} characters)"
+  end
+
+  test "Linkable#backlinks is capped at BACKLINKS_LIMIT" do
+    assert_equal 1000, Linkable::BACKLINKS_LIMIT
+
+    tenant = create_tenant(subdomain: "backlinks-cap-#{SecureRandom.hex(4)}")
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "backlinks-cap-#{SecureRandom.hex(4)}")
+
+    target = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Target", text: "target"
+    )
+    source = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Source", text: "source"
+    )
+
+    now = Time.current
+    over_limit_count = Linkable::BACKLINKS_LIMIT + 1
+    link_attrs = over_limit_count.times.map do
+      {
+        tenant_id: tenant.id,
+        collective_id: collective.id,
+        from_linkable_type: "Note",
+        from_linkable_id: source.id,
+        to_linkable_type: "Note",
+        to_linkable_id: target.id,
+        created_at: now,
+        updated_at: now,
+      }
+    end
+    Link.insert_all(link_attrs)
+
+    assert_equal over_limit_count, Link.where(to_linkable: target).count
+    assert_equal Linkable::BACKLINKS_LIMIT, target.backlinks.size
+  end
+
   # === Multiple History Events ===
 
   test "Multiple updates create multiple history events" do

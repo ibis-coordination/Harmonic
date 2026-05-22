@@ -2,6 +2,7 @@
 
 class ApplicationController < ActionController::Base
   include ParsesScheduledTime
+  include RateLimits
   # Session timeout configuration (in seconds)
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
@@ -986,7 +987,29 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  COMMENTS_PER_MINUTE = 5
+
   def create_comment
+    if current_user && current_resource
+      begin
+        enforce_rate_limit!(
+          scope: "comments",
+          key: [current_user.id, current_resource.id],
+          limit: COMMENTS_PER_MINUTE,
+          period: 1.minute,
+        )
+      rescue RateLimits::Exceeded
+        respond_to do |format|
+          format.html do
+            flash[:alert] = "You're commenting too quickly. Please wait a moment and try again."
+            redirect_back(fallback_location: current_resource.path)
+          end
+          format.json { render status: :too_many_requests, json: { error: "rate_limited", message: "Too many comments. Please wait a minute and try again." } }
+        end
+        return
+      end
+    end
+
     if current_resource.is_commentable?
       comment = api_helper.create_note(commentable: current_resource)
 

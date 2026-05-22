@@ -139,6 +139,32 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
+  test "execute_task is rate-limited per (user, agent)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Sidekiq.redis do |conn|
+      keys = conn.keys("rate_limit:agent_task_runs:*")
+      conn.del(*keys) if keys.any?
+    end
+
+    begin
+      AiAgentsController::TASK_RUNS_PER_MINUTE.times do |i|
+        post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "Task #{i}" }
+        assert_response :redirect, "Run #{i + 1} should succeed: #{response.status}"
+      end
+
+      post "/ai-agents/#{@ai_agent_handle}/run",
+        params: { task: "Over limit" },
+        headers: { "Accept" => "application/json" }
+      assert_response :too_many_requests
+    ensure
+      Sidekiq.redis do |conn|
+        keys = conn.keys("rate_limit:agent_task_runs:*")
+        conn.del(*keys) if keys.any?
+      end
+    end
+  end
+
   test "execute task with custom max_steps" do
     sign_in_as(@user, tenant: @tenant)
 
