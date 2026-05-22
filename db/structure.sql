@@ -929,7 +929,10 @@ CREATE TABLE public.omni_auth_identities (
     otp_failed_attempts integer DEFAULT 0 NOT NULL,
     otp_locked_until timestamp(6) without time zone,
     last_otp_at integer,
-    user_id uuid
+    user_id uuid,
+    email_confirmed_at timestamp without time zone,
+    email_confirmation_token character varying,
+    email_confirmation_sent_at timestamp without time zone
 );
 
 
@@ -4316,6 +4319,13 @@ CREATE INDEX index_oauth_identities_on_user_id ON public.oauth_identities USING 
 --
 
 CREATE UNIQUE INDEX index_omni_auth_identities_on_email ON public.omni_auth_identities USING btree (email);
+
+
+--
+-- Name: index_omni_auth_identities_on_email_confirmation_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_omni_auth_identities_on_email_confirmation_token ON public.omni_auth_identities USING btree (email_confirmation_token);
 
 
 --
@@ -9443,6 +9453,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260521171154'),
+('20260520133331'),
 ('20260514000003'),
 ('20260514000002'),
 ('20260514000001'),

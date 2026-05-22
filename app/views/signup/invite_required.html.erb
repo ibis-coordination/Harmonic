@@ -1,0 +1,36 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-error">
+    <div class="pulse-auth-error-icon" style="color: var(--color-fg-default);">
+      <%= octicon 'mail', height: 48 %>
+    </div>
+    <h1 class="pulse-auth-title">invite required</h1>
+    <p class="pulse-auth-subtitle">
+      <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code> requires an invite code to join.
+    </p>
+
+    <% if flash[:alert].present? %>
+      <div class="pulse-form-alert" style="background:var(--color-danger-subtle);color:var(--color-danger-fg);padding:12px;border-radius:6px;margin-bottom:16px;font-size:13px;">
+        <%= flash[:alert] %>
+      </div>
+    <% end %>
+
+    <%= form_with url: invite_required_path, method: :post, class: "pulse-auth-form", local: true do %>
+      <input type="text" name="code" class="pulse-form-input" placeholder="Invite code" autocomplete="off" autofocus>
+      <div class="pulse-form-actions">
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Continue</button>
+      </div>
+    <% end %>
+
+    <div style="background:var(--color-canvas-subtle);padding:16px;border-radius:6px;margin:24px 0;text-align:left;">
+      <p class="pulse-form-hint" style="margin:0 0 8px 0;">Signed in as:</p>
+      <p style="margin:0;font-size:14px;">
+        <strong><%= @current_user.name %></strong>
+        <br><span style="color:var(--color-fg-muted);"><%= @current_user.email %></span>
+      </p>
+    </div>
+
+    <div class="pulse-form-actions" style="justify-content:center;">
+      <%= button_to 'Log out', '/logout', method: :delete, class: "pulse-action-btn" %>
+    </div>
+  </div>
+</div>

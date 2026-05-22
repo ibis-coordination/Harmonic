@@ -57,24 +57,26 @@
       <% end %>
     </div>
 
-    <hr style="border: none; border-top: 1px solid var(--color-border-default); margin: 24px 0;">
+    <% if @can_disable %>
+      <hr style="border: none; border-top: 1px solid var(--color-border-default); margin: 24px 0;">
 
-    <div>
-      <h3 style="margin-bottom: 12px; color: var(--color-danger-fg);">Disable Two-Factor Authentication</h3>
-      <p style="color: var(--color-fg-muted); font-size: 0.875rem; margin-bottom: 12px;">
-        This will remove 2FA from your account. You will only need your password to log in.
-      </p>
-      <%= form_with url: two_factor_disable_path, method: :post, class: "pulse-auth-form" do |form| %>
-        <%= form.text_field :code,
-            placeholder: 'Enter code to confirm',
-            class: 'pulse-form-input',
-            autocomplete: 'one-time-code',
-            style: 'text-align: center;' %>
-        <div class="pulse-form-actions" style="margin-top: 12px;">
-          <%= submit_tag "Disable 2FA", class: "pulse-action-btn pulse-action-btn-danger", style: "width: 100%;" %>
-        </div>
-      <% end %>
-    </div>
+      <div>
+        <h3 style="margin-bottom: 12px; color: var(--color-danger-fg);">Disable Two-Factor Authentication</h3>
+        <p style="color: var(--color-fg-muted); font-size: 0.875rem; margin-bottom: 12px;">
+          This will remove 2FA from your account. You will only need your password to log in.
+        </p>
+        <%= form_with url: two_factor_disable_path, method: :post, class: "pulse-auth-form" do |form| %>
+          <%= form.text_field :code,
+              placeholder: 'Enter code to confirm',
+              class: 'pulse-form-input',
+              autocomplete: 'one-time-code',
+              style: 'text-align: center;' %>
+          <div class="pulse-form-actions" style="margin-top: 12px;">
+            <%= submit_tag "Disable 2FA", class: "pulse-action-btn pulse-action-btn-danger", style: "width: 100%;" %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
   </div>
 
   <div class="pulse-auth-footer" style="margin-top: 24px;">

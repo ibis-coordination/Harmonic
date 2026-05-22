@@ -1,0 +1,48 @@
+<div class="pulse-activation-page">
+  <div class="pulse-activation-icon">
+    <%= octicon 'checklist', height: 48 %>
+  </div>
+  <h1 class="pulse-activation-title">Activate your account</h1>
+  <p class="pulse-activation-subtitle">
+    A few last steps before you can join <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>.
+  </p>
+
+  <% if flash[:notice].present? %>
+    <div class="pulse-activation-flash pulse-activation-flash--notice">
+      <%= flash[:notice] %>
+    </div>
+  <% end %>
+  <% if flash[:alert].present? %>
+    <div class="pulse-activation-flash pulse-activation-flash--alert">
+      <%= flash[:alert] %>
+    </div>
+  <% end %>
+
+  <ol class="pulse-activation-list">
+    <% @items.each do |item| %>
+      <li class="pulse-activation-item" data-activation-state="<%= item[:satisfied] ? 'complete' : 'pending' %>">
+        <div class="pulse-activation-item-status">
+          <%= octicon(item[:satisfied] ? 'check-circle-fill' : 'circle', height: 22) %>
+        </div>
+        <div class="pulse-activation-item-content">
+          <p class="pulse-activation-item-title"><%= item[:title] %></p>
+          <p class="pulse-activation-item-body"><%= item[:body] %></p>
+        </div>
+        <% if item[:action_label].present? %>
+          <div class="pulse-activation-item-action">
+            <% if item[:action_method] == :post %>
+              <%= button_to item[:action_label], item[:action_path], method: :post,
+                            class: "pulse-action-btn pulse-action-btn-sm" %>
+            <% else %>
+              <%= link_to item[:action_label], item[:action_path], class: "pulse-action-btn pulse-action-btn-sm" %>
+            <% end %>
+          </div>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+
+  <div class="pulse-activation-footer">
+    <%= button_to 'Log out', '/logout', method: :delete, class: "pulse-action-btn" %>
+  </div>
+</div>

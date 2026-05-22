@@ -169,6 +169,60 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
+  # === Invite-Gate Tests ===
+
+  test "internal callback redirects uninvited user to /invite-required on require_invite tenant" do
+    gated_tenant = create_tenant(subdomain: "gated-#{SecureRandom.hex(4)}", name: "Gated Tenant")
+    gated_user = create_user(email: "gated-#{SecureRandom.hex(4)}@example.com", name: "Gated")
+    gated_tenant.add_user!(gated_user)
+    gated_tenant.create_main_collective!(created_by: gated_user)
+    outsider = create_user(email: "outsider-#{SecureRandom.hex(4)}@example.com", name: "Outsider")
+
+    host! "#{gated_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    cookies[:token] = generate_test_token(gated_tenant, outsider)
+
+    get "/login/callback"
+
+    assert_response :redirect
+    assert_match(%r{/invite-required$}, response.location)
+    assert_equal outsider.id, session[:user_id],
+                 "expected user to be signed in so the explainer page can identify them"
+    assert_not gated_tenant.tenant_users.exists?(user: outsider),
+               "expected no auto-join on require_invite tenant"
+  end
+
+  test "internal callback proceeds and auto-joins uninvited user when require_invite is false" do
+    open_tenant = create_tenant(subdomain: "open-#{SecureRandom.hex(4)}", name: "Open Tenant")
+    open_tenant.settings["require_invite"] = false
+    open_tenant.save!
+    host_user = create_user(email: "host-#{SecureRandom.hex(4)}@example.com", name: "Host")
+    open_tenant.add_user!(host_user)
+    open_tenant.create_main_collective!(created_by: host_user)
+    newcomer = create_user(email: "newcomer-#{SecureRandom.hex(4)}@example.com", name: "Newcomer")
+
+    host! "#{open_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    cookies[:token] = generate_test_token(open_tenant, newcomer)
+
+    get "/login/callback"
+
+    assert_response :redirect
+    refute_match(%r{/invite-required}, response.location)
+    assert_equal newcomer.id, session[:user_id]
+  end
+
+  test "internal callback proceeds normally for an existing tenant member with no invite" do
+    member_user = create_user(email: "member-#{SecureRandom.hex(4)}@example.com", name: "Member")
+    @tenant.add_user!(member_user)
+
+    cookies[:token] = generate_test_token(@tenant, member_user)
+
+    get "/login/callback"
+
+    assert_response :redirect
+    refute_match(%r{/invite-required}, response.location)
+    assert_equal member_user.id, session[:user_id]
+  end
+
   # === OAuth Failure Tests ===
 
   test "oauth failure redirects to login with error message" do

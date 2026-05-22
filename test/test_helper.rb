@@ -93,6 +93,17 @@ class ActiveSupport::TestCase
     @global_tenant.create_main_collective!(created_by: @global_user)
     @global_collective = Collective.create!(tenant: @global_tenant, created_by: @global_user, name: "Global Collective", handle: "global-collective")
     @global_collective.add_user!(@global_user)
+
+    # Mark @global_user as fully activated (verified email + 2FA enabled) so
+    # API and request specs that use this user don't hit the Phase-4 activation
+    # gate. Tests that exercise the gate should create their own users with
+    # `activate: false`.
+    global_identity = @global_user.find_or_create_omni_auth_identity!
+    global_identity.update!(email_confirmed_at: Time.current) if global_identity.email_confirmed_at.nil?
+    unless global_identity.otp_enabled
+      global_identity.generate_otp_secret!
+      global_identity.enable_otp!
+    end
   end
 
   # Clear thread-local state between tests
@@ -134,6 +145,20 @@ class ActiveSupport::TestCase
 
   def create_user(email: "#{SecureRandom.hex(8)}@example.com", name: "Test User", user_type: "human")
     User.create!(email: email, name: name, user_type: user_type)
+  end
+
+  # Mark a human user as fully activated for the Phase-4 gate — verified email
+  # + 2FA enabled. Integration/request specs that bypass sign_in_as (e.g.,
+  # tests that use API tokens directly) should call this after creating users
+  # so the gate doesn't 403 them.
+  def mark_activated!(user)
+    return unless user.human?
+    identity = user.find_or_create_omni_auth_identity!
+    identity.update!(email_confirmed_at: Time.current) if identity.email_confirmed_at.nil?
+    unless identity.otp_enabled
+      identity.generate_otp_secret!
+      identity.enable_otp!
+    end
   end
 
   def create_collective(tenant:, created_by:, name: "Test Collective", handle: "test-collective")
@@ -270,12 +295,28 @@ class ActionDispatch::IntegrationTest
   # If AUTH_MODE is 'oauth', this will still work because we bypass the
   # check_honor_system_auth_enabled filter by setting session directly
   # through a workaround.
-  def sign_in_as(user, tenant: nil)
+  # Sign a user in for an integration test.
+  #
+  # By default, the user is "fully activated" (email verified + 2FA enabled) so
+  # existing tests pass through the Phase-4 activation gate (added in
+  # ApplicationController#check_activation_gate) without each having to set
+  # those up manually. Tests that specifically exercise the gate should pass
+  # `activate: false` and add `add_to_tenant: false` if testing the
+  # not-yet-a-member case.
+  def sign_in_as(user, tenant: nil, activate: true, add_to_tenant: true)
     tenant ||= @tenant || @global_tenant
 
-    # Ensure user is member of tenant
-    unless tenant.tenant_users.exists?(user: user)
+    if add_to_tenant && !tenant.tenant_users.exists?(user: user)
       tenant.add_user!(user)
+    end
+
+    if activate && user.human?
+      identity = user.find_or_create_omni_auth_identity!
+      identity.update!(email_confirmed_at: Time.current) if identity.email_confirmed_at.nil?
+      unless identity.otp_enabled
+        identity.generate_otp_secret!
+        identity.enable_otp!
+      end
     end
 
     # Set host for the request

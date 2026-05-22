@@ -113,6 +113,25 @@ Rails.application.routes.draw do
     raise 'Invalid AUTH_MODE'
   end
 
+  # Invite-gated signup landing page (auth-mode-agnostic).
+  # Two-step flow: POST /invite-required validates the code and renders a
+  # confirmation page; POST /invite-required/accept performs the atomic
+  # tenant + collective join.
+  get 'invite-required' => 'signup#invite_required', as: :invite_required
+  post 'invite-required' => 'signup#confirm_invite'
+  post 'invite-required/accept' => 'signup#accept_invite', as: :accept_invite
+
+  # Activation checklist (post-signup gate that ensures a user has joined a
+  # workspace, verified their email, and enabled 2FA — see Phase 4 in the
+  # signup-invite-gate-ux plan). Reachable directly via the user menu while
+  # any of those are incomplete.
+  get 'activate' => 'activation#show', as: :activation
+  post 'activate/send-confirmation' => 'activation#send_email_confirmation', as: :resend_email_confirmation
+
+  # Signup-time email confirmation. Token-authenticated, no login required —
+  # the email link is the proof of ownership.
+  get 'confirm-email/:token' => 'email_confirmations#confirm', as: :confirm_email
+
   namespace :api do
     # The v1 REST API is read-only. All writes go through the markdown UI
     # action routes (/foo/actions/{action_name}), where the capability system,
@@ -277,7 +296,11 @@ Rails.application.routes.draw do
     patch 'image' => 'users#update_image', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
-              only: [:new, :create, :show, :destroy]
+              only: [:new, :create, :show, :destroy] do
+      # Completion step after Stripe Checkout for users who needed to set
+      # up billing as part of creating their first billable token.
+      get :finalize, on: :collection
+    end
     # Representation routes
     post 'represent' => 'users#represent', on: :member
     delete 'represent' => 'users#stop_representing', on: :member

@@ -50,6 +50,13 @@ class SessionsController < ApplicationController
       # Check if this is an identity provider login with 2FA enabled
       if request.env['omniauth.auth'].provider == 'identity'
         omni_auth_identity = identity.user.omni_auth_identity
+        # Auto-send the email confirmation on first email/password login so the
+        # link is already in the user's inbox by the time they land on /activate.
+        # Rate limit so a re-login during the cooldown window doesn't re-trigger.
+        if omni_auth_identity && omni_auth_identity.can_send_email_confirmation?
+          raw_token = omni_auth_identity.send_email_confirmation!
+          EmailConfirmationMailer.confirm(omni_auth_identity, raw_token, original_tenant).deliver_later
+        end
         if omni_auth_identity&.otp_enabled
           # Redirect to 2FA verification instead of completing login
           session[:pending_2fa_identity_id] = omni_auth_identity.id
@@ -216,15 +223,15 @@ class SessionsController < ApplicationController
 
     tenant_user = tenant.tenant_users.find_by(user: @current_user)
     is_accepting_invite = cookies[:collective_invite_code].present?
-    if tenant_user || is_accepting_invite
-      session[:user_id] = @current_user.id
-      session[:logged_in_at] = Time.current.to_i
-      session[:last_activity_at] = Time.current.to_i
+    session[:user_id] = @current_user.id
+    session[:logged_in_at] = Time.current.to_i
+    session[:last_activity_at] = Time.current.to_i
+    if tenant_user || is_accepting_invite || !tenant.require_invite?
       redirect_to_resource_or_invite_or_root
     else
-      # user is not allowed to access this tenant
-      @sidebar_mode = 'none'
-      render status: 403, layout: 'application', template: 'sessions/403_to_logout'
+      # user is signed in but not a member of this tenant and there's no
+      # invite cookie — send them to the friendly explainer rather than a 403
+      redirect_to "/invite-required"
     end
   end
 

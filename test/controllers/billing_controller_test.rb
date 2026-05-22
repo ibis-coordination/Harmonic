@@ -41,6 +41,25 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "show describes a fresh human as a 'Free account' with no subscription needed" do
+    # Fresh user — no AI agents, no non-main collectives.
+    fresh_tenant = create_tenant(subdomain: "billing-free-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "billing-free-#{SecureRandom.hex(4)}@example.com", name: "Billing Free")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+    host! "#{fresh_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    sign_in_as(fresh_user, tenant: fresh_tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_match(/free account/i, response.body,
+                 "expected 'Free account' framing for humans with no billable resources")
+    assert_no_match(/Set Up Billing/, response.body,
+                    "fresh humans should not see a Set Up Billing button")
+  end
+
   test "show redirects unauthenticated user to login" do
     get "/billing"
     assert_response :redirect
@@ -379,8 +398,8 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     get "/billing"
 
     assert_response :success
-    # 1 (account) + 2 (agents) + N (collectives)
-    expected_total = (1 + 2 + expected_collectives) * 3
+    # Humans are free. 2 agents + N collectives @ $3/mo each.
+    expected_total = (2 + expected_collectives) * 3
     assert_includes response.body, "$#{expected_total}/mo"
   end
 
@@ -399,27 +418,33 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Set Up Billing"
   end
 
-  test "show displays billing-exempt banner when all resources are exempt" do
+  test "show displays free-account banner when no billable resources" do
+    # Under humans-free, a user with no agents and no non-main collectives
+    # owned by them lands in the "free account" branch — same view branch
+    # the older billing-exempt test used to cover (now broadened beyond
+    # admin-set exemption).
     @user.update!(billing_exempt: true)
-    # Exempt all non-main collectives created by this user
     Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
 
     assert_response :success
-    assert_includes response.body, "Billing-exempt"
+    assert_includes response.body, "Free account"
   end
 
   test "show displays exempt label on individual exempt resources" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    @user.update!(billing_exempt: true)
+    # Humans are always free — the (exempt) label now applies to per-resource
+    # exemptions (agents/collectives). Exempt one collective, leave another
+    # non-exempt, and assert both labels appear.
+    exempt_collective = create_test_collective(name: "Exempt Coll")
+    exempt_collective.update!(billing_exempt: true)
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
 
     assert_response :success
-    # User row should show exempt, but non-exempt collectives should show $3/mo
     assert_includes response.body, "(exempt)"
     assert_includes response.body, "$3/mo"
   end

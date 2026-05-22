@@ -42,5 +42,5 @@
     You have <strong><%= @recovery_codes.length %></strong> recovery codes.
   </p>
 
-  <%= link_to 'Continue to Settings', two_factor_settings_path, class: 'pulse-action-btn', style: 'display: inline-block;' %>
+  <%= link_to 'Continue', @continue_url, class: 'pulse-action-btn', style: 'display: inline-block;' %>
 </div>

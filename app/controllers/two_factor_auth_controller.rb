@@ -92,6 +92,7 @@ class TwoFactorAuthController < ApplicationController
       @recovery_codes = identity.generate_recovery_codes!
       session.delete(:pending_otp_secret)
       SecurityAuditLog.log_2fa_enabled(identity: identity, ip: request.remote_ip)
+      @continue_url = post_2fa_setup_continue_url
       render :show_recovery_codes
     else
       flash[:alert] = "Invalid verification code. Please try again."
@@ -113,10 +114,24 @@ class TwoFactorAuthController < ApplicationController
 
     @remaining_codes = identity.remaining_recovery_codes_count
     @enabled_at = identity.otp_enabled_at
+    # When the current tenant requires 2FA, hide the disable controls — the
+    # activation gate would just force re-setup on the next request anyway.
+    # NOTE: this is a per-current-tenant check. A user in multiple tenants
+    # with different require_2fa policies could still disable from a permissive
+    # tenant and then get caught by the activation gate when they hit a
+    # stricter one. Acceptable for now; the gate is the source of truth.
+    @can_disable = !@current_tenant.require_2fa?
   end
 
   # POST /settings/two-factor/disable
   def disable
+    # Defense-in-depth match for the settings view: don't let a direct POST
+    # bypass the hidden-from-UI guard when the tenant requires 2FA.
+    if @current_tenant.require_2fa?
+      flash[:alert] = "Two-factor authentication is required for this workspace and cannot be disabled."
+      return redirect_to two_factor_settings_path
+    end
+
     identity = current_identity
     code = params[:code]&.strip
 
@@ -247,5 +262,23 @@ class TwoFactorAuthController < ApplicationController
       standalone: true,
       use_path: true,
     )
+  end
+
+  # Destination shown on the recovery-codes page after a fresh 2FA setup.
+  # Precedence:
+  #   1. session[:reverification_return_to] — the user was blocked by
+  #      require_reverification on the way to some other action; honor that
+  #      destination and consume the stash.
+  #   2. session[:activation_return_to] present — the user came via the
+  #      Phase-4 activation gate. Send them through /activate so it can
+  #      consume its own stash (or auto-redirect home if all items satisfied).
+  #   3. Default — /u/handle/settings (the user's settings index). Less
+  #      awkward than the old /settings/two-factor/manage default for users
+  #      who didn't navigate here specifically to manage 2FA.
+  def post_2fa_setup_continue_url
+    rev_to = session.delete(:reverification_return_to)
+    return rev_to if rev_to.present?
+    return activation_path if session[:activation_return_to].present?
+    "#{current_user.path}/settings"
   end
 end

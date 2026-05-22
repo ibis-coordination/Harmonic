@@ -1,0 +1,41 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-error">
+    <% if @confirmed %>
+      <div class="pulse-auth-error-icon" style="color: var(--color-success-fg);">
+        <%= octicon 'check-circle', height: 48 %>
+      </div>
+      <h1 class="pulse-auth-title">Email confirmed</h1>
+      <p class="pulse-auth-subtitle">
+        <% if @already_verified %>
+          <strong><%= @email %></strong> was already verified.
+        <% else %>
+          Thanks — <strong><%= @email %></strong> is now verified.
+        <% end %>
+      </p>
+
+      <p style="margin-top:24px;">
+        <% if @current_user %>
+          <%= link_to "Continue to activation", activation_path, class: "pulse-action-btn pulse-action-btn-primary" %>
+        <% else %>
+          <%= link_to "Log in to continue", "/login", class: "pulse-action-btn pulse-action-btn-primary" %>
+        <% end %>
+      </p>
+    <% else %>
+      <div class="pulse-auth-error-icon" style="color: var(--color-danger-fg);">
+        <%= octicon 'alert', height: 48 %>
+      </div>
+      <h1 class="pulse-auth-title">Confirmation link expired</h1>
+      <p class="pulse-auth-subtitle">
+        This link is no longer valid. Request a fresh confirmation email and click the new link.
+      </p>
+
+      <p style="margin-top:24px;">
+        <% if @current_user %>
+          <%= link_to "Request a new link", activation_path, class: "pulse-action-btn pulse-action-btn-primary" %>
+        <% else %>
+          <%= link_to "Log in", "/login", class: "pulse-action-btn pulse-action-btn-primary" %>
+        <% end %>
+      </p>
+    <% end %>
+  </div>
+</div>

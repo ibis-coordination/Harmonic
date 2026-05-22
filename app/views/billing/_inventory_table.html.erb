@@ -6,10 +6,10 @@
       <td><%= octicon 'person', height: 14 %> <%= @current_user.display_name %> <span class="pulse-muted">(you)</span></td>
       <% if show_prices %>
         <td style="text-align: right;">
-          <% if @current_user.billing_exempt? %>
-            <span style="color: var(--color-fg-muted);">$0/mo <span class="pulse-muted">(exempt)</span></span>
+          <% if @current_user.counts_self_for_api_access? %>
+            $3/mo <span class="pulse-muted">(API access)</span>
           <% else %>
-            $3/mo
+            <span style="color: var(--color-fg-muted);">free</span>
           <% end %>
         </td>
       <% end %>

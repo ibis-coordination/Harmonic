@@ -590,6 +590,90 @@ class UserTest < ActiveSupport::TestCase
     assert_match /Invalid global role/, error.message
   end
 
+  # === Activation Predicate Tests ===
+
+  test "email_verified? returns false when there's no omni_auth_identity and no oauth identity" do
+    assert_nil @user.omni_auth_identity
+    assert_not @user.email_verified?
+  end
+
+  test "email_verified? returns false when the omni_auth_identity is unverified" do
+    @user.find_or_create_omni_auth_identity!
+    assert_not @user.email_verified?
+  end
+
+  test "email_verified? returns true when the omni_auth_identity is verified" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.update!(email_confirmed_at: Time.current)
+    assert @user.email_verified?
+  end
+
+  test "two_factor_enabled? is false when there is no identity" do
+    assert_not @user.two_factor_enabled?
+  end
+
+  test "two_factor_enabled? is false when otp_enabled is false" do
+    @user.find_or_create_omni_auth_identity!
+    assert_not @user.two_factor_enabled?
+  end
+
+  test "two_factor_enabled? is true when otp_enabled is true" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    assert @user.two_factor_enabled?
+  end
+
+  test "fully_activated_for? returns true for a non-human user (collective_identity)" do
+    # Collective identity users are system-generated and never need activation.
+    ci_user = User.create!(email: "ci-#{SecureRandom.hex(4)}@example.com", name: "CI", user_type: "collective_identity")
+    assert ci_user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? returns true for an AI agent (parent's activation is what matters)" do
+    agent = create_ai_agent(parent: @user, name: "Agent #{SecureRandom.hex(4)}")
+    assert agent.fully_activated_for?(@tenant),
+           "expected AI agent to be considered activated regardless of its own state"
+  end
+
+  test "fully_activated_for? returns true for sys_admin even with no 2FA or unverified email" do
+    @user.update!(sys_admin: true)
+    assert @user.fully_activated_for?(@tenant),
+           "expected sys_admin to bypass activation"
+  end
+
+  test "fully_activated_for? returns false when human is not a tenant member" do
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}")
+    # @user is in @tenant but NOT in other_tenant.
+    assert_not @user.fully_activated_for?(other_tenant)
+  end
+
+  test "fully_activated_for? returns false when human's email isn't verified (and tenant requires it)" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    # email_confirmed_at left nil
+    assert_not @user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? returns false when human has no 2FA (and tenant requires it)" do
+    @user.find_or_create_omni_auth_identity!.update!(email_confirmed_at: Time.current)
+    assert_not @user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? returns true when human has everything and tenant flags are default" do
+    mark_activated!(@user)
+    assert @user.fully_activated_for?(@tenant)
+  end
+
+  test "fully_activated_for? respects tenant flags — opted-out tenant doesn't require email/2FA" do
+    @tenant.settings["require_verified_email"] = false
+    @tenant.settings["require_2fa"] = false
+    @tenant.save!
+    # No email_confirmed_at, no 2FA — but the tenant doesn't require them.
+    assert @user.fully_activated_for?(@tenant)
+  end
+
   # === User Suspension Tests ===
 
   test "suspended? returns false by default" do
@@ -1076,6 +1160,184 @@ class UserTest < ActiveSupport::TestCase
 
   # === Stripe Billing Tests ===
 
+  # === Humans-free billing model ===
+
+  test "counts_self_for_api_access? is false for a fresh human with no tokens" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "api-bill-#{SecureRandom.hex(4)}@example.com", name: "API #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    assert_not fresh_user.counts_self_for_api_access?
+    assert_equal 0, fresh_user.billable_quantity
+  end
+
+  test "counts_self_for_api_access? is true once a human creates an active external token" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-token-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "api-bill-#{SecureRandom.hex(4)}@example.com", name: "API #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    create_api_token(user: fresh_user, tenant: fresh_tenant)
+
+    assert fresh_user.counts_self_for_api_access?
+    assert_equal 1, fresh_user.billable_quantity
+  end
+
+  test "counts_self_for_api_access? caps at 1 — flat surcharge regardless of token count" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-many-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "api-bill-#{SecureRandom.hex(4)}@example.com", name: "Many Tokens")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    3.times { create_api_token(user: fresh_user, tenant: fresh_tenant) }
+
+    assert_equal 1, fresh_user.billable_quantity,
+                 "owning multiple tokens should still only add +1 to billable_quantity"
+  end
+
+  test "counts_self_for_api_access? ignores deleted tokens" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-del-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "api-bill-#{SecureRandom.hex(4)}@example.com", name: "Deleter")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    token = create_api_token(user: fresh_user, tenant: fresh_tenant)
+    token.delete!
+
+    assert_not fresh_user.counts_self_for_api_access?
+    assert_equal 0, fresh_user.billable_quantity
+  end
+
+  test "counts_self_for_api_access? ignores expired tokens" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-exp-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "api-bill-#{SecureRandom.hex(4)}@example.com", name: "Expired")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    create_api_token(user: fresh_user, tenant: fresh_tenant, expires_at: 1.day.ago)
+
+    assert_not fresh_user.counts_self_for_api_access?
+    assert_equal 0, fresh_user.billable_quantity
+  end
+
+  test "counts_self_for_api_access? ignores internal (runner) tokens" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-int-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "api-bill-#{SecureRandom.hex(4)}@example.com", name: "Internal Only")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    # Internal tokens are per-task runner tokens issued by the system and
+    # should not surcharge the user. Skip validation here — ApiToken requires
+    # a context (AiAgentTaskRun/AutomationRuleRun) for internal tokens, which
+    # is irrelevant to what this test is asserting (the billing filter).
+    token = ApiToken.new(
+      user: fresh_user,
+      tenant: fresh_tenant,
+      name: "Internal #{SecureRandom.hex(4)}",
+      scopes: ["read:all"],
+      expires_at: 1.hour.from_now,
+      internal: true,
+    )
+    token.save!(validate: false)
+
+    assert_not fresh_user.counts_self_for_api_access?
+    assert_equal 0, fresh_user.billable_quantity
+  end
+
+  test "counts_self_for_api_access? is false for AI agents (their tokens belong to the agent itself)" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-agent-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    parent = create_user(email: "parent-#{SecureRandom.hex(4)}@example.com", name: "Parent")
+    fresh_tenant.add_user!(parent)
+    fresh_tenant.create_main_collective!(created_by: parent)
+
+    Tenant.scope_thread_to_tenant(subdomain: fresh_tenant.subdomain)
+    agent = create_ai_agent(parent: parent, name: "Agent #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(agent)
+    Tenant.clear_thread_scope
+
+    create_api_token(user: agent, tenant: fresh_tenant)
+
+    assert_not agent.counts_self_for_api_access?,
+               "AI agent tokens should not trigger the API-access surcharge"
+  end
+
+  test "billable_quantity is 0 for a sys_admin user even with tokens, agents, and collectives" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-sys-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    admin = create_user(email: "sys-#{SecureRandom.hex(4)}@example.com", name: "Sys")
+    admin.update!(sys_admin: true)
+    fresh_tenant.add_user!(admin)
+    fresh_tenant.create_main_collective!(created_by: admin)
+
+    create_api_token(user: admin, tenant: fresh_tenant)
+
+    assert_not admin.counts_self_for_api_access?
+    assert_equal 0, admin.billable_quantity,
+                 "sys_admin users are platform operators and exempt from billing"
+  end
+
+  test "billable_quantity is 0 for an app_admin user even with tokens" do
+    fresh_tenant = create_tenant(subdomain: "api-bill-app-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    admin = create_user(email: "app-#{SecureRandom.hex(4)}@example.com", name: "App")
+    admin.update!(app_admin: true)
+    fresh_tenant.add_user!(admin)
+    fresh_tenant.create_main_collective!(created_by: admin)
+
+    create_api_token(user: admin, tenant: fresh_tenant)
+
+    assert_not admin.counts_self_for_api_access?
+    assert_equal 0, admin.billable_quantity,
+                 "app_admin users are platform operators and exempt from billing"
+  end
+
+  test "billable_quantity treats a human user as 0 (humans are free, agents and extra collectives are billed)" do
+    fresh_tenant = create_tenant(subdomain: "fresh-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    assert_equal 0, fresh_user.billable_quantity,
+                 "expected a fresh human with no agents or non-main collectives to contribute 0 to billable_quantity"
+  end
+
+  test "stripe_billing_setup? returns true for a fresh human with no billable resources" do
+    fresh_tenant = create_tenant(subdomain: "fresh-setup-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    assert fresh_user.stripe_billing_setup?,
+           "fresh humans should not be required to set up billing"
+  end
+
+  test "stripe_billing_setup? becomes false once a human creates a billable agent" do
+    fresh_tenant = create_tenant(subdomain: "fresh-agent-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+    assert fresh_user.stripe_billing_setup?, "sanity check: free before creating anything"
+
+    Tenant.scope_thread_to_tenant(subdomain: fresh_tenant.subdomain)
+    agent = create_ai_agent(parent: fresh_user, name: "Agent #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(agent)
+
+    assert_not fresh_user.reload.stripe_billing_setup?,
+               "creating a billable agent should require billing setup"
+    assert_equal 1, fresh_user.billable_quantity
+  end
+
   test "stripe_billing_setup? returns true when user has active stripe customer" do
     StripeCustomer.create!(
       billable: @user,
@@ -1204,6 +1466,16 @@ class UserTest < ActiveSupport::TestCase
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  def create_api_token(user:, tenant:, name: nil, scopes: ["read:all"], expires_at: 1.year.from_now)
+    ApiToken.create!(
+      user: user,
+      tenant: tenant,
+      name: name || "Token #{SecureRandom.hex(4)}",
+      scopes: scopes,
+      expires_at: expires_at,
+    )
   end
 
   # ==========================================

@@ -242,6 +242,7 @@ class ApiHelperTest < ActiveSupport::TestCase
   test "ApiHelper.start_user_representation_session creates a user representation session" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
+    mark_activated!(other_user)  # required by Phase-4: granting_user must be activated
 
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -298,6 +299,7 @@ class ApiHelperTest < ActiveSupport::TestCase
   test "ApiHelper.start_user_representation_session raises error for wrong user" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     @tenant.add_user!(other_user)
+    mark_activated!(other_user)
 
     grant = TrusteeGrant.create!(
       tenant: @tenant,
@@ -318,6 +320,61 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert_raises ArgumentError do
       api_helper.start_user_representation_session(grant: grant)
     end
+  end
+
+  test "ApiHelper.start_user_representation_session raises when granting_user (a human) is not fully activated" do
+    # Phase 4: representing another human requires BOTH parties to be activated.
+    # The trustee (current_user) is implicitly activated (they passed the gate
+    # to reach this code path); the granting_user is checked here.
+    other_user = create_user(email: "unact_#{SecureRandom.hex(4)}@example.com", name: "Unactivated User")
+    @tenant.add_user!(other_user)
+    # Deliberately NOT calling mark_activated!(other_user)
+
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_user,
+      trustee_user: @user,
+      permissions: { "create_notes" => true },
+    )
+    grant.accept!
+
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {},
+      request: {}
+    )
+
+    error = assert_raises ArgumentError do
+      api_helper.start_user_representation_session(grant: grant)
+    end
+    assert_match(/isn't fully activated|not fully activated/i, error.message)
+  end
+
+  test "ApiHelper.start_user_representation_session does NOT require the granting_user to be activated when granting_user is an AI agent" do
+    # AI agents inherit activation via their parent (already-activated current_user).
+    # The agent itself never has an email/2FA setup of its own.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent = create_ai_agent(parent: @user, name: "Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+    Tenant.clear_thread_scope
+
+    # The auto-created grant: agent grants → parent (current @user) is trustee
+    grant = TrusteeGrant.active.find_by(granting_user: agent, trustee_user: @user)
+    assert grant.present?, "expected auto-created parent grant for the agent"
+
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      params: {},
+      request: {}
+    )
+
+    rep_session = api_helper.start_user_representation_session(grant: grant)
+    assert rep_session.persisted?,
+           "expected rep session to be created — AI agent grants should not be blocked by activation"
   end
 
   # === Table Note Operations ===

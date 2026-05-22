@@ -85,6 +85,75 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   end
 
   # =============================================================================
+  # Email Confirmation
+  # =============================================================================
+
+  EMAIL_CONFIRMATION_VALIDITY = 7.days
+  EMAIL_CONFIRMATION_RESEND_COOLDOWN = 60.seconds
+
+  sig { returns(T::Boolean) }
+  def email_verified?
+    email_confirmed_at.present?
+  end
+
+  # True if a fresh send is allowed: either we've never sent one, or the
+  # cooldown has elapsed. Used by the resend action + the auto-send path to
+  # avoid spamming.
+  sig { returns(T::Boolean) }
+  def can_send_email_confirmation?
+    return false if email_verified?
+    return true if email_confirmation_sent_at.nil?
+    T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_RESEND_COOLDOWN.ago
+  end
+
+  # Seconds remaining until the next send is allowed, or 0 if it is now.
+  sig { returns(Integer) }
+  def email_confirmation_resend_wait
+    return 0 if email_verified?
+    return 0 if email_confirmation_sent_at.nil?
+    elapsed = Time.current - T.must(email_confirmation_sent_at)
+    remaining = EMAIL_CONFIRMATION_RESEND_COOLDOWN - elapsed
+    remaining.positive? ? remaining.to_i : 0
+  end
+
+  # Generates a fresh confirmation token and returns the raw value to be put in
+  # the confirmation email. The stored value is a SHA256 hash, so a leaked DB
+  # row can't be used to confirm someone else's email.
+  sig { returns(String) }
+  def send_email_confirmation!
+    raw_token = SecureRandom.urlsafe_base64(32)
+    self.email_confirmation_token = Digest::SHA256.hexdigest(raw_token)
+    self.email_confirmation_sent_at = T.cast(Time.current, ActiveSupport::TimeWithZone)
+    save!
+    raw_token
+  end
+
+  sig { params(raw_token: T.nilable(String)).returns(T.nilable(OmniAuthIdentity)) }
+  def self.find_by_email_confirmation_token(raw_token)
+    return nil if raw_token.blank?
+    find_by(email_confirmation_token: Digest::SHA256.hexdigest(raw_token))
+  end
+
+  # Idempotent: returns true if already verified (re-clicked link case).
+  # Otherwise validates the token and the time window, then flips
+  # email_confirmed_at. Deliberately does NOT clear the token/sent_at —
+  # keeping them lets a second click of the same URL resolve back to this
+  # identity and short-circuit as "already verified" rather than 404. The
+  # security profile differs from password reset (re-confirming an already-
+  # confirmed email is a no-op, not a privilege change).
+  sig { params(raw_token: String).returns(T::Boolean) }
+  def confirm_email!(raw_token)
+    return true if email_verified?
+    return false if email_confirmation_token.blank?
+    return false if email_confirmation_sent_at.blank?
+    return false if T.must(email_confirmation_sent_at) < EMAIL_CONFIRMATION_VALIDITY.ago
+    return false unless Digest::SHA256.hexdigest(raw_token.to_s) == email_confirmation_token
+
+    update!(email_confirmed_at: Time.current)
+    true
+  end
+
+  # =============================================================================
   # Two-Factor Authentication (TOTP)
   # =============================================================================
 
@@ -114,6 +183,7 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
   def verify_otp(code)
     return false if otp_secret.blank?
     return false if otp_locked?
+    return true if dev_2fa_bypass?(code)
 
     totp = ROTP::TOTP.new(otp_secret, issuer: OTP_ISSUER)
     # drift_behind and drift_ahead allow for 30 seconds of clock drift.
@@ -220,5 +290,24 @@ class OmniAuthIdentity < OmniAuth::Identity::Models::ActiveRecord
     self.otp_locked_until = nil
     self.last_otp_at = nil
     save!
+  end
+
+  private
+
+  # Dev-only TOTP bypass. Quadruple-guarded:
+  #   1. Rails.env.development?   — won't fire in test, staging, or production
+  #   2. !Rails.env.production?   — defense-in-depth against env-spoofing
+  #   3. ENV["DEV_2FA_BYPASS_CODE"] must be set — won't exist in production
+  #   4. Code must match the env-var value exactly
+  # The env-var design means the code value is never in this repo — even if
+  # the env checks somehow failed, an attacker would still need to know a
+  # value that isn't published anywhere.
+  sig { params(code: String).returns(T::Boolean) }
+  def dev_2fa_bypass?(code)
+    return false unless Rails.env.development?
+    return false if Rails.env.production?
+    bypass_code = ENV["DEV_2FA_BYPASS_CODE"]
+    return false if bypass_code.blank?
+    code == bypass_code
   end
 end

@@ -84,6 +84,93 @@ class BillingGateTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # === Humans-free model ===
+
+  test "fresh human user with no billable resources is NOT redirected to /billing" do
+    # Humans are free under the current model. Only AI agents and additional
+    # collectives are billed. A fresh user with neither should be allowed in.
+    fresh_tenant = create_tenant(subdomain: "fresh-gate-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "fresh-gate-#{SecureRandom.hex(4)}@example.com", name: "Fresh Gate")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    sign_in_as(fresh_user, tenant: fresh_tenant)
+    get "/"
+
+    assert_response :success
+    assert_no_match %r{/billing}, response.body[0..1000] || "",
+                    "fresh humans without agents or extra collectives should not be billing-gated"
+  end
+
+  # === return_to preservation ===
+
+  test "billing gate saves request path to session so user is resumed after checkout" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Simulate a user arriving at an invite URL mid-flow when billing gate fires
+    get "/collectives/#{@collective.handle}/join?code=abc123"
+
+    assert_response :redirect
+    assert_match %r{/billing}, response.location
+    assert_equal "/collectives/#{@collective.handle}/join?code=abc123",
+                 session[:billing_return_to],
+                 "expected billing gate to stash request.fullpath so BillingController can resume the user there after checkout"
+  end
+
+  test "billing gate ignores JSON/XHR requests for return_to (avoids clobbering by background polls)" do
+    # Regression: the unread_count notification poll (and any other background
+    # JSON fetch) fires the gate too. Without filtering, whichever request
+    # finishes last wins session[:billing_return_to] — typically the JSON
+    # endpoint, leaving the user redirected to /notifications/unread_count
+    # after Stripe checkout.
+    sign_in_as(@user, tenant: @tenant)
+
+    # First, a real navigation that we want to resume to:
+    get "/collectives/#{@collective.handle}/join?code=abc123"
+    assert_equal "/collectives/#{@collective.handle}/join?code=abc123",
+                 session[:billing_return_to]
+
+    # Then, simulate the bell-icon JSON poll firing
+    get "/notifications/unread_count", as: :json
+
+    assert_equal "/collectives/#{@collective.handle}/join?code=abc123",
+                 session[:billing_return_to],
+                 "expected JSON poll to NOT overwrite the user's actual destination"
+  end
+
+  test "billing gate sets a flash notice explaining why the user was redirected" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/join?code=abc123"
+
+    assert_response :redirect
+    assert flash[:notice].present?,
+           "expected a flash notice explaining the bounce to /billing"
+    assert_match(/billing|set up payment|continue/i, flash[:notice].to_s,
+                 "expected the notice to reference billing setup as the next step")
+  end
+
+  test "billing gate does NOT set a flash for JSON/XHR requests" do
+    # No human ever sees that flash, and it'd clobber the real one.
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications/unread_count", as: :json
+
+    assert_nil flash[:notice]
+  end
+
+  test "billing gate does not stomp the return_to with /billing itself" do
+    # The billing controller is exempt — gate shouldn't fire when already on /billing.
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing"
+
+    assert_response :success
+    assert_nil session[:billing_return_to],
+               "expected no return_to to be set when the gate is exempt"
+  end
+
   test "unauthenticated users are not affected by billing gate" do
     # Unauthenticated user should be redirected to login, not billing
     get "/"

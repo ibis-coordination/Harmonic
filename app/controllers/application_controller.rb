@@ -11,6 +11,7 @@ class ApplicationController < ActionController::Base
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
   before_action :check_user_suspension
+  before_action :check_activation_gate
   before_action :check_stripe_billing_gate
   before_action :check_collective_archived
 
@@ -134,6 +135,33 @@ class ApplicationController < ActionController::Base
     end
     return render json: { error: "API only supports JSON or Markdown formats" }, status: :forbidden unless json_or_markdown_request?
 
+    # Bill humans-with-tokens at the same $3/mo as agents. Internal tokens and
+    # ai_agent-owned tokens are exempt — agents are billed via their parent's
+    # subscription, enforced at agent creation (pending pattern).
+    if current_token && !current_token.internal? &&
+       current_token.user.human? &&
+       current_token.user.requires_stripe_billing?(current_tenant)
+      return render json: {
+        error: "billing_required",
+        message: "Your API token is inactive. Set up billing at #{billing_show_url} to activate it.",
+      }, status: :forbidden
+    end
+
+    # Activation gate for API tokens. For human-owned tokens, the user must be
+    # fully activated. For agent-owned tokens, the agent's PARENT human must
+    # be activated — otherwise a half-activated user could spawn an agent and
+    # use the agent's token to bypass the gate. Internal (runner) tokens are
+    # exempt; they're issued only for already-active agents.
+    if current_token && !current_token.internal?
+      token_human = current_token.user.human? ? current_token.user : current_token.user.parent
+      if token_human&.human? && !token_human.fully_activated_for?(current_tenant)
+        return render json: {
+          error: "activation_required",
+          message: "Your account isn't fully activated. Visit /activate in the browser to finish setup.",
+        }, status: :forbidden
+      end
+    end
+
     request.format = :md unless request.format == :json
     current_token || render(json: { error: "Unauthorized" }, status: :unauthorized)
   end
@@ -177,6 +205,11 @@ class ApplicationController < ActionController::Base
   # This mirrors the browser flow where a RepresentationSession must be started first.
   def resolve_api_user
     api_authorize!
+    # If api_authorize! already rendered an error (e.g., billing_required,
+    # activation_required, API-not-enabled), short-circuit so downstream
+    # representation handling doesn't try to render a second response.
+    return nil if performed?
+
     # NOTE: must set @current_user before calling validate_scope to avoid infinite loop
     user = @current_token&.user
     return nil if user.nil?
@@ -184,6 +217,7 @@ class ApplicationController < ActionController::Base
     # Set @current_user temporarily for validate_scope (which calls current_user)
     @current_user = user
     validate_scope
+    return nil if performed?
 
     # Handle representation through the API
     session_id = request.headers["X-Representation-Session-ID"]
@@ -444,11 +478,12 @@ class ApplicationController < ActionController::Base
   def current_invite
     return @current_invite if defined?(@current_invite)
 
-    @current_invite = if params[:code] || cookies[:invite_code]
-                        Invite.find_by(
-                          collective: current_collective,
-                          code: params[:code] || cookies[:invite_code]
-                        )
+    # The cookie set during the cross-subdomain OAuth round-trip is
+    # `:collective_invite_code` (see SessionsController#redirect_to_auth_domain).
+    # We tolerate both names so a direct ?code= URL navigation also works.
+    code = params[:code] || cookies[:collective_invite_code] || cookies[:invite_code]
+    @current_invite = if code.present?
+                        Invite.find_by(collective: current_collective, code: code)
                       end
     @current_invite
   end
@@ -457,9 +492,18 @@ class ApplicationController < ActionController::Base
     tu = @current_tenant.tenant_users.find_by(user: @current_user)
     if tu.nil?
       accepting_invite = current_invite && current_invite.collective == @current_collective
-      if @current_tenant.require_login? && controller_name != "sessions" && !accepting_invite
-        @sidebar_mode = "none"
-        render status: :forbidden, layout: "application", template: "sessions/403_to_logout"
+      # Any auth-flow controller (sessions, signup, activation, email
+      # confirmations, reverification, etc.) bypasses the membership gate.
+      # Activation specifically needs this so a user can reach /activate via
+      # an invite cookie before they've accepted (and become a member).
+      gate_controller = is_auth_controller?
+      if !@current_tenant.require_invite? && @current_tenant.require_login? && !gate_controller
+        @current_tenant.add_user!(@current_user)
+      elsif @current_tenant.require_login? && !gate_controller && !accepting_invite
+        redirect_to "/invite-required"
+        return # CRITICAL: must return after redirect — otherwise execution
+        # falls through to the collective_members.add_user! branch below and
+        # creates a spurious main-collective membership for non-tenant-members.
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
         # The user still has to click "accept" to accept the invite to the collective,
         # but they need to access the tenant to do so.
@@ -631,7 +675,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -1098,6 +1142,42 @@ class ApplicationController < ActionController::Base
     redirect_to "/login"
   end
 
+  # Activation gate: before a human can use the app, they must (1) be a member
+  # of the current tenant, (2) have a verified email (if the tenant requires
+  # it), and (3) have 2FA enabled (if the tenant requires it). When any
+  # requirement is missing the user is bounced to /activate, which walks them
+  # through the missing pieces.
+  #
+  # Exempt: non-humans, sys/app admins, auth controllers (/activate itself,
+  # signup, login, two_factor_auth, email_confirmations, etc.), API requests,
+  # and the user-settings pages they may need to update profile/email/2FA.
+  def check_activation_gate
+    # Activation is a property of the actual signed-in human (the person at the
+    # keyboard). Under representation, @current_user is the trustee identity
+    # being acted as — that's not the user we want to gate on.
+    human = @current_human_user || @current_user
+    return unless human&.human?
+    return if is_auth_controller?
+    return if api_token_present?
+    return if request.path.start_with?("/api/")
+    # User-settings actions only (not `show`, which is the public profile page
+    # and should be gated). Users need settings to manage their email + change
+    # other identity fields linked from /activate.
+    return if controller_name == "users" && action_name.in?(%w[settings update_profile update_email cancel_email_change confirm_email update_image])
+    return if controller_name == "two_factor_auth"
+
+    return if human.fully_activated_for?(@current_tenant)
+
+    # Preserve where the user was headed so /activate can resume after
+    # completion. Same HTML-GET filter as the billing gate to avoid clobbering
+    # the real destination with background polls.
+    if request.get? && request.format.html? && !request.xhr?
+      session[:activation_return_to] = request.fullpath
+    end
+
+    redirect_to "/activate"
+  end
+
   # Billing gate: when stripe_billing is enabled, human users must have an active
   # subscription before they can use the app. Exempt: billing pages, auth routes,
   # webhooks, API controllers, non-human users, user settings.
@@ -1110,10 +1190,29 @@ class ApplicationController < ActionController::Base
     # not ApplicationController, so they're inherently exempt)
     return if is_auth_controller?
     return if self.is_a?(BillingController)
+    # ApiTokensController routes the user through its own Stripe Checkout
+    # flow on create (and resumes via #finalize). Bouncing to /billing here
+    # would prevent it from running.
+    return if self.is_a?(ApiTokensController)
     return if request.path.start_with?("/api/")
+    # API requests (any path) have their own billing check inside api_authorize!.
+    # Without this, collective-scoped API paths like /collectives/X/api/v1/...
+    # would be redirected to /billing instead of returning a clean 403 JSON.
+    return if api_token_present?
 
     # Exempt user settings page
     return if controller_name == "users" && action_name.in?(%w[settings show update_profile update_email cancel_email_change confirm_email])
+
+    # Preserve where the user was headed so BillingController can resume the
+    # flow after Stripe Checkout completes, and explain the bounce so the
+    # user understands why they were redirected mid-task. Only stash top-level
+    # HTML navigations: POST/PATCH/DELETE bodies can't be replayed, and
+    # JSON/XHR polls (e.g. /notifications/unread_count) would otherwise
+    # clobber the real destination since they fire from the same page load.
+    if request.get? && request.format.html? && !request.xhr?
+      session[:billing_return_to] = request.fullpath
+      flash[:notice] = "Set up billing to continue. We'll bring you back here when you're done."
+    end
 
     redirect_to "/billing"
   end

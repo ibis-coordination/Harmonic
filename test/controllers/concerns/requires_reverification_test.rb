@@ -71,7 +71,9 @@ class RequiresReverificationTest < ActionDispatch::IntegrationTest
 
   test "redirects to 2FA setup when user has no 2FA enabled" do
     @identity.disable_otp!
-    sign_in_as(@user, tenant: @tenant)
+    # `activate: false` so the test helper doesn't re-enable 2FA after we just
+    # disabled it. (sign_in_as auto-activates by default for the Phase-4 gate.)
+    sign_in_as(@user, tenant: @tenant, activate: false)
     get "/system-admin"
     assert_redirected_to two_factor_setup_path
     assert_match(/two-factor/i, flash[:alert])

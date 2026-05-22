@@ -128,7 +128,14 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "admin without 2FA is redirected to 2FA setup" do
-    sign_in_as(@admin_user, tenant: @tenant)
+    # Two layers gate 2FA now: the Phase-4 activation gate (tenant-scoped,
+    # default-on) and require_reverification (the existing per-action concern).
+    # This test exercises the require_reverification path, so we turn off the
+    # tenant-level requirement and let the concern do its job.
+    @tenant.settings["require_2fa"] = false
+    @tenant.save!
+    @admin_user.omni_auth_identity.disable_otp!
+    sign_in_as(@admin_user, tenant: @tenant, activate: false)
     get "/collectives/#{@collective.handle}/exports"
     assert_redirected_to "/settings/two-factor"
   end

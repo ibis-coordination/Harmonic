@@ -254,9 +254,12 @@ class StripeServiceTest < ActiveSupport::TestCase
   test "sync_subscription_quantity! updates Stripe subscription quantity" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_sync123", active: true, stripe_subscription_id: "sub_sync123")
 
-    # Create an active agent
-    agent = create_ai_agent(parent: @user)
-    @tenant.add_user!(agent)
+    # Two active agents → quantity should sync to 2 (humans are free; only
+    # agents and additional collectives contribute to billable_quantity).
+    agent1 = create_ai_agent(parent: @user, name: "Sync Agent A #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent1)
+    agent2 = create_ai_agent(parent: @user, name: "Sync Agent B #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent2)
 
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_sync123")
       .to_return(
@@ -328,8 +331,12 @@ class StripeServiceTest < ActiveSupport::TestCase
   test "sync_subscription_quantity! excludes archived and suspended agents from count" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_count", active: true, stripe_subscription_id: "sub_count")
 
-    active_agent = create_ai_agent(parent: @user, name: "Active Agent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(active_agent)
+    # Two active agents (countable) + archived + suspended (both excluded).
+    # Expected quantity: 2 (humans are free).
+    active_agent_a = create_ai_agent(parent: @user, name: "Active Agent A #{SecureRandom.hex(4)}")
+    @tenant.add_user!(active_agent_a)
+    active_agent_b = create_ai_agent(parent: @user, name: "Active Agent B #{SecureRandom.hex(4)}")
+    @tenant.add_user!(active_agent_b)
     archived_agent = create_ai_agent(parent: @user, name: "Archived Agent #{SecureRandom.hex(4)}")
     @tenant.add_user!(archived_agent)
     archived_agent.tenant_user = archived_agent.tenant_users.find_by(tenant_id: @tenant.id)
@@ -552,8 +559,11 @@ class StripeServiceTest < ActiveSupport::TestCase
   test "sync_subscription_quantity! is idempotent — two calls produce same result" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_idem", active: true, stripe_subscription_id: "sub_idem")
 
-    agent = create_ai_agent(parent: @user, name: "Idem Agent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(agent)
+    # Two agents → quantity 2 (humans are free).
+    agent_a = create_ai_agent(parent: @user, name: "Idem Agent A #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent_a)
+    agent_b = create_ai_agent(parent: @user, name: "Idem Agent B #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent_b)
 
     # First call: quantity goes from 1 to 2
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_idem")
@@ -855,6 +865,9 @@ class StripeServiceTest < ActiveSupport::TestCase
       active: true,
     )
 
+    agent = create_ai_agent(parent: @user, name: "Del Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+
     event = build_stripe_event(
       type: "customer.subscription.deleted",
       object: { "customer" => "cus_del_agent", "id" => "sub_del_agent" },
@@ -863,10 +876,15 @@ class StripeServiceTest < ActiveSupport::TestCase
     StripeService.handle_webhook_event(event)
 
     sc.reload
-    assert_not sc.active
-    # stripe_billing_setup? should now return false
-    @user.reload
-    assert_not @user.stripe_billing_setup?
+    assert_not sc.active, "expected StripeCustomer to be deactivated"
+    # The "agents cannot run" claim in the test name: the webhook handler
+    # suspends all of the user's agents on subscription deletion. Assert
+    # that directly. (stripe_billing_setup? returns true here because the
+    # agent is now suspended → billable_quantity is 0 → nothing to pay
+    # for → user is back to a free-account state.)
+    agent.reload
+    assert agent.suspended_at.present?,
+           "expected agent to be suspended when subscription is deleted"
   end
 
   # === Per-resource billing exemption ===
@@ -911,8 +929,11 @@ class StripeServiceTest < ActiveSupport::TestCase
     @tenant.add_user!(exempt_agent)
     exempt_agent.update!(billing_exempt: true)
 
-    paid_agent = create_ai_agent(parent: @user, name: "Paid Agent #{SecureRandom.hex(4)}")
-    @tenant.add_user!(paid_agent)
+    # Two paid agents → quantity 2 (humans are free; exempt agent doesn't count).
+    paid_agent_a = create_ai_agent(parent: @user, name: "Paid Agent A #{SecureRandom.hex(4)}")
+    @tenant.add_user!(paid_agent_a)
+    paid_agent_b = create_ai_agent(parent: @user, name: "Paid Agent B #{SecureRandom.hex(4)}")
+    @tenant.add_user!(paid_agent_b)
 
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_agentexempt")
       .to_return(
@@ -933,7 +954,7 @@ class StripeServiceTest < ActiveSupport::TestCase
 
     StripeService.sync_subscription_quantity!(@user)
 
-    # Should be 1 (non-exempt user) + 1 (paid agent only) = 2
+    # Should be 2 paid agents (humans free, exempt agent excluded) = 2
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_agentexempt") do |req|
       body = Rack::Utils.parse_query(req.body)
       body["quantity"] == "2"
@@ -943,10 +964,11 @@ class StripeServiceTest < ActiveSupport::TestCase
   test "sync_subscription_quantity! excludes exempt collectives from count" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_collexempt", active: true, stripe_subscription_id: "sub_collexempt")
 
-    # Create two collectives, one exempt
+    # Two paid collectives (humans free, exempt collective excluded) → quantity 2
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    paid_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll", handle: "paid-coll-#{SecureRandom.hex(4)}")
+    paid_collective_a = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll A", handle: "paid-coll-a-#{SecureRandom.hex(4)}")
+    paid_collective_b = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll B", handle: "paid-coll-b-#{SecureRandom.hex(4)}")
     exempt_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Exempt Coll", handle: "exempt-coll-#{SecureRandom.hex(4)}", billing_exempt: true)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -970,7 +992,7 @@ class StripeServiceTest < ActiveSupport::TestCase
 
     StripeService.sync_subscription_quantity!(@user)
 
-    # Should be 1 (non-exempt user) + 1 (paid collective only) = 2
+    # Should be 2 paid collectives (humans free, exempt collective excluded) = 2
     assert_requested(:post, "https://api.stripe.com/v1/subscription_items/si_collexempt") do |req|
       body = Rack::Utils.parse_query(req.body)
       body["quantity"] == "2"

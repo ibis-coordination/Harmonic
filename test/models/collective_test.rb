@@ -784,6 +784,17 @@ class CollectiveTest < ActiveSupport::TestCase
     listable.each { |c| assert_equal "standard", c.collective_type }
   end
 
+  test "find_or_create_shareable_invite raises for main collective" do
+    tenant = create_tenant(subdomain: "main-invite-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    tenant.create_main_collective!(created_by: user)
+
+    assert_raises(RuntimeError, "Cannot create invites for the main collective") do
+      tenant.main_collective.find_or_create_shareable_invite(user)
+    end
+  end
+
   test "find_or_create_shareable_invite raises for chat collectives" do
     tenant = create_tenant(subdomain: "chat-invite-#{SecureRandom.hex(4)}")
     user = create_user

@@ -877,6 +877,18 @@ class ApiHelper
   def start_user_representation_session(grant:)
     raise ArgumentError, "Grant must be active" unless grant.active?
     raise ArgumentError, "Current user must be the trustee" unless grant.trustee_user == current_user
+    # Both the trustee and the represented user must be fully activated for the
+    # current tenant before a session can be created. The trustee (current_user)
+    # is implicitly activated — they had to pass the activation gate to reach
+    # this code path. The granting_user is checked explicitly here.
+    #
+    # AI agents inherit activation via their parent (enforced at agent creation
+    # via the pending_billing_setup pattern); fully_activated_for? returns true
+    # for non-human users so this only blocks the human-represents-human case.
+    granting_user = T.must(grant.granting_user)
+    unless granting_user.fully_activated_for?(current_tenant)
+      raise ArgumentError, "Cannot represent #{granting_user.display_name}: their account isn't fully activated."
+    end
 
     rep_session = RepresentationSession.create!(
       tenant: current_tenant,

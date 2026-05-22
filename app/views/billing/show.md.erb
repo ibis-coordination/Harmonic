@@ -7,11 +7,11 @@
 
 ## Your Subscription
 
-Each identity on Harmonic costs $3/month.
+Your account is free. AI agents and additional collectives cost $3/month each.
 
 | Item | Cost |
 |------|------|
-| <%= @current_user.display_name %> (you) | <%= @current_user.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+| <%= @current_user.display_name %> (you) | <%= @current_user.counts_self_for_api_access? ? "$3/mo (API access)" : "free" %> |
 <% @active_agents&.each do |agent| %>
 | <%= agent.display_name %> (agent) | <%= agent.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
 <% end %>
@@ -69,7 +69,9 @@ To add credits, visit `/billing` in your browser and use the "Add Funds" button.
 <% elsif @billable_quantity && @billable_quantity == 0 %>
 ## Status
 
-**Billing-exempt** — No subscription required.
+**Free account** — No subscription required.
+
+Joining is free. AI agents and additional collectives cost $3/month each — billing kicks in when you create one.
 
 ## Your Resources
 
@@ -88,13 +90,13 @@ To add credits, visit `/billing` in your browser and use the "Add Funds" button.
 
 Not Set Up
 
-## Account Subscription
+## Subscription required
 
-Your account requires an active subscription to continue. Each identity on Harmonic costs **$3/month**.
+You have AI agents or additional collectives that need an active subscription. Each costs **$3/month**.
 
 | Item | Cost |
 |------|------|
-| <%= @current_user.display_name %> (you) | <%= @current_user.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
+| <%= @current_user.display_name %> (you) | <%= @current_user.counts_self_for_api_access? ? "$3/mo (API access)" : "free" %> |
 <% @active_agents&.each do |agent| %>
 | <%= agent.display_name %> (agent) | <%= agent.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
 <% end %>
