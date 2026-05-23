@@ -3,16 +3,11 @@
 # require 'clamav'
 class Attachment < ApplicationRecord
   extend T::Sig
+  include HasMagicByteValidation
 
-  # Magic byte signatures for file type validation
-  MAGIC_BYTES = {
-    "image/png" => ["\x89PNG\r\n\x1a\n".b],
-    "image/jpeg" => ["\xFF\xD8\xFF".b],
-    "image/gif" => ["GIF87a".b, "GIF89a".b],
-    "image/webp" => ["RIFF".b], # WebP starts with RIFF, followed by file size, then WEBP
-    "image/bmp" => ["BM".b],
-    "application/pdf" => ["%PDF".b],
-  }.freeze
+  # Magic byte signatures live on HasMagicByteValidation::MAGIC_BYTES; kept here
+  # as a delegate so existing references (e.g. tests) still resolve.
+  MAGIC_BYTES = HasMagicByteValidation::MAGIC_BYTES
 
   # Maximum filename length after sanitization
   MAX_FILENAME_LENGTH = 255
@@ -29,7 +24,6 @@ class Attachment < ApplicationRecord
   before_save :set_file_metadata
   validates :file, presence: true
   validate :validate_file
-  validate :validate_magic_bytes
 
   sig { void }
   def set_tenant_id
@@ -132,40 +126,6 @@ class Attachment < ApplicationRecord
       T.nilable(T::Boolean)
     )
     @virus_scanning_enabled || false
-  end
-
-  # Validate that file content matches claimed content type using magic bytes
-  sig { void }
-  def validate_magic_bytes
-    return unless file.attached?
-
-    blob = T.unsafe(file).blob
-    content_type = blob.content_type
-
-    # Only validate types we have signatures for
-    # Text files don't have reliable magic bytes
-    return if content_type.start_with?("text/")
-
-    signatures = MAGIC_BYTES[content_type]
-    return unless signatures # Unknown type, skip validation
-
-    # Read enough bytes to check the signature
-    max_sig_length = signatures.map(&:length).max
-    begin
-      file_bytes = blob.download_chunk(0...max_sig_length)
-    rescue StandardError
-      # If we can't read the file, let other validations handle it
-      return
-    end
-
-    # Check if any signature matches
-    matches = signatures.any? do |sig|
-      file_bytes.start_with?(sig)
-    end
-
-    return if matches
-
-    errors.add(:file, "content does not match claimed type #{content_type}")
   end
 
   sig { returns(String) }

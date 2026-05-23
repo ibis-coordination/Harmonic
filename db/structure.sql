@@ -805,6 +805,30 @@ CREATE TABLE public.links (
 
 
 --
+-- Name: media_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    mediable_type character varying NOT NULL,
+    mediable_id uuid NOT NULL,
+    content_type character varying NOT NULL,
+    byte_size bigint NOT NULL,
+    alt_text character varying,
+    caption text,
+    display_order integer DEFAULT 0 NOT NULL,
+    width integer,
+    height integer,
+    created_by_id uuid NOT NULL,
+    updated_by_id uuid NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: note_history_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2546,6 +2570,14 @@ ALTER TABLE ONLY public.links
 
 
 --
+-- Name: media_items media_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_items
+    ADD CONSTRAINT media_items_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: note_history_events note_history_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4125,6 +4157,55 @@ CREATE INDEX index_links_on_tenant_id ON public.links USING btree (tenant_id);
 --
 
 CREATE INDEX index_links_on_to_linkable ON public.links USING btree (to_linkable_type, to_linkable_id);
+
+
+--
+-- Name: index_media_items_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_collective_id ON public.media_items USING btree (collective_id);
+
+
+--
+-- Name: index_media_items_on_created_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_created_by_id ON public.media_items USING btree (created_by_id);
+
+
+--
+-- Name: index_media_items_on_mediable; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_mediable ON public.media_items USING btree (mediable_type, mediable_id);
+
+
+--
+-- Name: index_media_items_on_mediable_and_order; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_mediable_and_order ON public.media_items USING btree (mediable_type, mediable_id, display_order);
+
+
+--
+-- Name: index_media_items_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_tenant_id ON public.media_items USING btree (tenant_id);
+
+
+--
+-- Name: index_media_items_on_tenant_id_and_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_tenant_id_and_collective_id ON public.media_items USING btree (tenant_id, collective_id);
+
+
+--
+-- Name: index_media_items_on_updated_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_media_items_on_updated_by_id ON public.media_items USING btree (updated_by_id);
 
 
 --
@@ -8704,6 +8785,14 @@ ALTER TABLE ONLY public.data_exports
 
 
 --
+-- Name: media_items fk_rails_54777337fa; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_items
+    ADD CONSTRAINT fk_rails_54777337fa FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: collective_members fk_rails_55c1625b39; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8984,6 +9073,14 @@ ALTER TABLE ONLY public.user_blocks
 
 
 --
+-- Name: media_items fk_rails_9c27c6ab31; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_items
+    ADD CONSTRAINT fk_rails_9c27c6ab31 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: options fk_rails_9d942eefce; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9093,6 +9190,14 @@ ALTER TABLE ONLY public.ai_agent_task_runs
 
 ALTER TABLE ONLY public.content_reports
     ADD CONSTRAINT fk_rails_baa9328cf7 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: media_items fk_rails_bb41329d9e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_items
+    ADD CONSTRAINT fk_rails_bb41329d9e FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -9392,6 +9497,14 @@ ALTER TABLE ONLY public.commitment_participants
 
 
 --
+-- Name: media_items fk_rails_f516d9b114; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_items
+    ADD CONSTRAINT fk_rails_f516d9b114 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: decision_participants fk_rails_f9c15d4765; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9462,6 +9575,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260523010107'),
 ('20260522050652'),
 ('20260521171154'),
 ('20260520133331'),

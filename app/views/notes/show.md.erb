@@ -42,6 +42,15 @@ Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
 * <% if event.user %><%= user_link_md(event.user) %> <% end %><%= event.description %> at <%= event.happened_at %>
 <% end -%>
 
+<% if @note.media_items.any? -%>
+## Images
+
+<% @note.media_items.each do |item| -%>
+![<%= item.alt_text_for_markdown %>](<%= item.url(variant: :large) %>)<% if item.caption.present? %>
+*<%= item.caption_for_markdown %>*<% end %>
+
+<% end -%>
+<% end -%>
 <%= render 'shared/backlinks', resource: @note %>
 <%= render 'shared/attachments_section', resource: @note %>
 <%= render 'shared/comments_section', resource: @note %>

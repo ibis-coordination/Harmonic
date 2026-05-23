@@ -1,0 +1,34 @@
+<%# Renders MediaItem records (images) attached to a note. Usage:
+      render 'shared/note_media', note: @note
+    Renders nothing if the note has no media items. %>
+<% if note.media_items.any? %>
+  <div class="note-media note-media-count-<%= note.media_items.size.clamp(1, 4) %>"
+       data-controller="lightbox"
+       data-lightbox-note-id-value="<%= note.id %>">
+    <% note.media_items.each_with_index do |item, idx| %>
+      <% large = item.url(variant: :large) %>
+      <% medium = item.url(variant: :medium) %>
+      <% thumb = item.url(variant: :thumbnail) %>
+      <button type="button"
+              class="note-media-item"
+              data-lightbox-target="trigger"
+              data-action="click->lightbox#open"
+              data-lightbox-large-url-param="<%= large %>"
+              data-lightbox-alt-param="<%= item.alt_text_for_display %>"
+              data-lightbox-caption-param="<%= item.caption %>"
+              data-lightbox-index-param="<%= idx %>"
+              aria-label="View image <%= idx + 1 %> of <%= note.media_items.size %>">
+        <img src="<%= medium %>"
+             srcset="<%= thumb %> 250w, <%= medium %> 800w, <%= large %> 1600w"
+             sizes="(max-width: 600px) 100vw, 600px"
+             loading="lazy"
+             decoding="async"
+             alt="<%= item.alt_text_for_display %>"
+             class="note-media-img">
+      </button>
+      <% if item.caption.present? %>
+        <figcaption class="note-media-caption"><%= item.caption %></figcaption>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

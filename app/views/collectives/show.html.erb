@@ -45,13 +45,13 @@
       </a>
 
       <%= render 'shared/collapseable_section', title: 'Unread Notes', title_superscript: { '' => @unread_notes.count }, header_level: 4, hidden: false, indent: true do %>
-        <% @unread_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <% @unread_notes.includes(media_items: { file_attachment: :blob }).order(created_at: :desc).limit(100).each do |note| %>
           <%= render 'shared/timeline_note', note: note %>
           <hr/>
         <% end %>
       <% end %>
       <%= render 'shared/collapseable_section', title: 'Read Notes', title_superscript: @read_notes.count, header_level: 4, hidden: false, indent: true do %>
-        <% @read_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <% @read_notes.includes(media_items: { file_attachment: :blob }).order(created_at: :desc).limit(100).each do |note| %>
           <%= render 'shared/timeline_note', note: note %>
           <hr/>
         <% end %>
@@ -108,13 +108,13 @@
     <% notes_title_superscript = "#{@prev_unread_notes.count} unread, #{@prev_read_notes.count} read" %>
     <%= render 'shared/collapseable_section', title: notes_title, title_superscript: notes_title_superscript, header_level: 3, hidden: true, indent: true do %>
       <%= render 'shared/collapseable_section', title: 'Unread Notes', title_superscript: @prev_unread_notes.count, header_level: 4, hidden: false, indent: true do %>
-        <% @prev_unread_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <% @prev_unread_notes.includes(media_items: { file_attachment: :blob }).order(created_at: :desc).limit(100).each do |note| %>
           <%= render 'shared/timeline_note', note: note %>
           <hr/>
         <% end %>
       <% end %>
       <%= render 'shared/collapseable_section', title: 'Read Notes', title_superscript: @prev_read_notes.count, header_level: 4, hidden: false, indent: true do %>
-        <% @prev_read_notes.order(created_at: :desc).limit(100).each do |note| %>
+        <% @prev_read_notes.includes(media_items: { file_attachment: :blob }).order(created_at: :desc).limit(100).each do |note| %>
           <%= render 'shared/timeline_note', note: note %>
           <hr/>
         <% end %>

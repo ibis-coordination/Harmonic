@@ -69,6 +69,41 @@ Establishes the image-processing pipeline. Smallest scope, unblocks Phase 2.
 
 The bulk of the work. Separates "media in a note" from "file attached to a note," and migrates legacy image attachments into the new model.
 
+### Status — implemented on branch `media-items-phase-2`
+
+**Security & bug fixes applied after self-review (see commit history):**
+- WebP magic-byte check now requires both `RIFF` (offset 0) and `WEBP` (offset 8) so RIFF-container imposters (WAV/AVI) are rejected.
+- `show.md.erb` escapes `]`, `(`, `)`, `\`, `*`, `_`, `` ` ``, `<`, `>` in alt_text/caption and collapses newlines, blocking markdown injection in the AI-agent view.
+- `MediaItemsController#create` rescues `MessageVerifier::InvalidSignature` and returns 422 instead of 500.
+- `attach_pending_media!` (new-note flow) now enforces the per-collective storage quota and caps the per-request entry count at 50.
+- `MediaItem` has explicit length limits: alt_text ≤ 500, caption ≤ 5000.
+- `MediaItem#url(variant:)` raises `ArgumentError` for unknown variants.
+- `DirectUploadsController` enforces session timeout + rejects suspended users in addition to "exists".
+- Client-side pre-checks file size before kicking off direct upload; uploader partial uses regular ERB (auto-escaped) instead of raw `<%==`.
+- Rake task gained `THROTTLE_EVERY` / `THROTTLE_SECONDS` / `VALIDATE` knobs to space out Sidekiq variant jobs and optionally re-verify each migrated row.
+
+
+| Plan item | Shipped | Deferred |
+|---|---|---|
+| `MediaItem` model + table | ✓ | — |
+| Variants (:thumbnail 250, :medium 800, :large 1600) | ✓ | — |
+| `HasMagicByteValidation` shared concern; `Attachment` refactored to use it | ✓ | — |
+| `Note has_many :media_items` polymorphic association | ✓ | — |
+| `Collective#file_storage_usage` sums both Attachment + MediaItem | ✓ | — |
+| `MediaItemsController` (create/update/destroy/reorder) + nested routes | ✓ | — |
+| Display partial `shared/_note_media.html.erb` with grid + srcset | ✓ | — |
+| Lightbox (`lightbox_controller.ts`, Esc/click-outside, focus management) | ✓ | — |
+| Editor partial `shared/_note_media_uploader.html.erb` + `note_media_uploader_controller.ts` (drag/drop + paste + picker + per-file progress + alt text) | ✓ | — |
+| Direct upload to ActiveStorage; `DirectUploadsController` hardened: auth required + 25 MB cap initializer | ✓ | — |
+| Markdown emission (`![alt](url)` for AI-agent path) | ✓ | — |
+| Rake task `images:migrate_note_attachments` with DRY_RUN, idempotency, batch logging | ✓ | — |
+| Tests: model (13), controller (8), storage quota (1), migration rake (3) — 25 new model/controller/integration tests; all 200 assertions green | ✓ | — |
+| Sorbet RBIs regenerated; new shim for `ActiveStorage::Attached::One#variant`/`preview`/`representation` | ✓ | — |
+| In-editor reorder via drag | — | Future iteration — current UX is upload-and-go; explicit reorder UI deferred since most notes have ≤3 images. Server endpoint `PATCH /n/:id/media_items/reorder` is built and tested. |
+| `allowed_attachment_categories` default change to `%w[pdfs text]` for new tenants | — | Deferred — current default still includes `"images"`. Harmless: no image will reach `Attachment.validate_file` from a note flow since the editor now routes images through MediaItem. Will tighten in a follow-up to avoid surprise on Decision/Commitment attachment paths (which still accept images via Attachment for now). |
+| Cleanup of `_pulse_attachments`/`_attachments_section` to stop branching on image content type | — | Deferred until after the data migration runs in prod. While both code paths coexist, the partials must still handle image-type Attachments correctly. |
+| Component test for grid + Playwright E2E for editor flow | — | Deferred — model/controller coverage is solid; visual + E2E lift adds scope without changing behavior. Open as follow-up. |
+
 ### Model: `MediaItem` (new)
 
 Polymorphic, parallel to `Attachment`, image-only:

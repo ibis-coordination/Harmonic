@@ -29,6 +29,7 @@ import HeaderSearchController from "./header_search_controller"
 import HeartbeatController from "./heartbeat_controller"
 import HelloController from "./hello_controller"
 import ImageCropperController from "./image_cropper_controller"
+import LightboxController from "./lightbox_controller"
 import LogoutController from "./logout_controller"
 import MemberSelectController from "./member_select_controller"
 import MentionAutocompleteController from "./mention_autocomplete_controller"
@@ -39,6 +40,7 @@ import NotificationActionsController from "./notification_actions_controller"
 import NotificationBadgeController from "./notification_badge_controller"
 import CsvImportController from "./csv_import_controller"
 import NoteController from "./note_controller"
+import NoteMediaUploaderController from "./note_media_uploader_controller"
 import NoteSubtypeController from "./note_subtype_controller"
 import OptionController from "./option_controller"
 import PinController from "./pin_controller"
@@ -87,6 +89,7 @@ application.register("header-search", HeaderSearchController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
 application.register("image-cropper", ImageCropperController)
+application.register("lightbox", LightboxController)
 application.register("logout", LogoutController)
 application.register("member-select", MemberSelectController)
 application.register("mention-autocomplete", MentionAutocompleteController)
@@ -96,6 +99,7 @@ application.register("nav", NavController)
 application.register("notification-actions", NotificationActionsController)
 application.register("notification-badge", NotificationBadgeController)
 application.register("note", NoteController)
+application.register("note-media-uploader", NoteMediaUploaderController)
 application.register("note-subtype", NoteSubtypeController)
 application.register("option", OptionController)
 application.register("pin", PinController)

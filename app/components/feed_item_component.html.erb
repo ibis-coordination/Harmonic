@@ -45,6 +45,10 @@
 
     <%# Type-specific content %>
     <% case @type %>
+    <% when 'Note' %>
+      <% if T.unsafe(@item).respond_to?(:media_items) && T.unsafe(@item).media_items.any? %>
+        <%= render 'shared/note_media_feed_strip', note: @item %>
+      <% end %>
     <% when 'Decision' %>
       <% if T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
         <% options = T.unsafe(@item).options.order(:created_at).first(5) %>

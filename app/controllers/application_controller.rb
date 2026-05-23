@@ -676,7 +676,7 @@ class ApplicationController < ActionController::Base
                                  end
   end
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads"].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)

@@ -154,6 +154,64 @@ class CollectiveTest < ActiveSupport::TestCase
     assert collective.within_file_upload_limit?
   end
 
+  test "Collective#file_storage_usage sums both Attachment and MediaItem byte_size" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Quota Collective",
+      handle: "quota-collective-#{SecureRandom.hex(4)}"
+    )
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    Collective.set_thread_context(collective)
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Quota note",
+      text: "x"
+    )
+
+    # Direct inserts avoid the full upload/blob lifecycle; we only need the
+    # byte_size rows for this sum, not actual files.
+    now = Time.current
+    Attachment.insert!({
+      id: SecureRandom.uuid,
+      tenant_id: tenant.id,
+      collective_id: collective.id,
+      attachable_type: "Note",
+      attachable_id: note.id,
+      name: "a.txt",
+      content_type: "text/plain",
+      byte_size: 1_000,
+      created_by_id: user.id,
+      updated_by_id: user.id,
+      created_at: now,
+      updated_at: now,
+    })
+    MediaItem.insert!({
+      id: SecureRandom.uuid,
+      tenant_id: tenant.id,
+      collective_id: collective.id,
+      mediable_type: "Note",
+      mediable_id: note.id,
+      content_type: "image/png",
+      byte_size: 2_500,
+      display_order: 0,
+      created_by_id: user.id,
+      updated_by_id: user.id,
+      created_at: now,
+      updated_at: now,
+    })
+
+    assert_equal 3_500, collective.file_storage_usage
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+  end
+
   test "Collective.add_user! adds a user to the collective" do
     tenant = create_tenant
     user = create_user

@@ -1,0 +1,57 @@
+<%# Renders the media uploader. Two modes:
+      Edit mode (existing note): render 'shared/note_media_uploader', note: @note
+        Uploads create MediaItems immediately under <note>/media_items.
+      Pending mode (new note, not yet saved): render 'shared/note_media_uploader', pending: true
+        Uploads create blobs only; signed_ids ride along in hidden fields
+        named media_items[<i>][signed_id] and are materialized into
+        MediaItem records by the controller after the note is saved. %>
+<%
+  pending ||= false
+  note ||= nil
+%>
+<section class="note-media-uploader"
+         data-controller="note-media-uploader"
+         data-note-media-uploader-pending-value="<%= pending %>"
+         data-note-media-uploader-max-bytes-value="<%= MediaItem::MAX_FILE_BYTES %>"
+         <% unless pending %>data-note-media-uploader-create-url-value="<%= "#{note.path}/media_items" %>"<% end %>>
+  <label class="pulse-form-label">Images</label>
+  <input type="file"
+         accept="image/png,image/jpeg,image/gif,image/webp"
+         multiple
+         hidden
+         data-note-media-uploader-target="fileInput"
+         data-action="change->note-media-uploader#onFileInputChange">
+  <div class="note-media-uploader-dropzone"
+       tabindex="0"
+       role="button"
+       data-note-media-uploader-target="dropzone"
+       data-action="
+         click->note-media-uploader#openPicker
+         dragover->note-media-uploader#onDragOver
+         dragleave->note-media-uploader#onDragLeave
+         drop->note-media-uploader#onDrop">
+    Drop images here, click to choose, or paste from clipboard.
+    <br>
+    <small>PNG, JPEG, GIF, WebP. Up to <%= number_to_human_size(MediaItem::MAX_FILE_BYTES) %> each.</small>
+  </div>
+  <div class="note-media-uploader-preview" data-note-media-uploader-target="preview">
+    <% if note %>
+      <% note.media_items.each do |item| %>
+        <div class="note-media-uploader-item"
+             data-state="uploaded"
+             data-media-item-id="<%= item.id %>">
+          <img src="<%= item.url(variant: :thumbnail) %>" alt="">
+          <button type="button" class="remove-btn" aria-label="Remove image"
+                  data-action="click->note-media-uploader#removeExisting"
+                  data-media-item-id="<%= item.id %>">×</button>
+          <input type="text"
+                 class="alt-input"
+                 placeholder="Describe this image (alt text)"
+                 value="<%= item.alt_text %>"
+                 data-action="change->note-media-uploader#updateExistingAlt"
+                 data-media-item-id="<%= item.id %>">
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</section>

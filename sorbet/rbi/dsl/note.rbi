@@ -500,6 +500,20 @@ class Note
     def links=(value); end
 
     sig { returns(T::Array[T.untyped]) }
+    def media_item_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def media_item_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Note` class because it declared `has_many :media_items`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::MediaItem::PrivateCollectionProxy) }
+    def media_items; end
+
+    sig { params(value: T::Enumerable[::MediaItem]).void }
+    def media_items=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def note_history_event_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -1181,6 +1195,51 @@ class Note
     sig { void }
     def edit_access_will_change!; end
 
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after=(value); end
+
+    sig { returns(T::Boolean) }
+    def hard_delete_after?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def hard_delete_after_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def hard_delete_after_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def hard_delete_after_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def hard_delete_after_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def hard_delete_after_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def hard_delete_after_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def hard_delete_after_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_was; end
+
+    sig { void }
+    def hard_delete_after_will_change!; end
+
     sig { returns(::String) }
     def id; end
 
@@ -1389,6 +1448,9 @@ class Note
     def restore_edit_access!; end
 
     sig { void }
+    def restore_hard_delete_after!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1420,6 +1482,9 @@ class Note
 
     sig { void }
     def restore_title!; end
+
+    sig { void }
+    def restore_tombstoned_at!; end
 
     sig { void }
     def restore_truncated_id!; end
@@ -1483,6 +1548,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_edit_access?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_hard_delete_after; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_hard_delete_after?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -1549,6 +1620,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_title?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_tombstoned_at; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_tombstoned_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_truncated_id; end
@@ -1883,6 +1960,51 @@ class Note
     sig { void }
     def title_will_change!; end
 
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def tombstoned_at; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def tombstoned_at=(value); end
+
+    sig { returns(T::Boolean) }
+    def tombstoned_at?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def tombstoned_at_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def tombstoned_at_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def tombstoned_at_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def tombstoned_at_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def tombstoned_at_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def tombstoned_at_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def tombstoned_at_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def tombstoned_at_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def tombstoned_at_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def tombstoned_at_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def tombstoned_at_was; end
+
+    sig { void }
+    def tombstoned_at_will_change!; end
+
     sig { returns(::String) }
     def truncated_id; end
 
@@ -2046,6 +2168,9 @@ class Note
     def will_save_change_to_edit_access?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_hard_delete_after?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2077,6 +2202,9 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_title?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_tombstoned_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_truncated_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
