@@ -604,6 +604,7 @@ class NotesController < ApplicationController
     if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
       @note.attach!(params[:files])
     end
+    attach_pending_media!(@note)
     if params[:pinned] == "1" && current_collective.id != current_tenant.main_collective_id
       api_helper.pin_resource(@note)
     end
@@ -656,6 +657,7 @@ class NotesController < ApplicationController
 
     helper_params = { title: model_params[:title], text: model_params[:text] }
     @note = api_helper(params: helper_params).create_reminder_note(scheduled_for: scheduled_for)
+    attach_pending_media!(@note)
     redirect_to @note.path
   rescue ReminderService::ReminderError => e
     flash.now[:alert] = "Reminder scheduling failed: #{e.message}"
@@ -673,6 +675,64 @@ class NotesController < ApplicationController
       Note.with_deleted.find_by(truncated_id: note_id)
     else
       Note.with_deleted.find_by(id: note_id)
+    end
+  end
+
+  # Max number of pending media entries we'll process per note creation.
+  # The browser stashes hidden inputs as the user drops files; an honest
+  # editor produces <10. The cap protects against a malicious client
+  # submitting tens of thousands of entries.
+  MAX_PENDING_MEDIA_ENTRIES = 50
+
+  # Materialize MediaItems for any signed_ids stashed in the new-note form
+  # by note_media_uploader_controller.ts (pending mode). The browser
+  # direct-uploaded blobs to ActiveStorage during form entry; we attach
+  # them here, in display-order matching their submission index. Invalid
+  # or expired signed_ids are skipped silently — the user's blob is
+  # garbage and they'll see it missing on the show page.
+  #
+  # Also enforces the per-collective storage quota: each item is checked
+  # before save and skipped if the collective has already hit its limit
+  # (e.g. concurrent uploads filled the bucket).
+  def attach_pending_media!(note)
+    return unless note&.persisted?
+
+    entries = params[:media_items]
+    return if entries.blank?
+
+    entries = entries.values if entries.is_a?(ActionController::Parameters) || entries.is_a?(Hash)
+    entries = Array(entries).first(MAX_PENDING_MEDIA_ENTRIES)
+    collective = note.collective
+    storage_limit = collective.file_storage_limit
+
+    entries.each_with_index do |entry, idx|
+      if collective.file_storage_usage >= storage_limit
+        Rails.logger.warn("NotesController#attach_pending_media! collective #{collective.id} over storage limit; skipping remaining #{entries.size - idx} entries")
+        break
+      end
+
+      signed_id = entry.is_a?(ActionController::Parameters) || entry.is_a?(Hash) ? entry[:signed_id] : nil
+      next if signed_id.blank?
+
+      alt_text = entry[:alt_text].presence
+
+      MediaItem.transaction do
+        item = MediaItem.new(
+          tenant: note.tenant,
+          collective: collective,
+          mediable: note,
+          created_by: @current_user,
+          updated_by: @current_user,
+          alt_text: alt_text,
+          display_order: idx,
+        )
+        item.file.attach(signed_id)
+        item.save!
+      end
+      # Bust the memoized @byte_sum so the next iteration sees the new total.
+      collective.instance_variable_set(:@byte_sum, nil)
+    rescue ActiveRecord::RecordInvalid, ActiveSupport::MessageVerifier::InvalidSignature => e
+      Rails.logger.warn("NotesController#attach_pending_media! skipped entry #{idx}: #{e.class}: #{e.message}")
     end
   end
 end

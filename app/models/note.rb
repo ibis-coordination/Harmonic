@@ -36,6 +36,11 @@ class Note < ApplicationRecord
   belongs_to :reminder_notification, class_name: "Notification", optional: true
 
   has_many :note_history_events, dependent: :destroy
+  has_many :media_items,
+           -> { order(:display_order, :created_at) },
+           as: :mediable,
+           class_name: "MediaItem",
+           dependent: :destroy
   # validates :title, presence: true
   EDIT_ACCESS_OPTIONS = %w[members owner].freeze
 
@@ -392,7 +397,8 @@ class Note < ApplicationRecord
   def self.preload_for_display(notes)
     ActiveRecord::Associations::Preloader.new(
       records: notes,
-      associations: [:created_by, :commentable, :note_history_events]
+      associations: [:created_by, :commentable, :note_history_events,
+                     { media_items: { file_attachment: :blob } }]
     ).call
     notes
   end

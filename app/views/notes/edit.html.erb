@@ -57,6 +57,10 @@
         </div>
       <% end %>
 
+      <% unless @note.is_table? || @note.is_comment? %>
+        <%= render 'shared/note_media_uploader', note: @note %>
+      <% end %>
+
       <div class="pulse-form-actions">
         <%= form.submit 'Save Note', class: 'pulse-action-btn' %>
         <%= link_to 'Cancel', @note.path, class: 'pulse-action-btn-secondary' %>

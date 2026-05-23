@@ -30,6 +30,7 @@
           <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
         </div>
       </div>
+      <%= render 'shared/note_media_uploader', pending: true %>
     </div>
 
     <div data-note-subtype-target="reminderFields"<%= ' style="display: none;"'.html_safe unless @subtype == 'reminder' %>>

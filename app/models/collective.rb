@@ -369,7 +369,8 @@ class Collective < ApplicationRecord
 
   sig { returns(Integer) }
   def file_storage_usage
-    @byte_sum ||= Attachment.where(collective: self).sum(:byte_size)
+    @byte_sum ||= Attachment.where(collective: self).sum(:byte_size) +
+                  MediaItem.where(collective: self).sum(:byte_size)
   end
 
   sig { returns(String) }

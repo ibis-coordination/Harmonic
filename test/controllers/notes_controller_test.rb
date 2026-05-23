@@ -23,6 +23,68 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "create_text_note materializes MediaItems from pending media_items[]" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+
+    png_bytes = "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82".b
+    blob1 = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new(png_bytes), filename: "a.png", content_type: "image/png"
+    )
+    blob2 = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new(png_bytes), filename: "b.png", content_type: "image/png"
+    )
+
+    post "/collectives/#{@collective.handle}/note",
+         params: {
+           subtype: "text",
+           text: "A note with images",
+           media_items: {
+             "0" => { signed_id: blob1.signed_id, alt_text: "First image" },
+             "1" => { signed_id: blob2.signed_id, alt_text: "" },
+           },
+         }
+
+    assert_response :redirect
+    note = Note.where(collective: @collective).order(created_at: :desc).first
+    assert_equal 2, note.media_items.count
+    assert_equal [0, 1], note.media_items.map(&:display_order)
+    assert_equal "First image", note.media_items.first.alt_text
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+  end
+
+  test "create_text_note skips invalid signed_ids without aborting" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.set_thread_context(@collective)
+
+    png_bytes = "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82".b
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new(png_bytes), filename: "a.png", content_type: "image/png"
+    )
+
+    post "/collectives/#{@collective.handle}/note",
+         params: {
+           subtype: "text",
+           text: "Mixed valid and bogus",
+           media_items: {
+             "0" => { signed_id: "not-a-real-signed-id" },
+             "1" => { signed_id: blob.signed_id, alt_text: "ok" },
+           },
+         }
+
+    assert_response :redirect
+    note = Note.where(collective: @collective).order(created_at: :desc).first
+    assert_equal 1, note.media_items.count, "only the valid signed_id should materialize"
+    assert_equal "ok", note.media_items.first.alt_text
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+  end
+
   test "new note form shows members-only visibility hint for non-main collective" do
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/note"

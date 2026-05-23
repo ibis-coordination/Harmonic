@@ -441,6 +441,231 @@
   color: var(--color-accent-fg);
 }
 
+/* Note media (images embedded as first-class content) */
+.note-media {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+  grid-template-columns: 1fr;
+}
+
+.note-media.note-media-count-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.note-media.note-media-count-3,
+.note-media.note-media-count-4 {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (min-width: 700px) {
+  .note-media.note-media-count-3,
+  .note-media.note-media-count-4 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.note-media-item {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: var(--color-canvas-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.note-media-item:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
+}
+
+.note-media-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
+}
+
+.note-media-caption {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--color-fg-muted);
+  margin: 0;
+}
+
+/* Feed strip — compact thumbnail row for notes in the feed */
+.pulse-feed-media-strip {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 0;
+  text-decoration: none;
+}
+
+.pulse-feed-media-thumb {
+  position: relative;
+  flex: 0 0 64px;
+  height: 64px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-feed-media-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pulse-feed-media-overflow {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-fg-on-emphasis);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Lightbox */
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.86);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 32px;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.lightbox-caption {
+  margin-top: 12px;
+  color: var(--color-fg-on-emphasis);
+  font-size: 14px;
+  max-width: 640px;
+  text-align: center;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-fg-on-emphasis);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.lightbox-close:focus-visible {
+  outline: 2px solid var(--color-fg-on-emphasis);
+}
+
+/* Note media uploader (editor) */
+.note-media-uploader {
+  margin: 12px 0;
+}
+
+.note-media-uploader-dropzone {
+  border: 2px dashed var(--color-border-default);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.note-media-uploader-dropzone:focus-visible,
+.note-media-uploader-dropzone.is-dragover {
+  border-color: var(--color-accent-fg);
+  background-color: var(--color-canvas-subtle);
+  outline: none;
+}
+
+.note-media-uploader-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.note-media-uploader-item {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-muted);
+}
+
+.note-media-uploader-item img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+}
+
+.note-media-uploader-item .alt-input {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: none;
+  border-top: 1px solid var(--color-border-muted);
+  background: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+.note-media-uploader-item .remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--color-fg-on-emphasis);
+  border: none;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.note-media-uploader-item .progress-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-fg-on-emphasis);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.note-media-uploader-item.has-error {
+  outline: 2px solid var(--color-danger-fg);
+}
+
 /* Comments */
 .pulse-comments-section {
   margin-top: 24px;

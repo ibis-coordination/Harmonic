@@ -51,7 +51,7 @@ class FeedBuilder
   def fetch_items(limit)
     notes = @notes_scope
       .where(commentable_type: nil)
-      .includes(:created_by)
+      .includes(:created_by, media_items: { file_attachment: :blob })
       .order(created_at: :desc).limit(limit)
       .map { |n| { type: "Note", item: n, created_at: n.created_at, created_by: n.created_by } }
 

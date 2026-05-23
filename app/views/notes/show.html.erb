@@ -136,6 +136,7 @@
     <%= render 'table' %>
   <% else %>
     <div class="pulse-resource-body">
+      <%= render 'shared/note_media', note: @note %>
       <div class="pulse-markdown-content">
         <% if @note.text.present? %>
           <%= markdown(@note.text) %>

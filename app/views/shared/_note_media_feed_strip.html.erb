@@ -1,0 +1,24 @@
+<%# Compact media strip for a Note in the feed. Shows up to 4 thumbnails;
+    a "+N" overlay covers the last tile when more remain. Each thumbnail
+    links to the note's show page so the user lands somewhere that has
+    the full grid + lightbox. Usage:
+      render 'shared/note_media_feed_strip', note: note %>
+<%
+  items = note.media_items.to_a
+  show_count = 4
+  visible = items.first(show_count)
+  remaining = items.size - visible.size
+%>
+<a class="pulse-feed-media-strip" href="<%= note.path %>" aria-label="View note with <%= items.size %> image<%= 's' if items.size != 1 %>">
+  <% visible.each_with_index do |item, idx| %>
+    <span class="pulse-feed-media-thumb">
+      <img src="<%= item.url(variant: :thumbnail) %>"
+           alt="<%= item.alt_text_for_display %>"
+           loading="lazy"
+           decoding="async">
+      <% if idx == visible.size - 1 && remaining > 0 %>
+        <span class="pulse-feed-media-overflow">+<%= remaining %></span>
+      <% end %>
+    </span>
+  <% end %>
+</a>

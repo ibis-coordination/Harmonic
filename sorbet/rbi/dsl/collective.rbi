@@ -819,6 +819,20 @@ class Collective
     def links=(value); end
 
     sig { returns(T::Array[T.untyped]) }
+    def media_item_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def media_item_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :media_items`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::MediaItem::PrivateCollectionProxy) }
+    def media_items; end
+
+    sig { params(value: T::Enumerable[::MediaItem]).void }
+    def media_items=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def note_history_event_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
