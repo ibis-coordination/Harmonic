@@ -1076,6 +1076,8 @@ a:hover {
   border-radius: 6px;
   object-fit: cover;
   flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .pulse-collective-info-text {

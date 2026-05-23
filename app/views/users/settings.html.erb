@@ -9,9 +9,7 @@
 
 <article class="pulse-user-profile">
   <header class="pulse-user-header">
-    <div class="pulse-user-avatar-large">
-      <img src="<%= @settings_user.image_url %>" alt="<%= @settings_user.display_name %>" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-    </div>
+    <%= render "shared/avatar_div", record: @settings_user, css_class: "pulse-user-avatar-large", variant: :thumbnail %>
     <div class="pulse-user-info">
       <h1 class="pulse-user-name"><%= @settings_user.display_name %></h1>
       <p class="pulse-user-handle">@<%= @settings_user.handle %></p>

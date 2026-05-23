@@ -2,7 +2,7 @@
 <% team.each do |u| %>
   <li>
     <a href="<%= u.collective_member.path %>" class="user-profile-link">
-      <img src="<%= u.image_url %>"/> <%= u.display_name %>
+      <%= inline_avatar(u) %> <%= u.display_name %>
     </a>
     <% if u.ai_agent? %>
       <span class="role-badge" title="AI agent of <%= u.parent&.display_name %>">AI agent</span>

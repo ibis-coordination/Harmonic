@@ -86,12 +86,23 @@ class User < ApplicationRecord
     handle
   end
 
-  sig { returns(T.nilable(String)) }
-  def image_url
+  sig { params(variant: T.nilable(Symbol)).returns(T.nilable(String)) }
+  def image_url(variant: nil)
     if collective_identity?
-      Collective.where(identity_user: self).first&.image_path
+      Collective.where(identity_user: self).first&.image_path(variant: variant)
     else
-      image_path_no_placeholder || super || image_path
+      image_path(variant: variant)
+    end
+  end
+
+  sig { returns(String) }
+  def avatar_color
+    if ai_agent?
+      HasImage::AI_AGENT_AVATAR_COLOR
+    elsif collective_identity?
+      HasImage::COLLECTIVE_AVATAR_COLOR
+    else
+      HasImage::HUMAN_AVATAR_COLOR
     end
   end
 

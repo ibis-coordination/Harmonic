@@ -160,10 +160,10 @@ class Collective < ApplicationRecord
     collective_type == "standard"
   end
 
-  sig { returns(String) }
-  def image_path
+  sig { params(variant: T.nilable(Symbol)).returns(T.nilable(String)) }
+  def image_path(variant: nil)
     if private_workspace?
-      created_by&.image_url || super
+      created_by&.image_url(variant: variant) || super
     else
       super
     end

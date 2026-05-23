@@ -154,6 +154,8 @@ GEM
       logger
     faraday-net_http (3.4.2)
       net-http (~> 0.5)
+    ffi (1.17.4-aarch64-linux-gnu)
+    ffi (1.17.4-x86_64-linux-gnu)
     fugit (1.12.1)
       et-orbi (~> 1.4)
       raabro (~> 1.4)
@@ -164,6 +166,9 @@ GEM
       logger
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
+    image_processing (1.14.0)
+      mini_magick (>= 4.9.5, < 6)
+      ruby-vips (>= 2.0.17, < 3)
     io-console (0.7.1)
     irb (1.13.1)
       rdoc (>= 4.0.0)
@@ -194,6 +199,8 @@ GEM
       net-smtp
     marcel (1.0.2)
     matrix (0.4.2)
+    mini_magick (5.3.1)
+      logger
     mini_mime (1.1.5)
     minitest (5.27.0)
     msgpack (1.4.4)
@@ -362,6 +369,9 @@ GEM
       rexml
     ruby-next-core (1.2.0)
     ruby-progressbar (1.13.0)
+    ruby-vips (2.3.0)
+      ffi (~> 1.12)
+      logger
     rubyzip (2.3.2)
     securerandom (0.4.1)
     selenium-webdriver (4.1.0)
@@ -515,6 +525,7 @@ DEPENDENCIES
   debug
   factory_bot_rails
   faker
+  image_processing (~> 1.2)
   jbuilder
   jsbundling-rails
   lograge

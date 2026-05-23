@@ -4,7 +4,7 @@
   <a href="/"><code><%= @current_tenant.subdomain %></code></a> /
   <% unless hide_collective_path || @current_collective.is_main_collective? %>
     <a href="<%= @current_collective.path || '/' %>">
-      <img src="<%= @current_collective.image_path %>" style="height:1em;width:1em;border-radius:4px;margin-bottom:-2px;">
+      <%= inline_avatar(@current_collective, style: "height:1em;width:1em;border-radius:4px;margin-bottom:-2px;font-size:0.7em;") %>
       <%= @current_collective.name %>
     </a> /
   <% end %>

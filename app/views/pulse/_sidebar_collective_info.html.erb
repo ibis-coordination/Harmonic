@@ -6,7 +6,7 @@
   </div>
   <div class="pulse-collective-info-row">
     <a href="<%= @current_collective.path %>">
-      <img src="<%= @current_collective.image_path %>" alt="<%= @current_collective.name %>" class="pulse-collective-image">
+      <%= inline_avatar(@current_collective, css_class: "pulse-collective-image", variant: :thumbnail) %>
     </a>
     <div class="pulse-collective-info-text">
       <a href="<%= @current_collective.path %>" class="pulse-sidebar-collective-name">

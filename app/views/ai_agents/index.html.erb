@@ -46,7 +46,7 @@
 
           <div class="pulse-ai-agent-card">
             <div class="pulse-ai-agent-header">
-              <img src="<%= ai_agent.image_url %>" alt="<%= ai_agent.name %>" class="pulse-ai-agent-avatar">
+              <%= inline_avatar(ai_agent, css_class: "pulse-ai-agent-avatar") %>
               <div class="pulse-ai-agent-info">
                 <div class="pulse-ai-agent-name">
                   <a href="/ai-agents/<%= ai_agent.handle %>"><%= ai_agent.name %></a>

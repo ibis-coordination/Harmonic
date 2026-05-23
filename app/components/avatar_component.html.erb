@@ -1,10 +1,10 @@
 <% if @show_link && @user&.respond_to?(:path) %>
   <a href="<%= @user.path %>">
 <% end %>
-<div class="<%= avatar_class %>" title="<%= @title %>">
+<div class="<%= avatar_class %>" title="<%= @title %>" style="background-color: <%= @user.avatar_color %>;">
   <span class="pulse-avatar-initials"><%= initials %></span>
   <% if has_image? %>
-    <img src="<%= @user.image_url %>" alt="<%= @user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
+    <img src="<%= @user.image_url(variant: :icon) %>" alt="<%= @user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
   <% end %>
 </div>
 <% if @show_link && @user&.respond_to?(:path) %>

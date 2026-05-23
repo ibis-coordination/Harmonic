@@ -1,8 +1,18 @@
 <% if show_parent_overlay? %>
   <span style="position:relative;display:inline-block;<%= @style %>">
-    <%= helpers.image_tag @user.image_url, class: "profile-pic", width: @size, height: @size, title: title, style: "width:#{@size}px;height:#{@size}px;line-height:#{@size}px;#{@style}" %>
-    <%= helpers.image_tag @user.parent.image_url, class: "profile-pic-parent", width: parent_size, height: parent_size, title: "Managed by #{@user.parent.display_name}", style: "position:absolute;bottom:-2px;right:-2px;width:#{parent_size}px;height:#{parent_size}px;border:1px solid var(--color-border-default);border-radius:50%;" %>
+    <% if has_image? %>
+      <%= helpers.image_tag @user.image_url(variant: size_variant), class: "profile-pic", width: @size, height: @size, title: title, style: "width:#{@size}px;height:#{@size}px;line-height:#{@size}px;#{@style}" %>
+    <% else %>
+      <span class="profile-pic" title="<%= title %>" style="<%= fallback_style %>"><%= initials %></span>
+    <% end %>
+    <% if parent_has_image? %>
+      <%= helpers.image_tag @user.parent.image_url(variant: parent_size_variant), class: "profile-pic-parent", width: parent_size, height: parent_size, title: "Managed by #{@user.parent.display_name}", style: "position:absolute;bottom:-2px;right:-2px;width:#{parent_size}px;height:#{parent_size}px;border:1px solid var(--color-border-default);border-radius:50%;" %>
+    <% else %>
+      <span class="profile-pic-parent" title="Managed by <%= @user.parent.display_name %>" style="<%= parent_fallback_style %>"><%= parent_initial %></span>
+    <% end %>
   </span>
+<% elsif has_image? %>
+  <%= helpers.image_tag @user.image_url(variant: size_variant), class: "profile-pic", width: @size, height: @size, title: title, style: "width:#{@size}px;height:#{@size}px;line-height:#{@size}px;#{@style}" %>
 <% else %>
-  <%= helpers.image_tag @user.image_url, class: "profile-pic", width: @size, height: @size, title: title, style: "width:#{@size}px;height:#{@size}px;line-height:#{@size}px;#{@style}" %>
+  <span class="profile-pic" title="<%= title %>" style="<%= fallback_style %>"><%= initials %></span>
 <% end %>

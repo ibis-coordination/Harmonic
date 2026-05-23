@@ -5,7 +5,11 @@ export default class ImageCropperController extends Controller {
   static targets = ["container", "image", "input", "modal", "cropperImage", "cropButton", "cancelButton", "croppedData", "form"]
 
   declare readonly containerTarget: HTMLElement
-  declare readonly imageTarget: HTMLImageElement
+  // Either an <img> (when the user has a profile image) or a <span>
+  // initials fallback (when they don't). The controller doesn't access this
+  // target directly today, but typing it as the supertype keeps future code
+  // honest.
+  declare readonly imageTarget: HTMLElement
   declare readonly inputTarget: HTMLInputElement
   declare readonly modalTarget: HTMLElement
   declare readonly cropperImageTarget: HTMLImageElement

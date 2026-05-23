@@ -6,12 +6,7 @@
   <div class="pulse-readers-list">
     <% @note.history_events.where(event_type: event_type_filter).includes(:user).order(happened_at: :desc).each do |event| %>
       <div class="pulse-reader-item">
-        <div class="pulse-author-avatar">
-          <% if event.user.image.attached? %>
-            <img src="<%= event.user.image_path %>" alt="" class="pulse-avatar-img">
-          <% end %>
-          <span class="pulse-avatar-initials"><%= event.user.display_name.first.upcase %></span>
-        </div>
+        <%= render "shared/avatar_div", record: event.user %>
         <a href="<%= event.user.path %>" class="pulse-reader-name"><%= event.user.display_name %></a>
         <span class="pulse-timestamp"><%= timeago(event.happened_at) %></span>
       </div>

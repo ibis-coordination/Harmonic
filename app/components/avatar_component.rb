@@ -43,8 +43,7 @@ class AvatarComponent < ViewComponent::Base
 
   sig { returns(T::Boolean) }
   def has_image?
-    url = @user&.image_url
-    url.present? && url != "/placeholder.png"
+    @user&.image_url.present?
   end
 
   sig { returns(String) }

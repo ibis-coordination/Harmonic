@@ -13,17 +13,7 @@
   <% if heartbeat_users.any? %>
     <div class="pulse-heartbeat-avatars">
       <% visible_users.each do |user| %>
-        <%
-          name = user.display_name || user.handle || "?"
-          parts = name.split(/[\s\-_]+/)
-          initials = parts.length >= 2 ? "#{parts[0][0]}#{parts[1][0]}".upcase : name[0..1].upcase
-        %>
-        <div class="pulse-avatar" title="<%= user.display_name %>">
-          <span class="pulse-avatar-initials"><%= initials %></span>
-          <% if user.image_url.present? && user.image_url != '/placeholder.png' %>
-            <img src="<%= user.image_url %>" alt="<%= user.display_name %>" class="pulse-avatar-img" onerror="this.style.display='none';">
-          <% end %>
-        </div>
+        <%= render "shared/avatar_div", record: user, css_class: "pulse-avatar" %>
       <% end %>
       <% if remaining_count > 0 %>
         <div class="pulse-avatar">+<%= remaining_count %></div>

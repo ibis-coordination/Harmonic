@@ -302,11 +302,14 @@ select:focus {
   background-color: #ff0;
 }
 
-.user-profile-link img {
+.user-profile-link img,
+.user-profile-link .inline-avatar {
   height: 1.5em;
+  width: 1.5em;
   position: relative;
   bottom: -0.35em;
   border-radius: 50%;
+  object-fit: cover;
 }
 
 .more-button, .top-menu-button {

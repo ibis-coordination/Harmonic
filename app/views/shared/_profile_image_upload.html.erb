@@ -6,9 +6,16 @@
     <div class="profile-image-container"
          data-image-cropper-target="container"
          data-action="click->image-cropper#openFilePicker">
-      <img src="<%= resource.image_url %>"
-           data-image-cropper-target="image"
-           alt="<%= resource.respond_to?(:name) ? resource.name : 'Profile' %> image">
+      <% if resource.image_url.present? %>
+        <img src="<%= resource.image_url(variant: :thumbnail) %>"
+             data-image-cropper-target="image"
+             alt="<%= resource.respond_to?(:name) ? resource.name : 'Profile' %> image">
+      <% else %>
+        <span class="profile-image-fallback"
+              data-image-cropper-target="image"
+              style="background-color: <%= resource.avatar_color %>;"
+              ><%= avatar_initials(inline_avatar_display_name(resource)) %></span>
+      <% end %>
       <div class="profile-image-overlay">
         <span class="profile-image-overlay-text">Change Image</span>
       </div>
@@ -76,6 +83,17 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .profile-image-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: <%= (size * 0.4).to_i %>px;
   }
 
   .profile-image-overlay {
