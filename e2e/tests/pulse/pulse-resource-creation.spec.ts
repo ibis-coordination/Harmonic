@@ -47,8 +47,8 @@ test.describe("Pulse Resource Creation Forms", () => {
       await expect(plusButton).toBeVisible()
       await plusButton.click()
 
-      // Click "New Note" from the dropdown
-      const newNoteLink = page.locator('[data-more-button-target="plusMenu"] a:has-text("New Note")')
+      // Click "Note" from the dropdown
+      const newNoteLink = page.locator('[data-more-button-target="plusMenu"] a:has-text("Note")')
       await expect(newNoteLink).toBeVisible()
       await newNoteLink.click()
 
@@ -57,7 +57,7 @@ test.describe("Pulse Resource Creation Forms", () => {
 
       // Page should show note form with Pulse styling
       await expect(page.locator(".pulse-resource-detail")).toBeVisible()
-      await expect(page.locator("h1.pulse-resource-title")).toContainText("New Note")
+      await expect(page.locator(".pulse-create-tab.active")).toContainText("Note")
     })
 
     test("note form has required elements", async ({ authenticatedPage }) => {
@@ -83,7 +83,7 @@ test.describe("Pulse Resource Creation Forms", () => {
       await expect(textarea).toHaveClass(/pulse-form-textarea/)
 
       // Submit button
-      const submitBtn = form.locator('input[type="submit"][value="Post Note"]')
+      const submitBtn = form.locator('input[type="submit"][value="Publish Note"]')
       await expect(submitBtn).toBeVisible()
       await expect(submitBtn).toHaveClass(/pulse-action-btn/)
 
@@ -110,11 +110,11 @@ test.describe("Pulse Resource Creation Forms", () => {
       const breadcrumb = page.locator("nav.pulse-breadcrumb")
       await expect(breadcrumb).toBeVisible()
 
-      // Should have collective link and "New Note" text
+      // Should have collective link and "New" text
       const collectiveLink = breadcrumb.locator("a").first()
       await expect(collectiveLink).toBeVisible()
 
-      await expect(breadcrumb).toContainText("New Note")
+      await expect(breadcrumb).toContainText("New")
     })
 
     test("can create a note", async ({ authenticatedPage }) => {
@@ -136,7 +136,7 @@ test.describe("Pulse Resource Creation Forms", () => {
       await textarea.fill(noteText)
 
       // Submit the form
-      await page.locator('input[type="submit"][value="Post Note"]').click()
+      await page.locator('input[type="submit"][value="Publish Note"]').click()
 
       // Should redirect to the created note
       await expect(page).toHaveURL(/\/n\//)
@@ -191,7 +191,7 @@ test.describe("Pulse Resource Creation Forms", () => {
 
       // Page should show decision form with Pulse styling
       await expect(page.locator(".pulse-resource-detail")).toBeVisible()
-      await expect(page.locator("h1.pulse-resource-title")).toContainText("New Decision")
+      await expect(page.locator(".pulse-create-tab.active")).toContainText("Decide")
     })
 
     test("decision form has required elements", async ({
@@ -267,7 +267,7 @@ test.describe("Pulse Resource Creation Forms", () => {
       // Check breadcrumb
       const breadcrumb = page.locator("nav.pulse-breadcrumb")
       await expect(breadcrumb).toBeVisible()
-      await expect(breadcrumb).toContainText("New Decision")
+      await expect(breadcrumb).toContainText("New")
     })
 
     test("decision deadline options work correctly", async ({
@@ -384,7 +384,7 @@ test.describe("Pulse Resource Creation Forms", () => {
 
       // Page should show commitment form with Pulse styling
       await expect(page.locator(".pulse-resource-detail")).toBeVisible()
-      await expect(page.locator("h1.pulse-resource-title")).toContainText("New Commitment")
+      await expect(page.locator(".pulse-create-tab.active")).toContainText("Commit")
     })
 
     test("commitment form has required elements", async ({
@@ -461,7 +461,7 @@ test.describe("Pulse Resource Creation Forms", () => {
       // Check breadcrumb
       const breadcrumb = page.locator("nav.pulse-breadcrumb")
       await expect(breadcrumb).toBeVisible()
-      await expect(breadcrumb).toContainText("New Commitment")
+      await expect(breadcrumb).toContainText("New")
     })
 
     test("commitment has close at critical mass option", async ({
@@ -589,14 +589,10 @@ test.describe("Pulse Resource Creation Forms", () => {
       }
 
       const baseUrl = buildBaseUrl()
-      const forms = [
-        { path: "/note", title: "New Note" },
-        { path: "/decide", title: "New Decision" },
-        { path: "/commit", title: "New Commitment" },
-      ]
+      const formPaths = ["/note", "/decide", "/commit"]
 
-      for (const formConfig of forms) {
-        await page.goto(`${baseUrl}${collectivePath}${formConfig.path}`)
+      for (const path of formPaths) {
+        await page.goto(`${baseUrl}${collectivePath}${path}`)
         await page.waitForLoadState("domcontentloaded")
 
         // All should have pulse-form class
@@ -605,48 +601,17 @@ test.describe("Pulse Resource Creation Forms", () => {
         // All should have pulse-resource-detail wrapper
         await expect(page.locator(".pulse-resource-detail")).toBeVisible()
 
-        // All should have pulse-resource-header
-        await expect(page.locator(".pulse-resource-header")).toBeVisible()
-
         // All should have breadcrumb
         await expect(page.locator("nav.pulse-breadcrumb")).toBeVisible()
+
+        // All should have create-tab nav with one active tab
+        await expect(page.locator(".pulse-create-tab.active")).toBeVisible()
 
         // All should have visibility hint
         await expect(page.locator(".pulse-visibility-hint")).toBeVisible()
 
         // All should have resource sidebar
         await expect(page.locator('.pulse-sidebar[data-mode="resource"]')).toBeVisible()
-      }
-    })
-
-    test("forms show resource type icons", async ({ authenticatedPage }) => {
-      const page = authenticatedPage
-      const collectivePath = cachedCollectivePath
-
-      if (!collectivePath) {
-        test.skip()
-        return
-      }
-
-      const baseUrl = buildBaseUrl()
-      const forms = [
-        { path: "/note", icon: "note-icon.svg", label: "Note" },
-        { path: "/decide", icon: "decision-icon.svg", label: "Decision" },
-        { path: "/commit", icon: "commitment-icon.svg", label: "Commitment" },
-      ]
-
-      for (const formConfig of forms) {
-        await page.goto(`${baseUrl}${collectivePath}${formConfig.path}`)
-        await page.waitForLoadState("domcontentloaded")
-
-        // Should have resource type label
-        const typeLabel = page.locator(".pulse-resource-type-label")
-        await expect(typeLabel).toBeVisible()
-        await expect(typeLabel).toContainText(formConfig.label)
-
-        // Should have resource icon
-        const icon = typeLabel.locator(`img[src*="${formConfig.icon}"]`)
-        await expect(icon).toBeVisible()
       }
     })
   })

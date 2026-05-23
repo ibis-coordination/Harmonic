@@ -10,6 +10,7 @@
   <%= form_with(url: "#{@current_collective.path}/note", class: "pulse-form", data: { controller: "note-subtype" }) do |form| %>
     <input type="hidden" name="subtype" value="<%= @subtype %>" data-note-subtype-target="subtypeInput">
 
+    <label class="pulse-form-label">Note Type</label>
     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
       <button type="button" class="<%= @subtype == 'post' || @subtype.nil? ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectPost" data-note-subtype-target="postBtn">Post</button>
       <button type="button" class="<%= @subtype == 'reminder' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectReminder" data-note-subtype-target="reminderBtn">Reminder</button>
@@ -18,6 +19,7 @@
 
     <div data-note-subtype-target="postFields"<%= ' style="display: none;"'.html_safe if @subtype != 'post' %>>
       <div class="pulse-form-group">
+        <label class="pulse-form-label">Text</label>
         <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
           <%= form.text_area :text,
               placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
@@ -35,6 +37,7 @@
 
     <div data-note-subtype-target="reminderFields"<%= ' style="display: none;"'.html_safe unless @subtype == 'reminder' %>>
       <div class="pulse-form-group">
+        <label class="pulse-form-label">Text</label>
         <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
           <%= form.text_area :text,
               placeholder: "What should you be reminded about?",
@@ -132,7 +135,7 @@
     <%= render 'shared/multi_file_select', form: form %>
 
     <div class="pulse-form-actions">
-      <%= form.submit 'Post Note', class: 'pulse-action-btn' %>
+      <%= form.submit 'Publish Note', class: 'pulse-action-btn' %>
       <span class="pulse-visibility-hint">
         <% if @current_collective.id == @current_tenant.main_collective_id %>
           <%= octicon 'eye', height: 14 %>
