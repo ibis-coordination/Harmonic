@@ -605,7 +605,7 @@ class CycleTest < ActiveSupport::TestCase
       created_by: other_user,
       title: "theirs",
       text: "x",
-      subtype: "text",
+      subtype: "post",
       deadline: 1.week.from_now,
     )
 

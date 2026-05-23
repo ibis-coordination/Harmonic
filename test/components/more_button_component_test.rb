@@ -18,9 +18,9 @@ class MoreButtonComponentTest < ViewComponent::TestCase
 
   test "renders plus menu with new resource links" do
     render_inline(MoreButtonComponent.new(resource: @resource, options: [], collective: @collective))
-    assert_selector "a[href='/s/my-collective/note']", text: "New Note", visible: :all
-    assert_selector "a[href='/s/my-collective/decide']", text: "New Decision", visible: :all
-    assert_selector "a[href='/s/my-collective/commit']", text: "New Commitment", visible: :all
+    assert_selector "a[href='/s/my-collective/note']", text: "Note", visible: :all
+    assert_selector "a[href='/s/my-collective/decide']", text: "Decide", visible: :all
+    assert_selector "a[href='/s/my-collective/commit']", text: "Commit", visible: :all
   end
 
   test "renders kebab button when options present" do

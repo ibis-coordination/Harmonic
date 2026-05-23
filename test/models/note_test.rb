@@ -872,7 +872,7 @@ class NoteTest < ActiveSupport::TestCase
 
   # Subtype tests
 
-  test "Note defaults to text subtype" do
+  test "Note defaults to post subtype" do
     tenant = create_tenant
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
@@ -885,8 +885,8 @@ class NoteTest < ActiveSupport::TestCase
       text: "Default subtype note",
     )
 
-    assert_equal "text", note.subtype
-    assert note.is_text?
+    assert_equal "post", note.subtype
+    assert note.is_post?
     assert_not note.is_reminder?
     assert_not note.is_table?
   end
@@ -1375,7 +1375,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Regular note",
-      subtype: "text",
+      subtype: "post",
     )
 
     assert_nil note.reminder_scheduled_for
@@ -1811,7 +1811,7 @@ class NoteTest < ActiveSupport::TestCase
     )
 
     note = Note.new(
-      subtype: "text",
+      subtype: "post",
       text: "A regular note",
       statementable: decision,
       created_by: user,
@@ -1831,7 +1831,7 @@ class NoteTest < ActiveSupport::TestCase
     note = Note.new(subtype: "statement", tenant: tenant, collective: collective, created_by: user, updated_by: user)
     assert note.is_statement?
 
-    note2 = Note.new(subtype: "text", tenant: tenant, collective: collective, created_by: user, updated_by: user)
+    note2 = Note.new(subtype: "post", tenant: tenant, collective: collective, created_by: user, updated_by: user)
     assert_not note2.is_statement?
   end
 

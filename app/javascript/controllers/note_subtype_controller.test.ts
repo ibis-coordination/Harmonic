@@ -20,11 +20,11 @@ describe("NoteSubtypeController", () => {
   function renderForm() {
     document.body.innerHTML = `
       <form data-controller="note-subtype">
-        <input type="hidden" name="subtype" value="text" data-note-subtype-target="subtypeInput">
-        <button type="button" data-action="note-subtype#selectText" data-note-subtype-target="textBtn" class="pulse-action-btn">Text</button>
+        <input type="hidden" name="subtype" value="post" data-note-subtype-target="subtypeInput">
+        <button type="button" data-action="note-subtype#selectPost" data-note-subtype-target="postBtn" class="pulse-action-btn">Post</button>
         <button type="button" data-action="note-subtype#selectReminder" data-note-subtype-target="reminderBtn" class="pulse-action-btn-secondary">Reminder</button>
         <button type="button" data-action="note-subtype#selectTable" data-note-subtype-target="tableBtn" class="pulse-action-btn-secondary">Table</button>
-        <div data-note-subtype-target="textFields">Text content</div>
+        <div data-note-subtype-target="postFields">Post content</div>
         <div data-note-subtype-target="reminderFields" style="display: none;">Reminder fields</div>
         <div data-note-subtype-target="tableFields" style="display: none;">
           <div data-columns></div>
@@ -33,14 +33,14 @@ describe("NoteSubtypeController", () => {
     `
   }
 
-  it("shows text fields by default", async () => {
+  it("shows post fields by default", async () => {
     renderForm()
     await waitForController()
 
-    const textFields = document.querySelector("[data-note-subtype-target='textFields']") as HTMLElement
+    const postFields = document.querySelector("[data-note-subtype-target='postFields']") as HTMLElement
     const tableFields = document.querySelector("[data-note-subtype-target='tableFields']") as HTMLElement
 
-    expect(textFields.style.display).toBe("")
+    expect(postFields.style.display).toBe("")
     expect(tableFields.style.display).toBe("none")
   })
 
@@ -52,15 +52,15 @@ describe("NoteSubtypeController", () => {
     tableBtn.click()
 
     const input = document.querySelector("[data-note-subtype-target='subtypeInput']") as HTMLInputElement
-    const textFields = document.querySelector("[data-note-subtype-target='textFields']") as HTMLElement
+    const postFields = document.querySelector("[data-note-subtype-target='postFields']") as HTMLElement
     const tableFields = document.querySelector("[data-note-subtype-target='tableFields']") as HTMLElement
 
     expect(input.value).toBe("table")
-    expect(textFields.style.display).toBe("none")
+    expect(postFields.style.display).toBe("none")
     expect(tableFields.style.display).toBe("")
   })
 
-  it("switches back to text mode when selectText is called", async () => {
+  it("switches back to post mode when selectPost is called", async () => {
     renderForm()
     await waitForController()
 
@@ -68,16 +68,16 @@ describe("NoteSubtypeController", () => {
     const tableBtn = document.querySelector("[data-note-subtype-target='tableBtn']") as HTMLButtonElement
     tableBtn.click()
 
-    // Switch back to text
-    const textBtn = document.querySelector("[data-note-subtype-target='textBtn']") as HTMLButtonElement
-    textBtn.click()
+    // Switch back to post
+    const postBtn = document.querySelector("[data-note-subtype-target='postBtn']") as HTMLButtonElement
+    postBtn.click()
 
     const input = document.querySelector("[data-note-subtype-target='subtypeInput']") as HTMLInputElement
-    const textFields = document.querySelector("[data-note-subtype-target='textFields']") as HTMLElement
+    const postFields = document.querySelector("[data-note-subtype-target='postFields']") as HTMLElement
     const tableFields = document.querySelector("[data-note-subtype-target='tableFields']") as HTMLElement
 
-    expect(input.value).toBe("text")
-    expect(textFields.style.display).toBe("")
+    expect(input.value).toBe("post")
+    expect(postFields.style.display).toBe("")
     expect(tableFields.style.display).toBe("none")
   })
 
@@ -85,21 +85,21 @@ describe("NoteSubtypeController", () => {
     renderForm()
     await waitForController()
 
-    const textBtn = document.querySelector("[data-note-subtype-target='textBtn']") as HTMLElement
+    const postBtn = document.querySelector("[data-note-subtype-target='postBtn']") as HTMLElement
     const tableBtn = document.querySelector("[data-note-subtype-target='tableBtn']") as HTMLElement
 
-    // Initial state: text is primary
-    expect(textBtn.className).toBe("pulse-action-btn")
+    // Initial state: post is primary
+    expect(postBtn.className).toBe("pulse-action-btn")
     expect(tableBtn.className).toBe("pulse-action-btn-secondary")
 
     // Switch to table
     tableBtn.click()
-    expect(textBtn.className).toBe("pulse-action-btn-secondary")
+    expect(postBtn.className).toBe("pulse-action-btn-secondary")
     expect(tableBtn.className).toBe("pulse-action-btn")
 
     // Switch back
-    textBtn.click()
-    expect(textBtn.className).toBe("pulse-action-btn")
+    postBtn.click()
+    expect(postBtn.className).toBe("pulse-action-btn")
     expect(tableBtn.className).toBe("pulse-action-btn-secondary")
   })
 
@@ -107,9 +107,9 @@ describe("NoteSubtypeController", () => {
     document.body.innerHTML = `
       <form data-controller="note-subtype">
         <input type="hidden" name="subtype" value="table" data-note-subtype-target="subtypeInput">
-        <button type="button" data-note-subtype-target="textBtn" class="pulse-action-btn-secondary">Text</button>
+        <button type="button" data-note-subtype-target="postBtn" class="pulse-action-btn-secondary">Post</button>
         <button type="button" data-note-subtype-target="tableBtn" class="pulse-action-btn">Table</button>
-        <div data-note-subtype-target="textFields" style="display: none;">Text</div>
+        <div data-note-subtype-target="postFields" style="display: none;">Post</div>
         <div data-note-subtype-target="tableFields">
           <div data-columns></div>
           <button type="button" data-action="note-subtype#addColumn">Add</button>
@@ -138,9 +138,9 @@ describe("NoteSubtypeController", () => {
     document.body.innerHTML = `
       <form data-controller="note-subtype">
         <input type="hidden" name="subtype" value="table" data-note-subtype-target="subtypeInput">
-        <button type="button" data-note-subtype-target="textBtn" class="pulse-action-btn-secondary">Text</button>
+        <button type="button" data-note-subtype-target="postBtn" class="pulse-action-btn-secondary">Post</button>
         <button type="button" data-note-subtype-target="tableBtn" class="pulse-action-btn">Table</button>
-        <div data-note-subtype-target="textFields" style="display: none;">Text</div>
+        <div data-note-subtype-target="postFields" style="display: none;">Post</div>
         <div data-note-subtype-target="tableFields">
           <div data-columns>
             <div>
@@ -174,12 +174,12 @@ describe("NoteSubtypeController", () => {
     reminderBtn.click()
 
     const input = document.querySelector("[data-note-subtype-target='subtypeInput']") as HTMLInputElement
-    const textFields = document.querySelector("[data-note-subtype-target='textFields']") as HTMLElement
+    const postFields = document.querySelector("[data-note-subtype-target='postFields']") as HTMLElement
     const reminderFields = document.querySelector("[data-note-subtype-target='reminderFields']") as HTMLElement
     const tableFields = document.querySelector("[data-note-subtype-target='tableFields']") as HTMLElement
 
     expect(input.value).toBe("reminder")
-    expect(textFields.style.display).toBe("none")
+    expect(postFields.style.display).toBe("none")
     expect(reminderFields.style.display).toBe("")
     expect(tableFields.style.display).toBe("none")
   })
@@ -188,43 +188,43 @@ describe("NoteSubtypeController", () => {
     renderForm()
     await waitForController()
 
-    const textBtn = document.querySelector("[data-note-subtype-target='textBtn']") as HTMLElement
+    const postBtn = document.querySelector("[data-note-subtype-target='postBtn']") as HTMLElement
     const reminderBtn = document.querySelector("[data-note-subtype-target='reminderBtn']") as HTMLElement
     const tableBtn = document.querySelector("[data-note-subtype-target='tableBtn']") as HTMLElement
 
-    // Initial: text is active
-    expect(textBtn.className).toBe("pulse-action-btn")
+    // Initial: post is active
+    expect(postBtn.className).toBe("pulse-action-btn")
     expect(reminderBtn.className).toBe("pulse-action-btn-secondary")
     expect(tableBtn.className).toBe("pulse-action-btn-secondary")
 
     // Switch to reminder
     reminderBtn.click()
-    expect(textBtn.className).toBe("pulse-action-btn-secondary")
+    expect(postBtn.className).toBe("pulse-action-btn-secondary")
     expect(reminderBtn.className).toBe("pulse-action-btn")
     expect(tableBtn.className).toBe("pulse-action-btn-secondary")
 
     // Switch to table
     tableBtn.click()
-    expect(textBtn.className).toBe("pulse-action-btn-secondary")
+    expect(postBtn.className).toBe("pulse-action-btn-secondary")
     expect(reminderBtn.className).toBe("pulse-action-btn-secondary")
     expect(tableBtn.className).toBe("pulse-action-btn")
 
-    // Switch back to text
-    textBtn.click()
-    expect(textBtn.className).toBe("pulse-action-btn")
+    // Switch back to post
+    postBtn.click()
+    expect(postBtn.className).toBe("pulse-action-btn")
     expect(reminderBtn.className).toBe("pulse-action-btn-secondary")
     expect(tableBtn.className).toBe("pulse-action-btn-secondary")
   })
 
-  it("disables text textarea when switching to reminder", async () => {
+  it("disables post textarea when switching to reminder", async () => {
     renderForm()
     await waitForController()
 
     const reminderBtn = document.querySelector("[data-note-subtype-target='reminderBtn']") as HTMLButtonElement
     reminderBtn.click()
 
-    const textTextarea = document.querySelector("[data-note-subtype-target='textFields'] textarea") as HTMLTextAreaElement
-    expect(textTextarea).toBeFalsy() // no textarea in our test fixture's textFields div, but let's test with one
+    const postTextarea = document.querySelector("[data-note-subtype-target='postFields'] textarea") as HTMLTextAreaElement
+    expect(postTextarea).toBeFalsy() // no textarea in our test fixture's postFields div, but let's test with one
 
     // Use a more realistic fixture
     document.body.innerHTML = ""
@@ -234,33 +234,33 @@ describe("NoteSubtypeController", () => {
 
     document.body.innerHTML = `
       <form data-controller="note-subtype">
-        <input type="hidden" name="subtype" value="text" data-note-subtype-target="subtypeInput">
-        <button type="button" data-action="note-subtype#selectText" data-note-subtype-target="textBtn" class="pulse-action-btn">Text</button>
+        <input type="hidden" name="subtype" value="post" data-note-subtype-target="subtypeInput">
+        <button type="button" data-action="note-subtype#selectPost" data-note-subtype-target="postBtn" class="pulse-action-btn">Post</button>
         <button type="button" data-action="note-subtype#selectReminder" data-note-subtype-target="reminderBtn" class="pulse-action-btn-secondary">Reminder</button>
         <button type="button" data-action="note-subtype#selectTable" data-note-subtype-target="tableBtn" class="pulse-action-btn-secondary">Table</button>
-        <div data-note-subtype-target="textFields"><textarea name="text">hello</textarea></div>
+        <div data-note-subtype-target="postFields"><textarea name="text">hello</textarea></div>
         <div data-note-subtype-target="reminderFields" style="display: none;"><textarea name="text"></textarea><input type="datetime-local" name="scheduled_for"></div>
         <div data-note-subtype-target="tableFields" style="display: none;"><div data-columns></div></div>
       </form>
     `
     await waitForController()
 
-    // Initially text textarea should be enabled, reminder textarea disabled
-    const textArea = document.querySelector("[data-note-subtype-target='textFields'] textarea") as HTMLTextAreaElement
+    // Initially post textarea should be enabled, reminder textarea disabled
+    const postArea = document.querySelector("[data-note-subtype-target='postFields'] textarea") as HTMLTextAreaElement
     const reminderArea = document.querySelector("[data-note-subtype-target='reminderFields'] textarea") as HTMLTextAreaElement
-    expect(textArea.disabled).toBe(false)
+    expect(postArea.disabled).toBe(false)
     expect(reminderArea.disabled).toBe(true)
 
     // Switch to reminder
     const remBtn = document.querySelector("[data-note-subtype-target='reminderBtn']") as HTMLButtonElement
     remBtn.click()
-    expect(textArea.disabled).toBe(true)
+    expect(postArea.disabled).toBe(true)
     expect(reminderArea.disabled).toBe(false)
 
-    // Switch back to text
-    const txtBtn = document.querySelector("[data-note-subtype-target='textBtn']") as HTMLButtonElement
-    txtBtn.click()
-    expect(textArea.disabled).toBe(false)
+    // Switch back to post
+    const pstBtn = document.querySelector("[data-note-subtype-target='postBtn']") as HTMLButtonElement
+    pstBtn.click()
+    expect(postArea.disabled).toBe(false)
     expect(reminderArea.disabled).toBe(true)
   })
 
@@ -268,9 +268,9 @@ describe("NoteSubtypeController", () => {
     document.body.innerHTML = `
       <form data-controller="note-subtype">
         <input type="hidden" name="subtype" value="table" data-note-subtype-target="subtypeInput">
-        <button type="button" data-note-subtype-target="textBtn" class="pulse-action-btn-secondary">Text</button>
+        <button type="button" data-note-subtype-target="postBtn" class="pulse-action-btn-secondary">Post</button>
         <button type="button" data-note-subtype-target="tableBtn" class="pulse-action-btn">Table</button>
-        <div data-note-subtype-target="textFields" style="display: none;">Text</div>
+        <div data-note-subtype-target="postFields" style="display: none;">Post</div>
         <div data-note-subtype-target="tableFields">
           <div data-columns></div>
           <button type="button" data-action="note-subtype#addColumn">Add</button>

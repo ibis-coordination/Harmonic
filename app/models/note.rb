@@ -14,7 +14,7 @@ class Note < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   participates_in_hard_delete
-  SUBTYPES = %w[text reminder table comment statement].freeze
+  SUBTYPES = %w[post reminder table comment statement].freeze
   MAX_TITLE_LENGTH = 1000
   MAX_TEXT_LENGTH = 1_000_000
 
@@ -72,8 +72,8 @@ class Note < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def is_text?
-    subtype == "text"
+  def is_post?
+    subtype == "post"
   end
 
   sig { returns(T::Boolean) }
