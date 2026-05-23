@@ -1,8 +1,9 @@
 <% local_css_class = local_assigns.fetch(:css_class, "pulse-author-avatar") %>
 <% local_style = local_assigns.fetch(:style, nil) %>
+<% local_variant = local_assigns.fetch(:variant, :icon) %>
 <% record_display = inline_avatar_display_name(record) %>
 <% record_color = record.respond_to?(:avatar_color) ? record.avatar_color : "var(--color-fg-default)" %>
-<% record_src = inline_avatar_image_src(record) %>
+<% record_src = inline_avatar_image_src(record, variant: local_variant) %>
 <% combined_style = "background-color: #{record_color};#{local_style}" %>
 <div class="<%= local_css_class || 'pulse-author-avatar' %>" style="<%= combined_style %>" title="<%= record_display %>">
   <span class="pulse-avatar-initials"><%= avatar_initials(record_display) %></span>

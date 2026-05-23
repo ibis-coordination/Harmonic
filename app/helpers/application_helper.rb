@@ -20,11 +20,15 @@ module ApplicationHelper
   #
   # Both branches add the "inline-avatar" CSS class so styles can target
   # either element type. Pass additional classes via css_class.
-  def inline_avatar(record, alt: nil, css_class: nil, style: nil)
+  #
+  # `variant:` picks the ActiveStorage variant to request. Defaults to :icon
+  # since most callers render at < 64px. Pass :thumbnail for ~64-200px and
+  # :display for larger.
+  def inline_avatar(record, alt: nil, css_class: nil, style: nil, variant: :icon)
     return "".html_safe if record.nil?
 
     display = inline_avatar_display_name(record)
-    src = inline_avatar_image_src(record)
+    src = inline_avatar_image_src(record, variant: variant)
     title = alt || display
     combined_class = ["inline-avatar", css_class].compact.join(" ")
 
@@ -50,32 +54,31 @@ module ApplicationHelper
     return record.display_name if record.respond_to?(:display_name) && record.display_name.present?
     return record.name if record.respond_to?(:name) && record.name.present?
     return record.handle if record.respond_to?(:handle)
+
     nil
   end
 
-  def inline_avatar_image_src(record)
-    if record.respond_to?(:image_url) && record.image_url.present?
-      return record.image_url
-    end
-    if record.respond_to?(:image_path) && record.image_path.present?
-      return record.image_path
-    end
+  def inline_avatar_image_src(record, variant: nil)
+    return record.image_url(variant: variant) if record.respond_to?(:image_url) && record.image_url(variant: variant).present?
+    return record.image_path(variant: variant) if record.respond_to?(:image_path) && record.image_path(variant: variant).present?
+
     nil
   end
 
   def timeago(datetime)
-    ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'
+    ago_or_from_now = datetime < Time.zone.now ? "ago" : "from now"
     "<time
       data-controller='timeago'
       data-timeago-datetime-value='#{datetime.to_datetime.iso8601}'
-      title='#{datetime.to_s}'
+      title='#{datetime}'
     >#{time_ago_in_words(datetime)} #{ago_or_from_now}</time>".html_safe
   end
 
   def time_ago_or_from_now(datetime)
     return "" unless datetime
-    ago_or_from_now = datetime < Time.now ? 'ago' : 'from now'
-    time_ago_in_words(datetime) + " " + ago_or_from_now
+
+    ago_or_from_now = datetime < Time.zone.now ? "ago" : "from now"
+    "#{time_ago_in_words(datetime)} #{ago_or_from_now}"
   end
 
   def duration_in_words(duration)
@@ -86,60 +89,63 @@ module ApplicationHelper
     weeks = days / 7
     months = days / 30
     years = days / 365
-    significant_unit = if years > 0
-      "#{years} year".pluralize(years)
-    # elsif months > 0
-    #   "#{months} month".pluralize(months)
-    elsif weeks > 0
-      "#{weeks} week".pluralize(weeks)
-    elsif days > 0
-      "#{days} day".pluralize(days)
-    elsif hours > 0
-      "#{hours} hour".pluralize(hours)
-    elsif minutes > 0
-      "#{minutes} minute".pluralize(minutes)
-    else
-      "#{seconds} second".pluralize(seconds)
-    end
-    next_unit = if years > 0
-      months = months % 12
-      "#{months} month".pluralize(months)
-    # elsif months > 0
-    #   days = days % 30
-    #   "#{days} day".pluralize(days)
-    elsif weeks > 0
-      days = days % 7
-      "#{days} day".pluralize(days)
-    elsif days > 0
-      hours = hours % 24
-      "#{hours} hour".pluralize(hours)
-    elsif hours > 0
-      minutes = minutes % 60
-      "#{minutes} minute".pluralize(minutes)
-    else
-      seconds = seconds % 60
-      "#{seconds} second".pluralize(seconds)
-    end
+    significant_unit = if years.positive?
+                         "#{years} year".pluralize(years)
+                       # elsif months > 0
+                       #   "#{months} month".pluralize(months)
+                       elsif weeks.positive?
+                         "#{weeks} week".pluralize(weeks)
+                       elsif days.positive?
+                         "#{days} day".pluralize(days)
+                       elsif hours.positive?
+                         "#{hours} hour".pluralize(hours)
+                       elsif minutes.positive?
+                         "#{minutes} minute".pluralize(minutes)
+                       else
+                         "#{seconds} second".pluralize(seconds)
+                       end
+    next_unit = if years.positive?
+                  months %= 12
+                  "#{months} month".pluralize(months)
+                # elsif months > 0
+                #   days = days % 30
+                #   "#{days} day".pluralize(days)
+                elsif weeks.positive?
+                  days %= 7
+                  "#{days} day".pluralize(days)
+                elsif days.positive?
+                  hours %= 24
+                  "#{hours} hour".pluralize(hours)
+                elsif hours.positive?
+                  minutes %= 60
+                  "#{minutes} minute".pluralize(minutes)
+                else
+                  seconds %= 60
+                  "#{seconds} second".pluralize(seconds)
+                end
     "#{significant_unit} + #{next_unit}"
   end
 
-  def countdown(datetime, base_unit: 'seconds')
+  def countdown(datetime, base_unit: "seconds")
     render(CountdownComponent.new(datetime: datetime, base_unit: base_unit))
   end
 
   def markdown(text, shift_headers: true)
     return "" unless text
+
     MarkdownRenderer.render(text, shift_headers: shift_headers).html_safe
   end
 
   def markdown_inline(text)
     return "" unless text
+
     MarkdownRenderer.render_inline(text).html_safe
   end
 
   # Render a user link in markdown format, with parent attribution for ai_agents
   def user_link_md(user, include_parent: true)
     return "" unless user
+
     base_link = "[#{user.display_name}](#{user.path})"
     if include_parent && user.ai_agent? && user.parent
       "#{base_link} (ai_agent of [#{user.parent.display_name}](#{user.parent.path}))"
@@ -228,7 +234,7 @@ module ApplicationHelper
     avatar = content_tag(:span, class: "pulse-group-avatar", style: "background-color: #{user.avatar_color};") do
       avatar_content = content_tag(:span, initial, class: "pulse-group-avatar-initials")
       if user.image_url.present?
-        avatar_content += content_tag(:img, nil, src: user.image_url, alt: "", class: "pulse-group-avatar-img")
+        avatar_content += content_tag(:img, nil, src: user.image_url(variant: :icon), alt: "", class: "pulse-group-avatar-img")
       end
       avatar_content
     end
@@ -268,12 +274,11 @@ module ApplicationHelper
     url_params = request.query_parameters.merge(sort_by: column, sort_dir: new_dir)
     link_to "/admin/security?#{url_params.to_query}" do
       indicator = if current_sort
-        octicon(current_dir == "desc" ? "chevron-down" : "chevron-up", height: 12)
-      else
-        ""
-      end
+                    octicon(current_dir == "desc" ? "chevron-down" : "chevron-up", height: 12)
+                  else
+                    ""
+                  end
       "#{label} #{indicator}".html_safe
     end
   end
-
 end

@@ -1,5 +1,5 @@
 <div>
-  <%= inline_avatar(@current_collective, css_class: "collective-image-large", style: "margin-top:3px;height:83px;width:83px;border-radius:10%;float:left;font-size:32px;font-weight:600;object-fit:cover;") %>
+  <%= inline_avatar(@current_collective, css_class: "collective-image-large", style: "margin-top:3px;height:83px;width:83px;border-radius:10%;float:left;font-size:32px;font-weight:600;object-fit:cover;", variant: :thumbnail) %>
   <div style="padding-top:30px;">
     <h4 style="padding-left:92px;margin-top:0px;margin-bottom:0;">
       <a href="/"><code><%= @current_tenant.subdomain %></code></a> /

@@ -28,7 +28,7 @@
            data-member-select-selected-id-value="<%= @current_user.id %>"
            data-member-select-selected-name-value="<%= @current_user.display_name %>"
            data-member-select-selected-handle-value="<%= @current_user.handle %>"
-           data-member-select-selected-avatar-url-value="<%= @current_user.image_url %>"
+           data-member-select-selected-avatar-url-value="<%= @current_user.image_url(variant: :icon) %>"
            data-member-select-required-value="true"
            style="position: relative;">
         <input type="hidden" data-member-select-target="hiddenInput">

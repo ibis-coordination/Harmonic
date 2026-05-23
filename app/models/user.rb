@@ -86,12 +86,12 @@ class User < ApplicationRecord
     handle
   end
 
-  sig { returns(T.nilable(String)) }
-  def image_url
+  sig { params(variant: T.nilable(Symbol)).returns(T.nilable(String)) }
+  def image_url(variant: nil)
     if collective_identity?
-      Collective.where(identity_user: self).first&.image_path
+      Collective.where(identity_user: self).first&.image_path(variant: variant)
     else
-      image_path
+      image_path(variant: variant)
     end
   end
 

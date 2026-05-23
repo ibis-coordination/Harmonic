@@ -7,7 +7,7 @@
          data-image-cropper-target="container"
          data-action="click->image-cropper#openFilePicker">
       <% if resource.image_url.present? %>
-        <img src="<%= resource.image_url %>"
+        <img src="<%= resource.image_url(variant: :thumbnail) %>"
              data-image-cropper-target="image"
              alt="<%= resource.respond_to?(:name) ? resource.name : 'Profile' %> image">
       <% else %>

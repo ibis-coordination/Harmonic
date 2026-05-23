@@ -36,6 +36,19 @@ class ProfilePicComponent < ViewComponent::Base
     @user.parent&.image_url.present?
   end
 
+  sig { returns(Symbol) }
+  def size_variant
+    return :icon if @size <= 48
+    return :thumbnail if @size <= 200
+    :display
+  end
+
+  sig { returns(Symbol) }
+  def parent_size_variant
+    # parent overlay is parent_size px; small, always :icon
+    :icon
+  end
+
   sig { returns(String) }
   def initials
     name = @user.display_name || @user.handle

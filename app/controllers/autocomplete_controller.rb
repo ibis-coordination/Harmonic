@@ -55,7 +55,7 @@ class AutocompleteController < ApplicationController
         id: tu.user_id,
         handle: display_handle,
         display_name: tu.display_name,
-        avatar_url: tu.user.image_url,
+        avatar_url: tu.user.image_url(variant: :icon),
       }
     end
 
@@ -71,7 +71,7 @@ class AutocompleteController < ApplicationController
           id: trio_tu.user_id,
           handle: MentionParser::TRIO_HANDLE,
           display_name: trio_tu.display_name,
-          avatar_url: trio_tu.user.image_url,
+          avatar_url: trio_tu.user.image_url(variant: :icon),
         )
         results = results.first(10)
       end

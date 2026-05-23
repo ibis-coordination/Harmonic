@@ -13,7 +13,7 @@ module ComponentTestHelper
     user.define_singleton_method(:handle) { handle }
     user.define_singleton_method(:path) { path }
     user.define_singleton_method(:parent) { parent }
-    user.define_singleton_method(:image_url) { image_url }
+    user.define_singleton_method(:image_url) { |variant: nil| image_url }
     user
   end
 
