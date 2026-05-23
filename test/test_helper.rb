@@ -166,7 +166,7 @@ class ActiveSupport::TestCase
   end
 
   def create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Test Note", text: "This is a test note.", subtype: nil, commentable: nil)
-    subtype ||= commentable ? "comment" : "text"
+    subtype ||= commentable ? "comment" : "post"
     Note.create!(tenant: tenant, collective: collective, created_by: created_by, title: title, text: text, subtype: subtype, deadline: Time.current + 1.week, commentable: commentable)
   end
 

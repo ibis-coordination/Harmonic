@@ -132,7 +132,7 @@ class SearchIndexerTest < ActiveSupport::TestCase
     parent_search_index = SearchIndex.find_by(item_type: "Note", item_id: note.id)
     assert_not_includes parent_search_index.searchable_text, "First comment"
     assert_not_includes parent_search_index.searchable_text, "Second comment"
-    assert_equal "text", parent_search_index.subtype
+    assert_equal "post", parent_search_index.subtype
 
     # Each comment has its own search index entry
     comment1_search_index = SearchIndex.find_by(item_type: "Note", item_id: comment1.id)

@@ -24,7 +24,7 @@ class NotesController < ApplicationController
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @sidebar_mode = "resource"
     @team = @current_collective.team
-    @subtype = Note::SUBTYPES.include?(params[:subtype]) ? params[:subtype] : "text"
+    @subtype = Note::SUBTYPES.include?(params[:subtype]) ? params[:subtype] : "post"
     @note = Note.new(
       title: params[:title]
     )
@@ -60,7 +60,7 @@ class NotesController < ApplicationController
     elsif params[:subtype] == "reminder"
       create_reminder_note
     else
-      create_text_note
+      create_post_note
     end
   rescue ActiveRecord::RecordInvalid => e
     e.record.errors.full_messages.each { |msg| flash.now[:alert] = msg }
@@ -598,7 +598,7 @@ class NotesController < ApplicationController
                         })
   end
 
-  def create_text_note
+  def create_post_note
     helper_params = { title: model_params[:title], text: model_params[:text] }
     @note = api_helper(params: helper_params).create_note
     if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
@@ -652,7 +652,7 @@ class NotesController < ApplicationController
     scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
 
     if scheduled_for.nil?
-      return create_text_note
+      return create_post_note
     end
 
     helper_params = { title: model_params[:title], text: model_params[:text] }

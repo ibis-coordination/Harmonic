@@ -865,7 +865,7 @@ CREATE TABLE public.notes (
     commentable_id uuid,
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
-    subtype character varying DEFAULT 'text'::character varying NOT NULL,
+    subtype character varying DEFAULT 'post'::character varying NOT NULL,
     table_data jsonb,
     edit_access character varying DEFAULT 'owner'::character varying NOT NULL,
     reminder_notification_id uuid,
@@ -9575,6 +9575,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260523053523'),
 ('20260523010107'),
 ('20260522050652'),
 ('20260521171154'),

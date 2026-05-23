@@ -3,11 +3,11 @@ import { parseCsv } from "../utils/csv_parser"
 
 export default class extends Controller {
   static targets = [
-    "textFields",
+    "postFields",
     "reminderFields",
     "tableFields",
     "subtypeInput",
-    "textBtn",
+    "postBtn",
     "reminderBtn",
     "tableBtn",
     "manualColumnsSection",
@@ -22,11 +22,11 @@ export default class extends Controller {
     "tableCreationModeInput",
   ]
 
-  declare textFieldsTarget: HTMLElement
+  declare postFieldsTarget: HTMLElement
   declare reminderFieldsTarget: HTMLElement
   declare tableFieldsTarget: HTMLElement
   declare subtypeInputTarget: HTMLInputElement
-  declare textBtnTarget: HTMLElement
+  declare postBtnTarget: HTMLElement
   declare reminderBtnTarget: HTMLElement
   declare tableBtnTarget: HTMLElement
 
@@ -51,24 +51,24 @@ export default class extends Controller {
     this.toggle()
   }
 
-  // Text/Reminder/Table subtype toggle
+  // Post/Reminder/Table subtype toggle
 
   toggle() {
     const subtype = this.subtypeInputTarget.value
 
-    this.textFieldsTarget.style.display = subtype === "text" ? "" : "none"
+    this.postFieldsTarget.style.display = subtype === "post" ? "" : "none"
     if (this.hasReminderFieldsTarget) {
       this.reminderFieldsTarget.style.display = subtype === "reminder" ? "" : "none"
     }
     this.tableFieldsTarget.style.display = subtype === "table" ? "" : "none"
 
     // Disable inputs in hidden sections so they don't submit duplicate form values
-    this.setInputsDisabled(this.textFieldsTarget, subtype !== "text")
+    this.setInputsDisabled(this.postFieldsTarget, subtype !== "post")
     if (this.hasReminderFieldsTarget) {
       this.setInputsDisabled(this.reminderFieldsTarget, subtype !== "reminder")
     }
 
-    this.textBtnTarget.className = subtype === "text" ? "pulse-action-btn" : "pulse-action-btn-secondary"
+    this.postBtnTarget.className = subtype === "post" ? "pulse-action-btn" : "pulse-action-btn-secondary"
     if (this.hasReminderBtnTarget) {
       this.reminderBtnTarget.className = subtype === "reminder" ? "pulse-action-btn" : "pulse-action-btn-secondary"
     }
@@ -81,8 +81,8 @@ export default class extends Controller {
     })
   }
 
-  selectText() {
-    this.subtypeInputTarget.value = "text"
+  selectPost() {
+    this.subtypeInputTarget.value = "post"
     this.toggle()
   }
 

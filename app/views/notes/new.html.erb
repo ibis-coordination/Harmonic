@@ -11,12 +11,12 @@
     <input type="hidden" name="subtype" value="<%= @subtype %>" data-note-subtype-target="subtypeInput">
 
     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-      <button type="button" class="<%= @subtype == 'text' || @subtype.nil? ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectText" data-note-subtype-target="textBtn">Text</button>
+      <button type="button" class="<%= @subtype == 'post' || @subtype.nil? ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectPost" data-note-subtype-target="postBtn">Post</button>
       <button type="button" class="<%= @subtype == 'reminder' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectReminder" data-note-subtype-target="reminderBtn">Reminder</button>
       <button type="button" class="<%= @subtype == 'table' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-action="note-subtype#selectTable" data-note-subtype-target="tableBtn">Table</button>
     </div>
 
-    <div data-note-subtype-target="textFields"<%= ' style="display: none;"'.html_safe if @subtype != 'text' %>>
+    <div data-note-subtype-target="postFields"<%= ' style="display: none;"'.html_safe if @subtype != 'post' %>>
       <div class="pulse-form-group">
         <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
           <%= form.text_area :text,

@@ -23,7 +23,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "create_text_note materializes MediaItems from pending media_items[]" do
+  test "create_post_note materializes MediaItems from pending media_items[]" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.set_thread_context(@collective)
@@ -38,7 +38,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/note",
          params: {
-           subtype: "text",
+           subtype: "post",
            text: "A note with images",
            media_items: {
              "0" => { signed_id: blob1.signed_id, alt_text: "First image" },
@@ -56,7 +56,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
   end
 
-  test "create_text_note skips invalid signed_ids without aborting" do
+  test "create_post_note skips invalid signed_ids without aborting" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.set_thread_context(@collective)
@@ -68,7 +68,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/note",
          params: {
-           subtype: "text",
+           subtype: "post",
            text: "Mixed valid and bogus",
            media_items: {
              "0" => { signed_id: "not-a-real-signed-id" },
@@ -883,13 +883,13 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
   # === Reminder Note Tests ===
 
-  test "new note form with subtype=reminder shows reminder fields and hides text fields" do
+  test "new note form with subtype=reminder shows reminder fields and hides post fields" do
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/note?subtype=reminder"
     assert_response :success
     assert_includes response.body, "scheduled_for"
-    # Text fields should be hidden when reminder is selected
-    assert_select "[data-note-subtype-target='textFields'][style*='display: none']"
+    # Post fields should be hidden when reminder is selected
+    assert_select "[data-note-subtype-target='postFields'][style*='display: none']"
     # Reminder fields should be visible
     assert_select "[data-note-subtype-target='reminderFields']" do |elements|
       # Should NOT have display:none
@@ -956,7 +956,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     end
 
     note = Note.last
-    assert_equal "text", note.subtype
+    assert_equal "post", note.subtype
     assert_nil note.reminder_notification_id
   end
 
@@ -1661,12 +1661,12 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
   # === Empty text validation tests ===
 
-  test "creating a text note with empty text re-renders form" do
+  test "creating a post note with empty text re-renders form" do
     sign_in_as(@user, tenant: @tenant)
 
     assert_no_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: { text: "", subtype: "text" }
+        params: { text: "", subtype: "post" }
     end
   end
 

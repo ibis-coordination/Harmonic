@@ -20,7 +20,7 @@ module ComponentTestHelper
   # Build a Note instance usable as a comment or resource.
   def build_note(text: "Test note", title: nil, truncated_id: "abc12345", created_by: nil, created_at: 1.hour.ago, updated_at: nil,
                  is_comment: false, commentable: nil, **attrs)
-    subtype = is_comment ? "comment" : (attrs[:subtype] || "text")
+    subtype = is_comment ? "comment" : (attrs[:subtype] || "post")
     note = Note.new(text: text, title: title, truncated_id: truncated_id, subtype: subtype, created_at: created_at, updated_at: updated_at || created_at, **attrs.except(:subtype))
     note.define_singleton_method(:created_by) { created_by } if created_by
     note.define_singleton_method(:path) { "/n/#{truncated_id}" }
