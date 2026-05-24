@@ -50,7 +50,44 @@ class FeedItemComponent < ViewComponent::Base
     return "Reminder" if @type == "Note" && @item.is_a?(Note) && @item.is_reminder?
     return "Executive Decision" if @type == "Decision" && @item.is_a?(Decision) && @item.is_executive?
     return "Lottery" if @type == "Decision" && @item.is_a?(Decision) && @item.is_lottery?
+    return "Event" if @type == "Commitment" && @item.is_a?(Commitment) && @item.is_calendar_event?
+    return "Policy" if @type == "Commitment" && @item.is_a?(Commitment) && @item.is_policy?
+
     @type
+  end
+
+  sig { returns(T::Boolean) }
+  def is_policy_commitment?
+    @type == "Commitment" && @item.is_a?(Commitment) && @item.is_policy?
+  end
+
+  sig { returns(T::Boolean) }
+  def is_calendar_event_commitment?
+    @type == "Commitment" && @item.is_a?(Commitment) && @item.is_calendar_event?
+  end
+
+  sig { returns(String) }
+  def join_action_label
+    return "Sign" if is_policy_commitment?
+    return "RSVP" if is_calendar_event_commitment?
+
+    "Join"
+  end
+
+  sig { returns(String) }
+  def joined_label
+    return "Signed" if is_policy_commitment?
+    return "RSVP'd" if is_calendar_event_commitment?
+
+    "Joined"
+  end
+
+  sig { returns(String) }
+  def join_action_icon
+    return "check" if is_policy_commitment?
+    return "calendar" if is_calendar_event_commitment?
+
+    "person-add"
   end
 
   sig { returns(T.nilable(String)) }

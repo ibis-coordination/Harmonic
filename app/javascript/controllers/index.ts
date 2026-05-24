@@ -64,6 +64,7 @@ import AuditVerifyController from "./audit_verify_controller"
 import AutoSubmitController from "./auto_submit_controller"
 import CheckboxGroupController from "./checkbox_group_controller"
 import KebabMenuController from "./kebab_menu_controller"
+import CommitmentSubtypeController from "./commitment_subtype_controller"
 import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
@@ -81,6 +82,7 @@ application.register("countdown", CountdownController)
 application.register("datetime-input", DatetimeInputController)
 application.register("deadline-options", DeadlineOptionsController)
 application.register("decision", DecisionController)
+application.register("commitment-subtype", CommitmentSubtypeController)
 application.register("decision-subtype", DecisionSubtypeController)
 application.register("decision-results", DecisionResultsController)
 application.register("form-tracker", FormTrackerController)

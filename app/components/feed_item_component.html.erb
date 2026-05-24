@@ -75,19 +75,49 @@
         <% end %>
       <% end %>
     <% when 'Commitment' %>
-      <div class="pulse-commitment-progress">
-        <div class="pulse-progress-bar">
-          <div class="pulse-progress-fill" style="width: <%= progress_percent %>%"></div>
-        </div>
-        <div class="pulse-progress-label">
-          <span><%= participant_count %> of <%= critical_mass %> committed</span>
-          <% if remaining > 0 %>
-            <span><%= remaining %> more needed</span>
-          <% else %>
-            <span>Critical mass reached!</span>
+      <% if is_calendar_event_commitment? %>
+        <div class="pulse-event-when">
+          <%= helpers.octicon 'calendar', height: 14 %>
+          <strong><%= T.unsafe(@item).formatted_time_range %></strong>
+          <% if T.unsafe(@item).location.present? %>
+            &middot; <%= helpers.octicon 'location', height: 14 %> <%= T.unsafe(@item).location %>
           <% end %>
         </div>
-      </div>
+        <% if critical_mass > 0 %>
+          <div class="pulse-commitment-progress">
+            <div class="pulse-progress-bar">
+              <div class="pulse-progress-fill" style="width: <%= progress_percent %>%"></div>
+            </div>
+            <div class="pulse-progress-label">
+              <span><%= participant_count %> attending</span>
+              <% if remaining > 0 %>
+                <span>need <%= remaining %> more</span>
+              <% end %>
+            </div>
+          </div>
+        <% else %>
+          <div class="pulse-commitment-progress">
+            <div class="pulse-progress-label">
+              <span><%= participant_count %> attending</span>
+            </div>
+          </div>
+        <% end %>
+      <% else %>
+        <div class="pulse-commitment-progress">
+          <div class="pulse-progress-bar">
+            <div class="pulse-progress-fill" style="width: <%= progress_percent %>%"></div>
+          </div>
+          <div class="pulse-progress-label">
+            <% verb = is_policy_commitment? ? "signed" : "committed" %>
+            <span><%= participant_count %> of <%= critical_mass %> <%= verb %></span>
+            <% if remaining > 0 %>
+              <span><%= remaining %> more needed</span>
+            <% else %>
+              <span>Critical mass reached!</span>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
     <% end %>
   </div>
   <div class="pulse-feed-item-footer">
@@ -128,10 +158,10 @@
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'person' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
       <% else %>
         <% if user_has_joined? %>
-          <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'person' %> Joined</button>
+          <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check' %> <%= joined_label %></button>
         <% else %>
-          <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="Joining..." data-pulse-action-confirmed-text-value="Joined">
-            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon 'person-add' %> Join</button>
+          <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="<%= join_action_label %>..." data-pulse-action-confirmed-text-value="<%= joined_label %>">
+            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon join_action_icon %> <%= join_action_label %></button>
           </div>
         <% end %>
       <% end %>

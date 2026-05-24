@@ -132,7 +132,10 @@ class ApplicationRecord < ActiveRecord::Base
 
   sig { returns(T::Boolean) }
   def closed?
-    T.unsafe(self).deadline && T.unsafe(self).deadline <= Time.now
+    deadline = T.unsafe(self).deadline
+    return false unless deadline
+
+    deadline <= Time.now
   end
 
   sig { params(user: User).returns(T::Boolean) }

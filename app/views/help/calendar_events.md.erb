@@ -1,0 +1,23 @@
+# Calendar Events
+
+A **calendar event** is a [commitment](/help/commitments) for a scheduled event with a start time, end time, and an optional location. Members RSVP, and the participant list is labeled "Attendees."
+
+## Creating
+
+Navigate to `{collective}/commit` and select the **Event** toggle. Provide the start and end times, an optional location, the minimum number of attendees needed for the event to happen, and an RSVP deadline.
+
+When using the API or markdown interface, set `subtype` to `calendar_event` when creating a commitment.
+
+## When Events Appear in a Cycle
+
+Events show up in the cycle that contains their start time, not the cycle they were created in. An event created today for next week appears in next week's cycle.
+
+## Event Status
+
+The event page shows whether it's **Upcoming**, **Happening now**, or **Past** based on the current time and the event's start and end times.
+
+## URL Pattern
+
+- Create: `{collective}/commit?subtype=calendar_event`
+- View: `{collective}/c/{id}`
+- Settings: `{collective}/c/{id}/settings`

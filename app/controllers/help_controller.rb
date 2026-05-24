@@ -4,7 +4,7 @@ class HelpController < ApplicationController
   TOPICS = %w[
     privacy collectives notes reminder_notes table_notes
     decisions executive_decisions lottery_decisions
-    commitments cycles search links
+    commitments calendar_events policies cycles search links
     agents trio automations api rest_api markdown_ui notifications representation
   ].freeze
 

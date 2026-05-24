@@ -1,11 +1,17 @@
 # New Commitment
 
-Commitments require the following:
+Commitments come in three subtypes (pick one via the `subtype` parameter):
 
-* A title describing the action that will be taken.
-* An optional description (markdown).
-* A critical mass (minimum number of participants) required for the commitment to take effect.
-* A deadline by which critical mass must be reached.
+* **action** (default) — a pledge to do something. Members "join".
+* **calendar_event** — an event with `starts_at`, `ends_at`, and optional `location`. Members "RSVP".
+* **policy** — an ongoing rule or agreement. Members "sign".
+
+All subtypes require:
+
+* A `title` describing the commitment.
+* An optional `description` (markdown).
+* A `critical_mass` (minimum participants) required for the commitment to take effect.
+* A `deadline` by which critical mass must be reached.
 
 <% if @current_collective.id == @current_tenant.main_collective_id %>
 **Visibility:** This commitment will be publicly visible.
@@ -14,4 +20,3 @@ Commitments require the following:
 <% else %>
 **Visibility:** Only members of this collective can access this commitment.
 <% end %>
-

@@ -7,7 +7,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @collective = @global_collective
     @user = @global_user
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
 
     # Create a commitment for tests
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -85,9 +85,9 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       commitment: {
         title: "New Test Commitment",
         description: "Testing commitment creation",
-        critical_mass: 10
+        critical_mass: 10,
       },
-      deadline_option: "no_deadline"
+      deadline_option: "no_deadline",
     }
 
     final_count = Commitment.unscoped.where(collective: @collective).count
@@ -105,9 +105,9 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       commitment: {
         title: "Critical Mass Commitment",
         description: "Testing critical mass",
-        critical_mass: 5
+        critical_mass: 5,
       },
-      deadline_option: "close_at_critical_mass"
+      deadline_option: "close_at_critical_mass",
     }
 
     commitment = Commitment.unscoped.find_by(title: "Critical Mass Commitment", collective: @collective)
@@ -157,8 +157,8 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings",
-      params: { commitment: { title: "Updated Commitment Title" } },
-      headers: { 'Referer' => "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}" }
+         params: { commitment: { title: "Updated Commitment Title" } },
+         headers: { "Referer" => "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}" }
 
     @commitment.reload
     assert_equal "Updated Commitment Title", @commitment.title
@@ -173,7 +173,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     initial_participant_count = CommitmentParticipant.unscoped.where(commitment: @commitment).count
 
     post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/join.html",
-      params: { name: "Test Participant" }
+         params: { name: "Test Participant" }
 
     # User becomes a participant
     assert_response :success
@@ -181,6 +181,169 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     final_participant_count = CommitmentParticipant.unscoped.where(commitment: @commitment).count
     # Should have same or more participants (might already be a participant)
     assert final_participant_count >= initial_participant_count
+  end
+
+  # === Subtype Tests ===
+
+  test "create policy commitment with critical_mass and deadline" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      commitment: {
+        title: "Be kind to each other",
+        description: "Treat fellow members with respect.",
+        subtype: "policy",
+        critical_mass: 3,
+      },
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Be kind to each other", collective: @collective)
+    assert_not_nil commitment, "Expected commitment to be created. Flash: #{flash.inspect}"
+    assert_equal "policy", commitment.subtype
+    assert_equal 3, commitment.critical_mass
+    assert_not_nil commitment.deadline
+    assert_response :redirect
+  end
+
+  # Regression: the commitment new.html.erb uses `form_with(url:)` (no model),
+  # so its fields serialize at the top level — not under `commitment[...]`.
+  # Tests that post fully-namespaced params don't exercise this path. These
+  # tests post params shaped like the real form does to catch shape drift.
+
+  test "create commitment with form-shaped params (top-level fields)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Action from real form",
+      description: "Posted top-level like form_with(url:) does.",
+      critical_mass: 3,
+      subtype: "action",
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Action from real form", collective: @collective)
+    assert_not_nil commitment, "Expected commitment to be created. Flash: #{flash.inspect}"
+    assert_equal "action", commitment.subtype
+    assert_response :redirect
+  end
+
+  test "create policy commitment with form-shaped params" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Form-shaped policy",
+      description: "Top-level fields.",
+      critical_mass: 3,
+      subtype: "policy",
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Form-shaped policy", collective: @collective)
+    assert_not_nil commitment, "Expected policy commitment to be created. Flash: #{flash.inspect}"
+    assert_equal "policy", commitment.subtype
+    assert_equal 3, commitment.critical_mass
+    assert_response :redirect
+  end
+
+  test "create calendar event commitment with form-shaped params" do
+    sign_in_as(@user, tenant: @tenant)
+
+    starts = 1.week.from_now.change(min: 0, sec: 0)
+    ends = starts + 1.hour
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Form-shaped event",
+      description: "Top-level fields.",
+      subtype: "calendar_event",
+      critical_mass: 1,
+      starts_at: starts.strftime("%Y-%m-%dT%H:%M"),
+      ends_at: ends.strftime("%Y-%m-%dT%H:%M"),
+      location: "Room B",
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Form-shaped event", collective: @collective)
+    assert_not_nil commitment, "Expected event commitment to be created. Flash: #{flash.inspect}"
+    assert_equal "calendar_event", commitment.subtype
+    assert_equal "Room B", commitment.location
+    assert_response :redirect
+  end
+
+  test "new commitment form respects subtype query param" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/commit?subtype=policy"
+    assert_response :success
+    assert_select "[data-commitment-subtype-target='policyBtn']"
+  end
+
+  # The rescue branch in #create re-renders :new on validation failure. It
+  # must set all the instance variables `new` sets so the form renders
+  # without raising — and must preserve the user's selected subtype.
+  test "create rescue path re-renders form with subtype preserved" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Missing critical_mass triggers a validation error
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Will fail",
+      description: "no critical mass",
+      subtype: "calendar_event",
+      deadline_option: "no_deadline",
+    }
+
+    assert_response :success # render :new returns 200, not redirect
+    assert_match(/There was an error creating the commitment/, flash.now[:alert] || response.body)
+    # Calendar Event button should still be the active one
+    assert_select "button.pulse-action-btn[data-commitment-subtype-target='calendarEventBtn']"
+    assert_select "input[name='subtype'][value='calendar_event']"
+  end
+
+  # The form uses form_with(url:) — fields serialize at the top level, NOT
+  # under commitment[...]. Mixing the two (e.g. `name="commitment[subtype]"`
+  # alongside `name="title"`) makes `model_params` return only the namespaced
+  # subset and silently drops the rest. This asserts the field-name shape
+  # so a future change can't reintroduce that bug without failing here.
+  test "new commitment form serializes fields at the top level" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/commit?subtype=calendar_event"
+    assert_response :success
+
+    assert_select "input[name='title']"
+    assert_select "input[name='subtype']"
+    assert_select "input[name='starts_at']"
+    assert_select "input[name='ends_at']"
+    assert_select "input[name='location']"
+    # Nothing in the form should namespace under commitment[...]
+    assert_select "[name^='commitment[']", false,
+      "form_with(url:) fields must be top-level — found a 'commitment[...]' field"
+  end
+
+  test "create calendar event commitment with starts_at, ends_at, location" do
+    sign_in_as(@user, tenant: @tenant)
+
+    starts = 1.week.from_now.change(min: 0, sec: 0)
+    ends = starts + 1.hour
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      commitment: {
+        title: "Team meeting",
+        description: "Weekly sync.",
+        subtype: "calendar_event",
+        critical_mass: 1,
+        starts_at: starts.strftime("%Y-%m-%dT%H:%M"),
+        ends_at: ends.strftime("%Y-%m-%dT%H:%M"),
+        location: "Conference Room A",
+      },
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Team meeting", collective: @collective)
+    assert_not_nil commitment, "Expected commitment to be created. Flash: #{flash.inspect}"
+    assert_equal "calendar_event", commitment.subtype
+    assert commitment.starts_at.present?
+    assert commitment.ends_at.present?
+    assert_equal "Conference Room A", commitment.location
+    assert_response :redirect
   end
 
   # === Status Partial Tests ===

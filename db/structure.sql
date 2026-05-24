@@ -449,7 +449,10 @@ CREATE TABLE public.commitments (
     deleted_by_id uuid,
     subtype character varying DEFAULT 'action'::character varying NOT NULL,
     deadline_event_fired_at timestamp(6) without time zone,
-    hard_delete_after timestamp(6) without time zone
+    hard_delete_after timestamp(6) without time zone,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone,
+    location text
 );
 
 
@@ -3793,6 +3796,13 @@ CREATE INDEX index_commitments_on_deleted_at ON public.commitments USING btree (
 --
 
 CREATE INDEX index_commitments_on_hard_delete_after ON public.commitments USING btree (hard_delete_after);
+
+
+--
+-- Name: index_commitments_on_starts_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_commitments_on_starts_at ON public.commitments USING btree (tenant_id, collective_id, starts_at) WHERE (starts_at IS NOT NULL);
 
 
 --
@@ -9575,6 +9585,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260523181916'),
 ('20260523053523'),
 ('20260523010107'),
 ('20260522050652'),

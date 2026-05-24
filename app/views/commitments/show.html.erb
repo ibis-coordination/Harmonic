@@ -1,7 +1,14 @@
 <span data-controller="commitment" data-commitment-id="<%= @commitment.id %>">
+<% breadcrumb_label = if @commitment.is_policy?
+                        "Policy"
+                      elsif @commitment.is_calendar_event?
+                        "Event"
+                      else
+                        "Commitment"
+                      end %>
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_collective.name, @current_collective.path],
-  'Commitment'
+  breadcrumb_label
 ] %>
 
 <% if @commitment.deleted? %>
@@ -13,8 +20,15 @@
 <% else %>
 
 <article class="pulse-resource-detail">
+  <% type_label = if @commitment.is_policy?
+                    "Policy"
+                  elsif @commitment.is_calendar_event?
+                    "Event"
+                  else
+                    "Commitment"
+                  end %>
   <%= render ResourceHeaderComponent.new(
-    type_label: "Commitment",
+    type_label: type_label,
     title: @commitment.title,
     icon_class: "commitment-icon",
     status: @commitment.closed? ? "closed" : "open",
@@ -60,6 +74,22 @@
     </div>
   </div>
 
+  <% if @commitment.is_calendar_event? %>
+    <div class="pulse-event-details">
+      <p class="pulse-event-when">
+        <%= octicon 'calendar', height: 14 %>
+        <strong><%= @commitment.formatted_time_range %></strong>
+        <span class="pulse-event-status">&middot; <%= @commitment.event_status %></span>
+      </p>
+      <% if @commitment.location.present? %>
+        <p class="pulse-event-location">
+          <%= octicon 'location', height: 14 %>
+          <%= @commitment.location %>
+        </p>
+      <% end %>
+    </div>
+  <% end %>
+
   <%= render 'shared/automation_attribution', resource: @commitment %>
 
   <%# Participation Progress %>
@@ -91,9 +121,16 @@
         </p>
       </div>
     <% else %>
+      <% join_label = if @commitment.is_policy?
+                        "Sign"
+                      elsif @commitment.is_calendar_event?
+                        "RSVP"
+                      else
+                        "Join"
+                      end %>
       <div class="pulse-join-section">
         <div class="pulse-section-label">
-          Join
+          <%= join_label %>
         </div>
         <div data-commitment-target="joinSection">
           <%= render 'join' %>

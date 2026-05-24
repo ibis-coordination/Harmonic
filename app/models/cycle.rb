@@ -13,14 +13,14 @@ class Cycle
       "month" => { current: "this-month", previous: "last-month", next: "next-month" },
       "year" => { current: "this-year", previous: "last-year", next: "next-year" },
     }.freeze,
-    T::Hash[String, T::Hash[Symbol, String]],
+    T::Hash[String, T::Hash[Symbol, String]]
   )
 
   ALLOWED_BUCKET_UNITS = T.let(["day", "week", "month", "year"].freeze, T::Array[String])
 
   RecentCycleSummary = Struct.new(
     :cycle_start, :notes_count, :decisions_count, :commitments_count, :total_count,
-    keyword_init: true,
+    keyword_init: true
   )
 
   sig { params(tempo: String).returns(T::Array[String]) }
@@ -96,9 +96,9 @@ class Cycle
   def self.bucket_sql_for(unit, tz_name)
     Arel.sql(
       ApplicationRecord.sanitize_sql_for_conditions([
-        "date_trunc(?, (created_at AT TIME ZONE 'UTC' AT TIME ZONE ?))",
-        unit, tz_name,
-      ])
+                                                      "date_trunc(?, (created_at AT TIME ZONE 'UTC' AT TIME ZONE ?))",
+                                                      unit, tz_name,
+                                                    ])
     )
   end
   private_class_method :bucket_sql_for
@@ -641,7 +641,25 @@ class Cycle
 
   sig { returns(ActiveRecord::Relation) }
   def commitments
-    @commitments ||= resources(Commitment)
+    @commitments ||= begin
+      # Calendar event commitments are placed in cycles by their event start time
+      # (starts_at), not their created_at. All other commitments use the standard
+      # window (`resources`): created_at < end_date AND deadline > start_date.
+      base = Commitment.where(tenant_id: @tenant.id, collective_id: @collective.id)
+      standard = base.where.not(subtype: "calendar_event")
+        .where("commitments.created_at < ?", end_date)
+        .where("commitments.deadline > ?", start_date)
+      calendar = base.where(subtype: "calendar_event")
+        .where("commitments.starts_at >= ? AND commitments.starts_at < ?", start_date, end_date)
+      rs = base.where(id: standard).or(base.where(id: calendar))
+      current_filters = filters
+      if current_filters.present?
+        current_filters.each do |filter|
+          rs = rs.where(filter)
+        end
+      end
+      rs.order(sort_by)
+    end
   end
 
   sig { returns(ActiveRecord::Relation) }

@@ -595,7 +595,7 @@ class CycleTest < ActiveSupport::TestCase
       tenant: other_tenant,
       created_by: other_user,
       handle: "other-#{SecureRandom.hex(4)}",
-      name: "Other",
+      name: "Other"
     )
 
     create_note(collective: @collective, title: "ours")
@@ -606,7 +606,7 @@ class CycleTest < ActiveSupport::TestCase
       title: "theirs",
       text: "x",
       subtype: "post",
-      deadline: 1.week.from_now,
+      deadline: 1.week.from_now
     )
 
     summaries = Cycle.recent_summaries(collective: @collective, tenant: @tenant).to_a
@@ -675,6 +675,41 @@ class CycleTest < ActiveSupport::TestCase
 
   test "cycle_name_for_offset raises for invalid unit" do
     assert_raises(RuntimeError) { Cycle.cycle_name_for_offset(0, "decade") }
+  end
+
+  # === Calendar event cycle membership ===
+
+  test "calendar_event commitments appear in cycle containing starts_at, not created_at" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    next_week_starts = 1.week.from_now.beginning_of_week + 1.day + 10.hours
+    event = Commitment.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      title: "Next week meeting", subtype: "calendar_event",
+      starts_at: next_week_starts, ends_at: next_week_starts + 1.hour,
+      critical_mass: 1, deadline: next_week_starts
+    )
+
+    this_week = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
+    next_week = Cycle.new(name: "next-week", tenant: @tenant, collective: @collective)
+
+    assert_not_includes this_week.commitments.pluck(:id), event.id
+    assert_includes next_week.commitments.pluck(:id), event.id
+  end
+
+  test "action commitments use created_at for cycle membership" do
+    @collective.settings["tempo"] = "weekly"
+    @collective.save!
+
+    action = Commitment.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      title: "Action this week", subtype: "action",
+      critical_mass: 3, deadline: 2.weeks.from_now
+    )
+
+    this_week = Cycle.new(name: "this-week", tenant: @tenant, collective: @collective)
+    assert_includes this_week.commitments.pluck(:id), action.id
   end
 
   test "cycle_name_for_offset round-trips through Cycle parsing" do

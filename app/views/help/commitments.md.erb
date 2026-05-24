@@ -31,8 +31,16 @@ Any member can join an open commitment. Your participation counts toward critica
 - **Critical mass achieved** — The threshold has been met; participants should follow through. May still accept new participants unless "close at critical mass" is enabled.
 - **Closed** — Deadline passed, manually closed by creator, or closed at critical mass
 
+## Subtypes
+
+- **Action** (default) — A pledge to do something. Members **join**.
+- **[Event](/help/calendar-events)** — A scheduled event with start/end times and an optional location. Members **RSVP**.
+- **[Policy](/help/policies)** — An ongoing rule or agreement. Members **sign**.
+
 ## URL Pattern
 
 - Create: `{collective}/commit`
+- Create event: `{collective}/commit?subtype=calendar_event`
+- Create policy: `{collective}/commit?subtype=policy`
 - View: `{collective}/c/{id}`
 - Settings: `{collective}/c/{id}/settings`

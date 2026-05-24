@@ -13,7 +13,7 @@ class Commitment < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   include Statementable
-  SUBTYPES = %w[action calendar_event policy].freeze
+  SUBTYPES = ["action", "calendar_event", "policy"].freeze
   MAX_TITLE_LENGTH = 1000
   MAX_DESCRIPTION_LENGTH = 1_000_000
 
@@ -22,14 +22,17 @@ class Commitment < ApplicationRecord
   before_validation :set_tenant_id
   belongs_to :collective
   before_validation :set_collective_id
-  belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
-  belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
-  has_many :participants, class_name: 'CommitmentParticipant', dependent: :destroy
+  belongs_to :created_by, class_name: "User"
+  belongs_to :updated_by, class_name: "User"
+  has_many :participants, class_name: "CommitmentParticipant", dependent: :destroy
   validates :title, presence: true, length: { maximum: MAX_TITLE_LENGTH }
   validates :description, length: { maximum: MAX_DESCRIPTION_LENGTH }
   validates :critical_mass, presence: true, numericality: { greater_than: 0 }
   validates :deadline, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }
+  validates :starts_at, presence: true, if: :is_calendar_event?
+  validates :ends_at, presence: true, if: :is_calendar_event?
+  validate :ends_at_after_starts_at, if: :is_calendar_event?
 
   sig { returns(T::Boolean) }
   def is_action?
@@ -56,24 +59,23 @@ class Commitment < ApplicationRecord
       description: description,
       deadline: deadline,
       critical_mass: critical_mass,
+      starts_at: starts_at ? T.must(starts_at).iso8601 : nil,
+      ends_at: ends_at ? T.must(ends_at).iso8601 : nil,
+      location: location,
       participant_count: participant_count,
       created_at: created_at,
       updated_at: updated_at,
       created_by_id: created_by_id,
       updated_by_id: updated_by_id,
     }
-    if include.include?('participants')
-      response.merge!({ participants: participants.map(&:api_json) })
-    end
-    if include.include?('backlinks')
-      response.merge!({ backlinks: backlinks.map(&:api_json) })
-    end
+    response.merge!({ participants: participants.map(&:api_json) }) if include.include?("participants")
+    response.merge!({ backlinks: backlinks.map(&:api_json) }) if include.include?("backlinks")
     response
   end
 
   sig { returns(String) }
   def path_prefix
-    'c'
+    "c"
   end
 
   def content_snapshot
@@ -94,23 +96,104 @@ class Commitment < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def title
     return "[deleted]" if deleted?
+
     super
   end
 
   sig { returns(T.nilable(String)) }
   def description
     return "[deleted]" if deleted?
+
     super
+  end
+
+  sig { returns(T::Boolean) }
+  def upcoming?
+    s = starts_at
+    return false unless s
+
+    s > Time.current
+  end
+
+  sig { returns(T::Boolean) }
+  def in_progress?
+    s = starts_at
+    e = ends_at
+    return false unless s && e
+
+    now = Time.current
+    s <= now && e > now
+  end
+
+  sig { returns(T::Boolean) }
+  def past?
+    e = ends_at
+    return false unless e
+
+    e <= Time.current
+  end
+
+  sig { returns(T.nilable(ActiveSupport::Duration)) }
+  def duration
+    s = starts_at
+    e = ends_at
+    return nil unless s && e
+
+    (e - s).seconds
+  end
+
+  sig { returns(T::Boolean) }
+  def all_day?
+    s = starts_at
+    e = ends_at
+    return false unless s && e
+
+    tz = collective&.timezone&.tzinfo&.name || "UTC"
+    s_local = s.in_time_zone(tz)
+    e_local = e.in_time_zone(tz)
+    s_local == s_local.beginning_of_day && e_local == e_local.beginning_of_day && e_local > s_local
+  end
+
+  sig { returns(String) }
+  def formatted_time_range
+    s = starts_at
+    e = ends_at
+    return "" unless s && e
+
+    tz = collective&.timezone&.tzinfo&.name || "UTC"
+    s_local = s.in_time_zone(tz)
+    e_local = e.in_time_zone(tz)
+    if all_day?
+      if (e_local - 1.day) == s_local
+        s_local.strftime("%b %-d, %Y")
+      else
+        "#{s_local.strftime("%b %-d")} – #{(e_local - 1.day).strftime("%b %-d, %Y")}"
+      end
+    elsif s_local.to_date == e_local.to_date
+      "#{s_local.strftime("%b %-d, %-l:%M %p")} – #{e_local.strftime("%-l:%M %p")}"
+    else
+      "#{s_local.strftime("%b %-d, %-l:%M %p")} – #{e_local.strftime("%b %-d, %-l:%M %p")}"
+    end
+  end
+
+  sig { returns(String) }
+  def event_status
+    return "Happening now" if in_progress?
+    return "Upcoming" if upcoming?
+    return "Past" if past?
+
+    ""
   end
 
   sig { returns(String) }
   def status_message
     # critical mass achieved
-    return 'Critical mass achieved.' if critical_mass_achieved?
+    return "Critical mass achieved." if critical_mass_achieved?
     # critical mass not achieved
-    return 'Failed to reach critical mass.' if closed?
+    return "Failed to reach critical mass." if closed?
+
     # critical mass not achieved yet
-    return "Pending"
+    "Pending"
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -125,7 +208,10 @@ class Commitment < ApplicationRecord
 
   sig { returns(String) }
   def metric_name
-    'participants'
+    return "signatories" if is_policy?
+    return "attendees" if is_calendar_event?
+
+    "participants"
   end
 
   sig { returns(Integer) }
@@ -135,7 +221,7 @@ class Commitment < ApplicationRecord
 
   sig { returns(String) }
   def octicon_metric_icon_name
-    'person'
+    "person"
   end
 
   sig { returns(Integer) }
@@ -162,6 +248,7 @@ class Commitment < ApplicationRecord
   def requires_manual_close?
     result = super
     return false unless result
+
     !close_at_critical_mass?
   end
 
@@ -182,10 +269,11 @@ class Commitment < ApplicationRecord
   sig { void }
   def close_if_limit_reached
     return if limit.nil?
+
     @committed_participants = nil # clear cached collection in case a new participant was just added
-    if limit_reached? && !closed?
-      self.deadline = T.cast(Time.current, ActiveSupport::TimeWithZone)
-    end
+    return unless limit_reached? && !closed?
+
+    self.deadline = T.cast(Time.current, ActiveSupport::TimeWithZone)
   end
 
   sig { void }
@@ -197,6 +285,7 @@ class Commitment < ApplicationRecord
   sig { returns(Integer) }
   def progress_percentage
     return 100 if critical_mass_achieved?
+
     [(participant_count.to_f / critical_mass.to_f * 100).round, 100].min
   end
 
@@ -210,6 +299,16 @@ class Commitment < ApplicationRecord
   end
 
   private
+
+  sig { void }
+  def ends_at_after_starts_at
+    s = starts_at
+    e = ends_at
+    return unless s && e
+    return unless e <= s
+
+    errors.add(:ends_at, "must be after starts_at")
+  end
 
   # Track the creator of this commitment
   def user_item_status_updates

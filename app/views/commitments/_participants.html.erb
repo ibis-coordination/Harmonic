@@ -1,6 +1,6 @@
 <div class="pulse-section-label">
   <%= octicon 'people', height: 14 %>
-  Participants (<%= @commitment.participant_count %>)
+  <%= @commitment.metric_name.capitalize %> (<%= @commitment.participant_count %>)
 </div>
 <div data-limit="<%= @participants_list_limit %>">
   <%= render 'participants_list_items' %>
