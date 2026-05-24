@@ -44,6 +44,42 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "pulse-feed-item"
   end
 
+  # Regression: the markdown feed views (home, pulse, users) called
+  # `feed_item[:item].title` on every item — but ReminderEvent items wrap a
+  # NoteHistoryEvent which has no `.title`, so any feed containing a fired
+  # reminder crashed the markdown render with NoMethodError.
+  test "homepage markdown renders when feed includes a fired reminder event" do
+    sign_in_as(@user, tenant: @tenant)
+
+    main_collective = Collective.find(@tenant.main_collective_id)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      collective: main_collective,
+      created_by: @user,
+      title: "Note with a reminder",
+      text: "body",
+      subtype: "reminder",
+      deadline: Time.current + 1.week,
+    )
+    NoteHistoryEvent.create!(
+      tenant: @tenant,
+      note: note,
+      user: @user,
+      event_type: "reminder",
+      happened_at: Time.current,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "[Reminder]"
+    assert_includes response.body, "Note with a reminder"
+    assert_includes response.body, note.path
+  end
+
   test "homepage does not display feed items from non-main collectives" do
     sign_in_as(@user, tenant: @tenant)
 

@@ -1,7 +1,7 @@
-<% if feed_item[:type] == "ReminderEvent" %>
+<% if feed_item[:type] == "Reminder" %>
   <%= render ReminderFeedItemComponent.new(
-    event: feed_item[:item],
-    current_user: @current_user,
+    note: feed_item[:item],
+    happened_at: feed_item[:created_at],
   ) %>
 <% else %>
   <%= render FeedItemComponent.new(

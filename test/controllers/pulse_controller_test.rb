@@ -34,6 +34,45 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Remember to check on deployment"
   end
 
+  # Regression: pulse markdown view called `feed_item[:item].title` on every
+  # item — but ReminderEvent items wrap a NoteHistoryEvent which has no
+  # `.title`, so any cycle containing a fired reminder crashed the markdown
+  # render.
+  test "pulse markdown renders when feed includes a fired reminder event" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Main collective bypasses the heartbeat-required gate in the md view.
+    main_collective = T.must(@tenant.main_collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    note = Note.create!(
+      tenant: @tenant,
+      collective: main_collective,
+      created_by: @user,
+      updated_by: @user,
+      title: "Markdown reminder note",
+      text: "body",
+      subtype: "reminder",
+    )
+    NoteHistoryEvent.create!(
+      note: note,
+      user: @user,
+      event_type: "reminder",
+      happened_at: 10.minutes.ago,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{main_collective.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    # The "**Reminder**:" prefix is the markdown type label produced for a
+    # fired reminder event — distinct from the word "Reminder" appearing
+    # elsewhere (e.g., in the note title).
+    assert_includes response.body, "**Reminder**:"
+    assert_includes response.body, "Markdown reminder note"
+    assert_includes response.body, note.path
+  end
+
   test "feed does not include reminder events from past cycles" do
     sign_in_as(@user, tenant: @tenant)
 
