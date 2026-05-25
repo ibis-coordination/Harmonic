@@ -246,6 +246,32 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
+  # The form now uses a duration select rather than an ends_at datetime
+  # input — the server derives ends_at from starts_at + duration_minutes.
+  test "create calendar event commitment with duration (form path)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    starts = 1.week.from_now.change(min: 0, sec: 0)
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Duration-based event",
+      description: "Server computes ends_at.",
+      subtype: "calendar_event",
+      critical_mass: 1,
+      starts_at: starts.strftime("%Y-%m-%dT%H:%M"),
+      duration_minutes: 90,
+      location: "Room C",
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Duration-based event", collective: @collective)
+    assert_not_nil commitment, "Expected event to be created. Flash: #{flash.inspect}"
+    assert_equal "calendar_event", commitment.subtype
+    # ends_at = starts_at + 90 minutes
+    assert_in_delta 90 * 60, commitment.ends_at - commitment.starts_at, 1.0
+    assert_equal "Room C", commitment.location
+  end
+
   test "create calendar event commitment with form-shaped params" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -311,7 +337,7 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name='title']"
     assert_select "input[name='subtype']"
     assert_select "input[name='starts_at']"
-    assert_select "input[name='ends_at']"
+    assert_select "select[name='duration_minutes']"
     assert_select "input[name='location']"
     # Nothing in the form should namespace under commitment[...]
     assert_select "[name^='commitment[']", false,

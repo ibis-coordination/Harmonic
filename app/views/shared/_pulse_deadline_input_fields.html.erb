@@ -1,12 +1,26 @@
 <% form ||= nil # required %>
 <% resource ||= nil %>
-<% current_time_in_zone = @current_collective.time_in_zone(Time.current) %>
-<% deadline = deadline ? deadline : (resource ? resource.deadline : current_time_in_zone) %>
-<% deadline = @current_collective.time_in_zone(deadline) %>
+<% deadline ||= nil %>
 <% requires_manual_close = resource ? resource.requires_manual_close? : false %>
 <% closing_at_critical_mass = resource && !requires_manual_close ? resource.close_at_critical_mass? : false %>
 <% close_now_option ||= false %>
 <% close_at_critical_mass_option ||= false %>
+
+<%
+  # When editing an existing commitment, pre-fill the input with the
+  # resource's current deadline (in the collective's timezone). When creating
+  # a new one, leave the value empty and let the JS controller fill in
+  # "now + 7d" in the user's auto-detected local timezone — so the visible
+  # date/time matches the timezone the input shows.
+  if resource && !requires_manual_close
+    deadline_for_prefill = @current_collective.time_in_zone(deadline || resource.deadline)
+    deadline_default_value = deadline_for_prefill.strftime("%Y-%m-%dT%H:%M")
+    deadline_default_offset = ""
+  else
+    deadline_default_value = nil
+    deadline_default_offset = "7d"
+  end
+%>
 
 <div data-controller="deadline-options" class="pulse-deadline-options">
   <fieldset class="pulse-radio-group">
@@ -23,11 +37,10 @@
     <label class="pulse-radio-label">
       <%= form.radio_button :deadline_option, 'datetime', checked: !requires_manual_close && !closing_at_critical_mass, class: 'pulse-radio-input' %>
       <span class="pulse-deadline-datetime-wrapper">
-        <% deadline_val = requires_manual_close ? current_time_in_zone : deadline %>
         <%= render DatetimeInputComponent.new(
           field_name: "deadline",
-          default_value: deadline_val.strftime('%Y-%m-%dT%H:%M'),
-          default_offset: "",
+          default_value: deadline_default_value,
+          default_offset: deadline_default_offset,
           require_future: true,
           default_timezone: @current_collective.timezone.name,
         ) %>

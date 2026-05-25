@@ -45,9 +45,24 @@ class CommitmentsController < ApplicationController
       close_at_critical_mass: params[:deadline_option] == "close_at_critical_mass",
     }
     if @subtype == "calendar_event"
-      tz = current_collective.timezone&.name
-      helper_params[:starts_at] = parse_scheduled_time(model_params[:starts_at], timezone: tz)
-      helper_params[:ends_at] = parse_scheduled_time(model_params[:ends_at], timezone: tz)
+      # DatetimeInputComponent submits a per-input timezone alongside each
+      # datetime-local value; fall back to the collective's timezone.
+      collective_tz = current_collective.timezone&.name
+      helper_params[:starts_at] = parse_scheduled_time(
+        model_params[:starts_at],
+        timezone: model_params[:starts_at_timezone].presence || collective_tz,
+      )
+      # The form gives the user a duration (more natural than an end time);
+      # the server derives ends_at. API/markdown callers can still pass
+      # ends_at directly if they prefer.
+      if model_params[:duration_minutes].present? && helper_params[:starts_at]
+        helper_params[:ends_at] = helper_params[:starts_at] + model_params[:duration_minutes].to_i.minutes
+      elsif model_params[:ends_at].present?
+        helper_params[:ends_at] = parse_scheduled_time(
+          model_params[:ends_at],
+          timezone: model_params[:ends_at_timezone].presence || collective_tz,
+        )
+      end
       helper_params[:location] = model_params[:location]
       # Default the closing deadline to the event start if the user didn't
       # pick one (RSVP deadline is optional for events).
