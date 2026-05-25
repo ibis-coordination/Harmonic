@@ -1,6 +1,13 @@
+<% type_label = if @commitment.is_policy?
+                  "Policy"
+                elsif @commitment.is_calendar_event?
+                  "Event"
+                else
+                  "Commitment"
+                end %>
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_collective.name, @current_collective.path],
-  ['Commitment', @commitment.path],
+  [type_label, @commitment.path],
   'Settings'
 ] %>
 
@@ -9,10 +16,10 @@
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
         <i class="commitment-icon icon-sm"></i>
-        Commitment Settings
+        <%= type_label %> Settings
       </span>
     </div>
-    <h1 class="pulse-resource-title">Edit Commitment</h1>
+    <h1 class="pulse-resource-title">Edit <%= type_label %></h1>
   </header>
 
   <div class="pulse-resource-body">

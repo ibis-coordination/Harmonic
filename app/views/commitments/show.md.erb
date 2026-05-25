@@ -17,6 +17,8 @@ This commitment has been deleted<%= " by the author" if @commitment.deleted_by_i
 %>
 # <%= type_label %>: [<%= @commitment.title %>](<%= @commitment.path %>)
 
+| status | <%= @commitment.closed? ? 'Closed' : 'Open' %> |
+| created_by | <%= resource_author_md(@commitment) %> |
 | created_at | <%= @commitment.created_at %> |
 | updated_at | <%= @commitment.updated_at %> |
 | deadline | <%= @commitment.deadline %> |
@@ -28,8 +30,10 @@ This commitment has been deleted<%= " by the author" if @commitment.deleted_by_i
 <% if @commitment.location.present? %>
 | location | <%= @commitment.location %> |
 <% end %>
-| status | <%= @commitment.event_status %> |
+| event_status | <%= @commitment.event_status %> |
 <% end %>
+
+<%= render 'shared/automation_attribution', resource: @commitment %>
 <% if @commitment.description.present? %>
 <% truncated_description = truncate_content(@commitment.description) %>
 
