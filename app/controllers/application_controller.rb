@@ -605,7 +605,18 @@ class ApplicationController < ActionController::Base
       @current_collective&.is_main_collective? &&
       (request.get? || request.head?) &&
       self.class.allows_anonymous?(action_name) &&
-      [:html, :md].include?(request.format.symbol)
+      anonymous_format_allowed?
+  end
+
+  # Anon-allowed response formats: HTML, Markdown, and `*/*` (Mime::ALL,
+  # the default for curl, monitoring tools, and the wildcard tail of every
+  # real browser's Accept header). `*/*` is safe because the anon-allowed
+  # controllers either declare `respond_to` with html/md only or rely on
+  # template-based default rendering, both of which resolve `*/*` to HTML.
+  # JSON/XML/CSV/etc. are denied.
+  def anonymous_format_allowed?
+    fmt = request.format
+    fmt == Mime::ALL || [:html, :md].include?(fmt.symbol)
   end
 
   # Per-action header to prevent cross-audience cache reuse: anon and

@@ -138,8 +138,9 @@ class ApplicationRecord < ActiveRecord::Base
     deadline <= Time.now
   end
 
-  sig { params(user: User).returns(T::Boolean) }
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
   def user_can_close?(user)
+    return false if user.nil?
     user.id == T.unsafe(self).created_by.id
   end
 

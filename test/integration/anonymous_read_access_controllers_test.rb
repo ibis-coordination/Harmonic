@@ -114,10 +114,13 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
   # The bypass predicate explicitly allows `request.head?`. Test the most
   # likely HEAD caller (monitors, health checks, link previews).
 
-  test "anon HEAD /n/:id on PUBLIC main collective returns 200" do
+  test "anon HEAD /n/:id on PUBLIC main collective returns 200 with no-cache headers" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
     head @note.path
     assert_response :success
+    assert_match(/no-store/, response.headers["Cache-Control"],
+                 "HEAD must set the same no-cache headers as GET — monitors/preview-fetchers " \
+                 "shouldn't be able to populate caches with a HEAD probe")
   end
 
   test "anon HEAD /help/privacy on PUBLIC tenant returns 200" do

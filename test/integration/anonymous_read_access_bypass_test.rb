@@ -132,13 +132,28 @@ class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
     assert_redirected_to %r{/login}
   end
 
-  # ---- Condition 6 (HTML/MD format): JSON rejected ----
+  # ---- Condition 6 (HTML/MD format): JSON rejected, */* and mixed accept allowed ----
 
   test "anon GET /n/:id with Accept: application/json on PUBLIC tenant is rejected (401/302)" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
     get @public_note.path, headers: { "Accept" => "application/json" }
     assert_includes [302, 401, 406], response.status,
                     "expected JSON request to be rejected, got #{response.status}"
+  end
+
+  test "anon GET /n/:id with Accept: */* (curl/monitor default) returns 200 HTML" do
+    host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
+    get @public_note.path, headers: { "Accept" => "*/*" }
+    assert_response :success
+    assert_equal "text/html", response.media_type
+  end
+
+  test "anon GET /n/:id with browser-style Accept (text/html,...,*/*) returns 200 HTML" do
+    host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
+    browser_accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+    get @public_note.path, headers: { "Accept" => browser_accept }
+    assert_response :success
+    assert_equal "text/html", response.media_type
   end
 
   # ---- Conditions 1-6 ALL met: success on public tenant ----
