@@ -73,8 +73,10 @@ class UsersController < ApplicationController
         .count
     end
 
-    # Load proximity connections for the profile being viewed
-    load_proximity_connections
+    # Load proximity connections only when viewing your OWN profile.
+    # Proximity exposes the profile owner's social graph and is private to
+    # them — not visible to other logged-in users, not visible to anon.
+    load_proximity_connections if @current_user == @showing_user
 
     # Build user's main collective (public) content timeline
     main_cid = @current_tenant.main_collective_id

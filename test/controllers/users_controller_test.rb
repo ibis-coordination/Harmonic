@@ -127,6 +127,76 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# User: #{@user.display_name}"
   end
 
+  # === Social Proximity visibility ===
+  #
+  # The Social Proximity accordion exposes the profile owner's social graph.
+  # It must ONLY be visible to the profile owner themselves — not to other
+  # logged-in users, not to anon viewers.
+  #
+  # Test cache is :null_store (see config/environments/test.rb) so we can't
+  # seed proximity via Rails.cache.write — every fetch misses and recomputes.
+  # Stubbing SocialProximityCalculator.new lets us return deterministic
+  # scores for the duration of a request without depending on a real graph.
+  def with_stubbed_proximity(owner:, others:)
+    fake_calculator = Class.new do
+      def initialize(scores); @scores = scores; end
+      def compute; @scores; end
+    end.new(others.each_with_index.to_h { |u, i| [u.id, 1.0 - (i * 0.1)] })
+
+    original = SocialProximityCalculator.method(:new)
+    SocialProximityCalculator.define_singleton_method(:new) do |*_, **_|
+      fake_calculator
+    end
+    yield
+  ensure
+    SocialProximityCalculator.singleton_class.send(:remove_method, :new)
+    SocialProximityCalculator.define_singleton_method(:new, original)
+  end
+
+  test "social proximity section IS shown when viewing OWN profile" do
+    proximate = create_user(email: "proxi@example.com", name: "Proximate Person")
+    @tenant.add_user!(proximate)
+    sign_in_as(@user, tenant: @tenant)
+
+    with_stubbed_proximity(owner: @user, others: [proximate]) do
+      get "/u/#{@user.handle}"
+    end
+    assert_response :success
+    assert_match(/Social Proximity/, response.body)
+    assert_match(/Proximate Person/, response.body)
+  end
+
+  test "social proximity section is HIDDEN when a different logged-in user views the profile" do
+    proximate = create_user(email: "proxi2@example.com", name: "Proximate Person")
+    @tenant.add_user!(proximate)
+    other = create_user(email: "other-viewer@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+
+    with_stubbed_proximity(owner: @user, others: [proximate]) do
+      get "/u/#{@user.handle}"
+    end
+    assert_response :success
+    assert_no_match(/Social Proximity/, response.body,
+                    "another logged-in user must not see the profile owner's social graph")
+    assert_no_match(/Proximate Person/, response.body,
+                    "the proximate user's name leaked")
+  end
+
+  test "social proximity section is HIDDEN in markdown when a different logged-in user views" do
+    proximate = create_user(email: "proxi3@example.com", name: "Proximate Person")
+    @tenant.add_user!(proximate)
+    other = create_user(email: "other-viewer-md@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+
+    with_stubbed_proximity(owner: @user, others: [proximate]) do
+      get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    end
+    assert_response :success
+    assert_no_match(/Social Proximity/, response.body)
+  end
+
   # === AiAgent Count Tests (HTML) ===
 
   test "person user profile shows ai_agent count when they have ai_agents" do
