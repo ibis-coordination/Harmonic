@@ -123,7 +123,9 @@
   <div class="pulse-feed-item-footer">
     <% case @type %>
     <% when 'Note' %>
-      <% if user_has_read? %>
+      <% if @current_user.nil? %>
+        <a href="/login" data-redirect-to-resource="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'sign-in' %> Log in to confirm reading</a>
+      <% elsif user_has_read? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'book' %> Confirmed</button>
       <% else %>
         <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/confirm_read" data-pulse-action-loading-text-value="Confirming..." data-pulse-action-confirmed-text-value="Confirmed">
@@ -147,6 +149,8 @@
     <% when 'Decision' %>
       <% if @item.closed? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check-circle' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
+      <% elsif @current_user.nil? && !(T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery?) %>
+        <a href="/login" data-redirect-to-resource="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'sign-in' %> Log in to vote</a>
       <% elsif T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
         <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> View</a>
       <% else %>
@@ -156,14 +160,14 @@
     <% when 'Commitment' %>
       <% if @item.closed? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'person' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
+      <% elsif @current_user.nil? %>
+        <a href="/login" data-redirect-to-resource="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'sign-in' %> Log in to <%= join_action_label.downcase %></a>
+      <% elsif user_has_joined? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check' %> <%= joined_label %></button>
       <% else %>
-        <% if user_has_joined? %>
-          <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check' %> <%= joined_label %></button>
-        <% else %>
-          <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="<%= join_action_label %>..." data-pulse-action-confirmed-text-value="<%= joined_label %>">
-            <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon join_action_icon %> <%= join_action_label %></button>
-          </div>
-        <% end %>
+        <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/join_commitment" data-pulse-action-loading-text-value="<%= join_action_label %>..." data-pulse-action-confirmed-text-value="<%= joined_label %>">
+          <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon join_action_icon %> <%= join_action_label %></button>
+        </div>
       <% end %>
       <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
     <% end %>

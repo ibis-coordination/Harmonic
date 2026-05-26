@@ -3,12 +3,16 @@
 class UsersController < ApplicationController
   include RequiresReverification
 
+  allows_anonymous :show
+  before_action :set_no_cache_headers, only: [:show]
+  before_action :enforce_anonymous_read_rate_limit, only: [:show]
+
   before_action -> { require_reverification(scope: "representation") }, only: [:represent]
   before_action -> { require_reverification(scope: "email_change") }, only: [:update_email]
 
   def index
-    @page_title = 'Users'
-    @sidebar_mode = 'minimal'
+    @page_title = "Users"
+    @sidebar_mode = "minimal"
     @users = current_tenant.tenant_users
   end
 
@@ -23,30 +27,40 @@ class UsersController < ApplicationController
   end
 
   def show
-    @sidebar_mode = 'minimal'
+    @sidebar_mode = "minimal"
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404' if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     @showing_user = tu.user
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
     if params[:collective_handle]
       # Showing user in a specific collective
       sm = @showing_user.collective_members.where(collective: current_collective).first
-      return render '404' if sm.nil?
+      return render "404" if sm.nil?
+
       @showing_user.collective_member = sm
       @common_collectives = [current_collective]
-      @additional_common_collective_count = (
-        current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]
-      ).select(&:listable?).count - 1
-    else
+      @additional_common_collective_count = if current_user
+                                              (
+                                                current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])
+                                              ).select(&:listable?).count - 1
+                                            else
+                                              0
+                                            end
+    elsif current_user
       # Showing user at the tenant level, so we want to show all common collectives between the current user and the showing user
-      @common_collectives = (current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]).select(&:listable?)
+      @common_collectives = (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
+      @additional_common_collective_count = 0
+    else
+      # Anonymous viewer has no collective membership — no common collectives to show.
+      @common_collectives = []
       @additional_common_collective_count = 0
     end
 
     # Compute count of common collectives for profile display
-    if @current_user != @showing_user
-      all_common = (current_user.collectives & @showing_user.collectives - [current_tenant.main_collective]).select(&:listable?)
+    if current_user && @current_user != @showing_user
+      all_common = (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
       @common_collective_count = all_common.count
     else
       @common_collective_count = 0
@@ -63,7 +77,6 @@ class UsersController < ApplicationController
     load_proximity_connections
 
     # Build user's main collective (public) content timeline
-    tid = @current_tenant.id
     main_cid = @current_tenant.main_collective_id
     @feed_items = FeedBuilder.new(
       notes_scope: Note.unscope_collective
@@ -71,7 +84,7 @@ class UsersController < ApplicationController
       decisions_scope: Decision.unscope_collective
         .where(collective_id: main_cid, created_by_id: @showing_user.id),
       commitments_scope: Commitment.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id),
+        .where(collective_id: main_cid, created_by_id: @showing_user.id)
     ).feed_items
 
     respond_to do |format|
@@ -81,11 +94,12 @@ class UsersController < ApplicationController
   end
 
   def settings
-    @sidebar_mode = 'minimal'
+    @sidebar_mode = "minimal"
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     @settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
 
     @settings_user.tenant_user = tu
     @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
@@ -101,7 +115,7 @@ class UsersController < ApplicationController
       user_tokens = @settings_user.api_tokens.external.includes(:user).to_a
       agent_tokens = @ai_agents.flat_map { |agent| agent.api_tokens.external.includes(:user).to_a }
       @all_api_tokens = user_tokens.sort_by { |t| -t.created_at.to_i } +
-        agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
+                        agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
     else
       @ai_agents = []
       @invitable_collectives = []
@@ -116,11 +130,13 @@ class UsersController < ApplicationController
 
   def add_ai_agent_to_collective
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render status: 404, plain: "404 Not Found" if tu.nil?
+    return render status: :not_found, plain: "404 Not Found" if tu.nil?
+
     ai_agent = tu.user
-    return render status: 403, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
+    return render status: :forbidden, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
+
     collective = Collective.find(params[:collective_id])
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_add_ai_agent_to_collective?(ai_agent, collective)
+    return render status: :forbidden, plain: "403 Unauthorized" unless current_user.can_add_ai_agent_to_collective?(ai_agent, collective)
 
     # Add AI agent to the collective
     collective.add_user!(ai_agent)
@@ -142,13 +158,14 @@ class UsersController < ApplicationController
 
   def remove_ai_agent_from_collective
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render status: 404, plain: "404 Not Found" if tu.nil?
+    return render status: :not_found, plain: "404 Not Found" if tu.nil?
+
     ai_agent = tu.user
-    return render status: 403, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
+    return render status: :forbidden, plain: "403 Unauthorized" unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
 
     collective = Collective.find(params[:collective_id])
     collective_member = CollectiveMember.find_by(collective: collective, user: ai_agent)
-    return render status: 404, plain: "404 Not Found" if collective_member.nil? || collective_member.archived?
+    return render status: :not_found, plain: "404 Not Found" if collective_member.nil? || collective_member.archived?
 
     collective_member.archive!
 
@@ -168,9 +185,10 @@ class UsersController < ApplicationController
 
   def update_profile
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
 
     if params[:name].present?
       settings_user.name = params[:name]
@@ -196,7 +214,7 @@ class UsersController < ApplicationController
     if settings_user.ai_agent? && params.key?(:mode)
       settings_user.agent_configuration ||= {}
       mode = params[:mode]
-      settings_user.agent_configuration["mode"] = %w[internal external].include?(mode) ? mode : "external"
+      settings_user.agent_configuration["mode"] = ["internal", "external"].include?(mode) ? mode : "external"
       settings_user.save!
     end
     # Handle model for internal AI agents
@@ -222,7 +240,7 @@ class UsersController < ApplicationController
       end
       settings_user.save!
     end
-    flash[:notice] = 'Profile updated successfully'
+    flash[:notice] = "Profile updated successfully"
     redirect_to "#{settings_user.path}/settings"
   end
 
@@ -233,19 +251,19 @@ class UsersController < ApplicationController
   # endpoint is the user-facing entry point.
   def update_workspace_trio
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render "404", status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
 
     settings_user = tu.user
     # Only the workspace owner toggles their own workspace flag.
-    return render plain: "403 Unauthorized", status: 403 unless settings_user == current_user
+    return render plain: "403 Unauthorized", status: :forbidden unless settings_user == current_user
 
     workspace = settings_user.private_workspace
-    return render "404", status: 404 if workspace.nil?
+    return render "404", status: :not_found if workspace.nil?
 
     workspace.set_feature_flag!("trio", params[:feature_trio].to_s == "true")
     TrioActivator.reconcile!(workspace)
 
-    flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? 'enabled' : 'disabled'}."
+    flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? "enabled" : "disabled"}."
     redirect_to "#{settings_user.path}/settings"
   end
 
@@ -254,9 +272,10 @@ class UsersController < ApplicationController
 
   def update_email
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render "404", status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     settings_user = tu.user
-    return render plain: "403 Unauthorized", status: 403 unless current_user.can_edit?(settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
 
     new_email = params[:email]&.strip&.downcase
     if new_email.blank? || !new_email.match?(URI::MailTo::EMAIL_REGEXP)
@@ -279,7 +298,7 @@ class UsersController < ApplicationController
     settings_user.update!(
       pending_email: new_email,
       email_confirmation_token: Digest::SHA256.hexdigest(raw_token),
-      email_confirmation_sent_at: Time.current,
+      email_confirmation_sent_at: Time.current
     )
 
     EmailChangeMailer.confirmation(settings_user, raw_token, current_tenant).deliver_later
@@ -292,9 +311,10 @@ class UsersController < ApplicationController
   # DELETE /u/:handle/settings/email
   def cancel_email_change
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render "404", status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     settings_user = tu.user
-    return render plain: "403 Unauthorized", status: 403 unless current_user.can_edit?(settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
 
     if settings_user.pending_email.present?
       settings_user.update!(pending_email: nil, email_confirmation_token: nil, email_confirmation_sent_at: nil)
@@ -306,7 +326,8 @@ class UsersController < ApplicationController
   # GET /u/:handle/settings/email/confirm/:token
   def confirm_email
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render "404", status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     user = tu.user
 
     # Guard: pending_email must exist (handles double-click and stale links)
@@ -318,14 +339,14 @@ class UsersController < ApplicationController
     hashed_token = Digest::SHA256.hexdigest(params[:token])
     unless ActiveSupport::SecurityUtils.secure_compare(user.email_confirmation_token.to_s, hashed_token)
       SecurityAuditLog.log_event(event: "email_confirmation_failure", severity: :warn,
-        user_id: user.id, ip: request.remote_ip, reason: "invalid_token")
+                                 user_id: user.id, ip: request.remote_ip, reason: "invalid_token")
       flash[:error] = "Invalid or expired confirmation link."
       return redirect_to "#{user.path}/settings"
     end
 
     if user.email_confirmation_sent_at.blank? || user.email_confirmation_sent_at < EMAIL_CHANGE_TOKEN_EXPIRY.ago
       SecurityAuditLog.log_event(event: "email_confirmation_failure", severity: :warn,
-        user_id: user.id, ip: request.remote_ip, reason: "expired_token")
+                                 user_id: user.id, ip: request.remote_ip, reason: "expired_token")
       flash[:error] = "This confirmation link has expired. Please request a new email change."
       return redirect_to "#{user.path}/settings"
     end
@@ -345,7 +366,7 @@ class UsersController < ApplicationController
         email: new_email,
         pending_email: nil,
         email_confirmation_token: nil,
-        email_confirmation_sent_at: nil,
+        email_confirmation_sent_at: nil
       )
       user.omni_auth_identity&.update!(email: new_email)
       email_changed = true
@@ -377,18 +398,18 @@ class UsersController < ApplicationController
   # POST /u/:handle/represent
   def represent
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render status: 404, plain: "404 Not Found" if tu.nil?
+    return render status: :not_found, plain: "404 Not Found" if tu.nil?
 
     target_user = tu.user
-    return render status: 403, plain: "403 Unauthorized" unless target_user.ai_agent?
-    return render status: 403, plain: "403 Unauthorized" unless current_user.can_represent?(target_user)
+    return render status: :forbidden, plain: "403 Unauthorized" unless target_user.ai_agent?
+    return render status: :forbidden, plain: "403 Unauthorized" unless current_user.can_represent?(target_user)
 
     # Find the TrusteeGrant for this parent-ai_agent relationship
     grant = TrusteeGrant.active.find_by(
       granting_user: target_user,
       trustee_user: current_user
     )
-    return render status: 403, plain: "403 Unauthorized - No active grant" unless grant
+    return render status: :forbidden, plain: "403 Unauthorized - No active grant" unless grant
 
     # Create a RepresentationSession for audit logging
     rep_session = api_helper.start_user_representation_session(grant: grant)
@@ -408,50 +429,56 @@ class UsersController < ApplicationController
       rep_session&.end!
     end
     clear_representation!
-    redirect_to request.referrer || root_path
+    redirect_to request.referer || root_path
   end
 
   def update_image
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
 
     if params[:image].present?
       settings_user.image = params[:image]
     elsif params[:cropped_image_data].present?
       settings_user.cropped_image_data = params[:cropped_image_data]
     else
-      return render status: 400, plain: '400 Bad Request'
+      return render status: :bad_request, plain: "400 Bad Request"
     end
     settings_user.save!
-    redirect_to request.referrer || "#{settings_user.path}/settings"
+    redirect_to request.referer || "#{settings_user.path}/settings"
   end
 
   # Markdown API actions
 
   def actions_index
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     @settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
+
     @page_title = @settings_user == current_user ? "Actions | Your Settings" : "Actions | #{@settings_user.display_name}'s Settings"
-    render_actions_index(ActionsHelper.actions_for_route('/u/:handle/settings'))
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings"))
   end
 
   def describe_update_profile
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     @settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
+
     render_action_description(ActionsHelper.action_description("update_profile", resource: @settings_user))
   end
 
   def execute_update_profile
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
-    return render '404', status: 404 if tu.nil?
+    return render "404", status: :not_found if tu.nil?
+
     @settings_user = tu.user
-    return render plain: '403 Unauthorized', status: 403 unless current_user.can_edit?(@settings_user)
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
 
     if params[:name].present?
       @settings_user.name = params[:name]
@@ -478,7 +505,7 @@ class UsersController < ApplicationController
       user_tokens = @settings_user.api_tokens.external.includes(:user).to_a
       agent_tokens = @ai_agents.flat_map { |agent| agent.api_tokens.external.includes(:user).to_a }
       @all_api_tokens = user_tokens.sort_by { |t| -t.created_at.to_i } +
-        agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
+                        agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
     else
       @ai_agents = []
       @invitable_collectives = []
@@ -486,7 +513,7 @@ class UsersController < ApplicationController
     end
 
     respond_to do |format|
-      format.md { render 'settings' }
+      format.md { render "settings" }
       format.html { redirect_to "#{@settings_user.path}/settings" }
     end
   end
@@ -502,13 +529,14 @@ class UsersController < ApplicationController
   def load_proximity_connections
     all_connections = @showing_user.most_proximate_users(tenant_id: current_tenant.id, limit: 30)
 
-    @proximity_users = all_connections.filter_map do |user, score|
+    @proximity_users = all_connections.filter_map do |user, _score|
       next if user.nil? || user.archived?
+
       tu = user.tenant_users.find_by(tenant_id: current_tenant.id)
       next if tu.nil?
+
       user.tenant_user = tu
       user
     end
   end
-
 end

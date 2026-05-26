@@ -20,7 +20,7 @@
       <% end %>
     </div>
     <div class="pulse-user-actions">
-      <% if @current_user.can_edit?(@showing_user) %>
+      <% if @current_user && @current_user.can_edit?(@showing_user) %>
         <a href="<%= @showing_user.path %>/settings" class="pulse-action-btn">
           <%= octicon 'gear', height: 14 %>
           Settings
