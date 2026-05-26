@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.1] - 2026-05-25
+
+### Fixed
+
+- Active Storage direct-upload PUTs to DigitalOcean Spaces were blocked by the app's Content Security Policy. `img_src` was extended to the Spaces host for image display, but `connect_src` was still `:self` + drand only, so the browser refused the PUT outright before the CORS preflight even fired (no OPTIONS request in the network tab). Extended `connect_src` to the same Spaces origins.
+
 ## [1.18.0] - 2026-05-25
 
 ### Added
