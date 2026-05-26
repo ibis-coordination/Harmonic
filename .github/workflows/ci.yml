@@ -107,8 +107,10 @@ jobs:
             paths: test/models test/components test/helpers test/mailers
           - name: services
             paths: test/services test/jobs test/channels
+          - name: controllers
+            paths: test/controllers
           - name: integration
-            paths: test/controllers test/integration
+            paths: test/integration
 
     services:
       db:
