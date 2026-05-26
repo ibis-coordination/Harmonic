@@ -85,7 +85,9 @@ class Tenant < ApplicationRecord
 
   sig { returns(ActiveRecord::Relation) }
   def self.all_public_tenants
-    unscoped.where(
+    # Tenant has no default_scope to bypass (no tenant_id column) — plain
+    # `where` is sufficient.
+    where(
       subdomain: [
         [ENV.fetch("PRIMARY_SUBDOMAIN", nil)],
         ENV.fetch("OTHER_PUBLIC_TENANTS", nil)&.split(","),
@@ -120,7 +122,9 @@ class Tenant < ApplicationRecord
     listed = anon_readable_subdomains
     return if listed.empty?
 
-    existing = unscoped.where(subdomain: listed.to_a).pluck(:subdomain).to_set(&:downcase)
+    # Tenant has no default_scope to bypass (no tenant_id column) — `where`
+    # alone is sufficient.
+    existing = where(subdomain: listed.to_a).pluck(:subdomain).to_set(&:downcase)
     missing = listed - existing
     return if missing.empty?
 
