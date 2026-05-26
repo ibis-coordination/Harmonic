@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-05-25
+
+### Added
+
+- **Commitment subtypes — calendar events and policies** (#211) — `commitments.subtype` now supports `calendar_event` and `policy` alongside the default `action`. Calendar events carry `starts_at`, `ends_at`, and an optional `location`, surface an "RSVP" verb, and live in the cycle containing their `starts_at` rather than `created_at` (an event created today for next week shows up in next week's cycle). Policies use "Sign" / "Signatories" labels. Both share the existing critical-mass + deadline structure. Subtype-aware labels propagate through the show page, settings page, join/RSVP/sign button, participants list, feed item, breadcrumbs, markdown views (read by AI agents via MCP), and action descriptions. New help topics `/help/calendar-events` and `/help/policies`.
+- **Calendar event form polish** (#211) — event time uses `DatetimeInputComponent` (same TZ selector, countdown, and future-only validation as the deadline input). The end-time field is now a Duration select (30 min / 1 hour default / 1.5 / 2 / 3 / 4 / 8 hours / 1 day); the server derives `ends_at = starts_at + duration_minutes`. API/markdown callers can still pass `ends_at` directly. Deadline defaults on new commitments and decisions are computed client-side (now + 7d in the user's local TZ) so the displayed value always matches the input's TZ.
+- **First-class images in notes** (#208) — new `MediaItem` model is the canonical way to attach images to a Note, parallel to `Attachment` but image-only with stricter validation (magic-byte sniff, 20 MB cap, 1024×1024 source resize), ActiveStorage variants (thumbnail/medium/large), and an in-editor uploader (drag/drop, paste, file picker, per-file progress, alt text). The `/rails/active_storage/direct_uploads` endpoint now routes through a `DirectUploadsController` that inherits `ApplicationController`, so every auth/tenant/billing/capability gate applies. One-shot rake task `images:migrate_note_attachments` (DRY_RUN + throttling) migrates existing image attachments to MediaItem records.
+- **Per-category default avatars** (#206) — humans (#757575), AI agents (#555555), and collectives (#333333) get distinct greyscale defaults so they're visually distinguishable in lists before any upload. All three pass WCAG AA against white text. New `inline_avatar` helper and `shared/_avatar_div` partial consolidate avatar rendering across tenant admin, user pages, AI agent views, collective lists, sidebars, history log, and breadcrumbs.
+- **Author, status, and automation attribution in markdown show views** (#211) — markdown show pages for commitments, decisions, and notes now expose the creator (with "X on behalf of Y" for represented actions), an open/closed `status` row on commitments and decisions, and the existing automation-attribution partial so AI agents reading via MCP can see who/what created a resource. New `resource_author_md` helper centralizes the byline.
+- **Subtype-aware commitment settings page** (#211) — breadcrumb, header, and h1 now read "Policy Settings" / "Event Settings" / "Commitment Settings" instead of always "Commitment Settings".
+- `scripts/resources.sh` for inspecting machine resource usage during development.
+
+### Changed
+
+- **Note subtype `text` renamed to `post`** (#209) — now that text notes carry images and richer content, "text" was misleading. Clean break with no backwards-compatibility alias: a migration updates existing rows and the column default; external callers sending `subtype=text` now 422. Help pages, JS controllers, search-help subtype filters, and create-form labels updated.
+- **FeedBuilder output normalized** — every feed item now has a uniform shape (`:item` is always the underlying Note/Decision/Commitment, never a wrapper event). Reminder rows surface the underlying note as `:item` with `type: "Reminder"` and `created_at: e.happened_at`; soft-deleted notes are filtered at the source. Closes a latent crash where markdown views called `feed_item[:item].title` on ReminderEvent rows. The HTML dispatch partial still works; `users/show.html.erb` now goes through it.
+- Profile pages and list views ship preprocessed WebP avatar variants (`:icon`, `:thumbnail`, `:display`) instead of the multi-MB original. `image_path` / `image_url` take an optional `variant:` kwarg.
+
+### Security
+
+- **Rate limits across high-cardinality post-auth actions** (#205) — new `RateLimits` controller concern (Redis-backed, fixed-window) caps comments (5/min per user+item), chat messages (20/min per sender+partner), and agent task runs (5/min per user+agent). HTML responses redirect with a flash; JSON returns 429. EXPIRE is now set on every increment to prevent a transient failure between INCR and EXPIRE from leaving a TTL-less counter that permanently locks out a bucket.
+- **Rack::Attack throttles on webhook ingress** (#205) — `stripe_webhooks/ip` (50/min) and `incoming_webhooks/path_ip` (100/min on path+IP) as backstops to HMAC and IP allowlist checks.
+- **Length caps on user text fields** (#205) — Note title (1000) / text (1M), Decision question (1000) / description (1M), Commitment title (1000) / description (1M). Bounds regex passes on mention/link parsing and DB read cost without affecting realistic content. `Linkable#backlinks` capped at 1000 results so a heavily linked-to record can't return an unbounded set.
+- **Avatar / profile image upload hardening** (#206) — source images resized to fit within 1024×1024 before storage; 20 MB cap on raw bytes for both upload paths (base64 prechecked, HTTP body capped via Content-Length + progress proc); magic-byte validation (Marcel sniff, PNG/JPEG/GIF/WebP/BMP whitelist) so Content-Type header is no longer trusted; SSRF guard on `image_url=` rejects loopback, RFC1918, link-local (incl. 169.254.169.254 cloud metadata), 0.0.0.0, and IPv6 unspecified, and uses `uri.hostname` so IPv6 literals resolve correctly. 5s open / 10s read timeout on the external fetch.
+- Bump `qs` 6.14.2 → 6.15.2 in `/mcp-server` (#207).
+
+### Fixed
+
+- `ApplicationRecord#closed?` returned `nil` when `deadline` was absent (instead of `false`) — surfaced by a legacy policy record from earlier in development; now returns a proper boolean.
+- Flaky `PulseControllerTest` reminder tests for post-midnight CI runs: a `happened_at: 10.minutes.ago` fixture could land in yesterday's cycle when the test ran shortly after midnight UTC, dropping the event from the feed. Switched to `Time.current` so the event always lands inside the current cycle.
+
 ## [1.17.1] - 2026-05-22
 
 ### Fixed
