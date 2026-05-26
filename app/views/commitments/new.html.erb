@@ -5,13 +5,40 @@
 
 <%= render 'shared/pulse_create_tabs', current: :commitment %>
 
-<article class="pulse-resource-detail">
+<article class="pulse-resource-detail" data-controller="commitment-subtype">
 
   <%= form_with(url: "#{@current_collective.path}/commit", class: "pulse-form") do |form| %>
+    <input type="hidden" name="subtype" value="<%= @subtype %>" data-commitment-subtype-target="subtypeInput">
+
+    <div class="pulse-form-group">
+      <label class="pulse-form-label">Commitment Type</label>
+      <div style="display: flex; gap: 4px;">
+        <button type="button" class="<%= @subtype == 'action' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-commitment-subtype-target="actionBtn" data-action="click->commitment-subtype#selectAction">Action</button>
+        <button type="button" class="<%= @subtype == 'calendar_event' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-commitment-subtype-target="calendarEventBtn" data-action="click->commitment-subtype#selectCalendarEvent">Event</button>
+        <button type="button" class="<%= @subtype == 'policy' ? 'pulse-action-btn' : 'pulse-action-btn-secondary' %>" data-commitment-subtype-target="policyBtn" data-action="click->commitment-subtype#selectPolicy">Policy</button>
+      </div>
+    </div>
+
+    <%
+      title_placeholder = case @subtype
+                          when "calendar_event" then "What event is this?"
+                          when "policy" then "What is the policy?"
+                          else "What action will this commitment initiate?"
+                          end
+      private_ws = @current_collective.private_workspace?
+      description_placeholder = case @subtype
+                                when "calendar_event"
+                                  private_ws ? "Describe the event... (markdown supported)" : "Describe the event... (markdown supported, use @ to mention users)"
+                                when "policy"
+                                  private_ws ? "Describe the policy... (markdown supported)" : "Describe the policy... (markdown supported, use @ to mention users)"
+                                else
+                                  private_ws ? "Describe what you are committing to... (markdown supported)" : "Describe what participants are committing to... (markdown supported, use @ to mention users)"
+                                end
+    %>
     <div class="pulse-form-group">
       <label class="pulse-form-label">Title</label>
       <%= form.text_field :title,
-          placeholder: "What action will this commitment initiate?",
+          placeholder: title_placeholder,
           class: "pulse-form-input",
           autofocus: true %>
     </div>
@@ -20,7 +47,7 @@
       <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
       <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
         <%= form.text_area :description,
-            placeholder: @current_collective.private_workspace? ? "Describe what you are committing to... (markdown supported)" : "Describe what participants are committing to... (markdown supported, use @ to mention users)",
+            placeholder: description_placeholder,
             class: "pulse-form-textarea",
             rows: 4,
             data: { mention_autocomplete_target: "input" } %>
@@ -30,32 +57,88 @@
 
     <%= render 'shared/multi_file_select', form: form %>
 
-    <% if @current_collective.private_workspace? %>
-      <%= form.hidden_field :critical_mass, value: 1 %>
-    <% else %>
-    <section class="pulse-form-section">
-      <h2 class="pulse-section-title">Critical Mass</h2>
-      <p class="pulse-section-description">
-        How many participants are required for this commitment to take effect?
-      </p>
+    <section class="pulse-form-section" data-commitment-subtype-target="calendarEventFields" style="<%= @subtype == 'calendar_event' ? '' : 'display: none;' %>">
       <div class="pulse-form-group">
-        <div class="pulse-inline-field">
-          <span>At least</span>
-          <%= form.number_field :critical_mass, value: 1, min: 1, class: 'pulse-form-input pulse-form-input-narrow' %>
-          <span>participant(s) required</span>
-        </div>
+        <label class="pulse-form-label">When</label>
+        <%= render DatetimeInputComponent.new(
+          field_name: "starts_at",
+          timezone_field_name: "starts_at_timezone",
+          default_offset: "7d",
+          require_future: true,
+          default_timezone: @current_collective.timezone.name,
+        ) %>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Duration</label>
+        <%
+          duration_options = [
+            ["30 minutes", 30],
+            ["1 hour", 60],
+            ["1.5 hours", 90],
+            ["2 hours", 120],
+            ["3 hours", 180],
+            ["4 hours", 240],
+            ["8 hours", 480],
+            ["1 day", 1440],
+          ]
+        %>
+        <%= select_tag "duration_minutes",
+          options_for_select(duration_options, 60),
+          class: "pulse-form-input pulse-form-input-inline" %>
+      </div>
+      <div class="pulse-form-group">
+        <label class="pulse-form-label">Location <span class="pulse-form-label-optional">(optional)</span></label>
+        <%= form.text_field :location, placeholder: "Where will this happen?", class: "pulse-form-input" %>
       </div>
     </section>
-    <% end %>
 
+    <%
+      critical_mass_title = case @subtype
+                            when "calendar_event" then "Minimum attendees"
+                            else "Critical Mass"
+                            end
+      critical_mass_description = case @subtype
+                                  when "calendar_event" then "Minimum number of attendees needed for this event to happen."
+                                  when "policy" then "How many signatories are required for this policy to take effect?"
+                                  else "How many participants are required for this commitment to take effect?"
+                                  end
+      critical_mass_suffix = case @subtype
+                             when "calendar_event" then "attendee(s)"
+                             when "policy" then "signatories required"
+                             else "participant(s) required"
+                             end
+    %>
     <section class="pulse-form-section">
-      <h2 class="pulse-section-title">Deadline</h2>
-      <p class="pulse-section-description"><%= @current_collective.private_workspace? ? "When does this commitment expire?" : "When must critical mass be reached?" %></p>
-      <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week, close_at_critical_mass_option: true %>
+      <% if @current_collective.private_workspace? %>
+        <%= form.hidden_field :critical_mass, value: 1 %>
+      <% else %>
+        <h2 class="pulse-section-title" data-commitment-subtype-target="criticalMassTitle"><%= critical_mass_title %></h2>
+        <p class="pulse-section-description" data-commitment-subtype-target="criticalMassDescription"><%= critical_mass_description %></p>
+        <div class="pulse-form-group">
+          <div class="pulse-inline-field">
+            <span>At least</span>
+            <%= form.number_field :critical_mass, value: 1, min: 1, class: 'pulse-form-input pulse-form-input-narrow' %>
+            <span data-commitment-subtype-target="criticalMassSuffix"><%= critical_mass_suffix %></span>
+          </div>
+        </div>
+      <% end %>
     </section>
 
+    <section class="pulse-form-section">
+      <h2 class="pulse-section-title" data-commitment-subtype-target="deadlineTitle"><%= @subtype == 'calendar_event' ? 'RSVP by' : 'Deadline' %></h2>
+      <p class="pulse-section-description" data-commitment-subtype-target="deadlineDescription"><%= @subtype == 'calendar_event' ? 'Optional deadline for RSVPs.' : (@current_collective.private_workspace? ? 'When does this commitment expire?' : 'When must critical mass be reached?') %></p>
+      <%= render 'shared/pulse_deadline_input_fields', form: form, close_at_critical_mass_option: @subtype != 'calendar_event' %>
+    </section>
+
+    <%
+      submit_label = case @subtype
+                     when "calendar_event" then "Create Event"
+                     when "policy" then "Publish Policy"
+                     else "Start Commitment"
+                     end
+    %>
     <div class="pulse-form-actions">
-      <%= form.submit 'Start Commitment', class: 'pulse-action-btn' %>
+      <%= form.submit submit_label, class: 'pulse-action-btn', data: { commitment_subtype_target: 'submitButton' } %>
       <span class="pulse-visibility-hint">
         <% if @current_collective.id == @current_tenant.main_collective_id %>
           <%= octicon 'eye', height: 14 %>

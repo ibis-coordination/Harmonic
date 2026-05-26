@@ -77,7 +77,7 @@
     <section class="pulse-form-section">
       <h2 class="pulse-section-title">Deadline</h2>
       <p class="pulse-section-description" data-decision-subtype-target="deadlineLabel"><%= initial_subtype == 'vote' ? 'When should voting close?' : initial_subtype == 'lottery' ? 'When should the lottery be drawn?' : 'When should this decision close?' %></p>
-      <%= render 'shared/pulse_deadline_input_fields', form: form, deadline: Time.current + 1.week %>
+      <%= render 'shared/pulse_deadline_input_fields', form: form %>
     </section>
 
     <div class="pulse-form-actions">

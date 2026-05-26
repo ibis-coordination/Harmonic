@@ -5,20 +5,19 @@ class ReminderFeedItemComponent < ViewComponent::Base
 
   sig do
     params(
-      event: NoteHistoryEvent,
-      current_user: T.nilable(User),
+      note: Note,
+      happened_at: ActiveSupport::TimeWithZone,
     ).void
   end
-  def initialize(event:, current_user: nil)
+  def initialize(note:, happened_at:)
     super()
-    @event = event
-    @note = T.let(T.must(event.note), Note)
-    @current_user = current_user
+    @note = note
+    @happened_at = happened_at
   end
 
   sig { returns(String) }
   def note_title
-    @note.title
+    @note.title.to_s
   end
 
   sig { returns(String) }
@@ -28,6 +27,6 @@ class ReminderFeedItemComponent < ViewComponent::Base
 
   sig { returns(ActiveSupport::TimeWithZone) }
   def happened_at
-    T.must(@event.happened_at)
+    @happened_at
   end
 end

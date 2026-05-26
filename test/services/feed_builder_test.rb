@@ -164,7 +164,68 @@ class FeedBuilderTest < ActiveSupport::TestCase
     ).feed_items
 
     types = feed.map { |item| item[:type] }
-    assert_includes types, "ReminderEvent"
+    assert_includes types, "Reminder"
+  end
+
+  test "reminder events surface the underlying note as :item (uniform shape)" do
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      title: "Reminder note title",
+      text: "body",
+      subtype: "reminder",
+    )
+    NoteHistoryEvent.create!(
+      note: note,
+      user: @user,
+      event_type: "reminder",
+      happened_at: 30.minutes.ago,
+    )
+
+    feed = FeedBuilder.new(
+      notes_scope: Note.where(collective_id: @collective.id).none,
+      decisions_scope: Decision.where(collective_id: @collective.id).none,
+      commitments_scope: Commitment.where(collective_id: @collective.id).none,
+      reminder_events_scope: NoteHistoryEvent.where(event_type: "reminder", collective_id: @collective.id),
+    ).feed_items
+
+    reminder = feed.find { |i| i[:type] == "Reminder" }
+    assert_not_nil reminder
+    assert_kind_of Note, reminder[:item]
+    assert_equal "Reminder note title", reminder[:item].title
+    assert_equal note.path, reminder[:item].path
+    # `created_by` is the note's author — used for proximity ranking
+    assert_equal @user.id, reminder[:created_by].id
+  end
+
+  test "reminder events with a soft-deleted note are dropped from the feed" do
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      title: "Will be deleted",
+      text: "body",
+      subtype: "reminder",
+    )
+    NoteHistoryEvent.create!(
+      note: note,
+      user: @user,
+      event_type: "reminder",
+      happened_at: 30.minutes.ago,
+    )
+    note.soft_delete!(by: @user)
+
+    feed = FeedBuilder.new(
+      notes_scope: Note.where(collective_id: @collective.id).none,
+      decisions_scope: Decision.where(collective_id: @collective.id).none,
+      commitments_scope: Commitment.where(collective_id: @collective.id).none,
+      reminder_events_scope: NoteHistoryEvent.where(event_type: "reminder", collective_id: @collective.id),
+    ).feed_items
+
+    assert_empty feed.select { |i| i[:type] == "Reminder" }
   end
 
   test "reminder events are sorted chronologically with other items" do
@@ -202,7 +263,7 @@ class FeedBuilderTest < ActiveSupport::TestCase
 
     # Reminder note (most recent created_at) first, then reminder event, then old note
     types = feed.map { |item| item[:type] }
-    reminder_event_idx = types.index("ReminderEvent")
+    reminder_event_idx = types.index("Reminder")
     old_note_idx = types.rindex("Note") # last Note is the old one
     assert reminder_event_idx < old_note_idx, "Reminder event should appear before older note"
   end

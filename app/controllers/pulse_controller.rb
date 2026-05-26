@@ -82,10 +82,18 @@ class PulseController < ApplicationController
   def build_unified_feed
     cycle_start = @cycle.start_date
 
+    # Calendar event commitments are scoped to a cycle by their event start
+    # time (handled in Cycle#commitments), not their creation time — so the
+    # standard `created_at >= cycle_start` filter does not apply to them.
+    commitments_scope = @cycle.commitments.where(
+      "commitments.created_at >= ? OR commitments.subtype = ?",
+      cycle_start, "calendar_event"
+    )
+
     @feed_items = FeedBuilder.new(
       notes_scope: @cycle.notes.where("notes.created_at >= ?", cycle_start),
       decisions_scope: @cycle.decisions.where("decisions.created_at >= ?", cycle_start),
-      commitments_scope: @cycle.commitments.where("commitments.created_at >= ?", cycle_start),
+      commitments_scope: commitments_scope,
       reminder_events_scope: NoteHistoryEvent
         .where(event_type: "reminder", collective_id: @current_collective.id)
         .where("note_history_events.happened_at >= ?", cycle_start),

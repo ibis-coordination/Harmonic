@@ -65,11 +65,25 @@ class FeedBuilder
       .order(created_at: :desc).limit(limit)
       .map { |c| { type: "Commitment", item: c, created_at: c.created_at, created_by: c.created_by } }
 
+    # Normalize ReminderEvent rows: surface the underlying note as `item`
+    # (with `type: "Reminder"`) so every consumer can call `item.title` /
+    # `item.path` uniformly regardless of why the item is in the feed.
+    # `created_at` is the firing time, not the note's creation time.
+    # `created_by` is the note's author — used by proximity ranking so a
+    # fired reminder gets the same boost as fresh content from that author.
+    # Views that show a byline ("by X") are technically stretching the
+    # semantic (a reminder firing has no actor), but the alternative — nil
+    # — would push reminders off proximity-ranked feeds entirely.
     reminder_events = if @reminder_events_scope
       @reminder_events_scope
         .includes(note: :created_by)
         .order(happened_at: :desc).limit(limit)
-        .map { |e| { type: "ReminderEvent", item: e, created_at: e.happened_at, created_by: e.note&.created_by } }
+        .filter_map do |e|
+          note = e.note
+          next nil unless note
+
+          { type: "Reminder", item: note, created_at: e.happened_at, created_by: note.created_by }
+        end
     else
       []
     end

@@ -17,9 +17,8 @@ class ReminderFeedItemComponentTest < ViewComponent::TestCase
 
   test "renders reminder event with note title and link" do
     note = build_note(title: "Review the PR", truncated_id: "rem12345")
-    event = build_reminder_event(note: note, happened_at: 30.minutes.ago)
 
-    render_inline(ReminderFeedItemComponent.new(event: event))
+    render_inline(ReminderFeedItemComponent.new(note: note, happened_at: 30.minutes.ago.in_time_zone("UTC")))
 
     assert_selector ".pulse-feed-item"
     assert_selector "[data-item-type='Reminder']"
@@ -30,21 +29,9 @@ class ReminderFeedItemComponentTest < ViewComponent::TestCase
 
   test "renders time ago" do
     note = build_note(title: "Check deploy")
-    event = build_reminder_event(note: note, happened_at: 2.hours.ago)
 
-    render_inline(ReminderFeedItemComponent.new(event: event))
+    render_inline(ReminderFeedItemComponent.new(note: note, happened_at: 2.hours.ago.in_time_zone("UTC")))
 
     assert_text "2 hours ago"
-  end
-
-  private
-
-  def build_reminder_event(note:, happened_at: 1.hour.ago)
-    event = NoteHistoryEvent.new(
-      event_type: "reminder",
-      happened_at: happened_at,
-    )
-    event.define_singleton_method(:note) { note }
-    event
   end
 end

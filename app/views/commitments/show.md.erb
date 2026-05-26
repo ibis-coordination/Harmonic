@@ -6,12 +6,34 @@ This commitment has been deleted<%= " by the author" if @commitment.deleted_by_i
 | created_by | @<%= @commitment.created_by.handle %> |
 | created_at | <%= @commitment.created_at %> |
 <% else %>
-# Commitment: [<%= @commitment.title %>](<%= @commitment.path %>)
+<%
+  type_label = if @commitment.is_policy?
+                 "Policy"
+               elsif @commitment.is_calendar_event?
+                 "Event"
+               else
+                 "Commitment"
+               end
+%>
+# <%= type_label %>: [<%= @commitment.title %>](<%= @commitment.path %>)
 
+| status | <%= @commitment.closed? ? 'Closed' : 'Open' %> |
+| created_by | <%= resource_author_md(@commitment) %> |
 | created_at | <%= @commitment.created_at %> |
 | updated_at | <%= @commitment.updated_at %> |
 | deadline | <%= @commitment.deadline %> |
 | time remaining | <%= @commitment.deadline > Time.now ? distance_of_time_in_words(Time.now, @commitment.deadline) : 'Deadline passed' %> |
+<% if @commitment.is_calendar_event? %>
+| starts_at | <%= @commitment.starts_at %> |
+| ends_at | <%= @commitment.ends_at %> |
+| when | <%= @commitment.formatted_time_range %> |
+<% if @commitment.location.present? %>
+| location | <%= @commitment.location %> |
+<% end %>
+| event_status | <%= @commitment.event_status %> |
+<% end %>
+
+<%= render 'shared/automation_attribution', resource: @commitment %>
 <% if @commitment.description.present? %>
 <% truncated_description = truncate_content(@commitment.description) %>
 
@@ -28,28 +50,33 @@ This commitment has been deleted<%= " by the author" if @commitment.deleted_by_i
 
 Progress bar: `<%= '#' * (@commitment.progress_percentage / 2) %><%= '_' * ((100 - @commitment.progress_percentage) / 2) %>` <%= @commitment.progress_percentage %>%
 
-<% s_or_no_s = @commitment.critical_mass == 1 ? '' : 's' -%>
-<% person_or_people = @commitment.participant_count == 1 ? 'person' : 'people' -%>
-<% is_or_are = @commitment.participant_count == 1 ? 'is' : 'are' -%>
-__<%= @commitment.critical_mass %>__ participant<%= s_or_no_s %> needed to reach critical mass.
-__<%= @commitment.participant_count %>__ <%= person_or_people %> <%= is_or_are %> committed to participating<%= @commitment.critical_mass_achieved? ? '' : ' if critical mass is achieved' %>.
+<% noun = @commitment.metric_name.singularize -%>
+__<%= @commitment.participant_count %>__ of __<%= @commitment.critical_mass %>__ <%= noun.pluralize(@commitment.critical_mass) %> needed to reach critical mass.
 <% unless @commitment.critical_mass_achieved? -%>
-<% s_or_no_s = @commitment.remaining_needed_for_critical_mass == 1 ? '' : 's' -%>
-__<%= @commitment.remaining_needed_for_critical_mass %>__ more participant<%= s_or_no_s %> needed to reach critical mass.
+__<%= @commitment.remaining_needed_for_critical_mass %>__ more <%= noun.pluralize(@commitment.remaining_needed_for_critical_mass) %> needed.
 <% end -%>
 <% if @commitment.critical_mass_achieved? -%>
 Critical mass achieved! 🎉
 <% end -%>
 
-## Participants
+## <%= @commitment.metric_name.capitalize %>
 
+<%
+  participant_verb = if @commitment.is_policy?
+                       'signed'
+                     elsif @commitment.is_calendar_event?
+                       'RSVP\'d'
+                     else
+                       'committed'
+                     end
+-%>
 <% @commitment.committed_participants.order(committed_at: :desc).limit(@participants_list_limit).each do |participant| -%>
-* __<%= participant.user&.name || 'Anonymous' %>__ committed <%= time_ago_in_words(participant.committed_at) %> ago.
+* __<%= participant.user&.name || 'Anonymous' %>__ <%= participant_verb %> <%= time_ago_in_words(participant.committed_at) %> ago.
 <% end -%>
 <% if @commitment.participant_count > @participants_list_limit -%>
 * + <%= @commitment.participant_count - @participants_list_limit %> more</span>
 <% elsif @commitment.participant_count == 0 -%>
-No participants yet.
+No <%= @commitment.metric_name %> yet.
 <% end -%>
 
 <%= render 'shared/backlinks', resource: @commitment %>

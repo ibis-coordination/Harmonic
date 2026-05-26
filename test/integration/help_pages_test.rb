@@ -25,7 +25,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   TOPICS = %w[
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
-    commitments cycles search links
+    commitments calendar-events policies cycles search links
     agents trio automations api rest-api markdown-ui notifications representation
   ].freeze
 
@@ -48,6 +48,8 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "/help/table-notes"
     assert_includes response.body, "/help/executive-decisions"
     assert_includes response.body, "/help/lottery-decisions"
+    assert_includes response.body, "/help/calendar-events"
+    assert_includes response.body, "/help/policies"
   end
 
   test "help index links to automations (always shown, not feature-gated)" do

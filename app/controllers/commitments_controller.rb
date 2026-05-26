@@ -3,54 +3,13 @@
 class CommitmentsController < ApplicationController
   include AttachmentActions
 
-  def new
-    @page_title = "Commit"
-    @page_description = "Start a group commitment"
-    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
-    @sidebar_mode = 'resource'
-    @team = @current_collective.team
-    @commitment = Commitment.new(
-      title: params[:title],
-    )
-  end
-
-  def create
-    begin
-      # Build params for ApiHelper
-      helper_params = {
-        title: model_params[:title],
-        description: model_params[:description],
-        critical_mass: model_params[:critical_mass],
-        deadline: deadline_from_params,
-        close_at_critical_mass: params[:deadline_option] == 'close_at_critical_mass',
-      }
-      @commitment = api_helper(params: helper_params).create_commitment
-      # Handle file attachments separately (not in ApiHelper since it's HTML-form specific)
-      if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
-        @commitment.attach!(params[:files])
-      end
-      if params[:pinned] == '1' && current_collective.id != current_tenant.main_collective_id
-        api_helper.pin_resource(@commitment)
-      end
-      redirect_to @commitment.path
-    rescue ActiveRecord::RecordInvalid => e
-      @commitment ||= Commitment.new(
-        title: model_params[:title],
-        description: model_params[:description],
-        critical_mass: model_params[:critical_mass],
-      )
-      flash.now[:alert] = 'There was an error creating the commitment. Please try again.'
-      render :new
-    end
-  end
-
   def show
     @commitment = current_commitment || find_deleted_commitment
-    return render '404', status: 404 unless @commitment
+    return render "404", status: :not_found unless @commitment
 
     @page_title = @commitment.title
     @page_description = "Coordinate with your team"
-    @sidebar_mode = 'resource'
+    @sidebar_mode = "resource"
     @team = @current_collective.team
     return if @commitment.deleted?
 
@@ -59,6 +18,73 @@ class CommitmentsController < ApplicationController
     @participants_list_limit = 10
     set_pin_vars
     set_report_vars(@commitment)
+  end
+
+  def new
+    @page_title = "Commit"
+    @page_description = "Start a group commitment"
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
+    @sidebar_mode = "resource"
+    @team = @current_collective.team
+    @subtype = Commitment::SUBTYPES.include?(params[:subtype]) ? params[:subtype] : "action"
+    @commitment = Commitment.new(
+      title: params[:title],
+      subtype: @subtype
+    )
+  end
+
+  def create
+    @subtype = Commitment::SUBTYPES.include?(model_params[:subtype]) ? model_params[:subtype] : "action"
+    # Build params for ApiHelper
+    helper_params = {
+      title: model_params[:title],
+      description: model_params[:description],
+      subtype: @subtype,
+      critical_mass: model_params[:critical_mass],
+      deadline: deadline_from_params,
+      close_at_critical_mass: params[:deadline_option] == "close_at_critical_mass",
+    }
+    if @subtype == "calendar_event"
+      # DatetimeInputComponent submits a per-input timezone alongside each
+      # datetime-local value; fall back to the collective's timezone.
+      collective_tz = current_collective.timezone&.name
+      helper_params[:starts_at] = parse_scheduled_time(
+        model_params[:starts_at],
+        timezone: model_params[:starts_at_timezone].presence || collective_tz,
+      )
+      # The form gives the user a duration (more natural than an end time);
+      # the server derives ends_at. API/markdown callers can still pass
+      # ends_at directly if they prefer.
+      if model_params[:duration_minutes].present? && helper_params[:starts_at]
+        helper_params[:ends_at] = helper_params[:starts_at] + model_params[:duration_minutes].to_i.minutes
+      elsif model_params[:ends_at].present?
+        helper_params[:ends_at] = parse_scheduled_time(
+          model_params[:ends_at],
+          timezone: model_params[:ends_at_timezone].presence || collective_tz,
+        )
+      end
+      helper_params[:location] = model_params[:location]
+      # Default the closing deadline to the event start if the user didn't
+      # pick one (RSVP deadline is optional for events).
+      helper_params[:deadline] ||= helper_params[:starts_at]
+    end
+    @commitment = api_helper(params: helper_params).create_commitment
+    # Handle file attachments separately (not in ApiHelper since it's HTML-form specific)
+    @commitment.attach!(params[:files]) if params[:files] && @current_tenant.allow_file_uploads? && @current_collective.allow_file_uploads?
+    api_helper.pin_resource(@commitment) if params[:pinned] == "1" && current_collective.id != current_tenant.main_collective_id
+    redirect_to @commitment.path
+  rescue ActiveRecord::RecordInvalid
+    @commitment ||= Commitment.new(
+      title: model_params[:title],
+      description: model_params[:description],
+      critical_mass: model_params[:critical_mass],
+      subtype: @subtype
+    )
+    @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
+    @sidebar_mode = "resource"
+    @team = @current_collective.team
+    flash.now[:alert] = "There was an error creating the commitment. Please try again."
+    render :new
   end
 
   def report
@@ -76,49 +102,57 @@ class CommitmentsController < ApplicationController
 
   def status_partial
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
-    render partial: 'status'
+    return render "404", status: :not_found unless @commitment
+
+    render partial: "status"
   end
 
   def join_and_return_partial
     # Must be logged in to join
-    unless current_user
-      return render message: 'You must be logged in to join.', status: 401
-    end
+    return render message: "You must be logged in to join.", status: :unauthorized unless current_user
+
     @commitment = current_commitment
-    if @commitment.closed?
-      return render message: 'This commitment is closed.', status: 400
-    end
+    return render message: "This commitment is closed.", status: :bad_request if @commitment.closed?
+
     @commitment_participant = api_helper.join_commitment
     @commitment_participant_name = current_user.name
-    render partial: 'join'
+    render partial: "join"
   end
 
   def participants_list_items_partial
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
+    return render "404", status: :not_found unless @commitment
+
     @participants_list_limit = params[:limit].to_i if params[:limit].present?
     @participants_list_limit = 20 if @participants_list_limit < 1
-    render partial: 'participants_list_items'
+    render partial: "participants_list_items"
   end
 
   def settings
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
+    return render "404", status: :not_found unless @commitment
+
     unless @commitment.can_edit_settings?(@current_user)
-      @sidebar_mode = 'none'
-      return render 'shared/403', status: 403
+      @sidebar_mode = "none"
+      return render "shared/403", status: :forbidden
     end
-    @page_title = "Commitment Settings"
-    @page_description = "Change settings for this commitment"
-    @sidebar_mode = 'resource'
+    type_label = if @commitment.is_policy?
+                   "Policy"
+                 elsif @commitment.is_calendar_event?
+                   "Event"
+                 else
+                   "Commitment"
+                 end
+    @page_title = "#{type_label} Settings"
+    @page_description = "Change settings for this #{type_label.downcase}"
+    @sidebar_mode = "resource"
     @team = @current_collective.team
     set_pin_vars
   end
 
   def actions_index_new
     @page_title = "Actions | Commit"
-    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/commit'))
+    render_actions_index(ActionsHelper.actions_for_route("/collectives/:collective_handle/commit"))
   end
 
   def actions_index_show
@@ -136,20 +170,27 @@ class CommitmentsController < ApplicationController
   end
 
   def create_commitment_action
-    return render_action_error({ action_name: 'create_commitment', error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: "create_commitment", error: "You must be logged in." }) unless current_user
 
     begin
       @commitment = api_helper.create_commitment
+      type_label = if @commitment.is_policy?
+                     "policy"
+                   elsif @commitment.is_calendar_event?
+                     "event"
+                   else
+                     "commitment"
+                   end
       render_action_success({
-        action_name: 'create_commitment',
-        resource: @commitment,
-        result: "You have successfully created the commitment '#{@commitment.title}'",
-      })
+                              action_name: "create_commitment",
+                              resource: @commitment,
+                              result: "You have successfully created the #{type_label} '#{@commitment.title}'",
+                            })
     rescue ActiveRecord::RecordInvalid, StandardError => e
       render_action_error({
-        action_name: 'create_commitment',
-        error: e.message,
-      })
+                            action_name: "create_commitment",
+                            error: e.message,
+                          })
     end
   end
 
@@ -178,30 +219,37 @@ class CommitmentsController < ApplicationController
 
   def join_commitment
     @commitment = current_commitment
-    return render_action_error({ action_name: 'join_commitment', resource: @commitment, error: 'Not found' }) unless @commitment
-    return render_action_error({ action_name: 'join_commitment', resource: @commitment, error: 'You must be logged in to join.' }) unless current_user
-    return render_action_error({ action_name: 'join_commitment', resource: @commitment, error: 'This commitment is closed.' }) if @commitment.closed?
+    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "Not found" }) unless @commitment
+    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "You must be logged in to join." }) unless current_user
+    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "This commitment is closed." }) if @commitment.closed?
 
     begin
       @commitment_participant = api_helper.join_commitment
+      result = if @commitment.is_policy?
+                 "You have successfully signed the policy '#{@commitment.title}'"
+               elsif @commitment.is_calendar_event?
+                 "You have successfully RSVP'd to the event '#{@commitment.title}'"
+               else
+                 "You have successfully joined the commitment '#{@commitment.title}'"
+               end
       render_action_success({
-        action_name: 'join_commitment',
-        resource: @commitment,
-        result: "You have successfully joined the commitment '#{@commitment.title}'",
-      })
+                              action_name: "join_commitment",
+                              resource: @commitment,
+                              result: result,
+                            })
     rescue ActiveRecord::RecordInvalid, StandardError => e
       render_action_error({
-        action_name: 'join_commitment',
-        resource: @commitment,
-        error: e.message,
-      })
+                            action_name: "join_commitment",
+                            resource: @commitment,
+                            error: e.message,
+                          })
     end
   end
 
   def update_settings
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
-    return render 'shared/403', status: 403 unless @commitment.can_edit_settings?(@current_user)
+    return render "404", status: :not_found unless @commitment
+    return render "shared/403", status: :forbidden unless @commitment.can_edit_settings?(@current_user)
 
     # Check for lowering critical mass
     if model_params[:critical_mass].present?
@@ -222,7 +270,7 @@ class CommitmentsController < ApplicationController
     }
     @commitment = api_helper(params: helper_params).update_commitment_settings
     # Handle close_at_critical_mass option (HTML form specific)
-    if params[:deadline_option] == 'close_at_critical_mass'
+    if params[:deadline_option] == "close_at_critical_mass"
       @commitment.limit = @commitment.critical_mass
       @commitment.close_if_limit_reached
       @commitment.save!
@@ -232,19 +280,28 @@ class CommitmentsController < ApplicationController
 
   def actions_index_settings
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
-    @page_title = "Actions | Commitment Settings"
+    return render "404", status: :not_found unless @commitment
+
+    type_label = if @commitment.is_policy?
+                   "Policy"
+                 elsif @commitment.is_calendar_event?
+                   "Event"
+                 else
+                   "Commitment"
+                 end
+    @page_title = "Actions | #{type_label} Settings"
     set_pin_vars
     actions = [
-      { name: 'update_commitment_settings', params_string: '(title, description, critical_mass, deadline)' },
+      { name: "update_commitment_settings",
+        params_string: ActionsHelper::ACTION_DEFINITIONS["update_commitment_settings"][:params_string], },
     ]
-    if @is_pinned
-      actions << { name: 'unpin_commitment', params_string: '()' }
-    else
-      actions << { name: 'pin_commitment', params_string: '()' }
-    end
+    actions << if @is_pinned
+                 { name: "unpin_commitment", params_string: "()" }
+               else
+                 { name: "pin_commitment", params_string: "()" }
+               end
     if @current_user&.id == @commitment.created_by_id || @current_user&.collective_member&.is_admin? || @current_user&.app_admin?
-      actions << { name: 'delete_commitment', params_string: '()' }
+      actions << { name: "delete_commitment", params_string: "()" }
     end
     render_actions_index({ actions: actions })
   end
@@ -255,20 +312,21 @@ class CommitmentsController < ApplicationController
 
   def pin_commitment_action
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
+    return render "404", status: :not_found unless @commitment
+
     begin
       api_helper.pin_resource(@commitment)
       render_action_success({
-        action_name: 'pin_commitment',
-        resource: @commitment,
-        result: "Commitment pinned.",
-      })
+                              action_name: "pin_commitment",
+                              resource: @commitment,
+                              result: "Commitment pinned.",
+                            })
     rescue StandardError => e
       render_action_error({
-        action_name: 'pin_commitment',
-        resource: @commitment,
-        error: e.message,
-      })
+                            action_name: "pin_commitment",
+                            resource: @commitment,
+                            error: e.message,
+                          })
     end
   end
 
@@ -278,20 +336,21 @@ class CommitmentsController < ApplicationController
 
   def unpin_commitment_action
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
+    return render "404", status: :not_found unless @commitment
+
     begin
       api_helper.unpin_resource(@commitment)
       render_action_success({
-        action_name: 'unpin_commitment',
-        resource: @commitment,
-        result: "Commitment unpinned.",
-      })
+                              action_name: "unpin_commitment",
+                              resource: @commitment,
+                              result: "Commitment unpinned.",
+                            })
     rescue StandardError => e
       render_action_error({
-        action_name: 'unpin_commitment',
-        resource: @commitment,
-        error: e.message,
-      })
+                            action_name: "unpin_commitment",
+                            resource: @commitment,
+                            error: e.message,
+                          })
     end
   end
 
@@ -300,21 +359,24 @@ class CommitmentsController < ApplicationController
   end
 
   def update_commitment_settings_action
-    return render_action_error({ action_name: 'update_commitment_settings', resource: current_commitment, error: 'You must be logged in.' }) unless current_user
+    unless current_user
+      return render_action_error({ action_name: "update_commitment_settings", resource: current_commitment,
+                                   error: "You must be logged in.", })
+    end
 
     begin
       commitment = api_helper.update_commitment_settings
       render_action_success({
-        action_name: 'update_commitment_settings',
-        resource: commitment,
-        result: "Commitment settings updated successfully.",
-      })
+                              action_name: "update_commitment_settings",
+                              resource: commitment,
+                              result: "Commitment settings updated successfully.",
+                            })
     rescue StandardError => e
       render_action_error({
-        action_name: 'update_commitment_settings',
-        resource: current_commitment,
-        error: e.message,
-      })
+                            action_name: "update_commitment_settings",
+                            resource: current_commitment,
+                            error: e.message,
+                          })
     end
   end
 
@@ -324,13 +386,13 @@ class CommitmentsController < ApplicationController
 
   def execute_delete_commitment
     @commitment = current_commitment
-    return render '404', status: 404 unless @commitment
+    return render "404", status: :not_found unless @commitment
 
     begin
       api_helper.delete_commitment
       redirect_to(@current_collective.path || "/", notice: "Commitment deleted.")
     rescue ActiveRecord::RecordInvalid
-      render 'shared/403', status: :forbidden
+      render "shared/403", status: :forbidden
     end
   end
 
@@ -338,9 +400,10 @@ class CommitmentsController < ApplicationController
 
   def current_app
     return @current_app if defined?(@current_app)
-    @current_app = 'coordinated'
-    @current_app_title = 'Coordinated Team'
-    @current_app_description = 'fast group coordination'
+
+    @current_app = "coordinated"
+    @current_app_title = "Coordinated Team"
+    @current_app_description = "fast group coordination"
     @current_app
   end
 

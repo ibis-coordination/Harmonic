@@ -154,6 +154,24 @@ module ApplicationHelper
     end
   end
 
+  # Markdown attribution for a resource's author. Handles representation
+  # ("acted on behalf of") — the visible actor is the representative, with
+  # the granting user shown as the principal.
+  def resource_author_md(resource)
+    author = resource.created_by
+    return "Anonymous" unless author
+
+    representative = resource.respond_to?(:representative_user) ? resource.representative_user : nil
+    represented = resource.respond_to?(:created_via_representation?) &&
+      resource.created_via_representation? && representative.present?
+
+    if represented
+      "#{user_link_md(representative, include_parent: false)} on behalf of #{user_link_md(author, include_parent: false)}"
+    else
+      user_link_md(author)
+    end
+  end
+
   # Delegates to ProfilePicComponent. Existing callers can continue using this helper.
   # New code should use: render ProfilePicComponent.new(user: user, size: 30)
   def profile_pic(user, size: 30, style: "", show_parent: false)

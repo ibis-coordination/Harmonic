@@ -1,7 +1,7 @@
 require "test_helper"
 
 class CommitmentTest < ActiveSupport::TestCase
-  # Note: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
+  # NOTE: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
 
   test "Commitment.create works" do
     tenant = create_tenant
@@ -403,7 +403,7 @@ class CommitmentTest < ActiveSupport::TestCase
       title: "Default subtype",
       description: "Test description",
       critical_mass: 3,
-      deadline: 1.week.from_now,
+      deadline: 1.week.from_now
     )
 
     assert_equal "action", commitment.subtype
@@ -418,7 +418,7 @@ class CommitmentTest < ActiveSupport::TestCase
     collective = create_collective(tenant: tenant, created_by: user)
 
     Commitment::SUBTYPES.each do |subtype|
-      commitment = Commitment.create!(
+      attrs = {
         tenant: tenant,
         collective: collective,
         created_by: user,
@@ -428,7 +428,12 @@ class CommitmentTest < ActiveSupport::TestCase
         critical_mass: 3,
         deadline: 1.week.from_now,
         subtype: subtype,
-      )
+      }
+      if subtype == "calendar_event"
+        attrs[:starts_at] = 1.week.from_now
+        attrs[:ends_at] = 1.week.from_now + 1.hour
+      end
+      commitment = Commitment.create!(attrs)
 
       assert_equal subtype, commitment.subtype
     end
@@ -447,7 +452,7 @@ class CommitmentTest < ActiveSupport::TestCase
       title: "Invalid subtype",
       critical_mass: 3,
       deadline: 1.week.from_now,
-      subtype: "invalid",
+      subtype: "invalid"
     )
 
     assert_not commitment.valid?
@@ -459,6 +464,7 @@ class CommitmentTest < ActiveSupport::TestCase
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
 
+    starts = 1.week.from_now
     commitment = Commitment.create!(
       tenant: tenant,
       collective: collective,
@@ -469,9 +475,260 @@ class CommitmentTest < ActiveSupport::TestCase
       critical_mass: 5,
       deadline: 1.week.from_now,
       subtype: "calendar_event",
+      starts_at: starts,
+      ends_at: starts + 1.hour
     )
 
     json = commitment.api_json
     assert_equal "calendar_event", json[:subtype]
+  end
+
+  # closed? must always return a boolean even for records with nil deadline.
+  # Historical records (created before the deadline validation existed for a
+  # subtype) can have nil deadlines; closed? is called from feed rendering
+  # and other hot paths, and returning nil violates the Sorbet sig.
+  test "closed? returns false (not nil) when deadline is nil" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.new(
+      tenant: tenant, collective: collective,
+      created_by: user, updated_by: user,
+      title: "Legacy", subtype: "action",
+      critical_mass: 1, deadline: 1.week.from_now,
+    )
+    commitment.save!
+    # Bypass validation to simulate legacy data with nil deadline
+    commitment.update_columns(deadline: nil)
+
+    assert_equal false, commitment.reload.closed?
+  end
+
+  # Policy subtype tests
+  #
+  # Policies are functionally identical to actions (same critical_mass,
+  # deadline, closing behavior). Only the language differs: members "sign"
+  # instead of "join", and the metric is "signatories" instead of
+  # "participants".
+
+  test "Policy commitment requires deadline and critical_mass like actions" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Be kind",
+      subtype: "policy"
+    )
+
+    assert_not commitment.valid?
+    assert_includes commitment.errors[:deadline], "can't be blank"
+    assert_includes commitment.errors[:critical_mass], "can't be blank"
+  end
+
+  test "Policy commitment closes when deadline passes" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Be kind",
+      subtype: "policy",
+      critical_mass: 3,
+      deadline: 1.day.ago
+    )
+
+    assert commitment.closed?
+  end
+
+  test "Policy commitment metric_name is 'signatories'" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Be kind",
+      subtype: "policy",
+      critical_mass: 3,
+      deadline: 1.week.from_now
+    )
+
+    assert_equal "signatories", commitment.metric_name
+  end
+
+  test "Action commitment metric_name is 'participants'" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Plant trees",
+      subtype: "action",
+      critical_mass: 5,
+      deadline: 1.week.from_now
+    )
+
+    assert_equal "participants", commitment.metric_name
+  end
+
+  # Calendar event subtype tests
+
+  test "Calendar event requires starts_at and ends_at" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Team meeting",
+      subtype: "calendar_event"
+    )
+
+    assert_not commitment.valid?
+    assert_includes commitment.errors[:starts_at], "can't be blank"
+    assert_includes commitment.errors[:ends_at], "can't be blank"
+  end
+
+  test "Calendar event rejects ends_at <= starts_at" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    starts = 1.week.from_now
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Team meeting",
+      subtype: "calendar_event",
+      starts_at: starts,
+      ends_at: starts - 1.hour,
+      critical_mass: 1,
+      deadline: starts
+    )
+
+    assert_not commitment.valid?
+    assert_includes commitment.errors[:ends_at], "must be after starts_at"
+  end
+
+  test "Calendar event is valid with starts_at and ends_at" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    starts = 1.week.from_now
+    commitment = Commitment.new(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Team meeting",
+      subtype: "calendar_event",
+      starts_at: starts,
+      ends_at: starts + 1.hour,
+      location: "Conference Room A",
+      critical_mass: 1,
+      deadline: starts
+    )
+
+    assert commitment.valid?, commitment.errors.full_messages.to_sentence
+  end
+
+  test "Calendar event metric_name is 'attendees'" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    starts = 1.week.from_now
+    commitment = Commitment.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Team meeting",
+      subtype: "calendar_event",
+      starts_at: starts,
+      ends_at: starts + 1.hour,
+      critical_mass: 1,
+      deadline: starts
+    )
+
+    assert_equal "attendees", commitment.metric_name
+  end
+
+  test "Calendar event upcoming?/in_progress?/past?" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    future = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Future event", subtype: "calendar_event",
+      starts_at: 1.day.from_now, ends_at: 1.day.from_now + 1.hour,
+      critical_mass: 1, deadline: 1.day.from_now
+    )
+    assert future.upcoming?
+    assert_not future.in_progress?
+    assert_not future.past?
+
+    ongoing = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Ongoing event", subtype: "calendar_event",
+      starts_at: 30.minutes.ago, ends_at: 30.minutes.from_now,
+      critical_mass: 1, deadline: 30.minutes.from_now
+    )
+    assert_not ongoing.upcoming?
+    assert ongoing.in_progress?
+    assert_not ongoing.past?
+
+    past = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Past event", subtype: "calendar_event",
+      starts_at: 2.hours.ago, ends_at: 1.hour.ago,
+      critical_mass: 1, deadline: 2.hours.ago
+    )
+    assert_not past.upcoming?
+    assert_not past.in_progress?
+    assert past.past?
+  end
+
+  test "Calendar event api_json includes starts_at, ends_at, location" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    starts = 1.week.from_now
+    commitment = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Team meeting", subtype: "calendar_event",
+      starts_at: starts, ends_at: starts + 1.hour, location: "Room A",
+      critical_mass: 1, deadline: starts
+    )
+
+    json = commitment.api_json
+    assert_equal "Room A", json[:location]
+    assert json[:starts_at].present?
+    assert json[:ends_at].present?
   end
 end

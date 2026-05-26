@@ -35,7 +35,7 @@ class ApiHelper
   def initialize(
     current_user:, current_collective:, current_tenant:,
     current_token: nil,
-    current_resource_model: nil,  current_resource: nil, current_note: nil,
+    current_resource_model: nil, current_resource: nil, current_note: nil,
     current_decision: nil, current_commitment: nil,
     current_decision_participant: nil, current_commitment_participant: nil,
     model_params: nil, params: nil, request: nil,
@@ -77,7 +77,6 @@ class ApiHelper
   sig { returns(Collective) }
   def create_collective
     collective = T.let(nil, T.nilable(Collective))
-    note = nil
     ActiveRecord::Base.transaction do
       collective = Collective.create!(
         name: params[:name],
@@ -86,33 +85,26 @@ class ApiHelper
         created_by: current_user,
         timezone: params[:timezone],
         tempo: params[:tempo],
-        synchronization_mode: params[:synchronization_mode],
+        synchronization_mode: params[:synchronization_mode]
       )
 
       # Apply optional settings
-      if params.has_key?(:invitations)
-        collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-      end
-      if params.has_key?(:representation)
-        collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
-      end
-      if params.has_key?(:file_uploads)
-        collective.settings['allow_file_uploads'] = params[:file_uploads] == true || params[:file_uploads] == 'true' || params[:file_uploads] == '1'
-      end
+      collective.settings["all_members_can_invite"] = params[:invitations] == "all_members" if params.has_key?(:invitations)
+      collective.settings["any_member_can_represent"] = params[:representation] == "any_member" if params.has_key?(:representation)
+      collective.settings["allow_file_uploads"] = [true, "true", "1"].include?(params[:file_uploads]) if params.has_key?(:file_uploads)
       if params.has_key?(:api_enabled)
-        collective.settings['feature_flags'] ||= {}
-        collective.settings['feature_flags']['api'] = params[:api_enabled] == true || params[:api_enabled] == 'true' || params[:api_enabled] == '1'
+        collective.settings["feature_flags"] ||= {}
+        collective.settings["feature_flags"]["api"] = [true, "true", "1"].include?(params[:api_enabled])
       end
       collective.save! if collective.settings_changed?
 
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and collective
       Collective.scope_thread_to_collective(handle: collective.handle, subdomain: T.must(collective.tenant).subdomain)
-      collective.add_user!(current_user, roles: ['admin', 'representative'])
+      collective.add_user!(current_user, roles: ["admin", "representative"])
     end
     T.must(collective)
   end
-
 
   sig { returns(Heartbeat) }
   def create_heartbeat
@@ -121,14 +113,15 @@ class ApiHelper
       association_params = {
         tenant: current_tenant,
         collective: current_collective,
-        user: current_user
+        user: current_user,
       }
       existing_heartbeat = Heartbeat.where(
         association_params
       ).where(
-        'created_at > ? and expires_at > ?', T.must(@current_cycle).start_date, Time.current
+        "created_at > ? and expires_at > ?", T.must(@current_cycle).start_date, Time.current
       ).first
-      raise 'Heartbeat already exists' if existing_heartbeat
+      raise "Heartbeat already exists" if existing_heartbeat
+
       heartbeat = Heartbeat.create!(
         association_params.merge(expires_at: T.must(@current_cycle).end_date)
       )
@@ -194,9 +187,7 @@ class ApiHelper
         created_by: current_user,
       }
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
-      if decision_maker_param.present?
-        create_attrs[:decision_maker] = resolve_user(decision_maker_param)
-      end
+      create_attrs[:decision_maker] = resolve_user(decision_maker_param) if decision_maker_param.present?
       decision = Decision.new(create_attrs)
       DecisionActionService.create_decision!(decision: decision, actor: current_user)
       track_task_run_resource(decision, action_type: "create")
@@ -214,17 +205,24 @@ class ApiHelper
   sig { returns(Commitment) }
   def create_commitment
     commitment = T.let(nil, T.nilable(Commitment))
+    subtype = params[:subtype].presence || "action"
     ActiveRecord::Base.transaction do
-      commitment = Commitment.create!(
+      attrs = {
         title: params[:title],
         description: params[:description],
-        subtype: params[:subtype] || "action",
+        subtype: subtype,
         deadline: params[:deadline],
         critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
-      )
+      }
+      if subtype == "calendar_event"
+        attrs[:starts_at] = params[:starts_at]
+        attrs[:ends_at] = params[:ends_at]
+        attrs[:location] = params[:location].presence
+      end
+      commitment = Commitment.create!(attrs)
       # Handle close_at_critical_mass option
-      if params[:close_at_critical_mass] == true || params[:close_at_critical_mass] == "true"
+      if [true, "true"].include?(params[:close_at_critical_mass])
         commitment.limit = commitment.critical_mass
         commitment.save!
       end
@@ -244,6 +242,7 @@ class ApiHelper
   def join_commitment
     commitment = T.must(current_commitment)
     raise "Commitment is closed" if commitment.closed?
+
     check_not_blocked!(commitment, action: "join")
 
     participant = T.let(nil, T.nilable(CommitmentParticipant))
@@ -271,12 +270,11 @@ class ApiHelper
   sig { returns(Note) }
   def update_note
     note = T.must(current_note)
-    raise 'Unauthorized' unless note.user_can_edit?(current_user)
-    raise 'This reminder can no longer be edited' unless note.reminder_editable?
+    raise "Unauthorized" unless note.user_can_edit?(current_user)
+    raise "This reminder can no longer be edited" unless note.reminder_editable?
+
     note.title = model_params[:title] if model_params[:title].present?
-    if model_params[:text].present? && !note.is_table?
-      note.text = model_params[:text]
-    end
+    note.text = model_params[:text] if model_params[:text].present? && !note.is_table?
     if model_params[:edit_access].present? && Note::EDIT_ACCESS_OPTIONS.include?(model_params[:edit_access])
       note.edit_access = model_params[:edit_access]
     end
@@ -286,9 +284,7 @@ class ApiHelper
     cancel = params[:cancel_reminder] == "1" && reminder&.pending?
     if !cancel && params[:scheduled_for].present?
       scheduled_for = parse_scheduled_time(params[:scheduled_for], timezone: params[:timezone])
-      if scheduled_for && reminder&.pending?
-        note.reminder_scheduled_for = scheduled_for
-      end
+      note.reminder_scheduled_for = scheduled_for if scheduled_for && reminder&.pending?
     end
     # Add files to note, but don't remove existing files
     if model_params[:files]
@@ -356,14 +352,14 @@ class ApiHelper
         edit_access: params[:edit_access].presence || "owner",
         table_data: table_data,
         deadline: Time.now,
-        created_by: current_user,
+        created_by: current_user
       )
       track_task_run_resource(note, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
           request: request,
           action_name: "create_table_note",
-          resource: note,
+          resource: note
         )
       end
     end
@@ -379,14 +375,14 @@ class ApiHelper
         text: params[:text],
         subtype: "reminder",
         deadline: Time.now,
-        created_by: current_user,
+        created_by: current_user
       )
       track_task_run_resource(note, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
           request: request,
           action_name: "create_reminder_note",
-          resource: note,
+          resource: note
         )
       end
     end
@@ -395,7 +391,7 @@ class ApiHelper
     mentioned_users = MentionParser.parse_for_notification(
       note.text,
       tenant_id: current_tenant.id,
-      collective: current_collective,
+      collective: current_collective
     )
 
     begin
@@ -404,7 +400,7 @@ class ApiHelper
         title: note.title,
         scheduled_for: scheduled_for,
         url: note.path,
-        additional_recipients: mentioned_users,
+        additional_recipients: mentioned_users
       )
       note.update!(reminder_notification_id: notification.id, reminder_scheduled_for: scheduled_for)
     rescue ReminderService::ReminderError
@@ -447,6 +443,7 @@ class ApiHelper
   def add_table_column
     note = T.must(current_note)
     raise "Unauthorized" unless note.user_can_edit?(current_user)
+
     table = table_service
     table.add_column!(params[:name], params[:type])
   end
@@ -455,6 +452,7 @@ class ApiHelper
   def remove_table_column
     note = T.must(current_note)
     raise "Unauthorized" unless note.user_can_edit?(current_user)
+
     table = table_service
     table.remove_column!(params[:name])
   end
@@ -467,7 +465,7 @@ class ApiHelper
       order_by: params[:order_by],
       order: params[:order] || "asc",
       limit: (params[:limit] || 20).to_i,
-      offset: (params[:offset] || 0).to_i,
+      offset: (params[:offset] || 0).to_i
     )
   end
 
@@ -477,7 +475,7 @@ class ApiHelper
     table.summarize(
       operation: params[:operation],
       column: params[:column],
-      where: hash_param(:where),
+      where: hash_param(:where)
     )
   end
 
@@ -485,6 +483,7 @@ class ApiHelper
   def update_table_description
     note = T.must(current_note)
     raise "Unauthorized" unless note.user_can_edit?(current_user)
+
     table = table_service
     table.update_description!(params[:description])
   end
@@ -514,14 +513,12 @@ class ApiHelper
       reportable: resource,
       reason: params[:reason],
       description: params[:description],
-      content_snapshot: resource.content_snapshot.to_json,
+      content_snapshot: resource.content_snapshot.to_json
     )
     report.save!
 
-    if params[:also_block] == "1"
-      unless UserBlock.where(blocker: current_user, blocked: resource.created_by, tenant_id: Tenant.current_id).exists?
-        UserBlock.create!(blocker: current_user, blocked: resource.created_by, tenant_id: Tenant.current_id)
-      end
+    if params[:also_block] == "1" && !UserBlock.where(blocker: current_user, blocked: resource.created_by, tenant_id: Tenant.current_id).exists?
+      UserBlock.create!(blocker: current_user, blocked: resource.created_by, tenant_id: Tenant.current_id)
     end
 
     report
@@ -531,6 +528,7 @@ class ApiHelper
   def confirm_read
     note = current_resource
     raise "Expected resource model Note, not #{note.class}" unless note.is_a?(Note)
+
     history_event = T.let(nil, T.nilable(NoteHistoryEvent))
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(note) if note.created_by
@@ -552,6 +550,7 @@ class ApiHelper
   def acknowledge_reminder
     note = current_resource
     raise "Expected resource model Note, not #{note.class}" unless note.is_a?(Note)
+
     history_event = T.let(nil, T.nilable(NoteHistoryEvent))
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(note) if note.created_by
@@ -593,7 +592,7 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       current_decision_participant = DecisionParticipantManager.new(
         decision: T.must(current_decision),
-        user: current_user,
+        user: current_user
       ).find_or_create_participant
       unless T.must(current_decision).can_add_options?(current_decision_participant)
         raise "Cannot add options to decision #{T.must(current_decision).id} for user #{current_user.id}"
@@ -603,7 +602,7 @@ class ApiHelper
         option = Option.new(
           decision: current_decision,
           decision_participant: current_decision_participant,
-          title: title,
+          title: title
         )
         DecisionActionService.add_option!(decision: T.must(current_decision), option: option, actor: current_user)
         track_task_run_resource(option, action_type: "add_options")
@@ -626,6 +625,7 @@ class ApiHelper
   sig { returns(Vote) }
   def vote
     raise ArgumentError, "current_option is required" if current_option.blank?
+
     check_not_blocked!(T.must(current_decision), action: "vote on")
 
     associations = {
@@ -663,6 +663,7 @@ class ApiHelper
     raise ArgumentError, "This decision is closed and no longer accepting votes." if T.must(current_decision).closed?
     raise ArgumentError, "Executive decisions do not accept votes." if T.must(current_decision).is_executive?
     raise ArgumentError, "Lottery decisions do not accept votes." if T.must(current_decision).is_lottery?
+
     check_not_blocked!(T.must(current_decision), action: "vote on")
 
     votes = T.let([], T::Array[Vote])
@@ -718,7 +719,7 @@ class ApiHelper
 
       # Handle mode - internal (Harmonic-powered) or external (API key required)
       mode = params[:mode]
-      agent_config["mode"] = %w[internal external].include?(mode) ? mode : "external"
+      agent_config["mode"] = ["internal", "external"].include?(mode) ? mode : "external"
 
       # Handle capabilities - filter to only valid grantable actions
       capabilities = params[:capabilities]
@@ -738,14 +739,12 @@ class ApiHelper
         email: SecureRandom.uuid + "@not-a-real-email.com",
         user_type: "ai_agent",
         parent_id: current_user.id,
-        agent_configuration: agent_config,
+        agent_configuration: agent_config
       )
       tenant_user = current_tenant.add_user!(user)
       user.tenant_user = tenant_user
       T.must(current_tenant.main_collective).add_user!(user)
-      if current_collective.id != current_tenant.main_collective_id
-        current_collective.add_user!(user)
-      end
+      current_collective.add_user!(user) if current_collective.id != current_tenant.main_collective_id
     end
     T.must(user)
   end
@@ -756,7 +755,7 @@ class ApiHelper
       name: "#{user.display_name}'s API Token",
       user: user,
       expires_at: 1.year.from_now,
-      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes
     )
   end
 
@@ -764,6 +763,7 @@ class ApiHelper
   def current_note
     return @current_note if @current_note
     return nil unless @current_resource_model == Note && @current_resource.is_a?(Note)
+
     @current_resource
   end
 
@@ -771,6 +771,7 @@ class ApiHelper
   def current_decision
     return @current_decision if @current_decision
     return nil unless @current_resource_model == Decision && @current_resource.is_a?(Decision)
+
     @current_resource
   end
 
@@ -778,18 +779,20 @@ class ApiHelper
   def current_commitment
     return @current_commitment if @current_commitment
     return nil unless @current_resource_model == Commitment && @current_resource.is_a?(Commitment)
+
     @current_resource
   end
 
   sig { returns(T.nilable(DecisionParticipant)) }
   def current_decision_participant
     return @current_decision_participant if @current_decision_participant
+
     if @current_resource_model == DecisionParticipant && @current_resource.is_a?(DecisionParticipant)
       @current_resource
     else
       @current_decision_participant = DecisionParticipantManager.new(
         decision: T.must(current_decision),
-        user: current_user,
+        user: current_user
       ).find_or_create_participant
     end
     @current_decision_participant
@@ -799,12 +802,14 @@ class ApiHelper
   def current_commitment_participant
     return @current_commitment_participant if @current_commitment_participant
     return nil unless @current_resource_model == CommitmentParticipant && @current_resource.is_a?(CommitmentParticipant)
+
     @current_resource
   end
 
   sig { returns(T.nilable(Option)) }
   def current_option
     return @current_option if defined?(@current_option) && @current_option
+
     if params[:option_id]
       @current_option = T.let(T.must(current_decision).options.find_by(id: params[:option_id]), T.nilable(Option))
     elsif params[:option_title]
@@ -818,26 +823,23 @@ class ApiHelper
 
   sig { params(invite: T.nilable(Invite)).returns(CollectiveMember) }
   def join_collective(invite: nil)
-    raise 'Cannot join a private workspace' if current_collective.private_workspace?
-    raise 'User is already a member of this collective' if current_user.collectives.include?(current_collective)
+    raise "Cannot join a private workspace" if current_collective.private_workspace?
+    raise "User is already a member of this collective" if current_user.collectives.include?(current_collective)
 
     collective_member = T.let(nil, T.nilable(CollectiveMember))
     ActiveRecord::Base.transaction do
-      if invite
-        raise 'Invite does not match collective' unless invite.collective == current_collective
-        current_user.accept_invite!(invite)
-        collective_member = current_user.collective_members.find_by(collective: current_collective)
-      else
-        raise 'Valid invite required to join this collective'
-      end
+      raise "Valid invite required to join this collective" unless invite
+      raise "Invite does not match collective" unless invite.collective == current_collective
 
+      current_user.accept_invite!(invite)
+      collective_member = current_user.collective_members.find_by(collective: current_collective)
     end
     T.must(collective_member)
   end
 
   sig { returns(Collective) }
   def update_collective_settings
-    raise 'Unauthorized: must be admin' unless current_user.collective_member&.is_admin?
+    raise "Unauthorized: must be admin" unless current_user.collective_member&.is_admin?
 
     ActiveRecord::Base.transaction do
       current_collective.name = params[:name] if params[:name].present?
@@ -848,16 +850,12 @@ class ApiHelper
 
       # Handle settings stored in JSON column (skip for private workspaces — enforced settings)
       unless current_collective.private_workspace?
-        if params.has_key?(:invitations)
-          current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-        end
-        if params.has_key?(:representation)
-          current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
-        end
+        current_collective.settings["all_members_can_invite"] = params[:invitations] == "all_members" if params.has_key?(:invitations)
+        current_collective.settings["any_member_can_represent"] = params[:representation] == "any_member" if params.has_key?(:representation)
       end
       if params.has_key?(:file_uploads)
         # Use unified feature flag system
-        enabled = params[:file_uploads] == true || params[:file_uploads] == "true" || params[:file_uploads] == "1"
+        enabled = [true, "true", "1"].include?(params[:file_uploads])
         current_collective.settings["feature_flags"] ||= {}
         current_collective.settings["feature_flags"]["file_attachments"] = enabled
       end
@@ -868,7 +866,6 @@ class ApiHelper
 
       current_collective.updated_by = current_user
       current_collective.save!
-
     end
     current_collective
   end
@@ -877,6 +874,7 @@ class ApiHelper
   def start_user_representation_session(grant:)
     raise ArgumentError, "Grant must be active" unless grant.active?
     raise ArgumentError, "Current user must be the trustee" unless grant.trustee_user == current_user
+
     # Both the trustee and the represented user must be fully activated for the
     # current tenant before a session can be created. The trustee (current_user)
     # is implicitly activated — they had to pass the activation gate to reach
@@ -896,7 +894,7 @@ class ApiHelper
       representative_user: current_user,
       trustee_grant: grant,
       confirmed_understanding: true,
-      began_at: Time.current,
+      began_at: Time.current
     )
     rep_session.begin!
     rep_session
@@ -905,18 +903,20 @@ class ApiHelper
   sig { returns(Decision) }
   def update_decision_settings
     decision = T.must(current_decision)
-    raise 'Unauthorized: only creator can edit settings' unless decision.can_edit_settings?(current_user)
+    raise "Unauthorized: only creator can edit settings" unless decision.can_edit_settings?(current_user)
 
     ActiveRecord::Base.transaction do
       decision.question = params[:question] if params[:question].present?
       decision.description = params[:description] if params[:description].present?
       # options_open is a boolean, so we need to check has_key? AND the value is not nil
       if params.has_key?(:options_open) && !params[:options_open].nil?
-        raise 'Cannot change options policy on a closed decision' if decision.closed?
+        raise "Cannot change options policy on a closed decision" if decision.closed?
+
         decision.options_open = params[:options_open]
       end
       if params[:deadline].present?
-        raise 'Cannot change deadline on a closed decision' if decision.closed?
+        raise "Cannot change deadline on a closed decision" if decision.closed?
+
         decision.deadline = params[:deadline]
       end
       dm_param_key = params.has_key?(:decision_maker) ? :decision_maker : :decision_maker_id
@@ -939,42 +939,36 @@ class ApiHelper
 
   def close_decision
     decision = T.must(current_decision)
-    raise 'Unauthorized: only creator can close decision' unless decision.can_close?(current_user)
-    raise 'Decision is already closed' if decision.closed?
+    raise "Unauthorized: only creator can close decision" unless decision.can_close?(current_user)
+    raise "Decision is already closed" if decision.closed?
 
     ActiveRecord::Base.transaction do
       # For executive decisions, cast selection votes (before close, so DB trigger allows them)
-      if decision.is_executive?
-        create_executive_selections!(decision)
-      end
+      create_executive_selections!(decision) if decision.is_executive?
 
       DecisionActionService.close_decision!(decision: decision, actor: current_user)
 
-      if params[:final_statement].present?
-        create_or_update_statement!(decision, params[:final_statement])
-      end
+      create_or_update_statement!(decision, params[:final_statement]) if params[:final_statement].present?
 
       if current_representation_session
         current_representation_session.record_event!(
           request: request,
           action_name: "close_decision",
-          resource: decision,
+          resource: decision
         )
       end
     end
 
-    if decision.is_lottery? || decision.is_vote?
-      LotteryDrawJob.perform_later(decision.id)
-    end
+    LotteryDrawJob.perform_later(decision.id) if decision.is_lottery? || decision.is_vote?
 
     decision
   end
 
   def add_statement
     decision = T.must(current_decision)
-    raise 'Unauthorized' unless decision.can_write_statement?(current_user)
+    raise "Unauthorized" unless decision.can_write_statement?(current_user)
 
-    raise 'Decision must be closed to add a statement' unless decision.closed?
+    raise "Decision must be closed to add a statement" unless decision.closed?
 
     statement = create_or_update_statement!(decision, params[:text])
 
@@ -983,7 +977,7 @@ class ApiHelper
         request: request,
         action_name: "add_statement",
         resource: statement,
-        context_resource: decision,
+        context_resource: decision
       )
     end
     statement
@@ -996,12 +990,14 @@ class ApiHelper
     if id.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
       tu = current_tenant.tenant_users.find_by(user_id: id)
       raise ActiveRecord::RecordNotFound, "Couldn't find User with id '#{id}'" unless tu
+
       return tu.user
     end
     # Strip @ prefix if present
     handle = id.delete_prefix("@")
     tu = current_tenant.tenant_users.find_by(handle: handle)
     raise ActiveRecord::RecordNotFound, "Couldn't find User with handle '#{handle}'" unless tu
+
     tu.user
   end
 
@@ -1013,15 +1009,13 @@ class ApiHelper
     # Validate all selection titles match actual options
     option_titles = decision.options.map(&:title)
     invalid_titles = selected_titles - option_titles
-    if invalid_titles.any?
-      raise ArgumentError, "Unknown option(s): #{invalid_titles.map { |t| "'#{t}'" }.join(', ')}"
-    end
+    raise ArgumentError, "Unknown option(s): #{invalid_titles.map { |t| "'#{t}'" }.join(", ")}" if invalid_titles.any?
 
     options = decision.options.to_a
     existing_votes = Vote.where(
       decision: decision,
       decision_participant: participant,
-      option_id: options.map(&:id),
+      option_id: options.map(&:id)
     ).index_by(&:option_id)
 
     options.each do |option|
@@ -1030,7 +1024,7 @@ class ApiHelper
         collective: current_collective,
         decision: decision,
         option: option,
-        decision_participant: participant,
+        decision_participant: participant
       )
       is_update = vote.persisted?
       vote.accepted = selected_titles.include?(option.title) ? 1 : 0
@@ -1039,7 +1033,7 @@ class ApiHelper
     end
   end
 
-  private def send_vote_receipt_email(votes)
+  private def send_vote_receipt_email(_votes)
     return unless FeatureFlagService.enabled?("vote_receipt_emails", collective: current_collective)
 
     participant = current_decision_participant
@@ -1053,7 +1047,7 @@ class ApiHelper
     VoteReceiptMailer.receipt_email(
       user: user,
       decision: decision,
-      receipt: receipt_entry.entry_hash,
+      receipt: receipt_entry.entry_hash
     ).deliver_later
   end
 
@@ -1074,7 +1068,7 @@ class ApiHelper
         tenant: current_tenant,
         collective: current_collective,
         deadline: Time.current,
-        edit_access: "owner",
+        edit_access: "owner"
       )
     end
   end
@@ -1082,7 +1076,7 @@ class ApiHelper
   sig { returns(Commitment) }
   def update_commitment_settings
     commitment = T.must(current_commitment)
-    raise 'Unauthorized: only creator can edit settings' unless commitment.can_edit_settings?(current_user)
+    raise "Unauthorized: only creator can edit settings" unless commitment.can_edit_settings?(current_user)
 
     ActiveRecord::Base.transaction do
       commitment.title = params[:title] if params[:title].present?
@@ -1091,12 +1085,20 @@ class ApiHelper
       if params[:critical_mass].present? && !current_collective.private_workspace?
         new_cm = params[:critical_mass].to_i
         if new_cm < commitment.critical_mass.to_i && commitment.participant_count > 0
-          raise 'Cannot lower critical mass after participants have joined'
+          raise "Cannot lower critical mass after participants have joined"
         end
+
         commitment.critical_mass = new_cm
       end
 
       commitment.deadline = params[:deadline] if params[:deadline].present?
+
+      if commitment.is_calendar_event?
+        commitment.starts_at = params[:starts_at] if params[:starts_at].present?
+        commitment.ends_at = params[:ends_at] if params[:ends_at].present?
+        commitment.location = params[:location] if params.key?(:location)
+      end
+
       commitment.save!
 
       if current_representation_session
@@ -1176,7 +1178,7 @@ class ApiHelper
         subtype: original.subtype,
         options_open: original.options_open,
         deadline: original.deadline,
-        created_by: current_user,
+        created_by: current_user
       )
       DecisionActionService.create_decision!(decision: new_decision, actor: current_user)
       original.options.each do |opt|
@@ -1186,7 +1188,7 @@ class ApiHelper
           decision_participant: DecisionParticipantManager.new(
             decision: new_decision,
             user: current_user
-          ).find_or_create_participant,
+          ).find_or_create_participant
         )
         DecisionActionService.add_option!(decision: new_decision, option: option, actor: current_user)
       end
@@ -1209,6 +1211,7 @@ class ApiHelper
   def hash_param(key)
     value = params[key]
     return {} if value.nil?
+
     value.respond_to?(:to_unsafe_h) ? value.to_unsafe_h : value.to_h
   end
 
@@ -1219,6 +1222,7 @@ class ApiHelper
 
   def authorize_delete!(content)
     return if content.created_by_id == current_user.id
+
     # Collective admin can delete content in their collective
     cm = current_user.collective_member
     return if cm&.is_admin?
@@ -1234,15 +1238,15 @@ class ApiHelper
     admin_deleting = (content.created_by_id != current_user.id)
     snapshot = content.content_snapshot if admin_deleting
     content.soft_delete!(by: current_user)
-    if admin_deleting && snapshot
-      ip = @request&.respond_to?(:remote_ip) ? @request.remote_ip : "unknown"
-      SecurityAuditLog.log_content_deleted(
-        content: content,
-        deleted_by: current_user,
-        ip: ip,
-        snapshot: snapshot,
-      )
-    end
+    return unless admin_deleting && snapshot
+
+    ip = @request&.respond_to?(:remote_ip) ? @request.remote_ip : "unknown"
+    SecurityAuditLog.log_content_deleted(
+      content: content,
+      deleted_by: current_user,
+      ip: ip,
+      snapshot: snapshot
+    )
   end
 
   # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability.
@@ -1270,7 +1274,7 @@ class ApiHelper
         resource: resource,
         resource_collective_id: resource.collective_id,
         action_type: action_type,
-        display_path: display_path,
+        display_path: display_path
       )
     end
 
@@ -1287,7 +1291,7 @@ class ApiHelper
         resource: resource,
         resource_collective_id: resource.collective_id,
         action_type: action_type,
-        display_path: display_path,
+        display_path: display_path
       )
     end
   rescue ActiveRecord::RecordInvalid => e
@@ -1310,6 +1314,7 @@ class ApiHelper
     when Vote
       option = Option.tenant_scoped_only(tenant_id).find_by(id: resource.option_id)
       return nil unless option
+
       decision = Decision.tenant_scoped_only(tenant_id).find_by(id: option.decision_id)
       decision&.path
     when NoteHistoryEvent
@@ -1318,8 +1323,6 @@ class ApiHelper
     when CommitmentParticipant
       commitment = Commitment.tenant_scoped_only(tenant_id).find_by(id: resource.commitment_id)
       commitment&.path
-    else
-      nil
     end
   end
 
@@ -1355,12 +1358,11 @@ class ApiHelper
     content_author = resource.respond_to?(:created_by) ? resource.created_by : nil
     return unless content_author
 
-    if UserBlock.between?(current_user, content_author)
-      record = resource.is_a?(ActiveRecord::Base) ? resource : Note.new
-      raise ActiveRecord::RecordInvalid.new(
-        record.class.new.tap { |r| r.errors.add(:base, "You cannot #{action} this content because of a user block") }
-      )
-    end
-  end
+    return unless UserBlock.between?(current_user, content_author)
 
+    record = resource.is_a?(ActiveRecord::Base) ? resource : Note.new
+    raise ActiveRecord::RecordInvalid.new(
+      record.class.new.tap { |r| r.errors.add(:base, "You cannot #{action} this content because of a user block") }
+    )
+  end
 end

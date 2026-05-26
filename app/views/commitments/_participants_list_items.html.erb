@@ -7,7 +7,16 @@
       <% else %>
         <span class="pulse-participant-name">Anonymous</span>
       <% end %>
-      <span class="pulse-timestamp">Joined <%= timeago(participant.committed_at) %></span>
+      <%
+        joined_verb = if @commitment.is_policy?
+                        "Signed"
+                      elsif @commitment.is_calendar_event?
+                        "RSVP'd"
+                      else
+                        "Joined"
+                      end
+      %>
+      <span class="pulse-timestamp"><%= joined_verb %> <%= timeago(participant.committed_at) %></span>
     </div>
   <% end %>
   <% if @commitment.participant_count > @participants_list_limit %>
@@ -19,6 +28,6 @@
       <span>+ <%= @commitment.participant_count - @participants_list_limit %> more</span>
     </div>
   <% elsif @commitment.participant_count == 0 %>
-    <p class="pulse-no-participants">No participants yet.</p>
+    <p class="pulse-no-participants">No <%= @commitment.metric_name %> yet.</p>
   <% end %>
 </div>

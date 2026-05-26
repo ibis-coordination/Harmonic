@@ -8,6 +8,8 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <% else %>
 # <%= @decision.is_executive? ? 'Executive Decision' : @decision.is_lottery? ? 'Lottery' : 'Decision' %>: <%= @decision.question %>
 
+| status | <%= @decision.closed? ? 'Closed' : 'Open' %> |
+| created_by | <%= resource_author_md(@decision) %> |
 | created_at | <%= @decision.created_at %> |
 | updated_at | <%= @decision.updated_at %> |
 <% if @decision.is_executive? && @decision.decision_maker_id.present? && @decision.decision_maker_id != @decision.created_by_id -%>
@@ -15,6 +17,8 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <% end -%>
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
+
+<%= render 'shared/automation_attribution', resource: @decision %>
 
 <% if @decision.description.present? -%>
 <% truncated_description = truncate_content(@decision.description) %>

@@ -1,6 +1,15 @@
-# Commitment Settings
+<%
+  type_label = if @commitment.is_policy?
+                 "Policy"
+               elsif @commitment.is_calendar_event?
+                 "Event"
+               else
+                 "Commitment"
+               end
+%>
+# <%= type_label %> Settings
 
-Current settings for commitment **<%= @commitment.title %>**:
+Current settings for <%= type_label.downcase %> **<%= @commitment.title %>**:
 
 | Setting | Value |
 |---------|-------|
@@ -8,4 +17,8 @@ Current settings for commitment **<%= @commitment.title %>**:
 | Description | <%= @commitment.description || "(none)" %> |
 | Critical Mass | <%= @commitment.critical_mass %> |
 | Deadline | <%= @commitment.deadline %> |
-
+<% if @commitment.is_calendar_event? %>
+| Starts at | <%= @commitment.starts_at %> |
+| Ends at | <%= @commitment.ends_at %> |
+| Location | <%= @commitment.location || "(none)" %> |
+<% end %>
