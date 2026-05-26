@@ -1,12 +1,14 @@
 require "test_helper"
 
-# Phase 2 verification: the allows_anonymous declarations live in the real
-# controller files (NotesController, DecisionsController, CommitmentsController,
-# HelpController). Phase 1's bypass test temporarily declared these inline;
-# Phase 2 makes them permanent.
-#
-# Also verifies the per-action Cache-Control headers (Section D) and the
-# per-IP rate limit (Section I).
+# Verifies the anon-readable wiring at the controller level:
+#   - allows_anonymous is declared on NotesController, DecisionsController,
+#     CommitmentsController, and HelpController (every topic).
+#   - The per-action Cache-Control headers fire for both anon and
+#     logged-in viewers on the show actions (prevents cross-audience
+#     CDN reuse).
+#   - The per-IP anon-read rate limit returns 429 + Retry-After after the
+#     configured threshold and logs to SecurityAuditLog.
+#   - Feature-gated help topics return 404 when the flag is off.
 class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
   PUBLIC_SUBDOMAIN = "anonctrlpublic".freeze
 
@@ -45,7 +47,7 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
 
   test "NotesController declares allows_anonymous :show" do
     assert NotesController.allows_anonymous?(:show),
-           "Phase 2 should declare allows_anonymous :show on NotesController"
+           "NotesController must declare allows_anonymous :show for anon access to /n/:id"
   end
 
   test "DecisionsController declares allows_anonymous :show" do
@@ -109,7 +111,7 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  # ---- HEAD requests (Section B condition 4) ----
+  # ---- HEAD requests (the bypass allows GET OR HEAD) ----
   #
   # The bypass predicate explicitly allows `request.head?`. Test the most
   # likely HEAD caller (monitors, health checks, link previews).
@@ -129,7 +131,7 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  # ---- Cache-Control headers (Section D) ----
+  # ---- Cache-Control headers ----
 
   test "anon GET /n/:id sets Cache-Control: private, no-store" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
@@ -165,7 +167,7 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     assert_match(/no-store/, response.headers["Cache-Control"])
   end
 
-  # ---- Per-IP rate limit (Section I) ----
+  # ---- Per-IP rate limit ----
   #
   # All tests use @test_ip (set in setup) as REMOTE_ADDR so the per-IP
   # rate-limit counter is isolated per test and can't collide across parallel
@@ -193,7 +195,7 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "help is NOT rate-limited (explicit plan decision: small static surface)" do
+  test "help is NOT rate-limited (intentional: small static surface, Rack::Attack is the backstop)" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
     65.times { get "/help/privacy", env: { "REMOTE_ADDR" => @test_ip } }
     assert_response :success

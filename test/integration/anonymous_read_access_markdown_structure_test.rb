@@ -1,7 +1,8 @@
 require "test_helper"
 require "yaml"
 
-# Phase 4: anon markdown surface — structural assertions.
+# Structural assertions on the anon markdown surface for /n/:id, /d/:id,
+# /c/:id, /u/:handle, and /help.
 #
 # These tests fall into two categories:
 #
@@ -11,16 +12,16 @@ require "yaml"
 #    unrelated to the specific code paths they exercise.
 #
 # 2. **Phrase pins** (the explicit string-search assertions for "Logged in
-#    as", "Submit your vote", etc.) — these guard specific bugs we noticed
-#    during Phase 0 / Phase 4 audit. They are NOT exhaustive. A future
-#    leak that uses different wording (e.g., "Your last read at: …") would
-#    pass these tests and ship. The value is regression prevention for the
-#    exact strings we know about, not a general "no per-viewer data" guard.
+#    as", "Submit your vote", etc.) — these guard specific known leak
+#    phrases. They are NOT exhaustive. A future leak that uses different
+#    wording (e.g., "Your last read at: …") would pass these tests and
+#    ship. The value is regression prevention for the exact strings listed,
+#    not a general "no per-viewer data" guard.
 #
 # A real "no per-viewer data" test would diff the anon body against the
 # logged-in body with a whitelisted set of allowed differences. That's
-# complex enough to be out of scope; the audit pass + property tests are
-# the load-bearing protection.
+# complex to write cleanly; the property tests are the load-bearing
+# protection here.
 class AnonymousReadAccessMarkdownStructureTest < ActionDispatch::IntegrationTest
   PUBLIC_SUBDOMAIN = "anonmdpublic".freeze
 
@@ -129,12 +130,11 @@ class AnonymousReadAccessMarkdownStructureTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # ---- PIN: known per-viewer phrases that we noticed during the audit ----
+  # ---- PIN: known per-viewer phrases ----
   #
-  # These are NOT exhaustive. They pin the specific strings we caught (or
-  # worried about) during Phase 0 / Phase 4. A new leak in different
-  # wording would pass these tests. Treat them as regression guards for
-  # the listed phrases only.
+  # These are NOT exhaustive. They pin the specific strings noticed during
+  # the markdown audit. A new leak in different wording would pass these
+  # tests. Treat them as regression guards for the listed phrases only.
 
   test "PIN: anon markdown nav does not contain 'Logged in as' (layout nav guard)" do
     [@note.path, @decision.path, @commitment.path, "/u/#{@user_handle}", "/help", "/help/privacy"].each do |path|
@@ -146,7 +146,7 @@ class AnonymousReadAccessMarkdownStructureTest < ActionDispatch::IntegrationTest
     assert_no_match(/acting on behalf of/, fetch_md(@note.path))
   end
 
-  test "PIN: anon /d/:id markdown does not contain 'Submit your vote' (Phase 4 caught this leak)" do
+  test "PIN: anon /d/:id markdown does not contain 'Submit your vote'" do
     body = fetch_md(@decision.path)
     assert_no_match(/Submit your vote/i, body,
                     "anon viewers were once told to submit a vote — they can't")

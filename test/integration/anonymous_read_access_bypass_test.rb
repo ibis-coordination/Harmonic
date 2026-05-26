@@ -7,9 +7,10 @@ require "test_helper"
 # 2. With ANY condition unmet, anon request is redirected to /login (or 404'd
 #    for nonexistent resources).
 #
-# Phase 2 makes the `allows_anonymous` declarations permanent in
-# NotesController/DecisionsController/CommitmentsController/HelpController.
-# This file only sets up the env-var fixture and the per-tenant data.
+# Relies on the permanent `allows_anonymous` declarations in
+# NotesController / DecisionsController / CommitmentsController /
+# HelpController — this file sets up only the env-var fixture and the
+# per-tenant data.
 class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
   PUBLIC_SUBDOMAIN = "anonbypasspublic".freeze
   PRIVATE_SUBDOMAIN = "anonbypassprivate".freeze
@@ -22,8 +23,8 @@ class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
     set_up_private_tenant
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
-    # Per-test unique IP so the Phase 2 per-IP rate-limit counter in Redis is
-    # isolated per test and parallel workers don't collide.
+    # Per-test unique IP so the per-IP anon-read rate-limit counter in Redis
+    # is isolated per test and parallel workers don't collide.
     @test_ip = "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
   end
 

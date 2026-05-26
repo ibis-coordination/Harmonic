@@ -1,6 +1,6 @@
 require "test_helper"
 
-# Phase 5: route-introspection sweep. Iterates every GET route in
+# Route-introspection sweep. Iterates every GET route in
 # Rails.application.routes and exercises it as an anon viewer on both a
 # public-readable tenant and a private tenant. Any 2xx response that
 # isn't covered by the ANON_ALLOWED whitelist is a leak.

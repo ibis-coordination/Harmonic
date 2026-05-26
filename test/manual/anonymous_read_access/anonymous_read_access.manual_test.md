@@ -16,9 +16,9 @@ verified_by: Claude Opus 4.7
 >    that also accepts `Mime::ALL`.
 > 2. **`ApplicationRecord#user_can_close?` crashed on nil user** when the
 >    deadline_display partial reached the `requires_manual_close?` branch
->    (deadline 50+ years out). Phase 0 missed this — the partial isn't
->    rendered for normal deadlines. Widened sig to `T.nilable(User)` with
->    `return false if user.nil?` guard.
+>    (deadline 50+ years out). The pre-implementation audit missed this —
+>    the partial isn't rendered for normal deadlines. Widened sig to
+>    `T.nilable(User)` with `return false if user.nil?` guard.
 >
 > All sections below verified PASS against the live dev server.
 

@@ -1,7 +1,6 @@
 require "test_helper"
 
-# Phase 3 view-suppression sweep. Anon viewers on a public main collective
-# should:
+# View-level checks: anon viewers on a public main collective should:
 #   - See content (note body, decision options, commitment status, comments,
 #     attachments, backlinks)
 #   - NOT see logged-in-only interaction surfaces (pin button, report button,
@@ -52,9 +51,9 @@ class AnonymousReadAccessViewsTest < ActionDispatch::IntegrationTest
   # ---- Anon sees "Log in to comment" CTA on commentable show pages ----
   #
   # Note: /n/:id does NOT render the comments section inline — it fetches it
-  # async from /n/:id/comments.html, which isn't on the anon-allowed list per
-  # the plan ("The three item URLs"). So anon viewers don't see comments on
-  # note pages, consistent with the documented scope.
+  # async from /n/:id/comments.html, which is not declared `allows_anonymous`.
+  # So anon viewers don't see comments on note pages, consistent with the
+  # scope of this feature (the three item show URLs only).
 
   test "anon GET /d/:id shows a Log in to comment CTA" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
