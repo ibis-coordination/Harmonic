@@ -20,12 +20,14 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
       subtype: "reminder",
     )
 
-    # Create a reminder event as if the delivery job fired
+    # Create a reminder event as if the delivery job fired. Use Time.current
+    # so the event lands inside the current cycle even when tests run
+    # immediately after midnight.
     NoteHistoryEvent.create!(
       note: note,
       user: @user,
       event_type: "reminder",
-      happened_at: 10.minutes.ago,
+      happened_at: Time.current,
     )
 
     get "/collectives/#{@collective.handle}"
@@ -54,11 +56,13 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
       text: "body",
       subtype: "reminder",
     )
+    # Use Time.current (not e.g. 10.minutes.ago) so the event lands inside
+    # the current cycle even when the test runs immediately after midnight.
     NoteHistoryEvent.create!(
       note: note,
       user: @user,
       event_type: "reminder",
-      happened_at: 10.minutes.ago,
+      happened_at: Time.current,
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
