@@ -30,7 +30,7 @@ class AnonymousReadAccessViewsTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
 
-    @test_ip = "10.#{rand(256)}.#{rand(256)}.#{rand(1..254)}"
+    @test_ip = "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
   end
 
   def teardown

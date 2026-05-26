@@ -24,7 +24,7 @@ class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     # Per-test unique IP so the Phase 2 per-IP rate-limit counter in Redis is
     # isolated per test and parallel workers don't collide.
-    @test_ip = "10.#{rand(256)}.#{rand(256)}.#{rand(1..254)}"
+    @test_ip = "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
   end
 
   # Inject @test_ip as REMOTE_ADDR into every request so we don't have to

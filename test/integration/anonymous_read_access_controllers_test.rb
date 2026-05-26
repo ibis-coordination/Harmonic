@@ -202,8 +202,10 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
   private
 
   def unique_ip
-    # 10.0.0.0/8 is private-use; randomize so parallel workers don't collide
-    # on the Redis counter.
-    "10.#{rand(256)}.#{rand(256)}.#{rand(1..254)}"
+    # 10.0.0.0/8 is private-use. Use SecureRandom (not rand) — Ruby's default
+    # Random shares state across forked test workers, so the first `rand` in
+    # each worker returns the same value, causing IP collisions and shared
+    # rate-limit counters in the test Redis DB.
+    "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
   end
 end

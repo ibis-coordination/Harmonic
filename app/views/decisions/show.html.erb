@@ -248,7 +248,11 @@
     <% else %>
       <div class="pulse-results-table-section">
         <p class="pulse-body-text-muted" style="padding: 12px 0;">
-          Submit your vote to see results.
+          <% if @current_user %>
+            Submit your vote to see results.
+          <% else %>
+            Log in to vote and see results.
+          <% end %>
         </p>
       </div>
     <% end %>
