@@ -1,5 +1,5 @@
 <span data-decision-target="optionsSection" data-url="<%= @decision.path %>/options.html" data-deadline="<%= @decision.deadline_iso8601 %>">
-  <% if !@participant.authenticated? %>
+  <% if @participant.nil? || !@participant.authenticated? %>
     <div class="auth-required-message">
       <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @decision.path } %> to participate.
     </div>

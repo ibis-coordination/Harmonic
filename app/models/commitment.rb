@@ -252,8 +252,10 @@ class Commitment < ApplicationRecord
     !close_at_critical_mass?
   end
 
-  sig { params(participant_or_user: T.any(CommitmentParticipant, User)).returns(T::Boolean) }
+  sig { params(participant_or_user: T.nilable(T.any(CommitmentParticipant, User))).returns(T::Boolean) }
   def can_edit_settings?(participant_or_user)
+    return false if participant_or_user.nil?
+
     if participant_or_user.is_a?(CommitmentParticipant)
       participant_or_user.user_id == created_by_id
     else
@@ -261,7 +263,7 @@ class Commitment < ApplicationRecord
     end
   end
 
-  sig { params(participant_or_user: T.any(CommitmentParticipant, User)).returns(T::Boolean) }
+  sig { params(participant_or_user: T.nilable(T.any(CommitmentParticipant, User))).returns(T::Boolean) }
   def can_close?(participant_or_user)
     can_edit_settings?(participant_or_user)
   end
