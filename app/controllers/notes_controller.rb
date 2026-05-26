@@ -3,6 +3,10 @@
 class NotesController < ApplicationController
   include AttachmentActions
 
+  allows_anonymous :show
+  before_action :set_no_cache_headers, only: [:show]
+  before_action :enforce_anonymous_read_rate_limit, only: [:show]
+
   def show
     @note = current_note || find_deleted_note
     return render "404", status: :not_found unless @note

@@ -7,14 +7,12 @@ require "test_helper"
 # 2. With ANY condition unmet, anon request is redirected to /login (or 404'd
 #    for nonexistent resources).
 #
-# These tests temporarily declare `allows_anonymous` on the real show actions
-# in setup, with the prior declaration restored in teardown — Phase 2 makes
-# these declarations permanent in the controller files, at which point this
-# setup becomes idempotent.
+# Phase 2 makes the `allows_anonymous` declarations permanent in
+# NotesController/DecisionsController/CommitmentsController/HelpController.
+# This file only sets up the env-var fixture and the per-tenant data.
 class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
   PUBLIC_SUBDOMAIN = "anonbypasspublic".freeze
   PRIVATE_SUBDOMAIN = "anonbypassprivate".freeze
-  ANON_ALLOWED_CONTROLLERS = [NotesController, DecisionsController, CommitmentsController, HelpController].freeze
 
   def setup
     @prior_env = ENV.fetch("ANON_READABLE_TENANT_SUBDOMAINS", nil)
@@ -24,13 +22,23 @@ class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
     set_up_private_tenant
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
-    stash_and_declare_anon_actions
+    # Per-test unique IP so the Phase 2 per-IP rate-limit counter in Redis is
+    # isolated per test and parallel workers don't collide.
+    @test_ip = "10.#{rand(256)}.#{rand(256)}.#{rand(1..254)}"
+  end
+
+  # Inject @test_ip as REMOTE_ADDR into every request so we don't have to
+  # remember on each get/post call.
+  def process(method, path, **kwargs)
+    if @test_ip
+      env = (kwargs[:env] || {}).dup
+      env["REMOTE_ADDR"] ||= @test_ip
+      kwargs = kwargs.merge(env: env)
+    end
+    super
   end
 
   def teardown
-    @prior_anon&.each do |c, prev|
-      c.instance_variable_set(:@anonymous_actions, prev)
-    end
     ENV["ANON_READABLE_TENANT_SUBDOMAINS"] = @prior_env
     Tenant.reset_anon_readable_subdomains!
     Tenant.clear_thread_scope
@@ -74,17 +82,6 @@ class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
     @private_note = create_note(tenant: @private_tenant, collective: @private_main, created_by: @private_user)
     @private_decision = create_decision(tenant: @private_tenant, collective: @private_main, created_by: @private_user)
     @private_commitment = create_commitment(tenant: @private_tenant, collective: @private_main, created_by: @private_user)
-  end
-
-  def stash_and_declare_anon_actions
-    @prior_anon = {}
-    ANON_ALLOWED_CONTROLLERS.each do |c|
-      @prior_anon[c] = c.instance_variable_get(:@anonymous_actions)
-    end
-    NotesController.allows_anonymous(:show)
-    DecisionsController.allows_anonymous(:show)
-    CommitmentsController.allows_anonymous(:show)
-    HelpController.allows_anonymous(:index, *HelpController::TOPICS.map(&:to_sym))
   end
 
   # ---- Condition 2 (public tenant): rejected on private tenant ----

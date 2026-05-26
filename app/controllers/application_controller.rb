@@ -608,6 +608,41 @@ class ApplicationController < ActionController::Base
       [:html, :md].include?(request.format.symbol)
   end
 
+  # Per-action header to prevent cross-audience cache reuse: anon and
+  # logged-in users hit the same URL and see different content, so no
+  # shared cache (proxy, CDN, browser back-button) can safely reuse a
+  # response. Applied to BOTH user states on allowlisted actions.
+  # Note: Rails normalizes away `must-revalidate` when `no-store` is set
+  # (it's redundant — nothing was stored to revalidate).
+  def set_no_cache_headers
+    response.headers["Cache-Control"] = "private, no-store"
+  end
+
+  # Per-IP rate limit for the three anon-readable show actions. No-op for
+  # logged-in users (they have per-user limits elsewhere). 429 with
+  # Retry-After when exceeded.
+  ANONYMOUS_READ_RATE_LIMIT = 60
+  ANONYMOUS_READ_RATE_PERIOD = 1.minute
+
+  def enforce_anonymous_read_rate_limit
+    return if @current_user
+
+    enforce_rate_limit!(
+      scope: "anon_read",
+      key: request.remote_ip,
+      limit: ANONYMOUS_READ_RATE_LIMIT,
+      period: ANONYMOUS_READ_RATE_PERIOD,
+    )
+  rescue RateLimits::Exceeded
+    SecurityAuditLog.log_rate_limited(
+      ip: request.remote_ip,
+      matched: "anon_read",
+      request_path: request.path,
+    )
+    response.headers["Retry-After"] = ANONYMOUS_READ_RATE_PERIOD.to_i.to_s
+    render plain: "Too many requests. Try again in a moment.", status: :too_many_requests
+  end
+
   def validate_scope
     return true if current_user && !current_token # Allow all actions for logged in users
 
