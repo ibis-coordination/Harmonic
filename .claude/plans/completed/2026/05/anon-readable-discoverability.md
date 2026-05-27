@@ -1,6 +1,45 @@
 # Discoverability for anon-readable tenants — robots.txt + OG meta
 
-Follow-up to [completed/2026/05/anonymous-read-access-main-collective.md](completed/2026/05/anonymous-read-access-main-collective.md), which shipped anonymous read access to main-collective items, help, and user profiles but deferred crawler/preview surfaces to this separate PR.
+Follow-up to [anonymous-read-access-main-collective.md](anonymous-read-access-main-collective.md), which shipped anonymous read access to main-collective items, help, and user profiles but deferred crawler/preview surfaces to this separate PR.
+
+## Final state (shipped 2026-05-27)
+
+Shipped on branch `anon-discoverability` (6 commits). Three phases (one was dropped mid-implementation):
+
+| Phase | Status | Notes |
+|---|---|---|
+| 1: per-tenant `/robots.txt` | ✓ shipped | Anon-readable tenants get an Allow-list of `/n/`, `/d/`, `/c/`, `/u/`, `/help`; private and unknown subdomains get strict `Disallow: /`. RobotsController inherits from `ActionController::Base` (precedent: MetricsController) — skips the auth pipeline. |
+| 2: OG/Twitter meta + X-Robots-Tag | ✓ shipped | Single source of truth via `ApplicationController#anon_readable_indexable_response?` — `prepend_around_action` sets the header (fires even on auth-redirect), `shared/_meta_tags` partial emits the OG block. |
+| sitemap.xml | ✗ dropped | Originally Phase 2; dropped on review. Harmonic isn't a search-discoverability product (users come via direct links). Anon surfaces also have no internal linking that crawlers could follow from a sitemap. Performance/scale work (N+1, 50K cap, sitemap index) not worth paying without a stated goal. |
+| 3: route-sweep depth-check extension | ✓ shipped | Existing private-tenant redirect check now also asserts `X-Robots-Tag: noindex, nofollow` (combined into one test — URL list lives in one place, can't drift). New defense-in-depth `/robots.txt` check pairs with sibling `robots_test.rb`. |
+| 4: manual unfurler checklist | ✗ dropped | Deemed unnecessary. |
+
+### Decisions deltas during implementation
+
+- **Canonical URL + og:image use the canonical hostname (ENV+subdomain), NOT `request.host_with_port`.** Initial draft used `request.base_url`; flagged and fixed during review because the request's host header can leak an upstream port behind a reverse proxy/CDN. Same fix the user surfaced for the dropped sitemap controller earlier.
+- **Canonical URL strips query string.** `request.original_url` would include `utm_*` and other tracking params; stripping them prevents crawlers from treating each tracked-link variant as its own URL.
+- **No markdown stripping in descriptions.** Considered and dropped — most markdown (asterisks, underscores, backticks) reads fine in unfurl previews; a regex-based stripper is more risk than reward. Image syntax `![alt](url)` is the one case that looks odd; revisit if it shows up in practice.
+- **No user-type labels in profile OG descriptions.** Considered `"Jane Doe — Person on app.harmonic.local"` style labels; dropped because "Person" is redundant and "Collective Identity" is internal jargon. Profile description is just `"#{display_name} on #{fqdn}"`.
+- **`MetaDescription` module was inlined as `ApplicationController#excerpt`.** Initially extracted to `app/services/meta_description.rb` with its own unit tests; collapsed to a 6-line private method on `ApplicationController` because the module was overkill for a single function.
+- **`set_robots_header` uses `prepend_around_action`, not `after_action`.** After-actions are skipped when a before_action halts the chain (auth-redirect case); around-actions registered later in the chain wrap nothing. `prepend_around_action` puts the wrap at the start of the chain so the `ensure` block fires for both successful renders and halt-redirects.
+
+### Bugs caught during implementation
+
+1. **`@unread_notification_count` rename** (caught by `MarkdownUiTest` in CI on the parent PR) — unrelated to this branch but worth remembering: a stray RuboCop autocorrect renamed an ivar in `load_unread_notification_count` to match the method name, breaking layout readers that still used the original name. Fixed pre-merge.
+2. **Initial `after_action :set_robots_header` placement registered the wrap AFTER all before_actions** — meaning it wrapped nothing. Switched to `prepend_around_action`.
+3. **`User#path` for `collective_identity` users returns `/collectives/<handle>`** (the underlying collective's URL, not anon-readable). Surfaced as a leak when the dropped sitemap controller iterated all users. Not an issue for the shipped OG-meta code because the canonical URL comes from `request.original_url`, not `User#path`.
+4. **HelpController's `# Privacy` heading was being picked up as the first paragraph.** `excerpt` initially returned "Privacy" instead of "Harmonic has three levels of visibility." Fixed by adding the `find { |p| !p.start_with?("#") }` heading-skip.
+
+### Outstanding follow-ups (intentionally out of scope)
+
+- Per-content rendered OG images (currently single generic `public/og-default.png`)
+- Per-user opt-out of indexing (e.g., `users.noindex_profile` boolean)
+- Schema.org / JSON-LD structured data
+- IndexNow / Bing webmaster submission (one-time manual config)
+- Sitemap (would need: index for >50K URLs, background generation, cached output — see dropped Phase 2 rationale)
+- Manual unfurler verification (Slack/iMessage/Twitter Card Validator) — verify in production after merge
+
+---
 
 ## Goal
 
@@ -20,7 +59,7 @@ Make anon-readable content **previewable** (link unfurlers — Slack, iMessage, 
 - Anon-readable show responses omit the noindex header and emit OG/Twitter + canonical
 - All other responses (settings, /workspace, auth flow) still get noindex
 
-Enforced by extending [`anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymous_read_access_route_sweep_test.rb): on a private tenant, each ANON_ALLOWED URL must have `X-Robots-Tag: noindex, nofollow` on its redirect response. A separate test pins the robots.txt content for both tenant types.
+Enforced by extending [`anonymous_read_access_route_sweep_test.rb`](test/integration/anonymous_read_access_route_sweep_test.rb): on a private tenant, each ANON_ALLOWED URL must have `X-Robots-Tag: noindex, nofollow` on its redirect response. A separate test pins the robots.txt content for both tenant types.
 
 ## Scope
 
@@ -132,7 +171,7 @@ helper_method :anon_readable_indexable_response?
 <% end %>
 ```
 
-Replace the existing solo `<meta name="description">` in [`app/views/layouts/application.html.erb`](../../app/views/layouts/application.html.erb#L10) with `<%= render "shared/meta_tags" %>`. The description meta tag still ships on every page (it's already universal); the OG block is conditional.
+Replace the existing solo `<meta name="description">` in [`app/views/layouts/application.html.erb`](app/views/layouts/application.html.erb#L10) with `<%= render "shared/meta_tags" %>`. The description meta tag still ships on every page (it's already universal); the OG block is conditional.
 
 Per-action description ivars (small additions):
 
@@ -159,7 +198,7 @@ Per-action description ivars (small additions):
 
 ### C. Privacy doc update
 
-Add one sentence to the Public Space branch of [`app/views/help/privacy.md.erb`](../../app/views/help/privacy.md.erb), inside the `<% if public_main %>` block:
+Add one sentence to the Public Space branch of [`app/views/help/privacy.md.erb`](app/views/help/privacy.md.erb), inside the `<% if public_main %>` block:
 
 > Content in this space may be indexed by search engines and shown as link previews when shared.
 
@@ -191,22 +230,10 @@ Add one sentence to the Public Space branch of [`app/views/help/privacy.md.erb`]
 
 ### Phase 3: Extend the route sweep depth check
 
-In [`anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymous_read_access_route_sweep_test.rb):
+In [`anonymous_read_access_route_sweep_test.rb`](test/integration/anonymous_read_access_route_sweep_test.rb):
 
 - Existing depth-check loop: after asserting 302 → /login on a private tenant, also assert `response.headers["X-Robots-Tag"] == "noindex, nofollow"`
 - Add: GET `/robots.txt` on private tenant → 200 with private body
-
-### Phase 4: Manual
-
-`test/manual/anon_discoverability/anon_discoverability.manual_test.md`:
-
-- `curl https://app.harmonic.local/robots.txt` — verify contents
-- Paste a `/n/:id` URL into Slack and confirm unfurl shows title/description/image
-- Repeat for Twitter Card Validator (cards-dev.twitter.com/validator)
-- Repeat for iMessage (paste in message — preview renders inline)
-- On a private dev tenant: robots.txt is `Disallow: /`
-- View page source on `/n/:id` anon — `og:` tags present, no `noindex`
-- View page source same URL logged-in — `X-Robots-Tag` header present, no `og:` tags
 
 ## Files
 
@@ -221,7 +248,6 @@ In [`anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymou
 - `public/og-default.png` — new ~1200×630 PNG (matches existing convention; favicons and `placeholder.png` all live in `public/`, not `app/assets/images/` which is empty)
 - `app/views/help/privacy.md.erb` — one-line addition inside `<% if public_main %>` branch
 - Tests: `robots_test.rb`, `meta_tags_test.rb`; extend route sweep
-- `test/manual/anon_discoverability/anon_discoverability.manual_test.md` — new
 
 ## Risks / decisions to verify during implementation
 
@@ -243,8 +269,8 @@ In [`anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymou
 
 ~1 day:
 - Done (Phase 1): robots.txt + tests (mechanical)
-- Half-day (Phase 2): OG/meta partial + ApplicationController hook + per-controller `@page_description` + ContentExcerpt + tests
-- Quarter-day (Phases 3-4): route-sweep extension + manual verification across unfurlers
+- Half-day (Phase 2): OG/meta partial + ApplicationController hook + per-controller `@page_description` + excerpt helper + tests
+- Quarter-day (Phase 3): route-sweep extension (X-Robots-Tag depth check + private robots.txt body)
 
 ## Decisions confirmed with the user
 
