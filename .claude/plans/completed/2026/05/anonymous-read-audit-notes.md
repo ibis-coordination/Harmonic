@@ -331,6 +331,28 @@ Phase 1 implementation surfaced nil-user issues this audit either missed or defe
 
 Phase 3 still needs to do the full per-partial view sweep — Phase 1 only fixed the entry-point crashes that integration tests surfaced. Anything inside a deeper render branch that wasn't exercised by the bypass tests is still untested for nil-user.
 
+## Phase 3+ corrections (post-implementation, manual-testing-driven)
+
+The Phase 3 view sweep and manual checklist surfaced two more nil-user issues that all four prior inventories missed. Both lived in deeply-nested partials only reached under specific data conditions:
+
+6. **`ApplicationRecord#user_can_close?` crashed on nil user** when `_deadline_display.html.erb` reached the `requires_manual_close?` branch (deadline 50+ years out). The audit's controller-walk approach missed this because normal deadlines don't render that partial — only the seeded "deadline far in the future" fixtures did. Fixed by widening the sig to `T.nilable(User)` with an explicit `return false if user.nil?` guard.
+
+7. **`Accept: */*` made `request.format.symbol` return nil** — not a nil-user issue but a related "the audit didn't enumerate this case." Curl's default Accept header and the wildcard tail of every browser's Accept header. Original bypass condition 6 used `[:html, :md].include?(request.format.symbol)` which rejected `nil`. Fixed by extracting `anonymous_format_allowed?` that also accepts `Mime::ALL`.
+
+## Phase 5 corrections (route sweep tightening)
+
+8. **Original plan said "any non-2xx counts as denied" — too lax.** A 5xx (crash) would have silently passed the sweep. Tightened to an explicit `DENIAL_STATUSES = [302, 401, 403, 404, 405, 410]` list. Any other status fails.
+
+9. **Original sweep used synthetic IDs only — didn't actually guarantee the invariant.** Synthetic IDs (`"00000000"`) always 404 regardless of whether the bypass works, masking a broken `Tenant#public_main_collective?`. Added a depth check that hits each ANON_ALLOWED URL with REAL fixtures on a private tenant and asserts 302 → /login. Verified by fault injection (patched `public_main_collective?` to always return true; the depth check correctly listed 23 leaked URLs).
+
+10. **MetricsController and auth-flow controllers leaked through the sweep.** MetricsController inherits from `ActionController::Base` (own auth model). Auth-flow controllers (`sessions#logout_success`, `password_resets#new`) return 200 to anon intentionally. Added filters: `inherits_from_application_controller?` and `is_auth_controller_action?` (using the private `is_auth_controller?` predicate via `send`).
+
+11. **`/rails/view_components` routes leaked**: controller name `"view_components"` doesn't have the `"rails/"` prefix this audit assumed. Added `"view_components"` to `SKIPPED_CONTROLLER_PREFIXES` and `"/rails/"` to `SKIPPED_PATH_PREFIXES`.
+
+## Bonus scope additions (out of audit, expanded mid-implementation)
+
+The user expanded scope after this audit to include `/u/:handle` (was explicitly "Public profile pages — out of scope" per the plan). The four user types (human, AI agent, collective identity, archived) were each verified anon-safe. The Social Proximity accordion on profile pages was also restricted to the profile owner only — broader-than-anon privacy fix bundled into this branch.
+
 ## On merge
 
-Move this file to `.claude/plans/completed/YYYY/MM/`.
+Moved to `.claude/plans/completed/2026/05/` on 2026-05-26.

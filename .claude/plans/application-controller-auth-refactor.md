@@ -1,6 +1,6 @@
 # ApplicationController auth pipeline refactor (deferred)
 
-Status: **deferred**. Capture so it isn't lost. Do not start while [anonymous-read-access-main-collective.md](anonymous-read-access-main-collective.md) is in flight.
+Status: **deferred**. Capture so it isn't lost. The anonymous-read-access feature it warned about ([completed plan](completed/2026/05/anonymous-read-access-main-collective.md)) shipped on 2026-05-26 — this refactor is now unblocked but still deferred until one of the trigger conditions in [When to revisit](#when-to-revisit) is hit.
 
 ## Why
 
@@ -32,7 +32,7 @@ Status: **deferred**. Capture so it isn't lost. Do not start while [anonymous-re
 ## Constraints when this lands
 
 - **Do not start while anonymous-read-access is in flight.** That feature inserts the bypass at [validate_unauthenticated_access:562-579](app/controllers/application_controller.rb#L562-L579) and adds the `allows_anonymous` macro. Both should ship and bake before structure underneath them moves. The macro is actually a small step *toward* this refactor (class-level metadata for permissible access) and should be preserved.
-- **Phase 5 route-introspection sweep test** ([from the anon-read plan](anonymous-read-access-main-collective.md#L216)) is the safety net for this refactor. Don't drop it.
+- **The route-introspection sweep test at [`test/integration/anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymous_read_access_route_sweep_test.rb)** is the safety net for this refactor. Don't drop it.
 - **Don't bundle with another security-sensitive feature.** Refactor in its own PR with focused review.
 - Preserve behavior for: representation sessions, API token auth (including the X-Representation-Session-ID flow), feature-flag/billing/activation gates, archived-collective handling.
 - Token auth flow (`resolve_api_user` → `api_authorize!` → `validate_scope`) is reasonably well-scoped today; the refactor doesn't need to disturb it, only realign it under the new pipeline.
