@@ -3,6 +3,10 @@
 class DecisionsController < ApplicationController
   include AttachmentActions
 
+  allows_anonymous :show
+  before_action :set_no_cache_headers, only: [:show]
+  before_action :enforce_anonymous_read_rate_limit, only: [:show]
+
   def new
     @page_title = "Decide"
     @page_description = "Make a group decision with Harmonic Team"

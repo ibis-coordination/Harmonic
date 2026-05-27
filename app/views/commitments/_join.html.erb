@@ -74,7 +74,5 @@
     </p>
   <% end %>
 <% else %>
-  <div class="auth-required-message">
-    <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @commitment.path } %> to <%= action_label.downcase %> this commitment.
-  </div>
+  <%= render "shared/login_to_act", verb: "#{action_label.downcase} this commitment", resource_path: @commitment.path %>
 <% end %>

@@ -7,7 +7,7 @@ class Tenant < ApplicationRecord
   self.implicit_order_column = "created_at"
   has_many :tenant_users
   has_many :users, through: :tenant_users
-  belongs_to :main_collective, class_name: 'Collective', optional: true # Only optional so that we can create the main collective after the tenant is created
+  belongs_to :main_collective, class_name: "Collective", optional: true # Only optional so that we can create the main collective after the tenant is created
   before_create :set_defaults
   # Admin controller handles this. Callbacks are buggy.
   # after_create :create_main_collective!
@@ -17,12 +17,12 @@ class Tenant < ApplicationRecord
   after_commit :schedule_caddyfile_regeneration_if_subdomain_changed, on: :update
 
   tables = ActiveRecord::Base.connection.tables - [
-    'tenants', 'users', 'oauth_identities',
-    'tenant_users', # Explicitly defined above with through association
+    "tenants", "users", "oauth_identities",
+    "tenant_users", # Explicitly defined above with through association
     # Rails internal tables
-    'ar_internal_metadata', 'schema_migrations',
-    'active_storage_attachments', 'active_storage_blobs',
-    'active_storage_variant_records',
+    "ar_internal_metadata", "schema_migrations",
+    "active_storage_attachments", "active_storage_blobs",
+    "active_storage_variant_records",
   ]
   tables.each do |table|
     has_many table.to_sym
@@ -31,27 +31,24 @@ class Tenant < ApplicationRecord
   sig { params(subdomain: String).returns(Tenant) }
   def self.scope_thread_to_tenant(subdomain:)
     # In single-tenant mode, treat empty/blank subdomain as PRIMARY_SUBDOMAIN
-    if single_tenant_mode? && subdomain.blank?
-      subdomain = single_tenant_subdomain.to_s
-    end
+    subdomain = single_tenant_subdomain.to_s if single_tenant_mode? && subdomain.blank?
 
-    if subdomain == ENV['AUTH_SUBDOMAIN']
-      tenant = Tenant.new(
-        id: SecureRandom.uuid,
-        name: 'Harmonic Team',
-        subdomain: ENV['AUTH_SUBDOMAIN'],
-        settings: { 'require_login' => false }
-      )
-    else
-      tenant = find_by(subdomain: subdomain)
-    end
-    if tenant
-      self.current_subdomain = tenant.subdomain
-      self.current_id = tenant.id
-      self.current_main_collective_id = tenant.main_collective_id
-    else
-      raise "Invalid subdomain"
-    end
+    tenant = if subdomain == ENV["AUTH_SUBDOMAIN"]
+               Tenant.new(
+                 id: SecureRandom.uuid,
+                 name: "Harmonic Team",
+                 subdomain: ENV["AUTH_SUBDOMAIN"],
+                 settings: { "require_login" => false }
+               )
+             else
+               find_by(subdomain: subdomain)
+             end
+    raise "Invalid subdomain" unless tenant
+
+    self.current_subdomain = tenant.subdomain
+    self.current_id = tenant.id
+    self.current_main_collective_id = tenant.main_collective_id
+
     tenant
   end
 
@@ -88,12 +85,63 @@ class Tenant < ApplicationRecord
 
   sig { returns(ActiveRecord::Relation) }
   def self.all_public_tenants
-    unscoped.where(
+    # Tenant has no default_scope to bypass (no tenant_id column) — plain
+    # `where` is sufficient.
+    where(
       subdomain: [
-        [ENV['PRIMARY_SUBDOMAIN']],
-        ENV.fetch('OTHER_PUBLIC_TENANTS', nil)&.split(',')
+        [ENV.fetch("PRIMARY_SUBDOMAIN", nil)],
+        ENV.fetch("OTHER_PUBLIC_TENANTS", nil)&.split(","),
       ].compact.flatten
     )
+  end
+
+  # Subdomains explicitly enabled for anonymous (logged-out) read access to
+  # their main collective. Default-deny: an unset or blank env var means no
+  # tenant is anonymously readable. Memoized per-process; reset between tests
+  # with `reset_anon_readable_subdomains!`.
+  #
+  # Deliberately separate from `all_public_tenants` / `OTHER_PUBLIC_TENANTS`
+  # (which controls the subdomain directory listing) so that "listed publicly"
+  # and "readable without login" stay independent.
+  sig { returns(T::Set[String]) }
+  def self.anon_readable_subdomains
+    @anon_readable_subdomains ||= ENV.fetch("ANON_READABLE_TENANT_SUBDOMAINS", "")
+      .split(",").map { |s| s.strip.downcase }.compact_blank.to_set.freeze
+  end
+
+  sig { void }
+  def self.reset_anon_readable_subdomains!
+    @anon_readable_subdomains = nil
+  end
+
+  # Emit a warning at boot for env-listed subdomains with no matching Tenant.
+  # Fails open (logs and returns) — a misconfigured env var should not crash
+  # the app, but should be visible in logs.
+  sig { params(logger: T.untyped).void }
+  def self.warn_unknown_anon_readable_subdomains!(logger: Rails.logger)
+    listed = anon_readable_subdomains
+    return if listed.empty?
+
+    # Tenant has no default_scope to bypass (no tenant_id column) — `where`
+    # alone is sufficient.
+    existing = where(subdomain: listed.to_a).pluck(:subdomain).to_set(&:downcase)
+    missing = listed - existing
+    return if missing.empty?
+
+    logger.warn(
+      "ANON_READABLE_TENANT_SUBDOMAINS lists subdomains with no matching Tenant: " \
+      "#{missing.to_a.sort.join(", ")}. " \
+      "Anonymous read access will silently never apply to these. " \
+      "Fix the env var or create the tenants."
+    )
+  end
+
+  sig { returns(T::Boolean) }
+  def public_main_collective?
+    sub = subdomain
+    return false if sub.nil?
+
+    self.class.anon_readable_subdomains.include?(sub.downcase)
   end
 
   sig { returns(String) }
@@ -103,14 +151,15 @@ class Tenant < ApplicationRecord
 
   sig { void }
   def set_defaults
-    return unless self.respond_to?(:settings)
+    return unless respond_to?(:settings)
+
     self.settings = ({
       "timezone" => "UTC",
       "require_login" => true,
       "require_invite" => true,
       "auth_providers" => ["github"],
       "allow_file_uploads" => false,
-      "allowed_attachment_categories" => %w[images pdfs text],
+      "allowed_attachment_categories" => ["images", "pdfs", "text"],
       "api_enabled" => false,
       "default_collective_settings" => {
         "tempo" => "daily",
@@ -121,34 +170,34 @@ class Tenant < ApplicationRecord
         "allow_file_uploads" => true,
         "file_upload_limit" => 100.megabytes,
       },
-    }).merge(self.settings || {})
+    }).merge(settings || {})
   end
 
   sig { returns(T::Hash[String, T.untyped]) }
   def default_collective_settings
     # Check both new and old key names for backward compatibility
-    self.settings['default_collective_settings'] || self.settings['default_studio_settings'] || {}
+    settings["default_collective_settings"] || settings["default_studio_settings"] || {}
   end
 
   sig { returns(T::Array[String]) }
   def auth_providers
-    settings['auth_providers'] || ['github']
+    settings["auth_providers"] || ["github"]
   end
 
   sig { params(providers: T::Array[String]).void }
   def auth_providers=(providers)
-    self.settings['auth_providers'] = providers
+    settings["auth_providers"] = providers
   end
 
   sig { params(provider: String).void }
   def add_auth_provider!(provider)
-    self.settings['auth_providers'] = (self.settings['auth_providers'] || []) + [provider]
+    settings["auth_providers"] = (settings["auth_providers"] || []) + [provider]
     save!
   end
 
   sig { params(provider: String).returns(T::Boolean) }
   def valid_auth_provider?(provider)
-    self.settings['auth_providers'].include?(provider)
+    settings["auth_providers"].include?(provider)
   end
 
   # Categories of attachment content types this tenant accepts.
@@ -156,29 +205,29 @@ class Tenant < ApplicationRecord
   # Default preserves the historical permissive behavior.
   sig { returns(T::Array[String]) }
   def allowed_attachment_categories
-    settings["allowed_attachment_categories"] || %w[images pdfs text]
+    settings["allowed_attachment_categories"] || ["images", "pdfs", "text"]
   end
 
   sig { params(categories: T::Array[String]).void }
   def allowed_attachment_categories=(categories)
-    self.settings["allowed_attachment_categories"] =
-      Array(categories).map(&:to_s) & %w[images pdfs text]
+    settings["allowed_attachment_categories"] =
+      Array(categories).map(&:to_s) & ["images", "pdfs", "text"]
   end
 
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
-    if value.present?
-      @timezone = ActiveSupport::TimeZone[value]
-      set_defaults
-      self.settings = self.settings.merge('timezone' => T.must(@timezone).name)
-      T.must(main_collective).timezone = T.must(@timezone).name
-      T.must(main_collective).save!
-    end
+    return if value.blank?
+
+    @timezone = ActiveSupport::TimeZone[value]
+    set_defaults
+    self.settings = settings.merge("timezone" => T.must(@timezone).name)
+    T.must(main_collective).timezone = T.must(@timezone).name
+    T.must(main_collective).save!
   end
 
   sig { returns(ActiveSupport::TimeZone) }
   def timezone
-    @timezone ||= self.settings['timezone'] ? ActiveSupport::TimeZone[self.settings['timezone']] : ActiveSupport::TimeZone['UTC']
+    @timezone ||= settings["timezone"] ? ActiveSupport::TimeZone[settings["timezone"]] : ActiveSupport::TimeZone["UTC"]
   end
 
   sig { returns(T::Boolean) }
@@ -234,9 +283,9 @@ class Tenant < ApplicationRecord
   sig { params(created_by: User).void }
   def create_main_collective!(created_by:)
     self.main_collective = collectives.create!(
-      name: "#{self.subdomain}.#{ENV['HOSTNAME']}",
+      name: "#{subdomain}.#{ENV.fetch("HOSTNAME", nil)}",
       handle: SecureRandom.hex(16),
-      created_by: created_by,
+      created_by: created_by
     )
     # Always enable API for the main collective
     # Both tenant and collective must have API enabled for it to be accessible
@@ -252,29 +301,15 @@ class Tenant < ApplicationRecord
     tu = tenant_users.create!(
       user: user,
       display_name: user.name,
-      handle: handle,
+      handle: handle
     )
     create_private_workspace_for!(user, tu) unless user.collective_identity?
     tu
   end
 
-  sig { params(user: User, tenant_user: TenantUser).void }
-  private def create_private_workspace_for!(user, tenant_user)
-    collective = collectives.create!(
-      name: "Private Workspace",
-      handle: SecureRandom.hex(4),
-      created_by: user,
-      collective_type: "private_workspace",
-      billing_exempt: true,
-    )
-
-    collective.add_user!(user, roles: ["admin"])
-    collective.enable_api!
-  end
-
   sig { returns(T.nilable(String)) }
   def description
-    settings['description']
+    settings["description"]
   end
 
   sig { params(limit: Integer).returns(T::Array[User]) }
@@ -284,56 +319,56 @@ class Tenant < ApplicationRecord
       .includes(:user)
       .limit(limit)
       .order(created_at: :desc).map do |tu|
-        tu.user.tenant_user = tu
-        tu.user
+      tu.user.tenant_user = tu
+      tu.user
     end
   end
 
   sig { params(user: User).returns(T::Boolean) }
   def is_admin?(user)
     tu = tenant_users.find_by(user: user)
-    !!(tu && tu.roles.include?('admin'))
+    !!tu&.roles&.include?("admin")
   end
 
   sig { returns(ActiveRecord::Relation) }
   def admin_users
-    T.unsafe(tenant_users).where_has_role('admin')
+    T.unsafe(tenant_users).where_has_role("admin")
   end
 
   sig { returns(T::Boolean) }
   def require_login?
-    settings['require_login'].to_s == 'false' ? false : true
+    settings["require_login"].to_s != "false"
   end
 
   sig { returns(T::Boolean) }
   def require_invite?
-    settings['require_invite'].to_s == 'false' ? false : true
+    settings["require_invite"].to_s != "false"
   end
 
   sig { returns(T::Boolean) }
   def require_2fa?
-    settings['require_2fa'].to_s == 'false' ? false : true
+    settings["require_2fa"].to_s != "false"
   end
 
   sig { returns(T::Boolean) }
   def require_verified_email?
-    settings['require_verified_email'].to_s == 'false' ? false : true
+    settings["require_verified_email"].to_s != "false"
   end
 
   sig { returns(String) }
   def domain
     if self.class.single_tenant_mode?
-      ENV['HOSTNAME'].to_s
+      ENV["HOSTNAME"].to_s
     else
-      "#{subdomain}.#{ENV['HOSTNAME']}"
+      "#{subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     end
   end
 
   sig { returns(String) }
   def url
     if self.class.single_tenant_mode?
-      protocol = ENV['HOSTNAME'].to_s.include?('localhost') ? 'http' : 'https'
-      "#{protocol}://#{ENV['HOSTNAME']}"
+      protocol = ENV["HOSTNAME"].to_s.include?("localhost") ? "http" : "https"
+      "#{protocol}://#{ENV.fetch("HOSTNAME", nil)}"
     else
       "https://#{domain}"
     end
@@ -370,6 +405,20 @@ class Tenant < ApplicationRecord
   end
 
   private
+
+  sig { params(user: User, _tenant_user: TenantUser).void }
+  def create_private_workspace_for!(user, _tenant_user)
+    collective = collectives.create!(
+      name: "Private Workspace",
+      handle: SecureRandom.hex(4),
+      created_by: user,
+      collective_type: "private_workspace",
+      billing_exempt: true
+    )
+
+    collective.add_user!(user, roles: ["admin"])
+    collective.enable_api!
+  end
 
   sig { params(subdomain: T.nilable(String)).void }
   def self.current_subdomain=(subdomain)

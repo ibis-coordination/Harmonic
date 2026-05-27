@@ -23,6 +23,25 @@ class ApplicationController < ActionController::Base
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
+  # Declares which actions of THIS controller are reachable without a logged-in
+  # user, when the request matches the other 5 bypass conditions (anon-readable
+  # tenant, main collective, GET/HEAD, HTML/Markdown, anonymous_main_collective_read_allowed?).
+  #
+  # Deliberately per-class via a class instance variable rather than
+  # `class_attribute` — subclasses must NOT inherit declarations. Otherwise
+  # `Api::V1::NotesController < NotesController` would silently inherit anon
+  # access from its parent.
+  def self.allows_anonymous(*actions)
+    @anonymous_actions ||= Set.new
+    @anonymous_actions.merge(actions.map(&:to_sym))
+  end
+
+  def self.allows_anonymous?(action)
+    return false unless @anonymous_actions
+
+    @anonymous_actions.include?(action.to_sym)
+  end
+
   def check_auth_subdomain
     return if single_tenant_mode?
 
@@ -83,15 +102,15 @@ class ApplicationController < ActionController::Base
   # the agent needs to see — search queries, comment highlights, pagination
   # cursors, time-range filters. Anything not listed is dropped so the
   # frontmatter URL stays clean and predictable.
-  PRESERVED_QUERY_PARAMS = %w[
-    q
-    comment_id
-    cycle
-    cursor
-    offset
-    status
-    before
-    after
+  PRESERVED_QUERY_PARAMS = [
+    "q",
+    "comment_id",
+    "cycle",
+    "cursor",
+    "offset",
+    "status",
+    "before",
+    "after",
   ].freeze
 
   def current_path
@@ -113,7 +132,7 @@ class ApplicationController < ActionController::Base
     return @current_token if defined?(@current_token)
     return @current_token = nil unless api_token_present?
 
-    prefix, token_string = request.headers["Authorization"].split(" ")
+    prefix, token_string = request.headers["Authorization"].split
     @current_token = ApiToken.authenticate(token_string, tenant_id: current_tenant.id)
     return nil unless @current_token
 
@@ -299,7 +318,7 @@ class ApplicationController < ActionController::Base
       representing_user_header = request.headers["X-Representing-User"]
       expected_handle = session.trustee_grant&.granting_user&.handle
 
-      unless representing_user_header.present?
+      if representing_user_header.blank?
         render json: { error: "X-Representing-User header required for user representation" }, status: :forbidden
         return false
       end
@@ -313,7 +332,7 @@ class ApplicationController < ActionController::Base
       representing_collective_header = request.headers["X-Representing-Collective"]
       expected_handle = session.collective&.handle
 
-      unless representing_collective_header.present?
+      if representing_collective_header.blank?
         render json: { error: "X-Representing-Collective header required for collective representation" }, status: :forbidden
         return false
       end
@@ -396,7 +415,7 @@ class ApplicationController < ActionController::Base
   # - Validates representing_user/collective cookie matches session target
   # - Sets @current_user to the trustee user if valid
   def resolve_browser_representation
-    return unless session[:representation_session_id].present?
+    return if session[:representation_session_id].blank?
     return unless @current_human_user
 
     # Look up the RepresentationSession (bypass collective scope)
@@ -483,9 +502,7 @@ class ApplicationController < ActionController::Base
     # `:collective_invite_code` (see SessionsController#redirect_to_auth_domain).
     # We tolerate both names so a direct ?code= URL navigation also works.
     code = params[:code] || cookies[:collective_invite_code] || cookies[:invite_code]
-    @current_invite = if code.present?
-                        Invite.find_by(collective: current_collective, code: code)
-                      end
+    @current_invite = (Invite.find_by(collective: current_collective, code: code) if code.present?)
     @current_invite
   end
 
@@ -562,6 +579,7 @@ class ApplicationController < ActionController::Base
   def validate_unauthenticated_access
     return if @current_user || !@current_tenant.require_login? || is_auth_controller?
     return if token_authenticated_action?
+    return if anonymous_main_collective_read_allowed?
 
     if request.path.include?("/api/") || request.headers["Accept"] == "application/json"
       return render status: :unauthorized,
@@ -575,7 +593,65 @@ class ApplicationController < ActionController::Base
       # Collective invite code
       query_string = "?code=#{params[:code]}"
     end
-    redirect_to "/login" + (query_string || "")
+    redirect_to "/login#{query_string || ""}"
+  end
+
+  # All 6 conditions for anonymous read access to the main collective. Any
+  # missed condition fails closed (returns false → request continues to the
+  # /login redirect below).
+  def anonymous_main_collective_read_allowed?
+    @current_user.nil? &&
+      @current_tenant&.public_main_collective? &&
+      @current_collective&.is_main_collective? &&
+      (request.get? || request.head?) &&
+      self.class.allows_anonymous?(action_name) &&
+      anonymous_format_allowed?
+  end
+
+  # Anon-allowed response formats: HTML, Markdown, and `*/*` (Mime::ALL,
+  # the default for curl, monitoring tools, and the wildcard tail of every
+  # real browser's Accept header). `*/*` is safe because the anon-allowed
+  # controllers either declare `respond_to` with html/md only or rely on
+  # template-based default rendering, both of which resolve `*/*` to HTML.
+  # JSON/XML/CSV/etc. are denied.
+  def anonymous_format_allowed?
+    fmt = request.format
+    fmt == Mime::ALL || [:html, :md].include?(fmt.symbol)
+  end
+
+  # Per-action header to prevent cross-audience cache reuse: anon and
+  # logged-in users hit the same URL and see different content, so no
+  # shared cache (proxy, CDN, browser back-button) can safely reuse a
+  # response. Applied to BOTH user states on allowlisted actions.
+  # Note: Rails normalizes away `must-revalidate` when `no-store` is set
+  # (it's redundant — nothing was stored to revalidate).
+  def set_no_cache_headers
+    response.headers["Cache-Control"] = "private, no-store"
+  end
+
+  # Per-IP rate limit for the three anon-readable show actions. No-op for
+  # logged-in users (they have per-user limits elsewhere). 429 with
+  # Retry-After when exceeded.
+  ANONYMOUS_READ_RATE_LIMIT = 60
+  ANONYMOUS_READ_RATE_PERIOD = 1.minute
+
+  def enforce_anonymous_read_rate_limit
+    return if @current_user
+
+    enforce_rate_limit!(
+      scope: "anon_read",
+      key: request.remote_ip,
+      limit: ANONYMOUS_READ_RATE_LIMIT,
+      period: ANONYMOUS_READ_RATE_PERIOD,
+    )
+  rescue RateLimits::Exceeded
+    SecurityAuditLog.log_rate_limited(
+      ip: request.remote_ip,
+      matched: "anon_read",
+      request_path: request.path,
+    )
+    response.headers["Retry-After"] = ANONYMOUS_READ_RATE_PERIOD.to_i.to_s
+    render plain: "Too many requests. Try again in a moment.", status: :too_many_requests
   end
 
   def validate_scope
@@ -609,16 +685,12 @@ class ApplicationController < ActionController::Base
     # For browser sessions, @current_representation_session is set by resolve_browser_representation
     # For API requests, it's set by resolve_api_representation
     # This method handles path validation for active sessions
-    if @current_representation_session&.active?
-      # Representation session should always be scoped to a collective or the /representing page.
-      # The one exception is when ending representation via DELETE /u/:handle/represent.
-      unless request.path.starts_with?("/representing") ||
-             request.path.starts_with?("/collectives/")
-        ending_representation = request.path.ends_with?("/represent") && request.delete?
-        unless ending_representation
-          redirect_to "/representing"
-        end
-      end
+    # Representation session should always be scoped to a collective or the /representing page.
+    # The one exception is when ending representation via DELETE /u/:handle/represent.
+    if @current_representation_session&.active? && !(request.path.starts_with?("/representing") ||
+                 request.path.starts_with?("/collectives/"))
+      ending_representation = request.path.ends_with?("/represent") && request.delete?
+      redirect_to "/representing" unless ending_representation
     end
     @current_representation_session ||= nil
   end
@@ -641,10 +713,10 @@ class ApplicationController < ActionController::Base
     return @blocked_user_ids if defined?(@blocked_user_ids)
 
     @blocked_user_ids = if @current_user
-      Set.new(UserBlock.where(blocker: @current_user).pluck(:blocked_id))
-    else
-      Set.new
-    end
+                          Set.new(UserBlock.where(blocker: @current_user).pluck(:blocked_id))
+                        else
+                          Set.new
+                        end
   end
   helper_method :blocked_user_ids
 
@@ -654,29 +726,34 @@ class ApplicationController < ActionController::Base
     return @block_related_user_ids if defined?(@block_related_user_ids)
 
     @block_related_user_ids = if @current_user
-      ids = UserBlock
-        .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
-        .pluck(:blocker_id, :blocked_id)
-        .flatten - [@current_user.id]
-      Set.new(ids)
-    else
-      Set.new
-    end
+                                ids = UserBlock
+                                  .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
+                                  .pluck(:blocker_id, :blocked_id)
+                                  .flatten - [@current_user.id]
+                                Set.new(ids)
+                              else
+                                Set.new
+                              end
   end
   helper_method :block_related_user_ids
 
+  # Ivar name must match readers in app/views/layouts/application.md.erb and
+  # _top_right_menu.html.erb — do not rename to match the method name.
+  # rubocop:disable Naming/MemoizedInstanceVariableName
   def load_unread_notification_count
     return @unread_notification_count if defined?(@unread_notification_count)
 
-    # Load notification count for HTML and markdown UI, but not JSON API
+    # Load notification count for HTML and markdown UI, but not JSON API.
     @unread_notification_count = if @current_user && current_tenant && !request.format.json?
                                    NotificationService.unread_count_for(@current_user, tenant: current_tenant)
                                  else
                                    0
                                  end
   end
+  # rubocop:enable Naming/MemoizedInstanceVariableName
 
-  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help", "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads"].freeze
+  CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help",
+                                        "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -726,23 +803,21 @@ class ApplicationController < ActionController::Base
   def current_decision_participant
     return @current_decision_participant if defined?(@current_decision_participant)
 
-    if current_resource_model == DecisionParticipant
-      @current_decision_participant = current_resource
-    elsif current_decision && current_user
-      @current_decision_participant = DecisionParticipantManager.new(
-        decision: current_decision,
-        user: current_user,
-      ).find_or_create_participant
-    else
-      @current_decision_participant = nil
-    end
+    @current_decision_participant = if current_resource_model == DecisionParticipant
+                                      current_resource
+                                    elsif current_decision && current_user
+                                      DecisionParticipantManager.new(
+                                        decision: current_decision,
+                                        user: current_user
+                                      ).find_or_create_participant
+                                    end
     @current_decision_participant
   end
 
   def current_votes
     return @current_votes if defined?(@current_votes)
 
-    @current_votes = (current_decision_participant.votes if current_decision_participant)
+    @current_votes = current_decision_participant ? current_decision_participant.votes : Vote.none
   end
 
   def current_commitment
@@ -765,16 +840,14 @@ class ApplicationController < ActionController::Base
   def current_commitment_participant
     return @current_commitment_participant if defined?(@current_commitment_participant)
 
-    if current_resource_model == CommitmentParticipant
-      @current_commitment_participant = current_resource
-    elsif current_commitment && current_user
-      @current_commitment_participant = CommitmentParticipantManager.new(
-        commitment: current_commitment,
-        user: current_user,
-      ).find_or_create_participant
-    else
-      @current_commitment_participant = nil
-    end
+    @current_commitment_participant = if current_resource_model == CommitmentParticipant
+                                        current_resource
+                                      elsif current_commitment && current_user
+                                        CommitmentParticipantManager.new(
+                                          commitment: current_commitment,
+                                          user: current_user
+                                        ).find_or_create_participant
+                                      end
     @current_commitment_participant
   end
 
@@ -837,6 +910,7 @@ class ApplicationController < ActionController::Base
 
   def model_params
     return params unless current_resource_model
+
     params[current_resource_model.name.underscore.to_sym] || params
   end
 
@@ -869,7 +943,7 @@ class ApplicationController < ActionController::Base
   end
 
   def delete_shared_domain_cookie(key, path: nil)
-    opts = { domain: ".#{ENV['HOSTNAME']}" }
+    opts = { domain: ".#{ENV.fetch("HOSTNAME", nil)}" }
     opts[:path] = path if path
     cookies.delete(key, **opts)
   end
@@ -923,7 +997,7 @@ class ApplicationController < ActionController::Base
   end
 
   def set_report_vars(resource)
-    @already_reported = current_user && ContentReport.where(reporter: current_user, reportable: resource).exists?
+    @already_reported = current_user && ContentReport.exists?(reporter: current_user, reportable: resource)
   end
 
   def report_content_flash
@@ -937,8 +1011,15 @@ class ApplicationController < ActionController::Base
   def set_pin_vars
     @pinnable = current_resource
     pin_destination = current_collective == current_tenant.main_collective ? "your profile" : "the collective homepage"
+    # Pinning to "your profile" requires a user. Anon viewers on the main
+    # collective have no profile to pin to, and the pin UI is hidden for them.
+    if @current_user.nil?
+      @is_pinned = false
+      @pin_click_title = nil
+      return
+    end
     @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, collective: @current_collective, user: @current_user)
-    @pin_click_title = "Click to " + (@is_pinned ? "unpin from " : "pin to ") + pin_destination
+    @pin_click_title = "Click to #{@is_pinned ? "unpin from " : "pin to "}#{pin_destination}"
   end
 
   def api_helper(params: nil)
@@ -996,7 +1077,7 @@ class ApplicationController < ActionController::Base
           scope: "comments",
           key: [current_user.id, current_resource.id],
           limit: COMMENTS_PER_MINUTE,
-          period: 1.minute,
+          period: 1.minute
         )
       rescue RateLimits::Exceeded
         respond_to do |format|
@@ -1004,7 +1085,9 @@ class ApplicationController < ActionController::Base
             flash[:alert] = "You're commenting too quickly. Please wait a moment and try again."
             redirect_back(fallback_location: current_resource.path)
           end
-          format.json { render status: :too_many_requests, json: { error: "rate_limited", message: "Too many comments. Please wait a minute and try again." } }
+          format.json do
+            render status: :too_many_requests, json: { error: "rate_limited", message: "Too many comments. Please wait a minute and try again." }
+          end
         end
         return
       end
@@ -1117,10 +1200,10 @@ class ApplicationController < ActionController::Base
 
   def check_session_timeout
     return if is_auth_controller?
-    return unless session[:user_id].present?
+    return if session[:user_id].blank?
 
     # Absolute timeout: session expires after fixed time from login (default 24 hours)
-    if session[:logged_in_at].present? && Time.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
+    if session[:logged_in_at].present? && Time.zone.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
       SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_absolute_timeout") if current_human_user
       logout_user!
       flash[:alert] = "Your session has expired. Please log in again."
@@ -1129,18 +1212,16 @@ class ApplicationController < ActionController::Base
     end
 
     # Session revocation: admin has revoked all sessions for this user
-    if session[:logged_in_at].present? && current_human_user&.sessions_revoked_at.present?
-      if Time.at(session[:logged_in_at]) < current_human_user.sessions_revoked_at
-        SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "sessions_revoked")
-        logout_user!
-        flash[:alert] = "Your session has been revoked. Please log in again."
-        redirect_to "/login"
-        return
-      end
+    if session[:logged_in_at].present? && current_human_user&.sessions_revoked_at.present? && Time.zone.at(session[:logged_in_at]) < (current_human_user.sessions_revoked_at)
+      SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "sessions_revoked")
+      logout_user!
+      flash[:alert] = "Your session has been revoked. Please log in again."
+      redirect_to "/login"
+      return
     end
 
     # Idle timeout: session expires after inactivity (default 2 hours)
-    if session[:last_activity_at].present? && Time.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
+    if session[:last_activity_at].present? && Time.zone.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
       SecurityAuditLog.log_logout(user: current_human_user, ip: request.remote_ip, reason: "session_idle_timeout") if current_human_user
       logout_user!
       flash[:alert] = "Your session has expired due to inactivity. Please log in again."
@@ -1154,7 +1235,7 @@ class ApplicationController < ActionController::Base
 
   def check_user_suspension
     return if is_auth_controller?
-    return unless session[:user_id].present?
+    return if session[:user_id].blank?
 
     user = User.find_by(id: session[:user_id])
     return unless user&.suspended?
@@ -1186,7 +1267,8 @@ class ApplicationController < ActionController::Base
     # User-settings actions only (not `show`, which is the public profile page
     # and should be gated). Users need settings to manage their email + change
     # other identity fields linked from /activate.
-    return if controller_name == "users" && action_name.in?(%w[settings update_profile update_email cancel_email_change confirm_email update_image])
+    return if controller_name == "users" && action_name.in?(["settings", "update_profile", "update_email", "cancel_email_change", "confirm_email",
+                                                             "update_image",])
     return if controller_name == "two_factor_auth"
 
     return if human.fully_activated_for?(@current_tenant)
@@ -1194,9 +1276,7 @@ class ApplicationController < ActionController::Base
     # Preserve where the user was headed so /activate can resume after
     # completion. Same HTML-GET filter as the billing gate to avoid clobbering
     # the real destination with background polls.
-    if request.get? && request.format.html? && !request.xhr?
-      session[:activation_return_to] = request.fullpath
-    end
+    session[:activation_return_to] = request.fullpath if request.get? && request.format.html? && !request.xhr?
 
     redirect_to "/activate"
   end
@@ -1212,11 +1292,11 @@ class ApplicationController < ActionController::Base
     # Exempt controllers (webhooks and healthcheck inherit from ActionController::Base,
     # not ApplicationController, so they're inherently exempt)
     return if is_auth_controller?
-    return if self.is_a?(BillingController)
+    return if is_a?(BillingController)
     # ApiTokensController routes the user through its own Stripe Checkout
     # flow on create (and resumes via #finalize). Bouncing to /billing here
     # would prevent it from running.
-    return if self.is_a?(ApiTokensController)
+    return if is_a?(ApiTokensController)
     return if request.path.start_with?("/api/")
     # API requests (any path) have their own billing check inside api_authorize!.
     # Without this, collective-scoped API paths like /collectives/X/api/v1/...
@@ -1224,7 +1304,8 @@ class ApplicationController < ActionController::Base
     return if api_token_present?
 
     # Exempt user settings page
-    return if controller_name == "users" && action_name.in?(%w[settings show update_profile update_email cancel_email_change confirm_email])
+    return if controller_name == "users" && action_name.in?(["settings", "show", "update_profile", "update_email", "cancel_email_change",
+                                                             "confirm_email",])
 
     # Preserve where the user was headed so BillingController can resume the
     # flow after Stripe Checkout completes, and explain the bounce so the
@@ -1244,12 +1325,12 @@ class ApplicationController < ActionController::Base
   # Exempt: settings page, reactivation, billing, auth, and webhook controllers
   # (which inherit from ActionController::Base, not ApplicationController).
   def check_collective_archived
-    is_archived = @current_collective&.respond_to?(:archived?) && @current_collective.archived?
-    is_pending = @current_collective&.respond_to?(:pending_billing_setup?) && @current_collective.pending_billing_setup?
+    is_archived = @current_collective.respond_to?(:archived?) && @current_collective.archived?
+    is_pending = @current_collective.respond_to?(:pending_billing_setup?) && @current_collective.pending_billing_setup?
     return unless is_archived || is_pending
     return if is_auth_controller?
-    return if self.is_a?(BillingController)
-    return if controller_name == "collectives" && action_name.in?(%w[settings])
+    return if is_a?(BillingController)
+    return if controller_name == "collectives" && action_name.in?(["settings"])
 
     msg = is_pending ? "This collective is pending billing setup." : "This collective is deactivated."
     respond_to do |format|

@@ -161,7 +161,8 @@ class FeedItemComponentTest < ViewComponent::TestCase
                     item: decision,
                     type: "Decision",
                     created_by: user,
-                    created_at: 2.hours.ago
+                    created_at: 2.hours.ago,
+                    current_user: user,
                   ))
     assert_selector "a.pulse-feed-action-btn-link", text: /Vote/
   end
@@ -214,7 +215,8 @@ class FeedItemComponentTest < ViewComponent::TestCase
                     item: commitment,
                     type: "Commitment",
                     created_by: user,
-                    created_at: 3.hours.ago
+                    created_at: 3.hours.ago,
+                    current_user: user,
                   ))
     assert_selector "button", text: /Join/
   end

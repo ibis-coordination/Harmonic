@@ -14,7 +14,7 @@ class Note < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   participates_in_hard_delete
-  SUBTYPES = %w[post reminder table comment statement].freeze
+  SUBTYPES = ["post", "reminder", "table", "comment", "statement"].freeze
   MAX_TITLE_LENGTH = 1000
   MAX_TEXT_LENGTH = 1_000_000
 
@@ -42,7 +42,7 @@ class Note < ApplicationRecord
            class_name: "MediaItem",
            dependent: :destroy
   # validates :title, presence: true
-  EDIT_ACCESS_OPTIONS = %w[members owner].freeze
+  EDIT_ACCESS_OPTIONS = ["members", "owner"].freeze
 
   validates :text, presence: true, unless: :is_table?
   validates :text, length: { maximum: MAX_TEXT_LENGTH }
@@ -118,12 +118,14 @@ class Note < ApplicationRecord
   sig { params(user: User).returns(T::Boolean) }
   def user_can_edit_content?(user)
     return user_can_edit?(user) if edit_access == "owner"
+
     true # "members" — any authenticated user can edit content
   end
 
   sig { returns(String) }
   def title
     return "[deleted]" if deleted?
+
     persisted = super
     persisted.presence || T.must(T.must(text).split("\n").first).truncate(256)
   end
@@ -155,12 +157,14 @@ class Note < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def text
     return "[deleted]" if deleted?
+
     super
   end
 
   sig { returns(T.untyped) }
   def table_data
     return nil if deleted?
+
     super
   end
 
@@ -270,8 +274,10 @@ class Note < ApplicationRecord
     false
   end
 
-  sig { params(user: User).returns(T::Boolean) }
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
   def user_can_edit?(user)
+    return false if user.nil?
+
     user.id == T.must(created_by).id
   end
 
@@ -398,7 +404,7 @@ class Note < ApplicationRecord
     ActiveRecord::Associations::Preloader.new(
       records: notes,
       associations: [:created_by, :commentable, :note_history_events,
-                     { media_items: { file_attachment: :blob } }]
+                     { media_items: { file_attachment: :blob } },]
     ).call
     notes
   end

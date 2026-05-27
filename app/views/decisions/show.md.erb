@@ -114,7 +114,9 @@ No options yet.
 <% if @decision.options.empty? -%>
 No options yet.
 <% else -%>
+<% if @current_user -%>
 Check ✅ all options that you would accept. Star ⭐️ options you prefer.
+<% end -%>
 
 <% @decision.options.order(:created_at).each do |option| -%>
 <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) -%>
@@ -167,7 +169,11 @@ Results are sorted first by acceptance ✅, then by preference ⭐, then by rand
 [<%= @decision.voter_count %> voter<%= @decision.voter_count == 1 ? '' : 's' %> — view votes](<%= @decision.path %>/voters)
 <% else -%>
 
+<% if @current_user -%>
 Submit your vote to see results. Votes are not anonymous — individual votes are visible on the voters page after you vote.
+<% else -%>
+Log in to vote and see results. Votes are not anonymous — individual votes are visible on the voters page.
+<% end -%>
 <% end -%>
 <% end -%>
 <% if @audit_entry_count && @audit_entry_count > 0 -%>

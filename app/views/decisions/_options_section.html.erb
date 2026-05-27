@@ -1,8 +1,6 @@
 <span data-decision-target="optionsSection" data-url="<%= @decision.path %>/options.html" data-deadline="<%= @decision.deadline_iso8601 %>">
-  <% if !@participant.authenticated? %>
-    <div class="auth-required-message">
-      <%= button_to 'Log in', '/login', method: :get, data: { redirect_to_resource: @decision.path } %> to participate.
-    </div>
+  <% if @participant.nil? || !@participant.authenticated? %>
+    <%= render "shared/login_to_act", verb: "participate", resource_path: @decision.path %>
   <% else %>
     <% if @decision.is_executive? && @decision.can_close?(@current_user) %>
       <%# Executive decision maker: checkboxes (no stars) + final statement + submit %>

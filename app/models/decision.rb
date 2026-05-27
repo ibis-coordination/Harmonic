@@ -13,7 +13,7 @@ class Decision < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   include Statementable
-  SUBTYPES = %w[vote lottery executive].freeze
+  SUBTYPES = ["vote", "lottery", "executive"].freeze
   MAX_OPTIONS = 100
   MAX_QUESTION_LENGTH = 1000
   MAX_DESCRIPTION_LENGTH = 1_000_000
@@ -23,9 +23,9 @@ class Decision < ApplicationRecord
   before_validation :set_tenant_id
   belongs_to :collective
   before_validation :set_collective_id
-  belongs_to :created_by, class_name: 'User', foreign_key: 'created_by_id'
-  belongs_to :updated_by, class_name: 'User', foreign_key: 'updated_by_id'
-  belongs_to :decision_maker, class_name: 'User', optional: true
+  belongs_to :created_by, class_name: "User"
+  belongs_to :updated_by, class_name: "User"
+  belongs_to :decision_maker, class_name: "User", optional: true
   has_many :decision_participants, dependent: :destroy
   has_many :options, dependent: :destroy
   has_many :votes # dependent: :destroy through options
@@ -75,7 +75,7 @@ class Decision < ApplicationRecord
 
   sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
   def self.api_json
-    T.unsafe(self).map { |decision| decision.api_json }
+    T.unsafe(self).map(&:api_json)
   end
 
   sig { params(include: T::Array[String]).returns(T::Hash[Symbol, T.untyped]) }
@@ -101,25 +101,15 @@ class Decision < ApplicationRecord
     }
     if beacon_drawn?
       response.merge!({
-        lottery_beacon_round: lottery_beacon_round,
-        lottery_beacon_randomness: lottery_beacon_randomness,
-      })
+                        lottery_beacon_round: lottery_beacon_round,
+                        lottery_beacon_randomness: lottery_beacon_randomness,
+                      })
     end
-    if include.include?('participants')
-      response.merge!({ participants: participants.map(&:api_json) })
-    end
-    if include.include?('options')
-      response.merge!({ options: options.map(&:api_json) })
-    end
-    if include.include?('votes')
-      response.merge!({ votes: votes.map(&:api_json) })
-    end
-    if include.include?('results')
-      response.merge!({ results: results.map(&:api_json) })
-    end
-    if include.include?('backlinks')
-      response.merge!({ backlinks: backlinks.map(&:api_json) })
-    end
+    response.merge!({ participants: participants.map(&:api_json) }) if include.include?("participants")
+    response.merge!({ options: options.map(&:api_json) }) if include.include?("options")
+    response.merge!({ votes: votes.map(&:api_json) }) if include.include?("votes")
+    response.merge!({ results: results.map(&:api_json) }) if include.include?("results")
+    response.merge!({ backlinks: backlinks.map(&:api_json) }) if include.include?("backlinks")
     response
   end
 
@@ -133,26 +123,30 @@ class Decision < ApplicationRecord
     decision_participants
   end
 
-  sig { params(participant: DecisionParticipant).returns(T::Boolean) }
+  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
   def can_add_options?(participant)
+    return false if participant.nil?
     return false if closed? || !participant.authenticated?
     return false if options.count >= MAX_OPTIONS
     return true if options_open? || participant.user_id == created_by_id
-    return false
+
+    false
   end
 
-  sig { params(participant: DecisionParticipant).returns(T::Boolean) }
+  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
   def can_update_options?(participant)
     can_add_options?(participant)
   end
 
-  sig { params(participant: DecisionParticipant).returns(T::Boolean) }
+  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
   def can_delete_options?(participant)
     can_add_options?(participant)
   end
 
-  sig { params(participant_or_user: T.any(DecisionParticipant, User)).returns(T::Boolean) }
+  sig { params(participant_or_user: T.nilable(T.any(DecisionParticipant, User))).returns(T::Boolean) }
   def can_edit_settings?(participant_or_user)
+    return false if participant_or_user.nil?
+
     if participant_or_user.is_a?(DecisionParticipant)
       participant_or_user.user_id == created_by_id
     else
@@ -160,8 +154,10 @@ class Decision < ApplicationRecord
     end
   end
 
-  sig { params(participant_or_user: T.any(DecisionParticipant, User)).returns(T::Boolean) }
+  sig { params(participant_or_user: T.nilable(T.any(DecisionParticipant, User))).returns(T::Boolean) }
   def can_close?(participant_or_user)
+    return false if participant_or_user.nil?
+
     if is_executive?
       user_id = participant_or_user.is_a?(DecisionParticipant) ? participant_or_user.user_id : participant_or_user.id
       user_id == effective_decision_maker.id
@@ -172,11 +168,11 @@ class Decision < ApplicationRecord
 
   sig { override.params(user: User).returns(T::Boolean) }
   def can_write_statement?(user)
-    if is_executive?
-      user.id == effective_decision_maker.id
-    else
-      user.id == created_by_id
-    end
+    user.id == if is_executive?
+                 effective_decision_maker.id
+               else
+                 created_by_id
+               end
   end
 
   sig { returns(T::Boolean) }
@@ -184,17 +180,13 @@ class Decision < ApplicationRecord
     false # This method is only required for parity with Commitment
   end
 
-  sig { returns(T::Boolean) }
-  def public?
-    false
-  end
-
   sig { returns(T::Array[DecisionResult]) }
   def results
     return @results if @results
+
     @results = DecisionResult.where(
       tenant_id: tenant_id,
-      decision_id: self.id,
+      decision_id: id
     ).map.with_index do |result, index|
       result.position = index + 1
       result
@@ -219,17 +211,16 @@ class Decision < ApplicationRecord
   sig { returns(T::Array[User]) }
   def voters
     return @voters if defined?(@voters)
-    # TODO - clean this up
+
+    # TODO: - clean this up
     @voters = DecisionParticipant.where(
       id: votes.distinct.pluck(:decision_participant_id)
-    ).includes(:user).map do |dp|
-      dp.user
-    end.compact
+    ).includes(:user).map(&:user).compact
   end
 
   sig { returns(String) }
   def metric_name
-    'voters'
+    "voters"
   end
 
   sig { returns(Integer) }
@@ -239,12 +230,12 @@ class Decision < ApplicationRecord
 
   sig { returns(String) }
   def octicon_metric_icon_name
-    'check-circle'
+    "check-circle"
   end
 
   sig { returns(String) }
   def path_prefix
-    'd'
+    "d"
   end
 
   def content_snapshot
@@ -265,12 +256,14 @@ class Decision < ApplicationRecord
   sig { returns(T.nilable(String)) }
   def question
     return "[deleted]" if deleted?
+
     super
   end
 
   sig { returns(T.nilable(String)) }
   def description
     return "[deleted]" if deleted?
+
     super
   end
 

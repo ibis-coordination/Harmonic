@@ -73,7 +73,9 @@ check_files() {
             echo ""
             found=1
 
-        done < <(grep -n "\.unscoped[^_]" "$file" 2>/dev/null || true)
+            # Match both `Model.unscoped` and bare `unscoped` (implicit self).
+            # `\b` is the word boundary; `[^_]` excludes `unscoped_for_*`.
+        done < <(grep -nE "\bunscoped[^_]" "$file" 2>/dev/null || true)
 
     done <<< "$files"
 

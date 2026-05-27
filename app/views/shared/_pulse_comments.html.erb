@@ -31,5 +31,7 @@
         </div>
       <% end %>
     </div>
+  <% else %>
+    <%= render "shared/login_to_act", verb: "comment", resource_path: commentable.path %>
   <% end %>
 </div>

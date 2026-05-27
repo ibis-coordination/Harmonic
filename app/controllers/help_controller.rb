@@ -19,6 +19,12 @@ class HelpController < ApplicationController
 
   helper_method :help_topic_available?
 
+  ANON_ACTIONS = ([:index] + TOPICS.map(&:to_sym)).freeze
+  allows_anonymous(*ANON_ACTIONS)
+  before_action :set_no_cache_headers, only: ANON_ACTIONS
+  # Help is intentionally NOT rate-limited: small static surface, unlikely
+  # abuse target. Rack::Attack's 300/min/IP throttle is the backstop.
+
   def index
     @page_title = "Help"
     @sidebar_mode = "minimal"

@@ -1,0 +1,12 @@
+<%# Uniform "Log in to <verb>" CTA for anonymous viewers on anon-readable pages. %>
+<%# Locals: %>
+<%#   verb (String)         — short imperative (e.g., "comment", "vote", "join") %>
+<%#   resource_path (String) — where to land after login (sets redirect_to_resource) %>
+<%# %>
+<%# IMPORTANT: resource_path must be a server-controlled path (e.g., `resource.path`). %>
+<%# Never pass user-supplied input — the login flow treats it as a redirect target, %>
+<%# so a user-controlled value here is an open-redirect surface. %>
+<div class="pulse-auth-required">
+  <%= link_to "Log in", "/login", data: { redirect_to_resource: resource_path }, class: "pulse-action-btn-secondary" %>
+  to <%= verb %>.
+</div>
