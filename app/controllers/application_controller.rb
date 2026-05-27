@@ -16,6 +16,14 @@ class ApplicationController < ActionController::Base
   before_action :check_stripe_billing_gate
   before_action :check_collective_archived
 
+  # Default-noindex on every response except anon-readable HTML show actions on
+  # tenants in ANON_READABLE_TENANT_SUBDOMAINS. prepend_around_action puts this
+  # at the START of the callback chain so it wraps the auth before_actions —
+  # the ensure block then runs even when the auth gate short-circuits with a
+  # redirect. (after_action would be skipped on halt; a plain around_action
+  # registered here would wrap nothing because there are no later callbacks.)
+  prepend_around_action :set_robots_header
+
   # Include ActionCapabilityCheck AFTER before_action declarations so that
   # append_before_action puts check_capability_for_action at the END of the chain,
   # after current_user is set
@@ -736,6 +744,50 @@ class ApplicationController < ActionController::Base
                               end
   end
   helper_method :block_related_user_ids
+
+  # True only for anon viewer + public main collective tenant + allows_anonymous
+  # action + HTML format. Single source of truth for both the X-Robots-Tag
+  # header (set in the after_action) and the OG/Twitter meta block (emitted in
+  # the shared/_meta_tags partial). Markdown and logged-in HTML responses are
+  # intentionally non-indexable because their rendered content differs from
+  # what we want crawlers to see.
+  def anon_readable_indexable_response?
+    @current_user.nil? &&
+      @current_tenant&.public_main_collective? &&
+      self.class.allows_anonymous?(action_name.to_sym) &&
+      request.format.html?
+  end
+  helper_method :anon_readable_indexable_response?
+
+  # Canonical scheme + host for the current tenant, built from configured
+  # HOSTNAME — NOT request.host_with_port, which can leak an upstream port
+  # when behind a reverse proxy/CDN. Used for OG image and canonical URLs
+  # so unfurlers and crawlers get the public hostname even if the request
+  # arrived via an internal route. Safe to call only when @current_tenant
+  # is present (the meta partial gates it behind anon_readable_indexable_response?).
+  def canonical_base_url
+    protocol = ENV["HOSTNAME"].to_s.include?("localhost") ? "http" : "https"
+    "#{protocol}://#{@current_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+  end
+  helper_method :canonical_base_url
+
+  def set_robots_header
+    yield
+  ensure
+    response.set_header("X-Robots-Tag", "noindex, nofollow") unless anon_readable_indexable_response?
+  end
+
+  # First non-heading paragraph of `text`, whitespace-collapsed, truncated at
+  # a word boundary with a … suffix. Used to populate @page_description /
+  # @page_title for OG/Twitter meta tags on anon-readable show pages.
+  # Markdown is not stripped — most markdown reads fine in unfurl previews,
+  # and a regex-based stripper is more risk than reward.
+  def excerpt(text, max:)
+    return nil if text.blank?
+
+    body = text.to_s.split(/\n\s*\n/).map(&:strip).reject(&:blank?).find { |p| !p.start_with?("#") }
+    body && body.gsub(/\s+/, " ").truncate(max, separator: " ", omission: "…")
+  end
 
   # Ivar name must match readers in app/views/layouts/application.md.erb and
   # _top_right_menu.html.erb — do not rename to match the method name.

@@ -11,8 +11,8 @@ class NotesController < ApplicationController
     @note = current_note || find_deleted_note
     return render "404", status: :not_found unless @note
 
-    @page_title = @note.title.presence || "Note #{@note.truncated_id}"
-    @page_description = "Note page"
+    @page_title = @note.title.presence || excerpt(@note.text, max: 50) || "Note #{@note.truncated_id}"
+    @page_description = excerpt(@note.text, max: 200) || "Note page"
     @sidebar_mode = "resource"
     @team = @current_collective.team
     return if @note.deleted?

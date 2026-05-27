@@ -30,7 +30,7 @@ Same five URL shapes:
 - `/n/:id` — title from `@note.title` (fallback below), description from body excerpt
 - `/d/:id` — title from `@decision.question`, description from `@decision.description` or excerpt
 - `/c/:id` — title from `@commitment.title`, description from `@commitment.description`
-- `/u/:handle` — title from `@showing_user.display_name`, description = generic `"#{display_name} — #{user_type_label} on #{fqdn}"` (no `bio` field exists; per-user OG copy is out of v1 scope)
+- `/u/:handle` — title from `@showing_user.display_name`, description = `"#{display_name} on #{fqdn}"` (no per-user copy in v1; user-type labels were considered and dropped as low-value/jargon)
 - `/help/:topic` — title `"Help — #{topic.titleize}"`, description = first paragraph of the help markdown
 
 OG image: single generic Harmonic PNG at `public/og-default.png` (~1200×630, matches the existing favicon-in-`public/` convention). Per-content rendered OG images explicitly deferred.
@@ -138,28 +138,24 @@ Per-action description ivars (small additions):
 
 ```ruby
 # NotesController#show — end of action
-@page_title = @note.title.presence || excerpt_title(@note.body) || "Note"
-@page_description = ContentExcerpt.first_paragraph(@note.body, max: 200) if @note.body.present?
+@page_title = @note.title.presence || excerpt(@note.text, max: 50) || "Note #{@note.truncated_id}"
+@page_description = excerpt(@note.text, max: 200) || "Note page"
 
 # DecisionsController#show — end of action
-@page_description = ContentExcerpt.first_paragraph(@decision.description.presence || @decision.question, max: 200)
+@page_description = excerpt(@decision.description.presence || @decision.question, max: 200) || "Decide as a group with Harmonic Team"
 
 # CommitmentsController#show — end of action
-@page_description = ContentExcerpt.first_paragraph(@commitment.description.presence || @commitment.title, max: 200)
+@page_description = excerpt(@commitment.description.presence || @commitment.title, max: 200) || "Coordinate with your team"
 
 # UsersController#show — end of action
 @page_title = @showing_user.display_name
-@page_description = "#{@showing_user.display_name} — #{user_type_label(@showing_user)} on #{@current_tenant.subdomain}.#{ENV['HOSTNAME']}"
+@page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-# HelpController per-topic — end of action
-@page_description = ContentExcerpt.first_paragraph(markdown_content, max: 200)
+# HelpController#render_help_html — set inside the existing private method
+@page_description ||= excerpt(markdown_content, max: 200)
 ```
 
-Helpers:
-
-- `ContentExcerpt.first_paragraph(text, max:)` — strip markdown (links → text, headings → text, code fences out), take everything up to first blank line, truncate at word boundary, append `…`. ~10 lines; lives in `app/helpers/markdown_helper.rb` or a small module.
-- `excerpt_title(text)` — first ~50 chars at a word boundary, used only when a note has no title.
-- `user_type_label(user)` — maps `human` → "Person", `ai_agent` → "AI Agent", `collective_identity` → "Collective Identity".
+`excerpt` is a private method on `ApplicationController`: first non-heading paragraph, whitespace-collapsed, truncated at word boundary with a `…` suffix. No markdown stripping (most markdown reads fine in unfurl previews; a regex stripper is more risk than reward). ~6 lines inline.
 
 ### C. Privacy doc update
 
@@ -187,7 +183,7 @@ Add one sentence to the Public Space branch of [`app/views/help/privacy.md.erb`]
 - Anon GET `/n/:id` on public tenant → body contains `<meta property="og:title"` with the note title, NO `X-Robots-Tag` header
 - Anon GET `/n/:id` on public tenant, with a note that has empty title → `og:title` falls back to excerpt
 - Logged-in GET `/n/:id` on public tenant → `X-Robots-Tag: noindex, nofollow` set, OG block ABSENT (per-user chrome shouldn't be indexed)
-- Anon GET `/u/:handle` on public tenant → `og:description` matches `"#{display_name} — Person on <host>"` for a human, `"… — AI Agent on …"` for an ai_agent
+- Anon GET `/u/:handle` on public tenant → `og:description` matches `"#{display_name} on <host>"`
 - Anon GET `/help/privacy` on public tenant → OG block present
 - Anon GET `/settings` (a redirect path) — N/A, but: any non-anon-allowed action on a public tenant when logged in still sets noindex
 - Anon GET on a PRIVATE tenant for any URL → noindex header (after redirect) — covered by route sweep extension
@@ -221,7 +217,7 @@ In [`anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymou
 - `app/views/layouts/application.html.erb` — render `_meta_tags`, drop the existing solo `<meta name="description">`
 - `app/controllers/application_controller.rb` — `set_robots_header` before_action + `anon_readable_indexable_response?` helper
 - `app/controllers/{notes,decisions,commitments,users}_controller.rb` — set `@page_description` (and `@page_title` for users) at end of show
-- `app/helpers/markdown_helper.rb` (or new module) — `ContentExcerpt.first_paragraph`, `excerpt_title`, `user_type_label`
+- `ApplicationController#excerpt(text, max:)` private method — inlined directly on the base controller (was a separate service module; turned out small enough that a dedicated module was overkill)
 - `public/og-default.png` — new ~1200×630 PNG (matches existing convention; favicons and `placeholder.png` all live in `public/`, not `app/assets/images/` which is empty)
 - `app/views/help/privacy.md.erb` — one-line addition inside `<% if public_main %>` branch
 - Tests: `robots_test.rb`, `meta_tags_test.rb`; extend route sweep
@@ -232,12 +228,6 @@ In [`anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymou
 - **Cloudflare/CDN behavior**: `expires_in 1.hour, public: false` should not be cached by Cloudflare across hosts. Verify in staging that two hostnames don't share a cached response.
 - **OG image asset path**: served from `public/og-default.png` (sprockets isn't involved; this is a static file). URL is `"#{request.base_url}/og-default.png"` — bare path, no digest, stable forever.
 - **Rack::Attack 300/min/IP throttle on crawlers**: Googlebot hits multiple URLs in bursts. Could trip the throttle. Watch for it after launch; consider allowlisting known good crawler IP ranges if observed (Google publishes them).
-
-## Known limitation deferred to a future handles refactor
-
-`User#path` for `collective_identity` users returns the underlying collective's `/collectives/<handle>` URL (which is members-only), not `/u/<handle>`. Phase 2's `/u/:handle` OG meta should handle the collective-identity case — likely by checking `user_type == "collective_identity"` and omitting OG tags (treating the page as non-indexable). Verify the actual `/u/:handle` show behavior for collective-identity users before deciding.
-
-A planned future refactor will rework how handles work across users and collectives; properly representing collective-identity users in discoverability surfaces lives in that work.
 
 ## Out of scope (explicitly deferred)
 
@@ -263,5 +253,5 @@ A planned future refactor will rework how handles work across users and collecti
 3. **OG image asset creation**: user provides the designed PNG before implementation begins. Implementation is blocked on the asset.
 4. **No sitemap.xml**: dropped on review. See "Out of scope" for rationale.
 5. **Inheritance**: RobotsController inherits from `ActionController::Base` (precedent: MetricsController), not ApplicationController. Cleaner separation from the auth pipeline.
-6. **Profile OG description**: generic `"#{display_name} — #{user_type_label} on #{fqdn}"`. No per-user bio field exists in the schema; adding one is out of scope here.
+6. **Profile OG description**: generic `"#{display_name} on #{fqdn}"`. User-type labels ("Person", "AI Agent", etc.) considered and dropped — "Person" is redundant, "Collective Identity" is jargon. No per-user bio field exists in the schema; adding one is out of scope here.
 7. **Both `<meta name="robots">` and `X-Robots-Tag` header**: drop the meta tag, keep only the header (set in controller, not view). One source of truth; works for non-HTML responses too.

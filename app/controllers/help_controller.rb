@@ -62,6 +62,7 @@ class HelpController < ApplicationController
   def render_help_html(topic)
     markdown_content = render_to_string(template: "help/#{topic}", formats: [:md], layout: false)
     @help_html = MarkdownRenderer.render(markdown_content, shift_headers: false, display_references: false)
+    @page_description ||= excerpt(markdown_content, max: 200)
     render template: "help/show"
   end
 end
