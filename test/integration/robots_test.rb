@@ -40,13 +40,13 @@ class RobotsTest < ActionDispatch::IntegrationTest
     assert_match(%r{Allow: /help}, response.body)
   end
 
-  test "GET /robots.txt on anon-readable tenant advertises the sitemap with absolute URL" do
+  # No sitemap.xml in this feature — discoverability of Harmonic content via
+  # search engines is not a current product goal. If that changes, the
+  # Sitemap: directive comes back in tandem with a real sitemap endpoint.
+  test "GET /robots.txt on anon-readable tenant does NOT advertise a sitemap" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch('HOSTNAME', nil)}"
     get "/robots.txt"
-    assert_match(
-      %r{^Sitemap: https?://#{Regexp.escape(PUBLIC_SUBDOMAIN)}\.#{Regexp.escape(ENV.fetch('HOSTNAME', ''))}/sitemap\.xml$},
-      response.body,
-    )
+    assert_no_match(/Sitemap:/, response.body)
   end
 
   # ---- Private tenant ----
