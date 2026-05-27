@@ -737,16 +737,20 @@ class ApplicationController < ActionController::Base
   end
   helper_method :block_related_user_ids
 
+  # Ivar name must match readers in app/views/layouts/application.md.erb and
+  # _top_right_menu.html.erb — do not rename to match the method name.
+  # rubocop:disable Naming/MemoizedInstanceVariableName
   def load_unread_notification_count
-    return @load_unread_notification_count if defined?(@load_unread_notification_count)
+    return @unread_notification_count if defined?(@unread_notification_count)
 
-    # Load notification count for HTML and markdown UI, but not JSON API
-    @load_unread_notification_count = if @current_user && current_tenant && !request.format.json?
-                                        NotificationService.unread_count_for(@current_user, tenant: current_tenant)
-                                      else
-                                        0
-                                      end
+    # Load notification count for HTML and markdown UI, but not JSON API.
+    @unread_notification_count = if @current_user && current_tenant && !request.format.json?
+                                   NotificationService.unread_count_for(@current_user, tenant: current_tenant)
+                                 else
+                                   0
+                                 end
   end
+  # rubocop:enable Naming/MemoizedInstanceVariableName
 
   CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help",
                                         "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",].freeze
