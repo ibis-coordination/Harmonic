@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-05-28
+
+### Added
+
+- **Anonymous read access on public tenants** (#212) — tenants listed in `ANON_READABLE_TENANT_SUBDOMAINS` let logged-out visitors view `/n/:id`, `/d/:id`, `/c/:id`, `/u/:handle`, and `/help/*` on the main collective. Interaction surfaces (pin, report, edit, comment form, vote, join/RSVP/sign) are replaced with "Log in to &lt;verb&gt;" CTAs. Per-IP rate limit of 60 req/min on the three item URLs; `Cache-Control: private, no-store` on all anon-viewable show actions. A route-introspection sweep enforces that no other route silently anon-leaks.
+- **Rich link previews** (#213) — anon-readable HTML pages emit Open Graph + Twitter Card metadata (`og:title`, `og:description` excerpt, `og:image`, canonical `og:url` with query string stripped). Slack, iMessage, Twitter/X, Discord, Mastodon, LinkedIn, and Bluesky now unfurl Harmonic links.
+- **Per-tenant `/robots.txt`** (#213) — anon-readable tenants allow the four anon URL shapes; private tenants and unknown subdomains return `Disallow: /`.
+- **`X-Robots-Tag: noindex, nofollow` by default** (#213) — set on every response except anon-viewer HTML on `allows_anonymous` actions for anon-readable tenants, so crawlers don't index per-user chrome, private content, or the `/login` redirect from a shared private link.
+
+### Changed
+
+- **`/help/privacy` rewritten to be deployment-aware** — switches Public Space copy on `@current_tenant.public_main_collective?` and names the actual FQDN so the same doc describes both anon-readable and members-only deployments.
+- **Social Proximity on `/u/:handle` restricted to the profile owner** — previously visible to any logged-in viewer; with the anon-read change it would have leaked to anon viewers on public tenants too.
+- **CI integration-test runner split** into `test/controllers` and `test/integration` matrix entries (was consistently the slowest single runner).
+
+### Security
+
+- **`check-tenant-safety` hook now catches bare `unscoped` calls** — the regex required a literal dot prefix and silently allowed `unscoped` inside class methods. Switched to a word-boundary match; cleaned up the two existing offenders.
+- Fixed two leaks in `decisions/show.{html,md}.erb` that rendered vote prompts ("Submit your vote to see results.", vote-instructions block) to anon viewers who can't vote. Both gated on `@current_user` now.
+
+### Fixed
+
+- Markdown nav bar notification count rendered as `[](/notifications)` instead of `[N](/notifications)` after a memoization-ivar rename broke two layout readers.
+- `ApplicationRecord#user_can_close?` crashed on `nil` user when `_deadline_display.html.erb` reached the `requires_manual_close?` branch (deadlines 50+ years out). Sig widened to `T.nilable(User)` with a nil guard.
+- `UsersController#show` returned HTTP 200 with the 404 template body for nonexistent handles — now returns a proper 404.
+- **Flaky 429s in anon-read tests** (#214) — the per-test `REMOTE_ADDR` override pattern was a no-op (Rails integration tests route through `integration_session.process`, not a `TestCase#process` override), so every anon GET went out as `127.0.0.1` and parallel workers shared one rate-limit counter in Redis. Switched to `self.remote_addr = fresh_test_ip` with a deterministic per-worker counter.
+
 ## [1.18.1] - 2026-05-25
 
 ### Fixed
