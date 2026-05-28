@@ -755,19 +755,29 @@ class ApplicationController < ActionController::Base
     @current_user.nil? &&
       @current_tenant&.public_main_collective? &&
       self.class.allows_anonymous?(action_name.to_sym) &&
-      request.format.html?
+      indexable_html_format?
   end
   helper_method :anon_readable_indexable_response?
 
-  # Canonical scheme + host for the current tenant, built from configured
-  # HOSTNAME — NOT request.host_with_port, which can leak an upstream port
-  # when behind a reverse proxy/CDN. Used for OG image and canonical URLs
-  # so unfurlers and crawlers get the public hostname even if the request
-  # arrived via an internal route. Safe to call only when @current_tenant
-  # is present (the meta partial gates it behind anon_readable_indexable_response?).
+  # HTML or `*/*` (Mime::ALL, the default for curl, link unfurlers, monitors,
+  # and the wildcard tail of every real browser's Accept header — all of which
+  # actually receive HTML). Markdown / JSON / XML / CSV are excluded — the
+  # markdown surface in particular is for AI agents, not crawlers.
+  def indexable_html_format?
+    fmt = request.format
+    fmt == Mime::ALL || fmt.html?
+  end
+
+  # Canonical scheme + host for the current tenant. Used for OG image and
+  # canonical URLs so unfurlers and crawlers get the public hostname. Built
+  # from request.protocol (which honors X-Forwarded-Proto from the TLS-
+  # terminating proxy) and the configured HOSTNAME + tenant subdomain.
+  # Deliberately NOT request.host_with_port — host_with_port can carry an
+  # internal upstream port when behind a reverse proxy/CDN. Safe to call
+  # only when @current_tenant is present (the meta partial gates it behind
+  # anon_readable_indexable_response?).
   def canonical_base_url
-    protocol = ENV["HOSTNAME"].to_s.include?("localhost") ? "http" : "https"
-    "#{protocol}://#{@current_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    "#{request.protocol}#{@current_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
   end
   helper_method :canonical_base_url
 

@@ -69,6 +69,12 @@ class MetaTagsTest < ActionDispatch::IntegrationTest
     "#{subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
   end
 
+  # Mirrors canonical_base_url in ApplicationController. request.protocol is
+  # set after a get/post, so call this only after the request runs.
+  def canonical_url(subdomain, path)
+    "#{request.protocol}#{host_for(subdomain)}#{path}"
+  end
+
   # ---- X-Robots-Tag header ----
 
   test "anon GET /n/:id on anon-readable tenant does NOT set X-Robots-Tag" do
@@ -106,6 +112,19 @@ class MetaTagsTest < ActionDispatch::IntegrationTest
     get @note.path, headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_equal "noindex, nofollow", response.headers["X-Robots-Tag"]
+  end
+
+  # Curl's default Accept is `*/*` (Mime::ALL), and so is the wildcard tail of
+  # every real browser's Accept header. Rails reports `request.format.html?`
+  # as false for `*/*` even though the response IS HTML — same gotcha that
+  # broke bypass condition 6 in the parent anon-read-access work. Indexable
+  # must accept `*/*` the same way HTML is accepted.
+  test "anon GET /n/:id with Accept: */* (curl default) emits the OG block and no noindex" do
+    host! host_for(PUBLIC_SUBDOMAIN)
+    get @note.path, headers: { "Accept" => "*/*" }
+    assert_response :success
+    assert_nil response.headers["X-Robots-Tag"]
+    assert_match %r{<meta property="og:title"}, response.body
   end
 
   test "anon GET /n/:id on PRIVATE tenant SETS X-Robots-Tag on the redirect response" do
@@ -152,7 +171,7 @@ class MetaTagsTest < ActionDispatch::IntegrationTest
     host! host_for(PUBLIC_SUBDOMAIN)
     get "#{@note.path}?utm_source=email&utm_campaign=launch"
     assert_response :success
-    expected_canonical = "https://#{host_for(PUBLIC_SUBDOMAIN)}#{@note.path}"
+    expected_canonical = canonical_url(PUBLIC_SUBDOMAIN, @note.path)
     assert_match %r{<meta property="og:url" content="#{Regexp.escape(expected_canonical)}"}, response.body
     assert_match %r{<link rel="canonical" href="#{Regexp.escape(expected_canonical)}"}, response.body
   end
@@ -163,7 +182,7 @@ class MetaTagsTest < ActionDispatch::IntegrationTest
     host! host_for(PUBLIC_SUBDOMAIN)
     get @note.path
     assert_response :success
-    expected_image = "https://#{host_for(PUBLIC_SUBDOMAIN)}/og-default.png"
+    expected_image = canonical_url(PUBLIC_SUBDOMAIN, "/og-default.png")
     assert_match %r{<meta property="og:image" content="#{Regexp.escape(expected_image)}"}, response.body
   end
 
