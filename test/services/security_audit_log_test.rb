@@ -27,7 +27,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
 
   test "log_login_success logs user login" do
     # Use unique IP to identify this specific test's log entry
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_login_success(
       user: @user,
@@ -66,7 +66,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "log_logout logs user logout" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_logout(user: @user, ip: unique_ip)
 
@@ -93,7 +93,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "log_password_changed logs password change" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_password_changed(user: @user, ip: unique_ip)
 
@@ -105,7 +105,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "log_permission_denied logs access denial" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     unique_resource = "AdminPanel-#{SecureRandom.hex(4)}"
 
     SecurityAuditLog.log_permission_denied(
@@ -127,7 +127,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
 
   test "log_admin_action logs administrative actions" do
     target_user = create_user(email: "target@example.com", name: "Target User")
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_admin_action(
       admin: @user,
@@ -165,7 +165,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "log_bot_signal logs a warn-severity event with path, reason, and optional user_id" do
-    unique_ip = "10.10.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     uid = SecureRandom.uuid
     SecurityAuditLog.log_bot_signal(
@@ -186,7 +186,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "log_bot_signal accepts nil user_id" do
-    unique_ip = "10.11.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_bot_signal(
       ip: unique_ip,
@@ -270,7 +270,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "log entries contain ISO8601 timestamp" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_logout(user: @user, ip: unique_ip)
 
@@ -289,7 +289,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     collective = create_collective(tenant: tenant, created_by: admin)
     Tenant.current_id = tenant.id
     note = create_note(tenant: tenant, collective: collective, created_by: author, title: "Bad Post", text: "Offensive content")
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_content_deleted(
       content: note,
@@ -319,7 +319,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
     Tenant.current_id = tenant.id
     long_text = "x" * 3000
     note = create_note(tenant: tenant, collective: collective, created_by: admin, text: long_text)
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_content_deleted(
       content: note,
@@ -334,7 +334,7 @@ class SecurityAuditLogTest < ActiveSupport::TestCase
   end
 
   test "nil optional fields are excluded from log entry" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     SecurityAuditLog.log_login_success(
       user: @user,

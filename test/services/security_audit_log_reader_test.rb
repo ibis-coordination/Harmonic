@@ -29,7 +29,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "summary counts events within time window" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     # Log a test event
     SecurityAuditLog.log_login_success(
@@ -69,7 +69,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "events_by_type filters by event type" do
-    unique_ip = "192.168.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     # Log a specific event type
     SecurityAuditLog.log_logout(user: @global_user, ip: unique_ip)
@@ -102,7 +102,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "events_by_ip filters by IP address" do
-    unique_ip = "10.99.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     # Log events from specific IP
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
@@ -151,7 +151,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
     line_count_before = File.exist?(@log_file) ? File.foreach(@log_file).count : 0
 
     # Create a new event
-    unique_ip = "10.88.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
 
     # Get the event we just created (should be at line_count_before + 1)
@@ -171,7 +171,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events returns events with line_number" do
-    unique_ip = "10.77.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
 
     result = SecurityAuditLogReader.filtered_events(per_page: 10)
@@ -187,7 +187,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events filters by event_type" do
-    unique_ip = "10.66.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
     SecurityAuditLog.log_logout(user: @global_user, ip: unique_ip)
 
@@ -199,8 +199,8 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events filters by ip" do
-    unique_ip = "10.55.#{rand(1..254)}.#{rand(1..254)}"
-    other_ip = "10.44.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
+    other_ip = fresh_test_ip
 
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
     SecurityAuditLog.log_login_success(user: @global_user, ip: other_ip, user_agent: "Test")
@@ -213,7 +213,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events filters by email" do
-    unique_ip = "10.33.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     user_email = @global_user.email
 
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
@@ -226,7 +226,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events filters by time window" do
-    unique_ip = "10.22.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
 
     result = SecurityAuditLogReader.filtered_events(since: 1.minute.ago, per_page: 100)
@@ -272,7 +272,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   # Pagination tests
 
   test "filtered_events returns total_count correctly" do
-    unique_ip = "10.11.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     # Log 5 events
     5.times { SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test") }
@@ -284,7 +284,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events paginates correctly with page parameter" do
-    unique_ip = "10.12.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
 
     # Log 5 events
     5.times { SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test") }
@@ -310,7 +310,7 @@ class SecurityAuditLogReaderTest < ActiveSupport::TestCase
   end
 
   test "filtered_events returns empty array for page beyond total" do
-    unique_ip = "10.13.#{rand(1..254)}.#{rand(1..254)}"
+    unique_ip = fresh_test_ip
     SecurityAuditLog.log_login_success(user: @global_user, ip: unique_ip, user_agent: "Test")
 
     result = SecurityAuditLogReader.filtered_events(ip: unique_ip, page: 999, per_page: 50)

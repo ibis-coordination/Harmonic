@@ -85,6 +85,36 @@ class ActiveSupport::TestCase
     ENV["TEST_WORKER_NUMBER"] = worker.to_s
   end
 
+  # Returns a guaranteed-unique IPv4 address (within 10.0.0.0/8) for tests that
+  # need an isolated REMOTE_ADDR or audit-log IP. Per-IP rate-limit and audit
+  # counters live in Redis DB 15, which is SHARED across all parallel workers,
+  # so any collision (even with SecureRandom in 16M addresses) causes flakes.
+  #
+  # Uniqueness comes from two sources, neither involving randomness:
+  #   - TEST_WORKER_NUMBER (set in parallelize_setup above) in the second octet
+  #     → each parallel worker fork gets its own /16 range.
+  #   - Monotonic counter in the third/fourth octets → within a worker, every
+  #     call produces a fresh IP, guaranteed.
+  #
+  # USAGE in an ActionDispatch::IntegrationTest setup block:
+  #   self.remote_addr = fresh_test_ip
+  # (sets the integration session's REMOTE_ADDR default; do NOT override
+  # `def process` — get/post route through `integration_session.process`).
+  #
+  # USAGE in a service/job/etc. test:
+  #   unique_ip = fresh_test_ip
+  #
+  # Defined here on ActiveSupport::TestCase (not ActionDispatch::IntegrationTest)
+  # so both kinds of test share the same monotonic counter — a class-variable
+  # split between the two classes would let an integration test and a service
+  # test both pick "10.0.0.1" in the same worker.
+  @@_fresh_test_ip_seq = 0
+  def fresh_test_ip
+    @@_fresh_test_ip_seq += 1
+    worker = ENV["TEST_WORKER_NUMBER"].to_i
+    "10.#{worker % 256}.#{(@@_fresh_test_ip_seq / 254) % 256}.#{(@@_fresh_test_ip_seq % 254) + 1}"
+  end
+
   # Note: No fixtures loaded - we create test data programmatically
   # fixtures :all  # Removed - no fixture YAML files exist
 
@@ -294,41 +324,6 @@ end
 
 # Integration test helpers for controller tests
 class ActionDispatch::IntegrationTest
-  # Returns a guaranteed-unique IPv4 address (within 10.0.0.0/8) for use as
-  # REMOTE_ADDR in tests that exercise per-IP rate limits (Rack::Attack or
-  # `enforce_anonymous_read_rate_limit`).
-  #
-  # USAGE in a test's setup block:
-  #   self.remote_addr = fresh_test_ip
-  #
-  # This sets the integration session's REMOTE_ADDR default — every get/post
-  # in that test then uses the unique IP. Do NOT use a `process` override or
-  # `@test_ip = fresh_test_ip` with a process method — get/post route through
-  # `integration_session.process`, not the TestCase's process, so a TestCase
-  # `process` override silently does nothing (the requests fall back to
-  # 127.0.0.1, and across parallel workers all those 127.0.0.1 requests
-  # accumulate against the same Redis counter → spurious 429s).
-  #
-  # Per-IP throttle counters live in Redis DB 15, which is SHARED across all
-  # parallel test workers and the entire test run. If two tests pick the same
-  # IP (possible with random IPs in a 16M space and ~hundreds of tests, even
-  # with SecureRandom) the second test inherits the first's quota usage.
-  #
-  # This helper guarantees uniqueness two ways:
-  #   - TEST_WORKER_NUMBER (set in parallelize_setup above) in the second
-  #     octet → each parallel worker fork gets its own /16 range.
-  #   - Monotonic counter in the third/fourth octets → within a worker, every
-  #     call produces a fresh IP, guaranteed.
-  #
-  # Each worker has ~64K addresses; in practice each runs ~500 tests, well
-  # under the wrap point.
-  @@_fresh_test_ip_seq = 0
-  def fresh_test_ip
-    @@_fresh_test_ip_seq += 1
-    worker = ENV["TEST_WORKER_NUMBER"].to_i
-    "10.#{worker % 256}.#{(@@_fresh_test_ip_seq / 254) % 256}.#{(@@_fresh_test_ip_seq % 254) + 1}"
-  end
-
   # Sign in a user for integration tests
   # In integration tests, we need to simulate the login process
   # The app checks session[:user_id] for authentication
