@@ -34,6 +34,7 @@ class UsersController < ApplicationController
     @showing_user = tu.user
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
+    @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
     if params[:collective_handle]
       # Showing user in a specific collective
       sm = @showing_user.collective_members.where(collective: current_collective).first

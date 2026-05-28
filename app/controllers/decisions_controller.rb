@@ -82,7 +82,8 @@ class DecisionsController < ApplicationController
     return render '404', status: 404 unless @decision
 
     @page_title = @decision.question
-    @page_description = "Decide as a group with Harmonic Team"
+    @page_description = excerpt(@decision.description.presence || @decision.question, max: 200) ||
+                        "Decide as a group with Harmonic Team"
     @sidebar_mode = 'resource'
     @team = @current_collective.team
     return if @decision.deleted?

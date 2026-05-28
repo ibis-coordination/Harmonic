@@ -12,7 +12,8 @@ class CommitmentsController < ApplicationController
     return render "404", status: :not_found unless @commitment
 
     @page_title = @commitment.title
-    @page_description = "Coordinate with your team"
+    @page_description = excerpt(@commitment.description.presence || @commitment.title, max: 200) ||
+                        "Coordinate with your team"
     @sidebar_mode = "resource"
     @team = @current_collective.team
     return if @commitment.deleted?

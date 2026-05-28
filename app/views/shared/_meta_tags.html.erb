@@ -1,0 +1,23 @@
+<meta name="description" content="<%= (@page_description || @current_app_description).to_s.truncate(200, omission: "…") %>">
+
+<% if anon_readable_indexable_response? %>
+  <%
+    # Canonical URL strips query string — tracking params (utm_*, etc.) and
+    # other query-string variants must not be treated as separate URLs.
+    canonical = @canonical_url || "#{canonical_base_url}#{request.path}"
+    og_title  = (@page_title || @current_app_title).to_s.truncate(70, omission: "…")
+    og_desc   = (@page_description || @current_app_description).to_s.truncate(200, omission: "…")
+    og_image  = "#{canonical_base_url}/og-default.png"
+  %>
+  <meta property="og:type" content="<%= @page_og_type || 'article' %>">
+  <meta property="og:title" content="<%= og_title %>">
+  <meta property="og:description" content="<%= og_desc %>">
+  <meta property="og:image" content="<%= og_image %>">
+  <meta property="og:url" content="<%= canonical %>">
+  <meta property="og:site_name" content="<%= @current_app_title %>">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= og_title %>">
+  <meta name="twitter:description" content="<%= og_desc %>">
+  <meta name="twitter:image" content="<%= og_image %>">
+  <link rel="canonical" href="<%= canonical %>">
+<% end %>

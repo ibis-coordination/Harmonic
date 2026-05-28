@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
   get 'metrics' => 'metrics#show'
+  get 'robots.txt' => 'robots#show', as: :robots, defaults: { format: :txt }
 
   # Internal API for agent-runner service (IP-restricted + HMAC-signed)
   scope "internal/agent-runner", module: "internal", as: "internal_agent_runner" do

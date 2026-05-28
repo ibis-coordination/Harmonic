@@ -147,46 +147,70 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     MSG
   end
 
-  # This test is the depth-check pairing for the sweep above. The sweep
-  # uses synthetic IDs like "00000000", so for the five allowlisted
-  # (controller, action) pairs the action always 404s — meaning the sweep
-  # CAN'T distinguish "bypass correctly denied" from "bypass fired but
-  # resource missing". This test uses REAL fixtures so a broken
-  # @current_tenant.public_main_collective? check (or any other regression
-  # that would let the bypass fire for private tenants) returns 200 here
-  # and fails the test. We assert the response is specifically a redirect
-  # to /login (302) — not just any non-2xx — so a crash doesn't pass the
-  # test by accident.
-  test "every ANON_ALLOWED URL with a REAL resource ID redirects to /login on a PRIVATE tenant" do
+  # Depth-check pairing for the sweep above. The sweep uses synthetic IDs
+  # like "00000000", so for the five allowlisted (controller, action) pairs
+  # the action always 404s — meaning the sweep CAN'T distinguish "bypass
+  # correctly denied" from "bypass fired but resource missing". This test
+  # uses REAL fixtures so a broken @current_tenant.public_main_collective?
+  # check (or any other regression that would let the bypass fire for
+  # private tenants) returns 200 here and fails the test.
+  #
+  # Asserts both invariants for each URL in one pass — keeps the URL list
+  # in one place and makes drift impossible:
+  #   - status 302 to /login (NOT just any non-2xx — a crash mustn't pass)
+  #   - X-Robots-Tag: noindex, nofollow on the redirect (so crawlers
+  #     following a shared link don't index the /login destination under
+  #     the private tenant's URL)
+  test "every ANON_ALLOWED URL with a REAL resource ID 302s to /login with noindex on a PRIVATE tenant" do
     host! "#{PRIVATE_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
 
+    # URLs dasherize the help topic (e.g., "reminder-notes"); the action name
+    # uses underscores ("reminder_notes" in HelpController::TOPICS).
     urls = [
       @private_note.path,
       @private_decision.path,
       @private_commitment.path,
       "/u/#{@private_user_handle}",
       "/help",
-      # URLs dasherize the topic (e.g., "reminder-notes"); the action name
-      # uses underscores ("reminder_notes" in HelpController::TOPICS).
     ] + HelpController::TOPICS.map { |t| "/help/#{t.tr("_", "-")}" }
 
     failures = urls.filter_map do |url|
       get url, env: { "REMOTE_ADDR" => fresh_ip }
-      next nil if response.status == 302 && response.location&.match?(%r{/login})
-      "  GET #{url} → #{response.status} (location=#{response.location.inspect}) — expected 302 to /login"
+      problems = []
+      problems << "status=#{response.status} (expected 302)" unless response.status == 302
+      problems << "location=#{response.location.inspect} (expected /login)" unless response.location&.match?(%r{/login})
+      problems << "X-Robots-Tag=#{response.headers['X-Robots-Tag'].inspect} (expected \"noindex, nofollow\")" \
+        unless response.headers["X-Robots-Tag"] == "noindex, nofollow"
+      next nil if problems.empty?
+      "  GET #{url} — #{problems.join(', ')}"
     end
 
     assert_empty failures, <<~MSG
-      A real ANON_ALLOWED URL did NOT redirect to /login on a PRIVATE
-      tenant. A 2xx means the bypass mechanism is firing for tenants
-      NOT in ANON_READABLE_TENANT_SUBDOMAINS — the hard invariant of
-      this feature is broken. A 5xx or unexpected status means a crash
-      is masking what the request would otherwise do. Either way:
-      inspect Tenant#public_main_collective? and
-      ApplicationController#anonymous_main_collective_read_allowed?:
+      A real ANON_ALLOWED URL on a PRIVATE tenant failed one or more of:
+        - 302 redirect (a 2xx = the bypass mechanism is firing for a
+          tenant NOT in ANON_READABLE_TENANT_SUBDOMAINS — the hard
+          invariant is broken; a 5xx = a crash masking the leak)
+        - Location: /login (302 to elsewhere = bypass partially fired)
+        - X-Robots-Tag: noindex, nofollow (crawlers could index the
+          redirect target under the private tenant's URL)
+
+      Inspect Tenant#public_main_collective?,
+      ApplicationController#anonymous_main_collective_read_allowed?,
+      and ApplicationController#set_robots_header:
 
       #{failures.join("\n")}
     MSG
+  end
+
+  # Defense in depth: robots_test.rb already verifies this, but the route
+  # sweep is the load-bearing safety net for the inverse-invariant
+  # ("private tenants have zero anon visibility"). If RobotsController is
+  # later changed in a way that breaks the per-tenant body, this fails too.
+  test "GET /robots.txt on a PRIVATE tenant returns the strict Disallow body" do
+    host! "#{PRIVATE_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
+    get "/robots.txt"
+    assert_response :success
+    assert_equal "User-agent: *\nDisallow: /\n", response.body
   end
 
   # ---- Edge cases (separate test methods, smaller blast radius) ----
