@@ -16,6 +16,7 @@ class RobotsController < ActionController::Base # rubocop:disable Rails/Applicat
     Allow: /u/
     Allow: /help
     Allow: /help/
+    Allow: /motto
   TXT
 
   def show

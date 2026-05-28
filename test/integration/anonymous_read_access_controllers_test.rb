@@ -64,6 +64,10 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "MottoController declares allows_anonymous :index" do
+    assert MottoController.allows_anonymous?(:index), "/motto"
+  end
+
   test "subclasses of NotesController do NOT inherit allows_anonymous" do
     sub = Class.new(NotesController)
     assert_not sub.allows_anonymous?(:show),
@@ -100,6 +104,19 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
     get "/help/privacy"
     assert_response :success
+  end
+
+  test "anon GET /motto returns 200" do
+    host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
+    get "/motto"
+    assert_response :success
+  end
+
+  test "anon GET /motto sets Cache-Control: private, no-store" do
+    host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
+    get "/motto"
+    assert_match(/private/, response.headers["Cache-Control"])
+    assert_match(/no-store/, response.headers["Cache-Control"])
   end
 
   # ---- Feature-gated help topic 404s when flag off ----

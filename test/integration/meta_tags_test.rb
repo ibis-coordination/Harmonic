@@ -211,6 +211,16 @@ class MetaTagsTest < ActionDispatch::IntegrationTest
     assert_match %r{<meta property="og:description" content="[^"]*visibility}, response.body
   end
 
+  test "anon GET /motto does NOT set X-Robots-Tag and emits the OG block" do
+    host! host_for(PUBLIC_SUBDOMAIN)
+    get "/motto"
+    assert_response :success
+    assert_nil response.headers["X-Robots-Tag"]
+    assert_match %r{<meta property="og:title" content="Do the right thing\. ❤️"}, response.body
+    # First paragraph of motto/index.md.erb mentions "tuning fork".
+    assert_match %r{<meta property="og:description" content="[^"]*tuning fork}, response.body
+  end
+
   test "logged-in GET /n/:id does NOT emit OG block (per-user chrome shouldn't be indexed)" do
     sign_in_as(@user, tenant: @public_tenant)
     host! host_for(PUBLIC_SUBDOMAIN)

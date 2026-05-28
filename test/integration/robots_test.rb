@@ -38,6 +38,7 @@ class RobotsTest < ActionDispatch::IntegrationTest
     assert_match(%r{Allow: /c/}, response.body)
     assert_match(%r{Allow: /u/}, response.body)
     assert_match(%r{Allow: /help}, response.body)
+    assert_match(%r{Allow: /motto}, response.body)
   end
 
   # No sitemap.xml in this feature — discoverability of Harmonic content via

@@ -36,6 +36,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     "commitments" => [:show].freeze,
     "users" => [:show].freeze,
     "help" => ([:index] + HelpController::TOPICS.map(&:to_sym)).freeze,
+    "motto" => [:index].freeze,
   }.freeze
 
   # Pages legitimately public outside the bypass system. Most are pre-login
@@ -172,6 +173,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
       @private_commitment.path,
       "/u/#{@private_user_handle}",
       "/help",
+      "/motto",
     ] + HelpController::TOPICS.map { |t| "/help/#{t.tr("_", "-")}" }
 
     failures = urls.filter_map do |url|
