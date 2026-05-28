@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1] - 2026-05-28
+
+### Added
+
+- `/motto` added to the anonymously-readable surface alongside `/n`, `/d`, `/c`, `/u`, and `/help`. Mirrors the `/help` wiring: `allows_anonymous :index`, `set_no_cache_headers`, no per-route rate limit (single-page surface, `Rack::Attack` is the backstop), `Allow: /motto` in the per-tenant robots.txt, and full OG/Twitter meta via the existing `anon_readable_indexable_response?` predicate. Route-sweep allowlist and private-tenant depth check updated.
+
 ## [1.19.0] - 2026-05-28
 
 ### Added
