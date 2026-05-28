@@ -55,7 +55,8 @@ class AnonymousReadAccessMarkdownStructureTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
 
-    @test_ip = "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
+    @test_ip = fresh_test_ip
+    self.remote_addr = @test_ip
   end
 
   def teardown
@@ -63,12 +64,6 @@ class AnonymousReadAccessMarkdownStructureTest < ActionDispatch::IntegrationTest
     Tenant.reset_anon_readable_subdomains!
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
-  end
-
-  def process(method, path, **kwargs)
-    env = (kwargs[:env] || {}).dup
-    env["REMOTE_ADDR"] ||= @test_ip
-    super(method, path, **kwargs.merge(env: env))
   end
 
   # ---- Helpers ----

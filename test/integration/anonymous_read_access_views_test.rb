@@ -29,7 +29,8 @@ class AnonymousReadAccessViewsTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
 
-    @test_ip = "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
+    @test_ip = fresh_test_ip
+    self.remote_addr = @test_ip
   end
 
   def teardown
@@ -37,15 +38,6 @@ class AnonymousReadAccessViewsTest < ActionDispatch::IntegrationTest
     Tenant.reset_anon_readable_subdomains!
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
-  end
-
-  def process(method, path, **kwargs)
-    if @test_ip
-      env = (kwargs[:env] || {}).dup
-      env["REMOTE_ADDR"] ||= @test_ip
-      kwargs = kwargs.merge(env: env)
-    end
-    super
   end
 
   # ---- Anon sees "Log in to comment" CTA on commentable show pages ----

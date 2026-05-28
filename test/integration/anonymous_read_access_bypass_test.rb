@@ -23,20 +23,8 @@ class AnonymousReadAccessBypassTest < ActionDispatch::IntegrationTest
     set_up_private_tenant
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
-    # Per-test unique IP so the per-IP anon-read rate-limit counter in Redis
-    # is isolated per test and parallel workers don't collide.
-    @test_ip = "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
-  end
-
-  # Inject @test_ip as REMOTE_ADDR into every request so we don't have to
-  # remember on each get/post call.
-  def process(method, path, **kwargs)
-    if @test_ip
-      env = (kwargs[:env] || {}).dup
-      env["REMOTE_ADDR"] ||= @test_ip
-      kwargs = kwargs.merge(env: env)
-    end
-    super
+    @test_ip = fresh_test_ip
+    self.remote_addr = @test_ip
   end
 
   def teardown
