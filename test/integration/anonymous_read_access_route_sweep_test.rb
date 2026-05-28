@@ -175,7 +175,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     ] + HelpController::TOPICS.map { |t| "/help/#{t.tr("_", "-")}" }
 
     failures = urls.filter_map do |url|
-      get url, env: { "REMOTE_ADDR" => fresh_ip }
+      get url, env: { "REMOTE_ADDR" => fresh_test_ip }
       problems = []
       problems << "status=#{response.status} (expected 302)" unless response.status == 302
       problems << "location=#{response.location.inspect} (expected /login)" unless response.location&.match?(%r{/login})
@@ -225,7 +225,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
 
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
-    get note.path, env: { "REMOTE_ADDR" => fresh_ip }
+    get note.path, env: { "REMOTE_ADDR" => fresh_test_ip }
     assert_redirected_to %r{/login}
   end
 
@@ -239,7 +239,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
 
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
-    get "/n/#{secret_note.truncated_id}", env: { "REMOTE_ADDR" => fresh_ip }
+    get "/n/#{secret_note.truncated_id}", env: { "REMOTE_ADDR" => fresh_test_ip }
     # Should NOT find — the note belongs to a different tenant, tenant-scoped
     # default_scope filters it out.
     assert_includes [302, 404], response.status,
@@ -254,7 +254,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     # (no anon content is served for an unknown tenant).
     host! "no-such-subdomain.#{ENV.fetch("HOSTNAME", nil)}"
     begin
-      get "/help", env: { "REMOTE_ADDR" => fresh_ip }
+      get "/help", env: { "REMOTE_ADDR" => fresh_test_ip }
     rescue RuntimeError => e
       assert_match(/invalid subdomain/i, e.message)
       return
@@ -271,17 +271,13 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
     Tenant.reset_anon_readable_subdomains!
 
     host! "#{auth_sub}.#{ENV.fetch("HOSTNAME", nil)}"
-    get "/help", env: { "REMOTE_ADDR" => fresh_ip }
+    get "/help", env: { "REMOTE_ADDR" => fresh_test_ip }
     # Either redirected (auth subdomain redirects everything non-auth) or
     # 404 (no main collective). Must NOT be 200.
     assert response.status >= 300, "AUTH_SUBDOMAIN should not expose anon reads even when misconfigured into the env var (got #{response.status})"
   end
 
   private
-
-  def fresh_ip
-    "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
-  end
 
   # Iterate routes and classify each response. Returns [leaks, unexpected]:
   #   leaks      — 2xx responses for (controller, action) NOT in allowlist
@@ -316,7 +312,7 @@ class AnonymousReadAccessRouteSweepTest < ActionDispatch::IntegrationTest
       next if SKIPPED_PATH_PREFIXES.any? { |p| path.start_with?(p) }
 
       begin
-        get path, env: { "REMOTE_ADDR" => fresh_ip }
+        get path, env: { "REMOTE_ADDR" => fresh_test_ip }
       rescue ActionController::UrlGenerationError, ActionController::RoutingError
         next
       rescue StandardError

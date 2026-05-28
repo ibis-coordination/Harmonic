@@ -31,9 +31,8 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
 
-    # Per-test unique IP so the per-IP rate-limit counter in Redis can't
-    # collide across parallel workers (which all share Redis DB 15).
-    @test_ip = unique_ip
+    @test_ip = fresh_test_ip
+    self.remote_addr = @test_ip
   end
 
   def teardown
@@ -201,13 +200,4 @@ class AnonymousReadAccessControllersTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  private
-
-  def unique_ip
-    # 10.0.0.0/8 is private-use. Use SecureRandom (not rand) — Ruby's default
-    # Random shares state across forked test workers, so the first `rand` in
-    # each worker returns the same value, causing IP collisions and shared
-    # rate-limit counters in the test Redis DB.
-    "10.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(256)}.#{SecureRandom.random_number(254) + 1}"
-  end
 end
