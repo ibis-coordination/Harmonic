@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-05-29
+
+### Added
+
+- **Whole-card navigation in feed items** (#215) — clicking a Note / Decision / Commitment card navigates to its show page via a new `card-navigate` Stimulus controller. Matches native anchor behavior (modifier-key new-tab, keyboard Enter/Space, interactive children short-circuit, text selection preserved) with `role="link"` and `:focus-visible`. Redundant "View →" footer links removed.
+- **"Voted" status on open decision cards** (#215) — viewers who already voted see a disabled "Voted" branch, mirroring "Confirmed" on Notes. Voted-on decision IDs computed once per request to avoid N+1.
+- **"Show more" expansion on long feed cards** (#215) — note bodies render as full markdown inside a CSS line-clamp; a new `card-expand` controller reveals the toggle only when the body actually overflows.
+- **Reusable Stimulus utility controllers** for CSP-safe inline-handler replacements: `hide-on-error`, `remove-parent`, `confirm-submit`, `history-back`, `handle-availability`, `radio-toggle`. Inventory in `docs/ARCHITECTURE.md`.
+
+### Changed
+
+- **Turbo Drive now actually runs** (#215) — `@hotwired/turbo-rails` was in `package.json` / `Gemfile` but never imported, so Turbo never ran and `data-turbo-confirm` was a no-op. Importing it required bringing the codebase in line: five create actions return 422 on validation failure instead of 200; forms that can't fit Turbo's 303/422 contract (Stripe redirects, ActiveStorage downloads, render-different-template-after-success) opt out with `data: { turbo: false }`; page-load init JS listens for `turbo:load` instead of `DOMContentLoaded`. Hotwire section of `docs/ARCHITECTURE.md` rewritten.
+- **Delete-Token and Cancel-Task confirmation prompts now actually appear** — both carried `data: { confirm: ... }` (Rails-UJS legacy, never wired up here). Renamed to `data: { turbo_confirm: ... }`.
+- **Inline "Last sync N min ago" reveal-after-10-minutes removed** on `cycles/show` and `collectives/show` — the revealed text was server-rendered at page load, so it was a stale string by the time it appeared.
+
+### Security
+
+- **CSP `script-src 'self'` swept clean across views** — 16 inline event handlers (`onclick`, `onerror`, `onsubmit`, `href="javascript:..."`) replaced with the Stimulus utility controllers above. Final sweep returns zero matches.
+- **Decision vote tallies no longer leaked on the unvoted feed-card branch** (#215) — `FeedItemComponent` now mirrors the show page's blind-taste-test rule via a `show_decision_results?` gate. Also fixed a subtler leak: the unvoted branch sourced options from the `decision_results` DB view (ordered by `accepted_yes DESC`), so the order itself revealed the ranking. Switched to `options.order(:created_at)`.
+
+### Fixed
+
+- **Markdown in feed cards rendered as literal `<p>` etc.** (#215) — Rails' `truncate` escapes its input and doesn't honor `html_safe`, double-escaping the markdown HTML. Replaced with a full render inside the line-clamp wrapper.
+- **Titleless notes showed their first line of text twice** (#215) — `Note#title` falls back to the first line of body text when the persisted title is blank, so the previous `show_title?` check rendered both. Now gates on `persisted_title.present?`.
+
 ## [1.19.1] - 2026-05-28
 
 ### Added
