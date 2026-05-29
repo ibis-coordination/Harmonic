@@ -8,6 +8,7 @@
 <div class="<%= local_css_class || 'pulse-author-avatar' %>" style="<%= combined_style %>" title="<%= record_display %>">
   <span class="pulse-avatar-initials"><%= avatar_initials(record_display) %></span>
   <% if record_src.present? %>
-    <img src="<%= record_src %>" alt="<%= record_display %>" class="pulse-avatar-img" onerror="this.style.display='none';">
+    <img src="<%= record_src %>" alt="<%= record_display %>" class="pulse-avatar-img"
+         data-controller="hide-on-error" data-action="error->hide-on-error#hide">
   <% end %>
 </div>

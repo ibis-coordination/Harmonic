@@ -26,15 +26,10 @@
         ending in <strong><%= countdown(@cycle.end_date) %></strong>
       <% end %>
     </span>
-    <span id="last-sync-display" class="pulse-muted" style="display:none;">
+    <span class="pulse-muted">
       Last sync <%= timeago(Time.current) %>
       <a href="<%= @cycle.path_with_params %>" class="pulse-link"><%= octicon 'sync' %></a>
     </span>
-    <script>
-      setTimeout(function() {
-        document.getElementById('last-sync-display').style.display = 'inline';
-      }, 10 * 60 * 1000); // Show sync display after 10 minutes
-    </script>
   </div>
 
   <div class="pulse-resource-body">

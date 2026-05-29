@@ -1,3 +1,30 @@
+<%
+  # Cache the viewer's set of voted-on decision IDs once per request so
+  # `show_decision_results?` is O(1) instead of an EXISTS query per
+  # decision card. Computed on the first feed_item render of the request.
+  #
+  # ASSUMES a single feed (one @feed_items ivar) per request. All callers
+  # today (home/index, pulse/show, users/show) match. If a future page
+  # renders TWO feeds with different decision sets, this cache would miss
+  # votes for decisions only in the second set (failure mode is showing
+  # "Vote" instead of "Voted" — privacy-safe, but wrong UX). Switch to a
+  # per-feed key (or compute in the controller per feed) if that ships.
+  @viewer_voted_decision_ids ||= begin
+    if @current_user && defined?(@feed_items) && @feed_items
+      decision_ids = @feed_items.filter_map { |fi| fi[:item].id if fi[:type] == "Decision" }
+      if decision_ids.any?
+        Decision.where(id: decision_ids)
+          .joins(decision_participants: :votes)
+          .where(decision_participants: { user_id: @current_user.id })
+          .distinct.pluck(:id).to_set
+      else
+        Set.new
+      end
+    else
+      Set.new
+    end
+  end
+%>
 <% if feed_item[:type] == "Reminder" %>
   <%= render ReminderFeedItemComponent.new(
     note: feed_item[:item],
@@ -12,5 +39,6 @@
     current_user: @current_user,
     blocked_user_ids: blocked_user_ids,
     block_related_user_ids: block_related_user_ids,
+    voted_decision_ids: @viewer_voted_decision_ids,
   ) %>
 <% end %>

@@ -148,8 +148,9 @@ is_trustee = @grant.trustee_user == @target_user
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Manage</h2>
         <div class="pulse-action-row">
-          <%= form_tag "#{base_path}/actions/revoke_trustee_grant", method: :post, style: "display:inline;" do %>
-            <button type="submit" class="pulse-action-btn pulse-action-btn-danger" onclick="return confirm('Are you sure you want to revoke this trustee grant?')">
+          <%= form_tag "#{base_path}/actions/revoke_trustee_grant", method: :post, style: "display:inline;",
+                       data: { turbo_confirm: "Are you sure you want to revoke this trustee grant?" } do %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-danger">
               <%= octicon "x-circle" %> Revoke Trustee Grant
             </button>
           <% end %>

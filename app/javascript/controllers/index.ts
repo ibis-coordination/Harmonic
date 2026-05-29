@@ -11,6 +11,8 @@ application.debug = false
 window.Stimulus = application
 
 // Import all controllers
+import CardExpandController from "./card_expand_controller"
+import CardNavigateController from "./card_navigate_controller"
 import ClipboardController from "./clipboard_controller"
 import CodeBlockController from "./code_block_controller"
 import CollapsableSectionController from "./collapseable_section_controller"
@@ -26,7 +28,10 @@ import DecisionResultsController from "./decision_results_controller"
 import FormTrackerController from "./form_tracker_controller"
 import DecisionVotersController from "./decision_voters_controller"
 import HeaderSearchController from "./header_search_controller"
+import HandleAvailabilityController from "./handle_availability_controller"
 import HeartbeatController from "./heartbeat_controller"
+import HideOnErrorController from "./hide_on_error_controller"
+import HistoryBackController from "./history_back_controller"
 import HelloController from "./hello_controller"
 import ImageCropperController from "./image_cropper_controller"
 import LightboxController from "./lightbox_controller"
@@ -46,7 +51,9 @@ import OptionController from "./option_controller"
 import PinController from "./pin_controller"
 import PulseActionController from "./pulse_action_controller"
 import PulseFilterController from "./pulse_filter_controller"
+import RadioToggleController from "./radio_toggle_controller"
 import RecoveryCodesController from "./recovery_codes_controller"
+import RemoveParentController from "./remove_parent_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SecretRevealController from "./secret_reveal_controller"
 import AgentChatController from "./agent_chat_controller"
@@ -70,6 +77,8 @@ import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
 
 // Register all controllers
+application.register("card-expand", CardExpandController)
+application.register("card-navigate", CardNavigateController)
 application.register("clipboard", ClipboardController)
 application.register("code-block", CodeBlockController)
 application.register("csv-import", CsvImportController)
@@ -88,8 +97,11 @@ application.register("decision-results", DecisionResultsController)
 application.register("form-tracker", FormTrackerController)
 application.register("decision-voters", DecisionVotersController)
 application.register("header-search", HeaderSearchController)
+application.register("handle-availability", HandleAvailabilityController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
+application.register("hide-on-error", HideOnErrorController)
+application.register("history-back", HistoryBackController)
 application.register("image-cropper", ImageCropperController)
 application.register("lightbox", LightboxController)
 application.register("logout", LogoutController)
@@ -107,7 +119,9 @@ application.register("option", OptionController)
 application.register("pin", PinController)
 application.register("pulse-action", PulseActionController)
 application.register("pulse-filter", PulseFilterController)
+application.register("radio-toggle", RadioToggleController)
 application.register("recovery-codes", RecoveryCodesController)
+application.register("remove-parent", RemoveParentController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("secret-reveal", SecretRevealController)
 application.register("agent-chat", AgentChatController)

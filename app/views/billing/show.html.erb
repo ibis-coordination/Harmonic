@@ -26,7 +26,7 @@
     <% if @stripe_customer&.active? %>
       <%# === Active subscription === %>
       <section class="pulse-section" style="margin-bottom: 24px;">
-        <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path %></span></div>
+        <div class="pulse-notice pulse-notice-success"><span><%= octicon 'check-circle', height: 16 %> <strong>Active</strong> — <%= link_to "Manage payment", billing_portal_path, data: { turbo: false } %></span></div>
       </section>
 
       <section class="pulse-section" style="margin-bottom: 24px;">
@@ -74,9 +74,10 @@
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
                   <% if on_current_tenant %>
                     <td style="text-align: right;">
-                      <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
+                      <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline",
+                                   data: { turbo_confirm: "Reactivate #{agent.display_name}? This will add $3/mo to your subscription." } do %>
                         <%= hidden_field_tag :confirm_billing, "1" %>
-                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription.')">
+                        <button type="submit" class="pulse-action-btn-small">
                           Reactivate
                         </button>
                       <% end %>
@@ -93,9 +94,10 @@
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
                   <% if on_current_tenant %>
                     <td style="text-align: right;">
-                      <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
+                      <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline",
+                                   data: { turbo_confirm: "Reactivate #{collective.name}? This will add $3/mo to your subscription." } do %>
                         <%= hidden_field_tag :confirm_billing, "1" %>
-                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j collective.name %>? This will add $3/mo to your subscription.')">
+                        <button type="submit" class="pulse-action-btn-small">
                           Reactivate
                         </button>
                       <% end %>
@@ -127,7 +129,9 @@
           <% end %>
         </div>
 
-        <%= form_tag billing_topup_path, method: :post, style: "display: flex; align-items: center; gap: 8px;" do %>
+        <%# Opt out of Turbo: server redirects to Stripe Checkout (cross-origin),
+            which Turbo cannot follow under our CSP connect-src. Full-page nav. %>
+        <%= form_tag billing_topup_path, method: :post, style: "display: flex; align-items: center; gap: 8px;", data: { turbo: false } do %>
           <label for="topup_amount" class="pulse-muted" style="white-space: nowrap;">Add funds:</label>
           <select name="amount_cents" id="topup_amount" class="pulse-input" style="width: auto;">
             <option value="500">$5.00</option>
@@ -173,7 +177,8 @@
           You'll confirm the exact amount on the next page before being charged. You can cancel or deactivate resources at any time.
         </p>
 
-        <%= form_tag billing_setup_path, method: :post do %>
+        <%# Opt out of Turbo: server redirects to Stripe Checkout (cross-origin). %>
+        <%= form_tag billing_setup_path, method: :post, data: { turbo: false } do %>
           <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
             <%= octicon 'credit-card', height: 14 %>
             Set Up Billing

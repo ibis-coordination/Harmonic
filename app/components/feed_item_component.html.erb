@@ -1,5 +1,13 @@
 <% unless block_exists_with_author? %>
-<article class="pulse-feed-item<%= " pulse-feed-item-#{item_status}" if item_status %>" data-pulse-filter-target="feedItem" data-item-type="<%= @type %>">
+<article class="pulse-feed-item<%= " pulse-feed-item-#{item_status}" if item_status %>"
+         data-pulse-filter-target="feedItem"
+         data-item-type="<%= @type %>"
+         data-controller="card-navigate"
+         data-card-navigate-url-value="<%= @item.path %>"
+         data-action="click->card-navigate#navigate auxclick->card-navigate#navigate keydown->card-navigate#keydown"
+         role="link"
+         tabindex="0"
+         aria-label="<%= "View #{display_type.downcase}: #{item_title.to_s.strip.presence || '(untitled)'}" %>">
   <div class="pulse-feed-item-header">
     <div class="pulse-feed-item-type">
       <% if is_comment? %>
@@ -38,8 +46,17 @@
       </div>
     <% end %>
     <% if item_content.present? %>
-      <div class="pulse-feed-item-content<%= ' pulse-feed-item-content-clickable' unless show_title? %>"<% unless show_title? %> onclick="if (event.target.tagName !== 'A') window.location.href='<%= @item.path %>'"<% end %>>
-        <%= helpers.truncate(helpers.sanitize(helpers.markdown(item_content), tags: %w[a strong em]), length: 200) %>
+      <div class="pulse-feed-item-content markdown-body" data-controller="card-expand">
+        <div data-card-expand-target="body" class="pulse-feed-item-content-clamped">
+          <%= helpers.markdown(item_content) %>
+        </div>
+        <button type="button"
+                class="pulse-feed-item-content-toggle"
+                data-card-expand-target="toggle"
+                data-action="click->card-expand#toggle"
+                data-no-navigate
+                aria-expanded="false"
+                hidden>Show more</button>
       </div>
     <% end %>
 
@@ -50,29 +67,41 @@
         <%= render 'shared/note_media_feed_strip', note: @item %>
       <% end %>
     <% when 'Decision' %>
-      <% if T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
-        <% options = T.unsafe(@item).options.order(:created_at).first(5) %>
-        <% if options.any? %>
-          <div class="pulse-decision-options">
-            <% options.each do |option| %>
-              <div class="pulse-decision-option">
-                <span><%= option.title %></span>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
-      <% else %>
-        <% results = T.unsafe(@item).results %>
-        <% if results.any? %>
-          <div class="pulse-decision-options">
-            <% results.first(5).each_with_index do |result, index| %>
-              <div class="pulse-decision-option<%= ' pulse-decision-option-winner' if index == 0 && @item.closed? %>">
-                <span><%= result.option_title %></span>
+      <%
+        # Three render modes for the options/results strip:
+        #   - Executive / lottery: option titles only, sourced from `options`
+        #     (results aren't computed the same way for these subtypes).
+        #   - Vote decision + show_decision_results?: option titles + tallies,
+        #     sourced from `results` (ordered by accepted_yes DESC — the
+        #     ranking the viewer is allowed to see).
+        #   - Vote decision + !show_decision_results?: option titles only,
+        #     sourced from `options.order(:created_at)`. CRITICAL: must NOT
+        #     use `results`, because the decision_results view orders by
+        #     accepted_yes DESC and the ranking itself leaks the standing
+        #     to viewers who haven't voted yet (blind-taste-test bypass).
+        if T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery?
+          decision_titles = T.unsafe(@item).options.order(:created_at).first(5).map(&:title)
+          decision_results_with_counts = nil
+        elsif show_decision_results?
+          decision_results_with_counts = T.unsafe(@item).results.first(5)
+          decision_titles = decision_results_with_counts.map(&:option_title)
+        else
+          decision_titles = T.unsafe(@item).options.order(:created_at).first(5).map(&:title)
+          decision_results_with_counts = nil
+        end
+      %>
+      <% if decision_titles.any? %>
+        <div class="pulse-decision-options">
+          <% decision_titles.each_with_index do |title, index| %>
+            <% result = decision_results_with_counts && decision_results_with_counts[index] %>
+            <div class="pulse-decision-option<%= ' pulse-decision-option-winner' if result && index == 0 && @item.closed? %>">
+              <span><%= title %></span>
+              <% if result %>
                 <span class="pulse-option-votes"><%= result.accepted_yes %> accept &middot; <%= result.preferred %> prefer</span>
-              </div>
-            <% end %>
-          </div>
-        <% end %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
       <% end %>
     <% when 'Commitment' %>
       <% if is_calendar_event_commitment? %>
@@ -145,7 +174,6 @@
           <span><%= read_count %> confirmed</span>
         </div>
       <% end %>
-      <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
     <% when 'Decision' %>
       <% if @item.closed? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check-circle' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
@@ -153,10 +181,11 @@
         <a href="/login" data-redirect-to-resource="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'sign-in' %> Log in to vote</a>
       <% elsif T.unsafe(@item).is_executive? || T.unsafe(@item).is_lottery? %>
         <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> View</a>
+      <% elsif user_has_voted? %>
+        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'check-circle' %> Voted</button>
       <% else %>
         <a href="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'check-circle' %> Vote</a>
       <% end %>
-      <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
     <% when 'Commitment' %>
       <% if @item.closed? %>
         <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'person' %> Closed <%= helpers.time_ago_in_words(T.unsafe(@item).deadline) %> ago</button>
@@ -169,7 +198,6 @@
           <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon join_action_icon %> <%= join_action_label %></button>
         </div>
       <% end %>
-      <a href="<%= @item.path %>" class="pulse-feed-action-link">View →</a>
     <% end %>
   </div>
 </article>

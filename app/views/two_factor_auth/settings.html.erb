@@ -42,7 +42,9 @@
       <p style="color: var(--color-fg-muted); font-size: 0.875rem; margin-bottom: 12px;">
         This will invalidate your current recovery codes and generate new ones.
       </p>
-      <%= form_with url: two_factor_regenerate_codes_path, method: :post, class: "pulse-auth-form" do |form| %>
+      <%# Opt out of Turbo: success renders :show_recovery_codes (200 + non-form
+          HTML), same reason as the setup-confirm form. %>
+      <%= form_with url: two_factor_regenerate_codes_path, method: :post, class: "pulse-auth-form", data: { turbo: false } do |form| %>
         <%= form.text_field :code,
             placeholder: 'Enter current 6-digit code',
             class: 'pulse-form-input',

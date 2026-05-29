@@ -72,7 +72,9 @@
 
     <div class="pulse-form-actions">
       <button type="submit" class="pulse-btn pulse-btn-primary">Submit Report</button>
-      <a href="javascript:history.back()" class="pulse-btn">Cancel</a>
+      <a href="<%= @reportable&.path || '/' %>" class="pulse-btn"
+         data-controller="history-back"
+         data-action="click->history-back#back">Cancel</a>
     </div>
   <% end %>
 </div>

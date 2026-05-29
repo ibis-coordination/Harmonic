@@ -1,4 +1,8 @@
-document.addEventListener("DOMContentLoaded", function () {
+// `turbo:load` fires on initial page load AND on every Turbo navigation, so
+// the init runs every time the form is rendered (whether reached via a full
+// page load or a Turbo nav from elsewhere). The early-return guard below
+// handles the case where the elements don't exist on the current page.
+document.addEventListener("turbo:load", function () {
   const passwordField = document.getElementById("password-field") as HTMLInputElement | null
   const passwordConfirmationField = document.getElementById("password-confirmation-field") as HTMLInputElement | null
   const passwordFeedback = document.getElementById("password-feedback")

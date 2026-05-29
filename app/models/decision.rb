@@ -123,6 +123,11 @@ class Decision < ApplicationRecord
     decision_participants
   end
 
+  sig { params(user: User).returns(T::Boolean) }
+  def user_has_voted?(user)
+    decision_participants.where(user: user).joins(:votes).exists?
+  end
+
   sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
   def can_add_options?(participant)
     return false if participant.nil?

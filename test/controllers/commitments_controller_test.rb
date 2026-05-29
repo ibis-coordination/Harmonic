@@ -317,7 +317,8 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
       deadline_option: "no_deadline",
     }
 
-    assert_response :success # render :new returns 200, not redirect
+    # render :new returns 422 (Turbo-compatible form-error status), not redirect
+    assert_response :unprocessable_entity
     assert_match(/There was an error creating the commitment/, flash.now[:alert] || response.body)
     # Calendar Event button should still be the active one
     assert_select "button.pulse-action-btn[data-commitment-subtype-target='calendarEventBtn']"

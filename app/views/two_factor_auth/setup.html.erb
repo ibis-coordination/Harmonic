@@ -36,7 +36,10 @@
     Enter the 6-digit code from your authenticator app to confirm setup.
   </p>
 
-  <%= form_with url: two_factor_confirm_path, method: :post, class: "pulse-auth-form" do |form| %>
+  <%# Opt out of Turbo: success renders :show_recovery_codes (200 + non-form
+      HTML), which Turbo refuses for form submits. A full page load is fine
+      for this once-per-account flow. %>
+  <%= form_with url: two_factor_confirm_path, method: :post, class: "pulse-auth-form", data: { turbo: false } do |form| %>
     <%= form.text_field :code,
         placeholder: 'Enter 6-digit code',
         class: 'pulse-form-input',

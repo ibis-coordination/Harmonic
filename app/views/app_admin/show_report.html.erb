@@ -140,8 +140,9 @@
   <div class="pulse-card" style="margin-top: 1rem;">
     <h3>Actions on Reported Content</h3>
     <p>
-      <%= form_tag "/app-admin/reports/#{@content_report.id}/delete-content", method: :post, style: "display:inline;" do %>
-        <button type="submit" class="pulse-btn pulse-btn-danger" onclick="return confirm('Are you sure you want to delete this content? This will scrub the text and cannot be undone.')">
+      <%= form_tag "/app-admin/reports/#{@content_report.id}/delete-content", method: :post, style: "display:inline;",
+                   data: { turbo_confirm: "Are you sure you want to delete this content? This will scrub the text and cannot be undone." } do %>
+        <button type="submit" class="pulse-btn pulse-btn-danger">
           <%= octicon 'trash', height: 14 %>
           Delete this content
         </button>

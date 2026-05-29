@@ -11,10 +11,12 @@ class FeedItemComponent < ViewComponent::Base
       created_at: ActiveSupport::TimeWithZone,
       current_user: T.nilable(User),
       blocked_user_ids: T::Set[String],
-      block_related_user_ids: T::Set[String]
+      block_related_user_ids: T::Set[String],
+      voted_decision_ids: T.nilable(T::Set[String])
     ).void
   end
-  def initialize(item:, type:, created_by:, created_at:, current_user: nil, blocked_user_ids: Set.new, block_related_user_ids: Set.new)
+  def initialize(item:, type:, created_by:, created_at:, current_user: nil, blocked_user_ids: Set.new, block_related_user_ids: Set.new,
+                 voted_decision_ids: nil)
     super()
     @item = item
     @type = type
@@ -23,6 +25,11 @@ class FeedItemComponent < ViewComponent::Base
     @current_user = current_user
     @blocked_user_ids = blocked_user_ids
     @block_related_user_ids = block_related_user_ids
+    # When the parent feed view passes a precomputed set of decision IDs the
+    # viewer has voted on, skip the per-card EXISTS query in
+    # show_decision_results?. Falls back to the Decision#user_has_voted?
+    # query when nil (component used in isolation or in older callers).
+    @voted_decision_ids = voted_decision_ids
   end
 
   private
@@ -97,6 +104,35 @@ class FeedItemComponent < ViewComponent::Base
     @item.closed? ? "closed" : "open"
   end
 
+  # True when the current viewer has voted on this Decision card. Used by
+  # both `show_decision_results?` (gate the tally display) and the footer
+  # branch that renders the disabled "Voted" button. Prefers the
+  # precomputed `voted_decision_ids` set passed from the parent feed view
+  # (eliminates the per-card EXISTS query); falls back to the model method
+  # for callers using the component in isolation.
+  sig { returns(T::Boolean) }
+  def user_has_voted?
+    return false unless @type == "Decision" && @item.is_a?(Decision) && @current_user
+
+    if @voted_decision_ids
+      @voted_decision_ids.include?(@item.id)
+    else
+      @item.user_has_voted?(@current_user)
+    end
+  end
+
+  # Vote tallies are a blind-taste-test data leak when shown to users who
+  # haven't voted yet — same rule the show page enforces via
+  # @show_results = closed? || current_user_has_voted
+  # (decisions_controller.rb:109). Executive and lottery decisions never
+  # show tallies in the card (different branch in the template).
+  sig { returns(T::Boolean) }
+  def show_decision_results?
+    return false unless @type == "Decision" && @item.is_a?(Decision)
+
+    @item.closed? || user_has_voted?
+  end
+
   sig { returns(T.nilable(String)) }
   def item_title
     case @type
@@ -115,11 +151,13 @@ class FeedItemComponent < ViewComponent::Base
 
   sig { returns(T::Boolean) }
   def show_title?
-    if @type == "Note"
-      @item.title.to_s.strip != T.cast(@item, Note).text.to_s.strip
-    else
-      true
-    end
+    # Note#title falls back to the first line of text when persisted_title is
+    # blank — without this gate, a titleless multi-line note would render its
+    # first line as the title AND the full text as the body, duplicating the
+    # first line. Only render the title row when the user actually typed one.
+    return T.cast(@item, Note).persisted_title.present? if @type == "Note"
+
+    true
   end
 
   sig { returns(T::Boolean) }

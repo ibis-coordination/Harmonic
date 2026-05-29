@@ -89,7 +89,7 @@ class CommitmentsController < ApplicationController
     @sidebar_mode = "resource"
     @team = @current_collective.team
     flash.now[:alert] = "There was an error creating the commitment. Please try again."
-    render :new
+    render :new, status: :unprocessable_entity
   end
 
   def report
