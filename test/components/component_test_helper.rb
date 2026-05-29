@@ -4,6 +4,10 @@
 # Uses real AR classes (satisfying Sorbet runtime type checks) with
 # delegated methods overridden via define_singleton_method.
 module ComponentTestHelper
+  # Minimal option stub for build_decision — used to satisfy the unvoted
+  # branch of FeedItemComponent, which reads `options.order(:created_at)`
+  # instead of `results` (avoids leaking the results-ranked option order).
+  OptionTitleStub = Struct.new(:title)
   # Build a User instance with display_name, handle, path, and image_url
   # accessible without a TenantUser record.
   def build_user(display_name: "Test User", handle: "testuser", path: nil, image_url: nil, user_type: "human", parent: nil)
@@ -50,6 +54,14 @@ module ComponentTestHelper
     decision.define_singleton_method(:results) { results }
     decision.define_singleton_method(:created_via_representation?) { false }
     decision.define_singleton_method(:representative_user) { nil }
+    # Synthesize an `options` relation-stub from the same titles passed via
+    # `results:`. The unvoted-on-open branch of FeedItemComponent reads
+    # `options.order(:created_at)` (NOT `results`) to avoid leaking the
+    # results-ranked order, so it needs an options stub too.
+    options_stub = results.map { |r| OptionTitleStub.new(r.option_title) }
+    options_relation = Object.new
+    options_relation.define_singleton_method(:order) { |*_| options_stub }
+    decision.define_singleton_method(:options) { options_relation }
     decision
   end
 

@@ -57,6 +57,22 @@
   border: 1px solid var(--color-border-default);
   margin-bottom: 16px;
   background: var(--color-canvas-default);
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+/* Hint that the whole card is clickable (the card-navigate Stimulus
+   controller handles the click, with INTERACTIVE_TAGS short-circuiting on
+   anchors/buttons/etc.). */
+.pulse-feed-item:hover {
+  border-color: var(--color-fg-default);
+}
+
+/* Keyboard focus indicator for the article (tabindex="0" + role="link"),
+   so the card-navigate keyboard path (Enter/Space) is discoverable. */
+.pulse-feed-item:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
 }
 
 /* Feed Item Header */
@@ -130,8 +146,35 @@
   color: var(--color-fg-default);
 }
 
-.pulse-feed-item-content-clickable {
+/* CSS line-clamp on the rendered markdown body. JS (card_expand_controller)
+   un-hides the Show more button only when scrollHeight > clientHeight, so
+   short notes don't get a useless toggle. */
+.pulse-feed-item-content-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  line-clamp: 6;
+  overflow: hidden;
+}
+
+.pulse-feed-item-content-toggle {
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--color-accent-fg);
+  font-size: 13px;
   cursor: pointer;
+}
+
+.pulse-feed-item-content-toggle:hover {
+  color: var(--color-accent-emphasis);
+  text-decoration: underline;
+}
+
+.pulse-feed-item-content-toggle:focus-visible {
+  outline: 2px solid var(--color-accent-fg);
+  outline-offset: 2px;
 }
 
 .pulse-feed-item-content a {
@@ -271,24 +314,6 @@
 
 .pulse-feed-action-btn-link:hover {
   background: var(--color-canvas-default);
-  color: var(--color-fg-default);
-  text-decoration: none;
-}
-
-/* Secondary link actions */
-.pulse-feed-action-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  text-decoration: none;
-  color: var(--color-fg-muted);
-  font-size: 13px;
-}
-
-.pulse-feed-action-link:hover {
   color: var(--color-fg-default);
   text-decoration: none;
 }

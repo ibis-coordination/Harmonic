@@ -575,11 +575,6 @@ a:hover {
   color: var(--color-fg-default);
 }
 
-/* Note content that is clickable (when no separate title) */
-.pulse-feed-item-content-clickable {
-  cursor: pointer;
-}
-
 /* Links within note content should look like links */
 .pulse-feed-item-content a {
   color: var(--color-accent-fg);
@@ -717,24 +712,6 @@ a:hover {
 
 .pulse-feed-action-btn-link:hover {
   background: var(--color-canvas-default);
-  color: var(--color-fg-default);
-  text-decoration: none;
-}
-
-/* Secondary link actions */
-.pulse-feed-action-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  text-decoration: none;
-  color: var(--color-fg-muted);
-  font-size: 13px;
-}
-
-.pulse-feed-action-link:hover {
   color: var(--color-fg-default);
   text-decoration: none;
 }
