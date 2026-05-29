@@ -964,11 +964,19 @@ class StripeServiceTest < ActiveSupport::TestCase
   test "sync_subscription_quantity! excludes exempt collectives from count" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_collexempt", active: true, stripe_subscription_id: "sub_collexempt")
 
-    # Two paid collectives (humans free, exempt collective excluded) → quantity 2
+    # Two paid-tier collectives (humans free, exempt collective excluded) → quantity 2
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     paid_collective_a = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll A", handle: "paid-coll-a-#{SecureRandom.hex(4)}")
     paid_collective_b = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll B", handle: "paid-coll-b-#{SecureRandom.hex(4)}")
+    # Make them paid_tier with an enabled automation rule.
+    [paid_collective_a, paid_collective_b].each do |c|
+      AutomationRule.create!(
+        tenant: @tenant, collective: c, created_by: @user,
+        name: "Bill rule", trigger_type: "manual", trigger_config: { "inputs" => {} },
+        conditions: [], actions: {}, enabled: true
+      )
+    end
     exempt_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Exempt Coll", handle: "exempt-coll-#{SecureRandom.hex(4)}", billing_exempt: true)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope

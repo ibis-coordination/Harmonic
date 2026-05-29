@@ -31,8 +31,9 @@ class Collective < ApplicationRecord
   scope :private_workspaces, -> { where(collective_type: "private_workspace") }
   scope :chat, -> { where(collective_type: "chat") }
   scope :listable, -> { where(collective_type: "standard") }
+  scope :billable_types, -> { where(collective_type: ["standard", "private_workspace"]) }
 
-  VALID_COLLECTIVE_TYPES = %w[standard private_workspace chat].freeze
+  VALID_COLLECTIVE_TYPES = ["standard", "private_workspace", "chat"].freeze
 
   validates :collective_type, inclusion: { in: VALID_COLLECTIVE_TYPES }
   validate :handle_is_valid
@@ -115,11 +116,12 @@ class Collective < ApplicationRecord
       "any_member_can_represent" => false,
       "tempo" => "weekly",
       "synchronization_mode" => "improv",
-      "allow_file_uploads" => true,
+      "allow_file_uploads" => false,
       "file_upload_limit" => 100.megabytes,
       "pinned" => {},
       "feature_flags" => {
         "api" => false,
+        "file_attachments" => false,
       },
     }.merge(
       T.must(tenant).default_collective_settings
@@ -129,20 +131,20 @@ class Collective < ApplicationRecord
 
     # Private workspaces enforce specific settings regardless of defaults
     if private_workspace?
-      self.settings["unlisted"] = true
-      self.settings["invite_only"] = true
-      self.settings["all_members_can_invite"] = false
-      self.settings["any_member_can_represent"] = false
-      self.settings["tempo"] = "weekly"
+      settings["unlisted"] = true
+      settings["invite_only"] = true
+      settings["all_members_can_invite"] = false
+      settings["any_member_can_represent"] = false
+      settings["tempo"] = "weekly"
     end
 
     # Chat collectives are hidden and locked down
-    if chat?
-      self.settings["unlisted"] = true
-      self.settings["invite_only"] = true
-      self.settings["all_members_can_invite"] = false
-      self.settings["any_member_can_represent"] = false
-    end
+    return unless chat?
+
+    settings["unlisted"] = true
+    settings["invite_only"] = true
+    settings["all_members_can_invite"] = false
+    settings["any_member_can_represent"] = false
   end
 
   sig { returns(T::Boolean) }
@@ -188,6 +190,88 @@ class Collective < ApplicationRecord
   sig { returns(T::Boolean) }
   def archived?
     archived_at.present?
+  end
+
+  # === Free/paid tier predicates ===
+
+  # State of the collective: is it on the paid plan ($3/mo)?
+  # Type-agnostic — applies equally to standard and private_workspace collectives.
+  # Billing scope (which paid collectives actually count) is enforced separately
+  # by Collective.billable_types in the count query.
+  sig { returns(T::Boolean) }
+  def paid_tier?
+    return false if is_main_collective?
+    return false if archived?
+    return false if billing_exempt?
+
+    automation_rules.enabled.exists? || trio_enabled? || file_attachments_enabled?
+  end
+
+  sig { returns(T::Boolean) }
+  def free_tier?
+    !paid_tier?
+  end
+
+  # True when the collective's owner has billing covered for paid features:
+  # no billing required (feature disabled at tenant), platform-exempt admin,
+  # or an active Stripe customer. This is what the controller gate checks
+  # before allowing an action that would transition the collective into
+  # paid_tier — `requires_stripe_billing?` can't be used at the gate because
+  # at that moment paid_tier? still reads its pre-change state.
+  #
+  # Assumes `created_by` is a human user. If we ever allow AI agents to
+  # create collectives, they'd need a billing path here (likely deferring
+  # to a human parent or being explicitly billing_exempt at the collective
+  # level).
+  sig { returns(T::Boolean) }
+  def owner_billing_setup?
+    return true unless T.must(tenant).feature_enabled?("stripe_billing")
+
+    owner = T.must(created_by)
+    return true if owner.sys_admin? || owner.app_admin?
+
+    owner.stripe_customer&.active? || false
+  end
+
+  # True when the collective is on the paid tier AND the owner hasn't
+  # set up billing. Used for app-level redirects and `/billing` inventory.
+  sig { returns(T::Boolean) }
+  def requires_stripe_billing?
+    paid_tier? && !owner_billing_setup?
+  end
+
+  # Hypothetical paid_tier? state after a pending action. Each caller passes
+  # only what it's changing; defaults read from the current DB state. Used
+  # by the controller gate to detect free→paid transitions before save.
+  #
+  # Override values for trio/file_attachments are AND'd with the tenant
+  # cascade — setting a flag locally has no billing effect if the tenant
+  # doesn't enable it (post-save trio_enabled? / file_attachments_enabled?
+  # would still return false via the cascade). Default (nil) reads from
+  # existing predicates which already respect cascade.
+  sig do
+    params(
+      has_enabled_automation_after: T.nilable(T::Boolean),
+      trio_after: T.nilable(T::Boolean),
+      file_attachments_after: T.nilable(T::Boolean)
+    ).returns(T::Boolean)
+  end
+  def would_be_paid_tier?(has_enabled_automation_after: nil, trio_after: nil, file_attachments_after: nil)
+    return false if is_main_collective?
+    return false if archived?
+    return false if billing_exempt?
+
+    t = T.must(tenant)
+    automation = has_enabled_automation_after.nil? ? automation_rules.enabled.exists? : has_enabled_automation_after
+    # Match the cascade used by Collective#trio_enabled? and
+    # Collective#file_attachments_enabled?: FeatureFlagService.tenant_enabled? for
+    # both (NOT Tenant#trio_enabled? / Tenant#file_attachments_enabled?, which apply
+    # additional legacy fallbacks at the tenant level that the collective cascade
+    # doesn't consult — an existing inconsistency in the codebase we're preserving).
+    trio = trio_after.nil? ? trio_enabled? : (trio_after && FeatureFlagService.tenant_enabled?(t, "trio"))
+    files = file_attachments_after.nil? ? file_attachments_enabled? : (file_attachments_after && FeatureFlagService.tenant_enabled?(t, "file_attachments"))
+
+    automation || trio || files
   end
 
   sig { void }
@@ -400,7 +484,7 @@ class Collective < ApplicationRecord
     end
   end
 
-  RESERVED_HANDLES = %w[main].freeze
+  RESERVED_HANDLES = ["main"].freeze
 
   sig { void }
   def handle_is_valid
@@ -501,9 +585,7 @@ class Collective < ApplicationRecord
   def add_user!(user, roles: [])
     # Workspaces are private to their owner — but the trio system agent is
     # added by the owner opt-in flow (TrioSeeder), not as a normal member.
-    if private_workspace? && user != created_by && !user.system?
-      raise "Cannot add other users to a private workspace"
-    end
+    raise "Cannot add other users to a private workspace" if private_workspace? && user != created_by && !user.system?
 
     if chat? && collective_members.where(archived_at: nil).count >= 2 && !collective_members.exists?(user: user)
       raise "Chat collectives are limited to two members"
@@ -541,9 +623,7 @@ class Collective < ApplicationRecord
     return true if user_is_member?(user)
 
     # Collective identity user accessing their own collective
-    if user.collective_identity? && user.identity_collective.present?
-      return user.identity_collective == self
-    end
+    return user.identity_collective == self if user.collective_identity? && user.identity_collective.present?
 
     false
   end

@@ -676,21 +676,51 @@ class User < ApplicationRecord
       .count
   end
 
-  # Count active (not archived, not exempt) collectives created by this user on billing-enabled tenants,
-  # excluding main collectives.
+  # Count paid-tier (active, non-archived, non-exempt, ≥1 paid feature enabled)
+  # collectives created by this user on billing-enabled tenants, excluding main
+  # collectives. Uses Collective.billable_types so standard + private_workspace
+  # collectives are counted; chat collectives are excluded.
+  #
+  # Called on every authenticated request through the application-level billing
+  # gate, so kept to O(1) queries regardless of collective count:
+  #   1. Tenant.where(...).pluck(:main_collective_id)
+  #   2. Candidate collectives (with tenants eager-loaded)
+  #   3. AutomationRule.where(...).pluck(:collective_id)
+  # The paid_tier? logic is inlined here (rather than calling paid_tier? per
+  # collective) to use the batched automation_rule check. Keep the predicate
+  # set in sync with Collective#paid_tier?.
   sig { params(tenant_ids: T::Array[String]).returns(Integer) }
   def active_billable_collective_count(tenant_ids = billing_tenant_ids)
     return 0 if tenant_ids.empty?
 
     main_collective_ids = Tenant.where(id: tenant_ids).pluck(:main_collective_id).compact
 
-    scope = Collective.for_user_across_tenants(self).listable.where(
+    scope = Collective.for_user_across_tenants(self).billable_types.where(
       tenant_id: tenant_ids,
       archived_at: nil,
       billing_exempt: false,
     )
     scope = scope.where.not(id: main_collective_ids) if main_collective_ids.any?
-    scope.count
+
+    candidates = scope.includes(:tenant).to_a
+    return 0 if candidates.empty?
+
+    # Fetch enabled-automation collective_ids per tenant. We can't use the
+    # default AutomationRule query because in a request context Tenant.current_id
+    # and Collective.current_id are set, and the default_scope would restrict
+    # to a single tenant/collective. tenant_scoped_only(tid) bypasses that
+    # while still requiring an explicit tenant_id (safe wrapper for unscoped).
+    collectives_with_enabled_automation = candidates.group_by(&:tenant_id).flat_map do |tid, group|
+      AutomationRule.tenant_scoped_only(tid).where(
+        collective_id: group.map(&:id), enabled: true
+      ).distinct.pluck(:collective_id)
+    end.to_set
+
+    candidates.count do |c|
+      collectives_with_enabled_automation.include?(c.id) ||
+        c.trio_enabled? ||
+        c.file_attachments_enabled?
+    end
   end
 
   private

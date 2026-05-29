@@ -178,33 +178,33 @@ class CollectiveTest < ActiveSupport::TestCase
     # byte_size rows for this sum, not actual files.
     now = Time.current
     Attachment.insert!({
-      id: SecureRandom.uuid,
-      tenant_id: tenant.id,
-      collective_id: collective.id,
-      attachable_type: "Note",
-      attachable_id: note.id,
-      name: "a.txt",
-      content_type: "text/plain",
-      byte_size: 1_000,
-      created_by_id: user.id,
-      updated_by_id: user.id,
-      created_at: now,
-      updated_at: now,
-    })
+                         id: SecureRandom.uuid,
+                         tenant_id: tenant.id,
+                         collective_id: collective.id,
+                         attachable_type: "Note",
+                         attachable_id: note.id,
+                         name: "a.txt",
+                         content_type: "text/plain",
+                         byte_size: 1_000,
+                         created_by_id: user.id,
+                         updated_by_id: user.id,
+                         created_at: now,
+                         updated_at: now,
+                       })
     MediaItem.insert!({
-      id: SecureRandom.uuid,
-      tenant_id: tenant.id,
-      collective_id: collective.id,
-      mediable_type: "Note",
-      mediable_id: note.id,
-      content_type: "image/png",
-      byte_size: 2_500,
-      display_order: 0,
-      created_by_id: user.id,
-      updated_by_id: user.id,
-      created_at: now,
-      updated_at: now,
-    })
+                        id: SecureRandom.uuid,
+                        tenant_id: tenant.id,
+                        collective_id: collective.id,
+                        mediable_type: "Note",
+                        mediable_id: note.id,
+                        content_type: "image/png",
+                        byte_size: 2_500,
+                        display_order: 0,
+                        created_by_id: user.id,
+                        updated_by_id: user.id,
+                        created_at: now,
+                        updated_at: now,
+                      })
 
     assert_equal 3_500, collective.file_storage_usage
   ensure
@@ -560,7 +560,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Test Rule",
       trigger_type: "webhook",
       actions: { "type" => "webhook", "url" => "https://example.com/hook" },
-      enabled: true,
+      enabled: true
     )
 
     collective.archive!
@@ -591,7 +591,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Test Rule",
       trigger_type: "webhook",
       actions: { "type" => "webhook", "url" => "https://example.com/hook" },
-      enabled: true,
+      enabled: true
     )
 
     collective.archive!
@@ -625,7 +625,7 @@ class CollectiveTest < ActiveSupport::TestCase
       tenant: tenant,
       created_by: user,
       name: "Standard Collective",
-      handle: "standard-#{SecureRandom.hex(4)}",
+      handle: "standard-#{SecureRandom.hex(4)}"
     )
     assert_not collective.private_workspace?
   end
@@ -645,7 +645,7 @@ class CollectiveTest < ActiveSupport::TestCase
       tenant: tenant,
       created_by: user,
       name: "Identity Test",
-      handle: "identity-test-#{SecureRandom.hex(4)}",
+      handle: "identity-test-#{SecureRandom.hex(4)}"
     )
     assert collective.identity_user.present?
     assert_equal "collective_identity", collective.identity_user.user_type
@@ -662,12 +662,13 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not workspace.settings["any_member_can_represent"]
   end
 
-  test "private workspace is billing_exempt" do
+  test "private workspace is not billing_exempt by default (bills like a collective)" do
     tenant = create_tenant(subdomain: "pw-billing-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
     workspace = user.private_workspace
-    assert workspace.billing_exempt?
+    assert_not workspace.billing_exempt?,
+               "workspaces now use the free/paid tier model — billable when paid features are enabled"
   end
 
   test "collective_type must be a valid type" do
@@ -682,7 +683,7 @@ class CollectiveTest < ActiveSupport::TestCase
         created_by: user,
         name: "Bad Type",
         handle: "bad-#{SecureRandom.hex(4)}",
-        collective_type: "nonsense",
+        collective_type: "nonsense"
       )
     end
   end
@@ -710,7 +711,7 @@ class CollectiveTest < ActiveSupport::TestCase
       tenant: tenant,
       created_by: user,
       name: "Visible Collective",
-      handle: "visible-#{SecureRandom.hex(4)}",
+      handle: "visible-#{SecureRandom.hex(4)}"
     )
 
     all = Collective.where(tenant_id: tenant.id)
@@ -733,12 +734,12 @@ class CollectiveTest < ActiveSupport::TestCase
       created_by: user,
       name: "Standard",
       handle: "std-#{SecureRandom.hex(4)}",
-      collective_type: "standard",
+      collective_type: "standard"
     )
     assert standard.listable?
 
     workspace = user.private_workspace
-    refute workspace.listable?
+    assert_not workspace.listable?
   end
 
   test "find_or_create_shareable_invite raises for private workspaces" do
@@ -797,11 +798,11 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
     assert chat_collective.chat?
-    refute chat_collective.listable?
-    refute chat_collective.private_workspace?
+    assert_not chat_collective.listable?
+    assert_not chat_collective.private_workspace?
   end
 
   test "chat collective does not create identity user" do
@@ -816,7 +817,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
     assert_nil chat_collective.identity_user
   end
@@ -833,7 +834,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
 
     all = Collective.where(tenant_id: tenant.id)
@@ -865,7 +866,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
     assert_raises(RuntimeError) do
       chat_collective.find_or_create_shareable_invite(user)
@@ -888,7 +889,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
 
     previous_id = Collective.current_id
@@ -913,5 +914,265 @@ class CollectiveTest < ActiveSupport::TestCase
     user = create_user
     collective = Collective.create!(tenant: tenant, created_by: user, name: "AvColor", handle: "avcol-#{SecureRandom.hex(4)}")
     assert_equal HasImage::COLLECTIVE_AVATAR_COLOR, collective.avatar_color
+  end
+
+  # === Tier predicates: paid_tier? / free_tier? ===
+
+  test "paid_tier? returns false for main collective even with paid features active" do
+    tenant = create_tenant(subdomain: "main-paid-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.create_main_collective!(created_by: user)
+    main = tenant.main_collective
+    main.enable_feature_flag!("trio")
+    assert_not main.paid_tier?
+    assert main.free_tier?
+  end
+
+  test "paid_tier? returns false for archived collective" do
+    c = paid_features_collective(trio: true)
+    c.archive!
+    assert_not c.paid_tier?
+  end
+
+  test "paid_tier? returns false when billing_exempt" do
+    c = paid_features_collective(trio: true)
+    c.update!(billing_exempt: true)
+    assert_not c.paid_tier?
+  end
+
+  test "paid_tier? returns false for non-main collective with no paid features" do
+    c = build_collective
+    assert_not c.paid_tier?
+    assert c.free_tier?
+  end
+
+  test "paid_tier? returns false when only a disabled automation rule exists" do
+    c = build_collective
+    create_automation_rule(c, enabled: false)
+    assert_not c.paid_tier?
+  end
+
+  test "paid_tier? returns false when all automation rules are disabled" do
+    c = build_collective
+    create_automation_rule(c, enabled: false)
+    create_automation_rule(c, enabled: false)
+    assert_not c.paid_tier?
+  end
+
+  test "paid_tier? returns true with one enabled automation rule" do
+    c = build_collective
+    create_automation_rule(c, enabled: true)
+    assert c.paid_tier?
+  end
+
+  test "paid_tier? returns true with mix of enabled and disabled automations" do
+    c = build_collective
+    create_automation_rule(c, enabled: false)
+    create_automation_rule(c, enabled: true)
+    assert c.paid_tier?
+  end
+
+  test "paid_tier? returns true when trio is enabled" do
+    c = paid_features_collective(trio: true)
+    assert c.paid_tier?
+  end
+
+  test "paid_tier? returns true when file_attachments is enabled" do
+    c = paid_features_collective(file_attachments: true)
+    assert c.paid_tier?
+  end
+
+  test "paid_tier? returns true with all paid features on (not multiplied)" do
+    c = paid_features_collective(trio: true, file_attachments: true)
+    create_automation_rule(c, enabled: true)
+    assert c.paid_tier?
+  end
+
+  test "paid_tier? returns true for private workspace with paid feature" do
+    tenant = create_tenant(subdomain: "pw-trio-#{SecureRandom.hex(4)}")
+    user = create_user
+    pw = Collective.create!(
+      tenant: tenant, created_by: user,
+      name: "Workspace", handle: "ws-#{SecureRandom.hex(4)}",
+      collective_type: "private_workspace"
+    )
+    tenant.enable_feature_flag!("trio")
+    pw.enable_feature_flag!("trio")
+    assert pw.paid_tier?
+  end
+
+  # === owner_billing_setup? ===
+
+  test "owner_billing_setup? returns true when tenant lacks stripe_billing feature" do
+    c = build_collective
+    assert c.owner_billing_setup?
+  end
+
+  test "owner_billing_setup? returns true when owner is sys_admin" do
+    c = build_collective
+    enable_stripe_billing_flag!(c.tenant)
+    c.created_by.update!(sys_admin: true)
+    assert c.owner_billing_setup?
+  end
+
+  test "owner_billing_setup? returns true when owner is app_admin" do
+    c = build_collective
+    enable_stripe_billing_flag!(c.tenant)
+    c.created_by.update!(app_admin: true)
+    assert c.owner_billing_setup?
+  end
+
+  test "owner_billing_setup? returns true when owner has active stripe customer" do
+    c = build_collective
+    enable_stripe_billing_flag!(c.tenant)
+    StripeCustomer.create!(billable: c.created_by, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    assert c.reload.owner_billing_setup?
+  end
+
+  test "owner_billing_setup? returns false when owner has no stripe customer and is not admin" do
+    c = build_collective
+    enable_stripe_billing_flag!(c.tenant)
+    assert_not c.owner_billing_setup?
+  end
+
+  test "owner_billing_setup? returns false when owner stripe customer is inactive" do
+    c = build_collective
+    enable_stripe_billing_flag!(c.tenant)
+    StripeCustomer.create!(billable: c.created_by, stripe_id: "cus_#{SecureRandom.hex(8)}", active: false)
+    assert_not c.reload.owner_billing_setup?
+  end
+
+  # === requires_stripe_billing? ===
+
+  test "requires_stripe_billing? returns false for free tier" do
+    c = build_collective
+    enable_stripe_billing_flag!(c.tenant)
+    assert_not c.requires_stripe_billing?
+  end
+
+  test "requires_stripe_billing? returns false when paid but owner has billing" do
+    c = paid_features_collective(trio: true)
+    enable_stripe_billing_flag!(c.tenant)
+    StripeCustomer.create!(billable: c.created_by, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    assert_not c.reload.requires_stripe_billing?
+  end
+
+  test "requires_stripe_billing? returns true when paid and owner has no billing" do
+    c = paid_features_collective(trio: true)
+    enable_stripe_billing_flag!(c.tenant)
+    assert c.requires_stripe_billing?
+  end
+
+  # === would_be_paid_tier? ===
+
+  test "would_be_paid_tier? defaults read from DB" do
+    c = build_collective
+    assert_not c.would_be_paid_tier?
+    create_automation_rule(c, enabled: true)
+    assert c.would_be_paid_tier?
+  end
+
+  test "would_be_paid_tier? overrides apply for automations" do
+    c = build_collective
+    assert c.would_be_paid_tier?(has_enabled_automation_after: true)
+    create_automation_rule(c, enabled: true)
+    assert_not c.would_be_paid_tier?(has_enabled_automation_after: false)
+  end
+
+  test "would_be_paid_tier? trio override fires only when tenant cascade allows" do
+    c = build_collective
+    # Fresh tenant: trio default_tenant is false — local override has no effect.
+    assert_not c.would_be_paid_tier?(trio_after: true)
+    # Enable at tenant; now the local override would actually take effect.
+    c.tenant.enable_feature_flag!("trio")
+    assert c.would_be_paid_tier?(trio_after: true)
+  end
+
+  test "would_be_paid_tier? file_attachments override fires (tenant cascade is on by default)" do
+    c = build_collective
+    # file_attachments default_tenant is true, so cascade is already on.
+    assert c.would_be_paid_tier?(file_attachments_after: true)
+  end
+
+  test "would_be_paid_tier? file_attachments override does not fire when tenant cascade is off" do
+    c = build_collective
+    c.tenant.set_feature_flag!("file_attachments", false)
+    assert_not c.would_be_paid_tier?(file_attachments_after: true)
+  end
+
+  test "would_be_paid_tier? respects main_collective short-circuit" do
+    tenant = create_tenant(subdomain: "wbpt-main-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.create_main_collective!(created_by: user)
+    main = tenant.main_collective
+    assert_not main.would_be_paid_tier?(has_enabled_automation_after: true, trio_after: true, file_attachments_after: true)
+  end
+
+  test "would_be_paid_tier? respects archived and billing_exempt short-circuits" do
+    c = build_collective
+    c.archive!
+    assert_not c.would_be_paid_tier?(has_enabled_automation_after: true)
+    c.unarchive!
+    c.update!(billing_exempt: true)
+    assert_not c.would_be_paid_tier?(has_enabled_automation_after: true)
+  end
+
+  # === billable_types scope ===
+
+  test "billable_types scope includes standard and private_workspace" do
+    tenant = create_tenant(subdomain: "bt-#{SecureRandom.hex(4)}")
+    user = create_user
+    standard = Collective.create!(tenant: tenant, created_by: user, name: "S", handle: "s-#{SecureRandom.hex(4)}")
+    pw = Collective.create!(tenant: tenant, created_by: user, name: "P", handle: "p-#{SecureRandom.hex(4)}", collective_type: "private_workspace")
+    chat = Collective.create!(tenant: tenant, created_by: user, name: "C", handle: "c-#{SecureRandom.hex(4)}", collective_type: "chat")
+
+    ids = Collective.billable_types.where(tenant_id: tenant.id).pluck(:id)
+    assert_includes ids, standard.id
+    assert_includes ids, pw.id
+    assert_not_includes ids, chat.id
+  end
+
+  private
+
+  def build_collective(subdomain_prefix: "bc")
+    tenant = create_tenant(subdomain: "#{subdomain_prefix}-#{SecureRandom.hex(4)}")
+    user = create_user
+    Collective.create!(
+      tenant: tenant, created_by: user,
+      name: "Build Collective", handle: "bc-#{SecureRandom.hex(4)}"
+    )
+  end
+
+  def paid_features_collective(trio: false, file_attachments: false, subdomain_prefix: "pf")
+    c = build_collective(subdomain_prefix: subdomain_prefix)
+    if trio
+      c.tenant.enable_feature_flag!("trio")
+      c.enable_feature_flag!("trio")
+    end
+    if file_attachments
+      c.tenant.enable_feature_flag!("file_attachments")
+      c.enable_feature_flag!("file_attachments")
+    end
+    c.reload
+  end
+
+  def create_automation_rule(collective, enabled: true)
+    AutomationRule.create!(
+      tenant: collective.tenant,
+      collective: collective,
+      created_by: collective.created_by,
+      name: "Rule #{SecureRandom.hex(4)}",
+      trigger_type: "manual",
+      trigger_config: { "inputs" => {} },
+      conditions: [],
+      actions: {},
+      enabled: enabled
+    )
+  end
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
   end
 end

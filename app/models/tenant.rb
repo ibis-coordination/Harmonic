@@ -167,7 +167,7 @@ class Tenant < ApplicationRecord
         "all_members_can_invite" => false,
         "any_member_can_represent" => false,
         "api_enabled" => false,
-        "allow_file_uploads" => true,
+        "allow_file_uploads" => false,
         "file_upload_limit" => 100.megabytes,
       },
     }).merge(settings || {})
@@ -412,8 +412,7 @@ class Tenant < ApplicationRecord
       name: "Private Workspace",
       handle: SecureRandom.hex(4),
       created_by: user,
-      collective_type: "private_workspace",
-      billing_exempt: true
+      collective_type: "private_workspace"
     )
 
     collective.add_user!(user, roles: ["admin"])
