@@ -257,7 +257,7 @@ For programmatic access:
    ├── current_user (authenticate)
    └── current_resource (load note)
 3. NotesController#show
-4. Render ERB view with Turbo Frame
+4. Render ERB view
 ```
 
 ### API Request
@@ -407,15 +407,67 @@ docker compose exec ollama ollama pull llama3.2:1b
 
 ### Hotwire (Turbo + Stimulus)
 
-Turbo handles:
-- Page navigation (Turbo Drive)
-- Partial updates (Turbo Frames)
-- Real-time updates (Turbo Streams via WebSocket - limited use)
+**Turbo** is imported in [`app/javascript/application.ts`](../app/javascript/application.ts).
+Only Turbo Drive is in use today — intercepting link clicks and form submissions
+so navigations swap the document body instead of full-reloading. Turbo Frames
+and Turbo Streams are not used anywhere yet; if you reach for one, it's a new
+pattern in this codebase.
 
-Stimulus controllers (`app/javascript/controllers/`):
-- Form interactions
-- Image cropping
-- Polling for updates
+**Stimulus controllers** live in [`app/javascript/controllers/`](../app/javascript/controllers/),
+registered in `index.ts`. Every browser-side behavior should be a Stimulus
+controller — no inline event handlers (see [SECURITY_AND_SCALING.md](SECURITY_AND_SCALING.md#no-inline-event-handlers)).
+
+Reusable utility controllers — reach for these before writing a new one:
+
+| Controller | When to use |
+|---|---|
+| `card-navigate` | Whole element clickable, navigates to a URL on click. Honors cmd/ctrl/middle-click → new tab, text-selection drag, Enter/Space, interactive-child short-circuit |
+| `card-expand` | CSS-clamped content with a "Show more" toggle |
+| `hide-on-error` | Hide an `<img>` (or other element) when the `error` event fires — used for avatar fallbacks |
+| `remove-parent` | Click to remove the element's parent (× dismiss buttons) |
+| `history-back` | Click to call `window.history.back()` (replaces `href="javascript:history.back()"`) |
+| `radio-toggle` | Show/hide a section based on which radio in a group is checked |
+| `handle-availability` | Live-validate a slug/handle field against an availability endpoint |
+
+#### Forms and Turbo
+
+When Turbo intercepts a form submission, the response must be one of:
+
+1. **A redirect** — Rails 7+ uses 303 (`:see_other`) by default for `redirect_to`
+   after a non-GET request, which is what Turbo wants. Don't override the status.
+2. **A re-render of the same form with status 422 (`:unprocessable_entity`)** —
+   this is the canonical "show validation errors" pattern. The 200 default does
+   NOT work: Turbo leaves the URL on the POST endpoint, so back/refresh re-POSTs.
+
+   ```ruby
+   def create
+     @model = Model.create!(model_params)
+     redirect_to @model
+   rescue ActiveRecord::RecordInvalid
+     @model = Model.new(model_params)
+     render :new, status: :unprocessable_entity   # not bare `render :new`
+   end
+   ```
+
+When the response can't be either (e.g., the controller renders a
+different template, or `redirect_to` goes to a cross-origin URL like a
+Stripe Checkout page that Turbo can't fetch via XHR), opt the form out of
+Turbo with `data: { turbo: false }`:
+
+```erb
+<%= form_with url: billing_setup_path, method: :post, data: { turbo: false } do |form| %>
+```
+
+Same rule applies to links to a cross-origin redirect:
+
+```erb
+<%= link_to "Manage payment", billing_portal_path, data: { turbo: false } %>
+```
+
+For scripts that initialize page state on load, listen for `turbo:load`
+(fires on initial load AND every Turbo navigation), not `DOMContentLoaded`
+(fires once, never again on Turbo navs). Stimulus controllers handle this
+automatically via `connect()`.
 
 ### Asset Pipeline
 

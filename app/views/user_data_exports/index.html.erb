@@ -78,7 +78,7 @@
               </td>
               <td>
                 <% if export.downloadable? %>
-                  <a href="<%= data_export_path %>/<%= export.id %>" class="pulse-btn pulse-btn-small">
+                  <a href="<%= data_export_path %>/<%= export.id %>" class="pulse-btn pulse-btn-small" data-turbo="false">
                     <%= octicon 'download', height: 12 %> Download
                   </a>
                 <% elsif export.expired? %>

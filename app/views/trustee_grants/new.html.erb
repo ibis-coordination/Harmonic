@@ -53,26 +53,31 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
         </fieldset>
       </section>
 
-      <section class="pulse-settings-section">
+      <section class="pulse-settings-section"
+               data-controller="radio-toggle"
+               data-radio-toggle-hide-on-value="all">
         <label class="pulse-label">Which collectives?</label>
         <p class="pulse-text-muted">Choose which collectives this trustee grant applies to.</p>
 
         <div class="pulse-radio-group">
           <label class="pulse-radio-label">
-            <input type="radio" name="collective_scope_mode" value="all" checked class="pulse-radio" data-toggle-target="collective-ids">
+            <input type="radio" name="collective_scope_mode" value="all" checked class="pulse-radio"
+                   data-action="change->radio-toggle#sync">
             All collectives where you are a member
           </label>
           <label class="pulse-radio-label">
-            <input type="radio" name="collective_scope_mode" value="include" class="pulse-radio" data-toggle-target="collective-ids">
+            <input type="radio" name="collective_scope_mode" value="include" class="pulse-radio"
+                   data-action="change->radio-toggle#sync">
             Only specific collectives
           </label>
           <label class="pulse-radio-label">
-            <input type="radio" name="collective_scope_mode" value="exclude" class="pulse-radio" data-toggle-target="collective-ids">
+            <input type="radio" name="collective_scope_mode" value="exclude" class="pulse-radio"
+                   data-action="change->radio-toggle#sync">
             All collectives except specific ones
           </label>
         </div>
 
-        <div id="collective-ids" class="pulse-conditional-section" style="display: none; margin-top: 1rem;">
+        <div data-radio-toggle-target="section" class="pulse-conditional-section" style="display: none; margin-top: 1rem;">
           <label class="pulse-label">Select collectives:</label>
           <% @available_collectives.each do |collective| %>
             <label class="pulse-checkbox-label">
@@ -96,17 +101,3 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     <% end %>
   </div>
 </article>
-
-<script>
-  // Toggle collective selection visibility based on scope mode
-  document.querySelectorAll('input[name="collective_scope_mode"]').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      var collectiveIds = document.getElementById('collective-ids');
-      if (this.value === 'all') {
-        collectiveIds.style.display = 'none';
-      } else {
-        collectiveIds.style.display = 'block';
-      }
-    });
-  });
-</script>

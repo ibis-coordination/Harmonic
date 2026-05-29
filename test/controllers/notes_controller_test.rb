@@ -1472,8 +1472,9 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
         }
     end
 
-    # Should re-render the form with an error
-    assert_response :success
+    # Re-renders the form with an error. 422 (not 200) so Turbo's form-error
+    # flow displays the rendered errors and leaves the URL on the form route.
+    assert_response :unprocessable_entity
     assert_includes response.body, "scheduled_for"
   end
 

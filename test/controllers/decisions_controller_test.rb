@@ -130,8 +130,10 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
       deadline_option: "no_deadline"
     }
 
-    # Either re-renders form (200) or redirects after creation (302)
-    assert_includes [200, 302], response.status
+    # Either re-renders form (422 for Turbo-compatible form-error display) or
+    # redirects after creation (302) — depending on whether the blank question
+    # is rejected at validation time or accepted as a placeholder.
+    assert_includes [422, 302], response.status
   end
 
   # === Show Decision Tests ===

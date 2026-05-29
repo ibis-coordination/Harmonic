@@ -1,5 +1,9 @@
-document.addEventListener('DOMContentLoaded', function() {
+// `turbo:load` fires on initial page load AND on every Turbo navigation, so
+// the init runs every time the form is rendered.
+document.addEventListener('turbo:load', function() {
   const emailField = document.getElementById('email-field');
+  // Skip if not on a page with the registration form.
+  if (!emailField) return;
   const nameField = document.getElementById('name-field');
   const passwordField = document.getElementById('password-field');
   const passwordConfirmationField = document.getElementById('password-confirmation-field');

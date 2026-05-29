@@ -95,7 +95,7 @@
 
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Delete</h2>
-      <%= button_to 'Delete Token', @token.path, method: :delete, data: { confirm: 'Are you sure?' }, class: 'pulse-action-btn pulse-action-btn-danger' %>
+      <%= button_to 'Delete Token', @token.path, method: :delete, data: { turbo_confirm: 'Are you sure?' }, class: 'pulse-action-btn pulse-action-btn-danger' %>
     </section>
   </div>
 </article>

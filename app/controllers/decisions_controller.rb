@@ -49,7 +49,7 @@ class DecisionsController < ApplicationController
         question: decision_params[:question],
         description: decision_params[:description],
       )
-      render :new
+      render :new, status: :unprocessable_entity
     end
   end
 

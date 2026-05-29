@@ -52,6 +52,23 @@ CSP headers are configured in `config/initializers/content_security_policy.rb`:
 
 Note: `unsafe-inline` for styles is required for Turbo/Stimulus functionality. Future work may implement nonces for styles.
 
+#### No inline event handlers
+
+`script-src 'self'` blocks every inline event handler attribute (`onclick=`,
+`onerror=`, `onsubmit=`, `onload=`, etc.) and every `href="javascript:..."`
+URL. The browser refuses to execute them and prints a console error.
+
+Use a Stimulus controller instead. The codebase ships small reusable
+utilities for the common patterns — `hide-on-error`, `remove-parent`,
+`history-back`, `card-navigate`, `card-expand`, `radio-toggle`,
+`handle-availability`. See the inventory in
+[ARCHITECTURE.md → Hotwire](ARCHITECTURE.md#hotwire-turbo--stimulus).
+Reach for those before writing a new one.
+
+For confirm-before-submit dialogs, use Turbo's `data: { turbo_confirm: "..." }`
+on the form (or `data-turbo-confirm` attribute directly). Do NOT use
+`onclick="return confirm(...)"` — it's blocked by CSP.
+
 ### Security Audit Logging
 
 Security events are logged to `log/security_audit.log` in JSON format:

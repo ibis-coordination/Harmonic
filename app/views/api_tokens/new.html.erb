@@ -17,7 +17,9 @@
   </header>
 
   <div class="pulse-resource-body">
-    <%= form_with(model: [@showing_user, @token], class: "pulse-form") do |form| %>
+    <%# Opt out of Turbo: when billing isn't set up, the controller redirects
+        to Stripe Checkout (cross-origin), which Turbo cannot follow. %>
+    <%= form_with(model: [@showing_user, @token], class: "pulse-form", data: { turbo: false }) do |form| %>
       <section class="pulse-settings-section">
         <label class="pulse-label">Identity</label>
         <div style="padding: 8px 12px; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-secondary); font-style: italic;">

@@ -30,54 +30,21 @@
       </div>
     </section>
 
-    <section class="pulse-settings-section">
+    <section class="pulse-settings-section"
+             data-controller="handle-availability"
+             data-handle-availability-check-url-value="/collectives/available">
       <h2 class="pulse-section-title">Collective Handle</h2>
       <p class="pulse-section-description">
-        The collective handle determines the collective's URL path: <code><%= request.protocol %><%= request.host %>/collectives/<strong id="handle-example">handle</strong></code>
+        The collective handle determines the collective's URL path: <code><%= request.protocol %><%= request.host %>/collectives/<strong data-handle-availability-target="example">handle</strong></code>
         <br/>
         Only lowercase letters, numbers, and hyphens are allowed.
       </p>
       <div class="pulse-form-group">
-        <span id="already-taken-message" class="pulse-error-message" style="display:none;">That handle is already taken.</span>
-        <%= form.text_field :handle, placeholder: 'handle', id: 'handle-input', class: 'pulse-form-input' %>
+        <span data-handle-availability-target="error" class="pulse-error-message" style="display:none;">That handle is already taken.</span>
+        <%= form.text_field :handle, placeholder: 'handle', class: 'pulse-form-input',
+              data: { handle_availability_target: 'input', action: 'input->handle-availability#check' } %>
       </div>
     </section>
-
-    <script>
-      const handleInput = document.getElementById('handle-input');
-      const handleExample = document.getElementById('handle-example');
-      const alreadyTakenMessage = document.getElementById('already-taken-message');
-      const validateHandle = function(handle) {
-        return /^[a-z0-9-]+$/.test(handle);
-      };
-      const checkIfAvailable = function(handle) {
-        return fetch('/collectives/available?handle=' + handle)
-          .then(response => response.json())
-          .then(data => {
-            if (data.available && handleInput.value === handle) {
-              handleExample.innerText = handle;
-              handleExample.style.textDecoration = 'none';
-              alreadyTakenMessage.style.display = 'none';
-              handleInput.classList.remove('pulse-form-input-error');
-            } else if (!data.available && handleInput.value === handle) {
-              handleExample.innerText = handle;
-              handleExample.style.textDecoration = 'line-through';
-              alreadyTakenMessage.style.display = 'block';
-              handleInput.classList.add('pulse-form-input-error');
-            } else {
-              // noop
-            }
-          });
-      };
-      handleInput.addEventListener('input', function() {
-        const handle = handleInput.value;
-        if (validateHandle(handle)) {
-          checkIfAvailable(handle)
-        } else {
-          handleInput.value = handle.replace(/[^a-z0-9-]/g, '');
-        }
-      });
-    </script>
 
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Collective Description</h2>

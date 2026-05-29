@@ -70,7 +70,7 @@ class NotesController < ApplicationController
     e.record.errors.full_messages.each { |msg| flash.now[:alert] = msg }
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @note = Note.new(title: model_params[:title], text: model_params[:text])
-    render :new
+    render :new, status: :unprocessable_entity
   end
 
   def create_note
@@ -668,7 +668,7 @@ class NotesController < ApplicationController
     @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
     @subtype = "reminder"
     @note = Note.new(title: model_params[:title], text: model_params[:text])
-    render :new
+    render :new, status: :unprocessable_entity
   end
 
   def find_deleted_note

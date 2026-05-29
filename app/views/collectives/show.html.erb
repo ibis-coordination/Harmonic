@@ -26,15 +26,10 @@
         <% end %>
       </span>
       <br/>
-      <span id="last-sync-display" style="font-size: 0.8em;display:inline;">
+      <span style="font-size: 0.8em;">
         <span style="opacity:0.6;">Last sync <%= timeago(Time.current) %></span>
         <a href="<%= @current_collective.path %>"><%= octicon 'sync' %></a>
       </span>
-      <script>
-        setTimeout(function() {
-          document.getElementById('last-sync-display').style.display = 'inline';
-        }, 10 * 60 * 1000); // Show sync display after 10 minutes
-      </script>
     </p>
 
     <% notes_title = "<i class='note-icon medium-icon'></i> Notes".html_safe %>
