@@ -363,22 +363,42 @@ class BillingController < ApplicationController
       .where("tenant_users.archived_at IS NOT NULL OR users.suspended_at IS NOT NULL")
       .order(:name)
 
-    # Active collectives on billing-enabled tenants: not archived, not pending, not main, not private workspace
-    @active_collectives = Collective.for_user_across_tenants(current_user).listable.where(
+    # Active collectives: non-main, non-archived, non-pending, with ≥1 paid
+    # feature active (enabled automation, trio, or file_attachments).
+    # billable_types covers standard + private_workspace; chat is excluded.
+    # Free collectives are hidden; billing_exempt collectives with paid
+    # features are included so the view can show their "(exempt)" label.
+    #
+    # The automation lookup is batched per-tenant (via tenant_scoped_only)
+    # so cross-tenant rules are found in a request context where
+    # Tenant.current_id is set.
+    active_candidates = Collective.for_user_across_tenants(current_user).billable_types.where(
       tenant_id: billing_tenant_ids,
       archived_at: nil,
       pending_billing_setup: false,
-    ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
+    ).where.not(id: main_collective_ids).includes(:tenant).order(:name).to_a
+
+    auto_collective_ids = active_candidates.group_by(&:tenant_id).flat_map do |tid, group|
+      AutomationRule.tenant_scoped_only(tid).where(
+        collective_id: group.map(&:id), enabled: true
+      ).distinct.pluck(:collective_id)
+    end.to_set
+
+    @active_collectives = active_candidates.select do |c|
+      auto_collective_ids.include?(c.id) || c.trio_enabled? || c.file_attachments_enabled?
+    end
 
     # Pending collectives on billing-enabled tenants
-    @pending_collectives = Collective.for_user_across_tenants(current_user).listable.where(
+    @pending_collectives = Collective.for_user_across_tenants(current_user).billable_types.where(
       tenant_id: billing_tenant_ids,
       archived_at: nil,
       pending_billing_setup: true,
     ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
-    # Inactive collectives on billing-enabled tenants: archived, not main
-    @inactive_collectives = Collective.for_user_across_tenants(current_user).listable.where(
+    # Inactive collectives on billing-enabled tenants: archived, not main.
+    # Shown so users can recognize and reactivate them, even though archived
+    # collectives don't currently bill.
+    @inactive_collectives = Collective.for_user_across_tenants(current_user).billable_types.where(
       tenant_id: billing_tenant_ids,
     ).where.not(archived_at: nil).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 

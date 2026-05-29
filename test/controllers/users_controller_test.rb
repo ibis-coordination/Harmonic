@@ -77,6 +77,68 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_nil T.must(@user.private_workspace).reload.trio_user_id
   end
 
+  # === Workspace Trio paid-tier gate ===
+
+  test "workspace owner without billing is blocked from enabling Trio" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_nil workspace.trio_user_id, "trio should not be activated when gate blocks"
+    assert flash[:error].to_s.downcase.include?("billing")
+  end
+
+  test "workspace owner with billing can enable Trio" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_not_nil workspace.trio_user_id, "trio should activate when owner has billing"
+  end
+
+  test "workspace owner without billing can always disable Trio (un-billing)" do
+    enable_stripe_billing_flag!(@tenant)
+    # Active customer so owner can reach the action (workspace is currently paid).
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", true)
+    TrioActivator.activate!(workspace)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "false" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_nil workspace.trio_user_id
+  end
+
+  private
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  public
+
   # === Profile Updates ===
 
   test "update_profile ignores system_role param" do

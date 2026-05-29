@@ -12,6 +12,10 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     @tenant.set_feature_flag!("ai_agents", true)
     enable_stripe_billing_flag!(@tenant)
+    # Make @collective paid_tier so @user has a billable resource by default —
+    # most tests in this file pre-date the free/paid tier model and assumed a
+    # non-main collective was inherently billable.
+    create_paid_tier_automation(@collective)
 
     @original_stripe_key = Stripe.api_key
     Stripe.api_key = "sk_test_fake"
@@ -318,15 +322,42 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "$3/mo"
   end
 
-  test "show lists active collectives by name when subscription active" do
+  test "show lists active paid-tier collectives by name when subscription active" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    create_test_collective(name: "Design Team")
+    c = create_test_collective(name: "Design Team")
+    create_paid_tier_automation(c) # without paid features, the collective would be free
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
 
     assert_response :success
     assert_includes response.body, "Design Team"
+  end
+
+  test "show hides free (no paid feature) collectives from active list" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    create_test_collective(name: "Free Coffee Club")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_not_includes response.body, "Free Coffee Club",
+                       "free collectives should not appear on /billing"
+  end
+
+  test "show lists paid-tier private workspace when subscription active" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    workspace = T.must(@user.private_workspace)
+    create_paid_tier_automation(workspace)
+    workspace.update!(name: "My Personal Workspace")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_includes response.body, "My Personal Workspace",
+                    "private workspaces with paid features should appear on /billing"
   end
 
   test "show lists inactive agents separately" do
@@ -407,7 +438,8 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     # User has agents but no subscription yet
     agent = create_ai_agent(parent: @user, name: "Pre-existing Agent")
     @tenant.add_user!(agent)
-    create_test_collective(name: "Pre-existing Collective")
+    pre_existing = create_test_collective(name: "Pre-existing Collective")
+    create_paid_tier_automation(pre_existing) # show only lists paid-tier collectives
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
@@ -436,9 +468,11 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   test "show displays exempt label on individual exempt resources" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     # Humans are always free — the (exempt) label now applies to per-resource
-    # exemptions (agents/collectives). Exempt one collective, leave another
-    # non-exempt, and assert both labels appear.
+    # exemptions (agents/collectives). Make the exempt one paid_tier-eligible
+    # (would bill if not exempt), and rely on @collective (already paid via
+    # setup automation) for the non-exempt $3/mo line.
     exempt_collective = create_test_collective(name: "Exempt Coll")
+    create_paid_tier_automation(exempt_collective)
     exempt_collective.update!(billing_exempt: true)
 
     sign_in_as(@user, tenant: @tenant)
@@ -480,6 +514,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
       name: "Other Org Collective",
       handle: "other-org-coll-#{SecureRandom.hex(4)}",
     )
+    create_paid_tier_automation(other_collective) # /billing only lists paid-tier collectives
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -914,6 +949,21 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  # Adds an enabled automation rule to the collective so it lands on paid_tier.
+  def create_paid_tier_automation(collective)
+    AutomationRule.create!(
+      tenant: collective.tenant,
+      collective: collective,
+      created_by: collective.created_by,
+      name: "Billable rule #{SecureRandom.hex(4)}",
+      trigger_type: "manual",
+      trigger_config: { "inputs" => {} },
+      conditions: [],
+      actions: {},
+      enabled: true
+    )
   end
 
   def create_test_collective(name: "Test Collective", handle: "test-collective-#{SecureRandom.hex(4)}")

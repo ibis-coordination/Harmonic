@@ -379,6 +379,114 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/settings}, response.location
   end
 
+  # === Paid-tier transition gate on update_settings ===
+
+  test "update_settings blocks turning trio on when owner has no billing" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { name: @collective.name, feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    @collective.reload
+    assert_not @collective.trio_enabled?, "trio should not be activated when gate blocks"
+    assert flash[:error].to_s.downcase.include?("billing")
+  end
+
+  test "update_settings blocks turning file_attachments on when owner has no billing" do
+    enable_stripe_billing_flag!(@tenant)
+    @collective.set_feature_flag!("file_attachments", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { name: @collective.name, feature_file_attachments: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    @collective.reload
+    assert_not @collective.file_attachments_enabled?, "file_attachments should not be enabled when gate blocks"
+    assert flash[:error].to_s.downcase.include?("billing")
+  end
+
+  test "update_settings allows turning trio on when owner has billing" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { name: @collective.name, feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    @collective.reload
+    assert @collective.trio_enabled?, "trio should be enabled when owner has billing"
+  end
+
+  test "update_settings always allows turning trio off (un-billing transition)" do
+    enable_stripe_billing_flag!(@tenant)
+    # Owner has billing so collective is reachable (it's currently paid via trio).
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("trio", true)
+    TrioActivator.activate!(@collective)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { name: @collective.name, feature_trio: "false" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    @collective.reload
+    assert_not @collective.trio_enabled?
+  end
+
+  test "update_collective_settings_action (API) blocks turning file_uploads on without billing" do
+    enable_stripe_billing_flag!(@tenant)
+    @collective.set_feature_flag!("file_attachments", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings/actions/update_collective_settings",
+      params: { file_uploads: "true" },
+      headers: { "Accept" => "text/markdown" }
+
+    @collective.reload
+    assert_not @collective.file_attachments_enabled?, "file_attachments should not enable when gate blocks"
+    assert_includes response.body.downcase, "billing"
+  end
+
+  test "update_collective_settings_action (API) allows file_uploads on with billing" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.set_feature_flag!("file_attachments", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings/actions/update_collective_settings",
+      params: { file_uploads: "true" },
+      headers: { "Accept" => "text/markdown" }
+
+    @collective.reload
+    assert @collective.file_attachments_enabled?
+  end
+
+  test "update_settings allows turning trio on when collective is already paid (no transition)" do
+    enable_stripe_billing_flag!(@tenant)
+    # Active stripe customer so user can reach the action (collective is paid_tier
+    # already via file_attachments).
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @tenant.enable_feature_flag!("trio")
+    @collective.set_feature_flag!("file_attachments", true)
+    assert @collective.reload.paid_tier?, "precondition: collective already paid via file_attachments"
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/settings",
+      params: { name: @collective.name, feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+
+    assert @collective.reload.trio_enabled?
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

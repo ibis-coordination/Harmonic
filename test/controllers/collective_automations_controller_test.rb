@@ -384,4 +384,109 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "0 9 * * *", rule.cron_expression
     assert_equal "America/Los_Angeles", rule.timezone
   end
+
+  # === Paid-tier transition gate ===
+  #
+  # These tests use session auth (sign_in_as) rather than the bearer token
+  # from setup. The bearer token would itself make the user billable via the
+  # "humans-with-tokens" rule, which would force them through the application
+  # -level billing gate before reaching the per-action gate under test.
+
+  test "execute_toggle blocks enabling a disabled rule when owner has no billing" do
+    setup_gate_test
+    rule = create_collective_automation_rule(name: "Gate Toggle", enabled: false)
+
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+
+    rule.reload
+    assert_not rule.enabled?, "rule should remain disabled when gate blocks"
+    assert_includes response.body.downcase, "billing"
+  end
+
+  test "execute_toggle allows enabling when owner has active stripe customer" do
+    setup_gate_test
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    rule = create_collective_automation_rule(name: "Gate Toggle OK", enabled: false)
+
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+
+    assert_response :success
+    assert rule.reload.enabled?
+  end
+
+  test "execute_toggle always allows disabling (un-billing transition)" do
+    setup_gate_test
+    # Need an active stripe customer to pass the app-level billing gate (the
+    # user is paid_tier already because the rule is enabled). Inside the
+    # action, our gate must not fire on the disable transition regardless.
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    rule = create_collective_automation_rule(name: "Gate Disable", enabled: true)
+
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+
+    assert_response :success
+    assert_not rule.reload.enabled?
+  end
+
+  test "execute_create blocks creating an enabled rule when owner has no billing" do
+    setup_gate_test
+
+    assert_no_difference "AutomationRule.unscoped.count" do
+      post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+        params: { yaml_source: valid_yaml }, headers: { "Accept" => "text/markdown" }
+    end
+    assert_includes response.body.downcase, "billing"
+  end
+
+  test "execute_create allows creating an enabled rule when owner has billing" do
+    setup_gate_test
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+
+    assert_difference "AutomationRule.unscoped.count", 1 do
+      post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+        params: { yaml_source: valid_yaml }, headers: { "Accept" => "text/markdown" }
+    end
+  end
+
+  # Note: AutomationYamlParser does not accept an `enabled` key, so
+  # execute_update cannot flip a rule from disabled→enabled via YAML; the
+  # toggle endpoint is the only path for that. The defensive gate in
+  # execute_update is therefore a no-op today, kept for future-proofing.
+
+  test "execute_update allows editing other fields on a disabled rule with no enable change" do
+    setup_gate_test
+    rule = create_collective_automation_rule(name: "Edit Other", enabled: false)
+    edited_yaml = valid_yaml.sub('"Collective Automation Test"', '"Renamed"')
+
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/update_automation_rule",
+      params: { yaml_source: edited_yaml }, headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_not rule.reload.enabled?
+  end
+
+  test "execute_toggle allows enabling second rule when collective is already paid (no transition)" do
+    setup_gate_test
+    # Active customer so user can reach the action (collective is already paid_tier).
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    create_collective_automation_rule(name: "Already enabled", enabled: true)
+    rule = create_collective_automation_rule(name: "Second rule", enabled: false)
+
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+
+    assert_response :success
+    assert rule.reload.enabled?
+  end
+
+  private
+
+  # Common gate-test setup: enable stripe_billing on tenant, delete the setup
+  # bearer token so it doesn't make the user billable, sign in via session.
+  def setup_gate_test
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("stripe_billing")
+    @api_token.destroy
+    sign_in_as(@user, tenant: @tenant)
+  end
 end

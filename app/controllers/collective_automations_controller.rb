@@ -3,6 +3,8 @@
 # Manages collective-level automation rules (rules scoped to collective, not AI agent).
 # Collective automations use 'actions' array format, not 'task' template.
 class CollectiveAutomationsController < ApplicationController
+  include PaidTransitionGate
+
   # Make path helpers available to views
   helper_method :automations_index_path, :automation_path
 
@@ -95,10 +97,20 @@ class CollectiveAutomationsController < ApplicationController
   # === Create ===
 
   def describe_create
+    # Tier-conditional billing note: only mention the $3/mo transition if the
+    # collective is currently free. If already paid, creating another rule
+    # has no billing impact and the note would be misleading.
+    tier_note = if @current_collective.free_tier?
+      " Note: this collective is currently on the free plan. " \
+        "Creating an enabled automation moves it to the paid plan ($3/mo). " \
+        "Billing must be set up at /billing first."
+    else
+      ""
+    end
     render_action_description({
                                 action_name: "create_automation_rule",
                                 resource: nil,
-                                description: "Create a new collective automation rule from YAML configuration",
+                                description: "Create a new collective automation rule from YAML configuration.#{tier_note}",
                                 params: [
                                   { name: "yaml_source", type: "string", description: "YAML configuration for the automation rule" },
                                 ],
@@ -135,6 +147,16 @@ class CollectiveAutomationsController < ApplicationController
         yaml_source: yaml_source
       )
     )
+
+    if paid_transition_blocked?(@current_collective,
+                                has_enabled_automation_after: rule.enabled? ||
+                                  @current_collective.automation_rules.enabled.exists?)
+      return render_action_error({
+                                   action_name: "create_automation_rule",
+                                   resource: nil,
+                                   error: paid_transition_action_error,
+                                 })
+    end
 
     if rule.save
       render_action_success({
@@ -186,7 +208,22 @@ class CollectiveAutomationsController < ApplicationController
                                  })
     end
 
-    if @automation_rule.update(result.attributes.merge(yaml_source: yaml_source, updated_by: @current_user))
+    # Assign attrs in-memory so we can ask the would-be enabled state, then
+    # save only if the gate allows.
+    @automation_rule.assign_attributes(result.attributes.merge(yaml_source: yaml_source, updated_by: @current_user))
+    others_enabled = @current_collective.automation_rules.enabled
+      .where.not(id: @automation_rule.id).exists?
+    if paid_transition_blocked?(@current_collective,
+                                has_enabled_automation_after: @automation_rule.enabled? || others_enabled)
+      @automation_rule.reload  # discard the in-memory changes
+      return render_action_error({
+                                   action_name: "update_automation_rule",
+                                   resource: @automation_rule,
+                                   error: paid_transition_action_error,
+                                 })
+    end
+
+    if @automation_rule.save
       render_action_success({
                               action_name: "update_automation_rule",
                               resource: @automation_rule,
@@ -226,16 +263,33 @@ class CollectiveAutomationsController < ApplicationController
 
   def describe_toggle
     action = @automation_rule.enabled? ? "disable" : "enable"
+    billing_note = if action == "enable"
+      " Note: enabling may move a free collective to the paid plan ($3/mo)."
+    else
+      " Note: disabling all enabled rules pauses the $3/mo charge on the next billing cycle."
+    end
     render_action_description({
                                 action_name: "toggle_automation_rule",
                                 resource: @automation_rule,
-                                description: "#{action.capitalize} the automation rule",
+                                description: "#{action.capitalize} the automation rule.#{billing_note}",
                                 params: [],
                               })
   end
 
   def execute_toggle
-    @automation_rule.update!(enabled: !@automation_rule.enabled?, updated_by: @current_user)
+    will_be_enabled = !@automation_rule.enabled?
+    others_enabled = @current_collective.automation_rules.enabled
+      .where.not(id: @automation_rule.id).exists?
+    if paid_transition_blocked?(@current_collective,
+                                has_enabled_automation_after: will_be_enabled || others_enabled)
+      return render_action_error({
+                                   action_name: "toggle_automation_rule",
+                                   resource: @automation_rule,
+                                   error: paid_transition_action_error,
+                                 })
+    end
+
+    @automation_rule.update!(enabled: will_be_enabled, updated_by: @current_user)
     state = @automation_rule.enabled? ? "enabled" : "disabled"
     render_action_success({
                             action_name: "toggle_automation_rule",

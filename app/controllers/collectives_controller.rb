@@ -1,6 +1,8 @@
 # typed: false
 
 class CollectivesController < ApplicationController
+  include PaidTransitionGate
+
   before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :views, :view, :members]
 
   def index
@@ -249,6 +251,19 @@ class CollectivesController < ApplicationController
       @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
 
+    # Gate paid-tier transitions on the trio / file_attachments flags. Must
+    # run BEFORE the flag-application loop below — `paid_tier?` reads the
+    # in-memory settings, so mutating first would make the "already paid"
+    # early-return fire incorrectly and let the transition through.
+    trio_after = post_change_flag_value(:trio)
+    files_after = post_change_flag_value(:file_attachments)
+    if paid_transition_blocked?(@current_collective,
+                                trio_after: trio_after,
+                                file_attachments_after: files_after)
+      flash[:error] = paid_transition_error_message
+      return redirect_to "#{@current_collective.path}/settings"
+    end
+
     # Handle feature flags via unified system
     FeatureFlagService.all_flags.each do |flag_name|
       param_key = "feature_#{flag_name}"
@@ -346,6 +361,19 @@ class CollectivesController < ApplicationController
 
   def update_collective_settings_action
     return render_action_error({ action_name: 'update_collective_settings', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
+
+    # Gate paid-tier transition. ApiHelper only changes file_attachments
+    # (via the `file_uploads` param); trio is browser-UI-only.
+    if params.has_key?(:file_uploads)
+      files_after = [true, "true", "1"].include?(params[:file_uploads])
+      if paid_transition_blocked?(@current_collective, file_attachments_after: files_after)
+        return render_action_error({
+          action_name: 'update_collective_settings',
+          resource: @current_collective,
+          error: paid_transition_action_error,
+        })
+      end
+    end
 
     begin
       collective = api_helper.update_collective_settings
@@ -626,6 +654,19 @@ class CollectivesController < ApplicationController
 
   # POST /collectives/:collective_handle/deactivate
   private
+
+  # Returns the post-change boolean value for a feature_flag based on params.
+  # If the param isn't present, falls back to the current explicit value (or
+  # false if none set). Used by the paid-tier gate in update_settings.
+  def post_change_flag_value(flag_name)
+    param_key = "feature_#{flag_name}"
+    if params.key?(param_key) || params.key?(flag_name)
+      value = params[param_key] || params[flag_name]
+      [true, "true", "1"].include?(value)
+    else
+      @current_collective.settings.dig("feature_flags", flag_name.to_s) == true
+    end
+  end
 
   def requires_collective_billing_confirmation?
     current_tenant.feature_enabled?("stripe_billing") &&
