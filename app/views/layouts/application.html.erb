@@ -41,13 +41,17 @@
         <% if notice %>
           <div class="pulse-notice" data-pulse-flash>
             <%= markdown_inline(notice) %>
-            <button type="button" class="pulse-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
+            <button type="button" class="pulse-dismiss-btn"
+                    data-controller="remove-parent"
+                    data-action="click->remove-parent#remove">&times;</button>
           </div>
         <% end %>
         <% if alert %>
           <div class="pulse-alert" data-pulse-flash>
             <%= markdown_inline(alert) %>
-            <button type="button" class="pulse-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
+            <button type="button" class="pulse-dismiss-btn"
+                    data-controller="remove-parent"
+                    data-action="click->remove-parent#remove">&times;</button>
           </div>
         <% end %>
       </div>

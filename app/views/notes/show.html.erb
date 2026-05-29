@@ -77,7 +77,10 @@
   end %>
 
   <% if @note.is_comment? && @note.commentable %>
-    <div class="pulse-reply-context" onclick="location.href='<%= @note.commentable.path %>'" style="cursor:pointer;">
+    <div class="pulse-reply-context" style="cursor:pointer;"
+         data-controller="card-navigate"
+         data-card-navigate-url-value="<%= @note.commentable.path %>"
+         data-action="click->card-navigate#navigate auxclick->card-navigate#navigate">
       <%= octicon 'reply', height: 14 %>
       Replying to
       <%= render 'shared/pulse_resource_link', resource: @note.commentable %>
@@ -88,7 +91,10 @@
       Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
     </div>
   <% elsif @note.is_statement? && @note.statementable %>
-    <div class="pulse-reply-context" onclick="location.href='<%= @note.statementable.path %>'" style="cursor:pointer;">
+    <div class="pulse-reply-context" style="cursor:pointer;"
+         data-controller="card-navigate"
+         data-card-navigate-url-value="<%= @note.statementable.path %>"
+         data-action="click->card-navigate#navigate auxclick->card-navigate#navigate">
       <%= octicon 'law', height: 14 %>
       Statement on
       <%= render 'shared/pulse_resource_link', resource: @note.statementable %>

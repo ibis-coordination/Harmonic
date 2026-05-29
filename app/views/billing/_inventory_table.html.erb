@@ -38,7 +38,10 @@
           <td style="text-align: right;">
             <%= form_tag billing_deactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
               <%= hidden_field_tag :confirm_deactivate, "1" %>
-              <button type="submit" class="pulse-action-btn-small pulse-action-btn-danger" onclick="return confirm('Deactivate <%= j agent.display_name %>? This will revoke API tokens and stop task execution.')">
+              <button type="submit" class="pulse-action-btn-small pulse-action-btn-danger"
+                      data-controller="confirm-submit"
+                      data-confirm-submit-message-value="Deactivate <%= j agent.display_name %>? This will revoke API tokens and stop task execution."
+                      data-action="click->confirm-submit#prompt">
                 Deactivate
               </button>
             <% end %>
@@ -68,7 +71,10 @@
           <td style="text-align: right;">
             <%= form_tag billing_deactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
               <%= hidden_field_tag :confirm_deactivate, "1" %>
-              <button type="submit" class="pulse-action-btn-small pulse-action-btn-danger" onclick="return confirm('Deactivate <%= j collective.name %>? It will become inaccessible to all members.')">
+              <button type="submit" class="pulse-action-btn-small pulse-action-btn-danger"
+                      data-controller="confirm-submit"
+                      data-confirm-submit-message-value="Deactivate <%= j collective.name %>? It will become inaccessible to all members."
+                      data-action="click->confirm-submit#prompt">
                 Deactivate
               </button>
             <% end %>

@@ -19,6 +19,7 @@ import CollapsableSectionController from "./collapseable_section_controller"
 import CommentsController from "./comments_controller"
 import CommentThreadController from "./comment_thread_controller"
 import CommitmentController from "./commitment_controller"
+import ConfirmSubmitController from "./confirm_submit_controller"
 import CooldownButtonController from "./cooldown_button_controller"
 import CountdownController from "./countdown_controller"
 import DatetimeInputController from "./datetime_input_controller"
@@ -29,6 +30,8 @@ import FormTrackerController from "./form_tracker_controller"
 import DecisionVotersController from "./decision_voters_controller"
 import HeaderSearchController from "./header_search_controller"
 import HeartbeatController from "./heartbeat_controller"
+import HideOnErrorController from "./hide_on_error_controller"
+import HistoryBackController from "./history_back_controller"
 import HelloController from "./hello_controller"
 import ImageCropperController from "./image_cropper_controller"
 import LightboxController from "./lightbox_controller"
@@ -49,6 +52,7 @@ import PinController from "./pin_controller"
 import PulseActionController from "./pulse_action_controller"
 import PulseFilterController from "./pulse_filter_controller"
 import RecoveryCodesController from "./recovery_codes_controller"
+import RemoveParentController from "./remove_parent_controller"
 import ScratchpadLinksController from "./scratchpad_links_controller"
 import SecretRevealController from "./secret_reveal_controller"
 import AgentChatController from "./agent_chat_controller"
@@ -81,6 +85,7 @@ application.register("collapseable-section", CollapsableSectionController)
 application.register("comments", CommentsController)
 application.register("comment-thread", CommentThreadController)
 application.register("commitment", CommitmentController)
+application.register("confirm-submit", ConfirmSubmitController)
 application.register("cooldown-button", CooldownButtonController)
 application.register("countdown", CountdownController)
 application.register("datetime-input", DatetimeInputController)
@@ -94,6 +99,8 @@ application.register("decision-voters", DecisionVotersController)
 application.register("header-search", HeaderSearchController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
+application.register("hide-on-error", HideOnErrorController)
+application.register("history-back", HistoryBackController)
 application.register("image-cropper", ImageCropperController)
 application.register("lightbox", LightboxController)
 application.register("logout", LogoutController)
@@ -112,6 +119,7 @@ application.register("pin", PinController)
 application.register("pulse-action", PulseActionController)
 application.register("pulse-filter", PulseFilterController)
 application.register("recovery-codes", RecoveryCodesController)
+application.register("remove-parent", RemoveParentController)
 application.register("scratchpad-links", ScratchpadLinksController)
 application.register("secret-reveal", SecretRevealController)
 application.register("agent-chat", AgentChatController)

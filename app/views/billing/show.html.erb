@@ -76,7 +76,10 @@
                     <td style="text-align: right;">
                       <%= form_tag billing_reactivate_agent_path(agent_handle), method: :post, style: "display:inline" do %>
                         <%= hidden_field_tag :confirm_billing, "1" %>
-                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription.')">
+                        <button type="submit" class="pulse-action-btn-small"
+                                data-controller="confirm-submit"
+                                data-confirm-submit-message-value="Reactivate <%= j agent.display_name %>? This will add $3/mo to your subscription."
+                                data-action="click->confirm-submit#prompt">
                           Reactivate
                         </button>
                       <% end %>
@@ -95,7 +98,10 @@
                     <td style="text-align: right;">
                       <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline" do %>
                         <%= hidden_field_tag :confirm_billing, "1" %>
-                        <button type="submit" class="pulse-action-btn-small" onclick="return confirm('Reactivate <%= j collective.name %>? This will add $3/mo to your subscription.')">
+                        <button type="submit" class="pulse-action-btn-small"
+                                data-controller="confirm-submit"
+                                data-confirm-submit-message-value="Reactivate <%= j collective.name %>? This will add $3/mo to your subscription."
+                                data-action="click->confirm-submit#prompt">
                           Reactivate
                         </button>
                       <% end %>

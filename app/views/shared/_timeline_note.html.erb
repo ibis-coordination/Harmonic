@@ -1,4 +1,7 @@
-<div class="timeline-note" onclick="location.href='<%= note.path %>'">
+<div class="timeline-note"
+     data-controller="card-navigate"
+     data-card-navigate-url-value="<%= note.path %>"
+     data-action="click->card-navigate#navigate auxclick->card-navigate#navigate">
   <div class="timeline-note-created-by">
     <% if note.respond_to?(:created_via_representation?) && note.created_via_representation? && note.representative_user %>
       <%# Representation: show "Alice on behalf of Bob" %>
