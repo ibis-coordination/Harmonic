@@ -7,8 +7,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @user = @global_user
     # Make user an admin of the collective
     collective_member = @collective.collective_members.find_by(user: @user)
-    collective_member.add_role!('admin') if collective_member
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    collective_member.add_role!("admin") if collective_member
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
   def create_test_collective(name: "Test Collective", handle: "test-collective-#{SecureRandom.hex(4)}")
@@ -41,7 +41,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       created_by: other_user,
       name: "Secret Collective",
-      handle: "secret-#{SecureRandom.hex(4)}",
+      handle: "secret-#{SecureRandom.hex(4)}"
     )
     other_collective.add_user!(other_user)
     Collective.clear_thread_scope
@@ -101,7 +101,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
       post "/collectives", params: {
         name: "New Collective",
         handle: unique_handle,
-        description: "A new collective"
+        description: "A new collective",
       }
     end
 
@@ -130,7 +130,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/settings"
     # Should show an error message (rendered with 200)
     assert_response :success
-    assert_match /admin/i, response.body
+    assert_match(/admin/i, response.body)
   end
 
   # === Update Settings Tests ===
@@ -139,13 +139,13 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     # Settings update uses POST, redirects to referrer so we need to set that header
     post "/collectives/#{@collective.handle}/settings",
-      params: {
-        name: "Updated Collective Name",
-        description: "Updated description",
-        timezone: "America/New_York",
-        tempo: "weekly"
-      },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: {
+           name: "Updated Collective Name",
+           description: "Updated description",
+           timezone: "America/New_York",
+           tempo: "weekly",
+         },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_equal "Updated Collective Name", @collective.name
@@ -162,8 +162,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(other_user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { name: "Hacked Name" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { name: "Hacked Name" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_equal original_name, @collective.name
@@ -179,8 +179,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_not_nil @collective.trio_user_id, "expected trio to be activated"
@@ -195,8 +195,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { feature_trio: "false" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { feature_trio: "false" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_nil @collective.trio_user_id, "expected trio to be deactivated"
@@ -345,6 +345,13 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     test_collective = create_test_collective
+    # Settings only links to /billing for paid_tier collectives; for free ones
+    # there's nothing billing-related to manage.
+    AutomationRule.create!(
+      tenant: @tenant, collective: test_collective, created_by: @user,
+      name: "Bill", trigger_type: "manual", trigger_config: { "inputs" => {} },
+      conditions: [], actions: {}, enabled: true
+    )
 
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{test_collective.handle}/settings"
@@ -388,8 +395,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { name: @collective.name, feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { name: @collective.name, feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_not @collective.trio_enabled?, "trio should not be activated when gate blocks"
@@ -402,8 +409,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { name: @collective.name, feature_file_attachments: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { name: @collective.name, feature_file_attachments: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_not @collective.file_attachments_enabled?, "file_attachments should not be enabled when gate blocks"
@@ -418,8 +425,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { name: @collective.name, feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { name: @collective.name, feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert @collective.trio_enabled?, "trio should be enabled when owner has billing"
@@ -435,8 +442,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { name: @collective.name, feature_trio: "false" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { name: @collective.name, feature_trio: "false" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
     assert_not @collective.trio_enabled?
@@ -448,8 +455,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings/actions/update_collective_settings",
-      params: { file_uploads: "true" },
-      headers: { "Accept" => "text/markdown" }
+         params: { file_uploads: "true" },
+         headers: { "Accept" => "text/markdown" }
 
     @collective.reload
     assert_not @collective.file_attachments_enabled?, "file_attachments should not enable when gate blocks"
@@ -463,11 +470,81 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings/actions/update_collective_settings",
-      params: { file_uploads: "true" },
-      headers: { "Accept" => "text/markdown" }
+         params: { file_uploads: "true" },
+         headers: { "Accept" => "text/markdown" }
 
     @collective.reload
     assert @collective.file_attachments_enabled?
+  end
+
+  # === Tier badge rendering ===
+
+  test "settings page renders Free plan badge when stripe_billing enabled and collective free" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Free plan"
+    assert_not_includes response.body, "Paid plan"
+  end
+
+  test "settings page renders Paid plan badge when collective is paid_tier" do
+    enable_stripe_billing_flag!(@tenant)
+    # Owner has billing so app-level gate doesn't redirect to /billing first.
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    AutomationRule.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      name: "Bill", trigger_type: "manual", trigger_config: { "inputs" => {} },
+      conditions: [], actions: {}, enabled: true
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Paid plan"
+  end
+
+  test "settings page renders no tier badge when stripe_billing flag is off" do
+    # @tenant has no stripe_billing flag enabled — tier model is not in effect
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_not_includes response.body, "Free plan"
+    assert_not_includes response.body, "Paid plan"
+  end
+
+  test "settings page shows Paid Plan Features section with transition hint when free" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Paid Plan Features"
+    assert_match(/moves this collective to the paid plan/i, response.body)
+  end
+
+  test "settings page shows Paid Plan Features with Automations even when trio/file_attachments off at tenant level" do
+    enable_stripe_billing_flag!(@tenant)
+    # tenant explicitly has NEITHER trio nor file_attachments enabled
+    # (file_attachments defaults to true at tenant level — disable it explicitly)
+    @tenant.set_feature_flag!("trio", false)
+    @tenant.set_feature_flag!("file_attachments", false)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Paid Plan Features"
+    assert_includes response.body, "Automations"
+    assert_includes response.body, "Manage automations"
+    # When no paid flags are available at tenant level, only the Automations
+    # entry appears in the section.
+    assert_no_match(/Trio AI Assistant/, response.body)
+  end
+
+  test "settings markdown view renders tier badge" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "**Plan:**"
   end
 
   test "update_settings allows turning trio on when collective is already paid (no transition)" do
@@ -481,8 +558,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
-      params: { name: @collective.name, feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/collectives/#{@collective.handle}/settings" }
+         params: { name: @collective.name, feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     assert @collective.reload.trio_enabled?
   end

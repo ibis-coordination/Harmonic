@@ -23,7 +23,7 @@ feature_flags:
 
   file_attachments:
     name: "File Attachments"
-    description: "Allows users to attach files to notes, decisions, and commitments. Paid-tier-only feature: enabling on a collective moves it to the paid plan ($3/mo)."
+    description: "Allows users to attach files to notes, decisions, and commitments."
     app_enabled: true
     default_tenant: true
     default_collective: false

@@ -194,6 +194,11 @@ class Collective < ApplicationRecord
 
   # === Free/paid tier predicates ===
 
+  # Feature flags whose explicit enabling moves a collective to the paid tier.
+  # Automations are also a paid trigger but tracked separately (as their own
+  # resource, not a feature flag).
+  PAID_FEATURE_FLAGS = T.let(%w[trio file_attachments].freeze, T::Array[String])
+
   # State of the collective: is it on the paid plan ($3/mo)?
   # Type-agnostic — applies equally to standard and private_workspace collectives.
   # Billing scope (which paid collectives actually count) is enforced separately

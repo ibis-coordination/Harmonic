@@ -1,5 +1,7 @@
 # <%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Settings
 
+<%= render 'shared/collective_tier_badge', collective: @current_collective %>
+
 <% if @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
 <% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
 **Status: Inactive** — This collective is deactivated and not being billed. [Manage on billing page](/billing)
@@ -22,17 +24,41 @@ Current settings for **<%= @current_collective.name %>**:
 | Invitations | <%= @current_collective.all_members_can_invite? ? 'All members can invite' : 'Only admins can invite' %> |
 | Representation | <%= @current_collective.any_member_can_represent? ? 'Any member can represent' : 'Only representatives' %> |
 <% end %>
-<% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
-<% if available_flags.any? %>
+<%
+  available_flags = FeatureFlagService.all_flags.select { |f|
+    FeatureFlagService.tenant_enabled?(@current_tenant, f) &&
+      FeatureFlagService.flag_metadata(f).fetch("collective_level", false)
+  }
+  tier_in_effect = @current_tenant.feature_enabled?("stripe_billing")
+  if tier_in_effect
+    paid_flags, free_flags = available_flags.partition { |f| Collective::PAID_FEATURE_FLAGS.include?(f) }
+  else
+    paid_flags, free_flags = [], available_flags
+  end
+%>
+<% if free_flags.any? %>
 
-## Features Enabled
+## <%= tier_in_effect ? "Features" : "Features Enabled" %>
 
 | Feature | Enabled |
 |---------|---------|
-<% available_flags.each do |flag_name| %>
+<% free_flags.each do |flag_name| %>
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-<% collective_enabled_locally = @current_collective.feature_flag_enabled_locally?(flag_name) %>
-| <%= metadata['name'] %> | <%= collective_enabled_locally ? 'Yes' : 'No' %> |
+| <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
+<% end %>
+<% end %>
+<% if tier_in_effect && !@current_collective.is_main_collective? %>
+
+## Paid Plan Features
+
+Enabling any feature in this section <%= @current_collective.paid_tier? ? "keeps" : "moves" %> this collective <%= @current_collective.paid_tier? ? "on" : "to" %> the paid plan ($3/month). Disabling all paid features pauses the charge on the next billing cycle.
+
+| Feature | Enabled |
+|---------|---------|
+| Automations | <%= @current_collective.automation_rules.enabled.count %> enabled — [Manage](<%= @current_collective.path %>/settings/automations) |
+<% paid_flags.each do |flag_name| %>
+<% metadata = FeatureFlagService.flag_metadata(flag_name) %>
+| <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
 <% end %>
 <% end %>
 <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? && @collective_ai_agents.present? %>
@@ -44,15 +70,18 @@ Current settings for **<%= @current_collective.name %>**:
 <% end %>
 <% end %>
 
-<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
+<% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? %>
 <% if @current_collective.billing_exempt? %>
-This collective is billing-exempt. [View billing](/billing)
+Billing-exempt by an admin. [View billing](/billing)
 <% else %>
-This collective costs $3/month. [Manage billing](/billing)
+[Manage billing](/billing)
 <% end %>
 <% end %>
+
+<% unless tier_in_effect && !@current_collective.is_main_collective? %>
 
 ## Additional Settings
 
 * [Manage Automations](<%= @current_collective.path %>/settings/automations) - Configure event-triggered actions, webhooks, and schedules
+<% end %>
 <% end %>

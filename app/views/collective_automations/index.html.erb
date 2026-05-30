@@ -11,8 +11,15 @@
         <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
         Automations
       </span>
+      <%= render 'shared/collective_tier_badge', collective: @current_collective %>
     </div>
     <h1 class="pulse-resource-title">Automations</h1>
+    <% if @current_tenant.feature_enabled?("stripe_billing") && @current_collective.free_tier? %>
+      <p class="pulse-form-hint" style="margin-top: 8px; font-size: 13px;">
+        <%= octicon 'info', height: 12 %>
+        Enabling an automation moves this collective to the paid plan ($3/mo).
+      </p>
+    <% end %>
   </header>
 
   <div class="pulse-resource-body">

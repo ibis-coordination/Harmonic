@@ -1,0 +1,17 @@
+<%# Tier badge for a collective. Pass collective: as a local. %>
+<%# Renders nothing for main collectives, archived collectives, or tenants %>
+<%# where the stripe_billing feature is off (no tier model in effect). %>
+<% unless collective.is_main_collective? || collective.archived? || !T.must(collective.tenant).feature_enabled?("stripe_billing") %>
+  <% if collective.paid_tier? %>
+    <span class="pulse-tag pulse-tag-info" style="font-size: 11px;" title="Paid features enabled on this collective">
+      <%= octicon 'credit-card', height: 12 %> Paid plan ($3/mo)
+    </span>
+    <% if collective.billing_exempt? %>
+      <span class="pulse-tag" style="font-size: 11px;" title="An admin has exempted this collective from billing">(exempt)</span>
+    <% end %>
+  <% else %>
+    <span class="pulse-tag" style="font-size: 11px;" title="No paid features enabled">
+      Free plan
+    </span>
+  <% end %>
+<% end %>

@@ -11,6 +11,7 @@
         <%= octicon 'gear', height: 14, class: 'pulse-resource-icon' %>
         Settings
       </span>
+      <%= render 'shared/collective_tier_badge', collective: @current_collective %>
     </div>
     <h1 class="pulse-resource-title"><%= @current_collective.private_workspace? ? "Workspace" : "Collective" %> Settings</h1>
   </header>
@@ -142,33 +143,81 @@
       </section>
       <% end %>
 
-      <% available_flags = FeatureFlagService.all_flags.select { |f| FeatureFlagService.tenant_enabled?(@current_tenant, f) && FeatureFlagService.flag_metadata(f).fetch("collective_level", false) } %>
-      <% if available_flags.any? %>
-        <section class="pulse-settings-section">
-          <h2 class="pulse-section-title">Features Enabled</h2>
-          <% available_flags.each do |flag_name| %>
-            <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
-            <% collective_enabled_locally = @current_collective.feature_flag_enabled_locally?(flag_name) %>
+      <%
+        available_flags = FeatureFlagService.all_flags.select { |f|
+          FeatureFlagService.tenant_enabled?(@current_tenant, f) &&
+            FeatureFlagService.flag_metadata(f).fetch("collective_level", false)
+        }
+        tier_in_effect = @current_tenant.feature_enabled?("stripe_billing")
+        if tier_in_effect
+          paid_flags, free_flags = available_flags.partition { |f| Collective::PAID_FEATURE_FLAGS.include?(f) }
+        else
+          paid_flags, free_flags = [], available_flags
+        end
+      %>
+
+      <% render_flag_item = ->(flag_name) {
+        metadata = FeatureFlagService.flag_metadata(flag_name)
+        collective_enabled_locally = @current_collective.feature_flag_enabled_locally?(flag_name) %>
+        <div class="pulse-feature-flag-item">
+          <strong><%= metadata['name'] %></strong>
+          <label class="pulse-checkbox-label">
+            <%= form.check_box "feature_#{flag_name}", checked: collective_enabled_locally, id: "feature_#{flag_name}", class: 'pulse-checkbox-input' %>
+            <span><%= metadata['description'] %></span>
+          </label>
+          <% if flag_name == 'file_attachments' && collective_enabled_locally %>
+            <p class="pulse-feature-usage">
+              Current usage:
+              <%= @current_collective.file_storage_usage_in_human_size %> of <%= @current_collective.file_storage_limit_in_human_size %>
+              <% if ENV['SAAS_MODE'] == 'true' %>
+                <%= link_to 'Purchase more space', '/billing', class: 'pulse-action-btn-small' %>
+              <% else %>
+                <br/>
+                Increase limit: <%= form.number_field :file_storage_limit, value: @current_collective.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB
+              <% end %>
+            </p>
+          <% end %>
+        </div>
+      <% } %>
+
+      <% show_paid_section = tier_in_effect && !@current_collective.is_main_collective? %>
+      <% if free_flags.any? || show_paid_section %>
+        <%# Suppress border-bottom; the sticky Save Settings form-actions below %>
+        <%# has its own border-top, so keeping both produces two visible lines. %>
+        <section class="pulse-settings-section" style="border-bottom: none;">
+          <% if free_flags.any? %>
+            <h2 class="pulse-section-title"><%= tier_in_effect ? "Features" : "Features Enabled" %></h2>
+            <% free_flags.each { |f| render_flag_item.call(f) } %>
+          <% end %>
+
+          <% if show_paid_section %>
+            <% enabled_automation_count = @current_collective.automation_rules.enabled.count %>
+            <h3 class="pulse-section-title" style="<%= free_flags.any? ? 'margin-top: 24px;' : '' %> font-size: 16px;">
+              Paid Plan Features
+            </h3>
+            <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
+              <%= octicon 'credit-card', height: 12 %>
+              Enabling any feature in this section
+              <% if @current_collective.paid_tier? %>
+                keeps this collective on the paid plan ($3/month).
+              <% else %>
+                moves this collective to the paid plan ($3/month).
+              <% end %>
+              Disabling all paid features pauses the charge on the next billing cycle.
+            </p>
 
             <div class="pulse-feature-flag-item">
-              <strong><%= metadata['name'] %></strong>
-              <label class="pulse-checkbox-label">
-                <%= form.check_box "feature_#{flag_name}", checked: collective_enabled_locally, id: "feature_#{flag_name}", class: 'pulse-checkbox-input' %>
-                <span><%= metadata['description'] %></span>
-              </label>
-              <% if flag_name == 'file_attachments' && collective_enabled_locally %>
-                <p class="pulse-feature-usage">
-                  Current usage:
-                  <%= @current_collective.file_storage_usage_in_human_size %> of <%= @current_collective.file_storage_limit_in_human_size %>
-                  <% if ENV['SAAS_MODE'] == 'true' %>
-                    <%= link_to 'Purchase more space', '/billing', class: 'pulse-action-btn-small' %>
-                  <% else %>
-                    <br/>
-                    Increase limit: <%= form.number_field :file_storage_limit, value: @current_collective.file_storage_limit / 1.megabyte, class: 'pulse-form-input pulse-form-input-small' %> MB
-                  <% end %>
-                </p>
-              <% end %>
+              <strong>Automations</strong>
+              <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
+                Event-triggered actions, webhooks, and schedules.
+                <%= enabled_automation_count %> enabled.
+              </p>
+              <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn pulse-action-btn-sm">
+                <%= octicon 'zap', height: 12 %> Manage automations
+              </a>
             </div>
+
+            <% paid_flags.each { |f| render_flag_item.call(f) } %>
           <% end %>
         </section>
       <% end %>
@@ -266,14 +315,14 @@
         </section>
       <% end %>
 
-      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
+      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? %>
         <section class="pulse-settings-section">
           <p class="pulse-muted">
             <%= octicon 'credit-card', height: 14 %>
             <% if @current_collective.billing_exempt? %>
-              This collective is billing-exempt. <%= link_to "View billing", "/billing", class: "pulse-link" %>
+              Billing-exempt by an admin. <%= link_to "View billing", "/billing", class: "pulse-link" %>
             <% else %>
-              This collective costs $3/month. <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
+              <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
             <% end %>
           </p>
         </section>

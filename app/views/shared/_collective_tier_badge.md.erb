@@ -1,0 +1,12 @@
+<%#
+  Markdown variant of the tier badge. Pass `collective:` as a local.
+  Mirrors the HTML partial: emits nothing for main collectives, archived
+  collectives, or tenants where stripe_billing is off.
+%>
+<% unless collective.is_main_collective? || collective.archived? || !T.must(collective.tenant).feature_enabled?("stripe_billing") %>
+<% if collective.paid_tier? %>
+**Plan:** Paid ($3/mo)<%= collective.billing_exempt? ? " (exempt)" : "" %>
+<% else %>
+**Plan:** Free
+<% end %>
+<% end %>
