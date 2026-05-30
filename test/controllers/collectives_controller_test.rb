@@ -318,7 +318,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal Collective::TIER_FREE, created.tier
   end
 
-  test "settings page links to billing for archived collective instead of reactivation form" do
+  test "settings page surfaces a Reactivate button on archived collective for the owner" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     test_collective = create_test_collective
@@ -328,8 +328,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{test_collective.handle}/settings"
 
     assert_response :success
-    assert_includes response.body, "/billing"
-    assert_not_includes response.body, "Reactivate Collective"
+    assert_includes response.body, "/collectives/#{test_collective.handle}/unarchive",
+                    "settings page should expose the unarchive endpoint for the owner"
+    assert_match(/Reactivate/i, response.body)
   end
 
   test "settings page links to billing for deactivation instead of form" do
@@ -970,6 +971,136 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_equal Collective::TIER_FREE, @collective.reload.tier
+  end
+
+  test "downgrade: honors return_to=/billing so users stay on the billing page" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade", params: { return_to: "/billing" }
+
+    assert_response :redirect
+    assert_equal "/billing", URI(response.location).path,
+                 "downgrade with return_to=/billing should redirect back to billing"
+  end
+
+  test "archive: redirects to /reverify when 2FA is enabled and not yet reverified" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/archive"
+
+    assert_redirected_to "/reverify"
+    assert_not @collective.reload.archived?, "collective must not be archived until reverification completes"
+  end
+
+  test "archive: owner archives a paid collective; collective is archived, tier drops to free, redirects to settings" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/collectives/#{@collective.handle}/archive", method: :post)
+    post "/collectives/#{@collective.handle}/archive"
+
+    assert_response :redirect
+    assert_match(%r{/settings\z}, URI(response.location).path)
+    @collective.reload
+    assert @collective.archived?, "collective should be archived after reverification + post"
+    assert_equal Collective::TIER_FREE, @collective.tier,
+                 "archive should auto-downgrade paid → free so unarchive doesn't silently resume billing"
+  end
+
+  test "archive: non-owner is rejected with 403 even after reverification" do
+    other = create_user
+    @tenant.add_user!(other)
+    @collective.add_user!(other, roles: ["admin"])
+
+    sign_in_with_reverification(other, tenant: @tenant, path: "/collectives/#{@collective.handle}/archive", method: :post)
+    post "/collectives/#{@collective.handle}/archive"
+
+    assert_response :forbidden
+    assert_not @collective.reload.archived?
+  end
+
+  test "archive: refuses to archive the tenant's main collective" do
+    @tenant.update!(main_collective_id: @collective.id)
+
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/collectives/#{@collective.handle}/archive", method: :post)
+    post "/collectives/#{@collective.handle}/archive"
+
+    assert_response :redirect
+    assert_match(%r{/settings\z}, URI(response.location).path)
+    assert_match(/main collective cannot be archived/i, flash[:error].to_s)
+    assert_not @collective.reload.archived?
+  end
+
+  test "unarchive: redirects to /reverify when 2FA is enabled and not yet reverified" do
+    identity = @user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    @collective.archive!
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/unarchive"
+
+    assert_redirected_to "/reverify"
+    assert @collective.reload.archived?, "must not unarchive until reverification completes"
+  end
+
+  test "unarchive: owner reactivates after reverification; collective is unarchived and stays on free plan" do
+    @collective.archive!
+    assert @collective.reload.archived?
+
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/collectives/#{@collective.handle}/unarchive", method: :post)
+    post "/collectives/#{@collective.handle}/unarchive"
+
+    assert_response :redirect
+    assert_match(%r{/settings\z}, URI(response.location).path)
+    @collective.reload
+    assert_not @collective.archived?
+    assert_equal Collective::TIER_FREE, @collective.tier,
+                 "unarchive must not silently resume the paid tier — archive already downgraded"
+  end
+
+  test "unarchive: non-owner is rejected with 403 even after reverification" do
+    other = create_user
+    @tenant.add_user!(other)
+    @collective.add_user!(other, roles: ["admin"])
+    @collective.archive!
+
+    sign_in_with_reverification(other, tenant: @tenant, path: "/collectives/#{@collective.handle}/unarchive", method: :post)
+    post "/collectives/#{@collective.handle}/unarchive"
+
+    assert_response :forbidden
+    assert @collective.reload.archived?
+  end
+
+  test "downgrade: ignores untrusted return_to values (open redirect guard)" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade", params: { return_to: "https://evil.example.com/phish" }
+
+    assert_response :redirect
+    redirect_path = URI(response.location).path
+    assert_not_equal "/phish", redirect_path
+    assert_match(%r{/settings\z}, redirect_path,
+                 "untrusted return_to must fall through to the default settings redirect")
   end
 
   private

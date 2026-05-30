@@ -1348,12 +1348,12 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "stripe_billing_setup? returns false when user has no stripe customer" do
-    create_billable_automation(@collective) # make @collective paid_tier so user has a billable resource
+    @collective.update!(tier: Collective::TIER_PAID) # make @collective paid_tier so user has a billable resource
     assert_not @user.stripe_billing_setup?
   end
 
   test "stripe_billing_setup? returns false when stripe customer is inactive" do
-    create_billable_automation(@collective)
+    @collective.update!(tier: Collective::TIER_PAID)
     StripeCustomer.create!(
       billable: @user,
       stripe_id: "cus_#{SecureRandom.hex(8)}",
@@ -1364,7 +1364,7 @@ class UserTest < ActiveSupport::TestCase
 
   test "requires_stripe_billing? returns true when flag enabled and billing not set up" do
     enable_stripe_billing_flag!(@tenant)
-    create_billable_automation(@collective)
+    @collective.update!(tier: Collective::TIER_PAID)
     assert @user.requires_stripe_billing?(@tenant)
   end
 
@@ -1396,7 +1396,7 @@ class UserTest < ActiveSupport::TestCase
   test "stripe_billing_setup? returns false when billing_exempt but has non-exempt resources" do
     @user.update!(billing_exempt: true)
     # @collective is non-exempt; make it paid_tier so it counts as a billable resource
-    create_billable_automation(@collective)
+    @collective.update!(tier: Collective::TIER_PAID)
     assert_not @user.stripe_billing_setup?
   end
 
@@ -1440,34 +1440,38 @@ class UserTest < ActiveSupport::TestCase
     @tenant.update!(main_collective_id: @collective.id) # make it main so we start from 0
     extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Extra #{SecureRandom.hex(4)}", handle: "extra-#{SecureRandom.hex(4)}")
     assert_equal 0, @user.active_billable_collective_count,
-                 "non-main collective with no paid features should not count"
-    create_billable_automation(extra)
+                 "non-main collective on free tier should not count"
+    upgrade_collective_to_paid!(extra)
     assert_equal 1, @user.active_billable_collective_count,
-                 "non-main collective with an enabled automation should count"
+                 "non-main collective on paid tier should count"
   end
 
-  test "active_billable_collective_count caps at 1 per collective regardless of paid features" do
+  test "active_billable_collective_count is 1 per paid collective regardless of how many paid features are enabled" do
     @tenant.update!(main_collective_id: @collective.id)
     extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Extra #{SecureRandom.hex(4)}", handle: "extra-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(extra)
     create_billable_automation(extra)
     @tenant.enable_feature_flag!("trio")
     extra.enable_feature_flag!("trio")
     assert_equal 1, @user.active_billable_collective_count,
-                 "automation + trio on one collective is still 1"
+                 "paid collective with automation + trio is still 1"
   end
 
-  test "active_billable_collective_count excludes main collective even with paid features" do
+  test "active_billable_collective_count excludes main collective even on paid tier" do
     @tenant.update!(main_collective_id: @collective.id)
-    create_billable_automation(@collective)
+    upgrade_collective_to_paid!(@collective)
     assert_equal 0, @user.active_billable_collective_count
   end
 
-  test "active_billable_collective_count excludes archived collectives" do
+  test "active_billable_collective_count excludes archived paid collectives" do
     @tenant.update!(main_collective_id: @collective.id)
     extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Archived #{SecureRandom.hex(4)}", handle: "archived-#{SecureRandom.hex(4)}")
-    create_billable_automation(extra)
+    upgrade_collective_to_paid!(extra)
+    assert_equal 1, @user.active_billable_collective_count,
+                 "sanity check: paid collective counts before archive"
     extra.archive!
-    assert_equal 0, @user.active_billable_collective_count
+    assert_equal 0, @user.active_billable_collective_count,
+                 "archive must drop the collective out of the billable count"
   end
 
   test "active_billable_collective_count excludes collectives created by other users" do
@@ -1475,14 +1479,14 @@ class UserTest < ActiveSupport::TestCase
     other = create_user(email: "other-#{SecureRandom.hex(4)}@example.com", name: "Other User #{SecureRandom.hex(4)}")
     @tenant.add_user!(other)
     other_collective = Collective.create!(tenant: @tenant, created_by: other, name: "Other #{SecureRandom.hex(4)}", handle: "other-#{SecureRandom.hex(4)}")
-    create_billable_automation(other_collective)
+    upgrade_collective_to_paid!(other_collective, owner: other)
     assert_equal 0, @user.active_billable_collective_count
   end
 
   test "active_billable_collective_count excludes billing_exempt collectives" do
     @tenant.update!(main_collective_id: @collective.id)
     extra = Collective.create!(tenant: @tenant, created_by: @user, name: "Exempt #{SecureRandom.hex(4)}", handle: "exempt-#{SecureRandom.hex(4)}", billing_exempt: true)
-    create_billable_automation(extra)
+    upgrade_collective_to_paid!(extra)
     assert_equal 0, @user.active_billable_collective_count
   end
 
@@ -1493,27 +1497,26 @@ class UserTest < ActiveSupport::TestCase
 
     @tenant.update!(main_collective_id: @collective.id)
     assert_equal 0, @user.active_billable_collective_count,
-                 "fresh workspace with no paid features should not count"
+                 "free-tier workspace should not count"
 
-    @tenant.enable_feature_flag!("trio")
-    workspace.enable_feature_flag!("trio")
+    upgrade_collective_to_paid!(workspace, owner: @user)
     assert_equal 1, @user.reload.active_billable_collective_count,
-                 "workspace with trio enabled should count"
+                 "paid-tier workspace should count"
   end
 
   test "active_billable_collective_count works correctly when Tenant.current_id and Collective.current_id are set" do
     # Regression: in a request context with Tenant.current_id/Collective.current_id set,
-    # the AutomationRule lookup was being restricted by the default_scope so it returned
-    # zero rules and the user appeared free even when they had paid-tier collectives.
+    # the cross-collective lookup must bypass default_scope so paid collectives in
+    # other tenants/collectives still count toward the user's billable quantity.
     @tenant.update!(main_collective_id: @collective.id) # collective becomes main; create new paid one
     paid = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid #{SecureRandom.hex(4)}", handle: "paid-#{SecureRandom.hex(4)}")
-    create_billable_automation(paid)
+    upgrade_collective_to_paid!(paid)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     assert_equal 1, @user.active_billable_collective_count,
-                 "automation lookup must bypass default_scope so cross-collective rules count"
+                 "cross-collective lookup must bypass default_scope so other collectives count"
   ensure
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -1522,7 +1525,7 @@ class UserTest < ActiveSupport::TestCase
   test "active_billable_collective_count excludes chat collectives even when paid_tier" do
     @tenant.update!(main_collective_id: @collective.id)
     chat = Collective.create!(tenant: @tenant, created_by: @user, name: "Chat #{SecureRandom.hex(4)}", handle: "chat-#{SecureRandom.hex(4)}", collective_type: "chat")
-    create_billable_automation(chat)
+    upgrade_collective_to_paid!(chat)
     assert chat.paid_tier?, "sanity check: chat collective is paid_tier"
     assert_equal 0, @user.active_billable_collective_count,
                  "chat collectives are excluded by the billable_types scope"
@@ -1679,6 +1682,29 @@ class UserTest < ActiveSupport::TestCase
     user.archive!
     workspace.reload
     assert workspace.archived?, "Workspace should be archived when user is archived"
+  end
+
+  test "archiving user with paid private workspace syncs Stripe subscription quantity" do
+    tenant = create_tenant(subdomain: "pw-arch-sync-#{SecureRandom.hex(4)}")
+    tenant.enable_feature_flag!("stripe_billing")
+    user = create_user
+    tu = tenant.add_user!(user)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    user.tenant_user = tu
+
+    workspace = user.private_workspace
+    assert workspace
+    upgrade_collective_to_paid!(workspace, owner: user)
+
+    synced_with = nil
+    StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      user.archive!
+    end
+
+    assert_equal user.id, synced_with&.id,
+                 "archiving a user must sync Stripe via the workspace archive cascade"
+  ensure
+    Tenant.clear_thread_scope
   end
 
   test "unarchiving user unarchives private workspace" do

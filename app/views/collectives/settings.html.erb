@@ -38,15 +38,20 @@
         </span>
       </div>
 
-    <% elsif @current_collective.archived? && @current_tenant.feature_enabled?("stripe_billing") %>
+    <% elsif @current_collective.archived? %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
         <span>
           <%= octicon 'archive', height: 14 %>
-          <strong>Inactive</strong> — This collective is deactivated and not being billed.
+          <strong>Inactive</strong> — This <%= @current_collective.private_workspace? ? "workspace" : "collective" %> is archived and not being billed.
           <% if @current_collective.created_by_id && @current_user.id == @current_collective.created_by_id %>
-            <%= link_to "Manage on billing page", "/billing", class: "pulse-link" %>
+            <%= button_to "Reactivate",
+                          "#{@current_collective.path}/unarchive",
+                          method: :post,
+                          class: "pulse-action-btn-small",
+                          form: { style: "display: inline; margin-left: 8px;" },
+                          data: { turbo_confirm: "Reactivate #{@current_collective.name}? It will return on the free plan. You'll be asked to reverify with your 2FA code on the next step." } %>
           <% else %>
-            Only the collective creator can reactivate this collective.
+            Only the creator can reactivate it.
           <% end %>
         </span>
       </div>
@@ -369,6 +374,21 @@
               <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
             <% end %>
           </p>
+        </section>
+      <% end %>
+
+      <% if !@current_collective.is_main_collective? && @current_user.id == @current_collective.created_by_id %>
+        <section class="pulse-settings-section pulse-danger-zone">
+          <h2 class="pulse-section-title"><%= octicon 'alert', height: 16 %> Danger Zone</h2>
+          <p class="pulse-section-description">
+            Archiving makes this <%= @current_collective.private_workspace? ? "workspace" : "collective" %> inaccessible to all members and drops it back to the free plan (paid features turn off, billing stops). You can reactivate it from this page on the free plan; re-upgrade explicitly if you want paid features back.
+          </p>
+          <%= button_to "Archive #{@current_collective.private_workspace? ? 'Workspace' : 'Collective'}",
+                        "#{@current_collective.path}/archive",
+                        method: :post,
+                        class: "pulse-action-btn pulse-action-btn-danger",
+                        form: { style: "display: inline;" },
+                        data: { turbo_confirm: "Archive #{@current_collective.name}? Members will lose access immediately and the collective will return to the free plan. You'll be asked to reverify with your 2FA code on the next step." } %>
         </section>
       <% end %>
 

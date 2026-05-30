@@ -1392,7 +1392,7 @@ class ApplicationController < ActionController::Base
     return unless is_archived || is_pending
     return if is_auth_controller?
     return if is_a?(BillingController)
-    return if controller_name == "collectives" && action_name.in?(["settings"])
+    return if controller_name == "collectives" && action_name.in?(["settings", "unarchive"])
 
     msg = is_pending ? "This collective is pending billing setup." : "This collective is deactivated."
     respond_to do |format|

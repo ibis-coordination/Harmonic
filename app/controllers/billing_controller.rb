@@ -162,9 +162,6 @@ class BillingController < ApplicationController
     end
 
     collective.archive!
-    if current_tenant.feature_enabled?("stripe_billing")
-      StripeService.sync_subscription_quantity!(current_user)
-    end
     flash[:notice] = "#{collective.name} has been deactivated."
     redirect_to billing_show_path
   end
@@ -192,8 +189,7 @@ class BillingController < ApplicationController
       end
     end
 
-    collective.unarchive!
-    result = StripeService.sync_subscription_quantity!(current_user) if will_resume_billing
+    result = collective.unarchive!
     charged_cents = result&.charged_cents
     notice = "#{collective.name} has been reactivated."
     notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0

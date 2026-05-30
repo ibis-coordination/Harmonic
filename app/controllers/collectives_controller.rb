@@ -1,7 +1,10 @@
 # typed: false
 
 class CollectivesController < ApplicationController
+  include RequiresReverification
+
   before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :views, :view, :members]
+  before_action -> { require_reverification(scope: "collective_archive") }, only: [:archive, :unarchive]
 
   def index
     @page_title = "Collectives"
@@ -315,6 +318,38 @@ class CollectivesController < ApplicationController
 
     StripeService.sync_subscription_quantity!(@current_user) if @current_tenant.feature_enabled?("stripe_billing")
     flash[:notice] = "#{@current_collective.name} has been downgraded to the free plan."
+    # Allow callers (e.g. the /billing inventory) to keep the user on their page
+    # instead of bouncing to settings. Allowlist to known internal paths to
+    # prevent open-redirect via a crafted return_to.
+    redirect_to safe_downgrade_return_to(params[:return_to]) || "#{@current_collective.path}/settings"
+  end
+
+  # POST /collectives/:handle/archive
+  # Owner-only, reverification-gated. Archives the collective, making it
+  # inaccessible to all members and stopping any associated billing via the
+  # model-level Stripe sync. Refuses to archive the tenant's main collective.
+  def archive
+    return render status: 403, plain: "Only the collective owner can archive." unless @current_user.id == @current_collective.created_by_id
+    if @current_collective.is_main_collective?
+      flash[:error] = "The main collective cannot be archived."
+      return redirect_to "#{@current_collective.path}/settings"
+    end
+
+    @current_collective.archive!
+    flash[:notice] = "#{@current_collective.name} has been archived and downgraded to the free plan. Reactivate it from its settings page."
+    redirect_to "#{@current_collective.path}/settings"
+  end
+
+  # POST /collectives/:handle/unarchive
+  # Owner-only, reverification-gated. Reactivates an archived collective.
+  # `archive!` returned the tier to free, so unarchiving never resumes billing
+  # automatically — the owner must explicitly upgrade if they want paid
+  # features back.
+  def unarchive
+    return render status: 403, plain: "Only the collective owner can reactivate." unless @current_user.id == @current_collective.created_by_id
+
+    @current_collective.unarchive!
+    flash[:notice] = "#{@current_collective.name} has been reactivated on the free plan."
     redirect_to "#{@current_collective.path}/settings"
   end
 
@@ -701,6 +736,16 @@ class CollectivesController < ApplicationController
     @current_tenant.feature_enabled?("stripe_billing") &&
       !@current_collective.is_main_collective? &&
       !@current_collective.paid_tier?
+  end
+
+  # Allowlist for downgrade's `return_to` param. Only the billing page is
+  # supported today — the settings page is the default redirect, so it doesn't
+  # need to be listed here. Returning nil falls back to the default.
+  def safe_downgrade_return_to(return_to)
+    return nil if return_to.blank?
+    return billing_show_path if return_to == billing_show_path
+
+    nil
   end
 
   def set_sidebar_mode

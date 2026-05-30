@@ -67,13 +67,13 @@
         <% end %>
         <% if show_actions && collective.tenant_id == @current_tenant.id %>
           <td style="text-align: right;">
-            <%= form_tag billing_deactivate_collective_path(collective.handle), method: :post, style: "display:inline",
-                         data: { turbo_confirm: "Deactivate #{collective.name}? It will become inaccessible to all members." } do %>
-              <%= hidden_field_tag :confirm_deactivate, "1" %>
-              <button type="submit" class="pulse-action-btn-small pulse-action-btn-danger">
-                Deactivate
-              </button>
-            <% end %>
+            <%= button_to "Downgrade",
+                          "#{collective.path}/downgrade",
+                          method: :post,
+                          params: { return_to: billing_show_path },
+                          class: "pulse-action-btn-small pulse-action-btn-danger",
+                          form: { style: "display: inline;" },
+                          data: { turbo_confirm: "Downgrade #{collective.name} to the free plan? Automations, Trio, and file attachments will be turned off. To archive or delete the collective, use its settings page." } %>
           </td>
         <% elsif show_actions %>
           <td></td>

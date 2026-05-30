@@ -379,6 +379,8 @@ Rails.application.routes.draw do
     get "#{prefix}/upgrade" => 'collectives#upgrade_preview'
     post "#{prefix}/upgrade" => 'collectives#upgrade'
     post "#{prefix}/downgrade" => 'collectives#downgrade'
+    post "#{prefix}/archive" => 'collectives#archive'
+    post "#{prefix}/unarchive" => 'collectives#unarchive'
     post "#{prefix}/settings/add_ai_agent" => 'collectives#add_ai_agent'
     delete "#{prefix}/settings/remove_ai_agent" => 'collectives#remove_ai_agent'
     get "#{prefix}/settings/actions" => 'collectives#actions_index_settings'

@@ -572,6 +572,100 @@ class CollectiveTest < ActiveSupport::TestCase
     Tenant.clear_thread_scope
   end
 
+  test "archive! syncs Stripe subscription quantity for the owner on stripe_billing tenants" do
+    tenant = create_tenant
+    tenant.enable_feature_flag!("stripe_billing")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Sync Test", handle: "sync-test-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(collective)
+
+    synced_with = nil
+    StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.archive!
+    end
+
+    assert_equal user.id, synced_with&.id,
+                 "archive! must sync Stripe subscription quantity for the collective's billable owner"
+  end
+
+  test "archive! does not sync Stripe when stripe_billing is not enabled on the tenant" do
+    tenant = create_tenant
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "No Sync", handle: "no-sync-#{SecureRandom.hex(4)}")
+
+    sync_calls = 0
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { sync_calls += 1; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.archive!
+    end
+
+    assert_equal 0, sync_calls,
+                 "archive! must not call Stripe sync on tenants without stripe_billing"
+  end
+
+  test "archive! downgrades a paid collective to free so unarchive doesn't silently resume billing" do
+    tenant = create_tenant
+    tenant.enable_feature_flag!("stripe_billing")
+    tenant.enable_feature_flag!("trio")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Auto Downgrade", handle: "auto-down-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(collective)
+    collective.set_feature_flag!("trio", true)
+    collective.set_feature_flag!("file_attachments", true)
+    rule = AutomationRule.create!(
+      tenant: tenant, collective: collective, created_by: user,
+      name: "Rule", trigger_type: "manual", trigger_config: { "inputs" => {} },
+      conditions: [], actions: {}, enabled: true,
+    )
+
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.archive!
+    end
+
+    collective.reload
+    assert_equal Collective::TIER_FREE, collective.tier,
+                 "archive! must drop the collective back to the free tier"
+    assert_not collective.feature_flag_enabled_locally?("trio"),
+               "archive! must clear paid feature flags via downgrade cleanup"
+    assert_not collective.feature_flag_enabled_locally?("file_attachments"),
+               "archive! must clear paid feature flags via downgrade cleanup"
+    assert_not rule.reload.enabled?,
+               "archive! must disable automation rules (via downgrade cleanup)"
+  end
+
+  test "archive! on a free collective is a no-op for tier (no spurious tier change)" do
+    tenant = create_tenant
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Free Archive", handle: "free-arch-#{SecureRandom.hex(4)}")
+    assert_equal Collective::TIER_FREE, collective.tier
+
+    collective.archive!
+
+    assert collective.reload.archived?
+    assert_equal Collective::TIER_FREE, collective.tier
+  end
+
+  test "unarchive! syncs Stripe subscription quantity for the owner on stripe_billing tenants" do
+    tenant = create_tenant
+    tenant.enable_feature_flag!("stripe_billing")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Unarchive Sync", handle: "unsync-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(collective)
+    collective.archive!
+
+    synced_with = nil
+    StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.unarchive!
+    end
+
+    assert_equal user.id, synced_with&.id,
+                 "unarchive! must sync Stripe subscription quantity for the collective's billable owner"
+  end
+
   test "unarchive! does not re-enable automation rules" do
     tenant = create_tenant
     user = create_user

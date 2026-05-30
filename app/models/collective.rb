@@ -176,15 +176,22 @@ class Collective < ApplicationRecord
     T.must(tenant).main_collective_id == id
   end
 
-  sig { void }
+  sig { returns(T.nilable(StripeService::SyncResult)) }
   def archive!
-    update!(archived_at: Time.current)
-    automation_rules.where(enabled: true).update_all(enabled: false)
+    transaction do
+      # Drop back to free tier first so unarchiving doesn't silently resume
+      # billing or auto-restore paid features. No-op on main / already-free.
+      perform_downgrade!
+      update!(archived_at: Time.current)
+      automation_rules.where(enabled: true).update_all(enabled: false)
+    end
+    sync_owner_subscription_quantity!
   end
 
-  sig { void }
+  sig { returns(T.nilable(StripeService::SyncResult)) }
   def unarchive!
     update!(archived_at: nil)
+    sync_owner_subscription_quantity!
   end
 
   sig { returns(T::Boolean) }
@@ -297,6 +304,14 @@ class Collective < ApplicationRecord
   sig { params(actor: User).void }
   def downgrade!(actor:)
     raise NotOwner unless actor == T.must(created_by)
+    perform_downgrade!
+  end
+
+  # Same effect as downgrade!(actor:) but with no actor check — for internal
+  # callers (archive!) that have already gated authorization upstream and need
+  # the tier-cleanup behavior without re-asserting ownership.
+  sig { void }
+  private def perform_downgrade!
     # Main collectives are never on the paid tier — symmetric guard with upgrade!.
     return if is_main_collective?
     return if tier == TIER_FREE
@@ -350,6 +365,20 @@ class Collective < ApplicationRecord
     return true if actor.sys_admin? || actor.app_admin?
 
     actor.stripe_customer&.active? || false
+  end
+
+  # Keep the billable owner's Stripe subscription quantity in sync with the
+  # collective's contribution to `billable_quantity`. archive!/unarchive! call
+  # this so any caller (controller, model cascade, console) gets the right
+  # billing side-effect without having to remember. No-op on tenants without
+  # stripe_billing and idempotent on Stripe's side when the quantity is unchanged.
+  sig { returns(T.nilable(StripeService::SyncResult)) }
+  private def sync_owner_subscription_quantity!
+    return nil unless T.must(tenant).feature_enabled?("stripe_billing")
+    owner = created_by
+    return nil unless owner
+
+    StripeService.sync_subscription_quantity!(owner)
   end
 
   sig { void }
