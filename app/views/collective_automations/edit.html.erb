@@ -18,7 +18,8 @@
   </header>
 
   <div class="pulse-resource-body">
-    <form action="<%= automation_path(@automation_rule) %>/actions/update_automation_rule" method="post" class="pulse-form">
+    <%# Opt out of Turbo: see comment in new.html.erb. %>
+    <form action="<%= automation_path(@automation_rule) %>/actions/update_automation_rule" method="post" class="pulse-form" data-turbo="false">
       <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
 
       <section class="pulse-settings-section">

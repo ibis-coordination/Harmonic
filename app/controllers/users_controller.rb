@@ -1,8 +1,6 @@
 # typed: false
 
 class UsersController < ApplicationController
-  include PaidTransitionGate
-
   include RequiresReverification
 
   allows_anonymous :show
@@ -266,11 +264,8 @@ class UsersController < ApplicationController
     return render "404", status: :not_found if workspace.nil?
 
     will_be_trio = params[:feature_trio].to_s == "true"
-    # Gate must run before set_feature_flag! (which persists) so paid_tier?
-    # reads the pre-change state. Otherwise the "already paid" early-return
-    # would let a free→paid transition through.
-    if paid_transition_blocked?(workspace, trio_after: will_be_trio)
-      flash[:error] = paid_transition_error_message
+    if will_be_trio && !workspace.tier_unlocks_paid_features?
+      flash[:error] = "Trio requires the paid plan. Upgrade the workspace first."
       return redirect_to "#{settings_user.path}/settings"
     end
 

@@ -6,6 +6,8 @@
 <% unless collective.is_main_collective? || collective.archived? || !T.must(collective.tenant).feature_enabled?("stripe_billing") %>
 <% if collective.paid_tier? %>
 **Plan:** Paid ($3/mo)<%= collective.billing_exempt? ? " (exempt)" : "" %>
+<% elsif collective.requires_stripe_billing? %>
+**Plan:** Billing lapsed — paid features paused
 <% else %>
 **Plan:** Free
 <% end %>

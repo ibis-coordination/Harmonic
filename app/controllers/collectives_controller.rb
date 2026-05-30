@@ -1,8 +1,6 @@
 # typed: false
 
 class CollectivesController < ApplicationController
-  include PaidTransitionGate
-
   before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :views, :view, :members]
 
   def index
@@ -87,10 +85,6 @@ class CollectivesController < ApplicationController
   def new
     @page_title = 'New Collective'
     @page_description = 'Create a new collective'
-
-    if current_tenant.feature_enabled?("stripe_billing") && current_user&.human?
-      @proration_amount_cents = StripeService.preview_proration(current_user)
-    end
   end
 
   def actions_index_new
@@ -105,19 +99,8 @@ class CollectivesController < ApplicationController
   end
 
   def create_collective
-    if requires_collective_billing_confirmation?
-      return render_action_error({
-        action_name: "create_collective",
-        resource: nil,
-        error: "You must confirm that you understand each collective costs $3/month added to your subscription. Include confirm_billing: \"1\" to authorize.",
-      })
-    end
-
     begin
       collective = api_helper.create_collective
-      if current_tenant.feature_enabled?("stripe_billing")
-        StripeService.sync_subscription_quantity!(current_user)
-      end
       render_action_success({
         action_name: "create_collective",
         resource: collective,
@@ -164,34 +147,9 @@ class CollectivesController < ApplicationController
   end
 
   def create
-    if requires_collective_billing_confirmation?
-      flash[:error] = "You must confirm the billing charge to create a collective."
-      return redirect_to "/collectives/new"
-    end
-
     @collective = api_helper.create_collective
-    charged_cents = nil
-    if current_tenant.feature_enabled?("stripe_billing")
-      if !current_user.stripe_customer&.active?
-        @collective.update!(pending_billing_setup: true)
-      else
-        result = StripeService.sync_subscription_quantity!(current_user)
-        if result.success
-          charged_cents = result.charged_cents
-        else
-          @collective.update!(pending_billing_setup: true)
-        end
-      end
-    end
-    notice = if @collective.pending_billing_setup?
-      "Collective #{@collective.name} created. Set up billing to activate it."
-    elsif charged_cents && charged_cents > 0
-      "Collective #{@collective.name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
-    else
-      "Collective #{@collective.name} created successfully."
-    end
-    flash[:notice] = notice
-    redirect_to @collective.pending_billing_setup? ? "/billing" : @collective.path
+    flash[:notice] = "Collective #{@collective.name} created successfully."
+    redirect_to @collective.path
   end
 
   def settings
@@ -220,6 +178,16 @@ class CollectivesController < ApplicationController
       # Automation counts for display
       @enabled_automations_count = @current_collective.automation_rules.where(enabled: true).count
       @total_automations_count = @current_collective.automation_rules.count
+      # If the owner started a Stripe Checkout for this collective and
+      # navigated back without completing, surface a "Resume checkout"
+      # affordance instead of a fresh Upgrade button. Clear the stash once
+      # the collective is paid — the webhook handler also clears it via
+      # `confirm_collective_upgrade_from_checkout`, but the stash can
+      # linger if the user never visits /billing after completing checkout.
+      if session[:pending_collective_upgrade] == @current_collective.id && @current_collective.paid_tier?
+        session.delete(:pending_collective_upgrade)
+      end
+      @pending_collective_upgrade_in_session = session[:pending_collective_upgrade] == @current_collective.id
     else
 @sidebar_mode = 'minimal'
       return render layout: 'application', html: 'You must be an admin to access collective settings.'
@@ -251,29 +219,21 @@ class CollectivesController < ApplicationController
       @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]
     end
 
-    # Gate paid-tier transitions on the trio / file_attachments flags. Must
-    # run BEFORE the flag-application loop below — `paid_tier?` reads the
-    # in-memory settings, so mutating first would make the "already paid"
-    # early-return fire incorrectly and let the transition through.
-    trio_after = post_change_flag_value(:trio)
-    files_after = post_change_flag_value(:file_attachments)
-    if paid_transition_blocked?(@current_collective,
-                                trio_after: trio_after,
-                                file_attachments_after: files_after)
-      flash[:error] = paid_transition_error_message
-      return redirect_to "#{@current_collective.path}/settings"
-    end
-
-    # Handle feature flags via unified system
+    # Handle feature flags via unified system. Paid feature flags can only
+    # be enabled when the collective is on the paid tier — toggle attempts
+    # on free collectives are silently ignored so that name/description edits
+    # in the same form still go through. The settings UI hides these toggles
+    # on free collectives entirely (per Step F).
     FeatureFlagService.all_flags.each do |flag_name|
       param_key = "feature_#{flag_name}"
-      if params.key?(param_key) || params.key?(flag_name)
-        # Accept both feature_api and api (legacy) param names
-        value = params[param_key] || params[flag_name]
-        enabled = value == "true" || value == "1" || value == true
-        @current_collective.settings["feature_flags"] ||= {}
-        @current_collective.settings["feature_flags"][flag_name] = enabled
-      end
+      next unless params.key?(param_key) || params.key?(flag_name)
+
+      value = params[param_key] || params[flag_name]
+      enabled = value == "true" || value == "1" || value == true
+      next if Collective::PAID_FEATURE_FLAGS.include?(flag_name) && enabled && !@current_collective.tier_unlocks_paid_features?
+
+      @current_collective.settings["feature_flags"] ||= {}
+      @current_collective.settings["feature_flags"][flag_name] = enabled
     end
 
     @current_collective.updated_by = @current_user if @current_collective.changed?
@@ -283,6 +243,56 @@ class CollectivesController < ApplicationController
 
     flash[:notice] = "Settings successfully updated. [Return to collective homepage.](#{@current_collective.url})"
     redirect_to request.referrer
+  end
+
+  # POST /collectives/:handle/upgrade
+  # Moves a free collective to the paid plan. Owner-only. If the owner has no
+  # active Stripe customer, redirects to Stripe Checkout — final confirmation
+  # then comes from the checkout.session.completed webhook (which calls
+  # confirm_upgrade!). The `session[:pending_collective_upgrade]` stash lets
+  # the settings page show a "Resume checkout" affordance if the owner
+  # navigates back during checkout.
+  def upgrade
+    return render status: 403, plain: "Only the collective owner can upgrade." unless @current_user.id == @current_collective.created_by_id
+
+    settings_path = "#{@current_collective.path}/settings"
+
+    begin
+      @current_collective.upgrade!(actor: @current_user)
+    rescue Collective::BillingRequired
+      checkout_url = StripeCheckoutService.create_session_for_collective_upgrade!(
+        user: @current_user,
+        collective: @current_collective,
+        success_url: billing_show_url + "?checkout_session_id={CHECKOUT_SESSION_ID}&return_to=#{CGI.escape(settings_path)}",
+        cancel_url: "#{request.base_url}#{settings_path}",
+      )
+      session[:pending_collective_upgrade] = @current_collective.id
+      return redirect_to checkout_url, allow_other_host: true
+    rescue Collective::NotOwner
+      return render status: 403, plain: "Only the collective owner can upgrade."
+    end
+
+    StripeService.sync_subscription_quantity!(@current_user) if @current_tenant.feature_enabled?("stripe_billing")
+    flash[:notice] = "#{@current_collective.name} is now on the paid plan."
+    redirect_to settings_path
+  end
+
+  # POST /collectives/:handle/downgrade
+  # Moves a paid or lapsed collective back to free. Owner-only. Actively
+  # disables enabled automations, clears paid feature flags, and deactivates
+  # the trio agent.
+  def downgrade
+    return render status: 403, plain: "Only the collective owner can downgrade." unless @current_user.id == @current_collective.created_by_id
+
+    begin
+      @current_collective.downgrade!(actor: @current_user)
+    rescue Collective::NotOwner
+      return render status: 403, plain: "Only the collective owner can downgrade."
+    end
+
+    StripeService.sync_subscription_quantity!(@current_user) if @current_tenant.feature_enabled?("stripe_billing")
+    flash[:notice] = "#{@current_collective.name} has been downgraded to the free plan."
+    redirect_to "#{@current_collective.path}/settings"
   end
 
   def add_ai_agent
@@ -362,15 +372,16 @@ class CollectivesController < ApplicationController
   def update_collective_settings_action
     return render_action_error({ action_name: 'update_collective_settings', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
 
-    # Gate paid-tier transition. ApiHelper only changes file_attachments
-    # (via the `file_uploads` param); trio is browser-UI-only.
+    # Gate paid-feature toggle. ApiHelper only changes file_attachments (via
+    # the `file_uploads` param); trio is browser-UI-only. Enabling requires
+    # the paid plan; disabling is always allowed (idempotent on free).
     if params.has_key?(:file_uploads)
       files_after = [true, "true", "1"].include?(params[:file_uploads])
-      if paid_transition_blocked?(@current_collective, file_attachments_after: files_after)
+      if files_after && !@current_collective.tier_unlocks_paid_features?
         return render_action_error({
           action_name: 'update_collective_settings',
           resource: @current_collective,
-          error: paid_transition_action_error,
+          error: Collective::PAID_FEATURE_ERROR,
         })
       end
     end
@@ -654,25 +665,6 @@ class CollectivesController < ApplicationController
 
   # POST /collectives/:collective_handle/deactivate
   private
-
-  # Returns the post-change boolean value for a feature_flag based on params.
-  # If the param isn't present, falls back to the current explicit value (or
-  # false if none set). Used by the paid-tier gate in update_settings.
-  def post_change_flag_value(flag_name)
-    param_key = "feature_#{flag_name}"
-    if params.key?(param_key) || params.key?(flag_name)
-      value = params[param_key] || params[flag_name]
-      [true, "true", "1"].include?(value)
-    else
-      @current_collective.settings.dig("feature_flags", flag_name.to_s) == true
-    end
-  end
-
-  def requires_collective_billing_confirmation?
-    current_tenant.feature_enabled?("stripe_billing") &&
-      current_user&.human? &&
-      params[:confirm_billing] != "1"
-  end
 
   def set_sidebar_mode
     if action_name.in?(%w[index new])

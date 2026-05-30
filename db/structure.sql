@@ -406,7 +406,8 @@ CREATE TABLE public.collectives (
     billing_exempt boolean DEFAULT false NOT NULL,
     pending_billing_setup boolean DEFAULT false NOT NULL,
     collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
-    trio_user_id uuid
+    trio_user_id uuid,
+    tier character varying DEFAULT 'free'::character varying NOT NULL
 );
 
 
@@ -3719,6 +3720,13 @@ CREATE INDEX index_collectives_on_tenant_id ON public.collectives USING btree (t
 --
 
 CREATE UNIQUE INDEX index_collectives_on_tenant_id_and_handle ON public.collectives USING btree (tenant_id, handle);
+
+
+--
+-- Name: index_collectives_on_tier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_collectives_on_tier ON public.collectives USING btree (tier);
 
 
 --
@@ -9585,6 +9593,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260530000000'),
 ('20260529205324'),
 ('20260529202019'),
 ('20260523181916'),

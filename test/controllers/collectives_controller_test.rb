@@ -175,6 +175,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   test "enabling the trio feature flag activates trio for the collective" do
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
+    @collective.update!(tier: Collective::TIER_PAID)
     assert_nil @collective.trio_user_id, "precondition: trio should be off"
 
     sign_in_as(@user, tenant: @tenant)
@@ -189,6 +190,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   test "disabling the trio feature flag deactivates trio for the collective" do
     @tenant.enable_feature_flag!("trio")
+    @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
     TrioActivator.activate!(@collective)
     trio_id = T.must(@collective.reload.trio_user_id)
@@ -300,31 +302,20 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   # === Collective Billing and Archive Tests ===
 
-  test "create requires billing confirmation when stripe_billing enabled" do
+  test "create succeeds without billing confirmation (collectives start at free tier)" do
     enable_stripe_billing_flag!(@tenant)
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-
-    sign_in_as(@user, tenant: @tenant)
-
-    assert_no_difference "Collective.count" do
-      post "/collectives", params: { name: "No Confirm", handle: "no-confirm-#{SecureRandom.hex(4)}" }
-    end
-
-    assert_response :redirect
-    assert_match %r{/collectives/new}, response.location
-  end
-
-  test "create succeeds with billing confirmation" do
-    enable_stripe_billing_flag!(@tenant)
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    handle = "free-tier-#{SecureRandom.hex(4)}"
 
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference "Collective.count", 1 do
-      post "/collectives", params: { name: "Confirmed Collective", handle: "confirmed-#{SecureRandom.hex(4)}", confirm_billing: "1" }
+      post "/collectives", params: { name: "Free Tier Collective", handle: handle }
     end
 
     assert_response :redirect
+    created = Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
+    assert_not_nil created
+    assert_equal Collective::TIER_FREE, created.tier
   end
 
   test "settings page links to billing for archived collective instead of reactivation form" do
@@ -347,11 +338,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     test_collective = create_test_collective
     # Settings only links to /billing for paid_tier collectives; for free ones
     # there's nothing billing-related to manage.
-    AutomationRule.create!(
-      tenant: @tenant, collective: test_collective, created_by: @user,
-      name: "Bill", trigger_type: "manual", trigger_config: { "inputs" => {} },
-      conditions: [], actions: {}, enabled: true
-    )
+    test_collective.update!(tier: Collective::TIER_PAID)
 
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{test_collective.handle}/settings"
@@ -386,9 +373,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/settings}, response.location
   end
 
-  # === Paid-tier transition gate on update_settings ===
+  # === Paid-tier gate on update_settings ===
+  #
+  # Paid feature flag flips are silently dropped on free collectives — the
+  # rest of the form (name, description, etc.) still saves. The settings UI
+  # hides the toggles on free collectives entirely, so this guards against
+  # direct POSTs that bypass the UI.
 
-  test "update_settings blocks turning trio on when owner has no billing" do
+  test "update_settings silently drops trio flip on free collective" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
@@ -399,11 +391,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_not @collective.trio_enabled?, "trio should not be activated when gate blocks"
-    assert flash[:error].to_s.downcase.include?("billing")
+    assert_not @collective.trio_enabled?, "trio should remain off on a free collective"
+    assert_not @collective.feature_flag_enabled_locally?("trio"), "flag should not have been written"
   end
 
-  test "update_settings blocks turning file_attachments on when owner has no billing" do
+  test "update_settings silently drops file_attachments flip on free collective" do
     enable_stripe_billing_flag!(@tenant)
     @collective.set_feature_flag!("file_attachments", false)
 
@@ -413,15 +405,15 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_not @collective.file_attachments_enabled?, "file_attachments should not be enabled when gate blocks"
-    assert flash[:error].to_s.downcase.include?("billing")
+    assert_not @collective.file_attachments_enabled?, "file_attachments should remain off on a free collective"
   end
 
-  test "update_settings allows turning trio on when owner has billing" do
+  test "update_settings allows turning trio on for a paid collective" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
+    @collective.update!(tier: Collective::TIER_PAID)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -429,14 +421,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert @collective.trio_enabled?, "trio should be enabled when owner has billing"
+    assert @collective.trio_enabled?, "trio should activate when collective is paid"
   end
 
-  test "update_settings always allows turning trio off (un-billing transition)" do
+  test "update_settings always allows turning trio off" do
     enable_stripe_billing_flag!(@tenant)
-    # Owner has billing so collective is reachable (it's currently paid via trio).
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
     @tenant.enable_feature_flag!("trio")
+    @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
     TrioActivator.activate!(@collective)
 
@@ -449,7 +441,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not @collective.trio_enabled?
   end
 
-  test "update_collective_settings_action (API) blocks turning file_uploads on without billing" do
+  test "update_collective_settings_action (API) blocks turning file_uploads on for a free collective" do
     enable_stripe_billing_flag!(@tenant)
     @collective.set_feature_flag!("file_attachments", false)
 
@@ -459,14 +451,15 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "Accept" => "text/markdown" }
 
     @collective.reload
-    assert_not @collective.file_attachments_enabled?, "file_attachments should not enable when gate blocks"
-    assert_includes response.body.downcase, "billing"
+    assert_not @collective.file_attachments_enabled?, "file_attachments should not enable on a free collective"
+    assert_includes response.body.downcase, "paid plan"
   end
 
-  test "update_collective_settings_action (API) allows file_uploads on with billing" do
+  test "update_collective_settings_action (API) allows file_uploads on for a paid collective" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
     @collective.set_feature_flag!("file_attachments", false)
+    @collective.update!(tier: Collective::TIER_PAID)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings/actions/update_collective_settings",
@@ -490,17 +483,22 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   test "settings page renders Paid plan badge when collective is paid_tier" do
     enable_stripe_billing_flag!(@tenant)
-    # Owner has billing so app-level gate doesn't redirect to /billing first.
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
-    AutomationRule.create!(
-      tenant: @tenant, collective: @collective, created_by: @user,
-      name: "Bill", trigger_type: "manual", trigger_config: { "inputs" => {} },
-      conditions: [], actions: {}, enabled: true
-    )
+    @collective.update!(tier: Collective::TIER_PAID)
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings"
     assert_response :success
     assert_includes response.body, "Paid plan"
+  end
+
+  test "settings page renders Billing lapsed badge when collective is lapsed" do
+    enable_stripe_billing_flag!(@tenant)
+    @collective.update!(tier: Collective::TIER_PAID)
+    @collective.update!(tier: Collective::TIER_LAPSED)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Billing lapsed"
   end
 
   test "settings page renders no tier badge when stripe_billing flag is off" do
@@ -512,31 +510,37 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Paid plan"
   end
 
-  test "settings page shows Paid Plan Features section with transition hint when free" do
+  test "settings page shows Upgrade button on free collective" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.enable_feature_flag!("trio")
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings"
     assert_response :success
     assert_includes response.body, "Paid Plan Features"
-    assert_match(/moves this collective to the paid plan/i, response.body)
+    assert_match(/Upgrade to Paid/i, response.body)
   end
 
-  test "settings page shows Paid Plan Features with Automations even when trio/file_attachments off at tenant level" do
+  test "settings page shows Paid Plan Features even when trio/file_attachments off at tenant level" do
     enable_stripe_billing_flag!(@tenant)
-    # tenant explicitly has NEITHER trio nor file_attachments enabled
-    # (file_attachments defaults to true at tenant level — disable it explicitly)
     @tenant.set_feature_flag!("trio", false)
     @tenant.set_feature_flag!("file_attachments", false)
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings"
     assert_response :success
     assert_includes response.body, "Paid Plan Features"
-    assert_includes response.body, "Automations"
-    assert_includes response.body, "Manage automations"
-    # When no paid flags are available at tenant level, only the Automations
-    # entry appears in the section.
-    assert_no_match(/Trio AI Assistant/, response.body)
+    # On a free collective the section shows the explainer + Upgrade button,
+    # not the Automations panel (that's paid-only).
+    assert_match(/Upgrade to Paid/i, response.body)
+  end
+
+  test "settings page shows Downgrade button on paid collective for owner" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Downgrade to Free"
   end
 
   test "settings markdown view renders tier badge" do
@@ -547,14 +551,12 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "**Plan:**"
   end
 
-  test "update_settings allows turning trio on when collective is already paid (no transition)" do
+  test "update_settings allows turning trio on when collective is already paid" do
     enable_stripe_billing_flag!(@tenant)
-    # Active stripe customer so user can reach the action (collective is paid_tier
-    # already via file_attachments).
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
     @tenant.enable_feature_flag!("trio")
+    @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("file_attachments", true)
-    assert @collective.reload.paid_tier?, "precondition: collective already paid via file_attachments"
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -562,6 +564,152 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     assert @collective.reload.trio_enabled?
+  end
+
+  # === Upgrade / Downgrade controller actions ===
+
+  test "upgrade: owner with active stripe customer flips tier to paid inline" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    # Stub the quantity-sync call that fires after a successful upgrade.
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_match %r{/settings}, response.location
+    assert_equal Collective::TIER_PAID, @collective.reload.tier
+    assert_match(/paid plan/i, flash[:notice].to_s)
+  end
+
+  test "upgrade: non-owner is rejected with 403" do
+    other = create_user
+    @tenant.add_user!(other)
+    @collective.add_user!(other, roles: ["admin"])
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: other, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+
+    sign_in_as(other, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :forbidden
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
+  end
+
+  test "upgrade: owner without billing is redirected to Stripe Checkout" do
+    enable_stripe_billing_flag!(@tenant)
+    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    ENV["STRIPE_PRICE_ID"] = "price_test_collective_upgrade"
+
+    stub_request(:post, "https://api.stripe.com/v1/customers")
+      .to_return(status: 200, body: { id: "cus_upgrade_test", object: "customer" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .with { |req| captured_body = req.body; true }
+      .to_return(status: 200, body: {
+        id: "cs_upgrade_test",
+        object: "checkout.session",
+        url: "https://checkout.stripe.com/session/cs_upgrade_test",
+      }.to_json, headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_match %r{checkout\.stripe\.com}, response.location
+    # Collective stays free until checkout.session.completed webhook fires.
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
+    assert_match(/collective_id/, captured_body.to_s,
+                 "expected collective_id in Checkout session metadata")
+  ensure
+    ENV["STRIPE_PRICE_ID"] = @original_price_id
+  end
+
+  test "upgrade: is idempotent on an already-paid collective" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_equal Collective::TIER_PAID, @collective.reload.tier
+  end
+
+  test "downgrade: owner can downgrade a paid collective; clears flags and disables automations" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @tenant.enable_feature_flag!("trio")
+    @collective.update!(tier: Collective::TIER_PAID)
+    @collective.set_feature_flag!("trio", true)
+    @collective.set_feature_flag!("file_attachments", true)
+    rule = AutomationRule.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      name: "Rule", trigger_type: "manual", trigger_config: { "inputs" => {} },
+      conditions: [], actions: {}, enabled: true,
+    )
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :redirect
+    @collective.reload
+    assert_equal Collective::TIER_FREE, @collective.tier
+    assert_not @collective.feature_flag_enabled_locally?("trio")
+    assert_not @collective.feature_flag_enabled_locally?("file_attachments")
+    assert_not rule.reload.enabled?
+    assert_match(/downgraded/i, flash[:notice].to_s)
+  end
+
+  test "downgrade: non-owner is rejected with 403" do
+    other = create_user
+    @tenant.add_user!(other)
+    @collective.add_user!(other, roles: ["admin"])
+    @collective.update!(tier: Collective::TIER_PAID)
+
+    sign_in_as(other, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :forbidden
+    assert_equal Collective::TIER_PAID, @collective.reload.tier
+  end
+
+  test "downgrade: lapsed collective drops back to free" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    @collective.update!(tier: Collective::TIER_LAPSED)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :redirect
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
+  end
+
+  test "downgrade: is idempotent on an already-free collective" do
+    enable_stripe_billing_flag!(@tenant)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :redirect
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
   end
 
   private

@@ -14,20 +14,38 @@
       <%= render 'shared/collective_tier_badge', collective: @current_collective %>
     </div>
     <h1 class="pulse-resource-title">Automations</h1>
-    <% if @current_tenant.feature_enabled?("stripe_billing") && @current_collective.free_tier? %>
-      <p class="pulse-form-hint" style="margin-top: 8px; font-size: 13px;">
-        <%= octicon 'info', height: 12 %>
-        Enabling an automation moves this collective to the paid plan ($3/mo).
-      </p>
-    <% end %>
   </header>
 
   <div class="pulse-resource-body">
-    <p class="pulse-action-row">
-      <a href="<%= automations_index_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
-        <%= octicon "plus" %> New Automation
-      </a>
-    </p>
+    <% if @current_collective.tier_unlocks_paid_features? %>
+      <p class="pulse-action-row">
+        <a href="<%= automations_index_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
+          <%= octicon "plus" %> New Automation
+        </a>
+      </p>
+    <% else %>
+      <%# Free collective on a billing tenant: automations are paid-only. %>
+      <%# Surface the upgrade affordance here so users don't try to create %>
+      <%# a rule that the controller would refuse. %>
+      <section class="pulse-settings-section" style="background: var(--color-canvas-subtle); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+        <p style="margin: 0 0 12px 0;">
+          <%= octicon 'credit-card', height: 14 %>
+          <strong>Automations require the paid plan ($3/month).</strong>
+        </p>
+        <% if @current_user.id == @current_collective.created_by_id %>
+          <%= button_to "Upgrade to Paid ($3/month)",
+                        "#{@current_collective.path}/upgrade",
+                        method: :post,
+                        class: "pulse-action-btn pulse-action-btn-primary",
+                        form: { style: "display: inline;" },
+                        data: { turbo_confirm: "Upgrade this collective to the paid plan ($3/month)?" } %>
+        <% else %>
+          <p class="pulse-muted" style="margin: 0; font-size: 13px;">
+            <em>Only the collective owner can upgrade.</em>
+          </p>
+        <% end %>
+      </section>
+    <% end %>
 
     <% if @automation_rules.empty? %>
       <p class="pulse-empty-content"><em>No automations configured yet.</em></p>

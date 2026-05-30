@@ -231,19 +231,22 @@ puts response.body</code></pre>
         <%= octicon "pencil" %> Edit
       </a>
 
+      <%# Forms post to action endpoints that render action_success / %>
+      <%# action_error (200 with HTML). Turbo drops 200-with-HTML by default, %>
+      <%# so we opt out — the browser navigates to the response page. %>
       <% if @automation_rule.enabled? %>
-        <form action="<%= automation_path(@automation_rule) %>/actions/toggle_automation_rule" method="post" style="display:inline;">
+        <form action="<%= automation_path(@automation_rule) %>/actions/toggle_automation_rule" method="post" style="display:inline;" data-turbo="false">
           <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
           <button type="submit" class="pulse-action-btn">Disable</button>
         </form>
       <% else %>
-        <form action="<%= automation_path(@automation_rule) %>/actions/toggle_automation_rule" method="post" style="display:inline;">
+        <form action="<%= automation_path(@automation_rule) %>/actions/toggle_automation_rule" method="post" style="display:inline;" data-turbo="false">
           <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
           <button type="submit" class="pulse-action-btn pulse-action-btn-success">Enable</button>
         </form>
       <% end %>
 
-      <form action="<%= automation_path(@automation_rule) %>/actions/test_automation_rule" method="post" style="display:inline;">
+      <form action="<%= automation_path(@automation_rule) %>/actions/test_automation_rule" method="post" style="display:inline;" data-turbo="false">
         <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
         <button type="submit" class="pulse-action-btn">
           <%= octicon "beaker" %> Test
@@ -251,7 +254,7 @@ puts response.body</code></pre>
       </form>
 
       <% if @automation_rule.manual_trigger? && @automation_rule.manual_inputs.empty? %>
-        <form action="<%= automation_path(@automation_rule) %>/actions/run_automation_rule" method="post" style="display:inline;">
+        <form action="<%= automation_path(@automation_rule) %>/actions/run_automation_rule" method="post" style="display:inline;" data-turbo="false">
           <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
           <button type="submit" class="pulse-action-btn pulse-action-btn-success">
             <%= octicon "play" %> Run
@@ -259,6 +262,11 @@ puts response.body</code></pre>
         </form>
       <% end %>
 
+      <%# Delete keeps data-turbo-confirm (which requires Turbo to intercept), %>
+      <%# so we don't disable Turbo here. The action_success response is %>
+      <%# silently dropped by Turbo, but the rule is gone — same pre-existing %>
+      <%# issue as before this refactor. Worth a follow-up to use a Stimulus %>
+      <%# confirm controller + data-turbo="false". %>
       <form action="<%= automation_path(@automation_rule) %>/actions/delete_automation_rule" method="post" style="display:inline;"
             data-turbo-confirm="Are you sure you want to delete this automation?">
         <%= hidden_field_tag :authenticity_token, form_authenticity_token %>

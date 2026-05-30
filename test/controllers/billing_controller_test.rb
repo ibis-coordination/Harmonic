@@ -951,19 +951,12 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     tenant.enable_feature_flag!("stripe_billing")
   end
 
-  # Adds an enabled automation rule to the collective so it lands on paid_tier.
+  # Flips the collective directly to tier=paid. Under the explicit tier
+  # state machine, enabling features no longer auto-upgrades — the owner
+  # has to explicitly upgrade. Tests bypass the upgrade! flow (which would
+  # need a Stripe customer) by writing the column directly.
   def create_paid_tier_automation(collective)
-    AutomationRule.create!(
-      tenant: collective.tenant,
-      collective: collective,
-      created_by: collective.created_by,
-      name: "Billable rule #{SecureRandom.hex(4)}",
-      trigger_type: "manual",
-      trigger_config: { "inputs" => {} },
-      conditions: [],
-      actions: {},
-      enabled: true
-    )
+    collective.update!(tier: Collective::TIER_PAID)
   end
 
   def create_test_collective(name: "Test Collective", handle: "test-collective-#{SecureRandom.hex(4)}")

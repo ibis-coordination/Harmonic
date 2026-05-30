@@ -195,16 +195,6 @@ class BillingGateTest < ActionDispatch::IntegrationTest
   end
 
   def make_collective_paid_tier!(collective)
-    AutomationRule.create!(
-      tenant: collective.tenant,
-      collective: collective,
-      created_by: collective.created_by,
-      name: "Billable rule #{SecureRandom.hex(4)}",
-      trigger_type: "manual",
-      trigger_config: { "inputs" => {} },
-      conditions: [],
-      actions: {},
-      enabled: true
-    )
+    collective.update!(tier: Collective::TIER_PAID)
   end
 end

@@ -24,6 +24,11 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
       "Content-Type" => "application/json",
     }
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    # Automations are paid-only — upgrade the test collective so the default
+    # create/update/toggle tests can reach the controller action. Tests that
+    # specifically exercise the paid-tier gate downgrade back to free.
+    @collective.update!(tier: Collective::TIER_PAID)
   end
 
   def is_markdown?
@@ -385,26 +390,33 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "America/Los_Angeles", rule.timezone
   end
 
-  # === Paid-tier transition gate ===
+  # === Paid-tier gate ===
   #
-  # These tests use session auth (sign_in_as) rather than the bearer token
-  # from setup. The bearer token would itself make the user billable via the
-  # "humans-with-tokens" rule, which would force them through the application
-  # -level billing gate before reaching the per-action gate under test.
+  # Automations require the collective to be on the paid tier. The owner's
+  # Stripe billing setup is no longer the gate — tier is the source of
+  # truth. These tests downgrade the collective back to free and verify
+  # actions are refused with a "paid plan" error.
+  #
+  # They use session auth (sign_in_as) rather than the bearer token from
+  # setup. The bearer token would itself make the user billable via the
+  # "humans-with-tokens" rule, which would force them through the
+  # application-level billing gate before reaching the per-action gate
+  # under test.
 
-  test "execute_toggle blocks enabling a disabled rule when owner has no billing" do
+  test "execute_toggle blocks enabling a disabled rule when collective is free" do
     setup_gate_test
     rule = create_collective_automation_rule(name: "Gate Toggle", enabled: false)
 
     post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
 
     rule.reload
-    assert_not rule.enabled?, "rule should remain disabled when gate blocks"
-    assert_includes response.body.downcase, "billing"
+    assert_not rule.enabled?, "rule should remain disabled when collective is free"
+    assert_includes response.body.downcase, "paid plan"
   end
 
-  test "execute_toggle allows enabling when owner has active stripe customer" do
+  test "execute_toggle allows enabling when collective is on the paid tier" do
     setup_gate_test
+    @collective.update!(tier: Collective::TIER_PAID)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
     rule = create_collective_automation_rule(name: "Gate Toggle OK", enabled: false)
 
@@ -414,12 +426,11 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert rule.reload.enabled?
   end
 
-  test "execute_toggle always allows disabling (un-billing transition)" do
+  test "execute_toggle always allows disabling regardless of tier" do
     setup_gate_test
-    # Need an active stripe customer to pass the app-level billing gate (the
-    # user is paid_tier already because the rule is enabled). Inside the
-    # action, our gate must not fire on the disable transition regardless.
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    # Collective starts at free in setup_gate_test; force-create an enabled
+    # rule (a leftover from before a downgrade, say) and verify the disable
+    # path goes through.
     rule = create_collective_automation_rule(name: "Gate Disable", enabled: true)
 
     post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
@@ -428,18 +439,19 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_not rule.reload.enabled?
   end
 
-  test "execute_create blocks creating an enabled rule when owner has no billing" do
+  test "execute_create blocks creating an automation when collective is free" do
     setup_gate_test
 
     assert_no_difference "AutomationRule.unscoped.count" do
       post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
         params: { yaml_source: valid_yaml }, headers: { "Accept" => "text/markdown" }
     end
-    assert_includes response.body.downcase, "billing"
+    assert_includes response.body.downcase, "paid plan"
   end
 
-  test "execute_create allows creating an enabled rule when owner has billing" do
+  test "execute_create allows creating when collective is on the paid tier" do
     setup_gate_test
+    @collective.update!(tier: Collective::TIER_PAID)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
 
     assert_difference "AutomationRule.unscoped.count", 1 do
@@ -448,12 +460,7 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # Note: AutomationYamlParser does not accept an `enabled` key, so
-  # execute_update cannot flip a rule from disabled→enabled via YAML; the
-  # toggle endpoint is the only path for that. The defensive gate in
-  # execute_update is therefore a no-op today, kept for future-proofing.
-
-  test "execute_update allows editing other fields on a disabled rule with no enable change" do
+  test "execute_update blocks editing when collective is free" do
     setup_gate_test
     rule = create_collective_automation_rule(name: "Edit Other", enabled: false)
     edited_yaml = valid_yaml.sub('"Collective Automation Test"', '"Renamed"')
@@ -461,32 +468,58 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/update_automation_rule",
       params: { yaml_source: edited_yaml }, headers: { "Accept" => "text/markdown" }
 
-    assert_response :success
-    assert_not rule.reload.enabled?
+    assert_includes response.body.downcase, "paid plan"
+    assert_equal "Edit Other", rule.reload.name, "rule should be unchanged"
   end
 
-  test "execute_toggle allows enabling second rule when collective is already paid (no transition)" do
+  test "GET /new redirects with error on a free collective (billing tenant)" do
     setup_gate_test
-    # Active customer so user can reach the action (collective is already paid_tier).
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
-    create_collective_automation_rule(name: "Already enabled", enabled: true)
-    rule = create_collective_automation_rule(name: "Second rule", enabled: false)
+    # @collective is downgraded to free by setup_gate_test
+    get "/collectives/#{@collective.handle}/settings/automations/new"
 
-    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+    assert_response :redirect
+    assert_match %r{/settings/automations\z}, response.location
+    assert_match(/paid plan/i, flash[:error].to_s)
+  end
+
+  test "GET /new renders the form on a paid collective (billing tenant)" do
+    setup_gate_test
+    @collective.update!(tier: Collective::TIER_PAID)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+
+    get "/collectives/#{@collective.handle}/settings/automations/new"
 
     assert_response :success
-    assert rule.reload.enabled?
+    assert_includes response.body, "yaml_source"
+  end
+
+  # Self-hosted (non-billing) tenants have no tier model. Free-tier
+  # collectives there must still allow automation create/toggle — the
+  # controller gate uses tier_unlocks_paid_features?, not paid_tier?.
+  test "self-hosted: free collective allows automation create without paid tier" do
+    # No stripe_billing on tenant; collective starts at tier=free per setup.
+    @collective.update!(tier: Collective::TIER_FREE)
+    @api_token.destroy
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference "AutomationRule.unscoped.count", 1 do
+      post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+        params: { yaml_source: valid_yaml }, headers: { "Accept" => "text/markdown" }
+    end
+    assert_response :success
   end
 
   private
 
   # Common gate-test setup: enable stripe_billing on tenant, delete the setup
-  # bearer token so it doesn't make the user billable, sign in via session.
+  # bearer token so it doesn't make the user billable, downgrade the
+  # collective back to free (setup defaults to paid), sign in via session.
   def setup_gate_test
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     @tenant.enable_feature_flag!("stripe_billing")
     @api_token.destroy
+    @collective.update!(tier: Collective::TIER_FREE)
     sign_in_as(@user, tenant: @tenant)
   end
 end

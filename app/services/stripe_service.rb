@@ -293,17 +293,34 @@ class StripeService
       return
     end
 
-    # Idempotency: skip if already activated with this subscription
-    if sc.active? && sc.stripe_subscription_id == session.subscription
-      Rails.logger.info("[StripeService] checkout.session.completed: Already active for #{session.customer}, skipping")
-      return
+    was_active = sc.active?
+
+    # Idempotency: skip activating if already active with this subscription
+    unless was_active && sc.stripe_subscription_id == session.subscription
+      sc.update!(
+        stripe_subscription_id: session.subscription,
+        active: true,
+      )
+      Rails.logger.info("[StripeService] Activated billing for customer #{session.customer}")
     end
 
-    sc.update!(
-      stripe_subscription_id: session.subscription,
-      active: true,
-    )
-    Rails.logger.info("[StripeService] Activated billing for customer #{session.customer}")
+    # If this checkout was launched from a collective upgrade flow,
+    # session.metadata.collective_id is set — confirm the tier flip.
+    # Scope the lookup to the customer's user via for_user_across_tenants
+    # so we never confirm a collective belonging to a different user (and
+    # so we stay within tenant-safe query helpers; .unscoped_for_system_job
+    # isn't allowed outside jobs/migrations).
+    metadata = session.respond_to?(:metadata) ? session.metadata : nil
+    collective_id = metadata.respond_to?(:[]) ? metadata["collective_id"] : nil
+    if collective_id.present? && sc.billable.is_a?(User)
+      collective = Collective.for_user_across_tenants(sc.billable).find_by(id: collective_id)
+      collective&.confirm_upgrade!
+    end
+
+    # If the customer was previously inactive (e.g. subscription lapsed and
+    # they just re-upped), restore any lapsed collectives now that billing
+    # is active again.
+    restore_lapsed_collectives_for(sc) if !was_active && sc.billable.is_a?(User)
   end
   private_class_method :handle_subscription_checkout_completed
 
@@ -350,9 +367,18 @@ class StripeService
     sc.update!(active: now_active)
     Rails.logger.info("[StripeService] Subscription #{subscription.id} status=#{subscription.status} active=#{sc.active}")
 
-    # If subscription transitioned to inactive (canceled, unpaid), suspend all agents
+    # If subscription transitioned to inactive (canceled, unpaid), suspend
+    # agents and mark paid collectives as lapsed (preserves config so the
+    # owner can restore instantly by fixing billing).
     if was_active && !now_active
       deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
+    end
+
+    # If subscription transitioned to active (owner re-upped after lapse),
+    # restore lapsed collectives — matches the user expectation that fixing
+    # the card resumes the paid plan with no extra clicks.
+    if !was_active && now_active && sc.billable.is_a?(User)
+      restore_lapsed_collectives_for(sc)
     end
   end
   private_class_method :handle_subscription_updated
@@ -417,16 +443,43 @@ class StripeService
     end
     Rails.logger.info("[StripeService] Suspended #{suspended_count} agents for user #{user.id}: #{reason}") if suspended_count > 0
 
-    # Archive non-main collectives on billing-enabled tenants only
-    archived_count = 0
+    # Mark paid collectives as lapsed on billing-enabled tenants only.
+    # Lapse just flips the tier column — runtime gates short-circuit on
+    # paid_tier? so feature access pauses without touching configuration.
+    # Restore is instant and zero-loss once the owner fixes their billing.
+    lapsed_count = 0
     Collective.for_user_across_tenants(user)
-      .where(tenant_id: billing_tenant_ids, archived_at: nil)
+      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_PAID, archived_at: nil)
       .find_each do |collective|
       next if collective.is_main_collective?
-      collective.archive!
-      archived_count += 1
+      collective.mark_lapsed!
+      lapsed_count += 1
     end
-    Rails.logger.info("[StripeService] Archived #{archived_count} collectives for user #{user.id}: #{reason}") if archived_count > 0
+    Rails.logger.info("[StripeService] Lapsed #{lapsed_count} collectives for user #{user.id}: #{reason}") if lapsed_count > 0
   end
   private_class_method :deactivate_resources_for_customer
+
+  # Auto-restore all of a user's lapsed collectives to paid. Called when the
+  # user's stripe_customer transitions inactive → active (subscription
+  # re-created, payment fixed via portal, etc.). Matches the user
+  # expectation that fixing billing resumes the paid plan with no extra
+  # clicks.
+  sig { params(stripe_customer: StripeCustomer).void }
+  def self.restore_lapsed_collectives_for(stripe_customer)
+    user = stripe_customer.billable
+    return unless user.is_a?(User)
+
+    billing_tenant_ids = user.billing_tenant_ids
+    return if billing_tenant_ids.empty?
+
+    restored_count = 0
+    Collective.for_user_across_tenants(user)
+      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_LAPSED, archived_at: nil)
+      .find_each do |collective|
+      collective.restore_from_lapsed!
+      restored_count += 1
+    end
+    Rails.logger.info("[StripeService] Restored #{restored_count} lapsed collectives for user #{user.id}") if restored_count > 0
+  end
+  private_class_method :restore_lapsed_collectives_for
 end

@@ -340,6 +340,22 @@ class ActionDispatch::IntegrationTest
   # those up manually. Tests that specifically exercise the gate should pass
   # `activate: false` and add `add_to_tenant: false` if testing the
   # not-yet-a-member case.
+  # Upgrade a collective to the paid tier for tests that need paid-feature
+  # access. Creates an active StripeCustomer for the owner if one doesn't
+  # already exist (cheaper than going through the real Stripe Checkout flow).
+  # Bypasses the upgrade! gate by writing the tier column directly.
+  def upgrade_collective_to_paid!(collective, owner: collective.created_by)
+    unless owner.stripe_customer&.active?
+      StripeCustomer.create!(
+        billable: owner,
+        stripe_id: "cus_test_#{SecureRandom.hex(4)}",
+        active: true,
+      )
+    end
+    collective.update!(tier: Collective::TIER_PAID)
+    collective
+  end
+
   def sign_in_as(user, tenant: nil, activate: true, add_to_tenant: true)
     tenant ||= @tenant || @global_tenant
 

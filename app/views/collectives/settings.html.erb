@@ -195,29 +195,62 @@
             <h3 class="pulse-section-title" style="<%= free_flags.any? ? 'margin-top: 24px;' : '' %> font-size: 16px;">
               Paid Plan Features
             </h3>
-            <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
-              <%= octicon 'credit-card', height: 12 %>
-              Enabling any feature in this section
-              <% if @current_collective.paid_tier? %>
-                keeps this collective on the paid plan ($3/month).
-              <% else %>
-                moves this collective to the paid plan ($3/month).
-              <% end %>
-              Disabling all paid features pauses the charge on the next billing cycle.
-            </p>
 
-            <div class="pulse-feature-flag-item">
-              <strong>Automations</strong>
-              <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
-                Event-triggered actions, webhooks, and schedules.
-                <%= enabled_automation_count %> enabled.
+            <% if @current_collective.paid_tier? %>
+              <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
+                <%= octicon 'credit-card', height: 12 %>
+                This collective is on the paid plan ($3/month).
               </p>
-              <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn pulse-action-btn-sm">
-                <%= octicon 'zap', height: 12 %> Manage automations
-              </a>
-            </div>
 
-            <% paid_flags.each { |f| render_flag_item.call(f) } %>
+              <div class="pulse-feature-flag-item">
+                <strong>Automations</strong>
+                <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
+                  Event-triggered actions, webhooks, and schedules.
+                  <%= enabled_automation_count %> enabled.
+                </p>
+                <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn pulse-action-btn-sm">
+                  <%= octicon 'zap', height: 12 %> Manage automations
+                </a>
+              </div>
+
+              <% paid_flags.each { |f| render_flag_item.call(f) } %>
+            <% elsif @current_collective.requires_stripe_billing? %>
+              <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
+                <%= octicon 'alert', height: 12 %>
+                Billing lapsed — paid features are paused. Restore your subscription to resume.
+              </p>
+              <%= button_to "Resume billing", "/billing", method: :get,
+                            class: "pulse-action-btn",
+                            form: { style: "display: inline;" } %>
+            <% else %>
+              <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
+                <%= octicon 'credit-card', height: 12 %>
+                Upgrade to the paid plan ($3/month) to unlock Automations, Trio AI assistant, and file attachments on this collective.
+              </p>
+              <% if @current_user.id == @current_collective.created_by_id %>
+                <% if @pending_collective_upgrade_in_session %>
+                  <p class="pulse-muted" style="margin-bottom: 8px; font-size: 13px;">
+                    <em>You started checkout for this collective. Resume to finish.</em>
+                  </p>
+                  <%= button_to "Resume checkout",
+                                "#{@current_collective.path}/upgrade",
+                                method: :post,
+                                class: "pulse-action-btn",
+                                form: { style: "display: inline;" } %>
+                <% else %>
+                  <%= button_to "Upgrade to Paid ($3/month)",
+                                "#{@current_collective.path}/upgrade",
+                                method: :post,
+                                class: "pulse-action-btn",
+                                form: { style: "display: inline;" },
+                                data: { turbo_confirm: "Upgrade this collective to the paid plan ($3/month)?" } %>
+                <% end %>
+              <% else %>
+                <p class="pulse-muted" style="font-size: 13px;">
+                  <em>Only the collective owner can upgrade.</em>
+                </p>
+              <% end %>
+            <% end %>
           <% end %>
         </section>
       <% end %>
@@ -225,6 +258,23 @@
       <div class="pulse-form-actions pulse-form-actions-sticky">
         <button type="submit" class="pulse-action-btn pulse-action-btn-disabled" disabled data-form-tracker-target="submit">Save Settings</button>
       </div>
+    <% end %>
+
+    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? && @current_user.id == @current_collective.created_by_id %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Downgrade to Free</h2>
+        <p class="pulse-section-description">
+          Move this collective back to the free plan. This will disable
+          <%= pluralize(@enabled_automations_count, "enabled automation") %>
+          and turn off Trio / file attachments.
+        </p>
+        <%= button_to "Downgrade to Free",
+                      "#{@current_collective.path}/downgrade",
+                      method: :post,
+                      class: "pulse-action-btn-danger",
+                      form: { style: "display: inline;" },
+                      data: { turbo_confirm: "Downgrade #{@current_collective.name} to the free plan? #{@enabled_automations_count} enabled automation(s) will be disabled and Trio / file attachments will be turned off." } %>
+      </section>
     <% end %>
 
     <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? %>

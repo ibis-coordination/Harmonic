@@ -826,7 +826,7 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_nil result
   end
 
-  test "handle_webhook customer.subscription.deleted archives user's non-main collectives" do
+  test "handle_webhook customer.subscription.deleted marks user's paid collectives as lapsed" do
     sc = StripeCustomer.create!(
       billable: @user,
       stripe_id: "cus_del_coll",
@@ -834,13 +834,14 @@ class StripeServiceTest < ActiveSupport::TestCase
       active: true,
     )
 
-    # Create a non-main collective owned by the user
+    # Create a non-main paid collective owned by the user
     extra_collective = Collective.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Extra Coll #{SecureRandom.hex(4)}",
       handle: "extra-coll-#{SecureRandom.hex(4)}",
     )
+    extra_collective.update!(tier: Collective::TIER_PAID)
 
     event = build_stripe_event(
       type: "customer.subscription.deleted",
@@ -850,11 +851,64 @@ class StripeServiceTest < ActiveSupport::TestCase
     StripeService.handle_webhook_event(event)
 
     extra_collective.reload
-    assert extra_collective.archived?, "Non-main collective should be archived when subscription deleted"
+    assert_equal Collective::TIER_LAPSED, extra_collective.tier,
+                 "Paid collective should be lapsed (not archived) when subscription deleted"
+    assert_not extra_collective.archived?, "Lapse must not archive — restore is instant and zero-loss"
+  end
 
-    # Main collective should NOT be archived
-    @collective.reload
-    assert_not @collective.archived?, "Main collective should not be archived"
+  test "handle_webhook customer.subscription.deleted leaves free collectives untouched" do
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_del_free",
+      stripe_subscription_id: "sub_del_free",
+      active: true,
+    )
+
+    free_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Free Coll #{SecureRandom.hex(4)}",
+      handle: "free-coll-#{SecureRandom.hex(4)}",
+    )
+
+    event = build_stripe_event(
+      type: "customer.subscription.deleted",
+      object: { "customer" => "cus_del_free", "id" => "sub_del_free" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    free_collective.reload
+    assert_equal Collective::TIER_FREE, free_collective.tier
+  end
+
+  test "handle_webhook customer.subscription.updated restores lapsed collectives on reactivation" do
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_restore",
+      stripe_subscription_id: "sub_restore",
+      active: false,
+    )
+
+    lapsed_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Lapsed Coll #{SecureRandom.hex(4)}",
+      handle: "lapsed-coll-#{SecureRandom.hex(4)}",
+    )
+    lapsed_collective.update!(tier: Collective::TIER_PAID)
+    lapsed_collective.update!(tier: Collective::TIER_LAPSED)
+
+    event = build_stripe_event(
+      type: "customer.subscription.updated",
+      object: { "customer" => "cus_restore", "id" => "sub_restore", "status" => "active" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    lapsed_collective.reload
+    assert_equal Collective::TIER_PAID, lapsed_collective.tier,
+                 "Lapsed collective should auto-restore to paid when subscription becomes active"
   end
 
   test "handle_webhook customer.subscription.deleted deactivates customer so agents cannot run" do
@@ -969,15 +1023,14 @@ class StripeServiceTest < ActiveSupport::TestCase
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     paid_collective_a = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll A", handle: "paid-coll-a-#{SecureRandom.hex(4)}")
     paid_collective_b = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll B", handle: "paid-coll-b-#{SecureRandom.hex(4)}")
-    # Make them paid_tier with an enabled automation rule.
+    # Flip tier directly — upgrade! requires Stripe customer which the test
+    # already has, but bypassing the method keeps the test focused on the
+    # quantity-sync behavior under test.
     [paid_collective_a, paid_collective_b].each do |c|
-      AutomationRule.create!(
-        tenant: @tenant, collective: c, created_by: @user,
-        name: "Bill rule", trigger_type: "manual", trigger_config: { "inputs" => {} },
-        conditions: [], actions: {}, enabled: true
-      )
+      c.update!(tier: Collective::TIER_PAID)
     end
     exempt_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Exempt Coll", handle: "exempt-coll-#{SecureRandom.hex(4)}", billing_exempt: true)
+    exempt_collective.update!(tier: Collective::TIER_PAID)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 

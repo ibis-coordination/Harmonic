@@ -51,7 +51,8 @@ Current settings for **<%= @current_collective.name %>**:
 
 ## Paid Plan Features
 
-Enabling any feature in this section <%= @current_collective.paid_tier? ? "keeps" : "moves" %> this collective <%= @current_collective.paid_tier? ? "on" : "to" %> the paid plan ($3/month). Disabling all paid features pauses the charge on the next billing cycle.
+<% if @current_collective.paid_tier? %>
+This collective is on the paid plan ($3/month).
 
 | Feature | Enabled |
 |---------|---------|
@@ -59,6 +60,13 @@ Enabling any feature in this section <%= @current_collective.paid_tier? ? "keeps
 <% paid_flags.each do |flag_name| %>
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
 | <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
+<% end %>
+
+To move this collective back to the free plan, POST to `<%= @current_collective.path %>/downgrade`. Enabled automations will be disabled and Trio / file attachments will be turned off.
+<% elsif @current_collective.requires_stripe_billing? %>
+**Billing lapsed** — paid features are paused. Restore your subscription at [/billing](/billing) to resume.
+<% else %>
+Upgrade to the paid plan ($3/month) to unlock Automations, Trio AI assistant, and file attachments on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only).
 <% end %>
 <% end %>
 <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? && @collective_ai_agents.present? %>

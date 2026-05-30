@@ -58,6 +58,29 @@
         </section>
       <% end %>
 
+      <% if @lapsed_collectives&.any? %>
+        <section class="pulse-section" style="margin-bottom: 24px;">
+          <h2 class="pulse-section-title">Billing Lapsed</h2>
+          <p class="pulse-muted" style="margin-bottom: 12px;">
+            <%= octicon 'alert', height: 14 %>
+            Paid features on these collectives are paused. Restore your subscription to resume — your configuration is preserved.
+          </p>
+          <table class="pulse-table" style="max-width: 600px;">
+            <tbody>
+              <% @lapsed_collectives.each do |collective| %>
+                <tr data-billing-item="collective-<%= collective.id %>">
+                  <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(features paused)</span></td>
+                  <td style="text-align: right; color: var(--color-fg-muted);">$3/mo when restored</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+          <p style="margin-top: 12px;">
+            <%= button_to "Resume billing", billing_setup_path, method: :post, class: "pulse-action-btn", form: { style: "display:inline;" } %>
+          </p>
+        </section>
+      <% end %>
+
       <% if @inactive_agents&.any? || @inactive_collectives&.any? %>
         <% multi_tenant = @current_user.tenant_users.count > 1 %>
         <section class="pulse-section" style="margin-bottom: 24px;">
