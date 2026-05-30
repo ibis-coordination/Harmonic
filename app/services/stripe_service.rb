@@ -131,8 +131,15 @@ class StripeService
     SyncResult.new(success: false, charged_cents: nil)
   end
 
-  # Preview the prorated amount that would be charged if subscription quantity increased by 1.
-  # Returns the amount in cents, or nil if preview fails.
+  # Preview the prorated amount that would be charged for adding one more
+  # billable unit (an agent, a paid collective, etc.). Returns cents, or nil
+  # if preview fails.
+  #
+  # The target quantity is anchored on `billable_quantity + 1` — the same
+  # basis sync_subscription_quantity! uses for the actual charge — so the
+  # preview reflects what the user is charged even when the Stripe quantity
+  # has drifted from the DB. (A drifted-high Stripe quantity yields a credit,
+  # which we floor to $0, matching sync's skip-on-decrease behavior.)
   sig { params(user: T.untyped).returns(T.nilable(Integer)) }
   def self.preview_proration(user)
     sc = user.stripe_customer
@@ -142,7 +149,7 @@ class StripeService
     item = subscription.items.data.first
     return nil unless item
 
-    new_quantity = item.quantity + 1
+    new_quantity = user.billable_quantity + 1
 
     preview = T.let(
       Stripe::Invoice.create_preview(
@@ -156,15 +163,30 @@ class StripeService
     )
 
     # Sum only proration line items (exclude the next recurring charge).
+    # As of the Stripe gem we use (API version 2026-02-25.clover), the
+    # `proration` boolean lives in the nested parent details
+    # (`parent.subscription_item_details.proration` for subscription items,
+    # `parent.invoice_item_details.proration` for invoice items), not at the
+    # top of the line item — calling `line.proration` raises NoMethodError.
     proration_amount = 0
     preview.lines.data.each do |line|
-      proration_amount += line.amount if line.proration
+      proration_amount += line.amount if line_is_proration?(line)
     end
     [proration_amount, 0].max
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to preview proration for user #{user.id}: #{e.message}")
     nil
   end
+
+  sig { params(line: T.untyped).returns(T::Boolean) }
+  def self.line_is_proration?(line)
+    parent = line.parent
+    return false if parent.nil?
+
+    details = parent.subscription_item_details || parent.invoice_item_details
+    !!details&.proration
+  end
+  private_class_method :line_is_proration?
 
   # Create a Checkout Session for a one-time credit top-up payment.
   # Returns the checkout URL for redirect.
@@ -479,7 +501,22 @@ class StripeService
       collective.restore_from_lapsed!
       restored_count += 1
     end
-    Rails.logger.info("[StripeService] Restored #{restored_count} lapsed collectives for user #{user.id}") if restored_count > 0
+    return if restored_count.zero?
+
+    Rails.logger.info("[StripeService] Restored #{restored_count} lapsed collectives for user #{user.id}")
+
+    # Restoring collectives raises billable_quantity above what the
+    # (possibly newly created) subscription was opened with — e.g. a user
+    # who resubscribes by upgrading one collective gets ALL their lapsed
+    # collectives restored, but the new subscription's quantity only
+    # accounted for the one. Push the corrected quantity to Stripe now
+    # instead of waiting for BillingReconciliationJob to correct it.
+    #
+    # Safe inside a webhook: the resulting customer.subscription.updated
+    # arrives with sc already active (so handle_subscription_updated won't
+    # re-restore), and the quantity will already match (so the nested
+    # sync_subscription_quantity! is a no-op).
+    sync_subscription_quantity!(user)
   end
   private_class_method :restore_lapsed_collectives_for
 end

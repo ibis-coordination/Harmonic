@@ -376,6 +376,7 @@ Rails.application.routes.draw do
     get "#{prefix}/members" => 'collectives#members'
     get "#{prefix}/settings" => 'collectives#settings'
     post "#{prefix}/settings" => 'collectives#update_settings'
+    get "#{prefix}/upgrade" => 'collectives#upgrade_preview'
     post "#{prefix}/upgrade" => 'collectives#upgrade'
     post "#{prefix}/downgrade" => 'collectives#downgrade'
     post "#{prefix}/settings/add_ai_agent" => 'collectives#add_ai_agent'

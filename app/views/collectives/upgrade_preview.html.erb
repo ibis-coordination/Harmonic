@@ -1,0 +1,65 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  ['Settings', "#{@current_collective.path}/settings"],
+  'Upgrade'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <span class="pulse-resource-type-label">
+      <%= octicon 'credit-card', height: 14, class: 'pulse-resource-icon' %>
+      Upgrade
+    </span>
+    <h1 class="pulse-resource-title">Upgrade <%= @current_collective.name %> to Paid</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>The paid plan unlocks Automations, the Trio AI assistant, and file attachments on this collective. <strong>$3/month</strong>, billed to your account.</p>
+
+    <% if @has_active_billing %>
+      <section class="pulse-settings-section">
+        <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
+          <span>
+            <%= octicon 'credit-card', height: 14 %>
+            <% if @proration_amount_cents %>
+              <strong>You will be charged $<%= format("%.2f", @proration_amount_cents / 100.0) %> now</strong> (prorated for the current billing period), then <strong>$3/month</strong> thereafter.
+            <% else %>
+              <strong>This will add $3/month to your subscription</strong>, prorated for the current billing period.
+            <% end %>
+          </span>
+        </div>
+      </section>
+    <% else %>
+      <section class="pulse-settings-section">
+        <div class="pulse-notice" style="margin-bottom: 16px;">
+          <span>
+            <%= octicon 'info', height: 14 %>
+            You don't have billing set up yet. The next step takes you to Stripe Checkout to enter your card. You'll see the exact price ($3/month, prorated) before paying.
+          </span>
+        </div>
+      </section>
+    <% end %>
+
+    <%# Opt out of Turbo: the POST may redirect cross-origin to %>
+    <%# checkout.stripe.com, which Turbo Drive silently blocks. %>
+    <form action="<%= @current_collective.path %>/upgrade" method="post" data-turbo="false" class="pulse-form">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+      <section class="pulse-settings-section pulse-action-row">
+        <% if @has_active_billing && @proration_amount_cents %>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+            Confirm and Pay $<%= format("%.2f", @proration_amount_cents / 100.0) %>
+          </button>
+        <% elsif @has_active_billing %>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+            Confirm Upgrade ($3/month)
+          </button>
+        <% else %>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+            Continue to Stripe Checkout
+          </button>
+        <% end %>
+        <a href="<%= @current_collective.path %>/settings" class="pulse-action-btn">Cancel</a>
+      </section>
+    </form>
+  </div>
+</article>

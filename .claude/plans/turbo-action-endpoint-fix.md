@@ -85,6 +85,22 @@ For each: find any HTML view that POSTs to one of its `/actions/<name>` endpoint
 - Markdown/JSON action API behavior — keep unchanged. The action API contract is "200 with structured response describing success or failure"; only the HTML browser path needs Turbo-compatible plumbing.
 - The Delete-confirm Stimulus controller — write only if Option A doesn't land and we keep `data-turbo="false"` on confirm-dialog forms.
 
+## Related: cross-origin redirects (already fixed locally)
+
+Turbo Drive also silently blocks **cross-origin redirects**. A form POST that returns a 302 to a different host (e.g., our Upgrade flow's `BillingRequired` → redirect to `checkout.stripe.com`) does nothing: Turbo intercepts the submission, gets the cross-origin location, refuses to navigate, and leaves the user on the form.
+
+Fixed locally on the collective/workspace/automations-index Upgrade buttons by adding `data: { turbo: "false" }` to their forms ([collectives/settings.html.erb](app/views/collectives/settings.html.erb), [users/settings.html.erb](app/views/users/settings.html.erb), [collective_automations/index.html.erb](app/views/collective_automations/index.html.erb)). Side effect: had to drop the `data-turbo-confirm` dialog on those buttons (Turbo Confirm requires Turbo to intercept; can't coexist with `data-turbo="false"`). Stripe Checkout is the real confirmation step anyway.
+
+Audit any other form that posts to an action that might redirect cross-origin — known candidates:
+
+- `BillingController#setup` (POST `/billing/setup`) — redirects to `checkout.stripe.com` (the "Set up billing" button on `/billing` and the post-signup billing-gate flow)
+- `BillingController#portal` — redirects to Stripe's billing portal (cross-origin)
+- `BillingController#reactivate_collective` (POST `/billing/reactivate_collective/:handle`) — when payment confirmation is required, may redirect to Stripe Checkout
+- `AiAgentsController#create` — when no active subscription, may redirect to `/billing` (same origin, fine) — but verify
+- Any other form that ultimately leads to Stripe Checkout
+
+Same fix: `data: { turbo: "false" }` on the form, drop Turbo-Confirm there. Or write a generic Stimulus controller (`browser-form`) that opts out of Turbo at the form level so it can be applied uniformly.
+
 ## Suggested execution
 
 1. Audit callers of `render_action_success` / `render_action_error` — write down the `redirect_to:` value each caller currently passes (many ignore it / pass nothing).

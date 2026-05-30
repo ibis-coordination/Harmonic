@@ -178,12 +178,10 @@
                             form: { style: "display: inline; margin-top: 8px;" } %>
             <% else %>
               Upgrade your workspace to the paid plan ($3/month) to enable it.
-              <%= button_to "Upgrade Workspace to Paid ($3/month)",
-                            "#{workspace.path}/upgrade",
-                            method: :post,
-                            class: "pulse-action-btn",
-                            form: { style: "display: inline; margin-top: 8px;" },
-                            data: { turbo_confirm: "Upgrade this workspace to the paid plan ($3/month)?" } %>
+              <%# Link to the GET upgrade preview, which shows the prorated %>
+              <%# charge (for users with billing) or explains the Stripe %>
+              <%# Checkout next step (for users without). %>
+              <a href="<%= workspace.path %>/upgrade" class="pulse-action-btn" style="margin-top: 8px;">Upgrade Workspace to Paid ($3/month)</a>
             <% end %>
           </p>
         <% end %>

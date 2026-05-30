@@ -33,12 +33,12 @@
           <strong>Automations require the paid plan ($3/month).</strong>
         </p>
         <% if @current_user.id == @current_collective.created_by_id %>
-          <%= button_to "Upgrade to Paid ($3/month)",
-                        "#{@current_collective.path}/upgrade",
-                        method: :post,
-                        class: "pulse-action-btn pulse-action-btn-primary",
-                        form: { style: "display: inline;" },
-                        data: { turbo_confirm: "Upgrade this collective to the paid plan ($3/month)?" } %>
+          <%# Link to the GET upgrade preview, which shows the prorated %>
+          <%# charge (for users with billing) or explains the Stripe %>
+          <%# Checkout next step (for users without). %>
+          <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn pulse-action-btn-primary">
+            Upgrade to Paid ($3/month)
+          </a>
         <% else %>
           <p class="pulse-muted" style="margin: 0; font-size: 13px;">
             <em>Only the collective owner can upgrade.</em>

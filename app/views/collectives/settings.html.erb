@@ -228,22 +228,16 @@
                 Upgrade to the paid plan ($3/month) to unlock Automations, Trio AI assistant, and file attachments on this collective.
               </p>
               <% if @current_user.id == @current_collective.created_by_id %>
+                <%# Links go to the GET upgrade preview, which shows the %>
+                <%# prorated charge (for owners with billing) or the Stripe %>
+                <%# Checkout next step (without) before any charge happens. %>
                 <% if @pending_collective_upgrade_in_session %>
                   <p class="pulse-muted" style="margin-bottom: 8px; font-size: 13px;">
                     <em>You started checkout for this collective. Resume to finish.</em>
                   </p>
-                  <%= button_to "Resume checkout",
-                                "#{@current_collective.path}/upgrade",
-                                method: :post,
-                                class: "pulse-action-btn",
-                                form: { style: "display: inline;" } %>
+                  <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn">Resume checkout</a>
                 <% else %>
-                  <%= button_to "Upgrade to Paid ($3/month)",
-                                "#{@current_collective.path}/upgrade",
-                                method: :post,
-                                class: "pulse-action-btn",
-                                form: { style: "display: inline;" },
-                                data: { turbo_confirm: "Upgrade this collective to the paid plan ($3/month)?" } %>
+                  <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn">Upgrade to Paid ($3/month)</a>
                 <% end %>
               <% else %>
                 <p class="pulse-muted" style="font-size: 13px;">

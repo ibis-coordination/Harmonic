@@ -630,6 +630,266 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     ENV["STRIPE_PRICE_ID"] = @original_price_id
   end
 
+  # === Upgrade preview (GET) ===
+
+  test "upgrade preview: owner sees preview page with $3/month notice" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :success
+    assert_match(/\$3\/month/, response.body)
+    # Confirmation form must POST to /upgrade with Turbo opted out
+    # (controller may redirect cross-origin to Stripe Checkout).
+    assert_match %r{<form[^>]*action="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*method="post"[^>]*>}, response.body
+    assert_match %r{data-turbo="false"}, response.body
+  end
+
+  test "upgrade preview: owner with active billing sees prorated charge amount" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_preview_test", active: true, stripe_subscription_id: "sub_preview_test")
+
+    # Stub the proration preview Stripe API call
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/sub_preview_test})
+      .to_return(status: 200, body: {
+        id: "sub_preview_test",
+        items: { data: [{ id: "si_test", quantity: 1 }] },
+      }.to_json, headers: { "Content-Type" => "application/json" })
+    # Stripe API 2026-02-25.clover: proration boolean is nested under
+    # parent.subscription_item_details.proration, not at the top of the line.
+    stub_request(:post, %r{https://api.stripe.com/v1/invoices/create_preview})
+      .to_return(status: 200, body: {
+        lines: { data: [{
+          amount: 199,
+          parent: { type: "subscription_item_details", subscription_item_details: { proration: true } },
+        }] },
+      }.to_json, headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :success
+    assert_match(/\$1\.99/, response.body, "expected prorated amount $1.99 in preview")
+    assert_match(/Confirm/i, response.body)
+  end
+
+  test "upgrade preview: owner without billing sees 'set up billing on next page' notice" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :success
+    # No prorated charge to preview; must indicate user will set up billing
+    assert_match(/billing|stripe checkout|set up/i, response.body)
+  end
+
+  test "upgrade preview: non-owner is forbidden" do
+    other = create_user
+    @tenant.add_user!(other)
+    @collective.add_user!(other, roles: ["admin"])
+    enable_stripe_billing_flag!(@tenant)
+
+    sign_in_as(other, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :forbidden
+  end
+
+  test "upgrade preview: redirects already-paid collective back to settings" do
+    enable_stripe_billing_flag!(@tenant)
+    # Active billing so the app-level billing gate doesn't bounce us to /billing first.
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_paid_preview", active: true, stripe_subscription_id: "sub_paid_preview")
+    @collective.update!(tier: Collective::TIER_PAID)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/upgrade"
+
+    # No preview needed; nothing to confirm.
+    assert_response :redirect
+    assert_match %r{/settings}, response.location
+  end
+
+  # Repro for user-reported bug: clicking Upgrade as an owner with no
+  # Stripe billing setup yields a "success" flash, but the collective stays
+  # on the free plan and the user is never redirected to Stripe Checkout.
+  #
+  # Expected: BillingRequired raised → redirect to Stripe Checkout URL,
+  # tier remains free until checkout completes. No "is now on the paid
+  # plan" flash should appear on this path.
+  test "upgrade repro: owner with no StripeCustomer must hit Stripe Checkout, not get success flash" do
+    enable_stripe_billing_flag!(@tenant)
+    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    ENV["STRIPE_PRICE_ID"] = "price_test_repro"
+
+    stub_request(:post, "https://api.stripe.com/v1/customers")
+      .to_return(status: 200, body: { id: "cus_repro_test", object: "customer" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .to_return(status: 200, body: {
+        id: "cs_repro_test", object: "checkout.session",
+        url: "https://checkout.stripe.com/session/cs_repro_test",
+      }.to_json, headers: { "Content-Type" => "application/json" })
+
+    assert_nil @user.stripe_customer, "precondition: user has no stripe_customer"
+    assert_equal Collective::TIER_FREE, @collective.reload.tier, "precondition: collective is free"
+    assert_not @user.sys_admin?, "precondition: user is not sys_admin"
+    assert_not @user.app_admin?, "precondition: user is not app_admin"
+    assert_not @collective.billing_exempt?, "precondition: collective is not billing_exempt"
+    assert @tenant.feature_enabled?("stripe_billing"), "precondition: tenant has stripe_billing"
+    assert_equal @user.id, @collective.created_by_id, "precondition: user owns the collective"
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_match %r{checkout\.stripe\.com}, response.location,
+      "expected redirect to Stripe Checkout; got #{response.location}"
+    assert_nil flash[:notice], "no success flash should fire on the BillingRequired path; got: #{flash[:notice].inspect}"
+    assert_equal Collective::TIER_FREE, @collective.reload.tier, "tier must remain free pending checkout"
+  ensure
+    ENV["STRIPE_PRICE_ID"] = @original_price_id
+  end
+
+  # Variant: user has a stripe_customer record from a prior attempt but it's
+  # not active (subscription was never completed). Same expected behavior:
+  # BillingRequired → Stripe Checkout, no success flash, tier stays free.
+  test "upgrade repro: owner with inactive StripeCustomer still hits Stripe Checkout" do
+    enable_stripe_billing_flag!(@tenant)
+    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    ENV["STRIPE_PRICE_ID"] = "price_test_repro2"
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_inactive_test", active: false)
+
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .to_return(status: 200, body: {
+        id: "cs_repro2", object: "checkout.session",
+        url: "https://checkout.stripe.com/session/cs_repro2",
+      }.to_json, headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_match %r{checkout\.stripe\.com}, response.location
+    assert_nil flash[:notice]
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
+  ensure
+    ENV["STRIPE_PRICE_ID"] = @original_price_id
+  end
+
+  # Repro for the user-reported bug:
+  #
+  # Upgrade button is rendered with Turbo intercepting form submission. The
+  # controller's BillingRequired path redirects to checkout.stripe.com
+  # (cross-origin). Turbo Drive silently BLOCKS cross-origin redirects —
+  # the form submits, server responds 302 to a different host, Turbo
+  # refuses to navigate, user is stuck on the form with no error. The
+  # turbo-confirm dialog ("Upgrade this collective to the paid plan?")
+  # reads like a "success" message after the user clicks OK, even though
+  # nothing actually happened server-side.
+  #
+  # Fix: opt the Upgrade form out of Turbo with `data: { turbo: false }`
+  # so the browser handles the cross-origin redirect natively.
+  # Settings page now links to the GET upgrade preview rather than POSTing
+  # directly — the preview shows the prorated charge before any billing
+  # action happens, and its own form opts out of Turbo for the actual POST.
+  test "settings: Upgrade affordance is a GET link to the upgrade preview" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+
+    assert_match %r{<a[^>]*href="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*>[^<]*Upgrade}, response.body,
+      "settings page should link (not POST) to the upgrade preview"
+  end
+
+  # The upgrade preview's confirm form must opt out of Turbo because the
+  # POST may redirect cross-origin to checkout.stripe.com, which Turbo
+  # Drive silently blocks.
+  test "upgrade preview confirm form opts out of Turbo" do
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/upgrade"
+    assert_response :success
+
+    form_match = response.body.match(
+      %r{<form[^>]*action="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*method="post"[^>]*>}
+    )
+    assert form_match, "preview must contain a POST form to /upgrade"
+    assert_match %r{data-turbo="false"}, form_match[0],
+      "preview form must opt out of Turbo for the cross-origin Stripe Checkout redirect"
+  end
+
+  # Diagnostic variant: tenant has stripe_billing OFF. The Upgrade button
+  # shouldn't be visible in the UI for this case, but if the form is somehow
+  # submitted, `billing_covered_for_upgrade?` returns true (no billing
+  # required on non-billing tenants) and the upgrade succeeds inline.
+  # Verifies tier actually flips to paid.
+  test "upgrade on a non-billing tenant is a no-op redirect (features already unlocked)" do
+    # @tenant has stripe_billing OFF by default in this test setup. There's
+    # no tier model in effect — tier_unlocks_paid_features? already returns
+    # true — so "upgrade" must not flip the tier or imply a charge; it just
+    # redirects back to settings.
+    refute @tenant.feature_enabled?("stripe_billing"), "precondition: stripe_billing off"
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_match %r{/settings}, response.location
+    assert_equal Collective::TIER_FREE, @collective.reload.tier,
+      "non-billing-tenant upgrade must NOT flip tier; got #{@collective.tier.inspect}"
+    assert_nil flash[:notice], "no 'now on the paid plan' flash on a no-op upgrade"
+  end
+
+  test "upgrade on the main collective is a no-op redirect (never billable)" do
+    enable_stripe_billing_flag!(@tenant)
+    main = @tenant.main_collective
+    assert main.is_main_collective?, "precondition: main collective"
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{main.handle}/upgrade"
+
+    assert_response :redirect
+    assert_match %r{/settings}, response.location
+    assert_equal Collective::TIER_FREE, main.reload.tier, "main collective must stay free"
+    assert_nil flash[:notice],
+      "main-collective upgrade must NOT flash a misleading 'now on the paid plan'"
+  end
+
+  # Diagnostic variant: actor is app_admin. The billing requirement is
+  # waived for admins. Tier should flip to paid inline.
+  test "upgrade diagnostic: app_admin actor succeeds inline and flips tier" do
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    @collective.reload
+    assert_equal Collective::TIER_PAID, @collective.tier,
+      "tier must flip to paid for app_admin actor; got #{@collective.tier.inspect}"
+  end
+
+  # Diagnostic variant: collective is billing_exempt. Upgrade succeeds
+  # inline without billing. Tier flips to paid.
+  test "upgrade diagnostic: billing_exempt collective succeeds inline and flips tier" do
+    enable_stripe_billing_flag!(@tenant)
+    @collective.update!(billing_exempt: true)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    @collective.reload
+    assert_equal Collective::TIER_PAID, @collective.tier,
+      "tier must flip to paid for billing_exempt collective; got #{@collective.tier.inspect}"
+  end
+
   test "upgrade: is idempotent on an already-paid collective" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)

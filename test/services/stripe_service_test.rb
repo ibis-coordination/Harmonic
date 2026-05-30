@@ -785,15 +785,19 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
+    # Stripe API 2026-02-25.clover moved the `proration` boolean into
+    # parent.subscription_item_details.proration on subscription-driven lines.
+    sub_proration_parent = { type: "subscription_item_details", subscription_item_details: { proration: true } }
+    sub_non_proration_parent = { type: "subscription_item_details", subscription_item_details: { proration: false } }
     stub_request(:post, "https://api.stripe.com/v1/invoices/create_preview")
       .to_return(
         status: 200,
         body: {
           id: "in_preview", object: "invoice", amount_due: 1199,
           lines: { data: [
-            { amount: -600, description: "Unused time on 1 x Account after 09 Apr 2026", proration: true },
-            { amount: 899, description: "Remaining time on 2 x Account after 09 Apr 2026", proration: true },
-            { amount: 900, description: "2 x Account (at $3.00 / month)", proration: false },
+            { amount: -600, description: "Unused time on 1 x Account after 09 Apr 2026", parent: sub_proration_parent },
+            { amount: 899, description: "Remaining time on 2 x Account after 09 Apr 2026", parent: sub_proration_parent },
+            { amount: 900, description: "2 x Account (at $3.00 / month)", parent: sub_non_proration_parent },
           ] },
         }.to_json,
         headers: { "Content-Type" => "application/json" },
@@ -825,6 +829,81 @@ class StripeServiceTest < ActiveSupport::TestCase
     result = StripeService.preview_proration(@user)
     assert_nil result
   end
+
+  # Regression: pre-fix, preview_proration called `line.proration` directly
+  # but Stripe API 2026-02-25.clover only exposes that boolean at
+  # `parent.subscription_item_details.proration` (or invoice_item_details).
+  # The old call raised NoMethodError. Now we navigate the nested parent.
+  test "preview_proration reads proration from parent.subscription_item_details" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_nested", active: true, stripe_subscription_id: "sub_nested")
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_nested")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_nested", object: "subscription",
+          items: { data: [{ id: "si_nested", quantity: 1, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    proration_parent = { type: "subscription_item_details", subscription_item_details: { proration: true } }
+    recurring_parent = { type: "subscription_item_details", subscription_item_details: { proration: false } }
+    stub_request(:post, "https://api.stripe.com/v1/invoices/create_preview")
+      .to_return(
+        status: 200,
+        body: {
+          id: "in_nested", lines: { data: [
+            { amount: 150, parent: proration_parent },
+            { amount: 300, parent: recurring_parent },
+          ] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.preview_proration(@user)
+    assert_equal 150, result, "only the line with parent.subscription_item_details.proration=true should count"
+  end
+
+  # F2: the previewed amount must match what the user is actually charged on
+  # confirm. sync_subscription_quantity! computes the target from
+  # billable_quantity, so the preview must too — NOT from the live Stripe
+  # item.quantity, which can drift from the DB. Here Stripe reports 5 but the
+  # real billable_quantity is 2, so the preview must request 2+1=3 (matching
+  # the eventual charge), not 5+1=6.
+  test "preview_proration targets billable_quantity+1, not the drifted Stripe quantity" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_drift", active: true, stripe_subscription_id: "sub_drift")
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_drift")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_drift", object: "subscription",
+          items: { data: [{ id: "si_drift", quantity: 5, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/invoices/create_preview")
+      .with { |req| captured_body = req.body; true }
+      .to_return(
+        status: 200,
+        body: { id: "in_drift", lines: { data: [] } }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    @user.stub(:billable_quantity, 2) do
+      StripeService.preview_proration(@user)
+    end
+
+    decoded = CGI.unescape(captured_body.to_s)
+    assert_includes decoded, "[quantity]=3",
+      "preview must target billable_quantity(2)+1=3; body was: #{decoded}"
+    refute_includes decoded, "[quantity]=6",
+      "preview must not target Stripe item.quantity(5)+1=6"
+  end
+
 
   test "handle_webhook customer.subscription.deleted marks user's paid collectives as lapsed" do
     sc = StripeCustomer.create!(
@@ -899,6 +978,25 @@ class StripeServiceTest < ActiveSupport::TestCase
     lapsed_collective.update!(tier: Collective::TIER_PAID)
     lapsed_collective.update!(tier: Collective::TIER_LAPSED)
 
+    # F1: restoring lapsed collectives must push the corrected quantity to
+    # Stripe (restore raises billable_quantity above what a resubscribe
+    # checkout opened with). Stub the sync_subscription_quantity! calls.
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_restore")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_restore", status: "active",
+          items: { data: [{ id: "si_restore", quantity: 1, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, %r{https://api.stripe.com/v1/subscription_items/si_restore})
+      .to_return(status: 200, body: { id: "si_restore", quantity: 1 }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/invoices")
+      .to_return(status: 200, body: { id: "in_restore", amount_due: 0 }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
     event = build_stripe_event(
       type: "customer.subscription.updated",
       object: { "customer" => "cus_restore", "id" => "sub_restore", "status" => "active" },
@@ -909,6 +1007,9 @@ class StripeServiceTest < ActiveSupport::TestCase
     lapsed_collective.reload
     assert_equal Collective::TIER_PAID, lapsed_collective.tier,
                  "Lapsed collective should auto-restore to paid when subscription becomes active"
+    # F1 regression: the restore must have triggered a quantity sync to Stripe.
+    assert_requested :get, "https://api.stripe.com/v1/subscriptions/sub_restore",
+                     at_least_times: 1
   end
 
   test "handle_webhook customer.subscription.deleted deactivates customer so agents cannot run" do

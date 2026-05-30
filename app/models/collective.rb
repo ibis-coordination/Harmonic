@@ -276,6 +276,13 @@ class Collective < ApplicationRecord
   # subscription cancel and then upgraded a collective via the standard
   # flow — the checkout creates a new subscription, which also auto-restores
   # any other lapsed collectives via `restore_lapsed_collectives_for`.
+  #
+  # SECURITY: this performs NO authorization and NO billing-active check —
+  # it trusts the caller to have verified both. Only call it from a
+  # signature-verified Stripe webhook, or from a path that has already
+  # confirmed the actor owns the collective AND that billing is set up
+  # (see CollectivesController#upgrade, which gates via `upgrade!`). Never
+  # wire it to user-facing input directly.
   sig { void }
   def confirm_upgrade!
     return if paid_tier?

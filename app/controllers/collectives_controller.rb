@@ -245,6 +245,24 @@ class CollectivesController < ApplicationController
     redirect_to request.referrer
   end
 
+  # GET /collectives/:handle/upgrade
+  # Confirmation page shown before charging. Two cases:
+  # - Owner already has active billing → show the prorated $X.XX that will
+  #   be charged immediately, then a "Confirm" button that POSTs to the
+  #   actual upgrade endpoint.
+  # - Owner has no billing yet → explain they'll be sent to Stripe Checkout
+  #   to enter card details + see the price there.
+  # Redirected to settings when the collective can't be upgraded (already
+  # paid, main collective, or a non-billing tenant — see collective_upgradeable?).
+  def upgrade_preview
+    return render status: 403, plain: "Only the collective owner can upgrade." unless @current_user.id == @current_collective.created_by_id
+    return redirect_to "#{@current_collective.path}/settings" unless collective_upgradeable?
+
+    @page_title = "Upgrade #{@current_collective.name}"
+    @has_active_billing = @current_user.stripe_customer&.active? && @current_user.stripe_customer.stripe_subscription_id.present?
+    @proration_amount_cents = StripeService.preview_proration(@current_user) if @has_active_billing
+  end
+
   # POST /collectives/:handle/upgrade
   # Moves a free collective to the paid plan. Owner-only. If the owner has no
   # active Stripe customer, redirects to Stripe Checkout — final confirmation
@@ -256,6 +274,11 @@ class CollectivesController < ApplicationController
     return render status: 403, plain: "Only the collective owner can upgrade." unless @current_user.id == @current_collective.created_by_id
 
     settings_path = "#{@current_collective.path}/settings"
+
+    # Nothing to upgrade for main collectives, already-paid collectives, or
+    # non-billing tenants (all have paid features unlocked already). Redirect
+    # rather than fall through to a misleading "is now on the paid plan" flash.
+    return redirect_to settings_path unless collective_upgradeable?
 
     begin
       @current_collective.upgrade!(actor: @current_user)
@@ -665,6 +688,20 @@ class CollectivesController < ApplicationController
 
   # POST /collectives/:collective_handle/deactivate
   private
+
+  # A collective can be upgraded only when billing is actually in effect on
+  # the tenant, it isn't the main collective (always free), and it isn't
+  # already on the paid tier. Main collectives and collectives on non-billing
+  # tenants already have paid features unlocked via
+  # Collective#tier_unlocks_paid_features?, so "upgrade" is a no-op for them —
+  # guarding here keeps the preview and the POST from showing a misleading
+  # success or charging needlessly. A lapsed collective IS upgradeable
+  # (paid_tier? is false), which flips it back to paid via the normal flow.
+  def collective_upgradeable?
+    @current_tenant.feature_enabled?("stripe_billing") &&
+      !@current_collective.is_main_collective? &&
+      !@current_collective.paid_tier?
+  end
 
   def set_sidebar_mode
     if action_name.in?(%w[index new])
