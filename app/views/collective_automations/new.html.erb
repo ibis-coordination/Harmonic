@@ -19,11 +19,7 @@
   <div class="pulse-resource-body">
     <p>Create a new automation by providing YAML configuration.</p>
 
-    <%# Opt out of Turbo: the controller calls render_action_error / %>
-    <%# render_action_success which return 200 with HTML (matches the action %>
-    <%# API contract), but Turbo silently drops 200-with-HTML responses. %>
-    <%# Without this, both success and failure look like the form "did nothing." %>
-    <form action="<%= automations_index_path %>/new/actions/create_automation_rule" method="post" class="pulse-form" data-turbo="false">
+    <form action="<%= automations_index_path %>/new/actions/create_automation_rule" method="post" class="pulse-form">
       <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
 
       <section class="pulse-settings-section">

@@ -411,7 +411,8 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     rule.reload
     assert_not rule.enabled?, "rule should remain disabled when collective is free"
-    assert_includes response.body.downcase, "paid plan"
+    assert_response :redirect
+    assert_match(/paid plan/i, flash[:error].to_s)
   end
 
   test "execute_toggle allows enabling when collective is on the paid tier" do
@@ -422,8 +423,9 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
 
-    assert_response :success
+    assert_response :redirect
     assert rule.reload.enabled?
+    assert_match(/enabled/i, flash[:notice].to_s)
   end
 
   test "execute_toggle always allows disabling regardless of tier" do
@@ -435,8 +437,9 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
 
-    assert_response :success
+    assert_response :redirect
     assert_not rule.reload.enabled?
+    assert_match(/disabled/i, flash[:notice].to_s)
   end
 
   test "execute_create blocks creating an automation when collective is free" do
@@ -491,6 +494,46 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "yaml_source"
+  end
+
+  # Regression coverage for the Turbo + render_action_* fix: HTML form
+  # submits used to render 200-with-HTML, which Turbo Drive silently dropped
+  # so the user saw "nothing happened." HTML must now redirect+flash; the md
+  # API contract stays the same.
+  test "render_action_success: HTML returns redirect+flash; md returns 200 with action body" do
+    rule = create_collective_automation_rule(name: "Format Distinction")
+    @api_token.destroy
+    sign_in_as(@user, tenant: @tenant)
+
+    # HTML path: redirect + flash[:notice]
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+    assert_response :redirect, "HTML form submit must redirect (not 200) so Turbo follows the response"
+    assert flash[:notice].present?, "HTML response must set a flash so the user gets feedback"
+
+    # md path: 200 with structured Action Success body
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
+      headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert response.content_type.starts_with?("text/markdown")
+    assert_includes response.body, "Action Success"
+  end
+
+  test "render_action_error: HTML returns redirect+flash[:error]; md returns 200 with action error body" do
+    @api_token.destroy
+    sign_in_as(@user, tenant: @tenant)
+
+    # Submit a create with invalid yaml so render_action_error fires.
+    invalid_yaml = "name: missing actions and task"
+
+    post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+      params: { yaml_source: invalid_yaml }
+    assert_response :redirect, "HTML error response must redirect+flash, not render 200-with-HTML"
+    assert flash[:error].present?, "HTML error response must surface the error via flash"
+
+    post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+      params: { yaml_source: invalid_yaml }, headers: { "Accept" => "text/markdown" }
+    assert_response :success, "md error contract: 200 with structured body (callers parse body, not status)"
+    assert_includes response.body, "Action Error"
   end
 
   # Self-hosted (non-billing) tenants have no tier model. Free-tier

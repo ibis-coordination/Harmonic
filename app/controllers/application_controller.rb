@@ -1231,22 +1231,62 @@ class ApplicationController < ActionController::Base
     }
   end
 
+  # Action endpoint success response. For HTML (browser form submits), this
+  # redirects with a flash message so Turbo Drive follows the redirect rather
+  # than silently dropping a 200-with-HTML response. The md (markdown) action
+  # API contract is unchanged: 200 with a structured body describing the
+  # outcome.
+  #
+  # Callers may pass `redirect_to:` to override the HTML redirect target.
+  # Otherwise the helper sends the user back to where they came from (referer
+  # if safe-same-origin) or falls back to the resource's own page, then to
+  # the site root.
   def render_action_success(locals)
-    @page_title ||= "Action Success: #{locals[:action_name]}"
-    render "shared/action_success", locals: {
-      action_name: locals[:action_name],
-      resource: locals[:resource],
-      result: locals[:result],
-    }
+    respond_to do |format|
+      format.html do
+        flash[:notice] = locals[:result].to_s if locals[:result].present?
+        redirect_to_action_endpoint_target(locals[:redirect_to], locals[:resource])
+      end
+      format.md do
+        @page_title ||= "Action Success: #{locals[:action_name]}"
+        render "shared/action_success", locals: {
+          action_name: locals[:action_name],
+          resource: locals[:resource],
+          result: locals[:result],
+        }
+      end
+    end
   end
 
+  # Action endpoint error response. HTML redirects back with a flash error so
+  # Turbo follows the redirect. The md action API contract is unchanged: 200
+  # with a structured body describing the failure (callers parse the body, not
+  # the status, to decide success/failure).
   def render_action_error(locals)
-    @page_title ||= "Action Error: #{locals[:action_name]}"
-    render "shared/action_error", locals: {
-      action_name: locals[:action_name],
-      resource: locals[:resource],
-      error: locals[:error],
-    }
+    respond_to do |format|
+      format.html do
+        flash[:error] = locals[:error].to_s if locals[:error].present?
+        redirect_to_action_endpoint_target(locals[:redirect_to], locals[:resource])
+      end
+      format.md do
+        @page_title ||= "Action Error: #{locals[:action_name]}"
+        render "shared/action_error", locals: {
+          action_name: locals[:action_name],
+          resource: locals[:resource],
+          error: locals[:error],
+        }
+      end
+    end
+  end
+
+  # Issue the redirect for HTML action-endpoint responses. Uses
+  # redirect_back_or_to so an unsafe / missing referer falls back cleanly to
+  # the resource's page (then "/") instead of raising UnsafeRedirectError.
+  def redirect_to_action_endpoint_target(explicit, resource)
+    return redirect_to(explicit) if explicit.present?
+
+    fallback = (resource.path if resource.respond_to?(:path) && resource.path.present?) || "/"
+    redirect_back_or_to(fallback)
   end
 
   def is_auth_controller?
