@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.0] - 2026-05-31
+
+### Added
+
+- **Free/paid tier model for collectives** (#216) — explicit `tier` column with upgrade/downgrade endpoints, replacing implicit derivation from feature toggles. $3/mo owner-billed when ≥1 paid feature is active; subscription loss lapses (not archives) paid collectives.
+- **Upgrade confirmation page** (#216) — shows prorated amount before charge.
+- **Tier badge, reorganized settings UI, and tenant-aware paid-plan copy** (#216).
+- **Archive from collective settings with auto-downgrade** (#216) — gated behind a `collective_archive` reverification scope; tracks `archived_by_id` in `SecurityAuditLog`.
+- **404 teaching response on unknown action names** (#217) — lists the actions defined at that path so a typo recovers in one round trip.
+
+### Changed
+
+- **MCP server and agent-runner are stateless** (#217) — `navigate` → `fetch_page`; `execute_action` requires `path`. Cursor and cross-turn replay removed.
+- **Honest HTTP status codes on md/json action errors** (#217) — 401/403/404/409/422 instead of always 200 across ~125 call sites.
+- **`render_action_*` is Turbo-compatible** — HTML redirects with flash; removes per-form `data-turbo="false"` workarounds and fixes silent breakage on 13 action-endpoint controllers.
+- **MCP `CONTEXT.md` trimmed 163 → 19 lines** (#217).
+
+### Fixed
+
+- **Customers silently charged after last paid resource removed** (#216) — zero-quantity now cancels the Stripe subscription.
+- **Stripe sync failures silently swallowed** (#216) — failures now surface in the user-facing flash.
+
+### Removed
+
+- **`/billing` deactivate/reactivate-collective routes** (#216) — they skipped the reverification gate and audit log; superseded by the settings-page archive flow.
+
+### Security
+
+- **`PaidTransitionGate`** (#216) — blocks free → paid transitions when the owner has no Stripe billing set up.
+- `Collective#archive!`/`unarchive!` enforce the owner check in-model; re-entry guards protect the audit trail.
+
 ## [1.20.0] - 2026-05-29
 
 ### Added
