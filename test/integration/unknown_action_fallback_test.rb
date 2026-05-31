@@ -94,4 +94,29 @@ class UnknownActionFallbackTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "whatever"
     assert_includes response.body, "No actions are defined at this path"
   end
+
+  test "capability-restricted user (AI agent) gets 404 teaching error, not 403 capability denial" do
+    # Regression for the ActionCapabilityCheck filter: it extracts the action
+    # name from the URL and denies on a missing capability before routing
+    # reaches the catch-all. If left as-is, agents would see
+    # "Your capabilities do not include 'totally_made_up'" — misleading,
+    # because the action doesn't exist anywhere. The filter must defer to the
+    # catch-all so the agent gets the actually-useful 404 + actions list.
+    agent = create_ai_agent(parent: @user, name: "Capability Test Agent")
+    agent_token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
+    agent_headers = {
+      "Authorization" => "Bearer #{agent_token.plaintext_token}",
+      "Accept" => "text/markdown",
+      "Content-Type" => "application/json",
+    }
+    note = create_note(text: "Test note", collective: @collective, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/totally_made_up_action",
+      params: {}.to_json, headers: agent_headers
+
+    assert_response :not_found, "should hit the catch-all and return 404, not 403 from capability check"
+    assert_includes response.body, "totally_made_up_action"
+    assert_includes response.body, "add_comment"
+    refute_includes response.body, "capabilities do not include"
+  end
 end

@@ -153,6 +153,13 @@ module ActionCapabilityCheck
     # Skip if no user is authenticated
     return unless defined?(@current_user) && @current_user.present?
 
+    # Skip when the request is heading to the unknown-action catch-all. That
+    # handler returns 404 + the list of actions actually defined at the path,
+    # which is strictly more useful than denying on a capability for a name
+    # that doesn't correspond to a real action anywhere. Letting the filter
+    # short-circuit with 403 would mask the teaching error.
+    return if controller_path == "application" && action_name == "unknown_action_fallback"
+
     capability_action = determine_capability_action
 
     # Fail-closed on unmapped writes for users subject to CapabilityCheck.
