@@ -327,6 +327,7 @@ class AiAgentsController < ApplicationController
                                    action_name: "create_ai_agent",
                                    resource: @current_user,
                                    error: "Only human accounts can create AI agents.",
+                                   status: :forbidden,
                                  })
     end
 

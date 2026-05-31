@@ -135,7 +135,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
         headers: @headers
     end
 
-    assert_response :success
+    assert_response :unprocessable_entity
     assert_includes response.body, "YAML configuration is required"
   end
 
@@ -151,7 +151,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
         headers: @headers
     end
 
-    assert_response :success
+    assert_response :unprocessable_entity
     assert_includes response.body, "trigger is required"
   end
 

@@ -1178,7 +1178,7 @@ class ApplicationController < ActionController::Base
   end
 
   def add_comment
-    return render_action_error({ action_name: "add_comment", resource: current_resource, error: "You must be logged in." }) unless current_user
+    return render_action_error({ action_name: "add_comment", resource: current_resource, error: "You must be logged in.", status: :unauthorized }) unless current_user
 
     unless current_resource&.is_commentable?
       return render_action_error({ action_name: "add_comment", resource: current_resource,
@@ -1259,9 +1259,11 @@ class ApplicationController < ActionController::Base
   end
 
   # Action endpoint error response. HTML redirects back with a flash error so
-  # Turbo follows the redirect. The md action API contract is unchanged: 200
-  # with a structured body describing the failure (callers parse the body, not
-  # the status, to decide success/failure).
+  # Turbo follows the redirect. The md/json action API uses real HTTP status
+  # codes so stateless clients (MCP server, agent-runner) can branch on
+  # outcome without parsing the body. Default is 422 (unprocessable entity);
+  # callers may pass `status:` to surface 401 (unauthenticated), 403
+  # (forbidden), 404 (not found), or 409 (conflict) where appropriate.
   def render_action_error(locals)
     respond_to do |format|
       format.html do
@@ -1274,7 +1276,7 @@ class ApplicationController < ActionController::Base
           action_name: locals[:action_name],
           resource: locals[:resource],
           error: locals[:error],
-        }
+        }, status: locals[:status] || :unprocessable_entity
       end
     end
   end

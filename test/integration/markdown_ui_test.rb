@@ -583,7 +583,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     # api_helper raises RecordInvalid which the controller surfaces as an
-    # action_error markdown response (200 OK with error text in body).
+    # action_error markdown response with a 4xx status and error text in body.
     assert_match(/no such comment/i, response.body, "Should surface a clear error")
     refute Note.exists?(text: "the reply"), "Should not have created the comment"
   end

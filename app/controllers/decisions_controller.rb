@@ -234,7 +234,7 @@ class DecisionsController < ApplicationController
   end
 
   def update_decision_settings_action
-    return render_action_error({ action_name: 'update_decision_settings', resource: current_decision, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'update_decision_settings', resource: current_decision, error: 'You must be logged in.', status: :unauthorized }) unless current_user
 
     begin
       decision = api_helper.update_decision_settings
@@ -499,7 +499,7 @@ class DecisionsController < ApplicationController
     unless @decision.closed?
       respond_to do |format|
         format.html { redirect_to @decision.path, alert: "Decision must be closed to add a statement." }
-        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: "Decision must be closed to add a statement." }) }
+        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: "Decision must be closed to add a statement.", status: :conflict }) }
       end
       return
     end

@@ -139,6 +139,7 @@ class ApiTokensController < ApplicationController
                                    action_name: "create_api_token",
                                    resource: @showing_user,
                                    error: "Only human accounts can create API tokens.",
+                                   status: :forbidden,
                                  })
     end
     # Internal AI agents cannot have API tokens
@@ -147,6 +148,7 @@ class ApiTokensController < ApplicationController
                                    action_name: "create_api_token",
                                    resource: @showing_user,
                                    error: "Internal AI agents cannot have API tokens.",
+                                   status: :forbidden,
                                  })
     end
     # Mirrors the browser-flow refusal above: don't issue tokens for AI agents

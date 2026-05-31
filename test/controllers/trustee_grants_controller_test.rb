@@ -121,7 +121,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       params: { permissions: ["create_note"] }.to_json,
       headers: @headers
 
-    assert_response :success
+    assert_response :not_found
     assert_includes response.body, "Trustee user not found"
   end
 
@@ -258,7 +258,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/accept_trustee_grant",
       headers: @headers
 
-    assert_response :success
+    assert_response :forbidden
     assert_includes response.body, "You can only accept trustee grants granted to you"
 
     permission.reload
@@ -277,7 +277,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/accept_trustee_grant",
       headers: @headers
 
-    assert_response :success
+    assert_response :conflict
     assert_includes response.body, "not pending"
   end
 
@@ -312,7 +312,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/decline_trustee_grant",
       headers: @headers
 
-    assert_response :success
+    assert_response :forbidden
     assert_includes response.body, "You can only decline trustee grants granted to you"
 
     permission.reload
@@ -370,7 +370,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
       headers: @headers
 
-    assert_response :success
+    assert_response :forbidden
     assert_includes response.body, "You can only revoke trustee grants you created"
 
     permission.reload
@@ -390,7 +390,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
       headers: @headers
 
-    assert_response :success
+    assert_response :conflict
     assert_includes response.body, "already revoked"
   end
 
