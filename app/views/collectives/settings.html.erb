@@ -230,7 +230,7 @@
             <% else %>
               <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
                 <%= octicon 'credit-card', height: 12 %>
-                Upgrade to the paid plan ($3/month) to unlock Automations, Trio AI assistant, and file attachments on this collective.
+                Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective.
               </p>
               <% if @current_user.id == @current_collective.created_by_id %>
                 <%# Links go to the GET upgrade preview, which shows the %>
@@ -260,19 +260,37 @@
     <% end %>
 
     <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? && @current_user.id == @current_collective.created_by_id %>
+      <%
+        downgrade_disables = paid_features_to_disable_on_downgrade(@current_collective)
+        n_auto = @enabled_automations_count.to_i
+        # Build two parallel sentences for the section copy and the confirm dialog.
+        # Phrases are conditional so we don't promise to turn off features the
+        # tenant doesn't support.
+        section_phrases = []
+        section_phrases << "disable #{pluralize(n_auto, 'enabled automation')}" if n_auto > 0
+        section_phrases << "turn off #{downgrade_disables.to_sentence}" if downgrade_disables.any?
+
+        confirm_phrases = []
+        confirm_phrases << "#{pluralize(n_auto, 'enabled automation')} will be disabled" if n_auto > 0
+        confirm_phrases << "#{downgrade_disables.to_sentence} will be turned off" if downgrade_disables.any?
+
+        confirm_text = "Downgrade #{@current_collective.name} to the free plan?"
+        confirm_text += " #{sentence_case(confirm_phrases.to_sentence)}." if confirm_phrases.any?
+      %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Downgrade to Free</h2>
         <p class="pulse-section-description">
-          Move this collective back to the free plan. This will disable
-          <%= pluralize(@enabled_automations_count, "enabled automation") %>
-          and turn off Trio / file attachments.
+          Move this collective back to the free plan.
+          <% if section_phrases.any? %>
+            This will <%= section_phrases.to_sentence %>.
+          <% end %>
         </p>
         <%= button_to "Downgrade to Free",
                       "#{@current_collective.path}/downgrade",
                       method: :post,
                       class: "pulse-action-btn-danger",
                       form: { style: "display: inline;" },
-                      data: { turbo_confirm: "Downgrade #{@current_collective.name} to the free plan? #{@enabled_automations_count} enabled automation(s) will be disabled and Trio / file attachments will be turned off." } %>
+                      data: { turbo_confirm: confirm_text } %>
       </section>
     <% end %>
 

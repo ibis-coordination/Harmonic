@@ -62,11 +62,16 @@ This collective is on the paid plan ($3/month).
 | <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
 <% end %>
 
-To move this collective back to the free plan, POST to `<%= @current_collective.path %>/downgrade`. Enabled automations will be disabled and Trio / file attachments will be turned off.
+<%
+  md_downgrade_disables = paid_features_to_disable_on_downgrade(@current_collective)
+  md_clauses = ["enabled automations will be disabled"]
+  md_clauses << "#{md_downgrade_disables.to_sentence} will be turned off" if md_downgrade_disables.any?
+%>
+To move this collective back to the free plan, POST to `<%= @current_collective.path %>/downgrade`. <%= sentence_case(md_clauses.to_sentence) %>.
 <% elsif @current_collective.requires_stripe_billing? %>
 **Billing lapsed** — paid features are paused. Restore your subscription at [/billing](/billing) to resume.
 <% else %>
-Upgrade to the paid plan ($3/month) to unlock Automations, Trio AI assistant, and file attachments on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only).
+Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only).
 <% end %>
 <% end %>
 <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? && @collective_ai_agents.present? %>

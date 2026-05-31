@@ -66,6 +66,12 @@
           </td>
         <% end %>
         <% if show_actions && collective.tenant_id == @current_tenant.id %>
+          <%
+            row_disables = paid_features_to_disable_on_downgrade(collective)
+            row_off_clauses = ["enabled automations will be disabled"]
+            row_off_clauses << "#{row_disables.to_sentence} will be turned off" if row_disables.any?
+            row_confirm = "Downgrade #{collective.name} to the free plan? #{sentence_case(row_off_clauses.to_sentence)}. To archive or delete the collective, use its settings page."
+          %>
           <td style="text-align: right;">
             <%= button_to "Downgrade",
                           "#{collective.path}/downgrade",
@@ -73,7 +79,7 @@
                           params: { return_to: billing_show_path },
                           class: "pulse-action-btn-small pulse-action-btn-danger",
                           form: { style: "display: inline;" },
-                          data: { turbo_confirm: "Downgrade #{collective.name} to the free plan? Automations, Trio, and file attachments will be turned off. To archive or delete the collective, use its settings page." } %>
+                          data: { turbo_confirm: row_confirm } %>
           </td>
         <% elsif show_actions %>
           <td></td>

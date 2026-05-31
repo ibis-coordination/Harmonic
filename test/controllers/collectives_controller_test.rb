@@ -349,6 +349,55 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Deactivate Collective"
   end
 
+  test "free-tier upgrade copy omits Trio when tenant has trio disabled" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.set_feature_flag!("trio", false)
+    @tenant.set_feature_flag!("file_attachments", false)
+    test_collective = create_test_collective # starts at free tier
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{test_collective.handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "Upgrade to the paid plan"
+    # Banner lists paid features mid-sentence (lowercase common nouns); when the
+    # tenant has only Automations available, the copy says "unlock automations".
+    assert_includes response.body, "unlock automations on this collective"
+    assert_not_includes response.body, "Trio AI assistant"
+    assert_not_includes response.body, "file attachments"
+  end
+
+  test "paid-tier downgrade copy omits Trio when tenant has trio disabled" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.set_feature_flag!("trio", false)
+    @tenant.set_feature_flag!("file_attachments", false)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    test_collective = create_test_collective
+    test_collective.update!(tier: Collective::TIER_PAID)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{test_collective.handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "Downgrade to Free"
+    assert_not_includes response.body, "turn off Trio"
+    assert_not_includes response.body, "Trio / file attachments"
+  end
+
+  test "free-tier upgrade copy includes Trio and file attachments when tenant has them enabled" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    @tenant.enable_feature_flag!("file_attachments")
+    test_collective = create_test_collective
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{test_collective.handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "the Trio AI assistant"
+    assert_includes response.body, "file attachments"
+  end
+
   test "archived collective blocks write requests" do
     test_collective = create_test_collective
     test_collective.archive!(actor: @user)

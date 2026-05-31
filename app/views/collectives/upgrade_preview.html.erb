@@ -14,7 +14,7 @@
   </header>
 
   <div class="pulse-resource-body">
-    <p>The paid plan unlocks Automations, the Trio AI assistant, and file attachments on this collective. <strong>$3/month</strong>, billed to your account.</p>
+    <p>The paid plan unlocks <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. <strong>$3/month</strong>, billed to your account.</p>
 
     <% if @has_active_billing %>
       <section class="pulse-settings-section">
