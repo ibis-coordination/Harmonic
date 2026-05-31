@@ -105,15 +105,23 @@ This is the **direct substitute** for the client-side validation we're dropping 
 always current, recovers in one shot.
 
 - Add a fallback so `POST /{path}/actions/{unknown}` returns `404` whose **body is the action
-  index for that path** (reuse `ActionsHelper` /
-  [available_actions_for_current_route](app/helpers/markdown_helper.rb#L9) — single source of
-  truth). Message: "`{unknown}` is not a valid action here. Available actions: …".
-- Unauthorized action → `403` body that says so and lists what *is* available to this caller.
-- Implementation note: prefer a catch-all `actions/:action` route per resource scope (or a
-  rescue in a shared concern) appended **after** the explicit routes, so existing routes win and
-  only genuinely-unknown names hit the fallback.
-- Tests: unknown action name → `404` + lists valid actions; unauthorized action → `403` + lists
-  available; a valid action still routes to its explicit handler (no regression).
+  index for that path** (reuse `ActionsHelper.actions_for_route` — single source of truth).
+  Message: "`{unknown}` is not a valid action at `{path}`." plus a listing.
+- Implementation note: a single global catch-all `*url_prefix/actions/:unknown_name` (GET+POST)
+  at the bottom of `config/routes.rb` after the explicit routes, dispatching to
+  `ApplicationController#unknown_action_fallback`. The handler uses
+  `Rails.application.routes.recognize_path` to resolve the prefix back to a `controller#action`
+  and `ActionsHelper.route_pattern_for` to find the matching actions list.
+- **Deferred to a follow-up: 403 + available-actions list for unauthorized-but-defined actions.**
+  When an action IS defined for the resource type but the user isn't authorized, the explicit
+  handler runs and returns 403 (from Phase 1). Appending the available-actions list to that 403
+  would be useful but requires either changing each authorization-rejection site or extracting a
+  shared `available_actions_for_current_route` call into `render_action_error` — neither is small.
+  In practice this case is rare: Phase 5's stateless markdown already filters the shown actions
+  to authorized-only, so the agent shouldn't try unauthorized ones. Punted; the 404 catch-all
+  covers the common case (typo, hallucinated name, action defined elsewhere).
+- Tests: unknown action name → `404` + lists valid actions; a valid action still routes to its
+  explicit handler (no regression); GET to an unknown `describe_*` also handled.
 
 ### Phase 3 — Rails: self-describing responses (Tier 2, ergonomics)
 
