@@ -23,10 +23,10 @@ feature_flags:
 
   file_attachments:
     name: "File Attachments"
-    description: "Allows users to attach files to notes, decisions, and commitments"
+    description: "Allows users to attach files to notes, decisions, and commitments."
     app_enabled: true
     default_tenant: true
-    default_collective: true
+    default_collective: false
     collective_level: true
 
   trio:

@@ -11,16 +11,41 @@
         <%= octicon 'zap', height: 14, class: 'pulse-resource-icon' %>
         Automations
       </span>
+      <%= render 'shared/collective_tier_badge', collective: @current_collective %>
     </div>
     <h1 class="pulse-resource-title">Automations</h1>
   </header>
 
   <div class="pulse-resource-body">
-    <p class="pulse-action-row">
-      <a href="<%= automations_index_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
-        <%= octicon "plus" %> New Automation
-      </a>
-    </p>
+    <% if @current_collective.tier_unlocks_paid_features? %>
+      <p class="pulse-action-row">
+        <a href="<%= automations_index_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
+          <%= octicon "plus" %> New Automation
+        </a>
+      </p>
+    <% else %>
+      <%# Free collective on a billing tenant: automations are paid-only. %>
+      <%# Surface the upgrade affordance here so users don't try to create %>
+      <%# a rule that the controller would refuse. %>
+      <section class="pulse-settings-section" style="background: var(--color-canvas-subtle); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+        <p style="margin: 0 0 12px 0;">
+          <%= octicon 'credit-card', height: 14 %>
+          <strong>Automations require the paid plan ($3/month).</strong>
+        </p>
+        <% if @current_user.id == @current_collective.created_by_id %>
+          <%# Link to the GET upgrade preview, which shows the prorated %>
+          <%# charge (for users with billing) or explains the Stripe %>
+          <%# Checkout next step (for users without). %>
+          <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn pulse-action-btn-primary">
+            Upgrade to Paid ($3/month)
+          </a>
+        <% else %>
+          <p class="pulse-muted" style="margin: 0; font-size: 13px;">
+            <em>Only the collective owner can upgrade.</em>
+          </p>
+        <% end %>
+      </section>
+    <% end %>
 
     <% if @automation_rules.empty? %>
       <p class="pulse-empty-content"><em>No automations configured yet.</em></p>

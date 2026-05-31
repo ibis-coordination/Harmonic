@@ -27,8 +27,6 @@ Rails.application.routes.draw do
   get 'billing/portal' => 'billing#portal', as: 'billing_portal'
   post 'billing/deactivate_agent/:handle' => 'billing#deactivate_agent', as: 'billing_deactivate_agent'
   post 'billing/reactivate_agent/:handle' => 'billing#reactivate_agent', as: 'billing_reactivate_agent'
-  post 'billing/deactivate_collective/:collective_handle' => 'billing#deactivate_collective', as: 'billing_deactivate_collective'
-  post 'billing/reactivate_collective/:collective_handle' => 'billing#reactivate_collective', as: 'billing_reactivate_collective'
   post 'billing/topup' => 'billing#topup', as: 'billing_topup'
 
   # Development tools - styleguide (only available in development)
@@ -376,6 +374,11 @@ Rails.application.routes.draw do
     get "#{prefix}/members" => 'collectives#members'
     get "#{prefix}/settings" => 'collectives#settings'
     post "#{prefix}/settings" => 'collectives#update_settings'
+    get "#{prefix}/upgrade" => 'collectives#upgrade_preview'
+    post "#{prefix}/upgrade" => 'collectives#upgrade'
+    post "#{prefix}/downgrade" => 'collectives#downgrade'
+    post "#{prefix}/archive" => 'collectives#archive'
+    post "#{prefix}/unarchive" => 'collectives#unarchive'
     post "#{prefix}/settings/add_ai_agent" => 'collectives#add_ai_agent'
     delete "#{prefix}/settings/remove_ai_agent" => 'collectives#remove_ai_agent'
     get "#{prefix}/settings/actions" => 'collectives#actions_index_settings'

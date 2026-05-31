@@ -406,7 +406,9 @@ CREATE TABLE public.collectives (
     billing_exempt boolean DEFAULT false NOT NULL,
     pending_billing_setup boolean DEFAULT false NOT NULL,
     collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
-    trio_user_id uuid
+    trio_user_id uuid,
+    tier character varying DEFAULT 'free'::character varying NOT NULL,
+    archived_by_id uuid
 );
 
 
@@ -3694,6 +3696,13 @@ CREATE INDEX index_collective_members_on_user_id ON public.collective_members US
 
 
 --
+-- Name: index_collectives_on_archived_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_collectives_on_archived_by_id ON public.collectives USING btree (archived_by_id) WHERE (archived_by_id IS NOT NULL);
+
+
+--
 -- Name: index_collectives_on_collective_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3719,6 +3728,13 @@ CREATE INDEX index_collectives_on_tenant_id ON public.collectives USING btree (t
 --
 
 CREATE UNIQUE INDEX index_collectives_on_tenant_id_and_handle ON public.collectives USING btree (tenant_id, handle);
+
+
+--
+-- Name: index_collectives_on_tier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_collectives_on_tier ON public.collectives USING btree (tier);
 
 
 --
@@ -8923,6 +8939,14 @@ ALTER TABLE ONLY public.data_imports
 
 
 --
+-- Name: collectives fk_rails_75dc201678; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.collectives
+    ADD CONSTRAINT fk_rails_75dc201678 FOREIGN KEY (archived_by_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: chat_sessions fk_rails_789cff0cc3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9585,6 +9609,10 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260530120000'),
+('20260530000000'),
+('20260529205324'),
+('20260529202019'),
 ('20260523181916'),
 ('20260523053523'),
 ('20260523010107'),

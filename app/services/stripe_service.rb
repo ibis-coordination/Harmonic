@@ -6,7 +6,11 @@ class StripeService
 
   class SyncResult < T::Struct
     const :success, T::Boolean
-    const :charged_cents, T.nilable(Integer)
+    const :charged_cents, T.nilable(Integer), default: nil
+    # Human-readable error message when success is false. Callers should
+    # surface this to the user (don't claim the action succeeded if it
+    # didn't actually update Stripe).
+    const :error, T.nilable(String), default: nil
   end
 
   # Find or create a StripeCustomer record for the given billable (User, Collective, etc.)
@@ -78,18 +82,28 @@ class StripeService
 
   # Recalculate and update the Stripe subscription quantity for a user.
   # Sums all billable resources across ALL tenants (one subscription per user).
-  # No-op if user has no active subscription, or if computed quantity is 0.
-  # Returns a SyncResult with success status and optional charged_cents.
-  # Rescues Stripe errors to avoid blocking user actions.
+  # Returns a SyncResult — callers should ALWAYS check .success and surface
+  # .error to the user rather than reporting success unconditionally.
+  #
+  # Behavior:
+  # - No active subscription: no-op, success.
+  # - billable_quantity == 0 + active subscription: cancel the subscription
+  #   and mark the local StripeCustomer inactive. (Previously short-circuited,
+  #   leaving the user being charged $3/mo for nothing — see test
+  #   "cancels Stripe subscription when new_quantity drops to zero".)
+  # - billable_quantity > 0: update the subscription item quantity. Charge
+  #   prorated invoice on increase; Stripe applies a credit on decrease.
+  # - Stripe API error: returns success: false with a human-readable error.
   sig { params(user: T.untyped).returns(SyncResult) }
   def self.sync_subscription_quantity!(user)
     sc = user.stripe_customer
-    return SyncResult.new(success: true, charged_cents: nil) unless sc&.active? && sc.stripe_subscription_id.present?
+    return SyncResult.new(success: true) unless sc&.active? && sc.stripe_subscription_id.present?
 
     new_quantity = user.billable_quantity
 
-    # Stripe doesn't allow quantity 0 on a subscription item — skip if nothing to bill
-    return SyncResult.new(success: true, charged_cents: nil) if new_quantity == 0
+    if new_quantity == 0
+      return cancel_subscription_for_zero_quantity!(sc, user)
+    end
 
     # Retrieve the subscription to get the item ID — quantity must be set on the item, not the subscription
     subscription = Stripe::Subscription.retrieve(sc.stripe_subscription_id)
@@ -100,16 +114,16 @@ class StripeService
       Rails.logger.warn("[StripeService] Subscription #{sc.stripe_subscription_id} is #{subscription.status} — deactivating locally for user #{user.id}")
       sc.update!(active: false)
       deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
-      return SyncResult.new(success: false, charged_cents: nil)
+      return SyncResult.new(success: false, error: "Stripe reports subscription as #{subscription.status}.")
     end
 
     item = subscription.items.data.first
-    return SyncResult.new(success: true, charged_cents: nil) unless item
+    return SyncResult.new(success: true) unless item
 
     old_quantity = item.quantity
 
     # Skip if quantity hasn't changed (avoids unnecessary API calls and proration events)
-    return SyncResult.new(success: true, charged_cents: nil) if new_quantity == old_quantity
+    return SyncResult.new(success: true) if new_quantity == old_quantity
 
     Stripe::SubscriptionItem.update(item.id, quantity: new_quantity)
     Rails.logger.info("[StripeService] Updated subscription item #{item.id} quantity from #{old_quantity} to #{new_quantity} for user #{user.id}")
@@ -125,14 +139,38 @@ class StripeService
       return SyncResult.new(success: true, charged_cents: invoice.amount_due)
     end
 
-    SyncResult.new(success: true, charged_cents: nil)
+    SyncResult.new(success: true)
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to update subscription quantity for user #{user.id}: #{e.message}")
-    SyncResult.new(success: false, charged_cents: nil)
+    SyncResult.new(success: false, error: "Billing system error: #{e.message}")
   end
 
-  # Preview the prorated amount that would be charged if subscription quantity increased by 1.
-  # Returns the amount in cents, or nil if preview fails.
+  # User has dropped to zero billable resources. Cancel the Stripe
+  # subscription so they actually stop being charged, and mark the local
+  # StripeCustomer inactive. Leaves stripe_subscription_id in place for
+  # historical reference; the active=false flag is what gates future syncs.
+  # A future paid resource creation goes through BillingController#setup,
+  # which creates a fresh subscription.
+  sig { params(sc: StripeCustomer, user: T.untyped).returns(SyncResult) }
+  def self.cancel_subscription_for_zero_quantity!(sc, user)
+    Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id))
+    sc.update!(active: false)
+    Rails.logger.info("[StripeService] Cancelled subscription #{sc.stripe_subscription_id} for user #{user.id} (billable_quantity dropped to 0)")
+    SyncResult.new(success: true)
+  rescue Stripe::StripeError => e
+    Rails.logger.error("[StripeService] Failed to cancel subscription for user #{user.id}: #{e.message}")
+    SyncResult.new(success: false, error: "Billing system error: could not cancel subscription (#{e.message}).")
+  end
+
+  # Preview the prorated amount that would be charged for adding one more
+  # billable unit (an agent, a paid collective, etc.). Returns cents, or nil
+  # if preview fails.
+  #
+  # The target quantity is anchored on `billable_quantity + 1` — the same
+  # basis sync_subscription_quantity! uses for the actual charge — so the
+  # preview reflects what the user is charged even when the Stripe quantity
+  # has drifted from the DB. (A drifted-high Stripe quantity yields a credit,
+  # which we floor to $0, matching sync's skip-on-decrease behavior.)
   sig { params(user: T.untyped).returns(T.nilable(Integer)) }
   def self.preview_proration(user)
     sc = user.stripe_customer
@@ -142,7 +180,7 @@ class StripeService
     item = subscription.items.data.first
     return nil unless item
 
-    new_quantity = item.quantity + 1
+    new_quantity = user.billable_quantity + 1
 
     preview = T.let(
       Stripe::Invoice.create_preview(
@@ -156,15 +194,30 @@ class StripeService
     )
 
     # Sum only proration line items (exclude the next recurring charge).
+    # As of the Stripe gem we use (API version 2026-02-25.clover), the
+    # `proration` boolean lives in the nested parent details
+    # (`parent.subscription_item_details.proration` for subscription items,
+    # `parent.invoice_item_details.proration` for invoice items), not at the
+    # top of the line item — calling `line.proration` raises NoMethodError.
     proration_amount = 0
     preview.lines.data.each do |line|
-      proration_amount += line.amount if line.proration
+      proration_amount += line.amount if line_is_proration?(line)
     end
     [proration_amount, 0].max
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to preview proration for user #{user.id}: #{e.message}")
     nil
   end
+
+  sig { params(line: T.untyped).returns(T::Boolean) }
+  def self.line_is_proration?(line)
+    parent = line.parent
+    return false if parent.nil?
+
+    details = parent.subscription_item_details || parent.invoice_item_details
+    !!details&.proration
+  end
+  private_class_method :line_is_proration?
 
   # Create a Checkout Session for a one-time credit top-up payment.
   # Returns the checkout URL for redirect.
@@ -293,17 +346,34 @@ class StripeService
       return
     end
 
-    # Idempotency: skip if already activated with this subscription
-    if sc.active? && sc.stripe_subscription_id == session.subscription
-      Rails.logger.info("[StripeService] checkout.session.completed: Already active for #{session.customer}, skipping")
-      return
+    was_active = sc.active?
+
+    # Idempotency: skip activating if already active with this subscription
+    unless was_active && sc.stripe_subscription_id == session.subscription
+      sc.update!(
+        stripe_subscription_id: session.subscription,
+        active: true,
+      )
+      Rails.logger.info("[StripeService] Activated billing for customer #{session.customer}")
     end
 
-    sc.update!(
-      stripe_subscription_id: session.subscription,
-      active: true,
-    )
-    Rails.logger.info("[StripeService] Activated billing for customer #{session.customer}")
+    # If this checkout was launched from a collective upgrade flow,
+    # session.metadata.collective_id is set — confirm the tier flip.
+    # Scope the lookup to the customer's user via for_user_across_tenants
+    # so we never confirm a collective belonging to a different user (and
+    # so we stay within tenant-safe query helpers; .unscoped_for_system_job
+    # isn't allowed outside jobs/migrations).
+    metadata = session.respond_to?(:metadata) ? session.metadata : nil
+    collective_id = metadata.respond_to?(:[]) ? metadata["collective_id"] : nil
+    if collective_id.present? && sc.billable.is_a?(User)
+      collective = Collective.for_user_across_tenants(sc.billable).find_by(id: collective_id)
+      collective&.confirm_upgrade!
+    end
+
+    # If the customer was previously inactive (e.g. subscription lapsed and
+    # they just re-upped), restore any lapsed collectives now that billing
+    # is active again.
+    restore_lapsed_collectives_for(sc) if !was_active && sc.billable.is_a?(User)
   end
   private_class_method :handle_subscription_checkout_completed
 
@@ -350,9 +420,18 @@ class StripeService
     sc.update!(active: now_active)
     Rails.logger.info("[StripeService] Subscription #{subscription.id} status=#{subscription.status} active=#{sc.active}")
 
-    # If subscription transitioned to inactive (canceled, unpaid), suspend all agents
+    # If subscription transitioned to inactive (canceled, unpaid), suspend
+    # agents and mark paid collectives as lapsed (preserves config so the
+    # owner can restore instantly by fixing billing).
     if was_active && !now_active
       deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
+    end
+
+    # If subscription transitioned to active (owner re-upped after lapse),
+    # restore lapsed collectives — matches the user expectation that fixing
+    # the card resumes the paid plan with no extra clicks.
+    if !was_active && now_active && sc.billable.is_a?(User)
+      restore_lapsed_collectives_for(sc)
     end
   end
   private_class_method :handle_subscription_updated
@@ -417,16 +496,58 @@ class StripeService
     end
     Rails.logger.info("[StripeService] Suspended #{suspended_count} agents for user #{user.id}: #{reason}") if suspended_count > 0
 
-    # Archive non-main collectives on billing-enabled tenants only
-    archived_count = 0
+    # Mark paid collectives as lapsed on billing-enabled tenants only.
+    # Lapse just flips the tier column — runtime gates short-circuit on
+    # paid_tier? so feature access pauses without touching configuration.
+    # Restore is instant and zero-loss once the owner fixes their billing.
+    lapsed_count = 0
     Collective.for_user_across_tenants(user)
-      .where(tenant_id: billing_tenant_ids, archived_at: nil)
+      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_PAID, archived_at: nil)
       .find_each do |collective|
       next if collective.is_main_collective?
-      collective.archive!
-      archived_count += 1
+      collective.mark_lapsed!
+      lapsed_count += 1
     end
-    Rails.logger.info("[StripeService] Archived #{archived_count} collectives for user #{user.id}: #{reason}") if archived_count > 0
+    Rails.logger.info("[StripeService] Lapsed #{lapsed_count} collectives for user #{user.id}: #{reason}") if lapsed_count > 0
   end
   private_class_method :deactivate_resources_for_customer
+
+  # Auto-restore all of a user's lapsed collectives to paid. Called when the
+  # user's stripe_customer transitions inactive → active (subscription
+  # re-created, payment fixed via portal, etc.). Matches the user
+  # expectation that fixing billing resumes the paid plan with no extra
+  # clicks.
+  sig { params(stripe_customer: StripeCustomer).void }
+  def self.restore_lapsed_collectives_for(stripe_customer)
+    user = stripe_customer.billable
+    return unless user.is_a?(User)
+
+    billing_tenant_ids = user.billing_tenant_ids
+    return if billing_tenant_ids.empty?
+
+    restored_count = 0
+    Collective.for_user_across_tenants(user)
+      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_LAPSED, archived_at: nil)
+      .find_each do |collective|
+      collective.restore_from_lapsed!
+      restored_count += 1
+    end
+    return if restored_count.zero?
+
+    Rails.logger.info("[StripeService] Restored #{restored_count} lapsed collectives for user #{user.id}")
+
+    # Restoring collectives raises billable_quantity above what the
+    # (possibly newly created) subscription was opened with — e.g. a user
+    # who resubscribes by upgrading one collective gets ALL their lapsed
+    # collectives restored, but the new subscription's quantity only
+    # accounted for the one. Push the corrected quantity to Stripe now
+    # instead of waiting for BillingReconciliationJob to correct it.
+    #
+    # Safe inside a webhook: the resulting customer.subscription.updated
+    # arrives with sc already active (so handle_subscription_updated won't
+    # re-restore), and the quantity will already match (so the nested
+    # sync_subscription_quantity! is a no-op).
+    sync_subscription_quantity!(user)
+  end
+  private_class_method :restore_lapsed_collectives_for
 end

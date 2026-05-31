@@ -35,6 +35,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_feature_flag!("trio")
     workspace = T.must(@user.private_workspace)
     workspace.set_feature_flag!("trio", false)
+    upgrade_collective_to_paid!(workspace, owner: @user)
 
     sign_in_as(@user, tenant: @tenant)
     post "/u/#{@user.handle}/settings/workspace_trio",
@@ -46,9 +47,28 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert AutomationRule.where(ai_agent_id: workspace.trio_user_id).exists?
   end
 
+  # Self-hosted (non-billing) tenants have no tier model. A free-tier
+  # workspace on such a tenant must still allow trio enablement — the
+  # controller gate should use tier_unlocks_paid_features?, not paid_tier?.
+  test "workspace owner can enable Trio on non-billing tenant without upgrading" do
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+    # tier stays at free; no stripe_billing flag on the tenant
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_not_nil workspace.trio_user_id, "self-hosted: trio should activate on free workspace"
+  end
+
   test "workspace owner can disable Trio in their private workspace" do
     @tenant.enable_feature_flag!("trio")
     workspace = T.must(@user.private_workspace)
+    upgrade_collective_to_paid!(workspace, owner: @user)
     workspace.set_feature_flag!("trio", true)
     TrioActivator.activate!(workspace)
     trio_id = T.must(workspace.reload.trio_user_id)
@@ -76,6 +96,67 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_nil T.must(@user.private_workspace).reload.trio_user_id
   end
+
+  # === Workspace Trio paid-tier gate ===
+
+  test "workspace owner is blocked from enabling Trio on a free workspace" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_nil workspace.trio_user_id, "trio should not be activated on a free workspace"
+    assert flash[:error].to_s.downcase.include?("paid")
+  end
+
+  test "workspace owner can enable Trio when workspace is on the paid tier" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    workspace.set_feature_flag!("trio", false)
+    upgrade_collective_to_paid!(workspace, owner: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "true" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_not_nil workspace.trio_user_id, "trio should activate when workspace is paid"
+  end
+
+  test "workspace owner can always disable Trio (no paid-tier requirement on disable)" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.enable_feature_flag!("trio")
+    workspace = T.must(@user.private_workspace)
+    upgrade_collective_to_paid!(workspace, owner: @user)
+    workspace.set_feature_flag!("trio", true)
+    TrioActivator.activate!(workspace)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/workspace_trio",
+      params: { feature_trio: "false" },
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+
+    workspace.reload
+    assert_nil workspace.trio_user_id
+  end
+
+  private
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  public
 
   # === Profile Updates ===
 

@@ -253,16 +253,17 @@ class User < ApplicationRecord
     # Revoke all API tokens for this user (same as suspension)
     ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!) if ai_agent?
 
-    # Archive private workspace
-    private_workspace&.archive!
+    # Archive private workspace. The workspace is created_by self, so passing
+    # self satisfies Collective#archive!'s owner check.
+    private_workspace&.archive!(actor: self)
   end
 
   sig { void }
   def unarchive!
     T.must(tenant_user).unarchive!
 
-    # Unarchive private workspace
-    private_workspace&.unarchive!
+    # Unarchive private workspace (workspace.created_by == self).
+    private_workspace&.unarchive!(actor: self)
   end
 
   sig { returns(T::Boolean) }
@@ -676,20 +677,25 @@ class User < ApplicationRecord
       .count
   end
 
-  # Count active (not archived, not exempt) collectives created by this user on billing-enabled tenants,
-  # excluding main collectives.
+  # Count paid-tier, non-archived, non-exempt collectives created by this user
+  # on billing-enabled tenants, excluding main collectives. Uses
+  # Collective.billable_types so standard + private_workspace collectives are
+  # counted; chat collectives are excluded. Single SQL count — the tier
+  # column made the previous per-feature derivation unnecessary.
   sig { params(tenant_ids: T::Array[String]).returns(Integer) }
   def active_billable_collective_count(tenant_ids = billing_tenant_ids)
     return 0 if tenant_ids.empty?
 
     main_collective_ids = Tenant.where(id: tenant_ids).pluck(:main_collective_id).compact
 
-    scope = Collective.for_user_across_tenants(self).listable.where(
+    scope = Collective.for_user_across_tenants(self).billable_types.where(
       tenant_id: tenant_ids,
       archived_at: nil,
       billing_exempt: false,
+      tier: Collective::TIER_PAID,
     )
     scope = scope.where.not(id: main_collective_ids) if main_collective_ids.any?
+
     scope.count
   end
 

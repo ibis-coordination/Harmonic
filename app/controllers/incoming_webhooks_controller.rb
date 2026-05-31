@@ -32,6 +32,7 @@ class IncomingWebhooksController < ActionController::Base
 
     return render_ip_not_allowed unless ip_allowed?
     return render_rule_disabled unless @automation_rule.enabled?
+    return render_rule_disabled unless collective_tier_allows?
 
     run = create_rule_run
     queue_execution(run)
@@ -53,6 +54,18 @@ class IncomingWebhooksController < ActionController::Base
     AutomationRule.tenant_scoped_only(@current_tenant.id)
       .where(trigger_type: "webhook")
       .find_by(webhook_path: params[:webhook_path])
+  end
+
+  # Collective-scoped webhook rules pause when their collective isn't on
+  # the paid tier (or main, or on a non-billing tenant). Agent/user
+  # webhook rules have no associated collective gate.
+  def collective_tier_allows?
+    return true unless @automation_rule.collective_id.present?
+
+    collective = Collective.tenant_scoped_only(@current_tenant.id).find_by(id: @automation_rule.collective_id)
+    return false if collective.nil?
+
+    collective.tier_unlocks_paid_features?
   end
 
   def signature_present?

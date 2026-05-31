@@ -464,7 +464,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: option.title, accept: true, prefer: false }] }
 
-    assert_response :success
+    assert_response :redirect
   end
 
   test "participant can submit votes via batch form" do
@@ -915,8 +915,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: "Option A", accept: true, prefer: false }] }
 
-    assert_response :success
-    assert_match(/closed/i, response.body)
+    assert_response :redirect
+    assert_match(/closed/i, flash[:error].to_s)
 
     # Verify no vote was created
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -979,8 +979,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: "Option A", accept: true }] }
 
-    assert_response :success
-    assert_match(/Executive/i, response.body)
+    assert_response :redirect
+    assert_match(/Executive/i, flash[:error].to_s)
   end
 
   test "decision maker can close executive decision" do
@@ -1315,8 +1315,8 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/vote",
       params: { votes: [{ option_title: "Option A", accept: true }] }
 
-    assert_response :success
-    assert_match(/Lottery/i, response.body)
+    assert_response :redirect
+    assert_match(/Lottery/i, flash[:error].to_s)
   end
 
   # === Closed Decision Tests ===

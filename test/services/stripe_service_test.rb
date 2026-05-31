@@ -177,6 +177,38 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal "sub_test123", sc.stripe_subscription_id
   end
 
+  test "handle_webhook checkout.session.completed overwrites a stale subscription_id from a previously cancelled subscription" do
+    # Re-upgrade-after-zero-quantity-cancel scenario: user dropped to zero
+    # paid resources, sync_subscription_quantity! cancelled their Stripe
+    # subscription and set sc.active=false but left stripe_subscription_id
+    # in place for history. Now the user re-upgrades a collective →
+    # StripeCheckoutService creates a brand new subscription. The webhook
+    # must overwrite the stale ID, not just flip active=true — otherwise
+    # subsequent sync_subscription_quantity! calls would target a dead
+    # subscription.
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_reup123",
+      stripe_subscription_id: "sub_old_cancelled",
+      active: false,
+    )
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: {
+        "customer" => "cus_reup123",
+        "subscription" => "sub_brand_new",
+      },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    sc.reload
+    assert sc.active, "customer must be reactivated after fresh checkout"
+    assert_equal "sub_brand_new", sc.stripe_subscription_id,
+                 "webhook must overwrite the stale subscription_id with the new one"
+  end
+
   test "handle_webhook customer.subscription.updated deactivates on cancel" do
     sc = StripeCustomer.create!(
       billable: @user,
@@ -300,13 +332,83 @@ class StripeServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "sync_subscription_quantity! is no-op for billing_exempt user" do
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
+  test "sync_subscription_quantity! cancels subscription for a billing_exempt user (their billable_quantity is zero)" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
     @user.update!(billing_exempt: true)
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_exempt")
+      .to_return(status: 200,
+                 body: { id: "sub_exempt", object: "subscription", status: "canceled" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
 
     StripeService.sync_subscription_quantity!(@user)
 
-    assert_not_requested(:any, /api\.stripe\.com/)
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_exempt", at_least_times: 1
+    assert_not sc.reload.active?
+  end
+
+  # === Zero quantity: subscription must be cancelled, not silently ignored ===
+  #
+  # Regression for the bug where a user who downgraded/archived their LAST
+  # paid resource was silently kept on the subscription (Stripe rejects
+  # quantity=0, so the service early-returned without doing anything). The
+  # user kept getting charged $3/mo for nothing, and we told them their
+  # downgrade succeeded. These tests pin the corrected behavior: cancel the
+  # subscription, mark the local StripeCustomer inactive, return success.
+
+  test "sync_subscription_quantity! cancels Stripe subscription when new_quantity drops to zero" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_drop_zero", active: true, stripe_subscription_id: "sub_drop_zero")
+    # @user has no agents and is a human → billable_quantity is 0
+
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_drop_zero")
+      .to_return(
+        status: 200,
+        body: { id: "sub_drop_zero", object: "subscription", status: "canceled" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert result.success, "sync should report success after cancelling the subscription"
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_drop_zero", at_least_times: 1
+    assert_not sc.reload.active?, "local StripeCustomer must be marked inactive after cancellation"
+  end
+
+  test "sync_subscription_quantity! returns failure SyncResult with error when Stripe cancellation fails" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_cancel_fail", active: true, stripe_subscription_id: "sub_cancel_fail")
+
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_cancel_fail")
+      .to_return(status: 500, body: { error: { message: "stripe is down" } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert_not result.success, "sync should report failure when Stripe rejects the cancel"
+    assert result.error.present?, "failure result must carry an error message for the caller to surface"
+    assert sc.reload.active?, "local StripeCustomer must remain active when cancellation failed (avoid drift)"
+  end
+
+  test "sync_subscription_quantity! returns failure SyncResult with error when Stripe quantity update fails" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_update_fail", active: true, stripe_subscription_id: "sub_update_fail")
+    agent = create_ai_agent(parent: @user, name: "Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_update_fail")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_update_fail", object: "subscription", status: "active",
+          items: { data: [{ id: "si_update_fail", quantity: 5, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_update_fail")
+      .to_return(status: 500, body: { error: { message: "stripe is down" } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert_not result.success, "sync should report failure when Stripe rejects the quantity update"
+    assert result.error.present?, "failure result must carry an error message"
   end
 
   test "sync_subscription_quantity! is no-op without active subscription" do
@@ -319,13 +421,17 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "sync_subscription_quantity! logs and does not raise on Stripe failure" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_fail", active: true, stripe_subscription_id: "sub_fail")
-
-    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_fail")
+    # @user has no agents → billable_quantity is 0 → cancellation path. Stub
+    # the DELETE to fail and confirm we swallow the StripeError gracefully and
+    # return a failure SyncResult (instead of raising up to the caller).
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_fail")
       .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
 
+    result = nil
     assert_nothing_raised do
-      StripeService.sync_subscription_quantity!(@user)
+      result = StripeService.sync_subscription_quantity!(@user)
     end
+    assert_not result.success
   end
 
   test "sync_subscription_quantity! excludes archived and suspended agents from count" do
@@ -417,14 +523,22 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "sync_subscription_quantity! skips Stripe update when quantity unchanged" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_noop", active: true, stripe_subscription_id: "sub_noop")
+    # Two active agents → billable_quantity == 2, matches the stubbed Stripe
+    # quantity below. The "skip if unchanged" branch should fire and we
+    # should NOT POST to subscription_items. (Previously this test set up
+    # no agents → quantity=0 → it was actually exercising the now-cancelled
+    # zero-quantity short-circuit, not the unchanged-quantity branch.)
+    agent_a = create_ai_agent(parent: @user, name: "Noop A #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent_a)
+    agent_b = create_ai_agent(parent: @user, name: "Noop B #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent_b)
 
-    # No agents — quantity should be 1, which matches the current subscription
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_noop")
       .to_return(
         status: 200,
         body: {
-          id: "sub_noop", object: "subscription",
-          items: { data: [{ id: "si_noop", quantity: 1, price: { id: "price_test" } }] },
+          id: "sub_noop", object: "subscription", status: "active",
+          items: { data: [{ id: "si_noop", quantity: 2, price: { id: "price_test" } }] },
         }.to_json,
         headers: { "Content-Type" => "application/json" },
       )
@@ -785,15 +899,19 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
+    # Stripe API 2026-02-25.clover moved the `proration` boolean into
+    # parent.subscription_item_details.proration on subscription-driven lines.
+    sub_proration_parent = { type: "subscription_item_details", subscription_item_details: { proration: true } }
+    sub_non_proration_parent = { type: "subscription_item_details", subscription_item_details: { proration: false } }
     stub_request(:post, "https://api.stripe.com/v1/invoices/create_preview")
       .to_return(
         status: 200,
         body: {
           id: "in_preview", object: "invoice", amount_due: 1199,
           lines: { data: [
-            { amount: -600, description: "Unused time on 1 x Account after 09 Apr 2026", proration: true },
-            { amount: 899, description: "Remaining time on 2 x Account after 09 Apr 2026", proration: true },
-            { amount: 900, description: "2 x Account (at $3.00 / month)", proration: false },
+            { amount: -600, description: "Unused time on 1 x Account after 09 Apr 2026", parent: sub_proration_parent },
+            { amount: 899, description: "Remaining time on 2 x Account after 09 Apr 2026", parent: sub_proration_parent },
+            { amount: 900, description: "2 x Account (at $3.00 / month)", parent: sub_non_proration_parent },
           ] },
         }.to_json,
         headers: { "Content-Type" => "application/json" },
@@ -826,7 +944,82 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_nil result
   end
 
-  test "handle_webhook customer.subscription.deleted archives user's non-main collectives" do
+  # Regression: pre-fix, preview_proration called `line.proration` directly
+  # but Stripe API 2026-02-25.clover only exposes that boolean at
+  # `parent.subscription_item_details.proration` (or invoice_item_details).
+  # The old call raised NoMethodError. Now we navigate the nested parent.
+  test "preview_proration reads proration from parent.subscription_item_details" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_nested", active: true, stripe_subscription_id: "sub_nested")
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_nested")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_nested", object: "subscription",
+          items: { data: [{ id: "si_nested", quantity: 1, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    proration_parent = { type: "subscription_item_details", subscription_item_details: { proration: true } }
+    recurring_parent = { type: "subscription_item_details", subscription_item_details: { proration: false } }
+    stub_request(:post, "https://api.stripe.com/v1/invoices/create_preview")
+      .to_return(
+        status: 200,
+        body: {
+          id: "in_nested", lines: { data: [
+            { amount: 150, parent: proration_parent },
+            { amount: 300, parent: recurring_parent },
+          ] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.preview_proration(@user)
+    assert_equal 150, result, "only the line with parent.subscription_item_details.proration=true should count"
+  end
+
+  # F2: the previewed amount must match what the user is actually charged on
+  # confirm. sync_subscription_quantity! computes the target from
+  # billable_quantity, so the preview must too — NOT from the live Stripe
+  # item.quantity, which can drift from the DB. Here Stripe reports 5 but the
+  # real billable_quantity is 2, so the preview must request 2+1=3 (matching
+  # the eventual charge), not 5+1=6.
+  test "preview_proration targets billable_quantity+1, not the drifted Stripe quantity" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_drift", active: true, stripe_subscription_id: "sub_drift")
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_drift")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_drift", object: "subscription",
+          items: { data: [{ id: "si_drift", quantity: 5, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/invoices/create_preview")
+      .with { |req| captured_body = req.body; true }
+      .to_return(
+        status: 200,
+        body: { id: "in_drift", lines: { data: [] } }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    @user.stub(:billable_quantity, 2) do
+      StripeService.preview_proration(@user)
+    end
+
+    decoded = CGI.unescape(captured_body.to_s)
+    assert_includes decoded, "[quantity]=3",
+      "preview must target billable_quantity(2)+1=3; body was: #{decoded}"
+    refute_includes decoded, "[quantity]=6",
+      "preview must not target Stripe item.quantity(5)+1=6"
+  end
+
+
+  test "handle_webhook customer.subscription.deleted marks user's paid collectives as lapsed" do
     sc = StripeCustomer.create!(
       billable: @user,
       stripe_id: "cus_del_coll",
@@ -834,13 +1027,14 @@ class StripeServiceTest < ActiveSupport::TestCase
       active: true,
     )
 
-    # Create a non-main collective owned by the user
+    # Create a non-main paid collective owned by the user
     extra_collective = Collective.create!(
       tenant: @tenant,
       created_by: @user,
       name: "Extra Coll #{SecureRandom.hex(4)}",
       handle: "extra-coll-#{SecureRandom.hex(4)}",
     )
+    extra_collective.update!(tier: Collective::TIER_PAID)
 
     event = build_stripe_event(
       type: "customer.subscription.deleted",
@@ -850,11 +1044,86 @@ class StripeServiceTest < ActiveSupport::TestCase
     StripeService.handle_webhook_event(event)
 
     extra_collective.reload
-    assert extra_collective.archived?, "Non-main collective should be archived when subscription deleted"
+    assert_equal Collective::TIER_LAPSED, extra_collective.tier,
+                 "Paid collective should be lapsed (not archived) when subscription deleted"
+    assert_not extra_collective.archived?, "Lapse must not archive — restore is instant and zero-loss"
+  end
 
-    # Main collective should NOT be archived
-    @collective.reload
-    assert_not @collective.archived?, "Main collective should not be archived"
+  test "handle_webhook customer.subscription.deleted leaves free collectives untouched" do
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_del_free",
+      stripe_subscription_id: "sub_del_free",
+      active: true,
+    )
+
+    free_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Free Coll #{SecureRandom.hex(4)}",
+      handle: "free-coll-#{SecureRandom.hex(4)}",
+    )
+
+    event = build_stripe_event(
+      type: "customer.subscription.deleted",
+      object: { "customer" => "cus_del_free", "id" => "sub_del_free" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    free_collective.reload
+    assert_equal Collective::TIER_FREE, free_collective.tier
+  end
+
+  test "handle_webhook customer.subscription.updated restores lapsed collectives on reactivation" do
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_restore",
+      stripe_subscription_id: "sub_restore",
+      active: false,
+    )
+
+    lapsed_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Lapsed Coll #{SecureRandom.hex(4)}",
+      handle: "lapsed-coll-#{SecureRandom.hex(4)}",
+    )
+    lapsed_collective.update!(tier: Collective::TIER_PAID)
+    lapsed_collective.update!(tier: Collective::TIER_LAPSED)
+
+    # F1: restoring lapsed collectives must push the corrected quantity to
+    # Stripe (restore raises billable_quantity above what a resubscribe
+    # checkout opened with). Stub the sync_subscription_quantity! calls.
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_restore")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_restore", status: "active",
+          items: { data: [{ id: "si_restore", quantity: 1, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, %r{https://api.stripe.com/v1/subscription_items/si_restore})
+      .to_return(status: 200, body: { id: "si_restore", quantity: 1 }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/invoices")
+      .to_return(status: 200, body: { id: "in_restore", amount_due: 0 }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    event = build_stripe_event(
+      type: "customer.subscription.updated",
+      object: { "customer" => "cus_restore", "id" => "sub_restore", "status" => "active" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    lapsed_collective.reload
+    assert_equal Collective::TIER_PAID, lapsed_collective.tier,
+                 "Lapsed collective should auto-restore to paid when subscription becomes active"
+    # F1 regression: the restore must have triggered a quantity sync to Stripe.
+    assert_requested :get, "https://api.stripe.com/v1/subscriptions/sub_restore",
+                     at_least_times: 1
   end
 
   test "handle_webhook customer.subscription.deleted deactivates customer so agents cannot run" do
@@ -964,12 +1233,19 @@ class StripeServiceTest < ActiveSupport::TestCase
   test "sync_subscription_quantity! excludes exempt collectives from count" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_collexempt", active: true, stripe_subscription_id: "sub_collexempt")
 
-    # Two paid collectives (humans free, exempt collective excluded) → quantity 2
+    # Two paid-tier collectives (humans free, exempt collective excluded) → quantity 2
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     paid_collective_a = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll A", handle: "paid-coll-a-#{SecureRandom.hex(4)}")
     paid_collective_b = Collective.create!(tenant: @tenant, created_by: @user, name: "Paid Coll B", handle: "paid-coll-b-#{SecureRandom.hex(4)}")
+    # Flip tier directly — upgrade! requires Stripe customer which the test
+    # already has, but bypassing the method keeps the test focused on the
+    # quantity-sync behavior under test.
+    [paid_collective_a, paid_collective_b].each do |c|
+      c.update!(tier: Collective::TIER_PAID)
+    end
     exempt_collective = Collective.create!(tenant: @tenant, created_by: @user, name: "Exempt Coll", handle: "exempt-coll-#{SecureRandom.hex(4)}", billing_exempt: true)
+    exempt_collective.update!(tier: Collective::TIER_PAID)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -999,26 +1275,24 @@ class StripeServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "sync_subscription_quantity! is no-op when all resources are exempt (quantity zero)" do
+  test "sync_subscription_quantity! cancels the subscription when all resources are exempt (quantity zero)" do
     @user.update!(billing_exempt: true)
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
 
-    # No non-exempt agents or collectives — quantity should be 0
-    # But quantity 0 means no subscription needed, so this should be a no-op
-    # (Stripe doesn't allow quantity 0 on a subscription item)
-    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_allexempt")
-      .to_return(
-        status: 200,
-        body: {
-          id: "sub_allexempt", object: "subscription",
-          items: { data: [{ id: "si_allexempt", quantity: 1, price: { id: "price_test" } }] },
-        }.to_json,
-        headers: { "Content-Type" => "application/json" },
-      )
+    # billable_quantity is 0 because the user is exempt. The corrected
+    # behavior is to cancel the subscription, not silently leave the user
+    # being charged — see "cancels Stripe subscription when new_quantity
+    # drops to zero" above for the regression context.
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_allexempt")
+      .to_return(status: 200,
+                 body: { id: "sub_allexempt", object: "subscription", status: "canceled" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
 
-    # Should NOT try to set quantity to 0
     StripeService.sync_subscription_quantity!(@user)
 
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_allexempt", at_least_times: 1
+    assert_not sc.reload.active?
+    # Must NOT try to set quantity to 0 (Stripe rejects that)
     assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_allexempt")
   end
 

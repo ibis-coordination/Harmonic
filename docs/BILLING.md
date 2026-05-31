@@ -1,207 +1,93 @@
 # Billing
 
-This document describes the billing system in Harmonic.
+This document covers how billing works in Harmonic: what costs money, the collective tier model, and the data flow between Harmonic and Stripe.
 
-## Pricing Model
+Billing is **per-tenant, off by default** via the `stripe_billing` feature flag. Self-hosted instances run with billing disabled — all the gating logic below short-circuits and every feature is available freely. Everything in this doc describes the billing-enabled path used by `harmonic.social`.
 
-Harmonic is open source and free to self-host, but creating an account on the `harmonic.social` domain requires a **$3/month subscription**. There is no free plan and no free trial.
+## What Costs Money
 
-Every identity in the system — human, AI agent, or collective — costs **$3/month**. Human users pay for themselves, for each active AI agent they own, and for each non-main collective they created. The subscription quantity adjusts automatically as resources are created, deactivated, or reactivated, with Stripe handling proration. One subscription covers all billing-enabled tenants.
+The unit price is **$3/month per billable identity**. A user has one Stripe subscription whose `quantity` recomputes from the user's billable resources across all billing-enabled tenants:
 
-This pricing model ensures several things:
+| Resource | When billable |
+|----------|---------------|
+| Human user account | Free by default. $3/month when the user holds an active API token (closes the loophole where a human account could front for agent-style API usage). |
+| AI agent | $3/month each, while active (not archived, not suspended). |
+| Collective | Free by default (`tier = "free"`). $3/month when explicitly upgraded (`tier = "paid"`). Each tenant's main collective is always free. |
 
-1. **Identity verification** — Every account is connected to a valid payment method, which reduces the likelihood of scam accounts that rely on untraceability to exploit other users.
-2. **Spam resistance** — Every account pays a non-zero cost, which reduces the likelihood of spam accounts that rely on costless distribution to spray their messaging.
-3. **Aligned incentives** — Every account contributes directly to the revenue of the business, which eliminates the need for ads or other forms of monetizing user data.
+**Exemptions.** Sys/app admins are exempt from all billing as platform operators. App admins can also grant per-resource exemption (`billing_exempt: true` on users, agents, or collectives), which excludes that resource from the quantity. All exemption changes are logged to the security audit log.
 
-That last one is especially important. As the saying goes, "if you are not paying for the product, you are the product." In order for Harmonic to stay aligned with the needs of its users, the business model must be based on serving those needs directly.
+**Why this shape.** A non-zero cost per identity discourages bad actors that rely on free or untraceable accounts (scam accounts, spam accounts, agents-fronting-as-humans). Humans without API access can join freely so the social layer doesn't have a price gate. Self-hosting remains an unrestricted alternative.
 
-## How Billing Works
+**AI agent usage billing.** A separate prepaid credit balance covers LLM token usage when `LLM_GATEWAY_MODE=stripe_gateway`. Users top up via `/billing/topup`; the agent-runner deducts per LLM call. This is independent of the per-identity subscription.
 
-### Subscription Quantity
+## Collective Tier State Machine
 
-Each user's Stripe subscription has a quantity = 1 (their account) + active AI agents + active non-main collectives they created. At $3/month per unit, a user with 3 active agents and 1 extra collective pays $15/month.
+Every collective has a `tier` column with three states. Paid features (automations, Trio AI assistant, file attachments) require the paid tier.
 
-**Active** means not archived and not suspended. Deactivated (archived) and suspended agents are not billed. Archived collectives are not billed. Each tenant's main collective is always free.
+```
+   ┌─────────────────────────── upgrade!(actor:) ──────────────────────────────┐
+   ▼                                                                            │
+[free] ───── upgrade!(actor:) ─────► Stripe Checkout ──webhook──► [paid] ──── downgrade!(actor:) ──┐
+   ▲                                                                │                              │
+   │                          subscription cancel / payment fail ───┘                              │
+   │                                       ▼                                                       │
+   │                                   [lapsed] ──── subscription restored (auto) ──► [paid]       │
+   │                                       │                                                       │
+   └─────────────────── downgrade!(actor:) ┴───────────────────────────────────────────────────────┘
+```
 
-When agents are created or reactivated, Stripe charges a prorated amount immediately for the remainder of the current billing period. When agents are deactivated, Stripe creates a credit that applies to the next invoice. Users see the exact prorated amount before confirming, and a confirmation message after the charge succeeds.
+- **`upgrade!(actor:)`** — owner-only. If the actor has an active Stripe customer (or the collective is billing-exempt, or the actor is an admin), flips inline. Otherwise raises `BillingRequired`; the controller redirects to Stripe Checkout, and `confirm_upgrade!` runs on completion.
+- **`mark_lapsed!`** — fired by `customer.subscription.deleted` and inactive `customer.subscription.updated` events. Just flips the column. Runtime gates (`Collective#tier_unlocks_paid_features?`, the automation dispatcher / scheduler / webhook receiver) skip lapsed collectives so paid features pause without touching configuration.
+- **`restore_from_lapsed!`** — automatic when the user's Stripe subscription becomes active again. All of the user's lapsed collectives restore at once. No extra clicks.
+- **`downgrade!(actor:)`** — owner-only. Disables enabled automations, clears paid feature flags, deactivates the trio agent. Clean slate for any future re-upgrade.
 
-### Billing Exemption
+Allowed transitions are enforced by `VALID_TIER_TRANSITIONS` and a validation; the model raises on invalid moves.
 
-App admins can grant billing exemptions to specific users, agents, and collectives. Exempt resources are excluded from the subscription quantity. A fully-exempt user (where the user and all their resources are exempt) doesn't need a subscription at all. All exemption changes are logged to the security audit log.
+## Data Flow with Stripe
 
-### AI Agent Usage Billing
+Harmonic uses Stripe Checkout for payment collection, the Stripe billing portal for user-facing subscription management, and Stripe webhooks for state sync.
 
-Prepaid credit balances bill LLM token usage separately from the identity subscription. This layer is active when `LLM_GATEWAY_MODE=stripe_gateway`.
+**Outbound (Harmonic → Stripe):**
 
-- **Credit top-up** — Users add funds via `/billing/topup`. Amount is validated against `STRIPE_MIN_TOPUP_CENTS` / `STRIPE_MAX_TOPUP_CENTS` (defaults $5 / $1000) and a Stripe Checkout session (`mode: payment`, `metadata.type: credit_topup`) is created.
-- **Balance display** — `/billing` shows current credit balance in cents, fetched via `StripeService.get_credit_balance`. The value can be `nil` (Stripe API error) or a number; the UI distinguishes the two states.
-- **Credit grant** — On successful top-up, a Stripe Billing Credit Grant is created with `idempotency_key: "credit_grant:<session_id>"`. Both the synchronous checkout return handler and the webhook call the same path; Stripe dedupes server-side.
-- **Pre-flight check** — `AgentRunnerDispatchService.dispatch` and `Internal::AgentRunnerController#preflight` refuse tasks when `credit_balance <= 0` in `stripe_gateway` mode. A `nil` balance (Stripe outage) is *not* treated as empty: dispatch fails closed, but preflight logs and lets the run proceed so an outage doesn't look like "user out of credit."
-- **LLM billing** — In `stripe_gateway` mode, agent-runner makes LLM calls via `https://llm.stripe.com` with the Stripe customer's ID attached, and Stripe deducts from the credit balance per call.
+- **Checkout sessions** — created by `StripeCheckoutService` (collective upgrade flow, with `metadata.collective_id` so the webhook knows which collective to confirm) and `BillingController#setup` (initial per-user billing setup). Stripe handles payment collection and returns the user via `success_url`.
+- **Subscription quantity sync** — `StripeService.sync_subscription_quantity!(user)` recomputes the user's total billable quantity and writes it to the Stripe subscription item. Called after every state change that affects quantity (agent create/archive, collective upgrade/downgrade, API token issuance/revocation, billing-exempt toggle). The pattern is *recompute, don't increment* — eliminates race conditions and makes the daily reconciliation job a true safety net.
+- **Billing portal sessions** — created on demand at `/billing/portal` so the user can update payment method, cancel, etc. inside Stripe's hosted UI.
+- **Credit grants** — for the AI agent usage layer, created on top-up checkout completion.
 
-See `.claude/plans/completed/` for the original design rationale.
+**Inbound (Stripe → Harmonic):**
 
-## Billable Entity
-
-The billable entity is the **human User**, not the tenant or collective.
-
-- Each human user has at most one `StripeCustomer` record (polymorphic `billable`)
-- A user's AI Agents are linked to their parent's `StripeCustomer` via `User#billing_customer`
-- Each `AiAgentTaskRun` is stamped with `stripe_customer_id` at creation — immutable billing attribution
-
-## Cross-Tenant Billing
-
-A single subscription covers all billing-enabled tenants. The `stripe_billing` feature flag means "resources on this tenant are billed per-identity." Tenants without the flag have their own billing model (e.g., enterprise tenants paid by the organization).
-
-- `User#billing_tenant_ids` returns IDs of tenants where the user has resources subject to per-identity billing
-- `User#billable_quantity` sums the user (unless exempt) + active non-exempt agents + active non-exempt non-main collectives across all billing-enabled tenants
-- Subscription loss suspends/archives resources only on billing-enabled tenants — resources on non-billing tenants are unaffected
-
-## Pending Billing State
-
-Resources created before a user has set up billing are marked `pending_billing_setup: true`. Pending resources:
-- Appear in the "Pending" section on `/billing`
-- Are blocked from execution (agents can't run tasks or automations)
-- Are activated automatically when the user completes Stripe checkout (via `activate_pending_resources!`)
-- Are recovered by `BillingReconciliationJob` if they get stuck (e.g., due to a failed sync during creation)
-
-## Feature Flags
-
-The `stripe_billing` feature flag is **per-tenant, off by default**. When disabled, the app runs without any billing — suitable for self-hosted instances. When enabled:
-
-- Account creation requires a $3/month subscription
-- Each active AI agent adds $3/month to the parent user's subscription
-- The application-level billing gate redirects users without active billing to `/billing`
-
-The `ai_agents` and `api` feature flags are independent of `stripe_billing`.
-
-## User Journeys
-
-### New User Signup
-
-1. User authenticates via identity provider (OAuth / email+password)
-2. Account is created but inert — application-level billing gate redirects all requests to `/billing`
-3. User sees the $3/month explanation and clicks "Set Up Billing"
-4. Redirected to Stripe Checkout (quantity includes any existing agents) → completes payment → returned to `/billing`
-5. Subscription activated — user can now use the app
-6. Manages subscription via Stripe billing portal at `/billing/portal`
-
-### Creating an AI Agent
-
-1. User visits `/ai-agents/new`
-2. Sees billing notice with exact prorated amount (e.g., "You will be charged $2.99 now, then $3/month thereafter")
-3. Must check confirmation checkbox before submitting
-4. Agent created → subscription quantity incremented → prorated invoice charged immediately
-5. Confirmation message shows exact amount charged
-
-### Deactivating a Resource (Agent or Collective)
-
-1. User visits `/billing` → clicks "Deactivate" next to the resource → confirms
-2. Resource archived (agents also have API tokens revoked), subscription quantity decremented
-3. Stripe creates a credit for the unused portion of the billing period
-4. Resource data preserved — can be reactivated at any time
-
-### Reactivating a Resource (Agent or Collective)
-
-1. User visits `/billing` → finds the resource in the "Inactive" section
-2. Sees billing notice with confirmation checkbox
-3. Resource unarchived → subscription quantity incremented → prorated invoice charged immediately
-4. Confirmation message shows exact amount charged
-
-### Creating a Collective
-
-1. User visits `/collectives/new`
-2. If billing is enabled, sees billing notice and must confirm
-3. If user has an active subscription, collective is created and subscription quantity incremented immediately
-4. If user has no subscription yet, collective is created in pending state and user is redirected to `/billing`
-
-### Subscription Loss
-
-When a subscription is canceled or deleted (via Stripe webhook):
-1. `StripeCustomer` deactivated (`active: false`)
-2. All user's AI agents on billing-enabled tenants suspended (API tokens revoked)
-3. All user's non-main collectives on billing-enabled tenants archived
-4. User locked out by application-level billing gate
-5. Re-subscribing restores user access, but agents and collectives must be individually reactivated (each reactivation requires billing confirmation)
-
-## Gate Logic
-
-Billing is enforced at multiple layers:
-
-| Layer | Location | Behavior |
-|-------|----------|----------|
-| Application-level gate | `ApplicationController` `before_action` | Human users redirected to `/billing` if subscription not active (unless all resources are exempt). Exempts: billing controller, login/logout, webhooks, API controllers, non-human users, user settings. |
-| Collective archived gate | `ApplicationController` `before_action` | Redirects all requests to settings when a collective is archived or pending billing setup |
-| Agent creation | `AiAgentsController` | Requires billing confirmation checkbox. If no active subscription, agent created as pending. |
-| Collective creation | `CollectivesController` | Requires billing confirmation checkbox. If no active subscription, collective created as pending. |
-| Resource deactivation/reactivation | `BillingController` | Centralized on `/billing` page with confirmation |
-| Task execution | `AgentRunnerDispatchService` + agent-runner preflight | Fails if agent archived, suspended, pending billing, or billing customer inactive |
-| Automation execution | `AutomationExecutor` | Fails if agent archived, suspended, pending billing, or billing customer inactive |
-| API access | `User#archive!` / `User#suspend!` | Revokes API tokens, blocking external agent access |
-| Reconciliation | `BillingReconciliationJob` | Daily job corrects quantity drift and recovers stuck pending resources |
-
-## Subscription Lifecycle
-
-Webhook events keep billing state in sync:
+Webhook events are received at `/stripe/webhooks`, verified via HMAC signature, and dispatched by `StripeService`:
 
 | Event | Effect |
 |-------|--------|
-| `checkout.session.completed` | Activates `StripeCustomer`, stores subscription ID. Idempotent: skips if already active with same subscription. |
-| `customer.subscription.updated` | Updates active flag based on status (`active`, `trialing`, `past_due` = active); suspends agents and archives collectives if transitioning to inactive. Ignores events for old subscription IDs (e.g., after resubscribing). |
-| `customer.subscription.deleted` | Deactivates `StripeCustomer`, suspends agents and archives collectives. Ignores events for old subscription IDs. Idempotent: skips deactivation if already inactive. |
-| `invoice.payment_failed` | Logged (no immediate deactivation — Stripe retries) |
+| `checkout.session.completed` | Activates the `StripeCustomer` and stores the subscription ID. If `metadata.collective_id` is set, calls `confirm_upgrade!` on that collective. If the customer was previously inactive, auto-restores all of the user's lapsed collectives. |
+| `customer.subscription.updated` | Tracks active state (`active` / `trialing` / `past_due` count as active). On inactive→active transition, restores lapsed collectives. On active→inactive transition, suspends agents and lapses paid collectives. |
+| `customer.subscription.deleted` | Same as the active→inactive path above: deactivates the `StripeCustomer`, suspends agents, lapses paid collectives. |
+| `invoice.payment_failed` | Logged; no immediate state change (Stripe retries on its own schedule). |
 
-`past_due` subscriptions remain active, giving users time to fix payment issues before losing access.
+Webhook handlers are idempotent and ignore stale events (e.g., a delayed webhook for a previous subscription doesn't deactivate the user's resources after they've resubscribed).
 
-## Key Files
+The synchronous return path from Stripe Checkout (`BillingController#handle_checkout_return`, hit when the user is redirected back to `/billing?checkout_session_id=...`) duplicates the key webhook effects so the user lands on a fully-up-to-date page without waiting for the async webhook. Both paths converge on the same idempotent model methods.
 
-| File | Purpose |
-|------|---------|
-| `app/models/stripe_customer.rb` | Billing record linking a user to Stripe |
-| `app/services/stripe_service.rb` | Stripe API interactions (checkout, portal, webhooks, quantity sync, proration preview, credit grants, balance) |
-| `app/controllers/billing_controller.rb` | Billing dashboard, checkout setup, portal redirect, resource deactivation/reactivation, credit top-up |
-| `app/controllers/ai_agents_controller.rb` | Agent creation with billing confirmation |
-| `app/controllers/collectives_controller.rb` | Collective creation with billing confirmation |
-| `app/controllers/stripe_webhooks_controller.rb` | Receives and verifies Stripe webhook events |
-| `app/controllers/app_admin_controller.rb` | Billing exemption toggle (per-user and per-resource) |
-| `app/jobs/billing_reconciliation_job.rb` | Daily quantity reconciliation and pending resource recovery |
-| `config/feature_flags.yml` | `stripe_billing` flag definition |
+**Reconciliation.** `BillingReconciliationJob` runs daily as a safety net: corrects quantity drift between the database and Stripe, recovers stuck pending agents, etc.
 
-## Environment Variables
+## Gates and Enforcement
 
-| Variable | Purpose |
-|----------|---------|
-| `STRIPE_API_KEY` | Stripe restricted API key (backend operations) |
-| `STRIPE_WEBHOOK_SECRET` | Webhook signature verification |
-| `STRIPE_PRICE_ID` | Recurring Price (`price_...` prefix) for the $3/month per-identity subscription |
-| `STRIPE_GATEWAY_KEY` | Bearer token for Stripe AI Gateway (`https://llm.stripe.com`). Required when `LLM_GATEWAY_MODE=stripe_gateway`; unused in `litellm` mode. |
-| `LLM_GATEWAY_MODE` | `litellm` (default, flat-rate via local LiteLLM) or `stripe_gateway` (usage-billed via Stripe AI Gateway + credit balance) |
-| `STRIPE_MIN_TOPUP_CENTS` | Minimum credit top-up amount (default 500 = $5) |
-| `STRIPE_MAX_TOPUP_CENTS` | Maximum credit top-up amount (default 100000 = $1000) |
+Two layers enforce billing at request time:
 
-## Design Decisions
+- **Application-level billing gate** (`ApplicationController#check_stripe_billing_gate`) — redirects a human user without active billing to `/billing` for any human-only surface. Exempts auth controllers, billing controllers, webhooks, API controllers, non-human users, and user settings (so users can manage their account before paying).
+- **Collective tier gate** (`Collective#tier_unlocks_paid_features?`) — short-circuits paid-feature access whenever the collective isn't on the paid tier. Used by `trio_enabled?`, `file_attachments_enabled?`, the automation dispatcher, the automation scheduler, the incoming-webhook receiver, and the per-toggle filter in collective settings updates. Always returns true for main collectives and for tenants without `stripe_billing` (self-hosted).
 
-**Per-identity billing** — Every identity (human or AI) costs the same $3/month. This prevents unbounded agent proliferation and ensures all actors in the system have aligned economic incentives.
+Background workers (agent task execution, automation execution) have their own per-resource billing checks so suspended agents and pending resources don't run.
 
-**Quantity-based subscription** — A single Stripe Price with variable quantity, rather than separate subscriptions per agent. Stripe handles proration, credits, and consolidated invoicing automatically.
+## Design Notes
 
-**Recompute, don't increment** — `sync_subscription_quantity!` always reads the database and sets the absolute correct quantity, rather than incrementing/decrementing. This eliminates race conditions and makes the reconciliation job a true safety net.
+**One subscription per user, cross-tenant.** A single Stripe subscription covers all billing-enabled tenants the user belongs to. `billing_tenant_ids` filters which tenants count.
 
-**Explicit billing confirmation** — Users must check a confirmation checkbox showing the exact prorated amount before creating or reactivating an agent. No charges happen without explicit consent.
+**Quantity-based subscription.** A single Stripe Price with variable quantity, not a subscription-per-resource. Stripe handles proration, credits, and invoicing.
 
-**Immediate proration** — Charges are collected immediately on quantity increase (not deferred to the next billing cycle). Credits are applied automatically by Stripe on quantity decrease.
+**Tier is a column, not a derived predicate.** Upgrade is a deliberate user action — never a side effect of toggling a feature. This replaces an earlier model where enabling Trio or file attachments silently moved a collective onto the paid plan (which surprised users).
 
-**Suspension on subscription loss** — When a subscription is canceled, all agents are suspended (not just archived) and all non-main collectives are archived, on billing-enabled tenants only. Suspension revokes API tokens, which is necessary to block external agents that bypass the application-level billing gate.
+**Lapse preserves state.** Subscription loss doesn't archive or destroy anything; it just pauses feature access. Restoring billing instantly resumes the prior configuration. Agents are suspended (not deleted) for the same reason — API tokens get revoked because they bypass the application-level gate, but the agent record stays.
 
-**Billing exemption** — App admins can grant exemptions at the user level and per-resource (agent or collective). Exempt resources are excluded from the subscription quantity. All exemption changes are logged to the security audit log.
-
-**Stale webhook protection** — Webhook handlers ignore events for subscription IDs that don't match the current `stripe_subscription_id`. This prevents a delayed webhook from a previous subscription from deactivating resources after a user has resubscribed.
-
-**Advisory lock on customer creation** — `find_or_create_customer` uses a Postgres advisory lock to serialize concurrent calls for the same billable, preventing orphaned Stripe customer objects.
-
-**No free tier** — The $3/month baseline is a deliberate choice to align incentives and filter out bad actors. Self-hosting remains free for users who don't want to pay.
-
-**Account exists before payment** — User accounts are created at authentication time, not at payment time. The billing gate prevents app usage until the subscription is active, but the account record exists. This keeps identity and billing as separate concerns.
-
-**Immutable billing attribution** — Task runs are stamped with `stripe_customer_id` at creation. Even if the billing relationship changes later, historical runs stay attributed to the original payer.
+**Identity and billing are separate concerns.** Accounts are created at authentication time, not at payment time. The gate prevents app usage until billing is active, but the user record exists immediately.

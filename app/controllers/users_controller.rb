@@ -263,7 +263,13 @@ class UsersController < ApplicationController
     workspace = settings_user.private_workspace
     return render "404", status: :not_found if workspace.nil?
 
-    workspace.set_feature_flag!("trio", params[:feature_trio].to_s == "true")
+    will_be_trio = params[:feature_trio].to_s == "true"
+    if will_be_trio && !workspace.tier_unlocks_paid_features?
+      flash[:error] = "Trio requires the paid plan. Upgrade the workspace first."
+      return redirect_to "#{settings_user.path}/settings"
+    end
+
+    workspace.set_feature_flag!("trio", will_be_trio)
     TrioActivator.reconcile!(workspace)
 
     flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? "enabled" : "disabled"}."

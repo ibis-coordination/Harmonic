@@ -1149,6 +1149,9 @@ class Collective
     def arel_columns(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def billable_types(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def chat(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
@@ -1340,6 +1343,51 @@ class Collective
 
     sig { void }
     def archived_at_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def archived_by_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def archived_by_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def archived_by_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def archived_by_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def archived_by_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def archived_by_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def archived_by_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def archived_by_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def archived_by_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_was; end
+
+    sig { void }
+    def archived_by_id_will_change!; end
 
     sig { returns(T::Boolean) }
     def billing_exempt; end
@@ -1885,6 +1933,9 @@ class Collective
     def restore_archived_at!; end
 
     sig { void }
+    def restore_archived_by_id!; end
+
+    sig { void }
     def restore_billing_exempt!; end
 
     sig { void }
@@ -1927,6 +1978,9 @@ class Collective
     def restore_tenant_id!; end
 
     sig { void }
+    def restore_tier!; end
+
+    sig { void }
     def restore_trio_user_id!; end
 
     sig { void }
@@ -1940,6 +1994,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_archived_by_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_archived_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_billing_exempt; end
@@ -2024,6 +2084,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_tier; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_tier?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_trio_user_id; end
@@ -2132,6 +2198,51 @@ class Collective
 
     sig { void }
     def tenant_id_will_change!; end
+
+    sig { returns(::String) }
+    def tier; end
+
+    sig { params(value: ::String).returns(::String) }
+    def tier=(value); end
+
+    sig { returns(T::Boolean) }
+    def tier?; end
+
+    sig { returns(T.nilable(::String)) }
+    def tier_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def tier_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def tier_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def tier_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def tier_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def tier_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def tier_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def tier_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def tier_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def tier_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def tier_was; end
+
+    sig { void }
+    def tier_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def trio_user_id; end
@@ -2272,6 +2383,9 @@ class Collective
     def will_save_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_archived_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2314,6 +2428,9 @@ class Collective
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_tier?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_trio_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2335,6 +2452,9 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def arel_columns(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def billable_types(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def chat(*args, &blk); end

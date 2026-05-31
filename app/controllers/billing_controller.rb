@@ -115,8 +115,14 @@ class BillingController < ApplicationController
     end
 
     agent.archive!
-    StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
-    flash[:notice] = "#{agent.display_name} has been deactivated."
+    sync_result = if current_tenant.feature_enabled?("stripe_billing")
+      StripeService.sync_subscription_quantity!(current_user)
+    end
+    flash[:notice] = if sync_result && !sync_result.success
+      "#{agent.display_name} has been deactivated. Your next invoice will reflect this within 24 hours."
+    else
+      "#{agent.display_name} has been deactivated."
+    end
     redirect_to billing_show_path
   end
 
@@ -144,53 +150,12 @@ class BillingController < ApplicationController
     end
     agent.unarchive!
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
-    charged_cents = result&.charged_cents
-    notice = "#{agent.display_name} has been reactivated."
-    notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
-    flash[:notice] = notice
-    redirect_to billing_show_path
-  end
-
-  # POST /billing/deactivate_collective/:collective_handle
-  def deactivate_collective
-    collective = find_owned_collective
-    return redirect_to billing_show_path unless collective
-
-    if params[:confirm_deactivate] != "1"
-      flash[:error] = "You must confirm deactivation."
+    if result && !result.success
+      flash[:notice] = "#{agent.display_name} has been reactivated. Your next invoice will reflect this within 24 hours."
       return redirect_to billing_show_path
     end
-
-    collective.archive!
-    if current_tenant.feature_enabled?("stripe_billing")
-      StripeService.sync_subscription_quantity!(current_user)
-    end
-    flash[:notice] = "#{collective.name} has been deactivated."
-    redirect_to billing_show_path
-  end
-
-  # POST /billing/reactivate_collective/:collective_handle
-  def reactivate_collective
-    collective = find_owned_collective
-    return redirect_to billing_show_path unless collective
-
-    # Reactivating a non-exempt resource requires an active subscription
-    if current_tenant.feature_enabled?("stripe_billing") && !collective.billing_exempt?
-      unless current_user.stripe_customer&.active?
-        flash[:error] = "You need an active subscription to reactivate resources. Please set up billing first."
-        return redirect_to billing_show_path
-      end
-
-      if params[:confirm_billing] != "1"
-        flash[:error] = "You must confirm the billing charge to reactivate this collective."
-        return redirect_to billing_show_path
-      end
-    end
-
-    collective.unarchive!
-    result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
     charged_cents = result&.charged_cents
-    notice = "#{collective.name} has been reactivated."
+    notice = "#{agent.display_name} has been reactivated."
     notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
     flash[:notice] = notice
     redirect_to billing_show_path
@@ -305,9 +270,30 @@ class BillingController < ApplicationController
 
       flash[:notice] = "Billing activated successfully!"
     end
+
+    # Confirm the tier flip if this Checkout was launched from a
+    # collective-upgrade flow. The async webhook also does this, but we
+    # handle it here too so the user lands on a fully-upgraded settings
+    # page without waiting for Stripe to deliver the webhook. Both calls
+    # are idempotent (confirm_upgrade! returns early if already paid).
+    confirm_collective_upgrade_from_checkout(session_obj)
   rescue Stripe::StripeError => e
     Rails.logger.warn("[BillingController] Checkout session handling failed: #{e.message}")
     flash[:error] = "Could not verify checkout session. Your billing may take a moment to activate."
+  end
+
+  # Look for collective_id in the checkout session metadata and call
+  # confirm_upgrade! on that collective. Also clears the pending-upgrade
+  # session stash so the settings page stops showing "Resume checkout".
+  def confirm_collective_upgrade_from_checkout(session_obj)
+    collective_id = session_obj.metadata&.[]("collective_id")
+    return if collective_id.blank?
+
+    collective = Collective.for_user_across_tenants(current_user).find_by(id: collective_id)
+    return if collective.nil?
+
+    collective.confirm_upgrade!
+    session.delete(:pending_collective_upgrade) if session[:pending_collective_upgrade] == collective.id
   end
 
   def handle_topup_session(session_obj, stripe_customer)
@@ -363,22 +349,36 @@ class BillingController < ApplicationController
       .where("tenant_users.archived_at IS NOT NULL OR users.suspended_at IS NOT NULL")
       .order(:name)
 
-    # Active collectives on billing-enabled tenants: not archived, not pending, not main, not private workspace
-    @active_collectives = Collective.for_user_across_tenants(current_user).listable.where(
+    # Active collectives: paid-tier, non-main, non-archived, non-pending.
+    # billable_types covers standard + private_workspace; chat is excluded.
+    # billing_exempt collectives with tier=paid are included so the view can
+    # show their "(exempt)" label.
+    @active_collectives = Collective.for_user_across_tenants(current_user).billable_types.where(
       tenant_id: billing_tenant_ids,
       archived_at: nil,
       pending_billing_setup: false,
+      tier: Collective::TIER_PAID,
+    ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
+
+    # Lapsed collectives: paid features paused pending billing restore.
+    # Surfaced separately so the user can resume billing.
+    @lapsed_collectives = Collective.for_user_across_tenants(current_user).billable_types.where(
+      tenant_id: billing_tenant_ids,
+      archived_at: nil,
+      tier: Collective::TIER_LAPSED,
     ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
     # Pending collectives on billing-enabled tenants
-    @pending_collectives = Collective.for_user_across_tenants(current_user).listable.where(
+    @pending_collectives = Collective.for_user_across_tenants(current_user).billable_types.where(
       tenant_id: billing_tenant_ids,
       archived_at: nil,
       pending_billing_setup: true,
     ).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 
-    # Inactive collectives on billing-enabled tenants: archived, not main
-    @inactive_collectives = Collective.for_user_across_tenants(current_user).listable.where(
+    # Inactive collectives on billing-enabled tenants: archived, not main.
+    # Shown so users can recognize and reactivate them, even though archived
+    # collectives don't currently bill.
+    @inactive_collectives = Collective.for_user_across_tenants(current_user).billable_types.where(
       tenant_id: billing_tenant_ids,
     ).where.not(archived_at: nil).where.not(id: main_collective_ids).includes(:tenant).order(:name)
 

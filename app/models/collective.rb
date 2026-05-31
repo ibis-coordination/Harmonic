@@ -31,8 +31,9 @@ class Collective < ApplicationRecord
   scope :private_workspaces, -> { where(collective_type: "private_workspace") }
   scope :chat, -> { where(collective_type: "chat") }
   scope :listable, -> { where(collective_type: "standard") }
+  scope :billable_types, -> { where(collective_type: ["standard", "private_workspace"]) }
 
-  VALID_COLLECTIVE_TYPES = %w[standard private_workspace chat].freeze
+  VALID_COLLECTIVE_TYPES = ["standard", "private_workspace", "chat"].freeze
 
   validates :collective_type, inclusion: { in: VALID_COLLECTIVE_TYPES }
   validate :handle_is_valid
@@ -115,11 +116,12 @@ class Collective < ApplicationRecord
       "any_member_can_represent" => false,
       "tempo" => "weekly",
       "synchronization_mode" => "improv",
-      "allow_file_uploads" => true,
+      "allow_file_uploads" => false,
       "file_upload_limit" => 100.megabytes,
       "pinned" => {},
       "feature_flags" => {
         "api" => false,
+        "file_attachments" => false,
       },
     }.merge(
       T.must(tenant).default_collective_settings
@@ -129,20 +131,20 @@ class Collective < ApplicationRecord
 
     # Private workspaces enforce specific settings regardless of defaults
     if private_workspace?
-      self.settings["unlisted"] = true
-      self.settings["invite_only"] = true
-      self.settings["all_members_can_invite"] = false
-      self.settings["any_member_can_represent"] = false
-      self.settings["tempo"] = "weekly"
+      settings["unlisted"] = true
+      settings["invite_only"] = true
+      settings["all_members_can_invite"] = false
+      settings["any_member_can_represent"] = false
+      settings["tempo"] = "weekly"
     end
 
     # Chat collectives are hidden and locked down
-    if chat?
-      self.settings["unlisted"] = true
-      self.settings["invite_only"] = true
-      self.settings["all_members_can_invite"] = false
-      self.settings["any_member_can_represent"] = false
-    end
+    return unless chat?
+
+    settings["unlisted"] = true
+    settings["invite_only"] = true
+    settings["all_members_can_invite"] = false
+    settings["any_member_can_represent"] = false
   end
 
   sig { returns(T::Boolean) }
@@ -174,20 +176,218 @@ class Collective < ApplicationRecord
     T.must(tenant).main_collective_id == id
   end
 
-  sig { void }
-  def archive!
-    update!(archived_at: Time.current)
-    automation_rules.where(enabled: true).update_all(enabled: false)
+  # Archive a collective. Owner-only (raises NotOwner if actor != created_by).
+  # No-op when already archived — second-archive must NOT clobber the original
+  # archived_at / archived_by_id, since those are the audit trail.
+  #
+  # On the happy path: auto-downgrades paid → free so a future unarchive can
+  # never silently resume billing, then writes archived_at + archived_by_id,
+  # then disables any remaining enabled automation rules.
+  #
+  # Invariant: archived_by_id IS NOT NULL iff archived_at IS NOT NULL. The
+  # FK uses ON DELETE RESTRICT — a user can't be hard-deleted while they're
+  # the archiver of any collective. Today user "deletion" is a PII scrub
+  # that leaves the row in place, so this restriction never fires in
+  # practice — it's a guardrail for any future hard-delete path.
+  sig { params(actor: User).returns(T.nilable(StripeService::SyncResult)) }
+  def archive!(actor:)
+    raise NotOwner unless actor == T.must(created_by)
+    return nil if archived?
+
+    transaction do
+      downgrade!(actor: actor)
+      update!(archived_at: Time.current, archived_by_id: actor.id)
+      automation_rules.where(enabled: true).update_all(enabled: false)
+    end
+    sync_owner_subscription_quantity!
   end
 
-  sig { void }
-  def unarchive!
-    update!(archived_at: nil)
+  sig { params(actor: User).returns(T.nilable(StripeService::SyncResult)) }
+  def unarchive!(actor:)
+    raise NotOwner unless actor == T.must(created_by)
+    return nil unless archived?
+
+    update!(archived_at: nil, archived_by_id: nil)
+    sync_owner_subscription_quantity!
   end
 
   sig { returns(T::Boolean) }
   def archived?
     archived_at.present?
+  end
+
+  # === Free/paid tier state machine ===
+
+  # Feature flags that require the paid tier to take effect at the collective
+  # level. Automations are also a paid trigger but tracked separately (as
+  # their own resource, not a feature flag). `downgrade!` clears these flags.
+  PAID_FEATURE_FLAGS = T.let(%w[trio file_attachments].freeze, T::Array[String])
+
+  TIER_FREE = "free"
+  TIER_PAID = "paid"
+  TIER_LAPSED = "lapsed"
+  TIERS = T.let([TIER_FREE, TIER_PAID, TIER_LAPSED].freeze, T::Array[String])
+
+  # Allowed tier transitions. Anything not in this map is rejected by the
+  # `tier_transition_allowed` validation.
+  VALID_TIER_TRANSITIONS = T.let({
+    TIER_FREE => [TIER_PAID].freeze,
+    TIER_PAID => [TIER_FREE, TIER_LAPSED].freeze,
+    TIER_LAPSED => [TIER_PAID, TIER_FREE].freeze,
+  }.freeze, T::Hash[String, T::Array[String]])
+
+  validates :tier, inclusion: { in: TIERS }
+  validate :tier_transition_allowed
+
+  # Raised by `upgrade!` when the actor has no active Stripe customer; the
+  # controller catches this and redirects to Stripe Checkout.
+  class BillingRequired < StandardError; end
+
+  # Raised by `upgrade!` / `downgrade!` when the actor is not the collective's
+  # creator. Owner transfer is a separate (future) feature.
+  class NotOwner < StandardError; end
+
+  # Shared error message used by controller gates that refuse paid-feature
+  # actions on free collectives (automation create/update/toggle, file
+  # uploads via API, etc.).
+  PAID_FEATURE_ERROR = "This action requires the paid plan. Upgrade on the collective settings page."
+
+  # True when this collective is on the paid plan. Column-driven; transitions
+  # only happen via the explicit `upgrade!` / `confirm_upgrade!` / `downgrade!`
+  # / `mark_lapsed!` / `restore_from_lapsed!` methods. Main collectives stay at
+  # TIER_FREE; per-feature runtime gates short-circuit on `is_main_collective?`.
+  sig { returns(T::Boolean) }
+  def paid_tier?
+    tier == TIER_PAID
+  end
+
+  sig { returns(T::Boolean) }
+  def free_tier?
+    !paid_tier?
+  end
+
+  # True when this collective is on the lapsed state — paid features are
+  # paused pending the owner restoring their Stripe subscription. Used by
+  # `/billing` inventory to surface a "Resume billing" affordance.
+  sig { returns(T::Boolean) }
+  def requires_stripe_billing?
+    tier == TIER_LAPSED
+  end
+
+  # Begin upgrading this collective. If billing doesn't need to be set up
+  # (collective is billing_exempt, the tenant has no stripe_billing flag,
+  # the actor is a sys/app admin, or the actor already has an active Stripe
+  # customer), the upgrade is confirmed inline. Otherwise `BillingRequired`
+  # is raised so the controller can redirect to Stripe Checkout — final
+  # confirmation then comes via `confirm_upgrade!` from the
+  # checkout.session.completed webhook.
+  sig { params(actor: User).void }
+  def upgrade!(actor:)
+    raise NotOwner unless actor == T.must(created_by)
+    # Main collectives are always feature-unlocked via the is_main_collective?
+    # short-circuit and never billed — no-op rather than letting a direct POST
+    # to /collectives/<main_handle>/upgrade charge the owner unnecessarily.
+    return if is_main_collective?
+    return if paid_tier?
+
+    raise BillingRequired unless billing_covered_for_upgrade?(actor)
+
+    update!(tier: TIER_PAID)
+  end
+
+  # Webhook entry point: flips free→paid (or lapsed→paid) after Stripe
+  # Checkout completes. The lapsed→paid path covers a user who let their
+  # subscription cancel and then upgraded a collective via the standard
+  # flow — the checkout creates a new subscription, which also auto-restores
+  # any other lapsed collectives via `restore_lapsed_collectives_for`.
+  #
+  # SECURITY: this performs NO authorization and NO billing-active check —
+  # it trusts the caller to have verified both. Only call it from a
+  # signature-verified Stripe webhook, or from a path that has already
+  # confirmed the actor owns the collective AND that billing is set up
+  # (see CollectivesController#upgrade, which gates via `upgrade!`). Never
+  # wire it to user-facing input directly.
+  sig { void }
+  def confirm_upgrade!
+    return if paid_tier?
+
+    update!(tier: TIER_PAID)
+  end
+
+  # Owner-initiated downgrade. Actively disables paid features (disables
+  # enabled automations, clears trio + file_attachments flags, deactivates
+  # the trio agent) — the user opted out, so we leave a clean slate for any
+  # future re-upgrade rather than preserving state.
+  sig { params(actor: User).void }
+  def downgrade!(actor:)
+    raise NotOwner unless actor == T.must(created_by)
+    # Main collectives are never on the paid tier — symmetric guard with upgrade!.
+    return if is_main_collective?
+    return if tier == TIER_FREE
+
+    transaction do
+      automation_rules.enabled.update_all(enabled: false)
+      PAID_FEATURE_FLAGS.each { |flag| disable_feature_flag!(flag) }
+      TrioActivator.deactivate!(self) if trio_user_id.present?
+      update!(tier: TIER_FREE)
+    end
+  end
+
+  # Webhook entry point: flips paid→lapsed when the owner's Stripe
+  # subscription deletes or a payment fails. Runtime gates short-circuit on
+  # `paid_tier?` so feature access pauses without touching configuration —
+  # restore is instant and zero-loss.
+  sig { void }
+  def mark_lapsed!
+    return if requires_stripe_billing?
+    return unless paid_tier?
+
+    update!(tier: TIER_LAPSED)
+  end
+
+  # Webhook entry point: flips lapsed→paid when a new subscription is
+  # created (e.g., owner updated their card). No restoration step needed —
+  # `mark_lapsed!` never touched feature config.
+  sig { void }
+  def restore_from_lapsed!
+    return unless requires_stripe_billing?
+
+    update!(tier: TIER_PAID)
+  end
+
+  sig { void }
+  def tier_transition_allowed
+    return unless tier_changed?
+    return if new_record?
+
+    previous = T.must(tier_was)
+    allowed = VALID_TIER_TRANSITIONS[previous] || []
+    return if allowed.include?(tier)
+
+    errors.add(:tier, "invalid transition from #{previous.inspect} to #{tier.inspect}")
+  end
+
+  sig { params(actor: User).returns(T::Boolean) }
+  private def billing_covered_for_upgrade?(actor)
+    return true if billing_exempt?
+    return true unless T.must(tenant).feature_enabled?("stripe_billing")
+    return true if actor.sys_admin? || actor.app_admin?
+
+    actor.stripe_customer&.active? || false
+  end
+
+  # Keep the billable owner's Stripe subscription quantity in sync with the
+  # collective's contribution to `billable_quantity`. archive!/unarchive! call
+  # this so any caller (controller, model cascade, console) gets the right
+  # billing side-effect without having to remember. No-op on tenants without
+  # stripe_billing and idempotent on Stripe's side when the quantity is unchanged.
+  sig { returns(T.nilable(StripeService::SyncResult)) }
+  private def sync_owner_subscription_quantity!
+    return nil unless T.must(tenant).feature_enabled?("stripe_billing")
+    owner = created_by
+    return nil unless owner
+
+    StripeService.sync_subscription_quantity!(owner)
   end
 
   sig { void }
@@ -222,6 +422,8 @@ class Collective < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def trio_enabled?
+    return false unless tier_unlocks_paid_features?
+
     FeatureFlagService.collective_enabled?(self, "trio")
   end
 
@@ -390,6 +592,8 @@ class Collective < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def file_attachments_enabled?
+    return false unless tier_unlocks_paid_features?
+
     # Use unified feature flag system with legacy fallback
     if feature_flags_hash.key?("file_attachments")
       FeatureFlagService.collective_enabled?(self, "file_attachments")
@@ -400,7 +604,20 @@ class Collective < ApplicationRecord
     end
   end
 
-  RESERVED_HANDLES = %w[main].freeze
+  # True when the collective should have paid features available, regardless
+  # of why: it's on the paid tier, it's the main collective (special-cased
+  # to always have features), or the tenant doesn't have stripe_billing
+  # enabled at all (self-hosted instances have no tier model and all
+  # features should just work).
+  sig { returns(T::Boolean) }
+  def tier_unlocks_paid_features?
+    return true if is_main_collective?
+    return true unless T.must(tenant).feature_enabled?("stripe_billing")
+
+    paid_tier?
+  end
+
+  RESERVED_HANDLES = ["main"].freeze
 
   sig { void }
   def handle_is_valid
@@ -501,9 +718,7 @@ class Collective < ApplicationRecord
   def add_user!(user, roles: [])
     # Workspaces are private to their owner — but the trio system agent is
     # added by the owner opt-in flow (TrioSeeder), not as a normal member.
-    if private_workspace? && user != created_by && !user.system?
-      raise "Cannot add other users to a private workspace"
-    end
+    raise "Cannot add other users to a private workspace" if private_workspace? && user != created_by && !user.system?
 
     if chat? && collective_members.where(archived_at: nil).count >= 2 && !collective_members.exists?(user: user)
       raise "Chat collectives are limited to two members"
@@ -541,9 +756,7 @@ class Collective < ApplicationRecord
     return true if user_is_member?(user)
 
     # Collective identity user accessing their own collective
-    if user.collective_identity? && user.identity_collective.present?
-      return user.identity_collective == self
-    end
+    return user.identity_collective == self if user.collective_identity? && user.identity_collective.present?
 
     false
   end

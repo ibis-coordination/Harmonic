@@ -41,6 +41,13 @@ class CollectiveAutomationsController < ApplicationController
   # GET /collectives/:collective_handle/settings/automations/new
   def new
     @page_title = "New Automation - #{@current_collective.name}"
+    # Guard the form so users on free collectives don't fill out a YAML
+    # textarea only to have the controller refuse the create. The index page
+    # already shows an Upgrade affordance — bounce them back to it.
+    unless @current_collective.tier_unlocks_paid_features?
+      flash[:error] = Collective::PAID_FEATURE_ERROR
+      return redirect_to automations_index_path
+    end
     @yaml_source = params[:yaml_source] || default_template
   end
 
@@ -95,10 +102,16 @@ class CollectiveAutomationsController < ApplicationController
   # === Create ===
 
   def describe_create
+    # Surface the tier gate up-front so API callers know why a create might
+    # be refused without trying it.
+    tier_note = unless @current_collective.tier_unlocks_paid_features?
+      " Note: this collective is on the free plan and the create will be " \
+        "refused. Upgrade the collective via POST #{@current_collective.path}/upgrade first."
+    end
     render_action_description({
                                 action_name: "create_automation_rule",
                                 resource: nil,
-                                description: "Create a new collective automation rule from YAML configuration",
+                                description: "Create a new collective automation rule from YAML configuration.#{tier_note}",
                                 params: [
                                   { name: "yaml_source", type: "string", description: "YAML configuration for the automation rule" },
                                 ],
@@ -135,6 +148,14 @@ class CollectiveAutomationsController < ApplicationController
         yaml_source: yaml_source
       )
     )
+
+    unless @current_collective.tier_unlocks_paid_features?
+      return render_action_error({
+                                   action_name: "create_automation_rule",
+                                   resource: nil,
+                                   error: Collective::PAID_FEATURE_ERROR,
+                                 })
+    end
 
     if rule.save
       render_action_success({
@@ -186,7 +207,17 @@ class CollectiveAutomationsController < ApplicationController
                                  })
     end
 
-    if @automation_rule.update(result.attributes.merge(yaml_source: yaml_source, updated_by: @current_user))
+    unless @current_collective.tier_unlocks_paid_features?
+      return render_action_error({
+                                   action_name: "update_automation_rule",
+                                   resource: @automation_rule,
+                                   error: Collective::PAID_FEATURE_ERROR,
+                                 })
+    end
+
+    @automation_rule.assign_attributes(result.attributes.merge(yaml_source: yaml_source, updated_by: @current_user))
+
+    if @automation_rule.save
       render_action_success({
                               action_name: "update_automation_rule",
                               resource: @automation_rule,
@@ -226,16 +257,26 @@ class CollectiveAutomationsController < ApplicationController
 
   def describe_toggle
     action = @automation_rule.enabled? ? "disable" : "enable"
+    billing_note = action == "enable" ? " Requires the collective to be on the paid plan." : ""
     render_action_description({
                                 action_name: "toggle_automation_rule",
                                 resource: @automation_rule,
-                                description: "#{action.capitalize} the automation rule",
+                                description: "#{action.capitalize} the automation rule.#{billing_note}",
                                 params: [],
                               })
   end
 
   def execute_toggle
-    @automation_rule.update!(enabled: !@automation_rule.enabled?, updated_by: @current_user)
+    will_be_enabled = !@automation_rule.enabled?
+    if will_be_enabled && !@current_collective.tier_unlocks_paid_features?
+      return render_action_error({
+                                   action_name: "toggle_automation_rule",
+                                   resource: @automation_rule,
+                                   error: Collective::PAID_FEATURE_ERROR,
+                                 })
+    end
+
+    @automation_rule.update!(enabled: will_be_enabled, updated_by: @current_user)
     state = @automation_rule.enabled? ? "enabled" : "disabled"
     render_action_success({
                             action_name: "toggle_automation_rule",

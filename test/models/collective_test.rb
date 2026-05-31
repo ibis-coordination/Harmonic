@@ -178,33 +178,33 @@ class CollectiveTest < ActiveSupport::TestCase
     # byte_size rows for this sum, not actual files.
     now = Time.current
     Attachment.insert!({
-      id: SecureRandom.uuid,
-      tenant_id: tenant.id,
-      collective_id: collective.id,
-      attachable_type: "Note",
-      attachable_id: note.id,
-      name: "a.txt",
-      content_type: "text/plain",
-      byte_size: 1_000,
-      created_by_id: user.id,
-      updated_by_id: user.id,
-      created_at: now,
-      updated_at: now,
-    })
+                         id: SecureRandom.uuid,
+                         tenant_id: tenant.id,
+                         collective_id: collective.id,
+                         attachable_type: "Note",
+                         attachable_id: note.id,
+                         name: "a.txt",
+                         content_type: "text/plain",
+                         byte_size: 1_000,
+                         created_by_id: user.id,
+                         updated_by_id: user.id,
+                         created_at: now,
+                         updated_at: now,
+                       })
     MediaItem.insert!({
-      id: SecureRandom.uuid,
-      tenant_id: tenant.id,
-      collective_id: collective.id,
-      mediable_type: "Note",
-      mediable_id: note.id,
-      content_type: "image/png",
-      byte_size: 2_500,
-      display_order: 0,
-      created_by_id: user.id,
-      updated_by_id: user.id,
-      created_at: now,
-      updated_at: now,
-    })
+                        id: SecureRandom.uuid,
+                        tenant_id: tenant.id,
+                        collective_id: collective.id,
+                        mediable_type: "Note",
+                        mediable_id: note.id,
+                        content_type: "image/png",
+                        byte_size: 2_500,
+                        display_order: 0,
+                        created_by_id: user.id,
+                        updated_by_id: user.id,
+                        created_at: now,
+                        updated_at: now,
+                      })
 
     assert_equal 3_500, collective.file_storage_usage
   ensure
@@ -520,27 +520,94 @@ class CollectiveTest < ActiveSupport::TestCase
 
   # === Archive Tests ===
 
-  test "archive! sets archived_at" do
+  test "archive! sets archived_at and archived_by_id" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Archive Test", handle: "archive-test-#{SecureRandom.hex(4)}")
 
     assert_nil collective.archived_at
-    collective.archive!
+    assert_nil collective.archived_by_id
+    collective.archive!(actor: user)
     assert collective.archived?
     assert_not_nil collective.archived_at
+    assert_equal user.id, collective.archived_by_id,
+                 "archive! must record who archived the collective"
   end
 
-  test "unarchive! clears archived_at" do
+  test "archive! on an already-archived collective is a no-op (does not overwrite archived_at/archived_by_id)" do
+    tenant = create_tenant
+    owner = create_user
+    other_owner_role_user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Double Archive", handle: "double-arch-#{SecureRandom.hex(4)}")
+    collective.archive!(actor: owner)
+    original_at = collective.reload.archived_at
+    original_by = collective.archived_by_id
+    assert_not_nil original_at
+    assert_equal owner.id, original_by
+
+    # Even another legitimate call must not clobber the original archive metadata.
+    travel 5.seconds do
+      collective.archive!(actor: owner)
+    end
+
+    collective.reload
+    assert_equal original_at, collective.archived_at,
+                 "second archive! must not reset archived_at"
+    assert_equal original_by, collective.archived_by_id,
+                 "second archive! must not overwrite archived_by_id"
+  end
+
+  test "unarchive! on a non-archived collective is a no-op" do
+    tenant = create_tenant
+    owner = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Not Archived", handle: "not-arch-#{SecureRandom.hex(4)}")
+    assert_not collective.archived?
+
+    sync_calls = 0
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { sync_calls += 1; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.unarchive!(actor: owner)
+    end
+
+    assert_not collective.archived?
+    assert_equal 0, sync_calls, "unarchive! on a non-archived collective should not touch Stripe"
+  end
+
+  test "archive! raises NotOwner when actor is not the collective creator" do
+    tenant = create_tenant
+    owner = create_user
+    intruder = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Owner Guard", handle: "owner-guard-#{SecureRandom.hex(4)}")
+
+    assert_raises(Collective::NotOwner) { collective.archive!(actor: intruder) }
+    assert_not collective.reload.archived?, "archive! must not flip archived_at when actor check fails"
+    assert_nil collective.archived_by_id
+  end
+
+  test "unarchive! clears archived_at and archived_by_id" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Unarchive Test", handle: "unarchive-test-#{SecureRandom.hex(4)}")
 
-    collective.archive!
+    collective.archive!(actor: user)
     assert collective.archived?
-    collective.unarchive!
+    assert_not_nil collective.archived_by_id
+
+    collective.unarchive!(actor: user)
     assert_not collective.archived?
     assert_nil collective.archived_at
+    assert_nil collective.archived_by_id,
+               "unarchive! must clear archived_by_id (archived_by_id IS NOT NULL iff archived_at IS NOT NULL)"
+  end
+
+  test "unarchive! raises NotOwner when actor is not the collective creator" do
+    tenant = create_tenant
+    owner = create_user
+    intruder = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Unarch Guard", handle: "unarch-guard-#{SecureRandom.hex(4)}")
+    collective.archive!(actor: owner)
+
+    assert_raises(Collective::NotOwner) { collective.unarchive!(actor: intruder) }
+    assert collective.reload.archived?, "unarchive! must not clear archived_at when actor check fails"
   end
 
   test "archive! disables automation rules" do
@@ -560,16 +627,110 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Test Rule",
       trigger_type: "webhook",
       actions: { "type" => "webhook", "url" => "https://example.com/hook" },
-      enabled: true,
+      enabled: true
     )
 
-    collective.archive!
+    collective.archive!(actor: user)
 
     rule.reload
     assert_not rule.enabled?, "Automation rule should be disabled after collective is archived"
 
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
+  end
+
+  test "archive! syncs Stripe subscription quantity for the owner on stripe_billing tenants" do
+    tenant = create_tenant
+    tenant.enable_feature_flag!("stripe_billing")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Sync Test", handle: "sync-test-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(collective)
+
+    synced_with = nil
+    StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.archive!(actor: user)
+    end
+
+    assert_equal user.id, synced_with&.id,
+                 "archive! must sync Stripe subscription quantity for the collective's billable owner"
+  end
+
+  test "archive! does not sync Stripe when stripe_billing is not enabled on the tenant" do
+    tenant = create_tenant
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "No Sync", handle: "no-sync-#{SecureRandom.hex(4)}")
+
+    sync_calls = 0
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { sync_calls += 1; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.archive!(actor: user)
+    end
+
+    assert_equal 0, sync_calls,
+                 "archive! must not call Stripe sync on tenants without stripe_billing"
+  end
+
+  test "archive! downgrades a paid collective to free so unarchive doesn't silently resume billing" do
+    tenant = create_tenant
+    tenant.enable_feature_flag!("stripe_billing")
+    tenant.enable_feature_flag!("trio")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Auto Downgrade", handle: "auto-down-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(collective)
+    collective.set_feature_flag!("trio", true)
+    collective.set_feature_flag!("file_attachments", true)
+    rule = AutomationRule.create!(
+      tenant: tenant, collective: collective, created_by: user,
+      name: "Rule", trigger_type: "manual", trigger_config: { "inputs" => {} },
+      conditions: [], actions: {}, enabled: true,
+    )
+
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.archive!(actor: user)
+    end
+
+    collective.reload
+    assert_equal Collective::TIER_FREE, collective.tier,
+                 "archive! must drop the collective back to the free tier"
+    assert_not collective.feature_flag_enabled_locally?("trio"),
+               "archive! must clear paid feature flags via downgrade cleanup"
+    assert_not collective.feature_flag_enabled_locally?("file_attachments"),
+               "archive! must clear paid feature flags via downgrade cleanup"
+    assert_not rule.reload.enabled?,
+               "archive! must disable automation rules (via downgrade cleanup)"
+  end
+
+  test "archive! on a free collective is a no-op for tier (no spurious tier change)" do
+    tenant = create_tenant
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Free Archive", handle: "free-arch-#{SecureRandom.hex(4)}")
+    assert_equal Collective::TIER_FREE, collective.tier
+
+    collective.archive!(actor: user)
+
+    assert collective.reload.archived?
+    assert_equal Collective::TIER_FREE, collective.tier
+  end
+
+  test "unarchive! syncs Stripe subscription quantity for the owner on stripe_billing tenants" do
+    tenant = create_tenant
+    tenant.enable_feature_flag!("stripe_billing")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Unarchive Sync", handle: "unsync-#{SecureRandom.hex(4)}")
+    upgrade_collective_to_paid!(collective)
+    collective.archive!(actor: user)
+
+    synced_with = nil
+    StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.unarchive!(actor: user)
+    end
+
+    assert_equal user.id, synced_with&.id,
+                 "unarchive! must sync Stripe subscription quantity for the collective's billable owner"
   end
 
   test "unarchive! does not re-enable automation rules" do
@@ -591,11 +752,11 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Test Rule",
       trigger_type: "webhook",
       actions: { "type" => "webhook", "url" => "https://example.com/hook" },
-      enabled: true,
+      enabled: true
     )
 
-    collective.archive!
-    collective.unarchive!
+    collective.archive!(actor: user)
+    collective.unarchive!(actor: user)
 
     rule.reload
     assert_not rule.enabled?, "Automation rule should NOT be re-enabled after unarchive"
@@ -625,7 +786,7 @@ class CollectiveTest < ActiveSupport::TestCase
       tenant: tenant,
       created_by: user,
       name: "Standard Collective",
-      handle: "standard-#{SecureRandom.hex(4)}",
+      handle: "standard-#{SecureRandom.hex(4)}"
     )
     assert_not collective.private_workspace?
   end
@@ -645,7 +806,7 @@ class CollectiveTest < ActiveSupport::TestCase
       tenant: tenant,
       created_by: user,
       name: "Identity Test",
-      handle: "identity-test-#{SecureRandom.hex(4)}",
+      handle: "identity-test-#{SecureRandom.hex(4)}"
     )
     assert collective.identity_user.present?
     assert_equal "collective_identity", collective.identity_user.user_type
@@ -662,12 +823,13 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not workspace.settings["any_member_can_represent"]
   end
 
-  test "private workspace is billing_exempt" do
+  test "private workspace is not billing_exempt by default (bills like a collective)" do
     tenant = create_tenant(subdomain: "pw-billing-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
     workspace = user.private_workspace
-    assert workspace.billing_exempt?
+    assert_not workspace.billing_exempt?,
+               "workspaces now use the free/paid tier model — billable when paid features are enabled"
   end
 
   test "collective_type must be a valid type" do
@@ -682,7 +844,7 @@ class CollectiveTest < ActiveSupport::TestCase
         created_by: user,
         name: "Bad Type",
         handle: "bad-#{SecureRandom.hex(4)}",
-        collective_type: "nonsense",
+        collective_type: "nonsense"
       )
     end
   end
@@ -710,7 +872,7 @@ class CollectiveTest < ActiveSupport::TestCase
       tenant: tenant,
       created_by: user,
       name: "Visible Collective",
-      handle: "visible-#{SecureRandom.hex(4)}",
+      handle: "visible-#{SecureRandom.hex(4)}"
     )
 
     all = Collective.where(tenant_id: tenant.id)
@@ -733,12 +895,12 @@ class CollectiveTest < ActiveSupport::TestCase
       created_by: user,
       name: "Standard",
       handle: "std-#{SecureRandom.hex(4)}",
-      collective_type: "standard",
+      collective_type: "standard"
     )
     assert standard.listable?
 
     workspace = user.private_workspace
-    refute workspace.listable?
+    assert_not workspace.listable?
   end
 
   test "find_or_create_shareable_invite raises for private workspaces" do
@@ -797,11 +959,11 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
     assert chat_collective.chat?
-    refute chat_collective.listable?
-    refute chat_collective.private_workspace?
+    assert_not chat_collective.listable?
+    assert_not chat_collective.private_workspace?
   end
 
   test "chat collective does not create identity user" do
@@ -816,7 +978,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
     assert_nil chat_collective.identity_user
   end
@@ -833,7 +995,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
 
     all = Collective.where(tenant_id: tenant.id)
@@ -865,7 +1027,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
     assert_raises(RuntimeError) do
       chat_collective.find_or_create_shareable_invite(user)
@@ -888,7 +1050,7 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Chat",
       handle: "chat-#{SecureRandom.hex(4)}",
       collective_type: "chat",
-      billing_exempt: true,
+      billing_exempt: true
     )
 
     previous_id = Collective.current_id
@@ -913,5 +1075,353 @@ class CollectiveTest < ActiveSupport::TestCase
     user = create_user
     collective = Collective.create!(tenant: tenant, created_by: user, name: "AvColor", handle: "avcol-#{SecureRandom.hex(4)}")
     assert_equal HasImage::COLLECTIVE_AVATAR_COLOR, collective.avatar_color
+  end
+
+  # === Tier state machine: constants & defaults ===
+
+  test "TIER constants are defined" do
+    assert_equal "free", Collective::TIER_FREE
+    assert_equal "paid", Collective::TIER_PAID
+    assert_equal "lapsed", Collective::TIER_LAPSED
+    assert_equal %w[free paid lapsed], Collective::TIERS
+  end
+
+  test "VALID_TIER_TRANSITIONS map allows the documented moves" do
+    assert_equal [Collective::TIER_PAID], Collective::VALID_TIER_TRANSITIONS[Collective::TIER_FREE]
+    assert_includes Collective::VALID_TIER_TRANSITIONS[Collective::TIER_PAID], Collective::TIER_FREE
+    assert_includes Collective::VALID_TIER_TRANSITIONS[Collective::TIER_PAID], Collective::TIER_LAPSED
+    assert_includes Collective::VALID_TIER_TRANSITIONS[Collective::TIER_LAPSED], Collective::TIER_PAID
+    assert_includes Collective::VALID_TIER_TRANSITIONS[Collective::TIER_LAPSED], Collective::TIER_FREE
+  end
+
+  test "new collective defaults to free tier" do
+    c = build_collective
+    assert_equal Collective::TIER_FREE, c.tier
+  end
+
+  test "tier rejects values outside TIERS" do
+    c = build_collective
+    c.tier = "garbage"
+    assert_not c.valid?
+    assert c.errors[:tier].any?
+  end
+
+  test "tier rejects invalid transition (free -> lapsed)" do
+    c = build_collective
+    c.tier = Collective::TIER_LAPSED
+    assert_not c.valid?
+    assert c.errors[:tier].any?
+  end
+
+  test "tier accepts valid transition free -> paid" do
+    c = build_collective
+    c.tier = Collective::TIER_PAID
+    assert c.valid?
+  end
+
+  # === Predicates (column-driven) ===
+
+  test "paid_tier? returns true iff tier column is paid" do
+    c = build_collective
+    assert_not c.paid_tier?
+    c.update!(tier: Collective::TIER_PAID)
+    assert c.paid_tier?
+    c.update!(tier: Collective::TIER_LAPSED)
+    assert_not c.paid_tier?
+  end
+
+  test "free_tier? is the inverse of paid_tier?" do
+    c = build_collective
+    assert c.free_tier?
+    c.update!(tier: Collective::TIER_PAID)
+    assert_not c.free_tier?
+  end
+
+  test "requires_stripe_billing? returns true only when tier is lapsed" do
+    c = build_collective
+    assert_not c.requires_stripe_billing?
+    c.update!(tier: Collective::TIER_PAID)
+    assert_not c.requires_stripe_billing?
+    c.update!(tier: Collective::TIER_LAPSED)
+    assert c.requires_stripe_billing?
+  end
+
+  test "main collective stays free but trio_enabled? short-circuits" do
+    tenant = create_tenant(subdomain: "main-tier-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.create_main_collective!(created_by: user)
+    main = tenant.main_collective
+    assert_equal Collective::TIER_FREE, main.tier
+    assert_not main.paid_tier?
+    tenant.enable_feature_flag!("trio")
+    main.enable_feature_flag!("trio")
+    assert main.trio_enabled?, "main collective trio_enabled? should short-circuit on is_main_collective?"
+  end
+
+  test "free non-main collective has trio_enabled? gated off even with flag set" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.tenant.enable_feature_flag!("trio")
+    c.enable_feature_flag!("trio")
+    assert_not c.trio_enabled?
+  end
+
+  test "non-billing tenant: free collective still has trio_enabled? when flag is set (self-hosted)" do
+    c = build_collective
+    # No stripe_billing flag — tier model is not in effect, features should
+    # work freely (self-hosted instance behavior).
+    c.tenant.enable_feature_flag!("trio")
+    c.enable_feature_flag!("trio")
+    assert c.trio_enabled?, "non-billing tenant should bypass the tier gate"
+  end
+
+  test "paid collective has trio_enabled? when flag is set" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.tenant.enable_feature_flag!("trio")
+    c.enable_feature_flag!("trio")
+    c.update!(tier: Collective::TIER_PAID)
+    assert c.trio_enabled?
+  end
+
+  test "lapsed collective has trio_enabled? gated off (paused)" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.tenant.enable_feature_flag!("trio")
+    c.enable_feature_flag!("trio")
+    c.update!(tier: Collective::TIER_PAID)
+    c.update!(tier: Collective::TIER_LAPSED)
+    assert_not c.trio_enabled?
+  end
+
+  test "free non-main collective has file_attachments_enabled? gated off" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.enable_feature_flag!("file_attachments")
+    assert_not c.file_attachments_enabled?
+  end
+
+  test "non-billing tenant: free collective still has file_attachments_enabled? (self-hosted)" do
+    c = build_collective
+    c.enable_feature_flag!("file_attachments")
+    assert c.file_attachments_enabled?, "non-billing tenant should bypass the tier gate"
+  end
+
+  test "paid collective has file_attachments_enabled? when flag is set" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.enable_feature_flag!("file_attachments")
+    c.update!(tier: Collective::TIER_PAID)
+    assert c.file_attachments_enabled?
+  end
+
+  # === Transition methods ===
+
+  test "upgrade! flips free->paid when actor has active stripe customer" do
+    c = build_collective
+    owner = c.created_by
+    StripeCustomer.create!(billable: owner, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    c.upgrade!(actor: owner)
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "upgrade! raises BillingRequired when actor lacks active stripe customer" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    assert_raises(Collective::BillingRequired) do
+      c.upgrade!(actor: c.created_by)
+    end
+    assert_equal Collective::TIER_FREE, c.reload.tier
+  end
+
+  test "upgrade! does not require billing when tenant has stripe_billing disabled" do
+    c = build_collective
+    c.upgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "upgrade! does not require billing when collective is billing_exempt" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.update!(billing_exempt: true)
+    c.upgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "upgrade! does not require billing when actor is a sys/app admin" do
+    c = build_collective
+    enable_stripe_billing!(c.tenant)
+    c.created_by.update!(sys_admin: true)
+    c.upgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "upgrade! raises NotOwner when actor is not the creator" do
+    c = build_collective
+    other = create_user
+    StripeCustomer.create!(billable: other, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    assert_raises(Collective::NotOwner) do
+      c.upgrade!(actor: other)
+    end
+  end
+
+  test "upgrade! is idempotent when already paid" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.upgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "confirm_upgrade! flips free->paid (webhook entry point)" do
+    c = build_collective
+    c.confirm_upgrade!
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "confirm_upgrade! is idempotent when already paid" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.confirm_upgrade!
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "downgrade! flips paid->free and disables automations + paid flags" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.tenant.enable_feature_flag!("trio")
+    c.enable_feature_flag!("trio")
+    c.enable_feature_flag!("file_attachments")
+    rule = create_automation_rule(c, enabled: true)
+    c.downgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_FREE, c.reload.tier
+    assert_not rule.reload.enabled, "downgrade! must disable enabled automations"
+    assert_not c.feature_flag_enabled_locally?("trio"), "downgrade! must clear local trio flag"
+    assert_not c.feature_flag_enabled_locally?("file_attachments"), "downgrade! must clear local file_attachments flag"
+  end
+
+  test "downgrade! raises NotOwner when actor is not the creator" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    other = create_user
+    assert_raises(Collective::NotOwner) do
+      c.downgrade!(actor: other)
+    end
+  end
+
+  test "downgrade! works from lapsed->free" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.update!(tier: Collective::TIER_LAPSED)
+    c.downgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_FREE, c.reload.tier
+  end
+
+  test "downgrade! is idempotent when already free" do
+    c = build_collective
+    c.downgrade!(actor: c.created_by)
+    assert_equal Collective::TIER_FREE, c.reload.tier
+  end
+
+  test "upgrade! and downgrade! are no-ops on main collectives (defense in depth)" do
+    tenant = create_tenant(subdomain: "main-up-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.create_main_collective!(created_by: user)
+    main = tenant.main_collective
+    StripeCustomer.create!(billable: user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
+    # Even though the upgrade/downgrade routes exist for any handle, main
+    # collectives are always feature-unlocked via the is_main_collective?
+    # short-circuit and never billed.
+    main.upgrade!(actor: user)
+    assert_equal Collective::TIER_FREE, main.reload.tier
+    main.update!(tier: Collective::TIER_PAID) # bypass the no-op for the downgrade leg
+    main.downgrade!(actor: user)
+    assert_equal Collective::TIER_PAID, main.reload.tier, "downgrade! should not touch a main collective"
+  end
+
+  test "mark_lapsed! flips paid->lapsed without disabling features" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.tenant.enable_feature_flag!("trio")
+    c.enable_feature_flag!("trio")
+    rule = create_automation_rule(c, enabled: true)
+    c.mark_lapsed!
+    assert_equal Collective::TIER_LAPSED, c.reload.tier
+    assert rule.reload.enabled, "mark_lapsed! must NOT disable existing rules"
+    assert c.feature_flag_enabled_locally?("trio"), "mark_lapsed! must preserve trio flag"
+  end
+
+  test "mark_lapsed! is idempotent when already lapsed" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.update!(tier: Collective::TIER_LAPSED)
+    c.mark_lapsed!
+    assert_equal Collective::TIER_LAPSED, c.reload.tier
+  end
+
+  test "restore_from_lapsed! flips lapsed->paid" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.update!(tier: Collective::TIER_LAPSED)
+    c.restore_from_lapsed!
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  test "restore_from_lapsed! is a no-op for free collectives" do
+    c = build_collective
+    c.restore_from_lapsed!
+    assert_equal Collective::TIER_FREE, c.reload.tier
+  end
+
+  test "restore_from_lapsed! is idempotent when already paid" do
+    c = build_collective
+    c.update!(tier: Collective::TIER_PAID)
+    c.restore_from_lapsed!
+    assert_equal Collective::TIER_PAID, c.reload.tier
+  end
+
+  # === billable_types scope ===
+
+  test "billable_types scope includes standard and private_workspace" do
+    tenant = create_tenant(subdomain: "bt-#{SecureRandom.hex(4)}")
+    user = create_user
+    standard = Collective.create!(tenant: tenant, created_by: user, name: "S", handle: "s-#{SecureRandom.hex(4)}")
+    pw = Collective.create!(tenant: tenant, created_by: user, name: "P", handle: "p-#{SecureRandom.hex(4)}", collective_type: "private_workspace")
+    chat = Collective.create!(tenant: tenant, created_by: user, name: "C", handle: "c-#{SecureRandom.hex(4)}", collective_type: "chat")
+
+    ids = Collective.billable_types.where(tenant_id: tenant.id).pluck(:id)
+    assert_includes ids, standard.id
+    assert_includes ids, pw.id
+    assert_not_includes ids, chat.id
+  end
+
+  private
+
+  def build_collective(subdomain_prefix: "bc")
+    tenant = create_tenant(subdomain: "#{subdomain_prefix}-#{SecureRandom.hex(4)}")
+    user = create_user
+    Collective.create!(
+      tenant: tenant, created_by: user,
+      name: "Build Collective", handle: "bc-#{SecureRandom.hex(4)}"
+    )
+  end
+
+  def enable_stripe_billing!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  def create_automation_rule(collective, enabled: true)
+    AutomationRule.create!(
+      tenant: collective.tenant,
+      collective: collective,
+      created_by: collective.created_by,
+      name: "Rule #{SecureRandom.hex(4)}",
+      trigger_type: "manual",
+      trigger_config: { "inputs" => {} },
+      conditions: [],
+      actions: {},
+      enabled: enabled
+    )
   end
 end

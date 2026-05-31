@@ -121,8 +121,12 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
 
   test "POST create includes the pending token in the Stripe quantity for users with existing billable resources" do
     enable_stripe_billing_flag!(@tenant)
-    # User owns an additional non-main collective (billable_quantity = 1 already).
-    create_collective(tenant: @tenant, created_by: @user, handle: "extra-#{SecureRandom.hex(4)}")
+    # User owns an additional non-main collective on the paid tier
+    # (billable_quantity = 1). Set tier directly without upgrade_collective_to_paid!
+    # so we don't create a StripeCustomer here — this test exercises the
+    # no-existing-customer path where the user goes through Stripe Checkout.
+    extra = create_collective(tenant: @tenant, created_by: @user, handle: "extra-#{SecureRandom.hex(4)}")
+    extra.update!(tier: Collective::TIER_PAID)
     sign_in_for_tokens
 
     stub_stripe_checkout do |_url, captured|

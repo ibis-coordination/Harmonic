@@ -1,6 +1,12 @@
 # Automations - <%= @current_collective.name %>
 
+<%= render 'shared/collective_tier_badge', collective: @current_collective %>
+
 Collective automations run actions (webhooks, internal actions) in response to events or schedules.
+
+<% if @current_tenant.feature_enabled?("stripe_billing") && @current_collective.free_tier? -%>
+> Enabling an automation moves this collective to the paid plan ($3/mo).
+<% end -%>
 
 <% if @automation_rules.empty? -%>
 *No automations configured yet.*

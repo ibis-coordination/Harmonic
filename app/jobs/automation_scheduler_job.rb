@@ -35,8 +35,23 @@ class AutomationSchedulerJob < SystemJob
   def process_rule(rule)
     return unless should_trigger?(rule)
     return if already_ran_this_minute?(rule)
+    return unless collective_tier_allows?(rule)
 
     create_and_queue_run(rule)
+  end
+
+  # Collective-scoped scheduled rules pause when their collective isn't on
+  # the paid tier (or main, or on a non-billing tenant). Agent-scoped rules
+  # are gated by AutomationExecutor's per-agent billing check; user-scoped
+  # rules have no separate billing gate (pre-existing — out of scope here).
+  sig { params(rule: AutomationRule).returns(T::Boolean) }
+  def collective_tier_allows?(rule)
+    return true unless rule.collective_id.present?
+
+    collective = Collective.unscoped_for_system_job.find_by(id: rule.collective_id)
+    return false if collective.nil?
+
+    collective.tier_unlocks_paid_features?
   end
 
   sig { params(rule: AutomationRule).returns(T::Boolean) }

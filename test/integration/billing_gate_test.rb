@@ -11,6 +11,10 @@ class BillingGateTest < ActionDispatch::IntegrationTest
 
     @tenant.set_feature_flag!("ai_agents", true)
     enable_stripe_billing_flag!(@tenant)
+    # Make @collective paid_tier so @user has a billable resource and the
+    # billing gate has something to fire on. Under the free/paid tier model,
+    # a fresh non-main collective alone is not billable.
+    make_collective_paid_tier!(@collective)
   end
 
   # === Gate enforced ===
@@ -188,5 +192,9 @@ class BillingGateTest < ActionDispatch::IntegrationTest
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  def make_collective_paid_tier!(collective)
+    collective.update!(tier: Collective::TIER_PAID)
   end
 end

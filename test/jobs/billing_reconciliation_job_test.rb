@@ -18,34 +18,48 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
     tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
     StripeCustomer.create!(billable: user, stripe_id: "cus_recon", active: true, stripe_subscription_id: "sub_recon")
+    # One billable agent → user.billable_quantity == 1, matches the stubbed
+    # Stripe quantity below. (Without the agent, billable_quantity would be
+    # 0 and reconciliation would CANCEL the subscription rather than no-op.
+    # See "cancels subscription when billable_quantity drops to zero" below.)
+    agent = create_ai_agent(parent: user, name: "Recon Agent #{SecureRandom.hex(4)}")
+    tenant.add_user!(agent)
 
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_recon")
       .to_return(
         status: 200,
         body: {
-          id: "sub_recon", object: "subscription",
+          id: "sub_recon", object: "subscription", status: "active",
           items: { data: [{ id: "si_recon", quantity: 1, price: { id: "price_test" } }] },
         }.to_json,
         headers: { "Content-Type" => "application/json" },
       )
 
-    # No agents, quantity already 1 — should be no-op (no SubscriptionItem update)
+    # Quantity matches → should be no-op (no SubscriptionItem update)
     BillingReconciliationJob.perform_now
 
     assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_recon")
   end
 
-  test "skips billing_exempt users" do
+  test "cancels subscription for billing_exempt users (their billable_quantity is zero)" do
     tenant, collective, user = create_tenant_collective_user
     tenant.update!(main_collective_id: collective.id)
     enable_stripe_billing_flag!(tenant)
     user.update!(billing_exempt: true)
-    StripeCustomer.create!(billable: user, stripe_id: "cus_exempt_recon", active: true, stripe_subscription_id: "sub_exempt_recon")
+    sc = StripeCustomer.create!(billable: user, stripe_id: "cus_exempt_recon", active: true, stripe_subscription_id: "sub_exempt_recon")
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_exempt_recon")
+      .to_return(status: 200,
+                 body: { id: "sub_exempt_recon", object: "subscription", status: "canceled" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
 
-    # No Stripe calls should be made
     BillingReconciliationJob.perform_now
 
-    assert_not_requested(:get, /api\.stripe\.com\/v1\/subscriptions/)
+    # When the daily job sees an exempt user with billable_quantity == 0
+    # holding an active Stripe subscription, it cancels the subscription —
+    # rather than silently leaving them being charged. (Old behavior was a
+    # no-op; the regression is covered by the matching service-level test.)
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_exempt_recon", at_least_times: 1
+    assert_not sc.reload.active?
   end
 
   test "continues processing when one user fails" do

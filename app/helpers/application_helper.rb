@@ -299,4 +299,35 @@ module ApplicationHelper
       "#{label} #{indicator}".html_safe
     end
   end
+
+  # Labels for the paid features available on the given tenant. Automations
+  # is always available on the paid plan; Trio and file attachments are
+  # tenant-gated feature flags. Labels are mid-sentence form (lowercase for
+  # common nouns; product names stay cased) so callers can splice them into
+  # prose. Combine with `to_sentence` for natural-language output.
+  def paid_feature_labels(tenant)
+    labels = ["automations"]
+    labels << "the Trio AI assistant" if tenant.trio_enabled?
+    labels << "file attachments" if tenant.file_attachments_enabled?
+    labels
+  end
+
+  # Labels for paid features that are currently active on the collective and
+  # would be turned off by a downgrade. Excludes the automation count (callers
+  # usually want to render that separately with `pluralize`). Returns [] if
+  # neither Trio nor file attachments is enabled on this collective.
+  def paid_features_to_disable_on_downgrade(collective)
+    labels = []
+    labels << "Trio" if collective.trio_enabled?
+    labels << "file attachments" if collective.file_attachments_enabled?
+    labels
+  end
+
+  # Upcase only the first character of a string. Unlike String#capitalize,
+  # this leaves the rest of the string alone — so a sentence like "Trio and
+  # file attachments will be turned off" doesn't get its product-name casing
+  # ("Trio") flattened to "trio".
+  def sentence_case(str)
+    str.sub(/^./, &:upcase)
+  end
 end

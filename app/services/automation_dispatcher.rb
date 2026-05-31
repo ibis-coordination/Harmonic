@@ -25,10 +25,19 @@ class AutomationDispatcher
   # Rules are filtered by collective access at the database level:
   # - Collective rules must match the event's collective_id
   # - Agent/user rules require membership in the event's collective
+  #
+  # Automations are a paid feature, so events on collectives that aren't
+  # paid_tier (or main, or on non-billing tenants) match nothing — this
+  # pauses automation execution during a `lapsed` state without touching
+  # rule config, so a billing restore is instant and zero-loss.
   sig { params(event: Event).returns(T::Array[AutomationRule]) }
   def self.find_matching_rules(event)
     collective_id = event.collective_id
     return [] if collective_id.nil?
+
+    collective = Collective.tenant_scoped_only(event.tenant_id).find_by(id: collective_id)
+    return [] if collective.nil?
+    return [] unless collective.tier_unlocks_paid_features?
 
     # Find rules with collective access in a single query
     rules = AutomationRule

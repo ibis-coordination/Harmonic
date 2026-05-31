@@ -120,8 +120,10 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
   test "default_for_collective returns config default" do
     # api default_collective is false in config
     assert_not FeatureFlagService.default_for_collective("api")
-    # file_attachments default_collective is true in config
-    assert FeatureFlagService.default_for_collective("file_attachments")
+    # file_attachments default_collective is false in config — flipped from
+    # true to false when the paid-tier model landed (eccdf29) so new
+    # collectives don't silently get paid features on creation.
+    assert_not FeatureFlagService.default_for_collective("file_attachments")
     # trio default_collective is false in config — explicit per-collective opt-in
     assert_not FeatureFlagService.default_for_collective("trio")
   end

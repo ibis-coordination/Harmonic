@@ -24,7 +24,7 @@ class TenantTest < ActiveSupport::TestCase
     assert_equal "improv", default_settings["synchronization_mode"]
     assert_equal false, default_settings["all_members_can_invite"]
     assert_equal false, default_settings["any_member_can_represent"]
-    assert_equal true, default_settings["allow_file_uploads"]
+    assert_equal false, default_settings["allow_file_uploads"]
     assert_equal 100.megabytes, default_settings["file_upload_limit"]
   end
 

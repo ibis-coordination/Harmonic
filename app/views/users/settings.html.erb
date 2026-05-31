@@ -161,11 +161,35 @@
     <% workspace = @settings_user.private_workspace %>
     <% if workspace %>
       <% trio_active = workspace.trio_user_id.present? %>
+      <% workspace_tier_locked = @current_tenant.feature_enabled?("stripe_billing") && !workspace.paid_tier? && !workspace.is_main_collective? %>
       <%= render 'shared/pulse_accordion', title: 'Workspace AI Assistant' do %>
+        <div style="margin-bottom: 12px;">
+          <%= render 'shared/collective_tier_badge', collective: workspace %>
+        </div>
+
+        <% if workspace_tier_locked %>
+          <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
+            <%= octicon 'credit-card', height: 12 %>
+            Trio is a paid feature.
+            <% if workspace.requires_stripe_billing? %>
+              Your workspace billing has lapsed — restore your subscription to resume.
+              <%= button_to "Resume billing", "/billing", method: :get,
+                            class: "pulse-action-btn",
+                            form: { style: "display: inline; margin-top: 8px;" } %>
+            <% else %>
+              Upgrade your workspace to the paid plan ($3/month) to enable it.
+              <%# Link to the GET upgrade preview, which shows the prorated %>
+              <%# charge (for users with billing) or explains the Stripe %>
+              <%# Checkout next step (for users without). %>
+              <a href="<%= workspace.path %>/upgrade" class="pulse-action-btn" style="margin-top: 8px;">Upgrade Workspace to Paid ($3/month)</a>
+            <% end %>
+          </p>
+        <% end %>
+
         <%= form_with url: "/u/#{@settings_user.handle}/settings/workspace_trio", class: 'pulse-form' do |form| %>
           <div class="pulse-form-section">
             <label class="pulse-checkbox-label">
-              <%= form.check_box :feature_trio, { checked: trio_active }, "true", "false" %>
+              <%= form.check_box :feature_trio, { checked: trio_active, disabled: workspace_tier_locked }, "true", "false" %>
               <span>
                 <strong>Enable Trio in my workspace</strong>
                 <span class="pulse-form-hint" style="display: block; margin-top: 2px;">
@@ -178,7 +202,7 @@
             </label>
           </div>
           <div class="pulse-form-actions">
-            <%= form.submit 'Save', class: 'pulse-action-btn-primary' %>
+            <%= form.submit 'Save', class: 'pulse-action-btn-primary', disabled: workspace_tier_locked %>
           </div>
         <% end %>
       <% end %>
