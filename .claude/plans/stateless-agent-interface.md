@@ -58,6 +58,13 @@ so this removes a fiction rather than adding machinery.
 3. **Rename `navigate` → `fetch_page`.** The rename signals there is no location. Pairs as
    `fetch_page` (read) + `execute_action` (write). `search` / `get_help` stay as thin wrappers,
    minus the cursor side-effect.
+4. **Keep the existing short "Action Success / Action Error" body; do not re-render the
+   resource page on success.** The short body gives the agent an explicit, unambiguous
+   confirmation of what happened. Agents that want fresh state can call `fetch_page` themselves
+   when they actually need it; the API doesn't force a re-fetch every time. (Rejected:
+   collapsing act→read into one response; would have required also extending `redirect_to:` to
+   md for destructive actions and adding a `?brief=true`/size-cap knob to control bigger
+   responses — complexity the success body doesn't earn.)
 
 ## Two facts that make Tier 1 a prerequisite (not an enhancement)
 
@@ -117,41 +124,14 @@ always current, recovers in one shot.
   handler runs and returns 403 (from Phase 1). Appending the available-actions list to that 403
   would be useful but requires either changing each authorization-rejection site or extracting a
   shared `available_actions_for_current_route` call into `render_action_error` — neither is small.
-  In practice this case is rare: Phase 5's stateless markdown already filters the shown actions
-  to authorized-only, so the agent shouldn't try unauthorized ones. Punted; the 404 catch-all
-  covers the common case (typo, hallucinated name, action defined elsewhere).
+  In practice this case is rare: the markdown frontmatter Rails returns already filters
+  the listed actions by authorization (via `available_actions_for_current_route`), so an agent
+  acting on what the response showed it shouldn't try unauthorized actions. Punted; the 404
+  catch-all covers the common case (typo, hallucinated name, action defined elsewhere).
 - Tests: unknown action name → `404` + lists valid actions; a valid action still routes to its
   explicit handler (no regression); GET to an unknown `describe_*` also handled.
 
-### Phase 3 — Rails: self-describing responses (Tier 2, ergonomics)
-
-- **Explicit `path:` field** in every page/action response (frontmatter), sourced from the
-  existing `resource.path`. Serves decision #1 — the agent reads the canonical path directly
-  instead of splitting an action URL at `/actions/`.
-- **Return the updated representation on success.** `render_action_success`
-  ([action_success.md.erb](app/views/shared/action_success.md.erb)) renders the full re-rendered
-  representation of the **invoked `path`** (the page the action was posted to) with fresh action
-  links — the same body `fetch_page` returns — not just `"Note created."` + a link. Collapses
-  act→read into one call.
-- **Default = re-render the invoked path; callers may pass `redirect_to:` to point elsewhere.**
-  `render_action_success` already accepts a `redirect_to:` local for the HTML path; extend its
-  semantic to md/json. Used by destructive actions: `delete_note` passes the collective path,
-  since `/n/abc` no longer resolves after success. No per-class branching in the framework — the
-  per-action decision lives in the controller, one line.
-- **Size control: default full re-render with a response-level cap (~8KB), opt into brief via
-  `?brief=true`.** Returning the representation is only worth the round-trip-saved if it's actually
-  useful — if the default is brief, agents will re-fetch anyway and we've gained nothing. The cap
-  prevents pathological pages (long comment threads, large notes indexes) from blowing the context
-  window. Implementation: response-level truncation distinct from the existing per-content
-  `truncate_content` helper, which operates on individual content blobs supplied by views.
-- Creates are the one sub-case that *also* has a freshly-made resource in hand — link to (or
-  return) the new resource's page in addition to re-rendering the invoked page.
-- Tests: response includes a `path:` field; a mutating action's success body re-renders the
-  invoked page with fresh action links; a destructive action (`delete_note`) returns the parent
-  via `redirect_to:`; `create_note` additionally surfaces the new note; `?brief=true` returns a
-  compact body; oversize responses are capped.
-
-### Phase 4 — MCP server: go stateless
+### Phase 3 — MCP server: go stateless
 
 - Delete `State` / `createState` / the `currentPath` plumbing
   ([handlers.ts:13-20](mcp-server/src/handlers.ts#L13-L20)).
@@ -171,7 +151,7 @@ always current, recovers in one shot.
   prior fetch; URL built from passed `path`; error status surfaces `isError: true`. Remove the
   now-obsolete "navigate first" tests.
 
-### Phase 5 — agent-runner: go stateless
+### Phase 4 — agent-runner: go stateless
 
 - Drop `currentActions` and the `validateAction` gate; drop `currentPath`/`currentContent`/
   `lastActionResult` as *state* (last result already lives in the message history).
@@ -188,7 +168,7 @@ always current, recovers in one shot.
   from turn 1 without replay; invalid action surfaces the Rails 404 body. Remove the
   client-side-rejection test.
 
-### Phase 6 — docs
+### Phase 5 — docs
 
 - [docs/AGENT_RUNNER.md](docs/AGENT_RUNNER.md), `mcp-server/CONTEXT.md`, and any `/help` markdown
   that describes "navigate then act."
@@ -198,12 +178,12 @@ always current, recovers in one shot.
 
 ## Sequencing & safety
 
-- **Phases 1–2 must land before Phase 5** (and before 4 if 4 drops the client guard). They are
+- **Phases 1–2 must land before Phase 4** (and before 3 if 3 drops the client guard). They are
   the trade for deleting client-side validation: without honest status codes + teaching errors,
   a stateless client fails opaquely.
-- Phases 1–3 (Rails) are independently shippable and backwards-compatible with today's stateful
-  clients — a stateful client tolerates a richer success body and honest status codes fine.
-- Phases 4 and 5 are independent of each other (separate clients) once Rails is ready.
+- Phases 1–2 (Rails) are independently shippable and backwards-compatible with today's stateful
+  clients — a stateful client tolerates honest status codes fine.
+- Phases 3 and 4 are independent of each other (separate clients) once Rails is ready.
 
 ## Tradeoffs / risks
 
@@ -211,10 +191,8 @@ always current, recovers in one shot.
   centralized, always current). Risk only if Phase 2 slips.
 - **Hallucinated action URLs** (agent guesses `/actions/delete`) → Rails rejects via auth +
   teaching `404`. Security was never client-side; only error quality changes.
-- **Larger action responses** (Phase 3 returns full representation) → token cost; mitigated by
-  the ~8KB response cap and the `?brief=true` opt-out.
-- **Agent threads `path` every call** → path is always in recent context; explicit `path:` field
-  (Phase 3) removes the URL-splitting step.
+- **Agent threads `path` every call** → path is always in recent context, and every page
+  response's frontmatter has the action URLs the agent can copy verbatim.
 - **"Currently viewing X" observability in chat** → keep as a *display* derived from the last
   fetch step; do not let it gate actions.
 
