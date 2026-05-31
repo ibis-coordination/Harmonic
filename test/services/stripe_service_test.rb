@@ -177,6 +177,38 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal "sub_test123", sc.stripe_subscription_id
   end
 
+  test "handle_webhook checkout.session.completed overwrites a stale subscription_id from a previously cancelled subscription" do
+    # Re-upgrade-after-zero-quantity-cancel scenario: user dropped to zero
+    # paid resources, sync_subscription_quantity! cancelled their Stripe
+    # subscription and set sc.active=false but left stripe_subscription_id
+    # in place for history. Now the user re-upgrades a collective →
+    # StripeCheckoutService creates a brand new subscription. The webhook
+    # must overwrite the stale ID, not just flip active=true — otherwise
+    # subsequent sync_subscription_quantity! calls would target a dead
+    # subscription.
+    sc = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_reup123",
+      stripe_subscription_id: "sub_old_cancelled",
+      active: false,
+    )
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: {
+        "customer" => "cus_reup123",
+        "subscription" => "sub_brand_new",
+      },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    sc.reload
+    assert sc.active, "customer must be reactivated after fresh checkout"
+    assert_equal "sub_brand_new", sc.stripe_subscription_id,
+                 "webhook must overwrite the stale subscription_id with the new one"
+  end
+
   test "handle_webhook customer.subscription.updated deactivates on cancel" do
     sc = StripeCustomer.create!(
       billable: @user,
