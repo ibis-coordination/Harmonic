@@ -300,13 +300,83 @@ class StripeServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "sync_subscription_quantity! is no-op for billing_exempt user" do
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
+  test "sync_subscription_quantity! cancels subscription for a billing_exempt user (their billable_quantity is zero)" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_exempt", active: true, stripe_subscription_id: "sub_exempt")
     @user.update!(billing_exempt: true)
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_exempt")
+      .to_return(status: 200,
+                 body: { id: "sub_exempt", object: "subscription", status: "canceled" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
 
     StripeService.sync_subscription_quantity!(@user)
 
-    assert_not_requested(:any, /api\.stripe\.com/)
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_exempt", at_least_times: 1
+    assert_not sc.reload.active?
+  end
+
+  # === Zero quantity: subscription must be cancelled, not silently ignored ===
+  #
+  # Regression for the bug where a user who downgraded/archived their LAST
+  # paid resource was silently kept on the subscription (Stripe rejects
+  # quantity=0, so the service early-returned without doing anything). The
+  # user kept getting charged $3/mo for nothing, and we told them their
+  # downgrade succeeded. These tests pin the corrected behavior: cancel the
+  # subscription, mark the local StripeCustomer inactive, return success.
+
+  test "sync_subscription_quantity! cancels Stripe subscription when new_quantity drops to zero" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_drop_zero", active: true, stripe_subscription_id: "sub_drop_zero")
+    # @user has no agents and is a human → billable_quantity is 0
+
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_drop_zero")
+      .to_return(
+        status: 200,
+        body: { id: "sub_drop_zero", object: "subscription", status: "canceled" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert result.success, "sync should report success after cancelling the subscription"
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_drop_zero", at_least_times: 1
+    assert_not sc.reload.active?, "local StripeCustomer must be marked inactive after cancellation"
+  end
+
+  test "sync_subscription_quantity! returns failure SyncResult with error when Stripe cancellation fails" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_cancel_fail", active: true, stripe_subscription_id: "sub_cancel_fail")
+
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_cancel_fail")
+      .to_return(status: 500, body: { error: { message: "stripe is down" } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert_not result.success, "sync should report failure when Stripe rejects the cancel"
+    assert result.error.present?, "failure result must carry an error message for the caller to surface"
+    assert sc.reload.active?, "local StripeCustomer must remain active when cancellation failed (avoid drift)"
+  end
+
+  test "sync_subscription_quantity! returns failure SyncResult with error when Stripe quantity update fails" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_update_fail", active: true, stripe_subscription_id: "sub_update_fail")
+    agent = create_ai_agent(parent: @user, name: "Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_update_fail")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_update_fail", object: "subscription", status: "active",
+          items: { data: [{ id: "si_update_fail", quantity: 5, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_update_fail")
+      .to_return(status: 500, body: { error: { message: "stripe is down" } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert_not result.success, "sync should report failure when Stripe rejects the quantity update"
+    assert result.error.present?, "failure result must carry an error message"
   end
 
   test "sync_subscription_quantity! is no-op without active subscription" do
@@ -319,13 +389,17 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "sync_subscription_quantity! logs and does not raise on Stripe failure" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_fail", active: true, stripe_subscription_id: "sub_fail")
-
-    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_fail")
+    # @user has no agents → billable_quantity is 0 → cancellation path. Stub
+    # the DELETE to fail and confirm we swallow the StripeError gracefully and
+    # return a failure SyncResult (instead of raising up to the caller).
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_fail")
       .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
 
+    result = nil
     assert_nothing_raised do
-      StripeService.sync_subscription_quantity!(@user)
+      result = StripeService.sync_subscription_quantity!(@user)
     end
+    assert_not result.success
   end
 
   test "sync_subscription_quantity! excludes archived and suspended agents from count" do
@@ -417,14 +491,22 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "sync_subscription_quantity! skips Stripe update when quantity unchanged" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_noop", active: true, stripe_subscription_id: "sub_noop")
+    # Two active agents → billable_quantity == 2, matches the stubbed Stripe
+    # quantity below. The "skip if unchanged" branch should fire and we
+    # should NOT POST to subscription_items. (Previously this test set up
+    # no agents → quantity=0 → it was actually exercising the now-cancelled
+    # zero-quantity short-circuit, not the unchanged-quantity branch.)
+    agent_a = create_ai_agent(parent: @user, name: "Noop A #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent_a)
+    agent_b = create_ai_agent(parent: @user, name: "Noop B #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent_b)
 
-    # No agents — quantity should be 1, which matches the current subscription
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_noop")
       .to_return(
         status: 200,
         body: {
-          id: "sub_noop", object: "subscription",
-          items: { data: [{ id: "si_noop", quantity: 1, price: { id: "price_test" } }] },
+          id: "sub_noop", object: "subscription", status: "active",
+          items: { data: [{ id: "si_noop", quantity: 2, price: { id: "price_test" } }] },
         }.to_json,
         headers: { "Content-Type" => "application/json" },
       )
@@ -1161,26 +1243,24 @@ class StripeServiceTest < ActiveSupport::TestCase
     end
   end
 
-  test "sync_subscription_quantity! is no-op when all resources are exempt (quantity zero)" do
+  test "sync_subscription_quantity! cancels the subscription when all resources are exempt (quantity zero)" do
     @user.update!(billing_exempt: true)
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_allexempt", active: true, stripe_subscription_id: "sub_allexempt")
 
-    # No non-exempt agents or collectives — quantity should be 0
-    # But quantity 0 means no subscription needed, so this should be a no-op
-    # (Stripe doesn't allow quantity 0 on a subscription item)
-    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_allexempt")
-      .to_return(
-        status: 200,
-        body: {
-          id: "sub_allexempt", object: "subscription",
-          items: { data: [{ id: "si_allexempt", quantity: 1, price: { id: "price_test" } }] },
-        }.to_json,
-        headers: { "Content-Type" => "application/json" },
-      )
+    # billable_quantity is 0 because the user is exempt. The corrected
+    # behavior is to cancel the subscription, not silently leave the user
+    # being charged — see "cancels Stripe subscription when new_quantity
+    # drops to zero" above for the regression context.
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_allexempt")
+      .to_return(status: 200,
+                 body: { id: "sub_allexempt", object: "subscription", status: "canceled" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
 
-    # Should NOT try to set quantity to 0
     StripeService.sync_subscription_quantity!(@user)
 
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_allexempt", at_least_times: 1
+    assert_not sc.reload.active?
+    # Must NOT try to set quantity to 0 (Stripe rejects that)
     assert_not_requested(:post, "https://api.stripe.com/v1/subscription_items/si_allexempt")
   end
 

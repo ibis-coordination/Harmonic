@@ -6,7 +6,11 @@ class StripeService
 
   class SyncResult < T::Struct
     const :success, T::Boolean
-    const :charged_cents, T.nilable(Integer)
+    const :charged_cents, T.nilable(Integer), default: nil
+    # Human-readable error message when success is false. Callers should
+    # surface this to the user (don't claim the action succeeded if it
+    # didn't actually update Stripe).
+    const :error, T.nilable(String), default: nil
   end
 
   # Find or create a StripeCustomer record for the given billable (User, Collective, etc.)
@@ -78,18 +82,28 @@ class StripeService
 
   # Recalculate and update the Stripe subscription quantity for a user.
   # Sums all billable resources across ALL tenants (one subscription per user).
-  # No-op if user has no active subscription, or if computed quantity is 0.
-  # Returns a SyncResult with success status and optional charged_cents.
-  # Rescues Stripe errors to avoid blocking user actions.
+  # Returns a SyncResult — callers should ALWAYS check .success and surface
+  # .error to the user rather than reporting success unconditionally.
+  #
+  # Behavior:
+  # - No active subscription: no-op, success.
+  # - billable_quantity == 0 + active subscription: cancel the subscription
+  #   and mark the local StripeCustomer inactive. (Previously short-circuited,
+  #   leaving the user being charged $3/mo for nothing — see test
+  #   "cancels Stripe subscription when new_quantity drops to zero".)
+  # - billable_quantity > 0: update the subscription item quantity. Charge
+  #   prorated invoice on increase; Stripe applies a credit on decrease.
+  # - Stripe API error: returns success: false with a human-readable error.
   sig { params(user: T.untyped).returns(SyncResult) }
   def self.sync_subscription_quantity!(user)
     sc = user.stripe_customer
-    return SyncResult.new(success: true, charged_cents: nil) unless sc&.active? && sc.stripe_subscription_id.present?
+    return SyncResult.new(success: true) unless sc&.active? && sc.stripe_subscription_id.present?
 
     new_quantity = user.billable_quantity
 
-    # Stripe doesn't allow quantity 0 on a subscription item — skip if nothing to bill
-    return SyncResult.new(success: true, charged_cents: nil) if new_quantity == 0
+    if new_quantity == 0
+      return cancel_subscription_for_zero_quantity!(sc, user)
+    end
 
     # Retrieve the subscription to get the item ID — quantity must be set on the item, not the subscription
     subscription = Stripe::Subscription.retrieve(sc.stripe_subscription_id)
@@ -100,16 +114,16 @@ class StripeService
       Rails.logger.warn("[StripeService] Subscription #{sc.stripe_subscription_id} is #{subscription.status} — deactivating locally for user #{user.id}")
       sc.update!(active: false)
       deactivate_resources_for_customer(sc, reason: "Subscription #{subscription.status}")
-      return SyncResult.new(success: false, charged_cents: nil)
+      return SyncResult.new(success: false, error: "Stripe reports subscription as #{subscription.status}.")
     end
 
     item = subscription.items.data.first
-    return SyncResult.new(success: true, charged_cents: nil) unless item
+    return SyncResult.new(success: true) unless item
 
     old_quantity = item.quantity
 
     # Skip if quantity hasn't changed (avoids unnecessary API calls and proration events)
-    return SyncResult.new(success: true, charged_cents: nil) if new_quantity == old_quantity
+    return SyncResult.new(success: true) if new_quantity == old_quantity
 
     Stripe::SubscriptionItem.update(item.id, quantity: new_quantity)
     Rails.logger.info("[StripeService] Updated subscription item #{item.id} quantity from #{old_quantity} to #{new_quantity} for user #{user.id}")
@@ -125,10 +139,27 @@ class StripeService
       return SyncResult.new(success: true, charged_cents: invoice.amount_due)
     end
 
-    SyncResult.new(success: true, charged_cents: nil)
+    SyncResult.new(success: true)
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to update subscription quantity for user #{user.id}: #{e.message}")
-    SyncResult.new(success: false, charged_cents: nil)
+    SyncResult.new(success: false, error: "Billing system error: #{e.message}")
+  end
+
+  # User has dropped to zero billable resources. Cancel the Stripe
+  # subscription so they actually stop being charged, and mark the local
+  # StripeCustomer inactive. Leaves stripe_subscription_id in place for
+  # historical reference; the active=false flag is what gates future syncs.
+  # A future paid resource creation goes through BillingController#setup,
+  # which creates a fresh subscription.
+  sig { params(sc: StripeCustomer, user: T.untyped).returns(SyncResult) }
+  def self.cancel_subscription_for_zero_quantity!(sc, user)
+    Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id))
+    sc.update!(active: false)
+    Rails.logger.info("[StripeService] Cancelled subscription #{sc.stripe_subscription_id} for user #{user.id} (billable_quantity dropped to 0)")
+    SyncResult.new(success: true)
+  rescue Stripe::StripeError => e
+    Rails.logger.error("[StripeService] Failed to cancel subscription for user #{user.id}: #{e.message}")
+    SyncResult.new(success: false, error: "Billing system error: could not cancel subscription (#{e.message}).")
   end
 
   # Preview the prorated amount that would be charged for adding one more

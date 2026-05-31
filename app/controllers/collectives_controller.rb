@@ -298,8 +298,14 @@ class CollectivesController < ApplicationController
       return render status: 403, plain: "Only the collective owner can upgrade."
     end
 
-    StripeService.sync_subscription_quantity!(@current_user) if @current_tenant.feature_enabled?("stripe_billing")
-    flash[:notice] = "#{@current_collective.name} is now on the paid plan."
+    sync_result = if @current_tenant.feature_enabled?("stripe_billing")
+      StripeService.sync_subscription_quantity!(@current_user)
+    end
+    flash[:notice] = if sync_result && !sync_result.success
+      "#{@current_collective.name} is now on the paid plan. Your next invoice will reflect this within 24 hours."
+    else
+      "#{@current_collective.name} is now on the paid plan."
+    end
     redirect_to settings_path
   end
 
@@ -316,8 +322,19 @@ class CollectivesController < ApplicationController
       return render status: 403, plain: "Only the collective owner can downgrade."
     end
 
-    StripeService.sync_subscription_quantity!(@current_user) if @current_tenant.feature_enabled?("stripe_billing")
-    flash[:notice] = "#{@current_collective.name} has been downgraded to the free plan."
+    sync_result = if @current_tenant.feature_enabled?("stripe_billing")
+      StripeService.sync_subscription_quantity!(@current_user)
+    end
+
+    # On sync failure, BillingReconciliationJob (daily) will retry and catch
+    # the drift. Tell the customer what they need to know — when the change
+    # reflects — without leaking the underlying Stripe error.
+    flash[:notice] = if sync_result && !sync_result.success
+      "#{@current_collective.name} has been downgraded to the free plan. Your next invoice will reflect this within 24 hours."
+    else
+      "#{@current_collective.name} has been downgraded to the free plan."
+    end
+
     # Allow callers (e.g. the /billing inventory) to keep the user on their page
     # instead of bouncing to settings. Allowlist to known internal paths to
     # prevent open-redirect via a crafted return_to.
@@ -335,14 +352,18 @@ class CollectivesController < ApplicationController
       return redirect_to "#{@current_collective.path}/settings"
     end
 
-    @current_collective.archive!(actor: @current_user)
+    sync_result = @current_collective.archive!(actor: @current_user)
     SecurityAuditLog.log_user_action(
       user: @current_user,
       ip: request.remote_ip,
       action: "collective_archived",
       details: { collective_id: @current_collective.id, tenant_id: @current_tenant.id },
     )
-    flash[:notice] = "#{@current_collective.name} has been archived and downgraded to the free plan. Reactivate it from its settings page."
+    flash[:notice] = if sync_result && !sync_result.success
+      "#{@current_collective.name} has been archived and downgraded to the free plan. Your next invoice will reflect this within 24 hours. Reactivate it from its settings page."
+    else
+      "#{@current_collective.name} has been archived and downgraded to the free plan. Reactivate it from its settings page."
+    end
     redirect_to "#{@current_collective.path}/settings"
   end
 

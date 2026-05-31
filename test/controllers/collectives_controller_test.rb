@@ -1049,6 +1049,117 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
                  "downgrade with return_to=/billing should redirect back to billing"
   end
 
+  # === Stripe billing-honesty regression tests ===
+  #
+  # Pre-this-fix, the controller called sync_subscription_quantity! AFTER the
+  # tier flip and then unconditionally showed "downgraded to free" — even when
+  # the sync failed (or short-circuited on quantity=0, which kept the user on
+  # a $3/mo subscription for nothing). Customer-impact: we said the downgrade
+  # succeeded but they kept getting billed. The principle these tests pin:
+  # NEVER tell the user the downgrade succeeded without verifying the Stripe
+  # side actually moved.
+
+  test "downgrade: when this is the user's only paid resource, cancels Stripe subscription so user stops being charged" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(4)}",
+      stripe_subscription_id: "sub_downgrade_zero",
+      active: true,
+    )
+    @collective.update!(tier: Collective::TIER_PAID)
+    # No other paid resources — post-downgrade billable_quantity will be 0.
+
+    stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_downgrade_zero")
+      .to_return(status: 200,
+                 body: { id: "sub_downgrade_zero", object: "subscription", status: "canceled" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :redirect
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_downgrade_zero", at_least_times: 1
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
+    assert_match(/downgraded/i, flash[:notice].to_s)
+  end
+
+  test "downgrade: flash on Stripe sync failure tells the customer when their invoice will reflect the change (no jargon, no support-punt)" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(4)}",
+      stripe_subscription_id: "sub_dishonest",
+      active: true,
+    )
+    @collective.update!(tier: Collective::TIER_PAID)
+    other = create_test_collective(name: "Other Paid")
+    other.update!(tier: Collective::TIER_PAID)
+
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_dishonest")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_dishonest", object: "subscription", status: "active",
+          items: { data: [{ id: "si_dishonest", quantity: 99, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_dishonest")
+      .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :redirect
+    assert_match(/24 hours/i, flash[:notice].to_s,
+                 "flash must tell the customer when their invoice will reflect the change")
+    # No implementation jargon — customers shouldn't see internal terms.
+    assert_no_match(/\blocally\b|stripe|billing system/i, flash[:notice].to_s,
+                    "flash must not leak internal jargon (\"locally\", \"Stripe\", \"billing system\")")
+  end
+
+  test "downgrade: syncs Stripe subscription quantity for the owner so billing drops" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(4)}",
+      stripe_subscription_id: "sub_downgrade_sync",
+      active: true,
+    )
+    @collective.update!(tier: Collective::TIER_PAID)
+    # Second paid collective so post-downgrade billable_quantity is still > 0
+    # (the Stripe SDK skips quantity-zero updates, which would mask whether
+    # sync was even called).
+    other = create_test_collective(name: "Stays Paid")
+    other.update!(tier: Collective::TIER_PAID)
+
+    # Quantity 99 so the sync's "skip if unchanged" short-circuit doesn't fire
+    # (post-downgrade billable_quantity will be < 99 → the update call runs).
+    stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_downgrade_sync")
+      .to_return(
+        status: 200,
+        body: {
+          id: "sub_downgrade_sync", object: "subscription", status: "active",
+          items: { data: [{ id: "si_downgrade_sync", quantity: 99, price: { id: "price_test" } }] },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/subscription_items/si_downgrade_sync")
+      .to_return(status: 200, body: { id: "si_downgrade_sync", object: "subscription_item" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/downgrade"
+
+    assert_response :redirect
+    assert_equal Collective::TIER_FREE, @collective.reload.tier
+    # downgrade must hit Stripe to update the subscription quantity
+    assert_requested :post, "https://api.stripe.com/v1/subscription_items/si_downgrade_sync",
+                     at_least_times: 1
+  end
+
   test "archive: redirects to /reverify when 2FA is enabled and not yet reverified" do
     identity = @user.find_or_create_omni_auth_identity!
     identity.generate_otp_secret!

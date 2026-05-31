@@ -115,8 +115,14 @@ class BillingController < ApplicationController
     end
 
     agent.archive!
-    StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
-    flash[:notice] = "#{agent.display_name} has been deactivated."
+    sync_result = if current_tenant.feature_enabled?("stripe_billing")
+      StripeService.sync_subscription_quantity!(current_user)
+    end
+    flash[:notice] = if sync_result && !sync_result.success
+      "#{agent.display_name} has been deactivated. Your next invoice will reflect this within 24 hours."
+    else
+      "#{agent.display_name} has been deactivated."
+    end
     redirect_to billing_show_path
   end
 
@@ -144,6 +150,10 @@ class BillingController < ApplicationController
     end
     agent.unarchive!
     result = StripeService.sync_subscription_quantity!(current_user) if current_tenant.feature_enabled?("stripe_billing")
+    if result && !result.success
+      flash[:notice] = "#{agent.display_name} has been reactivated. Your next invoice will reflect this within 24 hours."
+      return redirect_to billing_show_path
+    end
     charged_cents = result&.charged_cents
     notice = "#{agent.display_name} has been reactivated."
     notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
