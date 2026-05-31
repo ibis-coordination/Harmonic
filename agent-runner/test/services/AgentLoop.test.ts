@@ -67,15 +67,15 @@ function makeNavigateToolCall(path: string, id = "call_1") {
   return {
     id,
     type: "function" as const,
-    function: { name: "navigate", arguments: JSON.stringify({ path }) },
+    function: { name: "fetch_page", arguments: JSON.stringify({ path }) },
   };
 }
 
-function makeExecuteToolCall(action: string, params: Record<string, unknown> = {}, id = "call_1") {
+function makeExecuteToolCall(action: string, params: Record<string, unknown> = {}, id = "call_1", path = "/") {
   return {
     id,
     type: "function" as const,
-    function: { name: "execute_action", arguments: JSON.stringify({ action, params }) },
+    function: { name: "execute_action", arguments: JSON.stringify({ path, action, params }) },
   };
 }
 
@@ -340,7 +340,7 @@ describe("AgentLoop", () => {
     expect(execSteps[0]?.detail["success"]).toBe(true);
   });
 
-  it("rejects invalid action with error in step detail", async () => {
+  it("posts execute_action to Rails regardless of the agent's idea of what's valid (Rails is sole authority)", async () => {
     const state = createMockState();
     await runWithMocks(
       makeTask(),
@@ -348,7 +348,7 @@ describe("AgentLoop", () => {
       [
         makeLLMResponse({
           content: null,
-          toolCalls: [makeExecuteToolCall("delete_everything")],
+          toolCalls: [makeExecuteToolCall("delete_everything", {}, "call_1", "/n/abc")],
           finishReason: "tool_calls",
         }),
         makeLLMResponse({ content: "Ok I'll stop", toolCalls: [], finishReason: "stop" }),
@@ -356,15 +356,42 @@ describe("AgentLoop", () => {
       {
         "/whoami": { content: WHOAMI_CONTENT, availableActions: ["create_note"] },
       },
+      {
+        // Rails returns a teaching 404 for this unknown action; the agent
+        // should surface that to the LLM rather than reject client-side.
+        "delete_everything": { content: "404: action not defined here", success: false },
+      },
     );
 
-    // Action should NOT be sent to Harmonic
-    expect(state.executeActions).not.toContain("delete_everything");
-
+    // The action IS sent to Rails — no client-side gate.
+    expect(state.executeActions).toContain("delete_everything");
     const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
     expect(execSteps.length).toBe(1);
     expect(execSteps[0]?.detail["success"]).toBe(false);
-    expect(execSteps[0]?.detail["error"]).toContain("Invalid action");
+  });
+
+  it("execute_action works with no prior fetch_page (statelessness)", async () => {
+    const state = createMockState();
+    await runWithMocks(
+      makeTask(),
+      state,
+      [
+        // First LLM call jumps straight to execute_action — no preceding fetch_page.
+        makeLLMResponse({
+          content: null,
+          toolCalls: [makeExecuteToolCall("create_note", { text: "hi" }, "call_1", "/collectives/team/note")],
+          finishReason: "tool_calls",
+        }),
+        makeLLMResponse({ content: "Done", toolCalls: [], finishReason: "stop" }),
+      ],
+      undefined,
+      { "create_note": { content: "Note created", success: true } },
+    );
+
+    expect(state.executeActions).toContain("create_note");
+    expect(state.executeActionPaths).toContain("/collectives/team/note");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    expect(execSteps[0]?.detail["success"]).toBe(true);
   });
 
   it("stops at max_steps with failure", async () => {
@@ -834,7 +861,7 @@ describe("AgentLoop", () => {
     expect(toolResultMsg!.content).toContain("/broken-page");
   });
 
-  it("Bug 1c: executeAction uses resolved path after redirect", async () => {
+  it("navigate step records the resolved path from a redirect", async () => {
     const state = createMockState();
     const WORKSPACE_CONTENT = "---\nactions:\n  - name: create_note\n---\n# Workspace";
 
@@ -842,21 +869,12 @@ describe("AgentLoop", () => {
       makeTask(),
       state,
       [
-        // LLM navigates to /workspace (which "redirects" to /workspace/abc123)
         makeLLMResponse({
           content: null,
           toolCalls: [makeNavigateToolCall("/workspace")],
           finishReason: "tool_calls",
         }),
-        // LLM executes create_note (should POST to /workspace/abc123, not /workspace)
-        makeLLMResponse({
-          content: null,
-          toolCalls: [makeExecuteToolCall("create_note", { text: "hello" })],
-          finishReason: "tool_calls",
-        }),
-        // LLM done
-        makeLLMResponse({ content: "Created note", toolCalls: [], finishReason: "stop" }),
-        // Scratchpad
+        makeLLMResponse({ content: "Done", toolCalls: [], finishReason: "stop" }),
         makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
       ],
       undefined,
@@ -872,14 +890,11 @@ describe("AgentLoop", () => {
       },
     );
 
-    expect(state.completeCalled).toBe(true);
-    expect(state.executeActions).toContain("create_note");
-
-    // executeAction should have been called with the resolved path, not the original
-    expect(state.executeActionPaths).toContain("/workspace/abc123");
-    expect(state.executeActionPaths).not.toContain("/workspace");
-
-    // The navigate step should record the resolved path
+    // The agent-runner no longer tracks "current path" or threads the
+    // resolved path into the next execute_action — the LLM reads the
+    // resolved path from the page frontmatter and supplies it explicitly.
+    // What still matters: the navigate step records the resolved path so
+    // the LLM can see it.
     const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
     const workspaceNav = navSteps.find((s) => s.detail["path"] === "/workspace");
     expect(workspaceNav).toBeDefined();
@@ -1047,16 +1062,11 @@ describe("AgentLoop", () => {
       expect(userTurnCount(firstPrompt, "stale prior question")).toBe(1);
     });
 
-    it("replays the previous turn's current_path so cross-turn actions remain valid", async () => {
-      // Each chat turn replays the saved current_path right after /whoami.
-      // This is intentional and load-bearing: `executeAction` validates the
-      // action name against `currentActions`, which is set by `navigate`. If
-      // turn 1 navigates to a note and turn 2 says "add a comment", the
-      // LLM's execute_action("add_comment") would fail validation unless we
-      // re-establish the page state on turn 2. The replay also re-loads the
-      // page content into the new turn's message context — the chat history
-      // rehydration only carries user/assistant text, not prior navigation
-      // results, so without the replay the LLM has no memory of the page.
+    it("does not replay the previous turn's saved path — every fetch in a new turn is explicit", async () => {
+      // With stateless tools the LLM in turn 2 carries any needed path
+      // forward via its tool calls; the agent-runner doesn't replay a
+      // saved cursor. The only navigation at turn start is /whoami for
+      // fresh identity content.
       const state = createMockState();
       await runWithMocks(
         chatTask("now add a comment"),
@@ -1073,29 +1083,37 @@ describe("AgentLoop", () => {
         },
       );
 
-      expect(state.navigatePaths).toEqual([
-        "/whoami",
-        "/collectives/chariot/n/abc123",
-      ]);
+      expect(state.navigatePaths).toEqual(["/whoami"]);
     });
 
-    it("does not replay current_path when it equals /whoami", async () => {
-      // /whoami is the always-first navigation; skipping the replay when it
-      // would land on the same place avoids a duplicate fetch.
+    it("turn 2 can execute_action on a resource from turn 1 without replay", async () => {
+      // The LLM in turn 2 supplies the path explicitly; the agent-runner
+      // posts it through. No client-side action gate, no path memory needed.
       const state = createMockState();
       await runWithMocks(
-        chatTask("hello"),
+        chatTask("add a comment to that note"),
         state,
-        [makeLLMResponse({ content: "hi" })],
+        [
+          makeLLMResponse({
+            content: null,
+            toolCalls: [makeExecuteToolCall("add_comment", { text: "thanks" }, "call_1", "/collectives/chariot/n/abc123")],
+            finishReason: "tool_calls",
+          }),
+          makeLLMResponse({ content: "added", toolCalls: [], finishReason: "stop" }),
+        ],
         undefined,
-        undefined,
+        { "add_comment": { content: "Comment added", success: true } },
         {
-          chatHistory: [{ role: "user", content: "first" }],
-          chatCurrentPath: "/whoami",
+          chatHistory: [
+            { role: "user", content: "please read this note" },
+            { role: "assistant", content: "It says X" },
+          ],
+          chatCurrentPath: "/collectives/chariot/n/abc123",
         },
       );
 
-      expect(state.navigatePaths).toEqual(["/whoami"]);
+      expect(state.executeActions).toContain("add_comment");
+      expect(state.executeActionPaths).toContain("/collectives/chariot/n/abc123");
     });
   });
 
@@ -1132,7 +1150,7 @@ describe("AgentLoop", () => {
       const toolCalls = firstThink?.detail["tool_calls"] as ReadonlyArray<{ name: string; arguments: string }>;
       expect(toolCalls).toBeDefined();
       expect(toolCalls.length).toBe(2);
-      expect(toolCalls[0]?.name).toBe("navigate");
+      expect(toolCalls[0]?.name).toBe("fetch_page");
       expect(toolCalls[0]?.arguments).toContain('"path":"/notifications"');
       expect(toolCalls[1]?.name).toBe("execute_action");
       expect(toolCalls[1]?.arguments).toContain('"action":"mark_read"');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseToolCalls, validateAction } from "../../src/core/ActionParser.js";
+import { parseToolCalls } from "../../src/core/ActionParser.js";
 
 describe("parseToolCalls", () => {
   it("returns done when no tool calls", () => {
@@ -12,35 +12,36 @@ describe("parseToolCalls", () => {
     expect(result).toEqual([{ type: "done", content: "Finished" }]);
   });
 
-  it("parses navigate tool call", () => {
+  it("parses fetch_page tool call", () => {
     const result = parseToolCalls(
       [{
         id: "call_1",
         type: "function",
         function: {
-          name: "navigate",
+          name: "fetch_page",
           arguments: '{"path": "/notifications"}',
         },
       }],
       undefined,
     );
-    expect(result).toEqual([{ type: "navigate", path: "/notifications" }]);
+    expect(result).toEqual([{ type: "fetch_page", path: "/notifications" }]);
   });
 
-  it("parses execute_action tool call", () => {
+  it("parses execute_action tool call with path", () => {
     const result = parseToolCalls(
       [{
         id: "call_2",
         type: "function",
         function: {
           name: "execute_action",
-          arguments: '{"action": "create_note", "params": {"body": "Hello"}}',
+          arguments: '{"path": "/collectives/team/note", "action": "create_note", "params": {"body": "Hello"}}',
         },
       }],
       undefined,
     );
     expect(result).toEqual([{
       type: "execute_action",
+      path: "/collectives/team/note",
       action: "create_note",
       params: { body: "Hello" },
     }]);
@@ -53,16 +54,50 @@ describe("parseToolCalls", () => {
         type: "function",
         function: {
           name: "execute_action",
-          arguments: '{"action": "confirm_read"}',
+          arguments: '{"path": "/n/abc", "action": "confirm_read"}',
         },
       }],
       undefined,
     );
     expect(result).toEqual([{
       type: "execute_action",
+      path: "/n/abc",
       action: "confirm_read",
       params: undefined,
     }]);
+  });
+
+  it("returns error for execute_action without path", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_x",
+        type: "function",
+        function: {
+          name: "execute_action",
+          arguments: '{"action": "create_note"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+    if (result[0]?.type === "error") {
+      expect(result[0].message).toContain("path");
+    }
+  });
+
+  it("returns error for execute_action with empty path", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_y",
+        type: "function",
+        function: {
+          name: "execute_action",
+          arguments: '{"path": "", "action": "create_note"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
   });
 
   it("returns error for invalid JSON arguments", () => {
@@ -70,7 +105,7 @@ describe("parseToolCalls", () => {
       [{
         id: "call_4",
         type: "function",
-        function: { name: "navigate", arguments: "not json" },
+        function: { name: "fetch_page", arguments: "not json" },
       }],
       undefined,
     );
@@ -92,12 +127,12 @@ describe("parseToolCalls", () => {
     }
   });
 
-  it("returns error for navigate without path", () => {
+  it("returns error for fetch_page without path", () => {
     const result = parseToolCalls(
       [{
         id: "call_6",
         type: "function",
-        function: { name: "navigate", arguments: "{}" },
+        function: { name: "fetch_page", arguments: "{}" },
       }],
       undefined,
     );
@@ -188,18 +223,5 @@ describe("parseToolCalls", () => {
       undefined,
     );
     expect(result[0]?.type).toBe("error");
-  });
-});
-
-describe("validateAction", () => {
-  it("validates available action", () => {
-    const result = validateAction("create_note", ["create_note", "vote"]);
-    expect(result.valid).toBe(true);
-  });
-
-  it("rejects unavailable action", () => {
-    const result = validateAction("delete_everything", ["create_note", "vote"]);
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain("not available");
   });
 });

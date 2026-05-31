@@ -5,7 +5,7 @@ describe("buildSystemPrompt", () => {
   it("includes what Harmonic is", () => {
     const prompt = buildSystemPrompt("", undefined);
     expect(prompt).toContain("group coordination application");
-    expect(prompt).toContain("navigating pages");
+    expect(prompt).toContain("reading pages");
   });
 
   it("includes domain quick reference table", () => {
@@ -46,12 +46,12 @@ describe("buildSystemPrompt", () => {
   it("includes discovery strategy", () => {
     const prompt = buildSystemPrompt("", undefined);
     expect(prompt).toContain("Start at `/whoami`");
-    expect(prompt).toContain("navigate to the relevant `/help` page");
+    expect(prompt).toContain("fetch_page");
   });
 
   it("includes tool instructions", () => {
     const prompt = buildSystemPrompt("", undefined);
-    expect(prompt).toContain("navigate");
+    expect(prompt).toContain("fetch_page");
     expect(prompt).toContain("execute_action");
     expect(prompt).toContain("search");
     expect(prompt).toContain("get_help");
@@ -98,6 +98,15 @@ describe("buildChatSystemPrompt", () => {
     expect(prompt).toContain("saving it as a note in your workspace");
   });
 
+  it("instructs the agent to surface resource paths in its replies so chat turns can refer back", () => {
+    // Only the assistant's text crosses turn boundaries — tool calls and
+    // their results don't. The agent has to put identifying context in its
+    // reply for follow-up turns to make sense.
+    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    expect(prompt).toMatch(/path|link/i);
+    expect(prompt).toMatch(/tool calls.*(don't|do not)|text persists/i);
+  });
+
   it("includes domain quick reference", () => {
     const prompt = buildChatSystemPrompt("", undefined, undefined);
     expect(prompt).toContain("Harmonic Quick Reference");
@@ -127,23 +136,25 @@ describe("AGENT_TOOLS", () => {
   it("has all four tools", () => {
     expect(AGENT_TOOLS.length).toBe(4);
     expect(AGENT_TOOLS.map((t) => t.function.name)).toEqual([
-      "navigate", "execute_action", "search", "get_help",
+      "fetch_page", "execute_action", "search", "get_help",
     ]);
   });
 
-  it("navigate has path parameter", () => {
-    const nav = AGENT_TOOLS[0];
-    const props = nav?.function.parameters as Record<string, unknown>;
+  it("fetch_page has path parameter", () => {
+    const fetchTool = AGENT_TOOLS[0];
+    const props = fetchTool?.function.parameters as Record<string, unknown>;
     const properties = props["properties"] as Record<string, unknown>;
     expect(properties["path"]).toBeDefined();
   });
 
-  it("execute_action has action and params parameters", () => {
+  it("execute_action has path, action, and params parameters; path and action required", () => {
     const exec = AGENT_TOOLS[1];
     const props = exec?.function.parameters as Record<string, unknown>;
     const properties = props["properties"] as Record<string, unknown>;
+    expect(properties["path"]).toBeDefined();
     expect(properties["action"]).toBeDefined();
     expect(properties["params"]).toBeDefined();
+    expect(props["required"]).toEqual(["path", "action"]);
   });
 
   it("search has query parameter", () => {

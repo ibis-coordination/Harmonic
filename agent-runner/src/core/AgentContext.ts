@@ -23,9 +23,9 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
   {
     type: "function",
     function: {
-      name: "navigate",
+      name: "fetch_page",
       description:
-        "Navigate to a URL in Harmonic. Returns markdown content and available actions. Always navigate before executing actions.",
+        "Read a page in Harmonic. The response is markdown content with a YAML frontmatter that lists each action available at that path, with its name, param schema, and fully-qualified action URL.",
       parameters: {
         type: "object",
         properties: {
@@ -43,20 +43,24 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
     function: {
       name: "execute_action",
       description:
-        "Execute an action at the current URL. Must call navigate first. Only actions listed for the current page will work.",
+        "Invoke an action at a Harmonic page. Pass the page's path, an action name from that page's frontmatter, and any params the action requires. An action name not defined for the path returns a 404 with the list of valid actions for it.",
       parameters: {
         type: "object",
         properties: {
+          path: {
+            type: "string",
+            description: "Path of the page the action operates on (e.g., '/collectives/team/n/abc123')",
+          },
           action: {
             type: "string",
-            description: "Action name from the available actions list",
+            description: "Action name (from the action list in the page's frontmatter)",
           },
           params: {
             type: "object",
             description: "Parameters for the action (see action's parameter list)",
           },
         },
-        required: ["action"],
+        required: ["path", "action"],
       },
     },
   },
@@ -109,7 +113,7 @@ export const RESPOND_TO_HUMAN_TOOL: ToolDefinition = {
   function: {
     name: "respond_to_human",
     description:
-      "Send a message to the human and end this turn. Use this when you have information to share, need to ask a question, or want to confirm before proceeding. You can chain multiple navigate/execute_action calls before responding.",
+      "Send a message to the human and end this turn. Use this when you have information to share, need to ask a question, or want to confirm before proceeding. You can chain multiple fetch_page/execute_action calls before responding.",
     parameters: {
       type: "object",
       properties: {
@@ -129,7 +133,7 @@ export const RESPOND_TO_HUMAN_TOOL: ToolDefinition = {
 
 const WHAT_IS_HARMONIC = `You are an AI agent operating in Harmonic, a group coordination application where people form collectives to think together, make decisions, and commit to action.
 
-You interact with Harmonic by navigating pages (which return markdown content and available actions) and executing actions on those pages.`;
+You interact with Harmonic by reading pages and acting on them. Each page response is markdown content plus the list of actions available at that path.`;
 
 const DOMAIN_QUICK_REF = `## Harmonic Quick Reference
 
@@ -155,38 +159,40 @@ const NAVIGATION = `## Navigation
 - \`/help\` — Documentation for all Harmonic concepts
 - \`/search?q={query}\` — Search across your collectives
 
-**Page structure:** Every page returns YAML frontmatter (with metadata and available actions) followed by markdown content. Read the frontmatter to discover what actions are available before acting.
+**Page structure:** Every page returns YAML frontmatter followed by markdown content. The frontmatter lists each action available at that path, with its name, param schema, and fully-qualified action URL. Read it to see what's possible before acting.
 
-**Discovery strategy:** Start at \`/whoami\` to learn your context, then navigate to the relevant collective. If you're unsure how a feature works, navigate to the relevant \`/help\` page before acting — it's better to spend one step reading the docs than to guess wrong.`;
+**Discovery strategy:** Start at \`/whoami\` to learn your context, then read the relevant collective's page. If you're unsure how a feature works, read its \`/help\` page first — one step on the docs beats guessing wrong.`;
 
 const TASK_TOOLS = `## Tools
 
-You have four tools: \`navigate\`, \`execute_action\`, \`search\`, and \`get_help\`.
+You have four tools: \`fetch_page\`, \`execute_action\`, \`search\`, and \`get_help\`.
 
-Use \`navigate\` to view any page. The response includes markdown content and a list of available actions.
-Use \`execute_action\` to perform an action on the current page. Only actions listed for the current page will work.
-Use \`search\` to find notes, decisions, commitments, and people across your collectives.
-Use \`get_help\` to read documentation about any Harmonic concept before acting.
+\`fetch_page(path)\` reads any page. The response includes markdown content and the actions available at that path.
+\`execute_action(path, action, params)\` invokes one of those actions. Use action names from the page's frontmatter; if you pass one that isn't defined there, you get a 404 with the list of valid actions for that path.
+\`search\` finds notes, decisions, commitments, and people across your collectives.
+\`get_help\` reads documentation about any Harmonic concept.
 
-Always navigate before executing actions. After each action, check the result. If your task is complete, stop calling tools.`;
+After each action, check the result. If your task is complete, stop calling tools.`;
 
 const CHAT_TOOLS = `## Tools
 
-You have five tools: \`navigate\`, \`execute_action\`, \`search\`, \`get_help\`, and \`respond_to_human\`.
+You have five tools: \`fetch_page\`, \`execute_action\`, \`search\`, \`get_help\`, and \`respond_to_human\`.
 
-Use \`navigate\` to view any page. The response includes markdown content and a list of available actions.
-Use \`execute_action\` to perform an action on the current page. Only actions listed for the current page will work.
-Use \`search\` to find notes, decisions, commitments, and people across your collectives.
-Use \`get_help\` to read documentation about any Harmonic concept before acting.
-Use \`respond_to_human\` to send a message to the human. This ends your turn — the human will see your message and can reply.
+\`fetch_page(path)\` reads any page. The response includes markdown content and the actions available at that path.
+\`execute_action(path, action, params)\` invokes one of those actions. Use action names from the page's frontmatter; if you pass one that isn't defined there, you get a 404 with the list of valid actions for that path.
+\`search\` finds notes, decisions, commitments, and people across your collectives.
+\`get_help\` reads documentation about any Harmonic concept.
+\`respond_to_human\` sends a message to the human and ends your turn — the human will see your message and can reply.
 
-Always navigate before executing actions. You can chain multiple navigations and actions before responding. When you're done or need input, call \`respond_to_human\`.`;
+You can chain reads and actions before responding. When you're done or need input, call \`respond_to_human\`.`;
 
 const CHAT_WORKING_PATTERNS = `## Working Patterns
 
-- Do your work first (navigate, read, act), then summarize what you did via \`respond_to_human\`
+- Do your work first, then summarize via \`respond_to_human\`
 - If a request is ambiguous, ask a clarifying question rather than guessing
 - If you encounter an error, explain what happened and suggest next steps
+- When you reference a specific resource (a note, decision, etc.) in your reply, include its path or link. Only your text persists across turn boundaries — tool calls and their results don't — so the path has to live in the message itself for follow-ups to work
+- If a follow-up is ambiguous and prior messages don't make the resource clear, read or search to find it before acting
 - Before responding to complex or repeated topics, consider searching your private workspace for relevant past learnings
 - After learning something important about a user or topic, consider saving it as a note in your workspace`;
 
