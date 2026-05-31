@@ -9,6 +9,17 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     collective_member = @collective.collective_members.find_by(user: @user)
     collective_member.add_role!("admin") if collective_member
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    # Stripe SDK validates that api_key is set before sending requests, even
+    # when the HTTP layer is stubbed by WebMock. Tests that hit Stripe paths
+    # (upgrade flow, etc.) would otherwise raise Stripe::AuthenticationError
+    # in CI where no Stripe.api_key is configured.
+    @original_stripe_key = Stripe.api_key
+    Stripe.api_key = "sk_test_fake"
+  end
+
+  def teardown
+    Stripe.api_key = @original_stripe_key
   end
 
   def create_test_collective(name: "Test Collective", handle: "test-collective-#{SecureRandom.hex(4)}")

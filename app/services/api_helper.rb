@@ -91,7 +91,13 @@ class ApiHelper
       # Apply optional settings
       collective.settings["all_members_can_invite"] = params[:invitations] == "all_members" if params.has_key?(:invitations)
       collective.settings["any_member_can_represent"] = params[:representation] == "any_member" if params.has_key?(:representation)
-      collective.settings["allow_file_uploads"] = [true, "true", "1"].include?(params[:file_uploads]) if params.has_key?(:file_uploads)
+      # file_uploads writes to the feature_flags hash (the legacy
+      # settings["allow_file_uploads"] key is no longer read — see
+      # Collective#file_attachments_enabled?). Matches update_collective_settings.
+      if params.has_key?(:file_uploads)
+        collective.settings["feature_flags"] ||= {}
+        collective.settings["feature_flags"]["file_attachments"] = [true, "true", "1"].include?(params[:file_uploads])
+      end
       if params.has_key?(:api_enabled)
         collective.settings["feature_flags"] ||= {}
         collective.settings["feature_flags"]["api"] = [true, "true", "1"].include?(params[:api_enabled])

@@ -1990,10 +1990,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET /n/:id/edit/actions/add_attachment describes add_attachment action" do
-    @tenant.settings["allow_file_uploads"] = "true"
-    @tenant.save!
-    @collective.settings["allow_file_uploads"] = "true"
-    @collective.save!
+    @tenant.enable_feature_flag!("file_attachments")
+    @collective.enable_feature_flag!("file_attachments")
     note = create_note(text: "Test note")
 
     get "#{note.path}/edit/actions/add_attachment", headers: @headers
@@ -2006,10 +2004,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "POST /n/:id/edit/actions/add_attachment adds attachment via base64" do
-    @tenant.settings["allow_file_uploads"] = "true"
-    @tenant.save!
-    @collective.settings["allow_file_uploads"] = "true"
-    @collective.save!
+    @tenant.enable_feature_flag!("file_attachments")
+    @collective.enable_feature_flag!("file_attachments")
     note = create_note(text: "Test note for attachment")
     file_content = "Hello, this is test file content"
     encoded_content = Base64.encode64(file_content)
