@@ -151,52 +151,6 @@ class BillingController < ApplicationController
     redirect_to billing_show_path
   end
 
-  # POST /billing/deactivate_collective/:collective_handle
-  def deactivate_collective
-    collective = find_owned_collective
-    return redirect_to billing_show_path unless collective
-
-    if params[:confirm_deactivate] != "1"
-      flash[:error] = "You must confirm deactivation."
-      return redirect_to billing_show_path
-    end
-
-    collective.archive!
-    flash[:notice] = "#{collective.name} has been deactivated."
-    redirect_to billing_show_path
-  end
-
-  # POST /billing/reactivate_collective/:collective_handle
-  def reactivate_collective
-    collective = find_owned_collective
-    return redirect_to billing_show_path unless collective
-
-    # Only paid-tier collectives add to the subscription on reactivation —
-    # free-tier reactivation is a pure unarchive with no billing impact.
-    will_resume_billing = current_tenant.feature_enabled?("stripe_billing") &&
-                          collective.paid_tier? &&
-                          !collective.billing_exempt?
-
-    if will_resume_billing
-      unless current_user.stripe_customer&.active?
-        flash[:error] = "You need an active subscription to reactivate this paid collective. Please set up billing first."
-        return redirect_to billing_show_path
-      end
-
-      if params[:confirm_billing] != "1"
-        flash[:error] = "You must confirm the billing charge to reactivate this paid collective."
-        return redirect_to billing_show_path
-      end
-    end
-
-    result = collective.unarchive!
-    charged_cents = result&.charged_cents
-    notice = "#{collective.name} has been reactivated."
-    notice += " You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)." if charged_cents && charged_cents > 0
-    flash[:notice] = notice
-    redirect_to billing_show_path
-  end
-
   def current_resource_model
     nil
   end

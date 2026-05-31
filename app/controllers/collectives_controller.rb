@@ -335,7 +335,13 @@ class CollectivesController < ApplicationController
       return redirect_to "#{@current_collective.path}/settings"
     end
 
-    @current_collective.archive!
+    @current_collective.archive!(actor: @current_user)
+    SecurityAuditLog.log_user_action(
+      user: @current_user,
+      ip: request.remote_ip,
+      action: "collective_archived",
+      details: { collective_id: @current_collective.id, tenant_id: @current_tenant.id },
+    )
     flash[:notice] = "#{@current_collective.name} has been archived and downgraded to the free plan. Reactivate it from its settings page."
     redirect_to "#{@current_collective.path}/settings"
   end
@@ -348,7 +354,13 @@ class CollectivesController < ApplicationController
   def unarchive
     return render status: 403, plain: "Only the collective owner can reactivate." unless @current_user.id == @current_collective.created_by_id
 
-    @current_collective.unarchive!
+    @current_collective.unarchive!(actor: @current_user)
+    SecurityAuditLog.log_user_action(
+      user: @current_user,
+      ip: request.remote_ip,
+      action: "collective_unarchived",
+      details: { collective_id: @current_collective.id, tenant_id: @current_tenant.id },
+    )
     flash[:notice] = "#{@current_collective.name} has been reactivated on the free plan."
     redirect_to "#{@current_collective.path}/settings"
   end

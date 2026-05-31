@@ -520,27 +520,94 @@ class CollectiveTest < ActiveSupport::TestCase
 
   # === Archive Tests ===
 
-  test "archive! sets archived_at" do
+  test "archive! sets archived_at and archived_by_id" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Archive Test", handle: "archive-test-#{SecureRandom.hex(4)}")
 
     assert_nil collective.archived_at
-    collective.archive!
+    assert_nil collective.archived_by_id
+    collective.archive!(actor: user)
     assert collective.archived?
     assert_not_nil collective.archived_at
+    assert_equal user.id, collective.archived_by_id,
+                 "archive! must record who archived the collective"
   end
 
-  test "unarchive! clears archived_at" do
+  test "archive! on an already-archived collective is a no-op (does not overwrite archived_at/archived_by_id)" do
+    tenant = create_tenant
+    owner = create_user
+    other_owner_role_user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Double Archive", handle: "double-arch-#{SecureRandom.hex(4)}")
+    collective.archive!(actor: owner)
+    original_at = collective.reload.archived_at
+    original_by = collective.archived_by_id
+    assert_not_nil original_at
+    assert_equal owner.id, original_by
+
+    # Even another legitimate call must not clobber the original archive metadata.
+    travel 5.seconds do
+      collective.archive!(actor: owner)
+    end
+
+    collective.reload
+    assert_equal original_at, collective.archived_at,
+                 "second archive! must not reset archived_at"
+    assert_equal original_by, collective.archived_by_id,
+                 "second archive! must not overwrite archived_by_id"
+  end
+
+  test "unarchive! on a non-archived collective is a no-op" do
+    tenant = create_tenant
+    owner = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Not Archived", handle: "not-arch-#{SecureRandom.hex(4)}")
+    assert_not collective.archived?
+
+    sync_calls = 0
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { sync_calls += 1; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
+      collective.unarchive!(actor: owner)
+    end
+
+    assert_not collective.archived?
+    assert_equal 0, sync_calls, "unarchive! on a non-archived collective should not touch Stripe"
+  end
+
+  test "archive! raises NotOwner when actor is not the collective creator" do
+    tenant = create_tenant
+    owner = create_user
+    intruder = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Owner Guard", handle: "owner-guard-#{SecureRandom.hex(4)}")
+
+    assert_raises(Collective::NotOwner) { collective.archive!(actor: intruder) }
+    assert_not collective.reload.archived?, "archive! must not flip archived_at when actor check fails"
+    assert_nil collective.archived_by_id
+  end
+
+  test "unarchive! clears archived_at and archived_by_id" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Unarchive Test", handle: "unarchive-test-#{SecureRandom.hex(4)}")
 
-    collective.archive!
+    collective.archive!(actor: user)
     assert collective.archived?
-    collective.unarchive!
+    assert_not_nil collective.archived_by_id
+
+    collective.unarchive!(actor: user)
     assert_not collective.archived?
     assert_nil collective.archived_at
+    assert_nil collective.archived_by_id,
+               "unarchive! must clear archived_by_id (archived_by_id IS NOT NULL iff archived_at IS NOT NULL)"
+  end
+
+  test "unarchive! raises NotOwner when actor is not the collective creator" do
+    tenant = create_tenant
+    owner = create_user
+    intruder = create_user
+    collective = Collective.create!(tenant: tenant, created_by: owner, name: "Unarch Guard", handle: "unarch-guard-#{SecureRandom.hex(4)}")
+    collective.archive!(actor: owner)
+
+    assert_raises(Collective::NotOwner) { collective.unarchive!(actor: intruder) }
+    assert collective.reload.archived?, "unarchive! must not clear archived_at when actor check fails"
   end
 
   test "archive! disables automation rules" do
@@ -563,7 +630,7 @@ class CollectiveTest < ActiveSupport::TestCase
       enabled: true
     )
 
-    collective.archive!
+    collective.archive!(actor: user)
 
     rule.reload
     assert_not rule.enabled?, "Automation rule should be disabled after collective is archived"
@@ -582,7 +649,7 @@ class CollectiveTest < ActiveSupport::TestCase
 
     synced_with = nil
     StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
-      collective.archive!
+      collective.archive!(actor: user)
     end
 
     assert_equal user.id, synced_with&.id,
@@ -597,7 +664,7 @@ class CollectiveTest < ActiveSupport::TestCase
 
     sync_calls = 0
     StripeService.stub(:sync_subscription_quantity!, ->(_) { sync_calls += 1; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
-      collective.archive!
+      collective.archive!(actor: user)
     end
 
     assert_equal 0, sync_calls,
@@ -621,7 +688,7 @@ class CollectiveTest < ActiveSupport::TestCase
     )
 
     StripeService.stub(:sync_subscription_quantity!, ->(_) { StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
-      collective.archive!
+      collective.archive!(actor: user)
     end
 
     collective.reload
@@ -642,7 +709,7 @@ class CollectiveTest < ActiveSupport::TestCase
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Free Archive", handle: "free-arch-#{SecureRandom.hex(4)}")
     assert_equal Collective::TIER_FREE, collective.tier
 
-    collective.archive!
+    collective.archive!(actor: user)
 
     assert collective.reload.archived?
     assert_equal Collective::TIER_FREE, collective.tier
@@ -655,11 +722,11 @@ class CollectiveTest < ActiveSupport::TestCase
     tenant.add_user!(user)
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Unarchive Sync", handle: "unsync-#{SecureRandom.hex(4)}")
     upgrade_collective_to_paid!(collective)
-    collective.archive!
+    collective.archive!(actor: user)
 
     synced_with = nil
     StripeService.stub(:sync_subscription_quantity!, ->(arg) { synced_with = arg; StripeService::SyncResult.new(success: true, charged_cents: nil) }) do
-      collective.unarchive!
+      collective.unarchive!(actor: user)
     end
 
     assert_equal user.id, synced_with&.id,
@@ -688,8 +755,8 @@ class CollectiveTest < ActiveSupport::TestCase
       enabled: true
     )
 
-    collective.archive!
-    collective.unarchive!
+    collective.archive!(actor: user)
+    collective.unarchive!(actor: user)
 
     rule.reload
     assert_not rule.enabled?, "Automation rule should NOT be re-enabled after unarchive"

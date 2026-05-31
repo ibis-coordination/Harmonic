@@ -111,23 +111,13 @@
                 </tr>
               <% end %>
               <% @inactive_collectives&.each do |collective| %>
-                <% on_current_tenant = collective.tenant_id == @current_tenant.id %>
                 <tr data-billing-item="collective-<%= collective.id %>">
                   <td><%= octicon 'people', height: 14 %> <%= collective.name %> <span class="pulse-muted">(inactive collective<%= " on #{collective.tenant&.subdomain}" if multi_tenant %>)</span></td>
                   <td style="text-align: right; color: var(--color-fg-muted);">not billed</td>
-                  <% if on_current_tenant %>
-                    <td style="text-align: right;">
-                      <%= form_tag billing_reactivate_collective_path(collective.handle), method: :post, style: "display:inline",
-                                   data: { turbo_confirm: "Reactivate #{collective.name}? This will add $3/mo to your subscription." } do %>
-                        <%= hidden_field_tag :confirm_billing, "1" %>
-                        <button type="submit" class="pulse-action-btn-small">
-                          Reactivate
-                        </button>
-                      <% end %>
-                    </td>
-                  <% else %>
-                    <td></td>
-                  <% end %>
+                  <td style="text-align: right;">
+                    <%# Use absolute URL — inactive collectives may be on a different tenant than the current /billing view. %>
+                    <%= link_to "Manage", "#{collective.url}/settings", class: "pulse-action-btn-small" %>
+                  </td>
                 </tr>
               <% end %>
             </tbody>

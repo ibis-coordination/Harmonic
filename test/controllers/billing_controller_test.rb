@@ -378,7 +378,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   test "show lists inactive collectives separately" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     collective = create_test_collective(name: "Old Club")
-    collective.archive!
+    collective.archive!(actor: @user)
 
     sign_in_as(@user, tenant: @tenant)
     get "/billing"
@@ -620,61 +620,6 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     agent.tenant_user = agent.tenant_users.find_by(tenant_id: @tenant.id)
     assert agent.archived?, "Agent should remain archived without confirmation"
-  end
-
-  test "deactivate_collective archives the collective and redirects to billing" do
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    collective = create_test_collective(name: "Deactivate Coll")
-
-    sign_in_as(@user, tenant: @tenant)
-    post "/billing/deactivate_collective/#{collective.handle}", params: { confirm_deactivate: "1" }
-
-    assert_response :redirect
-    assert_match %r{/billing}, response.location
-    collective.reload
-    assert collective.archived?, "Collective should be archived"
-  end
-
-  test "deactivate_collective on a paid collective drops billable_quantity and syncs Stripe subscription quantity" do
-    # Owner with an active subscription whose Stripe quantity we expect to be synced.
-    StripeCustomer.create!(
-      billable: @user,
-      stripe_id: "cus_#{SecureRandom.hex(8)}",
-      stripe_subscription_id: "sub_deact",
-      active: true,
-    )
-    paid = create_test_collective(name: "Paid Deact")
-    upgrade_collective_to_paid!(paid)
-
-    before_quantity = @user.reload.billable_quantity
-    assert before_quantity >= 1, "sanity check: paid collective should contribute to billable_quantity"
-
-    stub_subscription_sync("sub_deact")
-
-    sign_in_as(@user, tenant: @tenant)
-    post "/billing/deactivate_collective/#{paid.handle}", params: { confirm_deactivate: "1" }
-
-    assert_response :redirect
-    paid.reload
-    assert paid.archived?, "Paid collective should be archived"
-    assert_equal before_quantity - 1, @user.reload.billable_quantity,
-                 "archiving a paid collective should drop billable_quantity by 1"
-    assert_requested :post, "https://api.stripe.com/v1/subscription_items/si_sub_deact",
-                     at_least_times: 1
-  end
-
-  test "reactivate_collective unarchives the collective and redirects to billing" do
-    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    collective = create_test_collective(name: "Reactivate Coll")
-    collective.archive!
-
-    sign_in_as(@user, tenant: @tenant)
-    post "/billing/reactivate_collective/#{collective.handle}", params: { confirm_billing: "1" }
-
-    assert_response :redirect
-    assert_match %r{/billing}, response.location
-    collective.reload
-    assert_not collective.archived?, "Collective should be unarchived"
   end
 
   test "reactivate_agent clears suspension from subscription loss" do

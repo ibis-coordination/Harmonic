@@ -176,21 +176,38 @@ class Collective < ApplicationRecord
     T.must(tenant).main_collective_id == id
   end
 
-  sig { returns(T.nilable(StripeService::SyncResult)) }
-  def archive!
+  # Archive a collective. Owner-only (raises NotOwner if actor != created_by).
+  # No-op when already archived — second-archive must NOT clobber the original
+  # archived_at / archived_by_id, since those are the audit trail.
+  #
+  # On the happy path: auto-downgrades paid → free so a future unarchive can
+  # never silently resume billing, then writes archived_at + archived_by_id,
+  # then disables any remaining enabled automation rules.
+  #
+  # Invariant: archived_by_id IS NOT NULL iff archived_at IS NOT NULL. The
+  # FK uses ON DELETE RESTRICT — a user can't be hard-deleted while they're
+  # the archiver of any collective. Today user "deletion" is a PII scrub
+  # that leaves the row in place, so this restriction never fires in
+  # practice — it's a guardrail for any future hard-delete path.
+  sig { params(actor: User).returns(T.nilable(StripeService::SyncResult)) }
+  def archive!(actor:)
+    raise NotOwner unless actor == T.must(created_by)
+    return nil if archived?
+
     transaction do
-      # Drop back to free tier first so unarchiving doesn't silently resume
-      # billing or auto-restore paid features. No-op on main / already-free.
-      perform_downgrade!
-      update!(archived_at: Time.current)
+      downgrade!(actor: actor)
+      update!(archived_at: Time.current, archived_by_id: actor.id)
       automation_rules.where(enabled: true).update_all(enabled: false)
     end
     sync_owner_subscription_quantity!
   end
 
-  sig { returns(T.nilable(StripeService::SyncResult)) }
-  def unarchive!
-    update!(archived_at: nil)
+  sig { params(actor: User).returns(T.nilable(StripeService::SyncResult)) }
+  def unarchive!(actor:)
+    raise NotOwner unless actor == T.must(created_by)
+    return nil unless archived?
+
+    update!(archived_at: nil, archived_by_id: nil)
     sync_owner_subscription_quantity!
   end
 
@@ -304,14 +321,6 @@ class Collective < ApplicationRecord
   sig { params(actor: User).void }
   def downgrade!(actor:)
     raise NotOwner unless actor == T.must(created_by)
-    perform_downgrade!
-  end
-
-  # Same effect as downgrade!(actor:) but with no actor check — for internal
-  # callers (archive!) that have already gated authorization upstream and need
-  # the tier-cleanup behavior without re-asserting ownership.
-  sig { void }
-  private def perform_downgrade!
     # Main collectives are never on the paid tier — symmetric guard with upgrade!.
     return if is_main_collective?
     return if tier == TIER_FREE

@@ -322,7 +322,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     test_collective = create_test_collective
-    test_collective.archive!
+    test_collective.archive!(actor: @user)
 
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{test_collective.handle}/settings"
@@ -351,7 +351,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   test "archived collective blocks write requests" do
     test_collective = create_test_collective
-    test_collective.archive!
+    test_collective.archive!(actor: @user)
 
     sign_in_as(@user, tenant: @tenant)
 
@@ -365,7 +365,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   test "archived collective redirects to settings" do
     test_collective = create_test_collective
-    test_collective.archive!
+    test_collective.archive!(actor: @user)
 
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{test_collective.handle}"
@@ -1048,7 +1048,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     identity = @user.find_or_create_omni_auth_identity!
     identity.generate_otp_secret!
     identity.enable_otp!
-    @collective.archive!
+    @collective.archive!(actor: @user)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/unarchive"
@@ -1058,7 +1058,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "unarchive: owner reactivates after reverification; collective is unarchived and stays on free plan" do
-    @collective.archive!
+    @collective.archive!(actor: @user)
     assert @collective.reload.archived?
 
     sign_in_with_reverification(@user, tenant: @tenant, path: "/collectives/#{@collective.handle}/unarchive", method: :post)
@@ -1072,11 +1072,47 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
                  "unarchive must not silently resume the paid tier — archive already downgraded"
   end
 
+  test "archive: writes a security audit log entry" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/collectives/#{@collective.handle}/archive", method: :post)
+    recorded = []
+    SecurityAuditLog.stub(:log_user_action, ->(**kw) { recorded << kw }) do
+      post "/collectives/#{@collective.handle}/archive"
+    end
+
+    entry = recorded.find { |r| r[:action] == "collective_archived" }
+    assert entry, "expected a collective_archived audit log entry, got: #{recorded.inspect}"
+    assert_equal @user, entry[:user]
+    assert_equal @collective.id, entry[:details][:collective_id]
+    assert_equal @tenant.id, entry[:details][:tenant_id]
+  end
+
+  test "unarchive: writes a security audit log entry" do
+    @collective.archive!(actor: @user)
+
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/collectives/#{@collective.handle}/unarchive", method: :post)
+    recorded = []
+    SecurityAuditLog.stub(:log_user_action, ->(**kw) { recorded << kw }) do
+      post "/collectives/#{@collective.handle}/unarchive"
+    end
+
+    entry = recorded.find { |r| r[:action] == "collective_unarchived" }
+    assert entry, "expected a collective_unarchived audit log entry, got: #{recorded.inspect}"
+    assert_equal @user, entry[:user]
+    assert_equal @collective.id, entry[:details][:collective_id]
+  end
+
   test "unarchive: non-owner is rejected with 403 even after reverification" do
     other = create_user
     @tenant.add_user!(other)
     @collective.add_user!(other, roles: ["admin"])
-    @collective.archive!
+    @collective.archive!(actor: @user)
 
     sign_in_with_reverification(other, tenant: @tenant, path: "/collectives/#{@collective.handle}/unarchive", method: :post)
     post "/collectives/#{@collective.handle}/unarchive"

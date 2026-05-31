@@ -253,16 +253,17 @@ class User < ApplicationRecord
     # Revoke all API tokens for this user (same as suspension)
     ApiToken.for_user_across_tenants(self).where(deleted_at: nil).find_each(&:delete!) if ai_agent?
 
-    # Archive private workspace
-    private_workspace&.archive!
+    # Archive private workspace. The workspace is created_by self, so passing
+    # self satisfies Collective#archive!'s owner check.
+    private_workspace&.archive!(actor: self)
   end
 
   sig { void }
   def unarchive!
     T.must(tenant_user).unarchive!
 
-    # Unarchive private workspace
-    private_workspace&.unarchive!
+    # Unarchive private workspace (workspace.created_by == self).
+    private_workspace&.unarchive!(actor: self)
   end
 
   sig { returns(T::Boolean) }

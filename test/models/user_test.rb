@@ -1469,7 +1469,7 @@ class UserTest < ActiveSupport::TestCase
     upgrade_collective_to_paid!(extra)
     assert_equal 1, @user.active_billable_collective_count,
                  "sanity check: paid collective counts before archive"
-    extra.archive!
+    extra.archive!(actor: @user)
     assert_equal 0, @user.active_billable_collective_count,
                  "archive must drop the collective out of the billable count"
   end

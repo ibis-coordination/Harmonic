@@ -1344,6 +1344,51 @@ class Collective
     sig { void }
     def archived_at_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def archived_by_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def archived_by_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def archived_by_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def archived_by_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def archived_by_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def archived_by_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def archived_by_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def archived_by_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def archived_by_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def archived_by_id_was; end
+
+    sig { void }
+    def archived_by_id_will_change!; end
+
     sig { returns(T::Boolean) }
     def billing_exempt; end
 
@@ -1888,6 +1933,9 @@ class Collective
     def restore_archived_at!; end
 
     sig { void }
+    def restore_archived_by_id!; end
+
+    sig { void }
     def restore_billing_exempt!; end
 
     sig { void }
@@ -1946,6 +1994,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_archived_by_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_archived_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T::Boolean, T::Boolean])) }
     def saved_change_to_billing_exempt; end
@@ -2327,6 +2381,9 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_archived_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_billing_exempt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
