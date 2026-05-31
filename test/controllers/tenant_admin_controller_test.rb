@@ -179,43 +179,41 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # User Suspension Tests (Tenant admins should NOT have suspend/unsuspend)
   # ==========================================
 
+  # suspend_user / unsuspend_user are app-admin actions; they only exist at
+  # /admin/users/:handle. Posting them to /tenant-admin/users/:handle hits
+  # the unknown-action catch-all, which returns 404 (markdown clients also
+  # get the available-actions list for the path; HTML clients just see the
+  # status). These tests use the default HTML format, so we only check the
+  # status.
+
   test "tenant admin cannot access suspend user route (only app admins can suspend)" do
     sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
-    # The route should not exist for tenant admins - only app admins can suspend users
-    assert_raises(ActionController::RoutingError) do
-      post "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test suspension" }
-    end
+    post "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test suspension" }
+    assert_response :not_found
   end
 
   test "tenant admin cannot access unsuspend user route (only app admins can unsuspend)" do
-    # First suspend the user via direct model update
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
-
     sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
-    # The route should not exist for tenant admins - only app admins can unsuspend users
-    assert_raises(ActionController::RoutingError) do
-      post "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
-    end
+    post "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
+    assert_response :not_found
   end
 
   test "tenant admin cannot access describe suspend user route" do
     sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
-    assert_raises(ActionController::RoutingError) do
-      get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user"
-    end
+    get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user"
+    assert_response :not_found
   end
 
   test "tenant admin cannot access describe unsuspend user route" do
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
-
     sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
-    assert_raises(ActionController::RoutingError) do
-      get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
-    end
+    get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
+    assert_response :not_found
   end
 
   # ==========================================

@@ -392,7 +392,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
            "Accept" => "text/markdown",
            "Authorization" => "Bearer #{api_token.plaintext_token}",
          }
-    assert_response :success # Action error returns 200 with error message
+    assert_response :unprocessable_entity
     assert_includes response.body, "exceeds maximum length"
   end
 
