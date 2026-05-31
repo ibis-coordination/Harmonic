@@ -488,7 +488,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
         params: { message: "" },
         headers: { "Accept" => "text/markdown" }
     end
-    assert_response :success
+    assert_response :unprocessable_entity
     assert_includes response.body, "cannot be empty"
   end
 

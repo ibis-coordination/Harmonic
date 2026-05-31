@@ -518,8 +518,8 @@ class NotesController < ApplicationController
 
   def acknowledge_reminder
     note = current_note
-    return render_action_error({ action_name: "acknowledge_reminder", resource: note, error: "Not a reminder note" }) unless note&.is_reminder?
-    return render_action_error({ action_name: "acknowledge_reminder", resource: note, error: "Reminder has not fired yet" }) unless note.reminder_delivered?
+    return render_action_error({ action_name: "acknowledge_reminder", resource: note, error: "Not a reminder note", status: :not_found }) unless note&.is_reminder?
+    return render_action_error({ action_name: "acknowledge_reminder", resource: note, error: "Reminder has not fired yet", status: :conflict }) unless note.reminder_delivered?
 
     api_helper.acknowledge_reminder
     respond_to do |format|
@@ -553,9 +553,9 @@ class NotesController < ApplicationController
 
   def execute_cancel_reminder
     note = current_note
-    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not a reminder note" }) unless note&.is_reminder?
-    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not authorized" }) unless note.user_can_edit?(current_user)
-    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "No pending reminder" }) unless note.reminder_pending?
+    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not a reminder note", status: :not_found }) unless note&.is_reminder?
+    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "Not authorized", status: :forbidden }) unless note.user_can_edit?(current_user)
+    return render_action_error({ action_name: "cancel_reminder", resource: note, error: "No pending reminder", status: :conflict }) unless note.reminder_pending?
 
     note.reminder_service.cancel!
 

@@ -26,7 +26,7 @@ import {
   userMessage,
   getToolDefinitions,
 } from "../core/PromptBuilder.js";
-import { parseToolCalls, validateAction } from "../core/ActionParser.js";
+import { parseToolCalls } from "../core/ActionParser.js";
 import { RESPOND_TO_HUMAN_TOOL, buildChatSystemPrompt } from "../core/AgentContext.js";
 import { extractCanary, checkLeakage } from "../core/LeakageDetector.js";
 import {
@@ -98,12 +98,14 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     // Step 3: Claim the task (mark as running)
     yield* reporter.claim(task.taskRunId, subdomain);
 
-    // Mutable state matching Ruby AgentNavigator
+    // Mutable state for the loop. `currentContent` and `lastActionResult` are
+    // per-turn scratch — the value of the most recent fetch / action — used
+    // only to build the next LLM tool-result message. They are not authority:
+    // the agent's tool calls now carry their own `path`, so we no longer need
+    // to remember "where the cursor is" across calls or chat turns.
     const steps: StepRecord[] = [];
     let messages: readonly Message[] = [];
-    let currentPath: string | null = null;
     let currentContent: string | null = null;
-    let currentActions: readonly string[] = [];
     let lastActionResult: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
@@ -124,10 +126,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         );
       });
 
-    // Helper: navigate (matches Ruby navigate_to)
-    // Ruby's MarkdownUiService.navigate catches all errors and returns {content:"", error:...}
-    // We do the same: catch HarmonicApiError, record a step with the error, continue.
-    const navigateTo = (path: string) =>
+    // Helper: fetch a page. HarmonicClient.navigate catches HTTP errors and
+    // surfaces them as HarmonicApiError; we catch that and record the error
+    // on a step so the loop can continue.
+    const fetchPage = (path: string) =>
       Effect.gen(function* () {
         const result = yield* harmonic.navigate(path, token, subdomain).pipe(
           Effect.catchAll((err) =>
@@ -140,13 +142,11 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           ),
         );
 
-        currentPath = result.resolvedPath;
-        currentActions = result.availableActions;
-        lastActionResult = null; // Cleared on navigate, matching Ruby
+        lastActionResult = null;
 
         const navError = "_error" in result ? (result as { _error: string })._error : null;
         currentContent = navError
-          ? `Error navigating to ${path}: ${navError}`
+          ? `Error fetching ${path}: ${navError}`
           : result.content;
 
         yield* addStep(navigateStep({
@@ -160,26 +160,14 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         return result;
       });
 
-    // Helper: execute action (matches Ruby execute_action)
-    const executeAction = (actionName: string, params: Record<string, unknown>) =>
+    // Helper: execute an action against an explicit path. No client-side
+    // validation — Rails is the sole authority on what actions exist at a
+    // path and returns a 404 with the available-actions list when the agent
+    // guesses wrong. That body is surfaced verbatim in the tool result.
+    const executeAction = (path: string, actionName: string, params: Record<string, unknown>) =>
       Effect.gen(function* () {
-        // Validate action exists, matching Ruby
-        const validation = validateAction(actionName, currentActions);
-        if (!validation.valid) {
-          const errorMsg = `Invalid action '${actionName}'. Available actions: ${[...currentActions].join(", ")}`;
-          yield* addStep(executeStep({
-            action: actionName,
-            params,
-            success: false,
-            contentPreview: null,
-            error: errorMsg,
-          }, new Date()));
-          lastActionResult = `FAILED: ${errorMsg}`;
-          return;
-        }
-
         const result = yield* harmonic.executeAction(
-          currentPath ?? "/",
+          path,
           actionName,
           params,
           token,
@@ -204,7 +192,6 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
 
         if (result.success) {
           lastActionResult = `SUCCESS: ${actionName} completed. ${result.content.slice(0, 200)}`;
-          if (result.content !== "") currentContent = result.content;
         } else {
           const failReason = "_error" in result
             ? (result as { _error: string })._error
@@ -231,7 +218,11 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     let leakageDetector: ReturnType<typeof extractCanary>;
 
     if (isChatTurn && task.chatSessionId !== undefined) {
-      // Chat mode: fetch history (includes current_state), restore navigation
+      // Chat mode: fetch history. Stateless tools mean we don't need to
+      // replay a saved current_path — each fetch_page / execute_action call
+      // carries its own path, so the new turn can act on any resource the
+      // agent's previous turn referenced (or fetch_page first if it needs
+      // to re-orient).
       const emptyResponse: import("./HarmonicClient.js").ChatHistoryResponse = {
         messages: [],
         current_state: {},
@@ -243,26 +234,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         }),
       );
       const history = historyResponse.messages;
-      const savedPath = historyResponse.current_state.current_path;
 
       // Always fetch /whoami for fresh identity content (scratchpad, prompt may change)
-      const whoamiResult = yield* navigateTo("/whoami");
+      const whoamiResult = yield* fetchPage("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
-
-      // Replay the previous turn's navigation. This is load-bearing for two
-      // reasons, not just a "resume where we left off" nicety:
-      //   1. Action validity is page-scoped. `executeAction` rejects any
-      //      action that isn't in `currentActions`, and `currentActions` is
-      //      set by `navigate`. If turn 1 read a note and turn 2 says "add a
-      //      comment", the LLM's execute_action("add_comment") fails unless
-      //      we restore the note's page state.
-      //   2. The chat-history rehydration only carries user/assistant text
-      //      across turns — the agent's prior navigation results aren't in
-      //      the new message context. Re-navigating restores the page
-      //      content the LLM may need to reason about.
-      if (savedPath && savedPath !== "/whoami") {
-        yield* navigateTo(savedPath);
-      }
 
       const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
       const scratchpad = scratchpadMatch?.[1]?.trim();
@@ -305,7 +280,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       messages = chatMessages;
     } else {
       // Task mode: always start at /whoami
-      const whoamiResult = yield* navigateTo("/whoami");
+      const whoamiResult = yield* fetchPage("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
 
       const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
@@ -421,23 +396,23 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           }
 
           switch (action.type) {
-            case "navigate": {
-              yield* navigateTo(action.path);
+            case "fetch_page": {
+              yield* fetchPage(action.path);
               toolResults.push(truncateContent(currentContent ?? ""));
               break;
             }
             case "execute_action": {
-              yield* executeAction(action.action, action.params ?? {});
+              yield* executeAction(action.path, action.action, action.params ?? {});
               toolResults.push(lastActionResult ?? "");
               break;
             }
             case "search": {
-              yield* navigateTo(`/search?q=${encodeURIComponent(action.query)}`);
+              yield* fetchPage(`/search?q=${encodeURIComponent(action.query)}`);
               toolResults.push(truncateContent(currentContent ?? ""));
               break;
             }
             case "get_help": {
-              yield* navigateTo(`/help/${encodeURIComponent(action.topic)}`);
+              yield* fetchPage(`/help/${encodeURIComponent(action.topic)}`);
               toolResults.push(truncateContent(currentContent ?? ""));
               break;
             }
@@ -530,7 +505,6 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       totalTokens: totalInputTokens + totalOutputTokens,
-      currentState: isChatTurn ? { current_path: currentPath ?? undefined } : undefined,
     });
 
     return { outcome: success ? "completed" : wasCancelled ? "cancelled" : "failed" } as TaskOutcome;

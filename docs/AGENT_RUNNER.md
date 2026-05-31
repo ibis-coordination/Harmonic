@@ -22,10 +22,10 @@ Rails app                              agent-runner (Node.js)
   |                                        |  preflight check (billing/status)
   |                                        |  claims task (mark running)
   |                                        |
-  |  ◄── GET /whoami ──────────────────    |  navigate (Bearer token, Host header)
+  |  ◄── GET /whoami ──────────────────    |  fetch_page (Bearer token, Host header)
   |      (ApplicationController)           |  goes through normal auth + tenant scoping
   |  ── markdown response ──────────►      |
-  |                                        |  LLM call → tool calls → navigate/execute → repeat
+  |                                        |  LLM call → tool calls → fetch/execute → repeat
   |  ◄── POST /internal/.../step ──────    |  report steps incrementally (HMAC signed)
   |      (Internal::BaseController)        |
   |                                        |
@@ -39,7 +39,7 @@ Rails app                              agent-runner (Node.js)
 
 Agent-runner makes two fundamentally different types of request to Rails:
 
-### Agent API requests (navigate, execute_action)
+### Agent API requests (fetch_page, execute_action)
 
 The agent acting as a user. Goes through `ApplicationController`:
 - Auth: `Authorization: Bearer {token}`
@@ -69,7 +69,7 @@ The runner service coordinating with Rails. Goes through `Internal::BaseControll
 3. **Decrypt**: decrypts Bearer token from stream payload
 4. **Preflight** (`/internal/.../preflight`): re-checks billing/status (catches stale dispatch checks)
 5. **Claim** (`/internal/.../claim`): marks task as running
-6. **Execute** (`AgentLoop`): navigate /whoami → LLM loop → tool calls → step reporting
+6. **Execute** (`AgentLoop`): fetch_page /whoami → LLM loop → tool calls → step reporting
 7. **Scratchpad** update: LLM summarizes what to remember, persisted to agent config
 8. **Complete** (`/internal/.../complete`): authoritative write of steps, tokens, status
 
@@ -90,7 +90,7 @@ Plaintext API tokens are encrypted before placing in Redis (protects against Red
 
 ## Error handling
 
-- **Navigation/action HTTP errors**: caught, recorded as step with error detail, LLM sees the error and decides next action
+- **Fetch/action HTTP errors**: caught, recorded as step with error detail, LLM sees the error and decides next action
 - **LLM errors**: caught, think step recorded with `llm_error`, error step recorded, task completes with failure
 - **Unhandled exceptions** (cancellation, etc.): caught by outer handler, error step recorded, scratchpad update still runs, task completes with failure
 - **Step persistence failures**: logged but don't fail the task

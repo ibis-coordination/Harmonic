@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handleNavigate, handleExecuteAction, handleSearch, handleGetHelp, createState, type Config, type State } from "./handlers.js";
+import { handleFetchPage, handleExecuteAction, handleSearch, handleGetHelp, type Config } from "./handlers.js";
 
 // Helper to create a mock fetch response
 function mockFetch(status: number, body: string): typeof fetch {
@@ -10,18 +10,16 @@ function mockFetch(status: number, body: string): typeof fetch {
   });
 }
 
-describe("handleNavigate", () => {
+describe("handleFetchPage", () => {
   let config: Config;
-  let state: State;
 
   beforeEach(() => {
     config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
-    state = createState();
   });
 
   it("returns error when API token is not set", async () => {
     config.apiToken = undefined;
-    const result = await handleNavigate("/collectives/team", config, state);
+    const result = await handleFetchPage("/collectives/team", config);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HARMONIC_API_TOKEN");
@@ -29,7 +27,7 @@ describe("handleNavigate", () => {
 
   it("fetches markdown from the server", async () => {
     const mockFn = mockFetch(200, "# Collective Page\n\nWelcome!");
-    const result = await handleNavigate("/collectives/team", config, state, mockFn);
+    const result = await handleFetchPage("/collectives/team", config, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/collectives/team",
@@ -47,7 +45,7 @@ describe("handleNavigate", () => {
 
   it("normalizes paths without leading slash", async () => {
     const mockFn = mockFetch(200, "content");
-    await handleNavigate("collectives/team", config, state, mockFn);
+    await handleFetchPage("collectives/team", config, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/collectives/team",
@@ -55,16 +53,9 @@ describe("handleNavigate", () => {
     );
   });
 
-  it("updates state.currentPath on success", async () => {
-    const mockFn = mockFetch(200, "content");
-    await handleNavigate("/collectives/team", config, state, mockFn);
-
-    expect(state.currentPath).toBe("/collectives/team");
-  });
-
   it("returns error on HTTP failure", async () => {
     const mockFn = mockFetch(404, "Not found");
-    const result = await handleNavigate("/collectives/nonexistent", config, state, mockFn);
+    const result = await handleFetchPage("/collectives/nonexistent", config, mockFn);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 404");
@@ -72,7 +63,7 @@ describe("handleNavigate", () => {
 
   it("returns error on network failure", async () => {
     const mockFn = vi.fn().mockRejectedValue(new Error("Network error"));
-    const result = await handleNavigate("/collectives/team", config, state, mockFn);
+    const result = await handleFetchPage("/collectives/team", config, mockFn);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Network error");
@@ -81,34 +72,44 @@ describe("handleNavigate", () => {
 
 describe("handleExecuteAction", () => {
   let config: Config;
-  let state: State;
 
   beforeEach(() => {
     config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
-    state = createState();
-    state.currentPath = "/collectives/team";
   });
 
-  it("returns error when no current path", async () => {
-    state.currentPath = null;
-    const result = await handleExecuteAction("create_note", {}, config, state);
+  it("works without any prior fetch_page call", async () => {
+    // Statelessness check: the handler depends only on the passed path,
+    // never on a remembered cursor.
+    const mockFn = mockFetch(200, "Note created");
+    const result = await handleExecuteAction(
+      "/collectives/team",
+      "create_note",
+      { text: "hi" },
+      config,
+      mockFn
+    );
 
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("navigate");
+    expect(result.isError).toBeUndefined();
   });
 
   it("returns error when API token is not set", async () => {
     config.apiToken = undefined;
-    const result = await handleExecuteAction("create_note", {}, config, state);
+    const result = await handleExecuteAction("/collectives/team", "create_note", {}, config);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HARMONIC_API_TOKEN");
   });
 
-  it("posts to the action endpoint", async () => {
+  it("posts to {path}/actions/{action} built from the passed path", async () => {
     const mockFn = mockFetch(200, "Note created successfully");
     const params = { title: "Test", text: "Content" };
-    const result = await handleExecuteAction("create_note", params, config, state, mockFn);
+    const result = await handleExecuteAction(
+      "/collectives/team",
+      "create_note",
+      params,
+      config,
+      mockFn
+    );
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/collectives/team/actions/create_note",
@@ -128,7 +129,7 @@ describe("handleExecuteAction", () => {
 
   it("handles undefined params", async () => {
     const mockFn = mockFetch(200, "Success");
-    await handleExecuteAction("join", undefined, config, state, mockFn);
+    await handleExecuteAction("/collectives/team", "join", undefined, config, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
       expect.anything(),
@@ -138,29 +139,59 @@ describe("handleExecuteAction", () => {
     );
   });
 
-  it("returns error on HTTP failure", async () => {
+  it("returns error on HTTP failure (e.g. 422 validation)", async () => {
     const mockFn = mockFetch(422, "Validation failed");
-    const result = await handleExecuteAction("create_note", {}, config, state, mockFn);
+    const result = await handleExecuteAction(
+      "/collectives/team",
+      "create_note",
+      {},
+      config,
+      mockFn
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 422");
   });
 
+  it("returns error on 404 (unknown action) with the teaching-error body", async () => {
+    // Rails returns 404 with available-actions list when the action name
+    // doesn't match. The handler should pass that body through as isError.
+    const teachingBody =
+      "# Unknown Action\n\n`bogus` is not a valid action at `/collectives/team`.\n\n## Available actions\n\n- ...";
+    const mockFn = mockFetch(404, teachingBody);
+    const result = await handleExecuteAction("/collectives/team", "bogus", {}, config, mockFn);
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("HTTP 404");
+    expect(result.content[0].text).toContain("Available actions");
+  });
+
   it("returns error on network failure", async () => {
     const mockFn = vi.fn().mockRejectedValue(new Error("Connection refused"));
-    const result = await handleExecuteAction("create_note", {}, config, state, mockFn);
+    const result = await handleExecuteAction(
+      "/collectives/team",
+      "create_note",
+      {},
+      config,
+      mockFn
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Connection refused");
   });
 
-  it("strips /actions/ suffix from path when constructing action URL", async () => {
-    // When user navigates to an action description page, currentPath includes /actions/
-    state.currentPath = "/notifications/actions/mark_read";
+  it("strips /actions/<name> suffix when the agent passes an action URL as path", async () => {
+    // The agent might copy an action URL verbatim from a page response;
+    // we tolerate that rather than producing /foo/actions/x/actions/x.
     const mockFn = mockFetch(200, "Notification marked as read");
-    const result = await handleExecuteAction("mark_read", { id: "123" }, config, state, mockFn);
+    const result = await handleExecuteAction(
+      "/notifications/actions/mark_read",
+      "mark_read",
+      { id: "123" },
+      config,
+      mockFn
+    );
 
-    // Should POST to /notifications/actions/mark_read, not /notifications/actions/mark_read/actions/mark_read
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/notifications/actions/mark_read",
       expect.anything()
@@ -168,38 +199,56 @@ describe("handleExecuteAction", () => {
     expect(result.isError).toBeUndefined();
   });
 
-  it("handles action execution from nested action path", async () => {
-    // When on /collectives/team/note/actions/create_note, executing create_note should work
-    state.currentPath = "/collectives/team/note/actions/create_note";
-    const mockFn = mockFetch(200, "Note created");
-    await handleExecuteAction("create_note", { text: "test" }, config, state, mockFn);
-
-    expect(mockFn).toHaveBeenCalledWith(
-      "http://localhost:3000/collectives/team/note/actions/create_note",
-      expect.anything()
-    );
-  });
-
-  it("strips /actions suffix (without trailing slash) from path", async () => {
-    // When user navigates to the actions index page
-    state.currentPath = "/notifications/actions";
+  it("strips /actions suffix (without trailing slash)", async () => {
     const mockFn = mockFetch(200, "Notification marked as read");
-    await handleExecuteAction("mark_read", { id: "123" }, config, state, mockFn);
+    await handleExecuteAction(
+      "/notifications/actions",
+      "mark_read",
+      { id: "123" },
+      config,
+      mockFn
+    );
 
-    // Should POST to /notifications/actions/mark_read, not /notifications/actions/actions/mark_read
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/notifications/actions/mark_read",
       expect.anything()
     );
   });
 
+  it("normalizes path without leading slash", async () => {
+    const mockFn = mockFetch(200, "ok");
+    await handleExecuteAction("collectives/team", "create_note", { text: "x" }, config, mockFn);
+
+    expect(mockFn).toHaveBeenCalledWith(
+      "http://localhost:3000/collectives/team/actions/create_note",
+      expect.anything()
+    );
+  });
+
+  it("truncates oversized error bodies to keep the agent's context manageable", async () => {
+    const huge = "x".repeat(5000);
+    const mockFn = mockFetch(422, huge);
+    const result = await handleExecuteAction("/p", "a", {}, config, mockFn);
+
+    expect(result.isError).toBe(true);
+    // Bound generously: header + 2000 chars of body. Should be far below the
+    // raw 5000-char body but still include enough for the agent to understand.
+    expect(result.content[0].text.length).toBeLessThan(2200);
+    expect(result.content[0].text.length).toBeGreaterThan(1900);
+  });
+
   it("strips ?query string from path before constructing action URL", async () => {
-    // After navigating to a comment-context URL like /d/abc?comment_id=xyz,
+    // After fetching a comment-context URL like /d/abc?comment_id=xyz,
     // the action URL is on the bare resource path — concatenating
     // /actions/<name> after the query produces a malformed URL.
-    state.currentPath = "/d/abc?comment_id=xyz";
     const mockFn = mockFetch(200, "Comment added");
-    await handleExecuteAction("add_comment", { text: "hi", replying_to_id: "xyz" }, config, state, mockFn);
+    await handleExecuteAction(
+      "/d/abc?comment_id=xyz",
+      "add_comment",
+      { text: "hi", replying_to_id: "xyz" },
+      config,
+      mockFn
+    );
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/d/abc/actions/add_comment",
@@ -210,16 +259,14 @@ describe("handleExecuteAction", () => {
 
 describe("handleSearch", () => {
   let config: Config;
-  let state: State;
 
   beforeEach(() => {
     config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
-    state = createState();
   });
 
-  it("delegates to navigate with search URL", async () => {
+  it("delegates to fetch_page with search URL", async () => {
     const mockFn = mockFetch(200, "# Search Results\n\n- Note: Test note");
-    const result = await handleSearch("type:note status:open", config, state, mockFn);
+    const result = await handleSearch("type:note status:open", config, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/search?q=type%3Anote%20status%3Aopen",
@@ -229,16 +276,9 @@ describe("handleSearch", () => {
     expect(result.content[0].text).toContain("Search Results");
   });
 
-  it("updates currentPath to search URL", async () => {
-    const mockFn = mockFetch(200, "results");
-    await handleSearch("test query", config, state, mockFn);
-
-    expect(state.currentPath).toBe("/search?q=test%20query");
-  });
-
-  it("passes through errors from navigate", async () => {
+  it("passes through errors", async () => {
     config.apiToken = undefined;
-    const result = await handleSearch("test", config, state);
+    const result = await handleSearch("test", config);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HARMONIC_API_TOKEN");
@@ -247,16 +287,14 @@ describe("handleSearch", () => {
 
 describe("handleGetHelp", () => {
   let config: Config;
-  let state: State;
 
   beforeEach(() => {
     config = { baseUrl: "http://localhost:3000", apiToken: "test-token" };
-    state = createState();
   });
 
-  it("delegates to navigate with help URL", async () => {
+  it("delegates to fetch_page with help URL", async () => {
     const mockFn = mockFetch(200, "# Decisions\n\nAcceptance voting...");
-    const result = await handleGetHelp("decisions", config, state, mockFn);
+    const result = await handleGetHelp("decisions", config, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/help/decisions",
@@ -268,7 +306,7 @@ describe("handleGetHelp", () => {
 
   it("encodes topic with special characters", async () => {
     const mockFn = mockFetch(200, "# Help");
-    await handleGetHelp("reminder-notes", config, state, mockFn);
+    await handleGetHelp("reminder-notes", config, mockFn);
 
     expect(mockFn).toHaveBeenCalledWith(
       "http://localhost:3000/help/reminder-notes",
@@ -276,25 +314,11 @@ describe("handleGetHelp", () => {
     );
   });
 
-  it("updates currentPath to help URL", async () => {
-    const mockFn = mockFetch(200, "help content");
-    await handleGetHelp("agents", config, state, mockFn);
-
-    expect(state.currentPath).toBe("/help/agents");
-  });
-
-  it("passes through errors from navigate", async () => {
+  it("passes through errors", async () => {
     const mockFn = mockFetch(404, "Not found");
-    const result = await handleGetHelp("nonexistent", config, state, mockFn);
+    const result = await handleGetHelp("nonexistent", config, mockFn);
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("HTTP 404");
-  });
-});
-
-describe("createState", () => {
-  it("creates state with null currentPath", () => {
-    const state = createState();
-    expect(state.currentPath).toBeNull();
   });
 });

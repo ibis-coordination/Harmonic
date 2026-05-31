@@ -10,20 +10,10 @@ export type Config = {
   apiToken: string | undefined;
 };
 
-// State management
-export type State = {
-  currentPath: string | null;
-};
-
-export function createState(): State {
-  return { currentPath: null };
-}
-
-// Navigate handler
-export async function handleNavigate(
+// Fetch a page: pure GET, returns the markdown body. No state, no cursor.
+export async function handleFetchPage(
   path: string,
   config: Config,
-  state: State,
   fetchFn: typeof fetch = fetch
 ): Promise<ToolResult> {
   if (!config.apiToken) {
@@ -48,12 +38,11 @@ export async function handleNavigate(
     if (!response.ok) {
       const errorText = await response.text();
       return {
-        content: [{ type: "text", text: `Error: HTTP ${response.status}: ${errorText.slice(0, 500)}` }],
+        content: [{ type: "text", text: `Error: HTTP ${response.status}: ${errorText.slice(0, 2000)}` }],
         isError: true,
       };
     }
 
-    state.currentPath = normalizedPath;
     const markdown = await response.text();
 
     return {
@@ -68,41 +57,35 @@ export async function handleNavigate(
   }
 }
 
-// Search handler — delegates to navigate with a search URL
+// Search handler — delegates to fetch_page with a search URL
 export async function handleSearch(
   query: string,
   config: Config,
-  state: State,
   fetchFn: typeof fetch = fetch
 ): Promise<ToolResult> {
-  return handleNavigate(`/search?q=${encodeURIComponent(query)}`, config, state, fetchFn);
+  return handleFetchPage(`/search?q=${encodeURIComponent(query)}`, config, fetchFn);
 }
 
-// Get help handler — delegates to navigate with a help URL
+// Get help handler — delegates to fetch_page with a help URL
 export async function handleGetHelp(
   topic: string,
   config: Config,
-  state: State,
   fetchFn: typeof fetch = fetch
 ): Promise<ToolResult> {
-  return handleNavigate(`/help/${encodeURIComponent(topic)}`, config, state, fetchFn);
+  return handleFetchPage(`/help/${encodeURIComponent(topic)}`, config, fetchFn);
 }
 
-// Execute action handler
+// Execute an action on a path. The action URL is built from the passed
+// `path` argument, not from any remembered cursor — every call is
+// self-contained. We tolerate the agent passing an action URL or a
+// query-string-laden path by normalizing back to the bare resource path.
 export async function handleExecuteAction(
+  path: string,
   action: string,
   params: Record<string, unknown> | undefined,
   config: Config,
-  state: State,
   fetchFn: typeof fetch = fetch
 ): Promise<ToolResult> {
-  if (!state.currentPath) {
-    return {
-      content: [{ type: "text", text: "Error: No current path. Call 'navigate' first." }],
-      isError: true,
-    };
-  }
-
   if (!config.apiToken) {
     return {
       content: [{ type: "text", text: "Error: HARMONIC_API_TOKEN environment variable is not set" }],
@@ -111,21 +94,20 @@ export async function handleExecuteAction(
   }
 
   try {
-    // Get the base resource path (strip query string + any /actions suffix
-    // or /actions/... suffix). The query string strip matters for URLs like
-    // /d/<id>?comment_id=<id> — we want /d/<id>/actions/<name>, not
-    // /d/<id>?comment_id=.../actions/<name>.
-    let basePath = state.currentPath;
+    // Normalize the path:
+    // 1. Ensure leading slash.
+    // 2. Strip ?query — action URLs are on the bare resource path.
+    // 3. Strip trailing /actions/<name> or /actions — so an agent passing
+    //    a verbatim action URL doesn't produce /foo/actions/x/actions/x.
+    let basePath = path.startsWith("/") ? path : `/${path}`;
     const queryIndex = basePath.indexOf("?");
     if (queryIndex !== -1) {
       basePath = basePath.substring(0, queryIndex);
     }
     const actionsWithSlashIndex = basePath.indexOf("/actions/");
     if (actionsWithSlashIndex !== -1) {
-      // Path like /notifications/actions/mark_read -> /notifications
       basePath = basePath.substring(0, actionsWithSlashIndex);
     } else if (basePath.endsWith("/actions")) {
-      // Path like /notifications/actions -> /notifications
       basePath = basePath.substring(0, basePath.length - "/actions".length);
     }
     const actionUrl = `${config.baseUrl}${basePath}/actions/${action}`;
@@ -143,7 +125,7 @@ export async function handleExecuteAction(
     if (!response.ok) {
       const errorText = await response.text();
       return {
-        content: [{ type: "text", text: `Error: HTTP ${response.status}: ${errorText.slice(0, 500)}` }],
+        content: [{ type: "text", text: `Error: HTTP ${response.status}: ${errorText.slice(0, 2000)}` }],
         isError: true,
       };
     }

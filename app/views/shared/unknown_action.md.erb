@@ -1,0 +1,13 @@
+# Unknown Action
+
+`<%= unknown_name %>` is not a valid action at `<%= url_prefix %>`.
+
+<% if available_actions.any? %>
+## Available actions at `<%= url_prefix %>`
+
+<% available_actions.each do |action| %>
+- `<%= action[:name] %><%= action[:params_string] %>` — <%= action[:description] %>
+<% end %>
+<% else %>
+No actions are defined at this path.
+<% end %>

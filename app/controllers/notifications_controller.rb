@@ -90,6 +90,7 @@ class NotificationsController < ApplicationController
             action_name: "dismiss",
             resource: nil,
             error: "Notification not found.",
+            status: :not_found,
           })
         end
       end
@@ -138,6 +139,7 @@ class NotificationsController < ApplicationController
               action_name: "dismiss_for_collective",
               resource: nil,
               error: "Collective not found.",
+              status: :not_found,
             })
           end
         end

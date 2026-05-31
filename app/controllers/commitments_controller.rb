@@ -175,7 +175,7 @@ class CommitmentsController < ApplicationController
   end
 
   def create_commitment_action
-    return render_action_error({ action_name: "create_commitment", error: "You must be logged in." }) unless current_user
+    return render_action_error({ action_name: "create_commitment", error: "You must be logged in.", status: :unauthorized }) unless current_user
 
     begin
       @commitment = api_helper.create_commitment
@@ -224,9 +224,9 @@ class CommitmentsController < ApplicationController
 
   def join_commitment
     @commitment = current_commitment
-    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "Not found" }) unless @commitment
-    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "You must be logged in to join." }) unless current_user
-    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "This commitment is closed." }) if @commitment.closed?
+    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "Not found", status: :not_found }) unless @commitment
+    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "You must be logged in to join.", status: :unauthorized }) unless current_user
+    return render_action_error({ action_name: "join_commitment", resource: @commitment, error: "This commitment is closed.", status: :conflict }) if @commitment.closed?
 
     begin
       @commitment_participant = api_helper.join_commitment
@@ -366,7 +366,7 @@ class CommitmentsController < ApplicationController
   def update_commitment_settings_action
     unless current_user
       return render_action_error({ action_name: "update_commitment_settings", resource: current_commitment,
-                                   error: "You must be logged in.", })
+                                   error: "You must be logged in.", status: :unauthorized, })
     end
 
     begin

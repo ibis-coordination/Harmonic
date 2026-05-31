@@ -148,7 +148,7 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
         headers: @headers
     end
 
-    assert_response :success
+    assert_response :unprocessable_entity
     assert_includes response.body, "YAML configuration is required"
   end
 
@@ -169,7 +169,7 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
         headers: @headers
     end
 
-    assert_response :success
+    assert_response :unprocessable_entity
     # Should require either actions or task
     assert_includes response.body, "actions is required"
   end
@@ -518,7 +518,7 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Action Success"
   end
 
-  test "render_action_error: HTML returns redirect+flash[:error]; md returns 200 with action error body" do
+  test "render_action_error: HTML returns redirect+flash[:error]; md returns 422 with action error body" do
     @api_token.destroy
     sign_in_as(@user, tenant: @tenant)
 
@@ -532,7 +532,7 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
       params: { yaml_source: invalid_yaml }, headers: { "Accept" => "text/markdown" }
-    assert_response :success, "md error contract: 200 with structured body (callers parse body, not status)"
+    assert_response :unprocessable_entity, "md error contract: real status code so stateless clients can branch on outcome"
     assert_includes response.body, "Action Error"
   end
 

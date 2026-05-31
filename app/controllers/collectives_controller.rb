@@ -123,10 +123,10 @@ class CollectivesController < ApplicationController
   end
 
   def send_heartbeat
-    return render_action_error({ action_name: 'send_heartbeat', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'send_heartbeat', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
 
     if current_heartbeat
-      return render_action_error({ action_name: 'send_heartbeat', resource: @current_collective, error: 'Heartbeat already exists for this cycle.' })
+      return render_action_error({ action_name: 'send_heartbeat', resource: @current_collective, error: 'Heartbeat already exists for this cycle.', status: :conflict })
     end
 
     begin
@@ -461,7 +461,7 @@ class CollectivesController < ApplicationController
   end
 
   def update_collective_settings_action
-    return render_action_error({ action_name: 'update_collective_settings', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'update_collective_settings', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
 
     # Gate paid-feature toggle. ApiHelper only changes file_attachments (via
     # the `file_uploads` param); trio is browser-UI-only. Enabling requires
@@ -508,8 +508,8 @@ class CollectivesController < ApplicationController
   end
 
   def execute_add_ai_agent_to_collective
-    return render_action_error({ action_name: 'add_ai_agent_to_collective', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'add_ai_agent_to_collective', resource: @current_collective, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
+    return render_action_error({ action_name: 'add_ai_agent_to_collective', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+    return render_action_error({ action_name: 'add_ai_agent_to_collective', resource: @current_collective, error: 'Only human accounts can manage AI agents.', status: :forbidden }) unless current_user.human?
 
     begin
       ai_agent = User.find(params[:ai_agent_id])
@@ -565,8 +565,8 @@ class CollectivesController < ApplicationController
   end
 
   def execute_remove_ai_agent_from_collective
-    return render_action_error({ action_name: 'remove_ai_agent_from_collective', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
-    return render_action_error({ action_name: 'remove_ai_agent_from_collective', resource: @current_collective, error: 'Only human accounts can manage AI agents.' }) unless current_user.human?
+    return render_action_error({ action_name: 'remove_ai_agent_from_collective', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+    return render_action_error({ action_name: 'remove_ai_agent_from_collective', resource: @current_collective, error: 'Only human accounts can manage AI agents.', status: :forbidden }) unless current_user.human?
 
     begin
       ai_agent = User.find(params[:ai_agent_id])
@@ -618,7 +618,7 @@ class CollectivesController < ApplicationController
   end
 
   def join_collective_action
-    return render_action_error({ action_name: 'join_collective', resource: @current_collective, error: 'You must be logged in.' }) unless current_user
+    return render_action_error({ action_name: 'join_collective', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
 
     begin
       invite = Invite.find_by(code: params[:code]) if params[:code]

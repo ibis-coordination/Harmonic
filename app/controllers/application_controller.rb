@@ -815,7 +815,8 @@ class ApplicationController < ActionController::Base
   # rubocop:enable Naming/MemoizedInstanceVariableName
 
   CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help",
-                                        "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",].freeze
+                                        "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",
+                                        "application",].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -1178,7 +1179,7 @@ class ApplicationController < ActionController::Base
   end
 
   def add_comment
-    return render_action_error({ action_name: "add_comment", resource: current_resource, error: "You must be logged in." }) unless current_user
+    return render_action_error({ action_name: "add_comment", resource: current_resource, error: "You must be logged in.", status: :unauthorized }) unless current_user
 
     unless current_resource&.is_commentable?
       return render_action_error({ action_name: "add_comment", resource: current_resource,
@@ -1259,9 +1260,11 @@ class ApplicationController < ActionController::Base
   end
 
   # Action endpoint error response. HTML redirects back with a flash error so
-  # Turbo follows the redirect. The md action API contract is unchanged: 200
-  # with a structured body describing the failure (callers parse the body, not
-  # the status, to decide success/failure).
+  # Turbo follows the redirect. The md/json action API uses real HTTP status
+  # codes so stateless clients (MCP server, agent-runner) can branch on
+  # outcome without parsing the body. Default is 422 (unprocessable entity);
+  # callers may pass `status:` to surface 401 (unauthenticated), 403
+  # (forbidden), 404 (not found), or 409 (conflict) where appropriate.
   def render_action_error(locals)
     respond_to do |format|
       format.html do
@@ -1274,7 +1277,7 @@ class ApplicationController < ActionController::Base
           action_name: locals[:action_name],
           resource: locals[:resource],
           error: locals[:error],
-        }
+        }, status: locals[:status] || :unprocessable_entity
       end
     end
   end
@@ -1287,6 +1290,56 @@ class ApplicationController < ActionController::Base
 
     fallback = (resource.path if resource.respond_to?(:path) && resource.path.present?) || "/"
     redirect_back_or_to(fallback)
+  end
+
+  # Catch-all handler for POST/GET /{path}/actions/{unknown_name} when
+  # {unknown_name} isn't an explicit describe_* / execute_* route. Returns
+  # 404 whose body lists the actions defined at {path}, so a client can
+  # recover from a typo or wrong-resource guess in one round trip. Wired up
+  # at the bottom of config/routes.rb so explicit routes always win.
+  def unknown_action_fallback
+    url_prefix = "/#{params[:url_prefix]}"
+    unknown_name = params[:unknown_name].to_s
+
+    respond_to do |format|
+      format.md do
+        render template: "shared/unknown_action",
+          locals: {
+            url_prefix: url_prefix,
+            unknown_name: unknown_name,
+            available_actions: lookup_actions_for_prefix(url_prefix),
+          },
+          status: :not_found
+      end
+      format.any { head :not_found }
+    end
+  end
+
+  # Resolve a request path back to the actions defined for the page it would
+  # display. Returns [] when the path doesn't resolve or has no defined actions.
+  # Some action entries (especially conditional_actions) only carry :name; we
+  # fall back to ActionsHelper.action_definition for description/params_string
+  # so the rendered list is never blank.
+  def lookup_actions_for_prefix(url_prefix)
+    recognized = Rails.application.routes.recognize_path(url_prefix, method: :get)
+    controller_action = "#{recognized[:controller]}##{recognized[:action]}"
+    route_pattern = ActionsHelper.route_pattern_for(controller_action)
+    return [] unless route_pattern
+
+    route_info = ActionsHelper.actions_for_route(route_pattern)
+    return [] unless route_info
+
+    raw = (route_info[:actions] || []) + (route_info[:conditional_actions] || [])
+    raw.map do |action|
+      definition = ActionsHelper.action_definition(action[:name])
+      {
+        name: action[:name],
+        params_string: action[:params_string] || definition&.dig(:params_string) || "",
+        description: action[:description] || definition&.dig(:description) || "",
+      }
+    end
+  rescue ActionController::RoutingError
+    []
   end
 
   def is_auth_controller?

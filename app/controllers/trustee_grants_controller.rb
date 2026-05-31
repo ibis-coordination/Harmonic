@@ -96,6 +96,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "create_trustee_grant",
                                    resource: nil,
                                    error: "You can only create trustee grants for yourself",
+                                   status: :forbidden,
                                  })
     end
 
@@ -105,6 +106,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "create_trustee_grant",
                                    resource: nil,
                                    error: "Trustee user not found",
+                                   status: :not_found,
                                  })
     end
 
@@ -157,6 +159,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "accept_trustee_grant",
                                    resource: @grant,
                                    error: "You can only accept trustee grants granted to you",
+                                   status: :forbidden,
                                  })
     end
 
@@ -165,6 +168,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "accept_trustee_grant",
                                    resource: @grant,
                                    error: "This trustee grant is not pending",
+                                   status: :conflict,
                                  })
     end
 
@@ -192,6 +196,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "decline_trustee_grant",
                                    resource: @grant,
                                    error: "You can only decline trustee grants granted to you",
+                                   status: :forbidden,
                                  })
     end
 
@@ -200,6 +205,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "decline_trustee_grant",
                                    resource: @grant,
                                    error: "This trustee grant is not pending",
+                                   status: :conflict,
                                  })
     end
 
@@ -227,6 +233,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "revoke_trustee_grant",
                                    resource: @grant,
                                    error: "You can only revoke trustee grants you created",
+                                   status: :forbidden,
                                  })
     end
 
@@ -235,6 +242,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "revoke_trustee_grant",
                                    resource: @grant,
                                    error: "This trustee grant is already revoked or declined",
+                                   status: :conflict,
                                  })
     end
 
@@ -285,6 +293,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "start_representation",
                                    resource: @grant,
                                    error: "You can only start representation for grants where you are the trusted user",
+                                   status: :forbidden,
                                  })
     end
 
@@ -293,6 +302,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "start_representation",
                                    resource: @grant,
                                    error: "This trustee grant is not active",
+                                   status: :conflict,
                                  })
     end
 
@@ -331,6 +341,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "end_representation",
                                    resource: @grant,
                                    error: "You can only end representation for grants where you are the trusted user",
+                                   status: :forbidden,
                                  })
     end
 
@@ -345,6 +356,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "end_representation",
                                    resource: @grant,
                                    error: "No active representation session found for this grant",
+                                   status: :not_found,
                                  })
     end
 
@@ -355,6 +367,7 @@ class TrusteeGrantsController < ApplicationController
                                    action_name: "end_representation",
                                    resource: @grant,
                                    error: "You are not the representative for this session",
+                                   status: :forbidden,
                                  })
     end
 

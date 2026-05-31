@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { handleNavigate, handleExecuteAction, handleSearch, handleGetHelp, createState, type Config } from "./handlers.js";
+import { handleFetchPage, handleExecuteAction, handleSearch, handleGetHelp, type Config } from "./handlers.js";
 import { CONTEXT_MARKDOWN } from "./context.js";
 
 // Configuration from environment
@@ -12,29 +12,28 @@ const config: Config = {
   apiToken: process.env.HARMONIC_API_TOKEN,
 };
 
-// State
-const state = createState();
-
 // Create the MCP server
 const server = new McpServer({
   name: "harmonic",
   version: "0.1.0",
 });
 
-// Register navigate tool
+// Register fetch_page tool
 server.registerTool(
-  "navigate",
+  "fetch_page",
   {
     description:
-      "Navigate to a URL in Harmonic and see its content and available actions. " +
-      "Returns markdown content plus a list of actions you can take on this page. " +
-      "URLs can be shared with humans—they see the same page in their browser. " +
+      "Fetch the markdown representation of a Harmonic page at the given path. " +
+      "The response includes content plus a list of actions available at that path, each with a fully-qualified action URL you can pass back to execute_action. " +
       "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
     inputSchema: {
       path: z.string().describe("Relative path (e.g., '/collectives/team/n/abc123')"),
     },
+    annotations: {
+      readOnlyHint: true,
+    },
   },
-  async ({ path }) => handleNavigate(path, config, state)
+  async ({ path }) => handleFetchPage(path, config)
 );
 
 // Register execute_action tool
@@ -42,18 +41,24 @@ server.registerTool(
   "execute_action",
   {
     description:
-      "Execute an action available at the current URL. " +
-      "You must call 'navigate' first to see available actions. " +
-      "Actions are contextual—only actions listed for the current page will work.",
+      "Execute an action at a given Harmonic page. " +
+      "Pass the path of the page (e.g. '/collectives/team/n/abc123'), the action name (from the page's action list, e.g. 'add_comment'), and any params the action requires.",
     inputSchema: {
-      action: z.string().describe("Action name from the available actions list"),
+      path: z.string().describe(
+        "Path of the page the action operates on (e.g., '/collectives/team/n/abc123')."
+      ),
+      action: z.string().describe("Action name (from the action list on the page)"),
       params: z
         .record(z.string(), z.unknown())
         .optional()
-        .describe("Parameters for the action (see action's parameter list)"),
+        .describe("Parameters for the action (see the action's parameter list)"),
+    },
+    annotations: {
+      destructiveHint: true,
     },
   },
-  async ({ action, params }) => handleExecuteAction(action, params as Record<string, unknown> | undefined, config, state)
+  async ({ path, action, params }) =>
+    handleExecuteAction(path, action, params as Record<string, unknown> | undefined, config)
 );
 
 // Register search tool
@@ -67,8 +72,11 @@ server.registerTool(
         "Search query. Supports filters: type:note, type:decision, type:commitment, status:open, cycle:current, creator:@handle, collective:handle"
       ),
     },
+    annotations: {
+      readOnlyHint: true,
+    },
   },
-  async ({ query }) => handleSearch(query, config, state)
+  async ({ query }) => handleSearch(query, config)
 );
 
 // Register get_help tool
@@ -82,8 +90,11 @@ server.registerTool(
         "Topic name. Available: collectives, notes, reminder-notes, table-notes, decisions, executive-decisions, lottery-decisions, commitments, cycles, search, links, agents, api, privacy"
       ),
     },
+    annotations: {
+      readOnlyHint: true,
+    },
   },
-  async ({ topic }) => handleGetHelp(topic, config, state)
+  async ({ topic }) => handleGetHelp(topic, config)
 );
 
 // Register context resource

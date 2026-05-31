@@ -5,8 +5,8 @@
 import type { ToolCall } from "./PromptBuilder.js";
 
 export type AgentAction =
-  | { readonly type: "navigate"; readonly path: string }
-  | { readonly type: "execute_action"; readonly action: string; readonly params: Record<string, unknown> | undefined }
+  | { readonly type: "fetch_page"; readonly path: string }
+  | { readonly type: "execute_action"; readonly path: string; readonly action: string; readonly params: Record<string, unknown> | undefined }
   | { readonly type: "search"; readonly query: string }
   | { readonly type: "get_help"; readonly topic: string }
   | { readonly type: "respond_to_human"; readonly message: string }
@@ -39,14 +39,18 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
   }
 
   switch (name) {
-    case "navigate": {
+    case "fetch_page": {
       const path = args["path"];
       if (typeof path !== "string" || path === "") {
-        return { type: "error", message: "navigate requires a non-empty 'path' string" };
+        return { type: "error", message: "fetch_page requires a non-empty 'path' string" };
       }
-      return { type: "navigate", path };
+      return { type: "fetch_page", path };
     }
     case "execute_action": {
+      const path = args["path"];
+      if (typeof path !== "string" || path === "") {
+        return { type: "error", message: "execute_action requires a non-empty 'path' string" };
+      }
       const action = args["action"];
       if (typeof action !== "string" || action === "") {
         return { type: "error", message: "execute_action requires a non-empty 'action' string" };
@@ -54,7 +58,7 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
       const params = typeof args["params"] === "object" && args["params"] !== null
         ? args["params"] as Record<string, unknown>
         : undefined;
-      return { type: "execute_action", action, params };
+      return { type: "execute_action", path, action, params };
     }
     case "search": {
       const query = args["query"];
@@ -80,20 +84,4 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
     default:
       return { type: "error", message: `Unknown tool: ${name}` };
   }
-}
-
-/**
- * Validate an action against the available actions on the current page.
- */
-export function validateAction(
-  actionName: string,
-  availableActions: readonly string[],
-): { readonly valid: boolean; readonly error?: string | undefined } {
-  if (availableActions.includes(actionName)) {
-    return { valid: true };
-  }
-  return {
-    valid: false,
-    error: `Action "${actionName}" is not available. Available: ${availableActions.join(", ")}`,
-  };
 }

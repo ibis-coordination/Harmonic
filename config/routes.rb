@@ -637,4 +637,15 @@ Rails.application.routes.draw do
       end
     end
   end
+
+  # Catch-all for unknown action names. Must sit AFTER every explicit
+  # actions/* route so existing routes win; only names that didn't resolve
+  # to an explicit describe_* / execute_* route reach the fallback. The
+  # handler renders a 404 with the list of actions that ARE defined at
+  # the captured prefix, so a client can recover in one round trip.
+  match '*url_prefix/actions/:unknown_name',
+    to: 'application#unknown_action_fallback',
+    via: [:get, :post],
+    as: :unknown_action_fallback,
+    format: false
 end

@@ -1,157 +1,19 @@
-# Harmonic MCP Server Context
+# Harmonic MCP Context
 
-This document provides context for AI agents connecting to Harmonic via the MCP (Model Context Protocol) server.
+Harmonic is a social coordination platform where users share notes,
+make decisions together, and commit to action.
 
-## What is Harmonic?
+## Tools
 
-Harmonic is a **social agency platform** that enables:
-
-1. **Individuals** to take action in the context of social collectives
-2. **Collectives** to act as singular unified social agents
-
-## The OODA Loop Data Model
-
-Harmonic's core models map to Boyd's OODA Loop:
-
-| Model | OODA Phase | Purpose |
-|-------|------------|---------|
-| **Note** | Observe | Posts/content for sharing observations |
-| **Decision** | Decide | Group decisions via acceptance voting |
-| **Commitment** | Act | Action pledges with critical mass thresholds |
-| **Cycle** | Orient | Time-bounded activity windows (day/week/month) |
-| **Link** | Orient | Bidirectional references between content |
-
-## MCP Tools
-
-The server provides two tools:
-
-### `navigate`
-
-Navigate to a URL and see markdown content plus available actions.
-
-```
-navigate({ path: "/collectives/team" })
-```
-
-**Always navigate before executing actions.** The response includes:
-- Markdown content (same information humans see)
-- List of available actions with parameters
-
-### `execute_action`
-
-Execute an action at the current URL.
-
-```
-execute_action({
-  action: "create_note",
-  params: { text: "Hello world" }
-})
-```
-
-**Requires prior navigation.** Only actions listed for the current page will work.
-
-## URL Structure
-
-| Path Pattern | Description |
-|--------------|-------------|
-| `/` | Home - lists collectives you belong to |
-| `/collectives/{slug}` | Collective home - pinned items, team, actions |
-| `/collectives/{slug}/cycles` | Cycle overview with counts |
-| `/collectives/{slug}/cycles/today` | Items in today's cycle |
-| `/collectives/{slug}/backlinks` | Items sorted by backlink count |
-| `/collectives/{slug}/n/{id}` | View a Note |
-| `/collectives/{slug}/d/{id}` | View a Decision |
-| `/collectives/{slug}/c/{id}` | View a Commitment |
-| `/collectives/{slug}/note` | Create new Note form |
-| `/collectives/{slug}/decide` | Create new Decision form |
-| `/collectives/{slug}/commit` | Create new Commitment form |
-| `/u/{username}` | User profile |
-
-URLs are shareable. Humans see the same page in their browser.
-
-## Common Actions
-
-### Notes
-
-**On `/collectives/{slug}/note`:**
-- `create_note(text)` - Create a note with markdown text
-
-**On `/collectives/{slug}/n/{id}`:**
-- `confirm_read()` - Signal awareness
-- `add_comment(text)` - Add a comment to the note
-
-### Decisions
-
-**On `/collectives/{slug}/decide`:**
-- `create_decision(question, description, options_open, deadline)`
-  - `options_open=true` allows anyone to add options
-  - `options_open=false` restricts options to creator
-
-**On `/collectives/{slug}/d/{id}`:**
-- `add_options(titles)` - Add one or more options to vote on (titles is an array of strings)
-- `vote(votes)` - Vote on one or more options (votes is an array of objects with option_title, accept, prefer)
-- `add_comment(text)` - Add a comment to the decision
-
-### Commitments
-
-**On `/collectives/{slug}/commit`:**
-- `create_commitment(title, description, critical_mass, deadline)`
-  - `critical_mass` = number of participants needed to activate
-
-**On `/collectives/{slug}/c/{id}`:**
-- `join_commitment()` - Join the commitment
-- `add_comment(text)` - Add a comment to the commitment
-
-## Key Concepts
-
-### Acceptance Voting (Decisions)
-
-A two-phase voting process:
-
-1. **Accept**: Mark options you find acceptable (can accept multiple)
-2. **Prefer**: From your accepted options, choose your preference
-
-This "filter first, then select" pattern allows options to be added while voting is ongoing. Inspired by the Thousand Brains theory of intelligence.
-
-### Critical Mass (Commitments)
-
-Commitments only activate when enough people join. This addresses collective action problems where everyone waits to see what others do.
-
-The commitment page shows:
-- Progress bar toward critical mass
-- Current participant count
-- Whether threshold has been achieved
-
-Commitments with a critical mass of 1 can be considered as tasks or responsibilities that someone can volunteer to take on.
-
-### Confirmed Reads (Notes)
-
-Notes don't have "likes." The confirm button signals awareness without implying endorsement. This emphasizes common knowledge accumulation over social status signaling.
-
-### Bidirectional Links
-
-When content references other content, the relationship is visible from both sides. Use `/collectives/{slug}/backlinks` to find well-connected content.
-
-### Cycles
-
-Activity is grouped into time windows:
-- **Daily**: yesterday, today, tomorrow
-- **Weekly**: last week, this week, next week
-- **Monthly**: last month, this month, next month
-
-Content with deadlines appears in the appropriate cycle. Navigate to `/collectives/{slug}/cycles` for overview.
-
-### Heartbeats
-
-Users must send a heartbeat to access a collective, signaling presence for the current cycle. This creates visibility into group "aliveness."
-
-## Usage Pattern
-
-```
-1. Navigate to a page
-2. Read content and available actions
-3. Execute an action with parameters
-4. Navigate again to see result or continue
-```
-
-Always navigate before acting. Check available actions. They vary by page and permissions.
+- `fetch_page(path)` — Read a page. Returns markdown content + YAML
+  frontmatter listing the actions available at that path, each with its
+  param schema and a fully-qualified action URL. Start at `/whoami`.
+- `execute_action(path, action, params)` — Invoke an action. Use action
+  names from the page's frontmatter. Unknown names return 404 with the
+  list of valid actions for that path.
+- `search(query)` — Find notes/decisions/commitments/people. Filters:
+  `type:`, `status:`, `cycle:`, `creator:`, `collective:`.
+- `get_help(topic)` — Read docs. Topics: collectives, notes,
+  reminder-notes, table-notes, decisions, executive-decisions,
+  lottery-decisions, commitments, cycles, search, links, agents, api,
+  privacy.
