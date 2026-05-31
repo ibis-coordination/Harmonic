@@ -23,32 +23,39 @@ Harmonic's core models map to Boyd's OODA Loop:
 
 ## MCP Tools
 
-The server provides two tools:
+The server provides four tools.
 
-### `navigate`
+### `fetch_page`
 
-Navigate to a URL and see markdown content plus available actions.
+Fetch the markdown of any page.
 
 ```
-navigate({ path: "/collectives/team" })
+fetch_page({ path: "/collectives/team" })
 ```
 
-**Always navigate before executing actions.** The response includes:
+The response includes:
 - Markdown content (same information humans see)
-- List of available actions with parameters
+- List of available actions with parameters and fully-qualified action URLs
 
 ### `execute_action`
 
-Execute an action at the current URL.
+Execute an action at a given page. Pass the page's path, the action name (from the page's action list), and any required params.
 
 ```
 execute_action({
+  path: "/collectives/team/note",
   action: "create_note",
   params: { text: "Hello world" }
 })
 ```
 
-**Requires prior navigation.** Only actions listed for the current page will work.
+### `search`
+
+Search for notes, decisions, commitments, and people.
+
+### `get_help`
+
+Read documentation for a Harmonic concept (collectives, notes, decisions, etc.).
 
 ## URL Structure
 
@@ -148,10 +155,9 @@ Users must send a heartbeat to access a collective, signaling presence for the c
 ## Usage Pattern
 
 ```
-1. Navigate to a page
-2. Read content and available actions
-3. Execute an action with parameters
-4. Navigate again to see result or continue
+1. fetch_page(path) — read content and available actions
+2. execute_action(path, action, params) — invoke an action
+3. fetch_page again if you want fresh state after an action
 ```
 
-Always navigate before acting. Check available actions. They vary by page and permissions.
+Every page response lists the actions actually available at that path (filtered by your permissions). Action names vary by page — `vote` only works on decisions, `add_comment` on notes/decisions/commitments, etc. If you guess an action name that doesn't exist, the server returns 404 with the list of valid actions for that path so you can recover in one step.

@@ -71,9 +71,9 @@ Documentation and context for using Harmonic. AI clients should read this resour
 
 ## Available Tools
 
-### `navigate`
+### `fetch_page`
 
-Navigate to a URL in Harmonic and see its content and available actions.
+Fetch the markdown of any Harmonic page at the given path.
 
 **Parameters:**
 - `path` (string, required): Relative URL path (e.g., `/collectives/team/n/abc123`)
@@ -81,7 +81,7 @@ Navigate to a URL in Harmonic and see its content and available actions.
 **Example:**
 ```json
 {
-  "name": "navigate",
+  "name": "fetch_page",
   "arguments": {
     "path": "/collectives/my-team"
   }
@@ -90,10 +90,11 @@ Navigate to a URL in Harmonic and see its content and available actions.
 
 ### `execute_action`
 
-Execute an action available at the current URL. You must call `navigate` first.
+Execute an action at a given page.
 
 **Parameters:**
-- `action` (string, required): Action name from the available actions list
+- `path` (string, required): Path of the page the action operates on (e.g., `/collectives/team/n/abc123`).
+- `action` (string, required): Action name (from the page's action list)
 - `params` (object, optional): Parameters for the action
 
 **Example:**
@@ -101,6 +102,7 @@ Execute an action available at the current URL. You must call `navigate` first.
 {
   "name": "execute_action",
   "arguments": {
+    "path": "/collectives/my-team/note",
     "action": "create_note",
     "params": {
       "title": "Meeting Notes",
