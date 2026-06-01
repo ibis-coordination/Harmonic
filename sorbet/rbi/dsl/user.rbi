@@ -489,6 +489,20 @@ class User
     def create_stripe_customer!(*args, &blk); end
 
     sig { returns(T::Array[T.untyped]) }
+    def created_user_list_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def created_user_list_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :created_user_lists`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserList::PrivateCollectionProxy) }
+    def created_user_lists; end
+
+    sig { params(value: T::Enumerable[::UserList]).void }
+    def created_user_lists=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def decision_participant_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -527,6 +541,20 @@ class User
 
     sig { params(value: T.nilable(::ActiveStorage::Blob)).void }
     def image_blob=(value); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :lists_im_on, through: :user_list_memberships`.
+    # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
+    sig { returns(::UserList::PrivateCollectionProxy) }
+    def lists_im_on; end
+
+    sig { params(value: T::Enumerable[::UserList]).void }
+    def lists_im_on=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def lists_im_on_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def lists_im_on_ids=(ids); end
 
     sig { returns(T::Array[T.untyped]) }
     def note_history_event_ids; end
@@ -589,6 +617,20 @@ class User
 
     sig { params(value: T.nilable(::OmniAuthIdentity)).void }
     def omni_auth_identity=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def owned_user_list_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def owned_user_list_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :owned_user_lists`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserList::PrivateCollectionProxy) }
+    def owned_user_lists; end
+
+    sig { params(value: T::Enumerable[::UserList]).void }
+    def owned_user_lists=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def received_trustee_grant_ids; end
@@ -695,6 +737,20 @@ class User
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def user_blocks_received_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_list_membership_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_list_membership_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :user_list_memberships`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserListMember::PrivateCollectionProxy) }
+    def user_list_memberships; end
+
+    sig { params(value: T::Enumerable[::UserListMember]).void }
+    def user_list_memberships=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def vote_ids; end

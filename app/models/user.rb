@@ -30,6 +30,33 @@ class User < ApplicationRecord
   has_many :user_blocks_given, class_name: "UserBlock", foreign_key: "blocker_id", dependent: :destroy
   has_many :user_blocks_received, class_name: "UserBlock", foreign_key: "blocked_id", dependent: :destroy
 
+  # UserList associations
+  has_many :created_user_lists, class_name: "UserList", foreign_key: :creator_id,
+                                dependent: :restrict_with_exception
+  has_many :owned_user_lists,   class_name: "UserList", foreign_key: :owner_id,
+                                dependent: :restrict_with_exception
+  has_many :user_list_memberships, class_name: "UserListMember", dependent: :destroy
+  has_many :lists_im_on, through: :user_list_memberships, source: :user_list
+
+  # Returns the user's primary list in `tenant`, creating one in
+  # `tenant.main_collective` if absent. Idempotent.
+  sig { params(tenant: Tenant).returns(UserList) }
+  def primary_user_list_in!(tenant)
+    existing = UserList
+      .tenant_scoped_only(tenant.id)
+      .where(owner_id: id, is_primary: true, deleted_at: nil)
+      .first
+    return existing if existing
+
+    tu = tenant_users.find_by(tenant_id: tenant.id)
+    UserList.create!(
+      creator: self, owner: self,
+      tenant: tenant, collective: tenant.main_collective,
+      name: "#{tu&.display_name.presence || name}'s list",
+      is_primary: true, visibility: "public",
+    )
+  end
+
   # Trustee grant associations
   # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",

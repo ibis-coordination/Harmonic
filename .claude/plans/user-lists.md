@@ -14,7 +14,7 @@ to them.
 ## Out of scope for v1
 
 - Ownership transfer (schema supports mutable `owner_id`; no endpoint yet)
-- Separate moderators table (the `add_policy` enum subsumes lightweight moderation)
+- Separate moderators table (lightweight moderation will be expressed via the Phase 3 `add_policy` enum instead)
 - `remove_others_policy` variants (rule is fixed: owner can remove anyone; user can remove themselves; nobody else)
 - Anonymous read
 - HTML UI (markdown + LLM actions only)
@@ -28,8 +28,11 @@ to them.
 
 - **"Add to list" is the headline gesture.** Single button on a profile.
   Auto-creates the actor's primary list on first use.
-- **Primary list per user, per collective.** `is_primary: true` is unique
-  within `(owner_id, collective_id, deleted_at IS NULL)`.
+- **Primary list per user, per tenant.** `is_primary: true` is unique within
+  `(tenant_id, owner_id, deleted_at IS NULL)`. The primary always lives in
+  `tenant.main_collective` by convention (the "[Name]'s list" social
+  signal is tenant-wide; non-main collectives are for named, context-scoped
+  custom lists rather than primaries).
 - **Truncated_id identifies lists in URLs.** Matches `Note` / `Decision` /
   `Commitment` precedent. No slugs, no reserved-name list, no route-ordering
   ritual.
@@ -38,8 +41,10 @@ to them.
   `/u/:handle/lists` shows lists owned by a given user.
 - **`creator_id` immutable, `owner_id` mutable.** Two columns, two concerns:
   provenance (audit) vs current controller (transferable).
-- **One `add_policy` enum** drives all member-add behavior in v1. Removal
-  rules are fixed.
+- **No `add_policy` in Phase 0.** Phase 0 ships owner-only-add as the
+  implicit rule (nothing reads a policy yet). The column + enum land in
+  Phase 3 alongside policy enforcement, with the value set chosen then
+  based on concrete needs.
 - **Markdown + dual-interface actions ship before HTML UI** (same rationale
   as the first attempt — harder design surface first, agents get the feature
   immediately, HTML layers on later).
@@ -57,14 +62,13 @@ create_table :user_lists, id: :uuid do |t|
   t.references :creator,    type: :uuid, null: false, foreign_key: { to_table: :users }
   t.references :owner,      type: :uuid, null: false, foreign_key: { to_table: :users }
 
-  t.string  :truncated_id,   null: false   # populated via HasTruncatedId
+  t.string  :truncated_id,   null: false, as: "LEFT(id::text, 8)", stored: true
   t.string  :name,           null: false
   t.text    :description
   t.string  :visibility,     null: false, default: "public"   # "public" | "private"
-  t.string  :add_policy,     null: false, default: "owner_only"
-  # add_policy values: "owner_only" | "members_can_invite" | "self_add" | "collective_can_self_add"
   t.boolean :is_primary,     null: false, default: false
   t.integer :members_count,  null: false, default: 0
+  # `add_policy` column added in Phase 3.
   t.datetime :deleted_at
   t.uuid     :deleted_by_id
 
@@ -72,10 +76,10 @@ create_table :user_lists, id: :uuid do |t|
 end
 
 add_index :user_lists, :truncated_id, unique: true
-add_index :user_lists, [:owner_id, :collective_id],
+add_index :user_lists, [:tenant_id, :owner_id],
           unique: true,
           where: "is_primary = TRUE AND deleted_at IS NULL",
-          name: "index_user_lists_one_primary_per_owner_per_collective"
+          name: "index_user_lists_one_primary_per_owner_per_tenant"
 add_index :user_lists, [:collective_id, :visibility]
 add_index :user_lists, :deleted_at
 ```
@@ -114,7 +118,6 @@ class UserList < ApplicationRecord
   include SoftDeletable
 
   VISIBILITIES = ["public", "private"].freeze
-  ADD_POLICIES = ["owner_only", "members_can_invite", "self_add", "collective_can_self_add"].freeze
 
   belongs_to :tenant
   belongs_to :collective
@@ -127,7 +130,6 @@ class UserList < ApplicationRecord
   validates :name,        presence: true, length: { maximum: 80 }
   validates :description, length: { maximum: 500 }, allow_nil: true
   validates :visibility,  inclusion: { in: VISIBILITIES }
-  validates :add_policy,  inclusion: { in: ADD_POLICIES }
   validate  :one_primary_per_owner
 
   attr_readonly :tenant_id, :collective_id, :creator_id   # NOT owner_id
@@ -190,17 +192,21 @@ has_many :owned_user_lists,   class_name: "UserList", foreign_key: :owner_id, de
 has_many :user_list_memberships, class_name: "UserListMember", dependent: :destroy
 has_many :lists_im_on, through: :user_list_memberships, source: :user_list
 
-# Primary list helper — lazy creation guarded by transaction.
-sig { params(collective: Collective).returns(UserList) }
-def primary_user_list_in!(collective)
-  existing = UserList.where(owner_id: id, collective_id: collective.id, is_primary: true).first
-  return existing if existing
-
-  UserList.create!(
-    creator: self, owner: self, collective: collective, tenant: collective.tenant,
-    name: "#{display_name || name}'s list", is_primary: true, visibility: "public",
-    add_policy: "owner_only",
-  )
+# Primary list helper — lazy creation guarded by transaction + race-recovery.
+# Per-tenant uniqueness: the primary always lives in tenant.main_collective.
+sig { params(tenant: Tenant).returns(UserList) }
+def primary_user_list_in!(tenant)
+  UserList.transaction do
+    existing = primary_user_list_in(tenant)
+    return existing if existing
+    UserList.create!(
+      creator: self, owner: self,
+      tenant: tenant, collective: tenant.main_collective,
+      name: "#{display_name || name}'s list", is_primary: true, visibility: "public",
+    )
+  rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+    T.must(primary_user_list_in(tenant))
+  end
 end
 ```
 
@@ -260,27 +266,24 @@ URL summary:
 
 | Action | Where | Params | Auth |
 |--------|-------|--------|------|
-| `create_user_list` | `/lists/actions/...` | `name`, `description?`, `visibility?`, `add_policy?` | authenticated |
-| `update_user_list` | `/lists/:id/actions/...` | `name?`, `description?`, `visibility?`, `add_policy?` | owner only |
+| `create_user_list` | `/lists/actions/...` | `name`, `description?`, `visibility?` | authenticated |
+| `update_user_list` | `/lists/:id/actions/...` | `name?`, `description?`, `visibility?` | owner only |
 | `delete_user_list` | `/lists/:id/actions/...` | (none) | owner only AND not is_primary |
-| `add_member` | `/lists/:id/actions/...` | `user_handle` | per `add_policy` (see below) |
+| `add_member` | `/lists/:id/actions/...` | `user_handle` | owner only (Phase 2); per-policy in Phase 3 |
 | `remove_member` | `/lists/:id/actions/...` | `user_handle` | owner OR self (target_user == current_user) |
 | `add_to_list` | `/u/:handle/actions/...` | (none) | authenticated; auto-resolves current_user's primary list |
 | `remove_from_list` | `/u/:handle/actions/...` | (none) | authenticated; removes URL handle from current_user's primary list |
 
-### add_policy semantics
+### add_policy
 
-| Policy | Who can add | Notes |
-|--------|-------------|-------|
-| `owner_only` | Owner | Default. Primary lists start here. |
-| `members_can_invite` | Owner OR any existing list member | Lightweight moderation; the current member-set acts as the moderation pool. |
-| `self_add` | Owner can add anyone; any user can add THEMSELVES | Opt-in groups. |
-| `collective_can_self_add` | Owner can add anyone; any collective member can add themselves | Self-managed roster scoped to the collective. |
+Deferred to Phase 3. Until then, the implicit rule for every list is
+**owner_only** (only the list's `owner_id` user can add members). The column,
+enum values, and `update_user_list` `add_policy?` param land in Phase 3.
 
 ### Block respect
 
 - Symmetric block (`UserBlock.between?`) between adder and target → reject.
-- Symmetric block between owner and target → reject (even if a non-owner initiates via `members_can_invite` or `self_add`).
+- Symmetric block between owner and target → reject (even when adder is not the owner — relevant once non-owner-add policies exist).
 - Self-removal always allowed regardless of blocks.
 
 ### Visibility rules
@@ -304,7 +307,7 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 
 - Migration: `user_lists` + `user_list_members`.
 - Models: `UserList`, `UserListMember`, `User` additions.
-- Validations: name/description/visibility/add_policy/is_primary uniqueness;
+- Validations: name/description/visibility/is_primary uniqueness;
   scope_matches_list; respects_blocks; member_is_collective_member.
 - Counter callbacks for `members_count`.
 - Model tests cover all validations, scopes, counters, soft-delete, `visible_to?`,
@@ -330,10 +333,15 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 - Existence-hiding via `set_list`.
 - Primary list cannot be deleted while is_primary=true (422).
 
-### Phase 3 — Explicit member management + add_policy enforcement
+### Phase 3 — `add_policy` column + enforcement
 
-- `add_member` / `remove_member` endpoints on `/lists/:list_id/actions/...`.
-- Enforce each `add_policy` value.
+- Migration: add `add_policy` string column to `user_lists` with default
+  `owner_only`.
+- Define the policy enum values based on concrete needs at that point —
+  candidates: `owner_only`, `members_can_invite`, `self_add` (decide which to
+  ship based on use cases that have emerged).
+- Update `add_member` / `remove_member` to enforce policy. `update_user_list`
+  gains an `add_policy?` param.
 - Tests for each policy and each block-relation direction.
 - Self-removal-always-allowed verified across policies.
 
