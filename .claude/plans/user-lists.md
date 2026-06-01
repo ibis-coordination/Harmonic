@@ -1,0 +1,405 @@
+# UserList — addressable, governable subgroups (v2 plan)
+
+## Goal
+
+Replace "follow" with **add to list**. Every user has a primary list ("[Name]'s
+list") that's auto-created on first interaction; the "add to list" gesture
+from a user's profile is the load-bearing UX move. Users can also create
+additional lists with configurable add policies.
+
+Lists are addressable subgroups within a collective: you can name them,
+reference them, and (later) deliver decisions / commitments / notifications
+to them.
+
+## Out of scope for v1
+
+- Ownership transfer (schema supports mutable `owner_id`; no endpoint yet)
+- Separate moderators table (the `add_policy` enum subsumes lightweight moderation)
+- `remove_others_policy` variants (rule is fixed: owner can remove anyone; user can remove themselves; nobody else)
+- Anonymous read
+- HTML UI (markdown + LLM actions only)
+- Lists in non-main collectives (schema permits; routes restrict)
+- Banner image, member cap
+- Subscribe-to-list / list-feed / timeline (there is no follow graph; lists are *addressed*, not *subscribed to*)
+- `Linkable` inclusion (deferred until concrete consumer exists)
+- Notifications to listed users (added in a later phase)
+
+## Why these shapes
+
+- **"Add to list" is the headline gesture.** Single button on a profile.
+  Auto-creates the actor's primary list on first use.
+- **Primary list per user, per collective.** `is_primary: true` is unique
+  within `(owner_id, collective_id, deleted_at IS NULL)`.
+- **Truncated_id identifies lists in URLs.** Matches `Note` / `Decision` /
+  `Commitment` precedent. No slugs, no reserved-name list, no route-ordering
+  ritual.
+- **Lists are top-level resources at `/lists/:list_id`**, not nested under
+  the user. Twitter shape (`twitter.com/i/lists/12345`). A listing view at
+  `/u/:handle/lists` shows lists owned by a given user.
+- **`creator_id` immutable, `owner_id` mutable.** Two columns, two concerns:
+  provenance (audit) vs current controller (transferable).
+- **One `add_policy` enum** drives all member-add behavior in v1. Removal
+  rules are fixed.
+- **Markdown + dual-interface actions ship before HTML UI** (same rationale
+  as the first attempt — harder design surface first, agents get the feature
+  immediately, HTML layers on later).
+
+---
+
+## Schema
+
+### `user_lists`
+
+```ruby
+create_table :user_lists, id: :uuid do |t|
+  t.references :tenant,     type: :uuid, null: false, foreign_key: true
+  t.references :collective, type: :uuid, null: false, foreign_key: true
+  t.references :creator,    type: :uuid, null: false, foreign_key: { to_table: :users }
+  t.references :owner,      type: :uuid, null: false, foreign_key: { to_table: :users }
+
+  t.string  :truncated_id,   null: false   # populated via HasTruncatedId
+  t.string  :name,           null: false
+  t.text    :description
+  t.string  :visibility,     null: false, default: "public"   # "public" | "private"
+  t.string  :add_policy,     null: false, default: "owner_only"
+  # add_policy values: "owner_only" | "members_can_invite" | "self_add" | "collective_can_self_add"
+  t.boolean :is_primary,     null: false, default: false
+  t.integer :members_count,  null: false, default: 0
+  t.datetime :deleted_at
+  t.uuid     :deleted_by_id
+
+  t.timestamps
+end
+
+add_index :user_lists, :truncated_id, unique: true
+add_index :user_lists, [:owner_id, :collective_id],
+          unique: true,
+          where: "is_primary = TRUE AND deleted_at IS NULL",
+          name: "index_user_lists_one_primary_per_owner_per_collective"
+add_index :user_lists, [:collective_id, :visibility]
+add_index :user_lists, :deleted_at
+```
+
+### `user_list_members`
+
+```ruby
+create_table :user_list_members, id: :uuid do |t|
+  t.references :tenant,     type: :uuid, null: false, foreign_key: true
+  t.references :collective, type: :uuid, null: false, foreign_key: true
+  t.references :user_list,  type: :uuid, null: false, foreign_key: true
+  t.references :user,       type: :uuid, null: false, foreign_key: true   # the member
+  t.references :added_by,   type: :uuid, null: false, foreign_key: { to_table: :users }
+  t.timestamps
+end
+
+add_index :user_list_members, [:user_list_id, :user_id], unique: true,
+          name: "index_user_list_members_on_list_and_user"
+add_index :user_list_members, [:user_id, :collective_id],
+          name: "index_user_list_members_on_user_and_collective"
+```
+
+**No `user_list_subscribers` table.** That concept is gone.
+
+---
+
+## Models
+
+### `UserList`
+
+```ruby
+class UserList < ApplicationRecord
+  extend T::Sig
+
+  include HasTruncatedId
+  include SoftDeletable
+
+  VISIBILITIES = ["public", "private"].freeze
+  ADD_POLICIES = ["owner_only", "members_can_invite", "self_add", "collective_can_self_add"].freeze
+
+  belongs_to :tenant
+  belongs_to :collective
+  belongs_to :creator, class_name: "User"
+  belongs_to :owner,   class_name: "User"
+
+  has_many :user_list_members, dependent: :destroy
+  has_many :members, through: :user_list_members, source: :user
+
+  validates :name,        presence: true, length: { maximum: 80 }
+  validates :description, length: { maximum: 500 }, allow_nil: true
+  validates :visibility,  inclusion: { in: VISIBILITIES }
+  validates :add_policy,  inclusion: { in: ADD_POLICIES }
+  validate  :one_primary_per_owner
+
+  attr_readonly :tenant_id, :collective_id, :creator_id   # NOT owner_id
+
+  sig { returns(T::Boolean) }
+  def public?;  visibility == "public";  end
+
+  sig { returns(T::Boolean) }
+  def private?; visibility == "private"; end
+
+  # Visibility predicate. Soft-deleted lists are filtered at query layer.
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def visible_to?(user)
+    return false if user.nil?
+    return true if user.id == owner_id
+    return false if private?
+    CollectiveMember.exists?(collective_id: collective_id, user_id: user.id)
+  end
+
+  # Canonical path. No handle-in-URL since lists are top-level.
+  sig { returns(String) }
+  def path
+    "/lists/#{truncated_id}"
+  end
+
+  sig { returns(String) }
+  def content_snapshot
+    [name, description].compact.join("\n\n")
+  end
+end
+```
+
+### `UserListMember`
+
+```ruby
+class UserListMember < ApplicationRecord
+  belongs_to :tenant
+  belongs_to :collective
+  belongs_to :user_list
+  belongs_to :user
+  belongs_to :added_by, class_name: "User"
+
+  validates :user_id, uniqueness: { scope: :user_list_id }
+  validate  :scope_matches_list
+  validate  :respects_blocks
+  validate  :member_is_collective_member
+
+  attr_readonly :tenant_id, :collective_id, :user_list_id
+
+  after_create_commit  :increment_members_count
+  after_destroy_commit :decrement_members_count
+end
+```
+
+### `User` additions
+
+```ruby
+has_many :created_user_lists, class_name: "UserList", foreign_key: :creator_id
+has_many :owned_user_lists,   class_name: "UserList", foreign_key: :owner_id, dependent: :restrict_with_exception
+has_many :user_list_memberships, class_name: "UserListMember", dependent: :destroy
+has_many :lists_im_on, through: :user_list_memberships, source: :user_list
+
+# Primary list helper — lazy creation guarded by transaction.
+sig { params(collective: Collective).returns(UserList) }
+def primary_user_list_in!(collective)
+  existing = UserList.where(owner_id: id, collective_id: collective.id, is_primary: true).first
+  return existing if existing
+
+  UserList.create!(
+    creator: self, owner: self, collective: collective, tenant: collective.tenant,
+    name: "#{display_name || name}'s list", is_primary: true, visibility: "public",
+    add_policy: "owner_only",
+  )
+end
+```
+
+The `dependent: :restrict_with_exception` on `owned_user_lists` ensures a user
+cannot be destroyed while owning lists — forces transfer (later) or list
+deletion first. Safer than `:destroy` (which would silently wipe everyone's
+lists when a user is deleted).
+
+---
+
+## Routes
+
+```ruby
+# === Tenant subdomain root (alongside /n, /d, /c) ===
+scope '/lists' do
+  get  'actions'                            => 'user_lists#actions_index_new'
+  get  'actions/create_user_list'           => 'user_lists#describe_create_user_list'
+  post 'actions/create_user_list'           => 'user_lists#execute_create_user_list'
+end
+
+resources :user_lists, path: 'lists', param: :list_id, only: [:show] do
+  member do
+    get  'actions'                          => 'user_lists#actions_index_show'
+    get  'actions/update_user_list'         => 'user_lists#describe_update_user_list'
+    post 'actions/update_user_list'         => 'user_lists#execute_update_user_list'
+    get  'actions/delete_user_list'         => 'user_lists#describe_delete_user_list'
+    post 'actions/delete_user_list'         => 'user_lists#execute_delete_user_list'
+    get  'actions/add_member'               => 'user_lists#describe_add_member'
+    post 'actions/add_member'               => 'user_lists#execute_add_member'
+    get  'actions/remove_member'            => 'user_lists#describe_remove_member'
+    post 'actions/remove_member'            => 'user_lists#execute_remove_member'
+  end
+end
+
+# === Under the user namespace ===
+resources :users, path: 'u', param: :handle, only: [] do
+  # Listing view: lists owned by this user (links to /lists/:list_id)
+  get 'lists' => 'user_lists#index', on: :member
+
+  # The headline gesture — "add this user to my primary list"
+  get  'actions/add_to_list'    => 'users#describe_add_to_list',    on: :member
+  post 'actions/add_to_list'    => 'users#execute_add_to_list',     on: :member
+  get  'actions/remove_from_list' => 'users#describe_remove_from_list', on: :member
+  post 'actions/remove_from_list' => 'users#execute_remove_from_list',  on: :member
+end
+```
+
+URL summary:
+- `/lists/:list_id` — canonical show URL
+- `/u/:handle/lists` — listing of lists owned by user
+- `/u/:handle/actions/add_to_list` — one-click gesture (uses current_user's primary list)
+- `/lists/:list_id/actions/add_member` — explicit "add user X to this specific list"
+
+---
+
+## Actions (dual interface)
+
+| Action | Where | Params | Auth |
+|--------|-------|--------|------|
+| `create_user_list` | `/lists/actions/...` | `name`, `description?`, `visibility?`, `add_policy?` | authenticated |
+| `update_user_list` | `/lists/:id/actions/...` | `name?`, `description?`, `visibility?`, `add_policy?` | owner only |
+| `delete_user_list` | `/lists/:id/actions/...` | (none) | owner only AND not is_primary |
+| `add_member` | `/lists/:id/actions/...` | `user_handle` | per `add_policy` (see below) |
+| `remove_member` | `/lists/:id/actions/...` | `user_handle` | owner OR self (target_user == current_user) |
+| `add_to_list` | `/u/:handle/actions/...` | (none) | authenticated; auto-resolves current_user's primary list |
+| `remove_from_list` | `/u/:handle/actions/...` | (none) | authenticated; removes URL handle from current_user's primary list |
+
+### add_policy semantics
+
+| Policy | Who can add | Notes |
+|--------|-------------|-------|
+| `owner_only` | Owner | Default. Primary lists start here. |
+| `members_can_invite` | Owner OR any existing list member | Lightweight moderation; the current member-set acts as the moderation pool. |
+| `self_add` | Owner can add anyone; any user can add THEMSELVES | Opt-in groups. |
+| `collective_can_self_add` | Owner can add anyone; any collective member can add themselves | Self-managed roster scoped to the collective. |
+
+### Block respect
+
+- Symmetric block (`UserBlock.between?`) between adder and target → reject.
+- Symmetric block between owner and target → reject (even if a non-owner initiates via `members_can_invite` or `self_add`).
+- Self-removal always allowed regardless of blocks.
+
+### Visibility rules
+
+| Action | Public list | Private list |
+|--------|-------------|--------------|
+| Read (show, members listing) | Any collective member | Owner only (404 to others — existence hidden) |
+| Appear in `/u/:handle/lists` | Yes | Only when `current_user == owner` |
+| Mutations (update/delete/add/remove) | Owner / per-policy | Owner only (404 to others) |
+
+Existence-hiding pattern: `set_list` filters by `visible_to?(current_user)`; if the
+list exists but the current user can't see it, `@list` is left nil → the action's
+existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
+"exists but hidden."
+
+---
+
+## Phasing
+
+### Phase 0 — Schema + bare models
+
+- Migration: `user_lists` + `user_list_members`.
+- Models: `UserList`, `UserListMember`, `User` additions.
+- Validations: name/description/visibility/add_policy/is_primary uniqueness;
+  scope_matches_list; respects_blocks; member_is_collective_member.
+- Counter callbacks for `members_count`.
+- Model tests cover all validations, scopes, counters, soft-delete, `visible_to?`,
+  `primary_user_list_in!`, tenant isolation, non-human owners.
+
+### Phase 1 — The "add to list" gesture
+
+- Action endpoint at `/u/:handle/actions/add_to_list`.
+- Auto-resolves current_user's primary list (creating it if absent).
+- Validates: target user is collective member; symmetric block check; not adding
+  yourself to your own primary list (silent no-op or 422 — decide).
+- `remove_from_list` mirror endpoint.
+- Tests: end-to-end via MCP smoke test once schema is stable.
+
+### Phase 2 — Custom list CRUD (markdown + actions)
+
+- `create_user_list`, `update_user_list`, `delete_user_list`.
+- `/lists/:list_id` show page (markdown).
+- `/u/:handle/lists` index page (markdown).
+- ActionsHelper entries + `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS`
+  inclusion for the three actions plus `add_to_list` / `remove_from_list` /
+  `add_member` / `remove_member`.
+- Existence-hiding via `set_list`.
+- Primary list cannot be deleted while is_primary=true (422).
+
+### Phase 3 — Explicit member management + add_policy enforcement
+
+- `add_member` / `remove_member` endpoints on `/lists/:list_id/actions/...`.
+- Enforce each `add_policy` value.
+- Tests for each policy and each block-relation direction.
+- Self-removal-always-allowed verified across policies.
+
+### Phase 4 — HTML UI
+
+- Profile "Add to list" / "On your list" button (toggle).
+- List show page HTML.
+- List form HTML (new + edit).
+- Listing on `/u/:handle/lists`.
+- System tests for the core gestures.
+
+### Phase 5 — Polish + ship
+
+- Lint, type-check, manual test checklist.
+- (CHANGELOG and version bump handled separately per repo convention.)
+
+---
+
+## Open questions (decide during implementation)
+
+1. **Adding yourself to your own primary list.** The first `add_to_list` gesture
+   on your own profile would try to add you to your own list. Disallow (422)?
+   Silently no-op? I'd lean **silently no-op + return success** — easier UX,
+   harmless semantically.
+
+2. **Primary list demotion.** Can a user demote `is_primary=true → false`?
+   Default to **no** in v1 — primary is a fixed property once a list is born
+   primary. (Avoids edge cases like "what's my primary now?")
+
+3. **Notifications on add.** Notify the added user? **Defer entirely to a later
+   phase.** v1 ships without notifications.
+
+4. **Counter for "lists I'm on".** Useful for profile display. Skip in v1 —
+   compute via `lists_im_on.count` on demand. Add a counter cache only if
+   profile-load latency demands it.
+
+5. **What about an `add_to_list` action that targets a non-primary list?**
+   The `/u/:handle/actions/add_to_list` endpoint as designed always uses the
+   primary list. To add to a specific list, agents use the explicit
+   `/lists/:id/actions/add_member` endpoint. Two endpoints, two semantics:
+   `add_to_list` is the one-button gesture; `add_member` is the general
+   primitive.
+
+6. **AI agent capability defaults.** New actions need both global
+   `AI_AGENT_GRANTABLE_ACTIONS` registration AND each existing agent's
+   `capabilities` allowlist update. The global update is part of the patch;
+   per-agent updates are out-of-band (user action) — document but don't
+   automate.
+
+7. **Block bypass via creator/owner mismatch.** If A creates a list, transfers
+   ownership to B (post-v1), and then C tries to add A to the list — should
+   block(A,C) apply? Yes (target ↔ adder check is symmetric). Should
+   block(B,C) also apply (since B is current owner)? Yes (owner ↔ target).
+   But block(A,B) doesn't affect adds by C. (Documented for future transfer
+   work; not relevant in v1.)
+
+---
+
+## Non-goals (explicit, recap)
+
+- Subscribers / follow-the-list / list-feed semantics
+- Ownership transfer (deferred to v2 with TrusteeGrant-style accept)
+- Separate moderators table
+- `remove_others_policy` variants
+- Linkable inclusion (deferred until concrete consumer)
+- Anonymous read of lists
+- Banner image, member cap
+- Lists in non-main collectives (schema-supported; UI/routes restrict)
+- Notification on add (later)
