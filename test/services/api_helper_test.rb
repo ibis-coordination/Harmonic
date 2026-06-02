@@ -323,7 +323,7 @@ class ApiHelperTest < ActiveSupport::TestCase
   end
 
   test "ApiHelper.start_user_representation_session raises when granting_user (a human) is not fully activated" do
-    # Phase 4: representing another human requires BOTH parties to be activated.
+    # Representing another human requires BOTH parties to be activated.
     # The trustee (current_user) is implicitly activated (they passed the gate
     # to reach this code path); the granting_user is checked here.
     other_user = create_user(email: "unact_#{SecureRandom.hex(4)}@example.com", name: "Unactivated User")

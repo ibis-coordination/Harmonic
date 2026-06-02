@@ -1,6 +1,6 @@
 require "test_helper"
 
-# Verifies the discoverability surface (Phase 2 of anon-readable-discoverability):
+# Verifies the discoverability surface:
 #
 #   - X-Robots-Tag: noindex, nofollow is set on every response EXCEPT
 #     anon-viewer HTML responses to allows_anonymous actions on tenants in
