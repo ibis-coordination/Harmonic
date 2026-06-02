@@ -119,6 +119,9 @@ module CapabilityCheck
     "create_user_list",
     "update_user_list",
     "delete_user_list",
+    # UserList — member management on specific lists
+    "add_member",
+    "remove_member",
   ].freeze
 
   # Check if a user has capability for an action

@@ -2112,7 +2112,9 @@ CREATE TABLE public.user_lists (
     deleted_at timestamp(6) without time zone,
     deleted_by_id uuid,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    add_policy character varying DEFAULT 'owner_only'::character varying NOT NULL,
+    CONSTRAINT user_lists_restricted_owner_only CHECK ((((add_policy)::text = 'owner_only'::text) OR ((is_primary = false) AND ((visibility)::text = 'public'::text))))
 );
 
 
@@ -9840,6 +9842,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260601231650'),
+('20260601223743'),
 ('20260601205324'),
 ('20260530120000'),
 ('20260530000000'),

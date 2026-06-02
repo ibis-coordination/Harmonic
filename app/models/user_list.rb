@@ -7,6 +7,7 @@ class UserList < ApplicationRecord
   include SoftDeletable
 
   VISIBILITIES = ["public", "private"].freeze
+  VALID_ADD_POLICIES = ["owner_only", "self_add", "members_add", "anyone_add"].freeze
 
   belongs_to :tenant
   belongs_to :collective
@@ -19,8 +20,10 @@ class UserList < ApplicationRecord
   validates :name,        presence: true, length: { maximum: 80 }
   validates :description, length: { maximum: 500 }, allow_nil: true
   validates :visibility,  inclusion: { in: VISIBILITIES }
+  validates :add_policy,  inclusion: { in: VALID_ADD_POLICIES }
   validate  :one_primary_per_owner_per_tenant
   validate  :primary_list_is_strictly_owners
+  validate  :restricted_lists_must_be_owner_only
 
   # owner_id is intentionally mutable to support ownership transfer.
   attr_readonly :tenant_id, :collective_id, :creator_id
@@ -57,6 +60,28 @@ class UserList < ApplicationRecord
     [name, description].compact.join("\n\n")
   end
 
+  # Whether `actor` is permitted to add `target` to this list under the
+  # current add_policy. Block + collective-membership checks live in
+  # UserListMember validations and run on save regardless.
+  sig { params(actor: T.nilable(User), target: User).returns(T::Boolean) }
+  def can_add?(actor:, target:)
+    return false if actor.nil?
+    return true  if actor.id == owner_id
+
+    case add_policy
+    when "owner_only"
+      false
+    when "self_add"
+      actor.id == target.id
+    when "members_add"
+      user_list_members.exists?(user_id: actor.id)
+    when "anyone_add"
+      true
+    else
+      false
+    end
+  end
+
   private
 
   # A user's primary list is strictly theirs: its owner cannot be
@@ -71,6 +96,20 @@ class UserList < ApplicationRecord
     end
     if is_primary_changed?
       errors.add(:is_primary, "cannot be changed after a list is created")
+    end
+  end
+
+  # Primary lists and private lists are strictly the owner's domain: any
+  # broader add_policy doesn't make sense (primary's social contract is
+  # "[Name]'s list", and a private list isn't visible to other potential
+  # adders). Companion to the DB CHECK constraint.
+  sig { void }
+  def restricted_lists_must_be_owner_only
+    return if add_policy == "owner_only"
+    if is_primary
+      errors.add(:add_policy, "must be 'owner_only' for primary lists")
+    elsif private?
+      errors.add(:add_policy, "must be 'owner_only' for private lists")
     end
   end
 

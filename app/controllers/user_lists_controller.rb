@@ -5,6 +5,8 @@ class UserListsController < ApplicationController
     :show, :actions_index_show,
     :describe_update_user_list, :execute_update_user_list,
     :describe_delete_user_list, :execute_delete_user_list,
+    :describe_add_member, :execute_add_member,
+    :describe_remove_member, :execute_remove_member,
   ]
   before_action :set_owner_for_index, only: [:index]
 
@@ -54,12 +56,13 @@ class UserListsController < ApplicationController
     name        = params[:name].to_s.strip
     description = params[:description].presence
     visibility  = params[:visibility].presence || "public"
+    add_policy  = params[:add_policy].presence || "owner_only"
 
     list = UserList.new(
       creator: @current_user, owner: @current_user,
       tenant: @current_tenant, collective: @current_tenant.main_collective,
       name: name, description: description, visibility: visibility,
-      is_primary: false
+      add_policy: add_policy, is_primary: false
     )
 
     if list.save
@@ -89,6 +92,7 @@ class UserListsController < ApplicationController
     attrs[:name]        = params[:name].to_s.strip       if params.key?(:name)
     attrs[:description] = params[:description].presence  if params.key?(:description)
     attrs[:visibility]  = params[:visibility]            if params.key?(:visibility)
+    attrs[:add_policy]  = params[:add_policy]            if params.key?(:add_policy)
 
     if @list.update(attrs)
       render_action_success({
@@ -130,7 +134,103 @@ class UserListsController < ApplicationController
                           })
   end
 
+  # ---- add_member ----
+
+  def describe_add_member
+    render_action_description(ActionsHelper.action_description("add_member", resource: @list))
+  end
+
+  def execute_add_member
+    target = resolve_target_user(params[:user_handle])
+    return render_action_error({
+                                 action_name: "add_member",
+                                 resource: @list,
+                                 error: "User not found.",
+                               }) if target.nil?
+
+    unless @list.can_add?(actor: @current_user, target: target)
+      return render_action_error({
+                                   action_name: "add_member",
+                                   resource: @list,
+                                   error: "You are not permitted to add members to this list.",
+                                   status: :forbidden,
+                                 })
+    end
+
+    membership = @list.user_list_members.find_or_initialize_by(user_id: target.id)
+    if membership.persisted?
+      return render_action_success({
+                                     action_name: "add_member",
+                                     resource: @list,
+                                     result: "Already on this list.",
+                                   })
+    end
+
+    membership.added_by = @current_user
+    if membership.save
+      render_action_success({
+                              action_name: "add_member",
+                              resource: @list,
+                              result: "Added.",
+                            })
+    else
+      render_action_error({
+                            action_name: "add_member",
+                            resource: @list,
+                            error: membership.errors.full_messages.join(", "),
+                          })
+    end
+  end
+
+  # ---- remove_member (fixed rule: owner OR self) ----
+
+  def describe_remove_member
+    render_action_description(ActionsHelper.action_description("remove_member", resource: @list))
+  end
+
+  def execute_remove_member
+    target = resolve_target_user(params[:user_handle])
+    return render_action_error({
+                                 action_name: "remove_member",
+                                 resource: @list,
+                                 error: "User not found.",
+                               }) if target.nil?
+
+    is_owner = @list.owner_id == @current_user.id
+    is_self  = target.id == @current_user.id
+    unless is_owner || is_self
+      return render_action_error({
+                                   action_name: "remove_member",
+                                   resource: @list,
+                                   error: "You can only remove yourself, or the owner can remove anyone.",
+                                   status: :forbidden,
+                                 })
+    end
+
+    membership = @list.user_list_members.find_by(user_id: target.id)
+    if membership.nil?
+      return render_action_success({
+                                     action_name: "remove_member",
+                                     resource: @list,
+                                     result: "Not on this list.",
+                                   })
+    end
+
+    membership.destroy!
+    render_action_success({
+                            action_name: "remove_member",
+                            resource: @list,
+                            result: "Removed.",
+                          })
+  end
+
   private
+
+  def resolve_target_user(handle)
+    return nil if handle.blank?
+    tu = @current_tenant.tenant_users.find_by(handle: handle.to_s.delete_prefix("@"))
+    tu&.user
+  end
 
   # Existence-hiding: a private list the viewer can't see is indistinguishable
   # from a non-existent one. Lookup unscopes the collective filter so a list

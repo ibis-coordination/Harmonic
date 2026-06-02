@@ -672,6 +672,51 @@ class UserList
 
   module GeneratedAttributeMethods
     sig { returns(::String) }
+    def add_policy; end
+
+    sig { params(value: ::String).returns(::String) }
+    def add_policy=(value); end
+
+    sig { returns(T::Boolean) }
+    def add_policy?; end
+
+    sig { returns(T.nilable(::String)) }
+    def add_policy_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def add_policy_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def add_policy_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def add_policy_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def add_policy_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def add_policy_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def add_policy_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def add_policy_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def add_policy_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def add_policy_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def add_policy_was; end
+
+    sig { void }
+    def add_policy_will_change!; end
+
+    sig { returns(::String) }
     def collective_id; end
 
     sig { params(value: ::String).returns(::String) }
@@ -1167,6 +1212,9 @@ class UserList
     def owner_id_will_change!; end
 
     sig { void }
+    def restore_add_policy!; end
+
+    sig { void }
     def restore_collective_id!; end
 
     sig { void }
@@ -1210,6 +1258,12 @@ class UserList
 
     sig { void }
     def restore_visibility!; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_add_policy; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_add_policy?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_collective_id; end
@@ -1480,6 +1534,9 @@ class UserList
 
     sig { void }
     def visibility_will_change!; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_add_policy?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

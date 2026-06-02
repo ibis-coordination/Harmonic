@@ -344,17 +344,34 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 - Custom list ownership: created in `tenant.main_collective`; lists in non-main
   collectives remain schema-supported but routes still restrict.
 
-### Phase 3 — `add_policy` column + enforcement
+### ✅ Phase 3 — `add_policy` column + enforcement — SHIPPED
 
-- Migration: add `add_policy` string column to `user_lists` with default
-  `owner_only`.
-- Define the policy enum values based on concrete needs at that point —
-  candidates: `owner_only`, `members_can_invite`, `self_add` (decide which to
-  ship based on use cases that have emerged).
-- Update `add_member` / `remove_member` to enforce policy. `update_user_list`
-  gains an `add_policy?` param.
-- Tests for each policy and each block-relation direction.
-- Self-removal-always-allowed verified across policies.
+- Migration: `add_policy` string column on `user_lists`, NOT NULL, default `owner_only`.
+- Four enum values (`UserList::VALID_ADD_POLICIES`):
+  - `owner_only` — only the owner adds (anyone)
+  - `self_add` — anyone in the collective can add themselves; owner adds anyone
+  - `members_add` — list members (and owner) add anyone; non-members can't self-add
+  - `anyone_add` — any collective member adds anyone
+- `UserList#can_add?(actor:, target:)` encapsulates the policy logic. Owner
+  always returns true regardless of policy.
+- `add_member` / `remove_member` action endpoints at `/lists/:id/actions/...`.
+  - `add_member` resolves `user_handle`, checks `can_add?`, blocks/collective
+    membership enforced by existing `UserListMember` validations.
+  - `remove_member` is fixed-rule: owner removes anyone; user removes self;
+    nobody else. No `remove_policy` (asymmetric on purpose — removes are
+    subtractive and warrant stricter auth).
+- `update_user_list` accepts an `add_policy` param. `create_user_list` accepts
+  one too (defaults to `owner_only`).
+- Frontmatter listing of `add_member` is policy-aware via the auth Proc: owner
+  + self_add/anyone_add → everyone in collective; members_add → only members.
+- Capability + ActionsHelper + routes wired for both new actions.
+- **Primary and private lists are constrained to `owner_only`.** Primary lists
+  are strictly the owner's by design; members of a private list can't see it,
+  so non-owner_only add policies would be meaningless. Enforced by a model
+  validation AND a DB CHECK constraint
+  (`user_lists_restricted_owner_only`) — belt-and-suspenders, matching the
+  partial-unique-index precedent for primary uniqueness.
+- 33 controller tests + 24 model tests added (all green).
 
 ### Phase 4 — HTML UI
 

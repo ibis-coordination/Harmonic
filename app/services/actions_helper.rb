@@ -785,11 +785,13 @@ class ActionsHelper
     },
     "update_user_list" => {
       description: "Update this list.",
-      params_string: "(name, description, visibility)",
+      params_string: "(name, description, visibility, add_policy)",
       params: [
         { name: "name",        type: "string", required: false, description: "The name of the list (max 80 chars)" },
         { name: "description", type: "string", required: false, description: "The description (max 500 chars)" },
         { name: "visibility",  type: "string", required: false, description: 'Either "public" or "private"' },
+        { name: "add_policy",  type: "string", required: false,
+          description: 'One of "owner_only", "self_add", "members_add", or "anyone_add"', },
       ],
       authorization: ->(user, context) {
         return false unless user
@@ -807,6 +809,31 @@ class ActionsHelper
         return true unless resource.is_a?(UserList)
         resource.owner_id == user.id && !resource.is_primary
       },
+    },
+    "add_member" => {
+      description: "Add a user to this list.",
+      params_string: "(user_handle)",
+      params: [
+        { name: "user_handle", type: "string", required: true, description: "The handle of the user to add (without the leading @)" },
+      ],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        return true unless resource.is_a?(UserList)
+        # Owner always sees it; can_add?(self, self) covers self_add and anyone_add.
+        # members_add additionally lets list members see it (they can add others).
+        next true if resource.can_add?(actor: user, target: user)
+        resource.add_policy == "members_add" &&
+          resource.user_list_members.exists?(user_id: user.id)
+      },
+    },
+    "remove_member" => {
+      description: "Remove a user from this list. Anyone can remove themselves; only the owner can remove others.",
+      params_string: "(user_handle)",
+      params: [
+        { name: "user_handle", type: "string", required: true, description: "The handle of the user to remove (without the leading @)" },
+      ],
+      authorization: ->(user, _context) { user.present? },
     },
   }.freeze
 
@@ -1189,6 +1216,10 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["update_user_list"][:description], },
         { name: "delete_user_list", params_string: ACTION_DEFINITIONS["delete_user_list"][:params_string],
           description: ACTION_DEFINITIONS["delete_user_list"][:description], },
+        { name: "add_member", params_string: ACTION_DEFINITIONS["add_member"][:params_string],
+          description: ACTION_DEFINITIONS["add_member"][:description], },
+        { name: "remove_member", params_string: ACTION_DEFINITIONS["remove_member"][:params_string],
+          description: ACTION_DEFINITIONS["remove_member"][:description], },
       ],
     },
     "/u/:handle/settings/tokens/new" => {
