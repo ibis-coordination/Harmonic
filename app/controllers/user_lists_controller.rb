@@ -2,7 +2,7 @@
 
 class UserListsController < ApplicationController
   before_action :set_list, only: [
-    :show, :actions_index_show,
+    :show, :edit, :actions_index_show,
     :describe_update_user_list, :execute_update_user_list,
     :describe_delete_user_list, :execute_delete_user_list,
     :describe_add_member, :execute_add_member,
@@ -17,6 +17,7 @@ class UserListsController < ApplicationController
     @lists = visible_lists_owned_by(@owner)
 
     respond_to do |format|
+      format.html
       format.md
     end
   end
@@ -24,9 +25,38 @@ class UserListsController < ApplicationController
   def show
     @page_title = @list.name
     @sidebar_mode = "minimal"
+
+    # Preload members + the handles we'll display so the view doesn't N+1
+    # on per-member tenant_user lookups. One query for member rows, one
+    # query for User records, one query for handles (covering members + owner).
+    member_user_ids = @list.user_list_members.pluck(:user_id)
+    @members = User.where(id: member_user_ids).to_a
+    @handles_by_user_id = TenantUser
+      .where(tenant_id: @list.tenant_id, user_id: ([@list.owner_id] + member_user_ids).uniq)
+      .pluck(:user_id, :handle)
+      .to_h
+
     respond_to do |format|
+      format.html
       format.md
     end
+  end
+
+  # GET /lists/new
+  def new
+    return render "shared/403", status: :forbidden unless @current_user
+
+    @list = UserList.new(visibility: "public", add_policy: "owner_only")
+    @page_title = "New List"
+    @sidebar_mode = "minimal"
+  end
+
+  # GET /lists/:list_id/edit
+  def edit
+    return render "shared/403", status: :forbidden unless @list.owner_id == @current_user&.id
+
+    @page_title = "Edit #{@list.name}"
+    @sidebar_mode = "minimal"
   end
 
   # ---- actions_index ----
@@ -70,6 +100,7 @@ class UserListsController < ApplicationController
                               action_name: "create_user_list",
                               resource: list,
                               result: "List '#{list.name}' created.",
+                              redirect_to: list.path,
                             })
     else
       render_action_error({
@@ -127,10 +158,12 @@ class UserListsController < ApplicationController
     end
 
     @list.soft_delete!(by: @current_user)
+    owner_handle = @list.owner.tenant_users.find_by(tenant_id: @list.tenant_id)&.handle
     render_action_success({
                             action_name: "delete_user_list",
                             resource: @list,
                             result: "List deleted.",
+                            redirect_to: owner_handle ? "/u/#{owner_handle}/lists" : "/",
                           })
   end
 

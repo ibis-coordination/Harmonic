@@ -107,9 +107,18 @@
   border: 1px solid var(--color-fg-default);
   padding: var(--button-padding-default);
   font-size: 14px;
+  line-height: 1.5;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 39px;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .pulse-action-btn:hover {
@@ -1053,12 +1062,15 @@
   border-color: var(--color-border-default);
   padding: 8px 16px;
   font-size: 14px;
+  line-height: 1.5;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 39px;
+  box-sizing: border-box;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;

@@ -194,7 +194,7 @@ Rails.application.routes.draw do
     get  'actions/create_user_list'   => 'user_lists#describe_create_user_list'
     post 'actions/create_user_list'   => 'user_lists#execute_create_user_list'
   end
-  resources :user_lists, path: 'lists', param: :list_id, only: [:show] do
+  resources :user_lists, path: 'lists', param: :list_id, only: [:show, :new, :edit] do
     member do
       get  'actions'                  => 'user_lists#actions_index_show'
       get  'actions/update_user_list' => 'user_lists#describe_update_user_list'

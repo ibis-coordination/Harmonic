@@ -1,0 +1,45 @@
+<% viewer_is_owner = @current_user && @current_user.id == @owner.id %>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  [@owner.display_name, @owner.path],
+  'Lists'
+] %>
+
+<article class="pulse-resource-detail">
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+    <h1 class="pulse-resource-title">Lists by <%= @owner.display_name %></h1>
+    <% if viewer_is_owner %>
+      <a href="/lists/new" class="pulse-action-btn">
+        <%= octicon 'plus', height: 14 %> New list
+      </a>
+    <% end %>
+  </header>
+
+  <% if @lists.empty? %>
+    <p class="pulse-body-text-muted" style="margin-top: 16px;">
+      <%= viewer_is_owner ? "You don't have any lists yet." : "No lists." %>
+    </p>
+  <% else %>
+    <ul class="pulse-collectives-list" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+      <% @lists.each do |list| %>
+        <li class="pulse-collective-item">
+          <div class="pulse-collective-info" style="flex: 1;">
+            <a href="<%= list.path %>" class="pulse-collective-name">
+              <%= list.name %>
+            </a>
+            <% if list.is_primary && viewer_is_owner %>
+              <span class="pulse-badge" title="This is your list">your list</span>
+            <% end %>
+            <% if list.private? %>
+              <span class="pulse-badge pulse-badge-muted">private</span>
+            <% end %>
+            <div class="pulse-body-text-muted">
+              <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %>
+            </div>
+          </div>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</article>

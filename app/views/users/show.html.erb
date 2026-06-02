@@ -26,6 +26,16 @@
           Settings
         </a>
       <% end %>
+      <% if @current_user && @showing_user.id != @current_user.id %>
+        <%= render AjaxToggleButtonComponent.new(
+              on:       @target_on_my_list,
+              on_url:   "#{@showing_user.path}/actions/remove_from_list",
+              on_html:  octicon('check', height: 14) + " On your list",
+              off_url:  "#{@showing_user.path}/actions/add_to_list",
+              off_html: octicon('plus',  height: 14) + " Add to your list",
+              title:    "Toggle this user on your list",
+            ) %>
+      <% end %>
       <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.collective_identity? %>
         <a href="<%= chat_path(@showing_user.handle) %>" class="pulse-action-btn-secondary" title="Message">
           <%= octicon 'comment', height: 14 %>
@@ -113,6 +123,53 @@
   <% if @proximity_users.present? %>
     <%= render 'shared/pulse_accordion', title: 'Social Proximity', count: @proximity_users.size, icon: 'people', open: false do %>
       <%= render 'users/proximity_connections' %>
+    <% end %>
+  <% end %>
+
+  <% viewer_is_owner = @current_user && @current_user.id == @showing_user.id %>
+  <% if @showing_user_lists.present? || viewer_is_owner %>
+    <% showing_handle = @showing_user.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
+    <%= render 'shared/pulse_accordion', title: 'Lists', icon: 'list-unordered', count: @showing_user_lists.size, open: false do %>
+      <% if @showing_user_lists.empty? %>
+        <p class="pulse-body-text-muted">No lists yet.</p>
+      <% else %>
+        <ul class="pulse-collectives-list" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+          <% @showing_user_lists.each do |list| %>
+            <li class="pulse-collective-item">
+              <div class="pulse-collective-info">
+                <a href="<%= list.path %>" class="pulse-collective-name"><%= list.name %></a>
+                <% if list.is_primary && viewer_is_owner %>
+                  <span class="pulse-badge">your list</span>
+                <% end %>
+                <% if list.private? %>
+                  <span class="pulse-badge pulse-badge-muted">private</span>
+                <% end %>
+                <div class="pulse-body-text-muted">
+                  <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %>
+                </div>
+              </div>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if viewer_is_owner %>
+        <p style="margin-top: 8px; display: flex; gap: 8px;">
+          <a href="/lists/new" class="pulse-action-btn-secondary">
+            <%= octicon 'plus', height: 14 %> New list
+          </a>
+          <% if showing_handle && @showing_user_lists.any? %>
+            <a href="/u/<%= showing_handle %>/lists" class="pulse-action-btn-secondary">
+              See all lists
+            </a>
+          <% end %>
+        </p>
+      <% elsif showing_handle && @showing_user_lists.any? %>
+        <p style="margin-top: 8px;">
+          <a href="/u/<%= showing_handle %>/lists" class="pulse-action-btn-secondary">
+            See all lists
+          </a>
+        </p>
+      <% end %>
     <% end %>
   <% end %>
 

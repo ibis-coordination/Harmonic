@@ -79,6 +79,15 @@ class UsersController < ApplicationController
     # them — not visible to other logged-in users, not visible to anon.
     load_proximity_connections if @current_user == @showing_user
 
+    # Lists owned by the profile user that the viewer can see, for the
+    # "Lists" accordion. Reuses the same visibility logic as
+    # UserListsController#index, kept narrow so private lists never leak.
+    @showing_user_lists = visible_lists_owned_by_for_profile(@showing_user)
+
+    # "Add to your list" toggle state — already-on-list vs not. Skipped on
+    # your own profile (button is hidden) and for anon viewers.
+    @target_on_my_list = compute_target_on_my_list
+
     # Build user's main collective (public) content timeline
     main_cid = @current_tenant.main_collective_id
     @feed_items = FeedBuilder.new(
@@ -589,6 +598,33 @@ class UsersController < ApplicationController
 
   private
 
+  def compute_target_on_my_list
+    return false unless @current_user && @showing_user && @current_user.id != @showing_user.id
+    primary = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: @current_user.id, is_primary: true, deleted_at: nil)
+      .first
+    return false if primary.nil?
+    primary.user_list_members.exists?(user_id: @showing_user.id)
+  end
+
+  def visible_lists_owned_by_for_profile(owner)
+    base = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: owner.id, deleted_at: nil)
+      .includes(:user_list_members, :members, :collective)
+      .order(is_primary: :desc, created_at: :asc)
+
+    return base.to_a if @current_user && @current_user.id == owner.id
+    return [] if @current_user.nil?
+
+    coll_ids = CollectiveMember
+      .where(user_id: @current_user.id)
+      .joins(:collective).where(collectives: { tenant_id: @current_tenant.id })
+      .pluck(:collective_id)
+    base.where(visibility: "public", collective_id: coll_ids).to_a
+  end
+
   def showing_user_from_handle
     return @showing_user_from_handle if defined?(@showing_user_from_handle)
 
@@ -616,10 +652,14 @@ class UsersController < ApplicationController
     all_connections = @showing_user.most_proximate_users(tenant_id: current_tenant.id, limit: 30)
 
     @proximity_users = all_connections.filter_map do |user, _score|
-      next if user.nil? || user.archived?
+      next if user.nil?
 
+      # Look up the TenantUser first. Without one, the user is no longer in
+      # this tenant (e.g., removed since the proximity cache was warmed) —
+      # skip them. User#archived? raises if tenant_user is nil, so don't
+      # call it before the lookup.
       tu = user.tenant_users.find_by(tenant_id: current_tenant.id)
-      next if tu.nil?
+      next if tu.nil? || tu.archived?
 
       user.tenant_user = tu
       user

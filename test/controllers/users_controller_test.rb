@@ -278,6 +278,25 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Social Proximity/, response.body)
   end
 
+  # Regression: the proximity cache can return user IDs for people who are
+  # no longer in the tenant (e.g., removed since the cache was warmed).
+  # User#archived? would crash on those because it does T.must(tenant_user).
+  # load_proximity_connections must look up the TenantUser first and skip
+  # users without one.
+  test "self-profile does not 500 when a proximate user has no tenant_user" do
+    ex_member = create_user(email: "ex-member-#{SecureRandom.hex(4)}@example.com", name: "Ex Member")
+    @tenant.add_user!(ex_member)
+    # Now remove them from the tenant — proximity cache still references them.
+    TenantUser.unscope(where: :tenant_id).where(user_id: ex_member.id, tenant_id: @tenant.id).delete_all
+
+    sign_in_as(@user, tenant: @tenant)
+    with_stubbed_proximity(owner: @user, others: [ex_member]) do
+      get "/u/#{@user.handle}"
+    end
+    assert_response :success
+    assert_not_includes response.body, "Ex Member"
+  end
+
   # === AiAgent Count Tests (HTML) ===
 
   test "person user profile shows ai_agent count when they have ai_agents" do

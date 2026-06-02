@@ -53,6 +53,10 @@
           <%= octicon 'person' %>
           <a href="<%= @current_user.path %>">Profile</a>
         </li>
+        <li>
+          <%= octicon 'list-unordered' %>
+          <a href="<%= @current_user.path %>/lists">Your lists</a>
+        </li>
         <% if @current_tenant&.ai_agents_enabled? %>
           <li>
             <%= octicon 'comment-discussion' %>

@@ -373,13 +373,33 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
   partial-unique-index precedent for primary uniqueness.
 - 33 controller tests + 24 model tests added (all green).
 
-### Phase 4 — HTML UI
+### ✅ Phase 4 — HTML UI — SHIPPED
 
-- Profile "Add to list" / "On your list" button (toggle).
-- List show page HTML.
-- List form HTML (new + edit).
-- Listing on `/u/:handle/lists`.
-- System tests for the core gestures.
+- Profile "Add to your list" / "On your list" toggle button on `/u/:handle`
+  (uses Phase 1 action endpoints; computes the toggle state by checking
+  whether the showing user is on the current viewer's primary list).
+- "Lists" accordion on `/u/:handle` showing lists owned by that user the
+  viewer can see (private filtered out for non-owners).
+- HTML show page at `/lists/:id` with name + badges (your list, private),
+  owner link, member count + list, action buttons (Edit, Delete), and an
+  in-page "Add a member" form (handle text input → submits to add_member
+  action endpoint). Each member row has a Remove/Leave button for the owner
+  or self.
+- HTML index at `/u/:handle/lists` with a "New list" button for the owner.
+- New/Edit form pages (`/lists/new`, `/lists/:id/edit`) submitting to the
+  existing create/update action endpoints. Form covers name, description,
+  visibility, and add_policy.
+- `create_user_list` and `delete_user_list` pass an explicit `redirect_to`
+  so the HTML flow lands on the new resource / owner's lists index instead
+  of redirect_back_or_to bouncing to the form page.
+- Browser-verified end-to-end: create, edit, show, add_member, profile
+  toggle, delete (with turbo confirm), index. Unit/integration coverage
+  (168 tests) backs the underlying actions.
+
+Known limitation (deferred): when an owner switches a public list with
+members to private, those members lose visibility and can't self-remove
+via the existing remove_member endpoint. The owner can still prune; a
+"lists I'm on" view would provide an alternate access path.
 
 ### Phase 5 — Polish + ship
 

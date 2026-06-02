@@ -2,7 +2,7 @@
 # <%= @list.name %><%= @list.is_primary && is_owner ? " (your list)" : "" %>
 
 <% owner = @list.owner %>
-<% owner_handle = owner.tenant_users.find_by(tenant_id: @list.tenant_id)&.handle %>
+<% owner_handle = @handles_by_user_id[@list.owner_id] %>
 Owner: [<%= owner.display_name %>](/u/<%= owner_handle %>)
 Visibility: <%= @list.visibility %>
 <% if @list.description.present? %>
@@ -10,13 +10,13 @@ Visibility: <%= @list.visibility %>
 <%= @list.description %>
 <% end %>
 
-## Members (<%= @list.members.size %>)
+## Members (<%= @members.size %>)
 
-<% if @list.members.empty? %>
+<% if @members.empty? %>
 _No members yet._
 <% else %>
-<% @list.members.each do |member| %>
-<% member_handle = member.tenant_users.find_by(tenant_id: @list.tenant_id)&.handle %>
+<% @members.each do |member| %>
+<% member_handle = @handles_by_user_id[member.id] %>
 * [<%= member.display_name %>](/u/<%= member_handle %>) (@<%= member_handle %>)
 <% end %>
 <% end %>
