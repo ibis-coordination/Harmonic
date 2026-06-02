@@ -326,11 +326,11 @@ Rails.application.routes.draw do
     delete 'represent' => 'users#stop_representing', on: :member
     post 'add_to_collective' => 'users#add_ai_agent_to_collective', on: :member
     delete 'remove_from_collective' => 'users#remove_ai_agent_from_collective', on: :member
-    # UserList — "add to list" gesture
-    get  'actions/add_to_list'      => 'users#describe_add_to_list',      on: :member
-    post 'actions/add_to_list'      => 'users#execute_add_to_list',       on: :member
-    get  'actions/remove_from_list' => 'users#describe_remove_from_list', on: :member
-    post 'actions/remove_from_list' => 'users#execute_remove_from_list',  on: :member
+    # UserList — "tune in" gesture
+    get  'actions/tune_in'  => 'users#describe_tune_in',  on: :member
+    post 'actions/tune_in'  => 'users#execute_tune_in',   on: :member
+    get  'actions/tune_out' => 'users#describe_tune_out', on: :member
+    post 'actions/tune_out' => 'users#execute_tune_out',  on: :member
     # UserList — listing of lists owned by this user (markdown)
     get  'lists'                    => 'user_lists#index',                on: :member
     # User settings actions

@@ -10,10 +10,10 @@
 #
 #   <%= render AjaxToggleButtonComponent.new(
 #         on:       @target_on_my_list,
-#         on_url:   "/u/dan/actions/remove_from_list",
-#         on_html:  octicon('check', height: 14) + ' On your list',
-#         off_url:  "/u/dan/actions/add_to_list",
-#         off_html: octicon('plus',  height: 14) + ' Add to your list',
+#         on_url:   "/u/dan/actions/tune_out",
+#         on_html:  pulse_icon('tuning_in', size: :sm) + ' Tuning in',
+#         off_url:  "/u/dan/actions/tune_in",
+#         off_html: octicon('plus',  height: 14) + ' Tune in',
 #         title:    "Toggle this user on your list",
 #       ) %>
 class AjaxToggleButtonComponent < ViewComponent::Base

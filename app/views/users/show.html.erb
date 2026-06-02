@@ -29,11 +29,11 @@
       <% if @current_user && @showing_user.id != @current_user.id %>
         <%= render AjaxToggleButtonComponent.new(
               on:       @target_on_my_list,
-              on_url:   "#{@showing_user.path}/actions/remove_from_list",
-              on_html:  octicon('check', height: 14) + " On your list",
-              off_url:  "#{@showing_user.path}/actions/add_to_list",
-              off_html: octicon('plus',  height: 14) + " Add to your list",
-              title:    "Toggle this user on your list",
+              on_url:   "#{@showing_user.path}/actions/tune_out",
+              on_html:  pulse_icon('tuning_in', size: :sm) + " Tuning in",
+              off_url:  "#{@showing_user.path}/actions/tune_in",
+              off_html: octicon('plus', height: 14) + " Tune in",
+              title:    "Tuning in to this user adds their activity to your timeline view",
             ) %>
       <% end %>
       <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.collective_identity? %>

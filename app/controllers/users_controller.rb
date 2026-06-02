@@ -536,53 +536,53 @@ class UsersController < ApplicationController
     end
   end
 
-  # ---- UserList: "add to list" gesture ----
+  # ---- UserList: "tune in" gesture ----
 
-  def describe_add_to_list
+  def describe_tune_in
     return render "shared/404", status: :not_found if showing_user_from_handle.nil?
 
-    render_action_description(ActionsHelper.action_description("add_to_list", resource: showing_user_from_handle))
+    render_action_description(ActionsHelper.action_description("tune_in", resource: showing_user_from_handle))
   end
 
-  def execute_add_to_list
+  def execute_tune_in
     target = showing_user_from_handle
-    return list_action_not_found("add_to_list") if target.nil?
-    return list_action_unauthenticated("add_to_list") if @current_user.nil?
+    return list_action_not_found("tune_in") if target.nil?
+    return list_action_unauthenticated("tune_in") if @current_user.nil?
 
     if target.id == @current_user.id
       return render_action_error({
-                                   action_name: "add_to_list",
+                                   action_name: "tune_in",
                                    resource: target,
-                                   error: "You cannot add yourself to your own list.",
+                                   error: "You can't tune in to yourself.",
                                  })
     end
 
     list = @current_user.primary_user_list_in!(@current_tenant)
     membership = list.user_list_members.find_or_initialize_by(user_id: target.id)
-    return render_action_success({ action_name: "add_to_list", resource: target, result: "Already on your list." }) if membership.persisted?
+    return render_action_success({ action_name: "tune_in", resource: target, result: "Already tuning in." }) if membership.persisted?
 
     membership.added_by = @current_user
     if membership.save
-      render_action_success({ action_name: "add_to_list", resource: target, result: "Added to your list." })
+      render_action_success({ action_name: "tune_in", resource: target, result: "Tuned in." })
     else
       render_action_error({
-                            action_name: "add_to_list",
+                            action_name: "tune_in",
                             resource: target,
                             error: membership.errors.full_messages.join(", "),
                           })
     end
   end
 
-  def describe_remove_from_list
+  def describe_tune_out
     return render "shared/404", status: :not_found if showing_user_from_handle.nil?
 
-    render_action_description(ActionsHelper.action_description("remove_from_list", resource: showing_user_from_handle))
+    render_action_description(ActionsHelper.action_description("tune_out", resource: showing_user_from_handle))
   end
 
-  def execute_remove_from_list
+  def execute_tune_out
     target = showing_user_from_handle
-    return list_action_not_found("remove_from_list") if target.nil?
-    return list_action_unauthenticated("remove_from_list") if @current_user.nil?
+    return list_action_not_found("tune_out") if target.nil?
+    return list_action_unauthenticated("tune_out") if @current_user.nil?
 
     list = UserList
       .tenant_scoped_only(@current_tenant.id)
@@ -592,8 +592,8 @@ class UsersController < ApplicationController
     membership = list&.user_list_members&.find_by(user_id: target.id)
     membership&.destroy!
 
-    result = membership ? "Removed from your list." : "Not on your list."
-    render_action_success({ action_name: "remove_from_list", resource: target, result: result })
+    result = membership ? "Tuned out." : "Not tuning in."
+    render_action_success({ action_name: "tune_out", resource: target, result: result })
   end
 
   private

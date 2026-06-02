@@ -112,9 +112,9 @@ module CapabilityCheck
     "report_content",
     # Chat
     "send_message",
-    # UserList — "add to list" gesture
-    "add_to_list",
-    "remove_from_list",
+    # UserList — "tune in" gesture
+    "tune_in",
+    "tune_out",
     # UserList — custom list CRUD
     "create_user_list",
     "update_user_list",

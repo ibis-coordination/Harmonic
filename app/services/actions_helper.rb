@@ -744,12 +744,12 @@ class ActionsHelper
       authorization: :self,
     },
 
-    # UserList — "add to list" gesture.
+    # UserList — "tune in" gesture (adds the target to the actor's primary list).
     # Authorization hides the actions on the actor's own profile (where
     # target_user == current_user). Permissive when no target_user is in
     # context — matches the convention used by :self / :resource_owner.
-    "add_to_list" => {
-      description: "Add this user to your list.",
+    "tune_in" => {
+      description: "Tune in to this user.",
       params_string: "()",
       params: [],
       authorization: ->(user, context) {
@@ -758,8 +758,8 @@ class ActionsHelper
         target.nil? || target.id != user.id
       },
     },
-    "remove_from_list" => {
-      description: "Remove this user from your list.",
+    "tune_out" => {
+      description: "Tune out from this user.",
       params_string: "()",
       params: [],
       authorization: ->(user, context) {
@@ -1185,10 +1185,10 @@ class ActionsHelper
     "/u/:handle" => {
       controller_actions: ["users#show"],
       actions: [
-        { name: "add_to_list", params_string: ACTION_DEFINITIONS["add_to_list"][:params_string],
-          description: ACTION_DEFINITIONS["add_to_list"][:description], },
-        { name: "remove_from_list", params_string: ACTION_DEFINITIONS["remove_from_list"][:params_string],
-          description: ACTION_DEFINITIONS["remove_from_list"][:description], },
+        { name: "tune_in", params_string: ACTION_DEFINITIONS["tune_in"][:params_string],
+          description: ACTION_DEFINITIONS["tune_in"][:description], },
+        { name: "tune_out", params_string: ACTION_DEFINITIONS["tune_out"][:params_string],
+          description: ACTION_DEFINITIONS["tune_out"][:description], },
       ],
     },
     "/u/:handle/settings" => {

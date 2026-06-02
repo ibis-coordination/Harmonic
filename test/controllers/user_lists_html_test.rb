@@ -152,14 +152,14 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
   # Profile HTML: toggle button + Lists accordion
   # ============================================================
 
-  test "profile HTML: viewing another user shows the Add-to-list toggle in OFF state" do
+  test "profile HTML: viewing another user shows the Tune-in toggle in OFF state" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@other.handle}"
     assert_response :success
     assert_select "button[data-controller='ajax-toggle']" do
-      # Currently off — POSTs to add_to_list, alt points to remove.
-      assert_select "[data-ajax-toggle-url-value=?]", "/u/#{@other.handle}/actions/add_to_list"
-      assert_select "[data-ajax-toggle-alt-url-value=?]", "/u/#{@other.handle}/actions/remove_from_list"
+      # Currently off — POSTs to tune_in, alt points to tune_out.
+      assert_select "[data-ajax-toggle-url-value=?]", "/u/#{@other.handle}/actions/tune_in"
+      assert_select "[data-ajax-toggle-alt-url-value=?]", "/u/#{@other.handle}/actions/tune_out"
     end
   end
 
@@ -170,8 +170,8 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     get "/u/#{@other.handle}"
     assert_response :success
     assert_select "button[data-controller='ajax-toggle']" do
-      assert_select "[data-ajax-toggle-url-value=?]", "/u/#{@other.handle}/actions/remove_from_list"
-      assert_select "[data-ajax-toggle-alt-url-value=?]", "/u/#{@other.handle}/actions/add_to_list"
+      assert_select "[data-ajax-toggle-url-value=?]", "/u/#{@other.handle}/actions/tune_out"
+      assert_select "[data-ajax-toggle-alt-url-value=?]", "/u/#{@other.handle}/actions/tune_in"
     end
   end
 

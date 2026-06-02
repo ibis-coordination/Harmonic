@@ -246,18 +246,18 @@ resources :users, path: 'u', param: :handle, only: [] do
   # Listing view: lists owned by this user (links to /lists/:list_id)
   get 'lists' => 'user_lists#index', on: :member
 
-  # The headline gesture — "add this user to my primary list"
-  get  'actions/add_to_list'    => 'users#describe_add_to_list',    on: :member
-  post 'actions/add_to_list'    => 'users#execute_add_to_list',     on: :member
-  get  'actions/remove_from_list' => 'users#describe_remove_from_list', on: :member
-  post 'actions/remove_from_list' => 'users#execute_remove_from_list',  on: :member
+  # The headline gesture — "tune in to this user" (adds them to my primary list)
+  get  'actions/tune_in'  => 'users#describe_tune_in',  on: :member
+  post 'actions/tune_in'  => 'users#execute_tune_in',   on: :member
+  get  'actions/tune_out' => 'users#describe_tune_out', on: :member
+  post 'actions/tune_out' => 'users#execute_tune_out',  on: :member
 end
 ```
 
 URL summary:
 - `/lists/:list_id` — canonical show URL
 - `/u/:handle/lists` — listing of lists owned by user
-- `/u/:handle/actions/add_to_list` — one-click gesture (uses current_user's primary list)
+- `/u/:handle/actions/tune_in` — one-click gesture (uses current_user's primary list)
 - `/lists/:list_id/actions/add_member` — explicit "add user X to this specific list"
 
 ---
@@ -271,8 +271,8 @@ URL summary:
 | `delete_user_list` | `/lists/:id/actions/...` | (none) | owner only AND not is_primary |
 | `add_member` | `/lists/:id/actions/...` | `user_handle` | owner only (Phase 2); per-policy in Phase 3 |
 | `remove_member` | `/lists/:id/actions/...` | `user_handle` | owner OR self (target_user == current_user) |
-| `add_to_list` | `/u/:handle/actions/...` | (none) | authenticated; auto-resolves current_user's primary list |
-| `remove_from_list` | `/u/:handle/actions/...` | (none) | authenticated; removes URL handle from current_user's primary list |
+| `tune_in` | `/u/:handle/actions/...` | (none) | authenticated; auto-resolves current_user's primary list |
+| `tune_out` | `/u/:handle/actions/...` | (none) | authenticated; removes URL handle from current_user's primary list |
 
 ### add_policy
 
@@ -314,17 +314,21 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 - `User#created_user_lists` and `owned_user_lists` use
   `dependent: :restrict_with_exception`.
 
-### ✅ Phase 1 — The "add to list" gesture — SHIPPED (commit 34defdb)
+### ✅ Phase 1 — The "tune in" gesture — SHIPPED (commit 34defdb, renamed in a later commit)
 
-- Action endpoints at `/u/:handle/actions/{add_to_list,remove_from_list}`.
-- `add_to_list` lazy-creates the actor's list and upserts membership;
+Originally shipped as `add_to_list` / `remove_from_list`. Renamed to
+`tune_in` / `tune_out` in a cosmetic pass after Phase 4 to align the
+verbs between the HTML button copy ("Tune in" / "Tuning in") and the
+markdown frontmatter action names.
+
+- Action endpoints at `/u/:handle/actions/{tune_in,tune_out}`.
+- `tune_in` lazy-creates the actor's primary list and upserts membership;
   idempotent.
-- Self-add returns 422 (decided).
+- Self-tune-in returns 422 (decided).
 - Action authorization is a Proc that hides actions on the actor's own
   profile (target_user == current_user) so frontmatter only offers them
   when meaningful.
-- `remove_from_list` distinguishes "Removed from your list." vs "Not on
-  your list." outcomes.
+- `tune_out` distinguishes "Tuned out." vs "Not tuning in." outcomes.
 - Both actions added to `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS`.
 - Verified end-to-end via the harmonic MCP.
 
@@ -410,10 +414,10 @@ via the existing remove_member endpoint. The owner can still prune; a
 
 ## Open questions (decide during implementation)
 
-1. **Adding yourself to your own primary list.** The first `add_to_list` gesture
-   on your own profile would try to add you to your own list. Disallow (422)?
-   Silently no-op? I'd lean **silently no-op + return success** — easier UX,
-   harmless semantically.
+1. **Tuning in to yourself.** The first `tune_in` gesture on your own profile
+   would try to add you to your own list. Disallow (422)? Silently no-op?
+   I'd lean **silently no-op + return success** — easier UX, harmless
+   semantically. (Shipped: 422 with "You can't tune in to yourself.")
 
 2. **Primary list demotion.** Can a user demote `is_primary=true → false`?
    Default to **no** in v1 — primary is a fixed property once a list is born
@@ -426,11 +430,11 @@ via the existing remove_member endpoint. The owner can still prune; a
    compute via `lists_im_on.count` on demand. Add a counter cache only if
    profile-load latency demands it.
 
-5. **What about an `add_to_list` action that targets a non-primary list?**
-   The `/u/:handle/actions/add_to_list` endpoint as designed always uses the
+5. **What about a `tune_in` action that targets a non-primary list?**
+   The `/u/:handle/actions/tune_in` endpoint as designed always uses the
    primary list. To add to a specific list, agents use the explicit
    `/lists/:id/actions/add_member` endpoint. Two endpoints, two semantics:
-   `add_to_list` is the one-button gesture; `add_member` is the general
+   `tune_in` is the one-button gesture; `add_member` is the general
    primitive.
 
 6. **AI agent capability defaults.** New actions need both global
@@ -465,14 +469,17 @@ via the existing remove_member endpoint. The owner can still prune; a
 ## Dev-DB state (outside git)
 
 The `Claude Code Primary` agent (id `fa59a88a-19c1-419a-afeb-330145aac850`)
-had `add_to_list` and `remove_from_list` added to its `agent_configuration["capabilities"]`
-during MCP verification of Phase 1. Persists in dev DB. Re-grant via runner
+has the UserList action capabilities added to its
+`agent_configuration["capabilities"]` for MCP verification (`tune_in`,
+`tune_out`, `create_user_list`, `update_user_list`, `delete_user_list`,
+`add_member`, `remove_member`). Persists in dev DB. Re-grant via runner
 if testing again from a fresh clone:
 
 ```ruby
 agent = User.find("fa59a88a-19c1-419a-afeb-330145aac850")
 cfg = agent.agent_configuration.dup
-cfg["capabilities"] = (cfg["capabilities"] + ["add_to_list", "remove_from_list"]).uniq
+new_caps = %w[tune_in tune_out create_user_list update_user_list delete_user_list add_member remove_member]
+cfg["capabilities"] = (cfg["capabilities"] + new_caps).uniq
 agent.update!(agent_configuration: cfg)
 ```
 

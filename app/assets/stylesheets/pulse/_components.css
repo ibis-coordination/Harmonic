@@ -72,6 +72,34 @@
   }
 }
 
+/* Monochrome custom icons — single SVG used as a mask so the icon takes
+   its color from the surrounding text (currentColor). Works on any
+   background (primary, secondary, danger buttons; sidebar; etc.) without
+   a separate dark-mode variant. Suitable only for single-color glyphs. */
+.pulse-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center center;
+          mask-position: center center;
+}
+
+.pulse-icon.icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.pulse-icon-tuning-in {
+  -webkit-mask-image: url(/resource-icons/tuning-in-icon.svg);
+          mask-image: url(/resource-icons/tuning-in-icon.svg);
+}
+
 /* Tri-logo icon for header branding */
 .tri-logo-icon {
   background-image: url(/tri-logo.svg);

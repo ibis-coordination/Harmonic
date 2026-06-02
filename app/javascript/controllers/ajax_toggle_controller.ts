@@ -13,10 +13,10 @@ import { fetchWithCsrf } from "../utils/csrf"
  *
  *   <button data-controller="ajax-toggle"
  *           data-action="click->ajax-toggle#toggle"
- *           data-ajax-toggle-url-value="/u/dan/actions/add_to_list"
- *           data-ajax-toggle-alt-url-value="/u/dan/actions/remove_from_list"
- *           data-ajax-toggle-alt-html-value="<svg>...</svg> On your list">
- *     <svg>...</svg> Add to your list
+ *           data-ajax-toggle-url-value="/u/dan/actions/tune_in"
+ *           data-ajax-toggle-alt-url-value="/u/dan/actions/tune_out"
+ *           data-ajax-toggle-alt-html-value="<svg>...</svg> Tuning in">
+ *     <svg>...</svg> Tune in
  *   </button>
  *
  * On click the button visibly dims, POSTs, then either swaps to the alternate

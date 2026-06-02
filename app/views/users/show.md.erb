@@ -12,9 +12,17 @@ Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.
 
 Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
+<% if @current_user && @current_user.id != @showing_user.id %>
+
+<% if @target_on_my_list %>
+You are _tuning in_ to <%= @showing_user.display_name %>.
+<% else %>
+You are _not tuned in_ to <%= @showing_user.display_name %>.
+<% end %>
+<% end %>
 <% if @current_user != @showing_user && @common_collective_count > 0 %>
 
-<%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>
+You and <%= @showing_user.display_name %> have <%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>.
 <% end %>
 
 <% if @current_user != @showing_user && @common_collectives.length > 0 %>
