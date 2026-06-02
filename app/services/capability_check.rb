@@ -112,6 +112,9 @@ module CapabilityCheck
     "report_content",
     # Chat
     "send_message",
+    # UserList — "add to list" gesture
+    "add_to_list",
+    "remove_from_list",
   ].freeze
 
   # Check if a user has capability for an action

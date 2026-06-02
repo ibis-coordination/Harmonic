@@ -304,6 +304,11 @@ Rails.application.routes.draw do
     delete 'represent' => 'users#stop_representing', on: :member
     post 'add_to_collective' => 'users#add_ai_agent_to_collective', on: :member
     delete 'remove_from_collective' => 'users#remove_ai_agent_from_collective', on: :member
+    # UserList — "add to list" gesture
+    get  'actions/add_to_list'      => 'users#describe_add_to_list',      on: :member
+    post 'actions/add_to_list'      => 'users#execute_add_to_list',       on: :member
+    get  'actions/remove_from_list' => 'users#describe_remove_from_list', on: :member
+    post 'actions/remove_from_list' => 'users#execute_remove_from_list',  on: :member
     # User settings actions
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member

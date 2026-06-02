@@ -20,6 +20,7 @@ class UserList < ApplicationRecord
   validates :description, length: { maximum: 500 }, allow_nil: true
   validates :visibility,  inclusion: { in: VISIBILITIES }
   validate  :one_primary_per_owner_per_tenant
+  validate  :primary_list_is_strictly_owners
 
   # owner_id is intentionally mutable to support ownership transfer.
   attr_readonly :tenant_id, :collective_id, :creator_id
@@ -57,6 +58,22 @@ class UserList < ApplicationRecord
   end
 
   private
+
+  # A user's primary list is strictly theirs: its owner cannot be transferred
+  # to anyone else, and it cannot be demoted out of primary status. Custom
+  # (non-primary) lists may be transferred or co-edited; the primary list
+  # cannot.
+  sig { void }
+  def primary_list_is_strictly_owners
+    return unless persisted?
+
+    if is_primary_was && owner_id_changed?
+      errors.add(:owner_id, "of a primary list cannot be transferred")
+    end
+    if is_primary_was && !is_primary
+      errors.add(:is_primary, "of a primary list cannot be cleared")
+    end
+  end
 
   # Friendly validation companion to the partial unique index. Cross-collective
   # within the same tenant — unscopes the default collective filter.

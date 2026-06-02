@@ -34,7 +34,7 @@ class UsersController < ApplicationController
     @showing_user = tu.user
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
-    @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     if params[:collective_handle]
       # Showing user in a specific collective
       sm = @showing_user.collective_members.where(collective: current_collective).first
@@ -527,7 +527,84 @@ class UsersController < ApplicationController
     end
   end
 
+  # ---- UserList: "add to list" gesture ----
+
+  def describe_add_to_list
+    return render "shared/404", status: :not_found if showing_user_from_handle.nil?
+
+    render_action_description(ActionsHelper.action_description("add_to_list", resource: showing_user_from_handle))
+  end
+
+  def execute_add_to_list
+    target = showing_user_from_handle
+    return list_action_not_found("add_to_list") if target.nil?
+    return list_action_unauthenticated("add_to_list") if @current_user.nil?
+
+    if target.id == @current_user.id
+      return render_action_error({
+                                   action_name: "add_to_list",
+                                   resource: target,
+                                   error: "You cannot add yourself to your own list.",
+                                 })
+    end
+
+    list = @current_user.primary_user_list_in!(@current_tenant)
+    membership = list.user_list_members.find_or_initialize_by(user_id: target.id)
+    return render_action_success({ action_name: "add_to_list", resource: target, result: "Already on your list." }) if membership.persisted?
+
+    membership.added_by = @current_user
+    if membership.save
+      render_action_success({ action_name: "add_to_list", resource: target, result: "Added to your list." })
+    else
+      render_action_error({
+                            action_name: "add_to_list",
+                            resource: target,
+                            error: membership.errors.full_messages.join(", "),
+                          })
+    end
+  end
+
+  def describe_remove_from_list
+    return render "shared/404", status: :not_found if showing_user_from_handle.nil?
+
+    render_action_description(ActionsHelper.action_description("remove_from_list", resource: showing_user_from_handle))
+  end
+
+  def execute_remove_from_list
+    target = showing_user_from_handle
+    return list_action_not_found("remove_from_list") if target.nil?
+    return list_action_unauthenticated("remove_from_list") if @current_user.nil?
+
+    list = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: @current_user.id, is_primary: true, deleted_at: nil)
+      .first
+
+    membership = list&.user_list_members&.find_by(user_id: target.id)
+    membership&.destroy!
+
+    result = membership ? "Removed from your list." : "Not on your list."
+    render_action_success({ action_name: "remove_from_list", resource: target, result: result })
+  end
+
   private
+
+  def showing_user_from_handle
+    return @showing_user_from_handle if defined?(@showing_user_from_handle)
+
+    tu = @current_tenant.tenant_users.find_by(handle: params[:handle])
+    @showing_user_from_handle = tu&.user
+  end
+
+  def list_action_not_found(action_name)
+    render_action_error({ action_name: action_name, error: "User not found.", status: :not_found })
+  end
+
+  def list_action_unauthenticated(action_name)
+    render_action_error({ action_name: action_name, error: "You must be logged in.", status: :unauthorized })
+  end
+
+  # ---- end UserList action helpers ----
 
   def token_authenticated_action?
     action_name == "confirm_email"

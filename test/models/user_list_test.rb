@@ -198,12 +198,27 @@ class UserListTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::ReadonlyAttributeError) { list.update!(creator_id: other.id) }
   end
 
-  test "owner_id IS mutable (transferable in a later phase)" do
+  test "owner_id IS mutable for non-primary lists" do
     list = UserList.create!(creator: @user, owner: @user, name: "X")
     other = make_user
     list.update!(owner_id: other.id)
     assert_equal other.id, list.reload.owner_id
     assert_equal @user.id, list.reload.creator_id # creator unchanged
+  end
+
+  test "owner_id is immutable for a primary list — cannot be transferred" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Mine", is_primary: true)
+    other = make_user
+    list.owner_id = other.id
+    assert_not list.valid?
+    assert_includes list.errors[:owner_id].join(" "), "primary"
+  end
+
+  test "is_primary is immutable for a primary list — cannot be demoted" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Mine", is_primary: true)
+    list.is_primary = false
+    assert_not list.valid?
+    assert_includes list.errors[:is_primary].join(" "), "primary"
   end
 
   # ---- Soft delete ----

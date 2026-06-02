@@ -743,6 +743,31 @@ class ActionsHelper
       params: [],
       authorization: :self,
     },
+
+    # UserList — "add to list" gesture.
+    # Authorization hides the actions on the actor's own profile (where
+    # target_user == current_user). Permissive when no target_user is in
+    # context — matches the convention used by :self / :resource_owner.
+    "add_to_list" => {
+      description: "Add this user to your list.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        target = context[:target_user]
+        target.nil? || target.id != user.id
+      },
+    },
+    "remove_from_list" => {
+      description: "Remove this user from your list.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        target = context[:target_user]
+        target.nil? || target.id != user.id
+      },
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages.
@@ -1088,6 +1113,15 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["update_commitment_settings"][:description], },
         { name: "add_attachment", params_string: ACTION_DEFINITIONS["add_attachment"][:params_string],
           description: ACTION_DEFINITIONS["add_attachment"][:description], },
+      ],
+    },
+    "/u/:handle" => {
+      controller_actions: ["users#show"],
+      actions: [
+        { name: "add_to_list", params_string: ACTION_DEFINITIONS["add_to_list"][:params_string],
+          description: ACTION_DEFINITIONS["add_to_list"][:description], },
+        { name: "remove_from_list", params_string: ACTION_DEFINITIONS["remove_from_list"][:params_string],
+          description: ACTION_DEFINITIONS["remove_from_list"][:description], },
       ],
     },
     "/u/:handle/settings" => {
