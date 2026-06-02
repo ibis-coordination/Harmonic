@@ -303,24 +303,30 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 
 ## Phasing
 
-### Phase 0 — Schema + bare models
+### ✅ Phase 0 — Schema + bare models — SHIPPED (commit 4bcffd8)
 
 - Migration: `user_lists` + `user_list_members`.
 - Models: `UserList`, `UserListMember`, `User` additions.
-- Validations: name/description/visibility/is_primary uniqueness;
-  scope_matches_list; respects_blocks; member_is_collective_member.
-- Counter callbacks for `members_count`.
-- Model tests cover all validations, scopes, counters, soft-delete, `visible_to?`,
-  `primary_user_list_in!`, tenant isolation, non-human owners.
+- Validations: name/description/visibility; one_primary_per_owner_per_tenant;
+  primary_list_is_strictly_owners (owner_id and is_primary immutable on
+  primaries); scope_matches_list; respects_blocks; member_is_collective_member.
+- `User#primary_user_list_in!(tenant)` lazy-creates in main_collective.
+- `User#created_user_lists` and `owned_user_lists` use
+  `dependent: :restrict_with_exception`.
 
-### Phase 1 — The "add to list" gesture
+### ✅ Phase 1 — The "add to list" gesture — SHIPPED (commit 34defdb)
 
-- Action endpoint at `/u/:handle/actions/add_to_list`.
-- Auto-resolves current_user's primary list (creating it if absent).
-- Validates: target user is collective member; symmetric block check; not adding
-  yourself to your own primary list (silent no-op or 422 — decide).
-- `remove_from_list` mirror endpoint.
-- Tests: end-to-end via MCP smoke test once schema is stable.
+- Action endpoints at `/u/:handle/actions/{add_to_list,remove_from_list}`.
+- `add_to_list` lazy-creates the actor's list and upserts membership;
+  idempotent.
+- Self-add returns 422 (decided).
+- Action authorization is a Proc that hides actions on the actor's own
+  profile (target_user == current_user) so frontmatter only offers them
+  when meaningful.
+- `remove_from_list` distinguishes "Removed from your list." vs "Not on
+  your list." outcomes.
+- Both actions added to `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS`.
+- Verified end-to-end via the harmonic MCP.
 
 ### Phase 2 — Custom list CRUD (markdown + actions)
 
@@ -411,3 +417,22 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 - Banner image, member cap
 - Lists in non-main collectives (schema-supported; UI/routes restrict)
 - Notification on add (later)
+
+---
+
+## Dev-DB state (outside git)
+
+The `Claude Code Primary` agent (id `fa59a88a-19c1-419a-afeb-330145aac850`)
+had `add_to_list` and `remove_from_list` added to its `agent_configuration["capabilities"]`
+during MCP verification of Phase 1. Persists in dev DB. Re-grant via runner
+if testing again from a fresh clone:
+
+```ruby
+agent = User.find("fa59a88a-19c1-419a-afeb-330145aac850")
+cfg = agent.agent_configuration.dup
+cfg["capabilities"] = (cfg["capabilities"] + ["add_to_list", "remove_from_list"]).uniq
+agent.update!(agent_configuration: cfg)
+```
+
+When new action endpoints land in later phases, the same agent will need
+those capabilities granted before MCP-based verification will succeed.
