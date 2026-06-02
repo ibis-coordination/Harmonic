@@ -328,16 +328,21 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 - Both actions added to `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS`.
 - Verified end-to-end via the harmonic MCP.
 
-### Phase 2 — Custom list CRUD (markdown + actions)
+### ✅ Phase 2 — Custom list CRUD (markdown + actions) — SHIPPED
 
-- `create_user_list`, `update_user_list`, `delete_user_list`.
-- `/lists/:list_id` show page (markdown).
-- `/u/:handle/lists` index page (markdown).
-- ActionsHelper entries + `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS`
-  inclusion for the three actions plus `add_to_list` / `remove_from_list` /
-  `add_member` / `remove_member`.
-- Existence-hiding via `set_list`.
-- Primary list cannot be deleted while is_primary=true (422).
+- `create_user_list`, `update_user_list`, `delete_user_list` (describe + execute).
+- `/lists/:list_id` markdown show page; `/u/:handle/lists` markdown index.
+- ActionsHelper entries + new `@@actions_by_route` for `/lists`, `/lists/:list_id`,
+  `/u/:handle/lists`.
+- `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS` includes all three.
+- Existence-hiding via `set_list` (private list to non-owner → 404).
+- Non-owner mutation on a visible public list → 403.
+- Primary list cannot be deleted while is_primary=true (422). Frontmatter on
+  the primary list hides `delete_user_list` (auth Proc checks `!is_primary`).
+- `MarkdownHelper.build_authorization_context` extended to include `@list` so
+  resource-context-aware Procs receive the list when rendering frontmatter.
+- Custom list ownership: created in `tenant.main_collective`; lists in non-main
+  collectives remain schema-supported but routes still restrict.
 
 ### Phase 3 — `add_policy` column + enforcement
 

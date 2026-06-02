@@ -768,6 +768,46 @@ class ActionsHelper
         target.nil? || target.id != user.id
       },
     },
+
+    # UserList — custom list CRUD.
+    # Mutations on existing lists require ownership; visibility-hiding for
+    # private lists is enforced controller-side via set_list (existence is
+    # hidden from non-viewers).
+    "create_user_list" => {
+      description: "Create a new list.",
+      params_string: "(name, description, visibility)",
+      params: [
+        { name: "name",        type: "string", description: "The name of the list (max 80 chars)" },
+        { name: "description", type: "string", required: false, description: "Optional description (max 500 chars)" },
+        { name: "visibility",  type: "string", required: false, description: 'Either "public" (default) or "private"' },
+      ],
+      authorization: :authenticated,
+    },
+    "update_user_list" => {
+      description: "Update this list.",
+      params_string: "(name, description, visibility)",
+      params: [
+        { name: "name",        type: "string", required: false, description: "The name of the list (max 80 chars)" },
+        { name: "description", type: "string", required: false, description: "The description (max 500 chars)" },
+        { name: "visibility",  type: "string", required: false, description: 'Either "public" or "private"' },
+      ],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        resource.is_a?(UserList) ? resource.owner_id == user.id : true
+      },
+    },
+    "delete_user_list" => {
+      description: "Delete this list.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        return true unless resource.is_a?(UserList)
+        resource.owner_id == user.id && !resource.is_primary
+      },
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages.
@@ -1129,6 +1169,26 @@ class ActionsHelper
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
           description: ACTION_DEFINITIONS["update_profile"][:description], },
+      ],
+    },
+    "/u/:handle/lists" => {
+      controller_actions: ["user_lists#index"],
+      actions: [],
+    },
+    "/lists" => {
+      controller_actions: ["user_lists#actions_index_new"],
+      actions: [
+        { name: "create_user_list", params_string: ACTION_DEFINITIONS["create_user_list"][:params_string],
+          description: ACTION_DEFINITIONS["create_user_list"][:description], },
+      ],
+    },
+    "/lists/:list_id" => {
+      controller_actions: ["user_lists#show"],
+      actions: [
+        { name: "update_user_list", params_string: ACTION_DEFINITIONS["update_user_list"][:params_string],
+          description: ACTION_DEFINITIONS["update_user_list"][:description], },
+        { name: "delete_user_list", params_string: ACTION_DEFINITIONS["delete_user_list"][:params_string],
+          description: ACTION_DEFINITIONS["delete_user_list"][:description], },
       ],
     },
     "/u/:handle/settings/tokens/new" => {

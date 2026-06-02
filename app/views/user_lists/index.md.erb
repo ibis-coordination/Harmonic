@@ -1,0 +1,11 @@
+<% viewer_is_owner = @current_user && @current_user.id == @owner.id %>
+# Lists by <%= @owner.display_name %>
+
+<% if @lists.empty? %>
+_No lists._
+<% else %>
+<% @lists.each do |list| %>
+<% suffix = list.is_primary ? (viewer_is_owner ? " (your list)" : "") : "" %>
+* [<%= list.name %>](<%= list.path %>)<%= suffix %> — <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %><%= list.visibility == "private" ? " (private)" : "" %>
+<% end %>
+<% end %>

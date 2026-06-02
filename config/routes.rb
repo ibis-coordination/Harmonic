@@ -186,6 +186,24 @@ Rails.application.routes.draw do
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
 
+  # UserList — addressable subgroups within a collective. Routes live at
+  # tenant root; lists in non-main collectives are schema-supported but the
+  # routes aren't wired yet (deferred).
+  scope '/lists' do
+    get  'actions'                    => 'user_lists#actions_index_new'
+    get  'actions/create_user_list'   => 'user_lists#describe_create_user_list'
+    post 'actions/create_user_list'   => 'user_lists#execute_create_user_list'
+  end
+  resources :user_lists, path: 'lists', param: :list_id, only: [:show] do
+    member do
+      get  'actions'                  => 'user_lists#actions_index_show'
+      get  'actions/update_user_list' => 'user_lists#describe_update_user_list'
+      post 'actions/update_user_list' => 'user_lists#execute_update_user_list'
+      get  'actions/delete_user_list' => 'user_lists#describe_delete_user_list'
+      post 'actions/delete_user_list' => 'user_lists#execute_delete_user_list'
+    end
+  end
+
   # Notifications
   get 'notifications' => 'notifications#index'
   get 'notifications/unread_count' => 'notifications#unread_count'
@@ -309,6 +327,8 @@ Rails.application.routes.draw do
     post 'actions/add_to_list'      => 'users#execute_add_to_list',       on: :member
     get  'actions/remove_from_list' => 'users#describe_remove_from_list', on: :member
     post 'actions/remove_from_list' => 'users#execute_remove_from_list',  on: :member
+    # UserList — listing of lists owned by this user (markdown)
+    get  'lists'                    => 'user_lists#index',                on: :member
     # User settings actions
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member

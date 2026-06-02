@@ -106,7 +106,8 @@ module MarkdownHelper
       collective: instance_variable_get(:@current_collective),
       resource: instance_variable_get(:@note) ||
                 instance_variable_get(:@decision) ||
-                instance_variable_get(:@commitment),
+                instance_variable_get(:@commitment) ||
+                instance_variable_get(:@list),
       target_user: instance_variable_get(:@showing_user),
       representation_session: instance_variable_get(:@current_representation_session),
     }

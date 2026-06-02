@@ -115,6 +115,10 @@ module CapabilityCheck
     # UserList — "add to list" gesture
     "add_to_list",
     "remove_from_list",
+    # UserList — custom list CRUD
+    "create_user_list",
+    "update_user_list",
+    "delete_user_list",
   ].freeze
 
   # Check if a user has capability for an action
