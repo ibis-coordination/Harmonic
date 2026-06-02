@@ -59,10 +59,9 @@ class UserList < ApplicationRecord
 
   private
 
-  # A user's primary list is strictly theirs: its owner cannot be transferred
-  # to anyone else, and it cannot be demoted out of primary status. Custom
-  # (non-primary) lists may be transferred or co-edited; the primary list
-  # cannot.
+  # A user's primary list is strictly theirs: its owner cannot be
+  # transferred, and the is_primary status is fixed at creation in both
+  # directions (no demoting a primary, no promoting a custom list).
   sig { void }
   def primary_list_is_strictly_owners
     return unless persisted?
@@ -70,8 +69,8 @@ class UserList < ApplicationRecord
     if is_primary_was && owner_id_changed?
       errors.add(:owner_id, "of a primary list cannot be transferred")
     end
-    if is_primary_was && !is_primary
-      errors.add(:is_primary, "of a primary list cannot be cleared")
+    if is_primary_changed?
+      errors.add(:is_primary, "cannot be changed after a list is created")
     end
   end
 

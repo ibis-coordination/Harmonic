@@ -143,3 +143,57 @@ knowledge that should survive the rollback.
 - MCP smoke test was the most efficient way to catch
   frontmatter/capability/route-shape issues. Use it as soon as schema is
   stable.
+
+---
+
+## Phase 0 / Phase 1 design negotiations worth preserving
+
+These were extended back-and-forth design decisions where the chosen
+direction would not be obvious to a future reader looking at the shipped
+state alone. Recording the alternatives considered and the rationale for
+the final choice.
+
+### Primary list is per-tenant, not per-collective
+
+**Alternatives weighed:**
+- **Per-(owner, collective) primary** (initial draft): consistent with the
+  rest of Harmonic's collective-scoping; supports per-collective curation
+  ("design folks" vs "finance folks" as distinct primaries); but forces a
+  user in 5 collectives to manage 5 primary lists, makes "add to list"
+  context-dependent, and creates awkward workspace cases.
+- **Per-(owner, tenant) primary, lists still collective-scoped** (chosen):
+  one primary per user per tenant, lives in `tenant.main_collective` by
+  convention. Custom (non-primary) lists can still be collective-scoped.
+  Simpler mental model ("I have one list"), context-independent gesture,
+  no workspace special case.
+- **Tenant-scoped lists with no collective** (rejected): too big a
+  departure from collective-scoping; conflicts with the future
+  addressable-subgroup use case.
+
+**Why the chosen direction:** Twitter users don't think "follow Bob in this
+context"; they think "follow Bob." The "I have one list" mental model wins
+for the headline UX. Custom lists remain collective-scoped to support
+"ping the design folks" later. Schema change was small: partial unique
+index on `(tenant_id, owner_id) WHERE is_primary AND deleted_at IS NULL`.
+
+### "Your list" framing (not "your primary list")
+
+User-facing language is **"your list"** singular, not "your primary list."
+The mental model is: every user has exactly one list strictly theirs (the
+primary), plus optional additional lists they create that can be
+transferred to other users or co-edited.
+
+`primary` is internal terminology only — it appears in the `is_primary`
+column, the `primary_user_list_in!` helper, the partial-index name.
+User-visible strings (action descriptions, error messages) say "your list."
+
+Three data-integrity invariants enforce the framing:
+- A primary list's `owner_id` is immutable (cannot be transferred).
+- A primary list's `is_primary` cannot be cleared (cannot be demoted).
+- A non-primary list's `is_primary` cannot be set to true (cannot be
+  promoted into the primary slot).
+
+So `is_primary` is fixed at the moment of creation in both directions.
+Non-primary lists CAN have their `owner_id` changed (transferable);
+primaries cannot. The primary list is born primary and stays that way for
+the life of the record.

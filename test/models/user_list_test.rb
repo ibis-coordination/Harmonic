@@ -218,7 +218,14 @@ class UserListTest < ActiveSupport::TestCase
     list = UserList.create!(creator: @user, owner: @user, name: "Mine", is_primary: true)
     list.is_primary = false
     assert_not list.valid?
-    assert_includes list.errors[:is_primary].join(" "), "primary"
+    assert_includes list.errors[:is_primary].join(" "), "cannot be changed"
+  end
+
+  test "is_primary is immutable for a non-primary list — cannot be promoted" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Custom")  # is_primary defaults false
+    list.is_primary = true
+    assert_not list.valid?
+    assert_includes list.errors[:is_primary].join(" "), "cannot be changed"
   end
 
   # ---- Soft delete ----
