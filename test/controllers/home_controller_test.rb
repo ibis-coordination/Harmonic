@@ -80,6 +80,116 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, note.path
   end
 
+  test "homepage shows content from users the viewer has tuned in to" do
+    other = create_user(email: "tuned-in-#{SecureRandom.hex(4)}@example.com", name: "Tuned-In User")
+    @tenant.add_user!(other)
+    main_collective = Collective.find(@tenant.main_collective_id)
+    main_collective.add_user!(other)
+
+    # Viewer tunes in to `other` (adds them to viewer's primary list).
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: other)
+    Note.create!(
+      tenant: @tenant, collective: main_collective, created_by: other,
+      text: "post by someone I tune in to",
+      deadline: Time.current + 1.week,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_includes response.body, "post by someone I tune in to"
+  end
+
+  test "homepage hides content from users the viewer has NOT tuned in to" do
+    other = create_user(email: "stranger-#{SecureRandom.hex(4)}@example.com", name: "Stranger")
+    @tenant.add_user!(other)
+    main_collective = Collective.find(@tenant.main_collective_id)
+    main_collective.add_user!(other)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    Note.create!(
+      tenant: @tenant, collective: main_collective, created_by: other,
+      text: "post by a stranger",
+      deadline: Time.current + 1.week,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_not_includes response.body, "post by a stranger"
+  end
+
+  test "homepage shows tune-in explainer when the viewer hasn't tuned in to anyone and has no content" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_match(/Tune in/, response.body)
+    assert_match(/seeing their notes/i, response.body)
+    assert_match(/Your home feed is quiet/, response.body)
+  end
+
+  test "homepage shows the viewer's own content even without tune-ins" do
+    main_collective = Collective.find(@tenant.main_collective_id)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    Note.create!(
+      tenant: @tenant, collective: main_collective, created_by: @user,
+      text: "my own post",
+      deadline: Time.current + 1.week,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_includes response.body, "my own post"
+  end
+
+  test "homepage hides content from blocked users even if a stale primary-list membership survives" do
+    other = create_user(email: "stale-blocked-#{SecureRandom.hex(4)}@example.com", name: "Stale Blocked")
+    @tenant.add_user!(other)
+    main_collective = Collective.find(@tenant.main_collective_id)
+    main_collective.add_user!(other)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    Note.create!(
+      tenant: @tenant, collective: main_collective, created_by: other,
+      text: "post by blocked stale-tune-in user",
+      deadline: Time.current + 1.week,
+    )
+    # Create the block first (cleanup callback runs but no membership to clean
+    # yet). Then bypass validation to insert a stale tune-in across the block,
+    # simulating data left behind from before the cleanup callback shipped.
+    UserBlock.create!(blocker: @user, blocked: other, tenant: @tenant)
+    primary = @user.primary_user_list_in!(@tenant)
+    stale = primary.user_list_members.new(added_by: @user, user: other)
+    stale.save(validate: false)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+
+    # HTML — caught by FeedItemComponent's block-aware filter at render time.
+    get "/"
+    assert_response :success
+    assert_not_includes response.body, "post by blocked stale-tune-in user"
+
+    # Markdown — no render-time block filter; the controller must exclude
+    # blocked authors from the feed scope itself.
+    get "/", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_not_includes response.body, "post by blocked stale-tune-in user"
+  end
+
   test "homepage does not display feed items from non-main collectives" do
     sign_in_as(@user, tenant: @tenant)
 

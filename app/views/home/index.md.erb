@@ -6,5 +6,12 @@
 <% @feed_items.each do |feed_item| -%>
 * [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
 <% end -%>
+<% elsif @tuned_in_count.zero? %>
+
+Your home feed is quiet. Visit a user's profile and `tune_in` to start
+seeing their notes, decisions, and commitments here.
+<% else %>
+
+Nothing new from the <%= @tuned_in_count %> <%= @tuned_in_count == 1 ? "person" : "people" %> you tune in to.
 <% end %>
 

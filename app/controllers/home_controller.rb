@@ -8,17 +8,31 @@ class HomeController < ApplicationController
     @sidebar_mode = 'none'
     @hide_breadcrumb = true
 
-    # Build main collective timeline, proximity-ranked
     main_cid = @current_tenant.main_collective_id
-    tid = @current_tenant.id
-    scores = @current_user.proximity_scores(tenant_id: tid)
 
+    # Main-collective content authored by the people the viewer tunes in
+    # to, plus the viewer themselves (so your own writing stays on your
+    # own home view — you can't tune in to yourself).
+    primary_list = @current_user.primary_user_list_in!(@current_tenant)
+    member_ids = primary_list.user_list_members.pluck(:user_id)
+    @tuned_in_count = member_ids.size
+    # Defense in depth: drop any blocked users from the author scope. The
+    # UserBlock after_create callback removes both directions of primary-
+    # list memberships at block-time, but pre-existing memberships from
+    # before that callback shipped could otherwise leak content here —
+    # especially in markdown, which has no render-time block filter.
+    author_ids = (member_ids - block_related_user_ids.to_a) << @current_user.id
+
+    # Chronological only. Engagement-based proximity scoring against the
+    # full tenant doesn't fit the now-filtered author set; revisit when
+    # proximity is refactored to be primary-list-based.
     @feed_items = FeedBuilder.new(
-      notes_scope: Note.unscope_collective.where(collective_id: main_cid),
-      decisions_scope: Decision.unscope_collective.where(collective_id: main_cid),
-      commitments_scope: Commitment.unscope_collective.where(collective_id: main_cid),
-      reminder_events_scope: NoteHistoryEvent.where(event_type: "reminder", collective_id: main_cid),
-      proximity_scores: scores,
+      notes_scope: Note.unscope_collective.where(collective_id: main_cid, created_by_id: author_ids),
+      decisions_scope: Decision.unscope_collective.where(collective_id: main_cid, created_by_id: author_ids),
+      commitments_scope: Commitment.unscope_collective.where(collective_id: main_cid, created_by_id: author_ids),
+      reminder_events_scope: NoteHistoryEvent
+        .where(event_type: "reminder", collective_id: main_cid)
+        .joins(:note).where(notes: { created_by_id: author_ids }),
     ).feed_items
   end
 

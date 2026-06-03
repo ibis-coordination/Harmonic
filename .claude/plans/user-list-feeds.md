@@ -1,99 +1,86 @@
 # User List Feeds — activity feeds for lists
 
-**Status:** Draft / not started. Picked up after `user-lists` ships.
+## ✅ Phase 1 — Homepage = primary list feed — SHIPPED
 
-## Goal
+The viewer's home page (`/`) now renders content authored by the people
+they tune in to (their primary list members) plus their own content,
+instead of the full main-collective firehose.
 
-Give each `UserList` a consumable activity feed of recent Notes,
-Decisions, and Commitments authored by its members. Make the
-"tune in" gesture do something the viewer can actually feel —
-they can read content from the people they've tuned in to.
+This is the smallest possible v1 of "list feeds" — it answers the
+load-bearing product question (lists become subscribed-to, not just
+addressable) without yet introducing per-list feed URLs.
 
-## The product question this plan has to answer
+Shipped:
+- [home_controller.rb](app/controllers/home_controller.rb) — `index`
+  scopes Notes/Decisions/Commitments to `created_by_id IN (primary list
+  members + self - blocked users)`. ReminderEvents join with the note's
+  author for the same filter. Chronological order (proximity ranking
+  removed — it normalized against tenant-wide scores that don't fit the
+  now-filtered author set; revisit when proximity is refactored).
+- [home/index.html.erb](app/views/home/index.html.erb) — empty state
+  distinguishes "no tune-ins yet" (instructional) from "no recent
+  activity from the N people you tune in to" (informational).
+- [home/index.md.erb](app/views/home/index.md.erb) — markdown parity
+  for the empty states.
+- [user.rb](app/models/user.rb#L44) — `primary_user_list_in!` now
+  rescues `RecordInvalid` / `RecordNotUnique` to handle the
+  concurrent-create race window that the home view exposes (called on
+  every logged-in `/` view now, not just first tune_in).
+- Tests in [home_controller_test.rb](test/controllers/home_controller_test.rb):
+  shows tuned-in content, hides non-tuned-in content, shows own content
+  with no tune-ins, shows the explainer when feed is empty, hides
+  blocked users' content even when a stale primary-list membership
+  survives (both HTML and markdown paths).
+- Test in [user_list_test.rb](test/models/user_list_test.rb): primary-
+  list lookup recovers from a concurrent-create race.
 
-The `user-lists` plan was explicit (line 23, line 507) that lists are
-**addressable**, not **subscribed to** — you reference a list, you don't
-follow it. Adding a feed shifts that framing: tune-in starts to behave
-like a follow.
+Defense in depth:
+- The HTML view's `FeedItemComponent` already filters by `block_related_user_ids`
+  at render time. The markdown view has no such filter — so the controller-
+  level filter is load-bearing for markdown correctness.
 
-That's a real direction change, not just an implementation. Before this
-plan goes deep, we need a clear answer to:
+Design decision: include the viewer themselves in the filter. Strict
+reading of "primary list feed" would exclude self (you can't tune in to
+yourself), but excluding the author from their own home view is hostile
+UX. The home feed = "the people you tune in to + you".
 
-- Is the primary list's feed actually "my timeline" (everyone I've tuned in to)?
-- Are custom lists meant to be subscribed-to by their owner only,
-  or readable by anyone who can see the list?
-- Does "tune in" become a verb-of-following, or does the feed stay
-  list-scoped and tune-in keeps its addressing semantics?
+Out of scope (intentionally):
+- Per-list feeds at `/lists/:id/feed`. The primary list IS the home
+  feed; custom lists don't yet have a feed view. Add when needed.
+- Proximity refactor (engagement → primary-list-based). User
+  explicitly flagged this as a separate project.
+- Reining in the AjaxToggleButton title ("adds their activity to your
+  timeline view") — now technically accurate, but a sweep through the
+  product copy for consistency is its own pass.
 
-The wording in the current tune-in button title ("adds their activity to
-your timeline view") has already drifted in the follow direction.
-Either the copy needs to be reined in or the feature needs to catch up.
+## Open follow-ups
 
-## Existing infrastructure to lean on
+1. **Per-list feed view.** Once we want custom lists to be
+   subscribed-to (not just addressable), wire `/lists/:id/feed` using
+   the same FeedBuilder pattern. Defer until a concrete use case
+   surfaces.
+2. **Proximity refactor.** The home feed shipped here is chronological
+   only — the previous engagement-based proximity ranking was removed
+   because `max_proximity` normalized against tenant-wide scores not
+   matching the filtered author set (would have compressed the boost
+   for feed authors when a high-proximity non-tune-in dominated the
+   max). Refactoring proximity to be primary-list-based (and demoting
+   engagement to secondary or removed) is a separate project per the
+   user.
+3. **Tenant scoping.** Membership is per-tenant via the primary list's
+   tenant scope; content is filtered by `main_collective_id` of the
+   current tenant. No cross-tenant leak. Verified by inspection.
+4. **Empty-state suggestions.** Could suggest users to tune in to,
+   based on proximity or shared collectives. Right now the empty state
+   just instructs. Suggestions are a natural next iteration.
+5. **Discoverability.** Removing the firehose from `/` means the only
+   way to discover new authors is via collectives, search, or social
+   proximity. If that's too narrow, a `/discover` route showing the
+   old main-collective firehose may be needed. Wait for feedback.
 
-- [FeedBuilder](app/services/feed_builder.rb) already accepts per-resource
-  scopes and handles optional proximity-based ranking — a list feed is
-  primarily a scope-shape change (`created_by_id IN list.members`).
-- Profile feed at [users_controller.rb:94-101](app/controllers/users_controller.rb#L94-L101)
-  shows the exact pattern: scoped by author within `main_collective`.
-- `feed_item` partial under [app/views/pulse/](app/views/pulse/) is the
-  rendering primitive — already used by `/pulse`, profile, and home.
+## Existing infrastructure leveraged
 
-## Rough shape (not final)
-
-- New action `UserListsController#feed` (or fold into `show`).
-- Reuse `FeedBuilder` with `created_by_id IN list.members.pluck(:id)`.
-- Honor the existing `visible_to?` gate — private list = owner only.
-- Markdown parity: same feed rendered at `Accept: text/markdown`.
-
-## Open questions to resolve before implementation
-
-1. **Primary list vs custom list semantics.** Are these the same kind of
-   feed, or should the primary list's feed live at a different
-   URL (e.g. `/timeline`) since it represents the owner's social filter
-   rather than an addressable group?
-2. **Member churn.** Feed shows content from current members? Or content
-   posted while each member was on the list? Simplest is the former
-   (no historical membership intersection); likely also what users expect.
-3. **Visibility for non-owners.** A public list's feed — viewable by
-   anyone who can see the list? Or owner-only regardless of list privacy?
-4. **Reminders & ReminderEvents.** Include? They're already in
-   FeedBuilder but currently flow only on personalized feeds.
-5. **Proximity ranking.** Apply when the viewer is the list owner?
-   Skip entirely for list feeds (chronological only)?
-6. **Pool size at scale.** A list with hundreds of members will
-   produce a large candidate pool. FeedBuilder's `POOL_SIZE = 100`
-   may need to grow or be configurable.
-7. **Cross-tenant.** Members can be on the list under one tenant but
-   posting in another. Feed should respect tenant scoping (only show
-   content in the tenant the list lives in).
-8. **Empty-state UX.** New list, no member content yet — what does
-   the empty state say, and does it teach the user what tune-in means?
-9. **HTML vs markdown.** Both, eventually. HTML first since
-   user-lists ships markdown-first and the parity gap there is
-   already on Phase 6's polish list.
-10. **Sub-feeds.** Does each resource type get its own filter
-    (notes-only, decisions-only)? Or is one mixed feed the only view?
-
-## Explicit non-goals (subject to revisit when this plan is fleshed out)
-
-- Push notifications when list members post (separate plan, much later)
-- Email digests of list activity
-- Aggregate engagement metrics on list feeds
-- Cross-list deduplication when the viewer is on multiple lists that
-  share members
-- Real-time updates (Turbo Streams) — start polled/static
-
-## Dependencies
-
-- `user-lists` v1 must ship first (Phase 6 polish in progress).
-- No new schema expected — `UserList` + `UserListMember` already
-  give us the membership graph this feature needs.
-
-## Initial sizing estimate
-
-Roughly half a day to a day for a thin first cut (one feed endpoint,
-HTML + markdown, owner-only on private lists, no ranking). The open
-questions above are likely to expand that — particularly any
-direction change to the tune-in semantic, which would ripple back
-into the `user-lists` plan's copy and product framing.
+- [FeedBuilder](app/services/feed_builder.rb) — unchanged; took the
+  new scopes without modification.
+- `User#primary_user_list_in!` — idempotent primary-list lookup, used
+  by the controller.

@@ -304,4 +304,31 @@ class UserListTest < ActiveSupport::TestCase
     assert_includes list.content_snapshot, "Title"
     assert_includes list.content_snapshot, "Body text"
   end
+
+  # ---- User#primary_user_list_in! race safety ----
+
+  test "primary_user_list_in! recovers when a concurrent create wins the race" do
+    list1 = @user.primary_user_list_in!(@tenant)
+
+    # Force the SELECT-then-CREATE path to take the create branch despite
+    # list1 existing. The create attempt will trip the primary-uniqueness
+    # validation; the rescue should re-query and return list1.
+    original = UserList.method(:tenant_scoped_only)
+    remaining = 1
+    UserList.singleton_class.define_method(:tenant_scoped_only) do |*args|
+      if remaining.positive?
+        remaining -= 1
+        UserList.where(id: nil) # pretend no primary list exists
+      else
+        original.call(*args)
+      end
+    end
+
+    begin
+      list2 = @user.primary_user_list_in!(@tenant)
+      assert_equal list1.id, list2.id, "expected to recover existing list after concurrent-create race"
+    ensure
+      UserList.singleton_class.send(:remove_method, :tenant_scoped_only)
+    end
+  end
 end

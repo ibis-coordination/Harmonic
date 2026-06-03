@@ -39,7 +39,8 @@ class User < ApplicationRecord
   has_many :lists_im_on, through: :user_list_memberships, source: :user_list
 
   # Returns the user's primary list in `tenant`, creating one in
-  # `tenant.main_collective` if absent. Idempotent.
+  # `tenant.main_collective` if absent. Idempotent and race-safe: a
+  # concurrent create that wins gets re-queried.
   sig { params(tenant: Tenant).returns(UserList) }
   def primary_user_list_in!(tenant)
     existing = UserList
@@ -55,6 +56,12 @@ class User < ApplicationRecord
       name: "#{tu&.display_name.presence || name}'s list",
       is_primary: true, visibility: "public",
     )
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+    # Lost a race to a concurrent create — re-query and return the winner.
+    T.must(UserList
+      .tenant_scoped_only(tenant.id)
+      .where(owner_id: id, is_primary: true, deleted_at: nil)
+      .first)
   end
 
   # Trustee grant associations
