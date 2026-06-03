@@ -175,6 +175,23 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "profile HTML: shows 'Tuned in to you' badge when target tunes in to viewer" do
+    # @other tunes in to @user — viewer (@user) should see the badge on @other's profile.
+    other_primary = @other.primary_user_list_in!(@tenant)
+    other_primary.user_list_members.create!(added_by: @other, user: @user)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select ".pulse-tuning-in-to-you-badge", text: /Tuned in to you/
+  end
+
+  test "profile HTML: omits 'Tuned in to you' badge when target does NOT tune in to viewer" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select ".pulse-tuning-in-to-you-badge", count: 0
+  end
+
   test "profile HTML: NO toggle on your own profile" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"

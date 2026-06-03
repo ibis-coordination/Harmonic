@@ -6,38 +6,45 @@ import { fetchWithCsrf } from "../utils/csrf"
  * POSTs without a full page reload.
  *
  * On click it POSTs to the current `url` value. On a successful response it
- * swaps the button's innerHTML with `alt-html`, and swaps the `url` value
- * with `alt-url`. Clicking again POSTs to the new URL and swaps back.
+ * swaps the button's innerHTML with `alt-html`, the `url` with `alt-url`,
+ * and (when set) the button's className with `alt-class`. Clicking again
+ * POSTs to the new URL and swaps back.
  *
  * Usage:
  *
- *   <button data-controller="ajax-toggle"
+ *   <button class="pulse-action-btn"
+ *           data-controller="ajax-toggle"
  *           data-action="click->ajax-toggle#toggle"
  *           data-ajax-toggle-url-value="/u/dan/actions/tune_in"
  *           data-ajax-toggle-alt-url-value="/u/dan/actions/tune_out"
- *           data-ajax-toggle-alt-html-value="<svg>...</svg> Tuning in">
+ *           data-ajax-toggle-alt-html-value="<svg>...</svg> Tuned in"
+ *           data-ajax-toggle-alt-class-value="pulse-action-btn-secondary">
  *     <svg>...</svg> Tune in
  *   </button>
  *
  * On click the button visibly dims, POSTs, then either swaps to the alternate
- * state or restores itself on error.
+ * state or restores itself on error. `alt-class` is optional — empty string
+ * means no class swap.
  */
 export default class AjaxToggleController extends Controller<HTMLButtonElement> {
   static values = {
     url: String,
     altUrl: String,
     altHtml: String,
+    altClass: String,
   }
 
   declare urlValue: string
   declare altUrlValue: string
   declare altHtmlValue: string
+  declare altClassValue: string
 
   async toggle(event: Event): Promise<void> {
     event.preventDefault()
     if (this.element.disabled) return
 
     const previousHtml = this.element.innerHTML
+    const previousClass = this.element.className
     this.element.disabled = true
     this.element.style.opacity = "0.5"
 
@@ -51,6 +58,10 @@ export default class AjaxToggleController extends Controller<HTMLButtonElement> 
       const previousUrl = this.urlValue
       this.urlValue = this.altUrlValue
       this.altUrlValue = previousUrl
+      if (this.altClassValue) {
+        this.element.className = this.altClassValue
+        this.altClassValue = previousClass
+      }
     } catch {
       // Leave the button as-is; user can retry.
     } finally {

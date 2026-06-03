@@ -20,13 +20,24 @@ describe("AjaxToggleController", () => {
     document.head.innerHTML = ""
   })
 
-  async function mount(opts: { url: string; altUrl: string; altHtml: string; initialHtml: string }) {
+  async function mount(opts: {
+    url: string
+    altUrl: string
+    altHtml: string
+    initialHtml: string
+    className?: string
+    altClass?: string
+  }) {
+    const className = opts.className ?? ""
+    const altClass = opts.altClass ?? ""
     document.body.innerHTML = `
-      <button data-controller="ajax-toggle"
+      <button class="${className}"
+              data-controller="ajax-toggle"
               data-action="click->ajax-toggle#toggle"
               data-ajax-toggle-url-value="${opts.url}"
               data-ajax-toggle-alt-url-value="${opts.altUrl}"
-              data-ajax-toggle-alt-html-value="${opts.altHtml}">
+              data-ajax-toggle-alt-html-value="${opts.altHtml}"
+              data-ajax-toggle-alt-class-value="${altClass}">
         ${opts.initialHtml}
       </button>
     `
@@ -97,6 +108,44 @@ describe("AjaxToggleController", () => {
     expect(btn.textContent?.trim()).toBe("Add")
     expect(btn.dataset.ajaxToggleUrlValue).toBe("/add")
     expect(btn.disabled).toBe(false)
+  })
+
+  it("swaps the button's className when alt-class is set", async () => {
+    fetchSpy.mockResolvedValue(new Response("", { status: 200 }))
+    const btn = await mount({
+      url: "/add",
+      altUrl: "/remove",
+      altHtml: "Remove",
+      initialHtml: "Add",
+      className: "pulse-action-btn",
+      altClass: "pulse-action-btn-secondary",
+    })
+
+    btn.click()
+    await flushMicrotasks()
+    expect(btn.className).toBe("pulse-action-btn-secondary")
+    expect(btn.dataset.ajaxToggleAltClassValue).toBe("pulse-action-btn")
+
+    btn.click()
+    await flushMicrotasks()
+    expect(btn.className).toBe("pulse-action-btn")
+    expect(btn.dataset.ajaxToggleAltClassValue).toBe("pulse-action-btn-secondary")
+  })
+
+  it("leaves className alone when alt-class is empty", async () => {
+    fetchSpy.mockResolvedValue(new Response("", { status: 200 }))
+    const btn = await mount({
+      url: "/add",
+      altUrl: "/remove",
+      altHtml: "Remove",
+      initialHtml: "Add",
+      className: "pulse-action-btn-secondary",
+      altClass: "",
+    })
+
+    btn.click()
+    await flushMicrotasks()
+    expect(btn.className).toBe("pulse-action-btn-secondary")
   })
 
   it("ignores repeat clicks while a request is in flight", async () => {

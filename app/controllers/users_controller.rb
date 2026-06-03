@@ -86,7 +86,8 @@ class UsersController < ApplicationController
 
     # "Add to your list" toggle state — already-on-list vs not. Skipped on
     # your own profile (button is hidden) and for anon viewers.
-    @target_on_my_list = compute_target_on_my_list
+    @target_on_my_list  = compute_target_on_my_list
+    @viewer_on_target_list = compute_viewer_on_target_list
 
     # Build user's main collective (public) content timeline
     main_cid = @current_tenant.main_collective_id
@@ -559,7 +560,7 @@ class UsersController < ApplicationController
 
     list = @current_user.primary_user_list_in!(@current_tenant)
     membership = list.user_list_members.find_or_initialize_by(user_id: target.id)
-    return render_action_success({ action_name: "tune_in", resource: target, result: "Already tuning in." }) if membership.persisted?
+    return render_action_success({ action_name: "tune_in", resource: target, result: "Already tuned in." }) if membership.persisted?
 
     membership.added_by = @current_user
     if membership.save
@@ -592,7 +593,7 @@ class UsersController < ApplicationController
     membership = list&.user_list_members&.find_by(user_id: target.id)
     membership&.destroy!
 
-    result = membership ? "Tuned out." : "Not tuning in."
+    result = membership ? "Tuned out." : "Not tuned in."
     render_action_success({ action_name: "tune_out", resource: target, result: result })
   end
 
@@ -606,6 +607,19 @@ class UsersController < ApplicationController
       .first
     return false if primary.nil?
     primary.user_list_members.exists?(user_id: @showing_user.id)
+  end
+
+  # The reverse direction of compute_target_on_my_list: is the current
+  # viewer on the profile user's primary list? Combined with the forward
+  # direction this gives the four mutual-tuning-in states.
+  def compute_viewer_on_target_list
+    return false unless @current_user && @showing_user && @current_user.id != @showing_user.id
+    target_primary = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: @showing_user.id, is_primary: true, deleted_at: nil)
+      .first
+    return false if target_primary.nil?
+    target_primary.user_list_members.exists?(user_id: @current_user.id)
   end
 
   def visible_lists_owned_by_for_profile(owner)

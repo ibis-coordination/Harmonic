@@ -60,6 +60,34 @@ class AjaxToggleButtonComponentTest < ViewComponent::TestCase
     assert_selector "button.pulse-action-btn"
   end
 
+  test "supports state-specific classes (on_class / off_class), applying the current one and storing the alt" do
+    # off state — render off_class, store on_class as alt
+    render_inline(AjaxToggleButtonComponent.new(**args(on: false),
+                                                on_class: "pulse-action-btn-secondary",
+                                                off_class: "pulse-action-btn"))
+    assert_selector "button.pulse-action-btn"
+    assert_no_selector "button.pulse-action-btn-secondary"
+    button = page.find("button[data-controller='ajax-toggle']")
+    assert_equal "pulse-action-btn-secondary", button["data-ajax-toggle-alt-class-value"]
+  end
+
+  test "state-specific classes flip when on:true" do
+    render_inline(AjaxToggleButtonComponent.new(**args(on: true),
+                                                on_class: "pulse-action-btn-secondary",
+                                                off_class: "pulse-action-btn"))
+    assert_selector "button.pulse-action-btn-secondary"
+    assert_no_selector "button.pulse-action-btn"
+    button = page.find("button[data-controller='ajax-toggle']")
+    assert_equal "pulse-action-btn", button["data-ajax-toggle-alt-class-value"]
+  end
+
+  test "when no on_class/off_class, alt-class-value stays empty (no swap needed)" do
+    render_inline(AjaxToggleButtonComponent.new(**args(on: false)))
+    button = page.find("button[data-controller='ajax-toggle']")
+    # Either empty or absent; both signal 'no class swap'.
+    assert button["data-ajax-toggle-alt-class-value"].to_s.empty?
+  end
+
   test "renders an optional title" do
     render_inline(AjaxToggleButtonComponent.new(**args(on: false), title: "Toggle me"))
     assert_selector "button[title='Toggle me']"

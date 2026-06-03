@@ -18,6 +18,11 @@
       <% if @showing_user.ai_agent? %>
         <span class="pulse-badge" title="This is an AI agent managed by <%= @showing_user.parent&.display_name %>">AI agent</span>
       <% end %>
+      <% if @viewer_on_target_list %>
+        <span class="pulse-badge pulse-badge-muted pulse-tuning-in-to-you-badge">
+          <%= pulse_icon('tuning_in', size: :sm) %> Tuned in to you
+        </span>
+      <% end %>
     </div>
     <div class="pulse-user-actions">
       <% if @current_user && @current_user.can_edit?(@showing_user) %>
@@ -28,12 +33,14 @@
       <% end %>
       <% if @current_user && @showing_user.id != @current_user.id %>
         <%= render AjaxToggleButtonComponent.new(
-              on:       @target_on_my_list,
-              on_url:   "#{@showing_user.path}/actions/tune_out",
-              on_html:  pulse_icon('tuning_in', size: :sm) + " Tuning in",
-              off_url:  "#{@showing_user.path}/actions/tune_in",
-              off_html: octicon('plus', height: 14) + " Tune in",
-              title:    "Tuning in to this user adds their activity to your timeline view",
+              on:        @target_on_my_list,
+              on_url:    "#{@showing_user.path}/actions/tune_out",
+              on_html:   pulse_icon('tuning_in', size: :sm) + " Tuned in",
+              on_class:  "pulse-action-btn-secondary",
+              off_url:   "#{@showing_user.path}/actions/tune_in",
+              off_html:  octicon('plus', height: 14) + " Tune in",
+              off_class: "pulse-action-btn",
+              title:     "Tuning in to this user adds their activity to your timeline view",
             ) %>
       <% end %>
       <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.collective_identity? %>

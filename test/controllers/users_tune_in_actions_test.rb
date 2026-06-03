@@ -9,6 +9,7 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     @collective = @tenant.main_collective
     @collective.enable_api!
     @user = @global_user
+    @collective.add_user!(@user) unless @collective.user_is_member?(@user)
 
     @target = create_user(email: "t-#{SecureRandom.hex(4)}@example.com", name: "T #{SecureRandom.hex(4)}")
     @tenant.add_user!(@target)
@@ -146,21 +147,21 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Tuned out."
   end
 
-  test "execute_tune_out reports 'Not tuning in' when target was never a member" do
+  test "execute_tune_out reports 'Not tuned in' when target was never a member" do
     @user.primary_user_list_in!(@tenant)
     assert_no_difference -> { UserListMember.where(user_id: @target.id).count } do
       post "/u/#{handle_of(@target)}/actions/tune_out", params: {}.to_json, headers: @headers
     end
     assert_response :success
-    assert_includes response.body, "Not tuning in."
+    assert_includes response.body, "Not tuned in."
   end
 
-  test "execute_tune_out reports 'Not tuning in' when actor has no primary list yet" do
+  test "execute_tune_out reports 'Not tuned in' when actor has no primary list yet" do
     assert_no_difference -> { UserList.unscope(where: :collective_id).where(owner_id: @user.id).count } do
       post "/u/#{handle_of(@target)}/actions/tune_out", params: {}.to_json, headers: @headers
     end
     assert_response :success
-    assert_includes response.body, "Not tuning in."
+    assert_includes response.body, "Not tuned in."
   end
 
   test "execute_tune_out 404s for unknown handle" do
@@ -170,30 +171,66 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
 
   # ---- Tuning-in status line on the markdown profile ----
 
-  test "markdown profile says 'You are tuning in to <name>' when target is on viewer's primary list" do
-    # Seed the membership via the API so we don't have to deal with thread
-    # scope in the test (the request middleware sets it for us).
+  # The four states of tuning-in between viewer (V = @user) and profile
+  # user (P = @target). Seeded via the API so the request middleware sets
+  # thread scope for us.
+  #
+  #   V→P  P→V  status
+  #   ✗    ✗    "You are _not tuned in_ to P."
+  #   ✓    ✗    "You are _tuned in_ to P."
+  #   ✗    ✓    "P is _tuned in_ to you."
+  #   ✓    ✓    "You and P are _mutually tuned in_ to each other."
+
+  test "markdown profile: neither direction — 'not tuned in'" do
+    get "/u/#{handle_of(@target)}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "You are _not tuned in_ to #{@target.display_name}."
+    assert_not_includes response.body, "_mutually tuned in_"
+  end
+
+  test "markdown profile: viewer tunes in to target only — 'You are tuned in to P'" do
     post "/u/#{handle_of(@target)}/actions/tune_in", params: {}.to_json, headers: @headers
     assert_response :success
 
     get "/u/#{handle_of(@target)}", headers: @headers
     assert_response :success
-    assert_includes response.body, "You are _tuning in_ to #{@target.display_name}."
+    assert_includes response.body, "You are _tuned in_ to #{@target.display_name}."
+    assert_not_includes response.body, "_not tuned in_"
+    assert_not_includes response.body, "_mutually tuned in_"
+  end
+
+  test "markdown profile: target tunes in to viewer only — 'P is tuned in to you'" do
+    # Target tunes in to viewer (using @target_headers).
+    post "/u/#{handle_of(@user)}/actions/tune_in", params: {}.to_json, headers: @target_headers
+    assert_response :success
+
+    get "/u/#{handle_of(@target)}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "#{@target.display_name} is _tuned in_ to you."
+    assert_not_includes response.body, "_not tuned in_"
+    assert_not_includes response.body, "_mutually tuned in_"
+  end
+
+  test "markdown profile: both directions — 'mutually tuned in'" do
+    post "/u/#{handle_of(@target)}/actions/tune_in", params: {}.to_json, headers: @headers
+    assert_response :success
+    post "/u/#{handle_of(@user)}/actions/tune_in",   params: {}.to_json, headers: @target_headers
+    assert_response :success
+
+    get "/u/#{handle_of(@target)}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "You and #{@target.display_name} are _mutually tuned in_ to each other."
+    # The one-way phrases should NOT also appear.
+    assert_not_includes response.body, "You are _tuned in_ to #{@target.display_name}."
+    assert_not_includes response.body, "#{@target.display_name} is _tuned in_ to you."
     assert_not_includes response.body, "_not tuned in_"
   end
 
-  test "markdown profile says 'You are not tuned in to <name>' when target is not on viewer's primary list" do
-    get "/u/#{handle_of(@target)}", headers: @headers
-    assert_response :success
-    assert_includes response.body, "You are _not tuned in_ to #{@target.display_name}."
-    assert_not_includes response.body, "_tuning in_"
-  end
-
-  test "markdown profile omits the tuning-in line on your own profile" do
+  test "markdown profile omits the tuned-in line on your own profile" do
     get "/u/#{handle_of(@user)}", headers: @headers
     assert_response :success
-    assert_not_includes response.body, "tuning in"
     assert_not_includes response.body, "tuned in"
+    assert_not_includes response.body, "mutually"
   end
 
   # ---- Frontmatter visibility (own vs other profile) ----

@@ -318,7 +318,7 @@ existing `@list.nil?` check renders 404. Same single 404 for "doesn't exist" and
 
 Originally shipped as `add_to_list` / `remove_from_list`. Renamed to
 `tune_in` / `tune_out` in a cosmetic pass after Phase 4 to align the
-verbs between the HTML button copy ("Tune in" / "Tuning in") and the
+verbs between the HTML button copy ("Tune in" / "Tuned in") and the
 markdown frontmatter action names.
 
 - Action endpoints at `/u/:handle/actions/{tune_in,tune_out}`.
@@ -328,7 +328,7 @@ markdown frontmatter action names.
 - Action authorization is a Proc that hides actions on the actor's own
   profile (target_user == current_user) so frontmatter only offers them
   when meaningful.
-- `tune_out` distinguishes "Tuned out." vs "Not tuning in." outcomes.
+- `tune_out` distinguishes "Tuned out." vs "Not tuned in." outcomes.
 - Both actions added to `CapabilityCheck.AI_AGENT_GRANTABLE_ACTIONS`.
 - Verified end-to-end via the harmonic MCP.
 
@@ -405,7 +405,57 @@ members to private, those members lose visibility and can't self-remove
 via the existing remove_member endpoint. The owner can still prune; a
 "lists I'm on" view would provide an alternate access path.
 
-### Phase 5 — Polish + ship
+### ✅ Phase 5 — Mutual tuning-in detection + state-based button — SHIPPED
+
+The HTML toggle and the markdown status line previously only expressed
+the viewer's side of the relationship. This phase computes the reverse
+direction as well and surfaces the four states on the profile, plus
+sweeps the active-state wording to "tuned in" (past participle, state
+label) while keeping "tune in" / "tune out" as the gesture verbs.
+
+Four states (viewer V, profile-user P):
+
+| V tunes in to P? | P tunes in to V? | Status                                                |
+|------------------|------------------|-------------------------------------------------------|
+| ✓                | ✓                | "You and P are _mutually tuned in_ to each other."    |
+| ✓                | ✗                | "You are _tuned in_ to P."                            |
+| ✗                | ✓                | "P is _tuned in_ to you."                             |
+| ✗                | ✗                | "You are _not tuned in_ to P."                        |
+
+Shipped:
+- `users#show` computes `@viewer_on_target_list` (P→V) in parallel to
+  the existing `@target_on_my_list` (V→P). Two `exists?` queries.
+- Markdown view (`users/show.md.erb`) — four-state status line.
+- HTML view (`users/show.html.erb`) — a `Tuned in to you` badge
+  appears below the handle (muted-pill style) when P→V is true. The
+  AjaxToggleButton still shows V's side.
+- Wording sweep — "tuning in" → "tuned in" for state labels:
+  - Toggle button on-state: "Tuned in" (off-state stays "Tune in").
+  - Badge text: "Tuned in to you".
+  - Markdown status: all four lines use "tuned in" (or "mutually
+    tuned in").
+  - Controller result strings: "Already tuned in.", "Not tuned in."
+    (the `Tuned in.` / `Tuned out.` outcomes already used past tense).
+- State-based button class — the toggle button is now PRIMARY
+  (`.pulse-action-btn`, dark filled) in the off state and SECONDARY
+  (`.pulse-action-btn-secondary`, outlined) in the on state, so the
+  call-to-action visually emphasizes the unset state and recedes once
+  the relationship is established. Implemented by extending
+  `AjaxToggleButtonComponent` with `on_class:` / `off_class:` params
+  and adding an `alt-class` value to the `ajax-toggle` Stimulus
+  controller that swaps `element.className` on toggle (alongside
+  innerHTML and URL).
+- Tests: 4 controller tests for the markdown states, 2 HTML tests
+  for the badge presence/absence, 2 component tests for state-based
+  classes, 2 Stimulus controller tests for the className swap.
+
+Out of scope (deferred):
+- Notifications when someone tunes in to you.
+- Profile-level filters / sorting by mutual relationships.
+- HTML status line mirroring the markdown ("You are tuned in to X" —
+  the badge surfaces P→V but V→P is only shown via the toggle button).
+
+### Phase 6 — Polish + ship
 
 - Lint, type-check, manual test checklist.
 - (CHANGELOG and version bump handled separately per repo convention.)

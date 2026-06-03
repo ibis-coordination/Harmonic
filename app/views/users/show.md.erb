@@ -14,8 +14,12 @@ Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
 <% if @current_user && @current_user.id != @showing_user.id %>
 
-<% if @target_on_my_list %>
-You are _tuning in_ to <%= @showing_user.display_name %>.
+<% if @target_on_my_list && @viewer_on_target_list %>
+You and <%= @showing_user.display_name %> are _mutually tuned in_ to each other.
+<% elsif @target_on_my_list %>
+You are _tuned in_ to <%= @showing_user.display_name %>.
+<% elsif @viewer_on_target_list %>
+<%= @showing_user.display_name %> is _tuned in_ to you.
 <% else %>
 You are _not tuned in_ to <%= @showing_user.display_name %>.
 <% end %>
