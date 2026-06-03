@@ -455,6 +455,53 @@ Out of scope (deferred):
 - HTML status line mirroring the markdown ("You are tuned in to X" —
   the badge surfaces P→V but V→P is only shown via the toggle button).
 
+### ✅ Phase 5.5 — Block integration on profile — SHIPPED (commit 13170b1)
+
+Out-of-original-scope follow-up. The list feature shipped without explicit
+block handling on the profile beyond the existing `UserListMember.respects_blocks`
+validation. This phase wired blocks into the UI and trimmed the profile
+header now that the new tune-in button had crowded it.
+
+Shipped:
+- **Profile header tidy.** Message link moved into the kebab menu. Block
+  button label dropped the handle ("Block @handle" → "Block"; same for
+  Unblock). The Block description now lives on the button as a `title`
+  tooltip instead of always-visible muted text. Kebab button alignment
+  fix in `pulse/_layout.css` (`.top-menu ul li button` got
+  `display: inline-flex; align-items: center; gap: 8px;` to match the
+  sibling `<a>` rule).
+- **Unblock now `redirect_back`s** to the originating page (previously
+  always landed on `/user-blocks`). Block was already doing this.
+- **New blocks clear mutual primary-list memberships.** `after_create`
+  callback on `UserBlock` wipes both directions within the block's tenant.
+  Tolerates missing primary lists / one-sided tune-ins.
+- **Profile (HTML + markdown) hides tune-in when blocked** and replaces
+  the tuning-state line with "You have blocked X." (viewer-as-blocker) or
+  "X has blocked you." (viewer-as-blocked).
+- **Markdown frontmatter** `tune_in` / `tune_out` converted from static
+  `actions:` to `conditional_actions:` that filter on `UserBlock.between?`.
+  Added `showing_user` to `MarkdownHelper#build_condition_context`.
+- **Message link in the kebab is suppressed** when a block exists in
+  either direction (blocked users can't message each other).
+- **Blocked profile is mostly empty.** The Common Collectives count chip
+  and the Common Collectives, Lists, and Recent Activity accordions are
+  all hidden on blocked profiles (HTML); the corresponding markdown
+  sections drop too.
+- Tests: 27 controller HTML tests + 24 markdown tests + 14 UserBlock
+  model tests + 9 UserBlocks controller tests, all green; broader
+  block-adjacent suite at 183/183.
+
+Deferred / not in this phase:
+- Backfill for memberships that pre-date the cleanup callback (one-time
+  data sweep if any stale rows exist).
+- Cleanup of custom (non-primary) list memberships on block — the spec
+  was explicitly primary-only, but custom lists with members across
+  blocks can still leak the listed user's presence to the blocker.
+- Retiring the AjaxToggleButton title attribute that still promises
+  "adds their activity to your timeline view" (drift toward a follow
+  graph the code doesn't deliver — list-feeds tracked in a separate
+  plan doc, `.claude/plans/user-list-feeds.md`).
+
 ### Phase 6 — Polish + ship
 
 - Lint, type-check, manual test checklist.
