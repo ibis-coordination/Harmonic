@@ -10,6 +10,17 @@ Visibility: <%= @list.visibility %>
 <%= @list.description %>
 <% end %>
 
+## Activity
+
+<% if @feed_items.present? %>
+<% @feed_items.each do |feed_item| -%>
+<% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
+* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
+<% end -%>
+<% else %>
+_No recent activity from members of this list._
+<% end %>
+
 ## Members (<%= @members.size %>)
 
 <% if @members.empty? %>

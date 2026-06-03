@@ -4,7 +4,7 @@
       <h1 class="pulse-page-title"><span><%= @current_tenant.subdomain %><span class="pulse-subdomain-suffix">.<%= ENV['HOSTNAME'] %></span></span></h1>
     </header>
 
-    <%# Recent Activity Feed — content from the people you tune in to, plus your own %>
+    <%# Activity stream — content from the people you tune in to, plus your own %>
     <% if @feed_items.present? %>
       <div class="pulse-feed" style="padding: 0;">
         <% @feed_items.each do |feed_item| %>
@@ -14,7 +14,7 @@
     <% else %>
       <div class="pulse-feed-empty">
         <% if @tuned_in_count.zero? %>
-          <p>Your home feed is quiet.</p>
+          <p>Your home is quiet.</p>
           <p class="pulse-body-text-muted">
             Visit someone's profile and tap <strong>Tune in</strong> to start
             seeing their notes, decisions, and commitments here.

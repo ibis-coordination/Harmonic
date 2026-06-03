@@ -132,7 +132,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match(/Tune in/, response.body)
     assert_match(/seeing their notes/i, response.body)
-    assert_match(/Your home feed is quiet/, response.body)
+    assert_match(/Your home is quiet/, response.body)
   end
 
   test "homepage shows the viewer's own content even without tune-ins" do

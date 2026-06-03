@@ -25,6 +25,7 @@ class UserListsController < ApplicationController
   def show
     @page_title = @list.name
     @sidebar_mode = "minimal"
+    @active_tab = params[:tab] == "members" ? "members" : "feed"
 
     # Preload members + the handles we'll display so the view doesn't N+1
     # on per-member tenant_user lookups. One query for member rows, one
@@ -35,6 +36,28 @@ class UserListsController < ApplicationController
       .where(tenant_id: @list.tenant_id, user_id: ([@list.owner_id] + member_user_ids).uniq)
       .pluck(:user_id, :handle)
       .to_h
+
+    # Feed of recent content authored by members of this list, scoped to the
+    # tenant's main collective (matching the home-feed shape). Members only
+    # — no self-inclusion: a custom list is "these people," not "these
+    # people + me." Defense in depth: drop any blocked authors, mirroring
+    # the home_controller filter so the markdown view (which has no
+    # render-time block filter) can't leak a stale tune-in across a block.
+    author_ids = member_user_ids - block_related_user_ids.to_a
+
+    @feed_items = if author_ids.empty?
+      []
+    else
+      FeedBuilder.new(
+        notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
+        decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
+        commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
+        reminder_events_scope: NoteHistoryEvent
+          .main_collective_scope(@current_tenant)
+          .where(event_type: "reminder")
+          .joins(:note).where(notes: { created_by_id: author_ids }),
+      ).feed_items
+    end
 
     respond_to do |format|
       format.html

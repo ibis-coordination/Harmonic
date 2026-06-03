@@ -130,6 +130,71 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "show HTML: page exposes Activity and Members tabs (Activity default-active)" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}"
+    assert_response :success
+    assert_select ".pulse-list-tabs a", text: /Activity/
+    assert_select ".pulse-list-tabs a", text: /Members/
+    # Activity is the default-active tab; aria-current set to "page" indicates the active one.
+    assert_select ".pulse-list-tabs a[aria-current='page']", text: /Activity/
+  end
+
+  test "show HTML: ?tab=members marks the Members tab active and renders the member list" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select ".pulse-list-tabs a[aria-current='page']", text: /Members/
+    assert_select ".pulse-list-members a", text: /#{Regexp.escape(@other.display_name)}/
+  end
+
+  test "show HTML: Activity tab shows content authored by list members" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
+    list.user_list_members.create!(added_by: @user, user: @other)
+
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @other,
+      text: "post by a member on the feed tab",
+      deadline: Time.current + 1.week,
+    )
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}"
+    assert_response :success
+    assert_includes response.body, "post by a member on the feed tab"
+  end
+
+  test "show HTML: Activity tab hides content from blocked authors (defense in depth)" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
+    list.user_list_members.create!(added_by: @user, user: @other)
+
+    # Block @other and bypass-validate a stale tune-in-style membership across
+    # the block. Defense in depth: even though block-cleanup removes new memberships,
+    # the list-feed scope should still exclude blocked authors.
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @other,
+      text: "post by a blocked stale member",
+      deadline: Time.current + 1.week,
+    )
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}"
+    assert_response :success
+    assert_not_includes response.body, "post by a blocked stale member"
+  end
+
+  test "show HTML: Activity tab shows empty-state when no member content yet" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Empty Feed List")
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}"
+    assert_response :success
+    assert_match(/No recent activity from members of this list/i, response.body)
+  end
+
   # ============================================================
   # GET /u/:handle/lists (HTML index)
   # ============================================================

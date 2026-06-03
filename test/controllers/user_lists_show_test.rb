@@ -111,6 +111,38 @@ class UserListsShowTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Hidden"
   end
 
+  test "show markdown includes an Activity section listing content authored by members" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
+    list.user_list_members.create!(added_by: @user, user: @other)
+
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @other,
+      text: "markdown feed note from a member",
+      deadline: Time.current + 1.week,
+    )
+
+    get "/lists/#{list.truncated_id}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "## Activity"
+    assert_includes response.body, "markdown feed note from a member"
+  end
+
+  test "show markdown activity section excludes content from blocked members" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @other,
+      text: "markdown post from blocked stale member",
+      deadline: Time.current + 1.week,
+    )
+
+    get "/lists/#{list.truncated_id}", headers: @headers
+    assert_response :success
+    assert_not_includes response.body, "markdown post from blocked stale member"
+  end
+
   test "show 404s for a stranger (not a collective member) viewing a public list" do
     list = UserList.create!(creator: @user, owner: @user, name: "Public")
 
