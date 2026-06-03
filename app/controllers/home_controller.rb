@@ -8,8 +8,6 @@ class HomeController < ApplicationController
     @sidebar_mode = 'none'
     @hide_breadcrumb = true
 
-    main_cid = @current_tenant.main_collective_id
-
     # Main-collective content authored by the people the viewer tunes in
     # to, plus the viewer themselves (so your own writing stays on your
     # own home view — you can't tune in to yourself).
@@ -27,11 +25,12 @@ class HomeController < ApplicationController
     # full tenant doesn't fit the now-filtered author set; revisit when
     # proximity is refactored to be primary-list-based.
     @feed_items = FeedBuilder.new(
-      notes_scope: Note.unscope_collective.where(collective_id: main_cid, created_by_id: author_ids),
-      decisions_scope: Decision.unscope_collective.where(collective_id: main_cid, created_by_id: author_ids),
-      commitments_scope: Commitment.unscope_collective.where(collective_id: main_cid, created_by_id: author_ids),
+      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
+      decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
+      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
       reminder_events_scope: NoteHistoryEvent
-        .where(event_type: "reminder", collective_id: main_cid)
+        .main_collective_scope(@current_tenant)
+        .where(event_type: "reminder")
         .joins(:note).where(notes: { created_by_id: author_ids }),
     ).feed_items
   end

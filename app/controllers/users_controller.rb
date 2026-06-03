@@ -95,14 +95,10 @@ class UsersController < ApplicationController
     @viewer_blocked_by_target = @current_user.present? && @current_user.blocked_by?(@showing_user)
 
     # Build user's main collective (public) content timeline
-    main_cid = @current_tenant.main_collective_id
     @feed_items = FeedBuilder.new(
-      notes_scope: Note.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id),
-      decisions_scope: Decision.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id),
-      commitments_scope: Commitment.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id)
+      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+      decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
     ).feed_items
 
     respond_to do |format|
