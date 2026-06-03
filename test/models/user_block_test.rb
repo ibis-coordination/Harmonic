@@ -111,4 +111,36 @@ class UserBlockTest < ActiveSupport::TestCase
 
     assert_equal 0, UserBlock.count
   end
+
+  # === Primary-list cleanup on block ===
+
+  test "blocking removes both users from each other's primary lists when mutually tuned in" do
+    a_list = @user.primary_user_list_in!(@tenant)
+    b_list = @other_user.primary_user_list_in!(@tenant)
+    a_list.user_list_members.create!(added_by: @user, user: @other_user)
+    b_list.user_list_members.create!(added_by: @other_user, user: @user)
+
+    UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+
+    assert_not a_list.user_list_members.exists?(user_id: @other_user.id),
+               "expected @other_user to be removed from @user's primary list"
+    assert_not b_list.user_list_members.exists?(user_id: @user.id),
+               "expected @user to be removed from @other_user's primary list"
+  end
+
+  test "blocking removes only the existing direction when tune-in is one-sided" do
+    a_list = @user.primary_user_list_in!(@tenant)
+    a_list.user_list_members.create!(added_by: @user, user: @other_user)
+    # @other_user has no primary list / no membership of @user.
+
+    UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+
+    assert_not a_list.user_list_members.exists?(user_id: @other_user.id)
+  end
+
+  test "blocking succeeds when neither user has a primary list" do
+    assert_nothing_raised do
+      UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+    end
+  end
 end

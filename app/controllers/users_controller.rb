@@ -89,6 +89,11 @@ class UsersController < ApplicationController
     @target_on_my_list  = compute_target_on_my_list
     @viewer_on_target_list = compute_viewer_on_target_list
 
+    # Block state — when either direction is blocked, the tune-in button
+    # and tuning-state line are replaced by a block message.
+    @viewer_blocks_target     = @current_user.present? && @current_user.blocked?(@showing_user)
+    @viewer_blocked_by_target = @current_user.present? && @current_user.blocked_by?(@showing_user)
+
     # Build user's main collective (public) content timeline
     main_cid = @current_tenant.main_collective_id
     @feed_items = FeedBuilder.new(

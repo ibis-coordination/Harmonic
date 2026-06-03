@@ -14,7 +14,11 @@ Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
 <% if @current_user && @current_user.id != @showing_user.id %>
 
-<% if @target_on_my_list && @viewer_on_target_list %>
+<% if @viewer_blocks_target %>
+You have blocked <%= @showing_user.display_name %>.
+<% elsif @viewer_blocked_by_target %>
+<%= @showing_user.display_name %> has blocked you.
+<% elsif @target_on_my_list && @viewer_on_target_list %>
 You and <%= @showing_user.display_name %> are _mutually tuned in_ to each other.
 <% elsif @target_on_my_list %>
 You are _tuned in_ to <%= @showing_user.display_name %>.
@@ -24,12 +28,13 @@ You are _tuned in_ to <%= @showing_user.display_name %>.
 You are _not tuned in_ to <%= @showing_user.display_name %>.
 <% end %>
 <% end %>
-<% if @current_user != @showing_user && @common_collective_count > 0 %>
+<% blocked_either_way = @viewer_blocks_target || @viewer_blocked_by_target %>
+<% if @current_user != @showing_user && @common_collective_count > 0 && !blocked_either_way %>
 
 You and <%= @showing_user.display_name %> have <%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>.
 <% end %>
 
-<% if @current_user != @showing_user && @common_collectives.length > 0 %>
+<% if @current_user != @showing_user && @common_collectives.length > 0 && !blocked_either_way %>
 ## Common Collectives
 
 <% @common_collectives.each do |collective| %>
@@ -39,7 +44,7 @@ You and <%= @showing_user.display_name %> have <%= @common_collective_count %> c
 And <%= @additional_common_collective_count %> more...
 <% end %>
 <% end %>
-<% if @proximity_users.present? %>
+<% if @proximity_users.present? && !blocked_either_way %>
 
 ## Social Proximity (<%= @proximity_users.size %>)
 
@@ -47,7 +52,7 @@ And <%= @additional_common_collective_count %> more...
 * [<%= user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
 <% end %>
 <% end %>
-<% if @feed_items.present? %>
+<% if @feed_items.present? && !blocked_either_way %>
 
 ## Recent Activity (<%= @feed_items.size %>)
 

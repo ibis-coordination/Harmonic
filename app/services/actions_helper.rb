@@ -1184,11 +1184,26 @@ class ActionsHelper
     },
     "/u/:handle" => {
       controller_actions: ["users#show"],
-      actions: [
-        { name: "tune_in", params_string: ACTION_DEFINITIONS["tune_in"][:params_string],
-          description: ACTION_DEFINITIONS["tune_in"][:description], },
-        { name: "tune_out", params_string: ACTION_DEFINITIONS["tune_out"][:params_string],
-          description: ACTION_DEFINITIONS["tune_out"][:description], },
+      actions: [],
+      conditional_actions: [
+        {
+          name: "tune_in",
+          condition: lambda { |context|
+            viewer = context[:user]
+            target = context[:showing_user]
+            next false if viewer.nil? || target.nil? || viewer.id == target.id
+            !UserBlock.between?(viewer, target)
+          },
+        },
+        {
+          name: "tune_out",
+          condition: lambda { |context|
+            viewer = context[:user]
+            target = context[:showing_user]
+            next false if viewer.nil? || target.nil? || viewer.id == target.id
+            !UserBlock.between?(viewer, target)
+          },
+        },
       ],
     },
     "/u/:handle/settings" => {

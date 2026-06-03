@@ -233,6 +233,48 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "mutually"
   end
 
+  # ---- Block messages on profile (replace tune-in line + frontmatter) ----
+
+  test "markdown profile: viewer has blocked the target — shows 'You have blocked' and omits tune-in" do
+    UserBlock.create!(blocker: @user, blocked: @target, tenant: @tenant)
+    get "/u/#{handle_of(@target)}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "You have blocked #{@target.display_name}."
+    assert_not_includes response.body, "tuned in"
+    frontmatter = response.body.split("---").at(1).to_s
+    assert_not_includes frontmatter, "tune_in"
+    assert_not_includes frontmatter, "tune_out"
+  end
+
+  test "markdown profile: viewer blocked by the target — shows 'has blocked you' and omits tune-in" do
+    UserBlock.create!(blocker: @target, blocked: @user, tenant: @tenant)
+    get "/u/#{handle_of(@target)}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "#{@target.display_name} has blocked you."
+    assert_not_includes response.body, "tuned in"
+    frontmatter = response.body.split("---").at(1).to_s
+    assert_not_includes frontmatter, "tune_in"
+    assert_not_includes frontmatter, "tune_out"
+  end
+
+  test "markdown profile: blocked profile is mostly empty — no Common Collectives, Social Proximity, or Recent Activity sections" do
+    other_collective = Collective.create!(
+      tenant: @tenant, name: "Common", handle: "common-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    other_collective.add_user!(@user)
+    other_collective.add_user!(@target)
+
+    UserBlock.create!(blocker: @user, blocked: @target, tenant: @tenant)
+    get "/u/#{handle_of(@target)}", headers: @headers
+    assert_response :success
+
+    assert_not_includes response.body, "## Common Collectives"
+    assert_not_includes response.body, "## Social Proximity"
+    assert_not_includes response.body, "## Recent Activity"
+    assert_not_includes response.body, "common collective"
+  end
+
   # ---- Frontmatter visibility (own vs other profile) ----
 
   test "frontmatter on another user's profile lists tune_in and tune_out" do

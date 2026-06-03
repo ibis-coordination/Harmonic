@@ -32,48 +32,56 @@
         </a>
       <% end %>
       <% if @current_user && @showing_user.id != @current_user.id %>
-        <%= render AjaxToggleButtonComponent.new(
-              on:        @target_on_my_list,
-              on_url:    "#{@showing_user.path}/actions/tune_out",
-              on_html:   pulse_icon('tuning_in', size: :sm) + " Tuned in",
-              on_class:  "pulse-action-btn-secondary",
-              off_url:   "#{@showing_user.path}/actions/tune_in",
-              off_html:  octicon('plus', height: 14) + " Tune in",
-              off_class: "pulse-action-btn",
-              title:     "Tuning in to this user adds their activity to your timeline view",
-            ) %>
+        <% if @viewer_blocks_target %>
+          <span class="pulse-body-text-muted">You have blocked <%= @showing_user.display_name %>.</span>
+        <% elsif @viewer_blocked_by_target %>
+          <span class="pulse-body-text-muted"><%= @showing_user.display_name %> has blocked you.</span>
+        <% else %>
+          <%= render AjaxToggleButtonComponent.new(
+                on:        @target_on_my_list,
+                on_url:    "#{@showing_user.path}/actions/tune_out",
+                on_html:   pulse_icon('tuning_in', size: :sm) + " Tuned in",
+                on_class:  "pulse-action-btn-secondary",
+                off_url:   "#{@showing_user.path}/actions/tune_in",
+                off_html:  octicon('plus', height: 14) + " Tune in",
+                off_class: "pulse-action-btn",
+                title:     "Tuning in to this user adds their activity to your timeline view",
+              ) %>
+        <% end %>
       <% end %>
-      <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.collective_identity? %>
-        <a href="<%= chat_path(@showing_user.handle) %>" class="pulse-action-btn-secondary" title="Message">
-          <%= octicon 'comment', height: 14 %>
-          Message
-        </a>
-      <% end %>
-      <% if @current_user && @showing_user.id != @current_user.id && !@showing_user.ai_agent? %>
+      <% if @current_user && @showing_user.id != @current_user.id && (!@showing_user.collective_identity? || !@showing_user.ai_agent?) %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
-              <% if @current_user.blocked?(@showing_user) %>
-                <% existing_block = @current_user.user_blocks_given.find_by(blocked: @showing_user) %>
-                <% if existing_block %>
+              <% if !@showing_user.collective_identity? && !@viewer_blocks_target && !@viewer_blocked_by_target %>
+                <li>
+                  <a href="<%= chat_path(@showing_user.handle) %>">
+                    <%= octicon 'comment', height: 14 %> Message
+                  </a>
+                </li>
+              <% end %>
+              <% if !@showing_user.ai_agent? %>
+                <% if @current_user.blocked?(@showing_user) %>
+                  <% existing_block = @current_user.user_blocks_given.find_by(blocked: @showing_user) %>
+                  <% if existing_block %>
+                    <li>
+                      <%= button_to user_block_path(existing_block), method: :delete do %>
+                        <%= octicon 'blocked', height: 14 %> Unblock
+                      <% end %>
+                    </li>
+                  <% end %>
+                <% else %>
                   <li>
-                    <%= button_to user_block_path(existing_block), method: :delete do %>
-                      <%= octicon 'blocked', height: 14 %> Unblock @<%= @showing_user.handle %>
+                    <%= button_to user_blocks_path(blocked_id: @showing_user.id),
+                                  method: :post,
+                                  title: "Blocking hides their content from your feed and prevents them from commenting on your content, @mentioning you, voting on your decisions, or joining your commitments. They will not be notified." do %>
+                      <%= octicon 'blocked', height: 14 %> Block
                     <% end %>
                   </li>
                 <% end %>
-              <% else %>
-                <li>
-                  <%= button_to user_blocks_path(blocked_id: @showing_user.id), method: :post do %>
-                    <%= octicon 'blocked', height: 14 %> Block @<%= @showing_user.handle %>
-                  <% end %>
-                </li>
-                <li class="pulse-body-text-muted" style="font-size: 12px; padding: 4px 12px; max-width: 280px; line-height: 1.4;">
-                  Blocking hides their content from your feed and prevents them from commenting on your content, @mentioning you, voting on your decisions, or joining your commitments. They will not be notified.
-                </li>
               <% end %>
             </ul>
           </div>
@@ -99,7 +107,9 @@
     </div>
   <% end %>
 
-  <% if @current_user != @showing_user && @common_collective_count > 0 %>
+  <% blocked_either_way = @viewer_blocks_target || @viewer_blocked_by_target %>
+
+  <% if @current_user != @showing_user && @common_collective_count > 0 && !blocked_either_way %>
     <div class="pulse-user-common-counts">
       <span class="pulse-common-count-item">
         <%= octicon 'lock', height: 14 %>
@@ -108,7 +118,7 @@
     </div>
   <% end %>
 
-  <% if @current_user != @showing_user && @common_collectives.count > 0 %>
+  <% if @current_user != @showing_user && @common_collectives.count > 0 && !blocked_either_way %>
     <%# Common Collectives Section %>
     <%= render 'shared/pulse_accordion', title: 'Common Collectives', count: @common_collectives.count + @additional_common_collective_count, open: true do %>
       <div class="pulse-collectives-list">
@@ -134,7 +144,7 @@
   <% end %>
 
   <% viewer_is_owner = @current_user && @current_user.id == @showing_user.id %>
-  <% if @showing_user_lists.present? || viewer_is_owner %>
+  <% if (@showing_user_lists.present? || viewer_is_owner) && !blocked_either_way %>
     <% showing_handle = @showing_user.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
     <%= render 'shared/pulse_accordion', title: 'Lists', icon: 'list-unordered', count: @showing_user_lists.size, open: false do %>
       <% if @showing_user_lists.empty? %>
@@ -180,7 +190,7 @@
     <% end %>
   <% end %>
 
-  <% if @feed_items.present? %>
+  <% if @feed_items.present? && !blocked_either_way %>
     <%= render 'shared/pulse_accordion', title: 'Recent Activity', icon: 'pulse', count: @feed_items.size, open: true do %>
       <div class="pulse-feed" style="padding: 0;">
         <% @feed_items.each do |feed_item| %>

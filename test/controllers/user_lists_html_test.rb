@@ -199,6 +199,122 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select "button[data-controller='ajax-toggle']", count: 0
   end
 
+  test "profile HTML: Message link lives inside the kebab menu, not in the top-level actions row" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    # Not a direct affordance in the header actions row.
+    assert_select ".pulse-user-actions > a[href*='/chat/']", count: 0
+
+    # Present inside the kebab menu.
+    assert_select "details[data-controller='kebab-menu'] a[href*='/chat/']", count: 1
+  end
+
+  test "profile HTML: Block button shows its description via tooltip, not as a separate list item" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    # The description is no longer rendered as standalone body text.
+    assert_select "li", text: /Blocking hides their content/, count: 0
+
+    # It's on the Block button itself as a title attribute.
+    assert_select "details[data-controller='kebab-menu'] form button[title*='Blocking hides their content']", count: 1
+  end
+
+  test "profile HTML: viewer who has blocked the target sees no tune-in button + 'You have blocked' message" do
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    assert_select "button[data-controller='ajax-toggle']", count: 0
+    assert_select ".pulse-user-actions", text: /You have blocked #{Regexp.escape(@other.display_name)}/
+  end
+
+  test "profile HTML: viewer blocked by the target sees no tune-in button + 'X has blocked you' message" do
+    UserBlock.create!(blocker: @other, blocked: @user, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    assert_select "button[data-controller='ajax-toggle']", count: 0
+    assert_select ".pulse-user-actions", text: /#{Regexp.escape(@other.display_name)} has blocked you/
+  end
+
+  test "profile HTML: Message link is hidden when viewer has blocked the target" do
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select "a[href*='/chat/']", count: 0
+  end
+
+  test "profile HTML: Message link is hidden when viewer is blocked by the target" do
+    UserBlock.create!(blocker: @other, blocked: @user, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select "a[href*='/chat/']", count: 0
+  end
+
+  test "profile HTML: blocked profile is mostly empty — no accordions, no common-collective count" do
+    # Seed data that would normally show accordions: a list owned by @other,
+    # a note authored by @other (Recent Activity), shared non-main collective.
+    other_collective = Collective.create!(
+      tenant: @tenant, name: "Common", handle: "common-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    other_collective.add_user!(@user)
+    other_collective.add_user!(@other)
+    UserList.create!(creator: @other, owner: @other, name: "@other's public list")
+
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    # None of the accordion section titles should appear.
+    assert_select "details summary", text: /Common Collectives/, count: 0
+    assert_select "details summary", text: /Lists/, count: 0
+    assert_select "details summary", text: /Recent Activity/, count: 0
+    # Common-collective count chip absent too.
+    assert_select ".pulse-user-common-counts", count: 0
+  end
+
+  test "profile HTML: profile blocked-by-target is also mostly empty — no accordions" do
+    other_collective = Collective.create!(
+      tenant: @tenant, name: "Common", handle: "common-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    other_collective.add_user!(@user)
+    other_collective.add_user!(@other)
+    UserList.create!(creator: @other, owner: @other, name: "@other's public list")
+
+    UserBlock.create!(blocker: @other, blocked: @user, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    assert_select "details summary", text: /Common Collectives/, count: 0
+    assert_select "details summary", text: /Lists/, count: 0
+    assert_select "details summary", text: /Recent Activity/, count: 0
+    assert_select ".pulse-user-common-counts", count: 0
+  end
+
+  test "profile HTML: Block button label is just 'Block' (no handle)" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+
+    assert_select "details[data-controller='kebab-menu'] form button" do |btns|
+      block_btn = btns.find { |b| b.text.include?("Block") }
+      assert block_btn, "expected to find a Block button inside the kebab menu"
+      assert_match(/\ABlock\z/, block_btn.text.strip)
+    end
+  end
+
   test "profile HTML: Lists accordion renders for owner even when empty" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"

@@ -124,6 +124,7 @@ module MarkdownHelper
       resource: instance_variable_get(:@note) ||
                 instance_variable_get(:@decision) ||
                 instance_variable_get(:@commitment),
+      showing_user: instance_variable_get(:@showing_user),
     }
   end
 end
