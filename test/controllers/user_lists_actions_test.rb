@@ -55,6 +55,23 @@ class UserListsActionsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "name"
   end
 
+  test "GET /lists/actions frontmatter advertises create_user_list at /lists/actions/create_user_list (not doubled)" do
+    get "/lists/actions", headers: @headers
+    assert_response :success
+    frontmatter = response.body.split("---").at(1).to_s
+    assert_includes frontmatter, "path: /lists/actions/create_user_list"
+    assert_not_includes frontmatter, "/lists/actions/actions/"
+  end
+
+  test "GET /lists/actions.md frontmatter advertises a valid path (no .md, no doubled /actions)" do
+    get "/lists/actions.md", headers: @headers
+    assert_response :success
+    frontmatter = response.body.split("---").at(1).to_s
+    assert_includes frontmatter, "path: /lists/actions/create_user_list"
+    assert_not_includes frontmatter, ".md/actions/"
+    assert_not_includes frontmatter, "/lists/actions/actions/"
+  end
+
   test "execute_create_user_list creates a list owned by the actor" do
     assert_difference -> { UserList.unscope(where: :collective_id).where(owner_id: @user.id, is_primary: false).count }, +1 do
       post "/lists/actions/create_user_list",

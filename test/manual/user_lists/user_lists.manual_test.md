@@ -17,12 +17,13 @@ verified_by: Claude Opus 4.7
 > - G #1 had a wrong URL in an earlier draft (`/lists`); fixed to
 >   `/lists/actions`. The create_user_list action surface lives at
 >   that route.
-> - **Pre-existing finding (not in scope)**: frontmatter at
->   `/lists/actions` advertises the create_user_list path as
->   `/lists/actions/actions/create_user_list` — `MarkdownHelper`'s
->   `"#{request.path}/actions/#{action_name}"` concatenation doubles
->   `/actions/` when the request is itself the actions index endpoint.
->   Agents calling that path would 404. Worth filing separately.
+> - One bug surfaced during the run and was fixed: frontmatter at
+>   `/lists/actions` was advertising `/lists/actions/actions/create_user_list`
+>   (doubled `/actions/`). `MarkdownHelper#available_actions_for_current_route`
+>   was concatenating `/actions/<name>` onto `request.path` without stripping
+>   the trailing `/actions` segment when the request itself was the actions
+>   index endpoint. Fixed by stripping `/actions\z` from the base path
+>   before composing the action URL.
 
 Verifies the full UserList feature end-to-end: the tune-in gesture on user
 profiles, custom list CRUD, mutual-tuning-in detection, and the block
