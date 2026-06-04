@@ -58,6 +58,50 @@ class UserListTest < ActiveSupport::TestCase
     assert_not too_long.valid?
   end
 
+  # ---- primary list immutability ----
+
+  test "primary list rejects name changes after creation" do
+    list = UserList.create!(creator: @user, owner: @user, name: "original", is_primary: true)
+    list.name = "renamed"
+    assert_not list.valid?
+    assert_predicate list.errors[:name], :any?
+  end
+
+  test "primary list rejects description changes after creation" do
+    list = UserList.create!(creator: @user, owner: @user, name: "tuned in", description: nil, is_primary: true)
+    list.description = "new description"
+    assert_not list.valid?
+    assert_predicate list.errors[:description], :any?
+  end
+
+  test "primary list rejects add_policy changes after creation" do
+    list = UserList.create!(creator: @user, owner: @user, name: "tuned in", is_primary: true)
+    list.add_policy = "members_add"
+    assert_not list.valid?
+    assert_predicate list.errors[:add_policy], :any?
+  end
+
+  test "non-primary list permits all attribute changes" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Custom", description: "x")
+    list.name = "Renamed"
+    list.description = "y"
+    list.add_policy = "self_add"
+    list.visibility = "public"
+    assert list.valid?
+  end
+
+  # ---- display_name ----
+
+  test "display_name returns 'tuned in' for a primary list regardless of stored name" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Legacy Name", is_primary: true)
+    assert_equal "tuned in", list.display_name
+  end
+
+  test "display_name returns the stored name for a non-primary list" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Friends", is_primary: false)
+    assert_equal "Friends", list.display_name
+  end
+
   # ---- visibility ----
 
   test "visibility must be public or private" do

@@ -49,11 +49,10 @@ class User < ApplicationRecord
       .first
     return existing if existing
 
-    tu = tenant_users.find_by(tenant_id: tenant.id)
     UserList.create!(
       creator: self, owner: self,
       tenant: tenant, collective: tenant.main_collective,
-      name: "#{tu&.display_name.presence || name}'s list",
+      name: "tuned in",
       is_primary: true, visibility: "public",
     )
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique

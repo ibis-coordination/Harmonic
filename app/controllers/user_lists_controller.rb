@@ -24,7 +24,7 @@ class UserListsController < ApplicationController
   end
 
   def show
-    @page_title = @list.name
+    @page_title = @list.display_name
     @sidebar_mode = "minimal"
     @active_tab = params[:tab] == "members" ? "members" : "feed"
     # Auto-prefill the global header search with `list:<id>` while we're here.
@@ -80,8 +80,9 @@ class UserListsController < ApplicationController
   # GET /lists/:list_id/edit
   def edit
     return render "shared/403", status: :forbidden unless @list.owner_id == @current_user&.id
+    return render "shared/403", status: :forbidden if @list.is_primary
 
-    @page_title = "Edit #{@list.name}"
+    @page_title = "Edit #{@list.display_name}"
     @sidebar_mode = "minimal"
   end
 
@@ -93,7 +94,7 @@ class UserListsController < ApplicationController
   end
 
   def actions_index_show
-    @page_title = "Actions | #{@list.name}"
+    @page_title = "Actions | #{@list.display_name}"
     route_info = ActionsHelper.actions_for_route("/lists/:list_id")
     context = { resource: @list, collective: @list.collective }
     actions = (route_info&.dig(:actions) || []).select do |a|
@@ -144,6 +145,15 @@ class UserListsController < ApplicationController
 
   def execute_update_user_list
     return render_owner_only_error("update_user_list") unless @list.owner_id == @current_user.id
+
+    if @list.is_primary
+      return render_action_error({
+                                   action_name: "update_user_list",
+                                   resource: @list,
+                                   error: "The tune-in list cannot be edited.",
+                                   status: :forbidden,
+                                 })
+    end
 
     attrs = {}
     attrs[:name]        = params[:name].to_s.strip       if params.key?(:name)

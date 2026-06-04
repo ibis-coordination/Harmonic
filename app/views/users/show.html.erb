@@ -159,10 +159,10 @@
           <% @showing_user_lists.each do |list| %>
             <li class="pulse-collective-item">
               <div class="pulse-collective-info">
-                <a href="<%= list.path %>" class="pulse-collective-name"><%= list.name %></a>
-                <% if list.is_primary && viewer_is_owner %>
-                  <span class="pulse-badge">your list</span>
-                <% end %>
+                <a href="<%= list.path %>" class="pulse-collective-name">
+                  <% if list.is_primary %><%= pulse_icon('tuning_in', size: :sm) %><% end %>
+                  <%= list.display_name %>
+                </a>
                 <% if list.private? %>
                   <span class="pulse-badge pulse-badge-muted">private</span>
                 <% end %>

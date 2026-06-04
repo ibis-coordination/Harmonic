@@ -36,15 +36,9 @@ class UserPrimaryListTest < ActiveSupport::TestCase
     end
   end
 
-  test "default name uses display_name when set" do
-    @user.tenant_users.first.update!(display_name: "Sparkles")
+  test "default name is 'tuned in'" do
     list = @user.primary_user_list_in!(@tenant)
-    assert_equal "Sparkles's list", list.name
-  end
-
-  test "default name format ends with 's list" do
-    list = @user.primary_user_list_in!(@tenant)
-    assert list.name.end_with?("'s list")
+    assert_equal "tuned in", list.name
   end
 
   test "idempotent lookup finds the primary even from a different collective thread scope" do

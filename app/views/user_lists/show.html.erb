@@ -5,17 +5,15 @@
   [@current_tenant.subdomain, '/'],
   [@list.owner.display_name, @list.owner.path],
   ['Lists', "/u/#{owner_handle}/lists"],
-  @list.name
+  @list.display_name
 ] %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
     <div>
       <h1 class="pulse-resource-title">
-        <%= @list.name %>
-        <% if @list.is_primary && is_owner %>
-          <span class="pulse-badge" title="This is your list">your list</span>
-        <% end %>
+        <% if @list.is_primary %><%= pulse_icon('tuning_in') %><% end %>
+        <%= @list.display_name %>
         <% if @list.private? %>
           <span class="pulse-badge pulse-badge-muted" title="Only you can see this list">private</span>
         <% end %>
@@ -28,7 +26,7 @@
         <p class="pulse-resource-description"><%= @list.description %></p>
       <% end %>
     </div>
-    <% if is_owner %>
+    <% if is_owner && !@list.is_primary %>
       <div class="pulse-user-actions" style="flex-shrink: 0;">
         <a href="<%= @list.path %>/edit" class="pulse-action-btn-secondary">
           <%= octicon 'pencil', height: 14 %> Edit

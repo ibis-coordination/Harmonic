@@ -1,7 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
   ['Your lists', "#{@current_user.path}/lists"],
-  [@list.name, @list.path],
+  [@list.display_name, @list.path],
   'Edit'
 ] %>
 
@@ -17,7 +17,7 @@
       </p>
       <%= button_to "#{@list.path}/actions/delete_user_list",
             method: :post,
-            form: { data: { turbo_confirm: "Delete '#{@list.name}'? This cannot be undone." } },
+            form: { data: { turbo_confirm: "Delete '#{@list.display_name}'? This cannot be undone." } },
             class: "pulse-action-btn-danger" do %>
         <%= octicon 'trash', height: 14 %> Delete this list
       <% end %>

@@ -163,11 +163,11 @@ class UserListsShowTest < ActionDispatch::IntegrationTest
     assert_response :success
     body = response.body
     assert_includes body, primary.path
-    assert_includes body, "(your list)"
+    assert_includes body, "tuned in"
     assert_includes body, "A"
     assert_includes body, "B"
     assert body.index(primary.path) < body.index("A")
-    assert body.index("(your list)") < body.index("A")
+    assert body.index("tuned in") < body.index("A")
   end
 
   test "index hides private lists from non-owners" do

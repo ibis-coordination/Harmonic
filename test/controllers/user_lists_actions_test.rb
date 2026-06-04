@@ -166,6 +166,16 @@ class UserListsActionsTest < ActionDispatch::IntegrationTest
     assert_equal "public", list.visibility
   end
 
+  test "execute_update_user_list rejects updates to a primary list even for the owner" do
+    primary = @user.primary_user_list_in!(@tenant)
+    post "/lists/#{primary.truncated_id}/actions/update_user_list",
+         params: { name: "Renamed", description: "new" }.to_json,
+         headers: @headers
+    assert_response :forbidden
+    primary.reload
+    assert_equal "tuned in", primary.name
+  end
+
   test "execute_update_user_list rejects updates from a non-owner with 404 (existence-hiding)" do
     list = UserList.create!(creator: @other, owner: @other, name: "Theirs", visibility: "public")
     post "/lists/#{list.truncated_id}/actions/update_user_list",

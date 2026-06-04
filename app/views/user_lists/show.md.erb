@@ -1,5 +1,5 @@
 <% is_owner = @current_user && @current_user.id == @list.owner_id %>
-# <%= @list.name %><%= @list.is_primary && is_owner ? " (your list)" : "" %>
+# <%= @list.display_name %>
 
 <% owner = @list.owner %>
 <% owner_handle = @handles_by_user_id[@list.owner_id] %>

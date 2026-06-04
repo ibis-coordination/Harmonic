@@ -91,13 +91,11 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select "button.pulse-action-btn-danger", text: /Delete/
   end
 
-  test "edit: Danger zone is hidden for the primary list (cannot be deleted)" do
+  test "edit: returns 403 for the primary list (not editable)" do
     primary = @user.primary_user_list_in!(@tenant)
     sign_in_as(@user, tenant: @tenant)
     get "/lists/#{primary.truncated_id}/edit"
-    assert_response :success
-    assert_select "form[action=?]", "/lists/#{primary.truncated_id}/actions/delete_user_list", count: 0
-    assert_select "button.pulse-action-btn-danger", count: 0
+    assert_response :forbidden
   end
 
   # ============================================================
@@ -112,6 +110,14 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", "/lists/#{list.truncated_id}/edit", text: /Edit/
     # Delete button must not be rendered on the show page (moved to edit).
     assert_select "form[action=?]", "/lists/#{list.truncated_id}/actions/delete_user_list", count: 0
+  end
+
+  test "show HTML: primary list owner does not see Edit button" do
+    primary = @user.primary_user_list_in!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{primary.truncated_id}"
+    assert_response :success
+    assert_select "a[href=?]", "/lists/#{primary.truncated_id}/edit", count: 0
   end
 
   test "show HTML: non-owner sees neither Edit nor Delete" do

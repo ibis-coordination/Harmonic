@@ -24,9 +24,20 @@ class UserList < ApplicationRecord
   validate  :one_primary_per_owner_per_tenant
   validate  :primary_list_is_strictly_owners
   validate  :restricted_lists_must_be_owner_only
+  validate  :tune_in_list_attributes_are_immutable
 
   # owner_id is intentionally mutable to support ownership transfer.
   attr_readonly :tenant_id, :collective_id, :creator_id
+
+  # User-facing label. The stored `name` on a primary list is auto-generated
+  # and never shown — viewers see "tuned in" so the list is recognizable as
+  # the tune-in list rather than an ordinary custom list.
+  sig { returns(String) }
+  def display_name
+    return "tuned in" if is_primary
+
+    name
+  end
 
   sig { returns(T::Boolean) }
   def public?
@@ -99,10 +110,26 @@ class UserList < ApplicationRecord
     end
   end
 
+  # The tune-in list is fixed at creation: its name/description/add_policy
+  # are implementation details, not user-editable knobs. The display label
+  # is always "tuned in" regardless of stored name (see #display_name), so
+  # mutating these would only confuse the data layer without changing
+  # anything a user sees. owner_id and is_primary are handled separately
+  # by #primary_list_is_strictly_owners.
+  sig { void }
+  def tune_in_list_attributes_are_immutable
+    return unless persisted?
+    return unless is_primary
+
+    errors.add(:name, "cannot be changed on the tune-in list") if name_changed?
+    errors.add(:description, "cannot be changed on the tune-in list") if description_changed?
+    errors.add(:add_policy, "cannot be changed on the tune-in list") if add_policy_changed?
+  end
+
   # Primary lists and private lists are strictly the owner's domain: any
   # broader add_policy doesn't make sense (primary's social contract is
-  # "[Name]'s list", and a private list isn't visible to other potential
-  # adders). Companion to the DB CHECK constraint.
+  # one user's tune-in choices, and a private list isn't visible to other
+  # potential adders). Companion to the DB CHECK constraint.
   sig { void }
   def restricted_lists_must_be_owner_only
     return if add_policy == "owner_only"
