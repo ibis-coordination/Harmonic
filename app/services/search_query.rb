@@ -154,6 +154,12 @@ class SearchQuery
       )
     end
 
+    # Honor `list:<id|mutuals|tuned_in>` — narrow to members of the named
+    # list. An empty resolution (no such list, no permission, or alias
+    # without a viewer) returns no people.
+    list_ids = list_filter_user_ids
+    scope = scope.where(user_id: list_ids) unless list_ids.nil?
+
     # Eager-load the user and pre-populate each User's memoized tenant_user
     # so callers can hit `user.handle` / `user.display_name` / `user.path`
     # without a per-row TenantUser lookup (avoids N+1 in views and JSON).
@@ -405,6 +411,39 @@ class SearchQuery
 
   private
 
+  # Resolves the `list:` DSL operator to the set of user IDs that should
+  # constrain results (both people and content). Returns:
+  #   nil            — no filter set
+  #   Array[String]  — user IDs the filter resolved to (possibly empty)
+  # Empty means "filter is set but resolves to no users" → callers should
+  # narrow results to none.
+  sig { returns(T.nilable(T::Array[String])) }
+  def list_filter_user_ids
+    return @list_filter_user_ids if defined?(@list_filter_user_ids)
+
+    value = @params[:list_id_or_alias].to_s.presence
+    return @list_filter_user_ids = nil if value.nil?
+
+    @list_filter_user_ids = case value
+    when "mutuals"
+      @current_user ? @current_user.mutual_user_ids_in(@tenant) : []
+    when "tuned_in"
+      @current_user ? UserListMember
+        .joins(:user_list)
+        .where(user_lists: {
+          tenant_id: @tenant.id, owner_id: @current_user.id,
+          is_primary: true, deleted_at: nil,
+        })
+        .pluck(:user_id) : []
+    else
+      list = UserList
+        .tenant_scoped_only(@tenant.id)
+        .where(deleted_at: nil)
+        .find_by(truncated_id: value)
+      list && list.visible_to?(@current_user) ? list.user_list_members.pluck(:user_id) : []
+    end
+  end
+
   sig { void }
   def resolve_collective_from_handle
     return if @collective.present? # Already have a collective object
@@ -450,6 +489,7 @@ class SearchQuery
     apply_time_window
     apply_basic_filters
     apply_user_filters
+    apply_list_filter
     apply_integer_filters
     apply_boolean_filters
     apply_sorting
@@ -701,6 +741,16 @@ class SearchQuery
     apply_participant_filter
     apply_mentions_filter
     apply_replying_to_filter
+  end
+
+  # `list:<id|mutuals|tuned_in>` narrows content to items authored by
+  # members of the named list.
+  sig { void }
+  def apply_list_filter
+    ids = list_filter_user_ids
+    return if ids.nil?
+
+    @relation = T.must(@relation).where(created_by_id: ids)
   end
 
   sig { void }

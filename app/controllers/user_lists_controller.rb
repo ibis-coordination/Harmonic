@@ -27,6 +27,8 @@ class UserListsController < ApplicationController
     @page_title = @list.name
     @sidebar_mode = "minimal"
     @active_tab = params[:tab] == "members" ? "members" : "feed"
+    # Auto-prefill the global header search with `list:<id>` while we're here.
+    @current_list_for_search = @list
 
     # Preload members + the handles we'll display so the view doesn't N+1
     # on per-member tenant_user lookups. One query for member rows, one

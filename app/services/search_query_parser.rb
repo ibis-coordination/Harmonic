@@ -27,9 +27,14 @@ class SearchQueryParser
   # - values: allowed literal values
   # - pattern: regex for dynamic values (handles, dates, etc.)
   # - multi: whether multiple comma-separated values are allowed
+  # `list:` accepts a UserList truncated_id (8 lowercase hex chars) or one
+  # of the shorthand aliases that resolve relative to the current user.
+  LIST_VALUE_PATTERN = /\A([a-f0-9]{8}|mutuals|tuned_in)\z/
+
   OPERATORS = T.let({
     # Location scope
     "collective" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
+    "list" => { pattern: LIST_VALUE_PATTERN, multi: false },
     "scope" => { values: ["public", "shared", "private"], multi: true },
 
     # User filters
@@ -302,6 +307,9 @@ class SearchQueryParser
 
     # Collective scope
     params[:collective_handle] = build_collective_param("collective")
+
+    # List scope — truncated_id or shorthand alias ("mutuals" | "tuned_in").
+    params[:list_id_or_alias] = build_collective_param("list")
 
     # Scope filter (public/shared/private)
     params[:scope] = build_scope_param

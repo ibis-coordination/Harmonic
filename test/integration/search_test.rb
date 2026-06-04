@@ -341,12 +341,115 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert(json["people"].any? { |p| p["display_name"]&.include?("JsonPerson") }, "expected JSON people array to include the matching user")
   end
 
+  # ---- `list:` filter (people + content scoped to a list's members) ----
+
+  def with_list_scope
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: nil)
+    main = @tenant.main_collective
+    main.add_user!(@user) unless CollectiveMember.exists?(collective_id: main.id, user_id: @user.id)
+    yield
+  end
+
+  test "list:<id> filters people results to members of the given list" do
+    on_list  = create_user_in_tenant(name: "OnList Bob Unique-#{SecureRandom.hex(4)}")
+    off_list = create_user_in_tenant(name: "OffList Bob Unique-#{SecureRandom.hex(4)}")
+    list = with_list_scope do
+      l = UserList.create!(creator: @user, owner: @user, name: "Friends")
+      l.user_list_members.create!(added_by: @user, user: on_list)
+      l
+    end
+
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "list:#{list.truncated_id} bob", cycle: "all" }
+    assert_response :success
+    assert_select ".pulse-people-results", text: /OnList Bob/
+    assert_select ".pulse-people-results", text: /OffList Bob/, count: 0
+  end
+
+  test "list:<id> filters content results to authors who are members of the given list" do
+    on_list  = create_user_in_tenant(name: "OnList Author #{SecureRandom.hex(4)}")
+    off_list = create_user_in_tenant(name: "OffList Author #{SecureRandom.hex(4)}")
+    list = with_list_scope do
+      l = UserList.create!(creator: @user, owner: @user, name: "Friends")
+      l.user_list_members.create!(added_by: @user, user: on_list)
+      l
+    end
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    on_note  = create_note(tenant: @tenant, collective: @collective, created_by: on_list, title: "OnList note about lists")
+    off_note = create_note(tenant: @tenant, collective: @collective, created_by: off_list, title: "OffList note about lists")
+    SearchIndexer.reindex(on_note)
+    SearchIndexer.reindex(off_note)
+
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "list:#{list.truncated_id} note", cycle: "all" }
+    assert_response :success
+    assert_includes response.body, on_note.title
+    assert_not_includes response.body, off_note.title
+  end
+
+  test "list:mutuals resolves to the viewer's mutuals" do
+    other = create_user_in_tenant(name: "Mut Person Unique-#{SecureRandom.hex(4)}")
+    with_list_scope do
+      @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: other)
+      other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: other, user: @user)
+    end
+    other_non_mutual = create_user_in_tenant(name: "Mut Non-Mutual Unique-#{SecureRandom.hex(4)}")
+
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "list:mutuals mut", cycle: "all" }
+    assert_response :success
+    assert_select ".pulse-people-results", text: /Mut Person/
+    assert_select ".pulse-people-results", text: /Non-Mutual/, count: 0
+  end
+
+  test "list:tuned_in resolves to the viewer's primary-list members" do
+    target = create_user_in_tenant(name: "Tunee Target Unique-#{SecureRandom.hex(4)}")
+    with_list_scope do
+      @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: target)
+    end
+    stranger = create_user_in_tenant(name: "Tunee Stranger Unique-#{SecureRandom.hex(4)}")
+
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "list:tuned_in tunee", cycle: "all" }
+    assert_response :success
+    assert_select ".pulse-people-results", text: /Tunee Target/
+    assert_select ".pulse-people-results", text: /Tunee Stranger/, count: 0
+  end
+
+  test "list:<unknown-id> returns no results (people)" do
+    create_user_in_tenant(name: "Phantom Bob Unique-#{SecureRandom.hex(4)}")
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "list:deadbeef phantom", cycle: "all" }
+    assert_response :success
+    assert_select ".pulse-people-results", text: /Phantom Bob/, count: 0
+  end
+
+  test "list:<private-list> returns no results to a non-owner" do
+    private_owner = create_user_in_tenant(name: "Private Owner")
+    member = create_user_in_tenant(name: "Secret Member Unique-#{SecureRandom.hex(4)}")
+    private_list = with_list_scope do
+      l = UserList.create!(creator: private_owner, owner: private_owner, name: "Secret", visibility: "private")
+      l.user_list_members.create!(added_by: private_owner, user: member)
+      l
+    end
+
+    sign_in_as(@user, tenant: @tenant) # @user is NOT the owner
+    get search_path, params: { q: "list:#{private_list.truncated_id} secret", cycle: "all" }
+    assert_response :success
+    assert_select ".pulse-people-results", text: /Secret Member/, count: 0
+  end
+
   private
 
   def create_user_in_tenant(name:)
     u = create_user(email: "u-#{SecureRandom.hex(4)}@example.com", name: name)
     @tenant.add_user!(u)
     @collective.add_user!(u)
+    # Lists live in main_collective; make sure list-test users can be added.
+    @tenant.main_collective.add_user!(u) unless CollectiveMember.exists?(collective_id: @tenant.main_collective_id, user_id: u.id)
     u
   end
 end

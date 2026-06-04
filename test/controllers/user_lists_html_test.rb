@@ -130,6 +130,14 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "show HTML: exposes the list's id to the header search bar for auto-prefill" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Prefill")
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}"
+    assert_response :success
+    assert_select "[data-controller~='header-search'][data-header-search-list-id-value=?]", list.truncated_id
+  end
+
   test "show HTML: page exposes Activity and Members tabs (Activity default-active)" do
     list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
     sign_in_as(@user, tenant: @tenant)
