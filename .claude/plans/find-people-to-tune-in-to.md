@@ -40,36 +40,45 @@ above don't close the gap.
   "per-list feed" plan ships (tabs on `/lists/:id`), members will
   share that page with the feed view.
 
-## Phase 1 — Search returns users
+## ✅ Phase 1 — Search returns users — SHIPPED
 
-**Shape.** Augment `/search?q=foo` results with a "People" group at the
-top of the results (or in a new tab/section), matching on:
-- exact handle (highest rank)
-- display name substring (case-insensitive)
-- maybe also email if the viewer is an admin (defer — privacy concern)
+Shipped:
+- [SearchQuery#people_results](app/services/search_query.rb) — separate
+  query layered alongside the existing SearchIndex query. Matches on
+  exact handle, handle ILIKE substring, and case-insensitive
+  display_name substring. Tenant-scoped via `TenantUser`. Excludes
+  self, both directions of `UserBlock`, archived TenantUsers,
+  suspended Users, and `collective_identity` users (their `path`
+  resolves via a separate Collective lookup that can return nil →
+  broken links). Capped at `PEOPLE_RESULT_LIMIT = 10`.
+- **Content-filter suppression**: People section disappears entirely
+  when the search includes any content-specific operator (`status:`,
+  `type:`, `creator:`, `voter:`, `participant:`, `min-*/max-*`,
+  date filters, etc.). Status doesn't apply to people; surfacing
+  irrelevant people results next to a content-focused query was
+  noisy.
+- **Collective-filter privacy gate**: `collective:<handle>` narrows
+  people to members of that collective ONLY when the viewer can
+  access that collective via `accessible_collective_ids`. Non-members
+  of a private/non-main collective can't enumerate its membership
+  by name-searching with the operator.
+- HTML view: new `.pulse-people-results` section above the content
+  results — avatar + display name (falls back to handle) + handle.
+- Markdown view: `## People (N)` section above the grouped content
+  results.
+- JSON API: `people:` key in the response.
+- Tests in [search_test.rb](test/integration/search_test.rb):
+  exact-handle match, partial-name match, block exclusion, no-section
+  when no matches, markdown parity, JSON shape.
 
-**Visibility rules:**
-- Anyone in the same tenant is searchable (matches existing collective-
-  member-list visibility semantics).
-- Blocked users are excluded from results in both directions.
-- Archived users? Default: exclude. (Confirm during impl.)
-
-**Render:** profile card with avatar, handle, display name, common-
-collective count, and an inline **Tune in** button (reuses
-`AjaxToggleButtonComponent`). Markdown parity: list with handle, name,
-profile link.
-
-**Where:** new section/tab in `/search`. JSON API exposes results under
-a `people:` key. Action surface: extend the existing `search` action's
-result schema; no new action endpoint needed.
-
-**Open questions:**
-- How to integrate with the existing search ranking — separate query
-  layered on top vs unified relevance scoring? Lean separate layer.
-- Per-page limit for people results (e.g. always top 5, with a
-  "see all" link)?
-- Should people results respect the `type:` filter? E.g. `type:person`
-  or `type:user`? Probably yes for consistency.
+Deferred (worth doing if usage demands):
+- **Inline Tune-in button per result.** Would batch-load membership
+  state to avoid N+1. Clicking through to the profile already exposes
+  the Tune-in button, so this is convenience-only.
+- **Common-collective count per result.** Cheap to compute per row
+  but adds clutter; leave for now.
+- **Ranking** — currently first-N order from Postgres without explicit
+  ordering. Could prioritize exact-handle then prefix then substring.
 
 ## Phase 2 — Graph traversal
 
