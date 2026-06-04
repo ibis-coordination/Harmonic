@@ -125,9 +125,16 @@ class UsersController < ApplicationController
 
     @showing_user = tu.user
     @showing_user.tenant_user = tu
-    @page_title = "Mutuals · #{@showing_user.display_name}"
+
+    # ?filter=common narrows the list to mutuals shared with the viewer
+    # (only meaningful for a logged-in viewer who isn't the profile user).
+    can_apply_common = @current_user.present? && @current_user.id != @showing_user.id
+    @filter = (params[:filter] == "common" && can_apply_common) ? "common" : nil
+    @page_title = @filter == "common" ? "Mutuals in common · #{@showing_user.display_name}" : "Mutuals · #{@showing_user.display_name}"
 
     ids = @showing_user.mutual_user_ids_in(@current_tenant)
+    ids &= @current_user.mutual_user_ids_in(@current_tenant) if @filter == "common"
+
     @mutuals = if ids.empty?
       []
     else

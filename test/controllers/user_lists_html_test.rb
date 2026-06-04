@@ -383,6 +383,79 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_match(/No mutuals/i, response.body)
   end
 
+  test "mutuals page HTML: ?filter=common limits the list to mutuals shared with the viewer" do
+    bridge = create_user(email: "br-#{SecureRandom.hex(4)}@example.com", name: "Bridge Mutual")
+    only_target = create_user(email: "ot-#{SecureRandom.hex(4)}@example.com", name: "TargetOnly Mutual")
+    @tenant.add_user!(bridge)
+    @tenant.add_user!(only_target)
+    @collective.add_user!(bridge)
+    @collective.add_user!(only_target)
+
+    # bridge is mutual with both viewer (@user) and target (@other).
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: bridge)
+    bridge.primary_user_list_in!(@tenant).user_list_members.create!(added_by: bridge, user: @user)
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: bridge)
+    bridge.primary_user_list_in!(@tenant).user_list_members.create!(added_by: bridge, user: @other)
+    # only_target is mutual with target only.
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: only_target)
+    only_target.primary_user_list_in!(@tenant).user_list_members.create!(added_by: only_target, user: @other)
+
+    sign_in_as(@user, tenant: @tenant)
+
+    # Without the filter — both bridge and only_target appear.
+    get "/u/#{@other.handle}/mutuals"
+    assert_response :success
+    assert_select ".pulse-list-members a", text: /Bridge Mutual/
+    assert_select ".pulse-list-members a", text: /TargetOnly Mutual/
+
+    # With ?filter=common — only the bridge appears.
+    get "/u/#{@other.handle}/mutuals?filter=common"
+    assert_response :success
+    assert_select ".pulse-list-members a", text: /Bridge Mutual/
+    assert_select ".pulse-list-members a", text: /TargetOnly Mutual/, count: 0
+  end
+
+  test "mutuals page HTML: ?filter=common heading and 'show all' affordance" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals?filter=common"
+    assert_response :success
+    assert_select "h1", text: /in common with you/i
+    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /show all/i
+  end
+
+  test "mutuals page HTML: ?filter=common empty-state copy mentions 'common'" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals?filter=common"
+    assert_response :success
+    assert_match(/No common mutuals yet/, response.body)
+  end
+
+  test "mutuals page HTML: ?filter=common on your own profile falls back to full list" do
+    # Self-view: viewer ∩ self = viewer's own mutuals, same as the unfiltered list.
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: @other)
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}/mutuals?filter=common"
+    assert_response :success
+    assert_select ".pulse-list-members a", text: /#{Regexp.escape(@other.display_name)}/
+  end
+
+  test "profile HTML: 'in common' chip links to the filtered mutuals page" do
+    bridge = create_user(email: "br-#{SecureRandom.hex(4)}@example.com", name: "Bridge Mutual")
+    @tenant.add_user!(bridge)
+    @collective.add_user!(bridge)
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: bridge)
+    bridge.primary_user_list_in!(@tenant).user_list_members.create!(added_by: bridge, user: @user)
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: bridge)
+    bridge.primary_user_list_in!(@tenant).user_list_members.create!(added_by: bridge, user: @other)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select ".pulse-mutuals-in-common a[href=?]", "/u/#{@other.handle}/mutuals?filter=common"
+  end
+
   test "mutuals page HTML: 404 for unknown handle" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/totally-not-a-real-handle-xyz/mutuals"

@@ -7,16 +7,25 @@
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">
     <h1 class="pulse-resource-title">
-      Mutually tuned in with <%= @showing_user.display_name %>
+      <% if @filter == "common" %>
+        Mutually tuned in with <%= @showing_user.display_name %> &middot; in common with you
+      <% else %>
+        Mutually tuned in with <%= @showing_user.display_name %>
+      <% end %>
     </h1>
     <p class="pulse-resource-meta">
       <%= @mutuals.size %> <%= @mutuals.size == 1 ? "person" : "people" %>
+      <% if @filter == "common" %>
+        &middot; <a href="<%= @showing_user.path %>/mutuals">show all</a>
+      <% end %>
     </p>
   </header>
 
   <section style="margin-top: 24px;">
     <% if @mutuals.empty? %>
-      <p class="pulse-body-text-muted">No mutuals yet.</p>
+      <p class="pulse-body-text-muted">
+        <% if @filter == "common" %>No common mutuals yet.<% else %>No mutuals yet.<% end %>
+      </p>
     <% else %>
       <ul class="pulse-list-members">
         <% @mutuals.each do |person| %>
