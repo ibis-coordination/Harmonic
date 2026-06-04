@@ -25,7 +25,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   TOPICS = %w[
     privacy collectives notes reminder-notes table-notes
     decisions executive-decisions lottery-decisions
-    commitments calendar-events policies cycles search links
+    commitments calendar-events policies cycles search links lists
     agents trio automations api rest-api markdown-ui notifications representation
   ].freeze
 
