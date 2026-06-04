@@ -1929,6 +1929,21 @@ a.pulse-activity-title:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Reset the padding + border-bottom inherited from the global
+     .pulse-collective-info rule (defined for the sidebar context). */
+  padding: 0;
+  border-bottom: none;
+}
+
+/* Member list on /lists/:id (Members tab). Rows are visually separated by
+   the .pulse-collective-item border-bottom — no extra gap needed, which
+   would otherwise float the borders away from adjacent rows. */
+.pulse-list-members {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .pulse-collective-name {

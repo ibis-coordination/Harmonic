@@ -234,10 +234,10 @@ resources :user_lists, path: 'lists', param: :list_id, only: [:show] do
     post 'actions/update_user_list'         => 'user_lists#execute_update_user_list'
     get  'actions/delete_user_list'         => 'user_lists#describe_delete_user_list'
     post 'actions/delete_user_list'         => 'user_lists#execute_delete_user_list'
-    get  'actions/add_member'               => 'user_lists#describe_add_member'
-    post 'actions/add_member'               => 'user_lists#execute_add_member'
-    get  'actions/remove_member'            => 'user_lists#describe_remove_member'
-    post 'actions/remove_member'            => 'user_lists#execute_remove_member'
+    get  'actions/add_member_to_list'               => 'user_lists#describe_add_member'
+    post 'actions/add_member_to_list'               => 'user_lists#execute_add_member'
+    get  'actions/remove_member_from_list'            => 'user_lists#describe_remove_member'
+    post 'actions/remove_member_from_list'            => 'user_lists#execute_remove_member'
   end
 end
 
@@ -258,7 +258,7 @@ URL summary:
 - `/lists/:list_id` — canonical show URL
 - `/u/:handle/lists` — listing of lists owned by user
 - `/u/:handle/actions/tune_in` — one-click gesture (uses current_user's primary list)
-- `/lists/:list_id/actions/add_member` — explicit "add user X to this specific list"
+- `/lists/:list_id/actions/add_member_to_list` — explicit "add user X to this specific list"
 
 ---
 
@@ -269,8 +269,8 @@ URL summary:
 | `create_user_list` | `/lists/actions/...` | `name`, `description?`, `visibility?` | authenticated |
 | `update_user_list` | `/lists/:id/actions/...` | `name?`, `description?`, `visibility?` | owner only |
 | `delete_user_list` | `/lists/:id/actions/...` | (none) | owner only AND not is_primary |
-| `add_member` | `/lists/:id/actions/...` | `user_handle` | owner only (Phase 2); per-policy in Phase 3 |
-| `remove_member` | `/lists/:id/actions/...` | `user_handle` | owner OR self (target_user == current_user) |
+| `add_member_to_list` | `/lists/:id/actions/...` | `user_handle` | owner only (Phase 2); per-policy in Phase 3 |
+| `remove_member_from_list` | `/lists/:id/actions/...` | `user_handle` | owner OR self (target_user == current_user) |
 | `tune_in` | `/u/:handle/actions/...` | (none) | authenticated; auto-resolves current_user's primary list |
 | `tune_out` | `/u/:handle/actions/...` | (none) | authenticated; removes URL handle from current_user's primary list |
 
@@ -358,15 +358,15 @@ markdown frontmatter action names.
   - `anyone_add` — any collective member adds anyone
 - `UserList#can_add?(actor:, target:)` encapsulates the policy logic. Owner
   always returns true regardless of policy.
-- `add_member` / `remove_member` action endpoints at `/lists/:id/actions/...`.
-  - `add_member` resolves `user_handle`, checks `can_add?`, blocks/collective
+- `add_member_to_list` / `remove_member_from_list` action endpoints at `/lists/:id/actions/...`.
+  - `add_member_to_list` resolves `user_handle`, checks `can_add?`, blocks/collective
     membership enforced by existing `UserListMember` validations.
-  - `remove_member` is fixed-rule: owner removes anyone; user removes self;
+  - `remove_member_from_list` is fixed-rule: owner removes anyone; user removes self;
     nobody else. No `remove_policy` (asymmetric on purpose — removes are
     subtractive and warrant stricter auth).
 - `update_user_list` accepts an `add_policy` param. `create_user_list` accepts
   one too (defaults to `owner_only`).
-- Frontmatter listing of `add_member` is policy-aware via the auth Proc: owner
+- Frontmatter listing of `add_member_to_list` is policy-aware via the auth Proc: owner
   + self_add/anyone_add → everyone in collective; members_add → only members.
 - Capability + ActionsHelper + routes wired for both new actions.
 - **Primary and private lists are constrained to `owner_only`.** Primary lists
@@ -386,7 +386,7 @@ markdown frontmatter action names.
   viewer can see (private filtered out for non-owners).
 - HTML show page at `/lists/:id` with name + badges (your list, private),
   owner link, member count + list, action buttons (Edit, Delete), and an
-  in-page "Add a member" form (handle text input → submits to add_member
+  in-page "Add a member" form (handle text input → submits to add_member_to_list
   action endpoint). Each member row has a Remove/Leave button for the owner
   or self.
 - HTML index at `/u/:handle/lists` with a "New list" button for the owner.
@@ -396,13 +396,13 @@ markdown frontmatter action names.
 - `create_user_list` and `delete_user_list` pass an explicit `redirect_to`
   so the HTML flow lands on the new resource / owner's lists index instead
   of redirect_back_or_to bouncing to the form page.
-- Browser-verified end-to-end: create, edit, show, add_member, profile
+- Browser-verified end-to-end: create, edit, show, add_member_to_list, profile
   toggle, delete (with turbo confirm), index. Unit/integration coverage
   (168 tests) backs the underlying actions.
 
 Known limitation (deferred): when an owner switches a public list with
 members to private, those members lose visibility and can't self-remove
-via the existing remove_member endpoint. The owner can still prune; a
+via the existing remove_member_from_list endpoint. The owner can still prune; a
 "lists I'm on" view would provide an alternate access path.
 
 ### ✅ Phase 5 — Mutual tuning-in detection + state-based button — SHIPPED
@@ -530,8 +530,8 @@ Deferred / not in this phase:
 5. **What about a `tune_in` action that targets a non-primary list?**
    The `/u/:handle/actions/tune_in` endpoint as designed always uses the
    primary list. To add to a specific list, agents use the explicit
-   `/lists/:id/actions/add_member` endpoint. Two endpoints, two semantics:
-   `tune_in` is the one-button gesture; `add_member` is the general
+   `/lists/:id/actions/add_member_to_list` endpoint. Two endpoints, two semantics:
+   `tune_in` is the one-button gesture; `add_member_to_list` is the general
    primitive.
 
 6. **AI agent capability defaults.** New actions need both global
@@ -569,13 +569,13 @@ The `Claude Code Primary` agent (id `fa59a88a-19c1-419a-afeb-330145aac850`)
 has the UserList action capabilities added to its
 `agent_configuration["capabilities"]` for MCP verification (`tune_in`,
 `tune_out`, `create_user_list`, `update_user_list`, `delete_user_list`,
-`add_member`, `remove_member`). Persists in dev DB. Re-grant via runner
+`add_member_to_list`, `remove_member_from_list`). Persists in dev DB. Re-grant via runner
 if testing again from a fresh clone:
 
 ```ruby
 agent = User.find("fa59a88a-19c1-419a-afeb-330145aac850")
 cfg = agent.agent_configuration.dup
-new_caps = %w[tune_in tune_out create_user_list update_user_list delete_user_list add_member remove_member]
+new_caps = %w[tune_in tune_out create_user_list update_user_list delete_user_list add_member_to_list remove_member_from_list]
 cfg["capabilities"] = (cfg["capabilities"] + new_caps).uniq
 agent.update!(agent_configuration: cfg)
 ```

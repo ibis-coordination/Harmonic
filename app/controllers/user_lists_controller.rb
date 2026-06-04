@@ -5,8 +5,9 @@ class UserListsController < ApplicationController
     :show, :edit, :actions_index_show,
     :describe_update_user_list, :execute_update_user_list,
     :describe_delete_user_list, :execute_delete_user_list,
-    :describe_add_member, :execute_add_member,
-    :describe_remove_member, :execute_remove_member,
+    :describe_add_member_to_list, :execute_add_member_to_list,
+    :describe_remove_member_from_list, :execute_remove_member_from_list,
+    :describe_join_list, :execute_join_list,
   ]
   before_action :set_owner_for_index, only: [:index]
 
@@ -190,23 +191,23 @@ class UserListsController < ApplicationController
                           })
   end
 
-  # ---- add_member ----
+  # ---- add_member_to_list ----
 
-  def describe_add_member
-    render_action_description(ActionsHelper.action_description("add_member", resource: @list))
+  def describe_add_member_to_list
+    render_action_description(ActionsHelper.action_description("add_member_to_list", resource: @list))
   end
 
-  def execute_add_member
+  def execute_add_member_to_list
     target = resolve_target_user(params[:user_handle])
     return render_action_error({
-                                 action_name: "add_member",
+                                 action_name: "add_member_to_list",
                                  resource: @list,
                                  error: "User not found.",
                                }) if target.nil?
 
     unless @list.can_add?(actor: @current_user, target: target)
       return render_action_error({
-                                   action_name: "add_member",
+                                   action_name: "add_member_to_list",
                                    resource: @list,
                                    error: "You are not permitted to add members to this list.",
                                    status: :forbidden,
@@ -216,7 +217,7 @@ class UserListsController < ApplicationController
     membership = @list.user_list_members.find_or_initialize_by(user_id: target.id)
     if membership.persisted?
       return render_action_success({
-                                     action_name: "add_member",
+                                     action_name: "add_member_to_list",
                                      resource: @list,
                                      result: "Already on this list.",
                                    })
@@ -225,29 +226,29 @@ class UserListsController < ApplicationController
     membership.added_by = @current_user
     if membership.save
       render_action_success({
-                              action_name: "add_member",
+                              action_name: "add_member_to_list",
                               resource: @list,
                               result: "Added.",
                             })
     else
       render_action_error({
-                            action_name: "add_member",
+                            action_name: "add_member_to_list",
                             resource: @list,
                             error: membership.errors.full_messages.join(", "),
                           })
     end
   end
 
-  # ---- remove_member (fixed rule: owner OR self) ----
+  # ---- remove_member_from_list (fixed rule: owner OR self) ----
 
-  def describe_remove_member
-    render_action_description(ActionsHelper.action_description("remove_member", resource: @list))
+  def describe_remove_member_from_list
+    render_action_description(ActionsHelper.action_description("remove_member_from_list", resource: @list))
   end
 
-  def execute_remove_member
+  def execute_remove_member_from_list
     target = resolve_target_user(params[:user_handle])
     return render_action_error({
-                                 action_name: "remove_member",
+                                 action_name: "remove_member_from_list",
                                  resource: @list,
                                  error: "User not found.",
                                }) if target.nil?
@@ -256,7 +257,7 @@ class UserListsController < ApplicationController
     is_self  = target.id == @current_user.id
     unless is_owner || is_self
       return render_action_error({
-                                   action_name: "remove_member",
+                                   action_name: "remove_member_from_list",
                                    resource: @list,
                                    error: "You can only remove yourself, or the owner can remove anyone.",
                                    status: :forbidden,
@@ -266,7 +267,7 @@ class UserListsController < ApplicationController
     membership = @list.user_list_members.find_by(user_id: target.id)
     if membership.nil?
       return render_action_success({
-                                     action_name: "remove_member",
+                                     action_name: "remove_member_from_list",
                                      resource: @list,
                                      result: "Not on this list.",
                                    })
@@ -274,10 +275,51 @@ class UserListsController < ApplicationController
 
     membership.destroy!
     render_action_success({
-                            action_name: "remove_member",
+                            action_name: "remove_member_from_list",
                             resource: @list,
                             result: "Removed.",
                           })
+  end
+
+  # ---- join (markdown self-join — same effect as add_member_to_list with own handle) ----
+
+  def describe_join_list
+    render_action_description(ActionsHelper.action_description("join_list", resource: @list))
+  end
+
+  def execute_join_list
+    unless @list.can_add?(actor: @current_user, target: @current_user)
+      return render_action_error({
+                                   action_name: "join_list",
+                                   resource: @list,
+                                   error: "This list's add policy doesn't allow you to join.",
+                                   status: :forbidden,
+                                 })
+    end
+
+    membership = @list.user_list_members.find_or_initialize_by(user_id: @current_user.id)
+    if membership.persisted?
+      return render_action_success({
+                                     action_name: "join_list",
+                                     resource: @list,
+                                     result: "Already on this list.",
+                                   })
+    end
+
+    membership.added_by = @current_user
+    if membership.save
+      render_action_success({
+                              action_name: "join_list",
+                              resource: @list,
+                              result: "Joined.",
+                            })
+    else
+      render_action_error({
+                            action_name: "join_list",
+                            resource: @list,
+                            error: membership.errors.full_messages.join(", "),
+                          })
+    end
   end
 
   private

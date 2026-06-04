@@ -67,11 +67,22 @@
       <% end %>
     </section>
   <% else %>
-    <% if @current_user && @list.can_add?(actor: @current_user, target: @current_user) ||
-          (@current_user && @list.add_policy == "members_add" &&
-           @list.user_list_members.exists?(user_id: @current_user.id)) %>
+    <%
+      current_user_is_member = @current_user && @list.user_list_members.exists?(user_id: @current_user.id)
+      # The owner always sees the add-anyone form. A non-owner sees the
+      # add-anyone form only when they're actually permitted to add OTHERS:
+      # members of a members_add list, or anyone on an anyone_add list.
+      show_add_anyone_form = is_owner ||
+        (@current_user && @list.add_policy == "anyone_add") ||
+        (@current_user && @list.add_policy == "members_add" && current_user_is_member)
+      # A non-owner non-member on a self_add list gets a single Join button
+      # — typing your own handle into a text input is silly UX.
+      show_join_button = @current_user && !is_owner && !current_user_is_member && @list.add_policy == "self_add"
+    %>
+
+    <% if show_add_anyone_form %>
       <section style="margin-top: 16px;">
-        <%= form_with(url: "#{@list.path}/actions/add_member", method: :post, class: "pulse-form") do |form| %>
+        <%= form_with(url: "#{@list.path}/actions/add_member_to_list", method: :post, class: "pulse-form") do |form| %>
           <div class="pulse-form-group">
             <label class="pulse-form-label" for="add_member_handle">Add a member</label>
             <div style="display: flex; gap: 8px; align-items: flex-start;">
@@ -80,15 +91,25 @@
                      placeholder="@handle" style="flex: 1;">
               <button type="submit" class="pulse-action-btn">Add</button>
             </div>
-            <p class="pulse-form-hint">
-              <% case @list.add_policy
-                 when "owner_only"   %>Only you can add members.
-              <% when "self_add"    %>Anyone in the collective can add themselves.
-              <% when "members_add" %>You and other list members can add anyone in the collective.
-              <% when "anyone_add"  %>Anyone in the collective can add anyone.
-              <% end %>
-            </p>
+            <% if is_owner %>
+              <p class="pulse-form-hint">
+                <% case @list.add_policy
+                   when "owner_only"   %>Only you can add members.
+                <% when "self_add"    %>You can add anyone. Others can add themselves.
+                <% when "members_add" %>You and other list members can add anyone in the collective.
+                <% when "anyone_add"  %>Anyone in the collective can add anyone.
+                <% end %>
+              </p>
+            <% end %>
           </div>
+        <% end %>
+      </section>
+    <% elsif show_join_button %>
+      <section style="margin-top: 16px;">
+        <%= button_to "#{@list.path}/actions/join_list",
+              method: :post,
+              class: "pulse-action-btn" do %>
+          <%= octicon 'plus', height: 14 %> Join
         <% end %>
       </section>
     <% end %>
@@ -97,7 +118,7 @@
       <% if @members.empty? %>
         <p class="pulse-body-text-muted">No members yet.</p>
       <% else %>
-        <ul class="pulse-list-members" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+        <ul class="pulse-list-members">
           <% @members.each do |member| %>
             <% member_handle = @handles_by_user_id[member.id] %>
             <li class="pulse-collective-item">
@@ -108,7 +129,7 @@
               </div>
               <% can_remove = is_owner || (@current_user && @current_user.id == member.id) %>
               <% if can_remove %>
-                <%= button_to "#{@list.path}/actions/remove_member",
+                <%= button_to "#{@list.path}/actions/remove_member_from_list",
                       method: :post,
                       params: { user_handle: member_handle },
                       form: { data: { turbo_confirm: (is_owner && member.id != @current_user.id ? "Remove #{member.display_name} from this list?" : nil) } },

@@ -810,7 +810,7 @@ class ActionsHelper
         resource.owner_id == user.id && !resource.is_primary
       },
     },
-    "add_member" => {
+    "add_member_to_list" => {
       description: "Add a user to this list.",
       params_string: "(user_handle)",
       params: [
@@ -827,7 +827,22 @@ class ActionsHelper
           resource.user_list_members.exists?(user_id: user.id)
       },
     },
-    "remove_member" => {
+    "join_list" => {
+      description: "Join this list (add yourself as a member). No params — the actor is always the new member.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        return false unless resource.is_a?(UserList)
+        # You can join if the policy lets you self-add AND you aren't on the list yet.
+        # Owners of self_add/anyone_add lists technically qualify too, but `add_member_to_list`
+        # is the more general affordance for them and stays visible.
+        next false if resource.user_list_members.exists?(user_id: user.id)
+        resource.can_add?(actor: user, target: user)
+      },
+    },
+    "remove_member_from_list" => {
       description: "Remove a user from this list. Anyone can remove themselves; only the owner can remove others.",
       params_string: "(user_handle)",
       params: [
@@ -1231,10 +1246,12 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["update_user_list"][:description], },
         { name: "delete_user_list", params_string: ACTION_DEFINITIONS["delete_user_list"][:params_string],
           description: ACTION_DEFINITIONS["delete_user_list"][:description], },
-        { name: "add_member", params_string: ACTION_DEFINITIONS["add_member"][:params_string],
-          description: ACTION_DEFINITIONS["add_member"][:description], },
-        { name: "remove_member", params_string: ACTION_DEFINITIONS["remove_member"][:params_string],
-          description: ACTION_DEFINITIONS["remove_member"][:description], },
+        { name: "add_member_to_list", params_string: ACTION_DEFINITIONS["add_member_to_list"][:params_string],
+          description: ACTION_DEFINITIONS["add_member_to_list"][:description], },
+        { name: "remove_member_from_list", params_string: ACTION_DEFINITIONS["remove_member_from_list"][:params_string],
+          description: ACTION_DEFINITIONS["remove_member_from_list"][:description], },
+        { name: "join_list", params_string: ACTION_DEFINITIONS["join_list"][:params_string],
+          description: ACTION_DEFINITIONS["join_list"][:description], },
       ],
     },
     "/u/:handle/settings/tokens/new" => {

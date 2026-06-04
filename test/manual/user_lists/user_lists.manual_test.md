@@ -157,7 +157,7 @@ block exists in either direction.
 4. Create a custom list via `POST /lists/actions/create_user_list` and
    verify it appears under `/u/<alice-handle>/lists`.
 5. Fetch the list at `/lists/<truncated_id>` and verify member
-   actions (`add_member`, `remove_member`) appear in frontmatter.
+   actions (`add_member_to_list`, `remove_member_from_list`) appear in frontmatter.
 
 ## Acceptance
 

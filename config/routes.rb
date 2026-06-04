@@ -201,10 +201,12 @@ Rails.application.routes.draw do
       post 'actions/update_user_list' => 'user_lists#execute_update_user_list'
       get  'actions/delete_user_list' => 'user_lists#describe_delete_user_list'
       post 'actions/delete_user_list' => 'user_lists#execute_delete_user_list'
-      get  'actions/add_member'       => 'user_lists#describe_add_member'
-      post 'actions/add_member'       => 'user_lists#execute_add_member'
-      get  'actions/remove_member'    => 'user_lists#describe_remove_member'
-      post 'actions/remove_member'    => 'user_lists#execute_remove_member'
+      get  'actions/add_member_to_list'       => 'user_lists#describe_add_member_to_list'
+      post 'actions/add_member_to_list'       => 'user_lists#execute_add_member_to_list'
+      get  'actions/remove_member_from_list'    => 'user_lists#describe_remove_member_from_list'
+      post 'actions/remove_member_from_list'    => 'user_lists#execute_remove_member_from_list'
+      get  'actions/join_list'             => 'user_lists#describe_join_list'
+      post 'actions/join_list'             => 'user_lists#execute_join_list'
     end
   end
 

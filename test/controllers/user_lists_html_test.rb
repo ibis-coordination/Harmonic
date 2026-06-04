@@ -151,6 +151,50 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-list-members a", text: /#{Regexp.escape(@other.display_name)}/
   end
 
+  test "show HTML: self_add list shows a Join button (not a handle input) for a non-owner non-member" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Self-add list", add_policy: "self_add")
+    sign_in_as(@other, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    # No handle input for the non-owner — Join button only.
+    assert_select "input[type='text'][name='user_handle']", count: 0
+    assert_select "form[action=?] button", "/lists/#{list.truncated_id}/actions/join_list", text: /Join/
+  end
+
+  test "show HTML: self_add list shows nothing add-related for a non-owner who is already a member" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Self-add list", add_policy: "self_add")
+    list.user_list_members.create!(added_by: @other, user: @other)
+    sign_in_as(@other, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select "input[type='text'][name='user_handle']", count: 0
+    assert_select "form[action=?] button", "/lists/#{list.truncated_id}/actions/join_list", text: /Join/, count: 0
+  end
+
+  test "show HTML: self_add list shows the owner the add-anyone form with a policy hint mentioning self-add" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Self-add list", add_policy: "self_add")
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select "input[type='text'][name='user_handle']", count: 1
+    assert_match(/others can add themselves/i, response.body)
+  end
+
+  test "show HTML: owner_only list shows the owner the add-anyone form and others nothing" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Owner-only", add_policy: "owner_only")
+    # Owner sees the form.
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select "input[type='text'][name='user_handle']", count: 1
+    # Non-owner sees nothing.
+    sign_in_as(@other, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select "input[type='text'][name='user_handle']", count: 0
+    assert_select "form[action=?]", "/lists/#{list.truncated_id}/actions/add_member_to_list", count: 0
+  end
+
   test "show HTML: Activity tab shows content authored by list members" do
     list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
     list.user_list_members.create!(added_by: @user, user: @other)
