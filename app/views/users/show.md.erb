@@ -1,7 +1,7 @@
 # User: <%= @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %>
 
 Handle: `<%= @showing_user.handle %>`
-Has [<%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>](<%= @showing_user.path %>/mutuals)
+Has [<%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>](<%= @showing_user.path %>/mutuals)<% if @mutuals_in_common_count %> (<%= @mutuals_in_common_count %> in common)<% end %>
 <% if @showing_user.ai_agent? %>
 Type: AI Agent
 <% end %>

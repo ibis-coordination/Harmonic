@@ -309,14 +309,60 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@other.handle}"
     assert_response :success
-    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /has 1 mutual\b/
+    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /1 mutual\b/
+    assert_match(/has\s+1\s+mutual\b/, css_select(".pulse-user-mutuals-line").first.text)
   end
 
   test "profile HTML: header still shows a mutuals link when count is 0" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@other.handle}"
     assert_response :success
-    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /has 0 mutuals/
+    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /0 mutuals/
+    assert_match(/has\s+0\s+mutuals/, css_select(".pulse-user-mutuals-line").first.text)
+  end
+
+  test "profile HTML: shows 'N mutuals in common' count when viewer and target share mutuals" do
+    third = create_user(email: "third-#{SecureRandom.hex(4)}@example.com", name: "Third Bridge")
+    @tenant.add_user!(third)
+    @collective.add_user!(third)
+    # Viewer (@user) ↔ third are mutuals.
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: third)
+    third.primary_user_list_in!(@tenant).user_list_members.create!(added_by: third, user: @user)
+    # Target (@other) ↔ third are mutuals.
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: third)
+    third.primary_user_list_in!(@tenant).user_list_members.create!(added_by: third, user: @other)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select ".pulse-user-mutuals-line", text: /\(1 in common\)/
+  end
+
+  test "profile HTML: 'mutuals in common' line is hidden on your own profile" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-mutuals-line", text: /in common/, count: 0
+  end
+
+  test "profile HTML: 'mutuals in common' count includes the bridge user even when the viewer has blocked them" do
+    third = create_user(email: "third-#{SecureRandom.hex(4)}@example.com", name: "Third Bridge")
+    @tenant.add_user!(third)
+    @collective.add_user!(third)
+    # Block first so the after_create callback has nothing to clean,
+    # then bypass validation to insert the mutual on both sides.
+    UserBlock.create!(blocker: @user, blocked: third, tenant: @tenant)
+    [
+      [@user, third], [third, @user], [@other, third], [third, @other],
+    ].each do |owner, member|
+      m = owner.primary_user_list_in!(@tenant).user_list_members.new(added_by: owner, user: member)
+      m.save(validate: false)
+    end
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select ".pulse-user-mutuals-line", text: /\(1 in common\)/
   end
 
   test "mutuals page HTML: lists the mutuals as profile cards" do
@@ -343,26 +389,23 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "mutuals page HTML: hides users the viewer has blocked (and the count agrees)" do
+  test "mutuals page HTML: still lists users the viewer has blocked" do
     third = create_user(email: "third-#{SecureRandom.hex(4)}@example.com", name: "Third Mutual")
     @tenant.add_user!(third)
     @collective.add_user!(third)
-
-    # @other and @third are both mutuals of each other.
     @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: third)
     third.primary_user_list_in!(@tenant).user_list_members.create!(added_by: third, user: @other)
-    # Viewer (@user) blocks @third — should be filtered from @other's mutuals page.
     UserBlock.create!(blocker: @user, blocked: third, tenant: @tenant)
 
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@other.handle}/mutuals"
     assert_response :success
-    assert_select ".pulse-list-members a", text: /Third Mutual/, count: 0
+    assert_select ".pulse-list-members a", text: /Third Mutual/
 
-    # And the count on @other's profile header agrees with the filtered view.
+    # And the count on @other's profile header agrees with the unfiltered list.
     get "/u/#{@other.handle}"
     assert_response :success
-    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /has 0 mutuals/
+    assert_match(/has\s+1\s+mutual\b/, css_select(".pulse-user-mutuals-line").first.text)
   end
 
   test "profile HTML: NO toggle on your own profile" do

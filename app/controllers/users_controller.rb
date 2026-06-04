@@ -94,10 +94,16 @@ class UsersController < ApplicationController
     @viewer_blocks_target     = @current_user.present? && @current_user.blocked?(@showing_user)
     @viewer_blocked_by_target = @current_user.present? && @current_user.blocked_by?(@showing_user)
 
-    # Mutuals count for the header. Viewer-side block filter applied so
-    # the count matches what the viewer will actually see on the mutuals
-    # page (a user the viewer has blocked is hidden in both surfaces).
-    @mutuals_count = (@showing_user.mutual_user_ids_in(@current_tenant) - block_related_user_ids.to_a).size
+    target_mutual_ids = @showing_user.mutual_user_ids_in(@current_tenant)
+    @mutuals_count = target_mutual_ids.size
+
+    # Mutuals shared between the viewer and the profile user. Hidden on
+    # the viewer's own profile (the value would just equal their own
+    # mutuals count) and for anon viewers.
+    @mutuals_in_common_count = if @current_user && @current_user.id != @showing_user.id
+      viewer_mutual_ids = @current_user.mutual_user_ids_in(@current_tenant)
+      (target_mutual_ids & viewer_mutual_ids).size
+    end
 
     # Build user's main collective (public) content timeline
     @feed_items = FeedBuilder.new(
@@ -121,11 +127,7 @@ class UsersController < ApplicationController
     @showing_user.tenant_user = tu
     @page_title = "Mutuals · #{@showing_user.display_name}"
 
-    # Viewer-side block filter: don't surface users the viewer has blocked
-    # or who block the viewer, matching the pattern used by the home feed
-    # and people-search. Defense in depth on top of the block-cleanup
-    # callback (which keeps fresh blocks from leaving stale mutuals).
-    ids = @showing_user.mutual_user_ids_in(@current_tenant) - block_related_user_ids.to_a
+    ids = @showing_user.mutual_user_ids_in(@current_tenant)
     @mutuals = if ids.empty?
       []
     else

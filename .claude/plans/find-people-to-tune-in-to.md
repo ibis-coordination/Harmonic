@@ -120,6 +120,47 @@ Already exist (members tab links handles to profiles). After this
 phase, profiles also show the mutuals count — so the audit is just
 verifying click-through works. No code change expected.
 
+### 2d. Mutual mutuals (viewer ∩ profile-user)
+
+Beside the global "has N mutuals" count on a profile, show a
+viewer-relative count: users who are mutually tuned in to BOTH the
+viewer and the profile user. The bridge subset between the two
+parties.
+
+**Display.** On the profile header next to the global count, with a
+parallel-construction copy that distinguishes whose number is whose:
+
+> @handle · has N mutuals · X in common with you
+
+(Or "X shared mutuals" / "X mutual mutuals" — see open question.)
+
+Click-through behavior open: count-only for v1, or also a
+`/u/:handle/mutuals-in-common` page that lists the bridge set?
+Lean count-only — the existing /u/:handle/mutuals page already
+covers the broader social-graph traversal need; "in common" is more
+of a relational signal than a discovery surface.
+
+**Hide when:**
+- Viewer is the profile user (self ∩ self = own mutuals, redundant).
+- Viewer is anonymous (no concept of viewer mutuals).
+
+**Implementation.** New `User#mutuals_in_common_with(viewer, tenant)`
+returning the intersection of `viewer.mutual_user_ids_in(tenant)` and
+`self.mutual_user_ids_in(tenant)`, minus viewer-blocked users. Both
+inputs are already cheap (two plucks each), so the intersection cost
+is bounded by typical primary-list sizes.
+
+**Open questions:**
+
+- **Copy.** Three plausible labels: "X in common", "X shared mutuals",
+  "X mutual mutuals". "In common" parallels the existing "common
+  collectives" affordance and reads tightest. "Mutual mutuals" is
+  precise but reads awkwardly inline. Lean "in common".
+- **Page or count-only?** Defer the page; ship the count.
+- **Hover or tooltip preview?** A small popup listing the first few
+  mutuals-in-common could help users decide whether to click through
+  to either profile. Defer; ship without.
+
 ### Open follow-ups (deferred)
 
 - **Outbound preview on profile** (a teaser of the primary list's

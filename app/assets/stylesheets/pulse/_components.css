@@ -1825,6 +1825,14 @@ h1.pulse-resource-title {
   margin: 0;
 }
 
+/* Supplementary metadata line under the @handle: mutuals count + viewer-relative
+   counts. Same muted treatment as the handle so it reads as secondary info. */
+.pulse-user-mutuals-line {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin: 4px 0 0 0;
+}
+
 .pulse-user-actions {
   display: flex;
   gap: 8px;
