@@ -14,7 +14,13 @@
           <span class="pulse-badge pulse-badge-muted">Archived</span>
         <% end %>
       </h1>
-      <p class="pulse-user-handle">@<%= @showing_user.handle %></p>
+      <p class="pulse-user-handle">
+        @<%= @showing_user.handle %>
+        <span class="pulse-body-text-muted"> · </span>
+        <a href="<%= @showing_user.path %>/mutuals" class="pulse-mutuals-count">
+          has <%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>
+        </a>
+      </p>
       <% if @showing_user.ai_agent? %>
         <span class="pulse-badge" title="This is an AI agent managed by <%= @showing_user.parent&.display_name %>">AI agent</span>
       <% end %>

@@ -301,6 +301,70 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-tuning-in-to-you-badge", count: 0
   end
 
+  test "profile HTML: header shows a mutuals count linking to /u/:handle/mutuals" do
+    # Establish a mutual: @user ↔ @other.
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: @other)
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /has 1 mutual\b/
+  end
+
+  test "profile HTML: header still shows a mutuals link when count is 0" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /has 0 mutuals/
+  end
+
+  test "mutuals page HTML: lists the mutuals as profile cards" do
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: @other)
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals"
+    assert_response :success
+    assert_select "h1", text: /Mutuals|Mutually tuned in/
+    assert_select ".pulse-list-members a", text: /#{Regexp.escape(@user.display_name)}/
+  end
+
+  test "mutuals page HTML: empty-state when the user has no mutuals" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals"
+    assert_response :success
+    assert_match(/No mutuals/i, response.body)
+  end
+
+  test "mutuals page HTML: 404 for unknown handle" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/totally-not-a-real-handle-xyz/mutuals"
+    assert_response :not_found
+  end
+
+  test "mutuals page HTML: hides users the viewer has blocked (and the count agrees)" do
+    third = create_user(email: "third-#{SecureRandom.hex(4)}@example.com", name: "Third Mutual")
+    @tenant.add_user!(third)
+    @collective.add_user!(third)
+
+    # @other and @third are both mutuals of each other.
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: third)
+    third.primary_user_list_in!(@tenant).user_list_members.create!(added_by: third, user: @other)
+    # Viewer (@user) blocks @third — should be filtered from @other's mutuals page.
+    UserBlock.create!(blocker: @user, blocked: third, tenant: @tenant)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals"
+    assert_response :success
+    assert_select ".pulse-list-members a", text: /Third Mutual/, count: 0
+
+    # And the count on @other's profile header agrees with the filtered view.
+    get "/u/#{@other.handle}"
+    assert_response :success
+    assert_select "a[href=?]", "/u/#{@other.handle}/mutuals", text: /has 0 mutuals/
+  end
+
   test "profile HTML: NO toggle on your own profile" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"

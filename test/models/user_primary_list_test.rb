@@ -86,4 +86,64 @@ class UserPrimaryListTest < ActiveSupport::TestCase
     assert_equal @tenant.id,       list_a.tenant_id
     assert_equal other_tenant.id,  list_b.tenant_id
   end
+
+  # ---- mutuals_in(tenant) ----
+
+  def make_member(name: nil)
+    # Ensure the viewer is in main_collective too (the setup creates the
+    # collective but doesn't auto-add @user as a member).
+    @tenant.main_collective.add_user!(@user) unless CollectiveMember.exists?(collective_id: @tenant.main_collective_id, user_id: @user.id)
+
+    other = create_user(email: "m-#{SecureRandom.hex(4)}@example.com", name: name || "M #{SecureRandom.hex(4)}")
+    @tenant.add_user!(other)
+    @tenant.main_collective.add_user!(other)
+    other
+  end
+
+  test "mutuals_in returns users who are on the viewer's primary list AND have the viewer on theirs" do
+    mutual = make_member
+    one_way = make_member  # viewer tunes in to them but not reciprocated
+    reverse_only = make_member  # they tune in to viewer but viewer doesn't reciprocate
+
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: mutual)
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: one_way)
+    mutual.primary_user_list_in!(@tenant).user_list_members.create!(added_by: mutual, user: @user)
+    reverse_only.primary_user_list_in!(@tenant).user_list_members.create!(added_by: reverse_only, user: @user)
+
+    mutuals = @user.mutuals_in(@tenant)
+    ids = mutuals.map(&:id)
+    assert_includes ids, mutual.id
+    assert_not_includes ids, one_way.id
+    assert_not_includes ids, reverse_only.id
+  end
+
+  test "mutuals_in returns an empty array when the viewer has no primary list yet" do
+    # No primary list created.
+    assert_equal [], @user.mutuals_in(@tenant)
+  end
+
+  test "mutuals_in is tenant-scoped — doesn't surface mutuals from a different tenant" do
+    mutual = make_member
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: mutual)
+    mutual.primary_user_list_in!(@tenant).user_list_members.create!(added_by: mutual, user: @user)
+
+    other_tenant = create_tenant(subdomain: "ot-#{SecureRandom.hex(4)}")
+    other_tenant.add_user!(@user)
+    other_tenant.create_main_collective!(created_by: @user)
+    Collective.scope_thread_to_collective(subdomain: other_tenant.subdomain, handle: nil)
+    assert_equal [], @user.mutuals_in(other_tenant)
+  end
+
+  test "mutuals_in pre-populates each returned user's tenant_user memo" do
+    mutual = make_member
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: mutual)
+    mutual.primary_user_list_in!(@tenant).user_list_members.create!(added_by: mutual, user: @user)
+
+    person = @user.mutuals_in(@tenant).first
+    # Reaching `handle` should not require another TenantUser query —
+    # the memo should be set.
+    assert_equal mutual.tenant_users.find_by(tenant_id: @tenant.id).handle, person.handle
+    # Verify the instance variable is actually pre-set (not lazy-loaded on access)
+    assert person.instance_variable_get(:@tenant_user).present?
+  end
 end

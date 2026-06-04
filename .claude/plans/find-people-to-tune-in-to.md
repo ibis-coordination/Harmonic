@@ -80,50 +80,57 @@ Deferred (worth doing if usage demands):
 - **Ranking** — currently first-N order from Postgres without explicit
   ordering. Could prioritize exact-handle then prefix then substring.
 
-## Phase 2 — Graph traversal
+## Phase 2 — Mutuals (graph traversal)
 
-**Shape.** The primary list is the social-graph atom. Make it
-navigable in two directions.
+Mutuals (users who tune in to each other) are the public,
+symmetric subset of the tune-in graph. Making mutuals first-class
+solves three problems at once:
 
-### 2a. From a profile, see who they tune in to (forward direction)
+- A headline social signal on profiles ("N mutuals") that emphasizes
+  reciprocity over follower-count vanity. Twitter shows two numbers
+  (followers / following) and the asymmetry drives all kinds of
+  bad behavior. Harmonic shows one.
+- A navigable surface for discovering more people (browse a profile's
+  mutuals → click through → tune in to anyone interesting).
+- Avoids the reverse-direction privacy question entirely. Mutuals is
+  symmetric, so both parties already know about the relationship —
+  surfacing it leaks nothing new.
 
-The profile's Lists accordion currently shows lists with member counts
-but not members. For the primary list specifically, embed a small
-preview of members (avatars + handles, maybe top 5–10) right on the
-profile, with a "see all" link to the list show page.
+### 2a. Mutuals count on the profile header
 
-Once the per-list feed plan ships, `/lists/:id` will have a members
-tab. The profile preview is a teaser pointing there.
+Display `@handle · N mutuals`, with the count linking to
+`/u/:handle/mutuals`. Always shown, even when 0 (the absence might
+nudge the viewer to tune in).
 
-### 2b. From a profile, see who tunes in to them (reverse direction)
+### 2b. `/u/:handle/mutuals` page
 
-The reverse-direction signal already partly exists:
-- Profile shows "Tuned in to you" badge when the relationship is mutual.
-- No browsable list of "people who tune in to X."
+Lists the user's mutuals, one card per row (same shape as the
+search-people section and the per-list Members tab). HTML + markdown.
 
-**Decision needed:** is the reverse-direction list privacy-sensitive?
-- Forward (who X tunes in to): X chose this; visible if X's list is
-  public.
-- Reverse (who tunes in to X): the choosers chose to follow X, but
-  exposing the full list is more about *them* than about X.
+Mutuals = intersection of:
+- members of the user's primary list (their outbound tune-ins)
+- owners whose primary list contains the user (their inbound)
 
-Two plausible models:
-- **Twitter-style** — public unless the tuner-in has a private primary
-  list. Surfaces a "tuned in by" section on profiles.
-- **Privacy-default** — reverse direction is intentionally not
-  enumerable. Only the mutual-state badge appears.
+Tenant-scoped. Block-cleanup callback already wipes both directions of
+primary-list membership on block, so mutuals auto-decrement.
 
-Lean toward Twitter-style for v1 since primary lists default to public.
-Revisit if anyone objects.
+### 2c. Member rows on /lists/:id link to profiles
 
-**Render:** profile-card row, same component as Phase 1's people-search
-result. Tune-in button inline.
+Already exist (members tab links handles to profiles). After this
+phase, profiles also show the mutuals count — so the audit is just
+verifying click-through works. No code change expected.
 
-### 2c. Member rows on list show pages link to profiles
+### Open follow-ups (deferred)
 
-Already exist (`/lists/:id` shows member handles linking to profiles).
-Once the members tab lands in the per-list feed plan, audit that each
-row has an inline Tune-in button for fast traversal.
+- **Outbound preview on profile** (a teaser of the primary list's
+  members). The primary list is already linked from the Lists
+  accordion; the mutuals page covers the symmetric subset. Add only
+  if the asymmetric "who do you tune in to" view earns its keep.
+- **Inline Tune-in button on the mutuals row** — convenience, not
+  load-bearing (clicking through to the profile already exposes it).
+- **Counter cache for mutuals_count** — defer until profile-load
+  latency demands it; intersection of two pluck arrays is cheap for
+  typical primary-list sizes.
 
 ## Phase 3 — (optional) Empty-state suggestions
 

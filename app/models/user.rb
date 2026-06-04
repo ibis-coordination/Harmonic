@@ -64,6 +64,57 @@ class User < ApplicationRecord
       .first)
   end
 
+  # User IDs of mutuals (users who tune in to this user AND who this user
+  # tunes in to) within the given tenant. The two-pluck-then-intersect
+  # approach is cheap for typical primary-list sizes; revisit with a
+  # counter cache if profile-load latency demands it.
+  sig { params(tenant: Tenant).returns(T::Array[String]) }
+  def mutual_user_ids_in(tenant)
+    primary = UserList
+      .tenant_scoped_only(tenant.id)
+      .where(owner_id: id, is_primary: true, deleted_at: nil)
+      .first
+    return [] unless primary
+
+    outbound_ids = primary.user_list_members.pluck(:user_id)
+    return [] if outbound_ids.empty?
+
+    inbound_owner_ids = UserList
+      .tenant_scoped_only(tenant.id)
+      .where(is_primary: true, deleted_at: nil)
+      .joins(:user_list_members)
+      .where(user_list_members: { user_id: id })
+      .pluck(:owner_id)
+
+    outbound_ids & inbound_owner_ids
+  end
+
+  # Cheap integer count — for the profile-header display we don't need
+  # to instantiate User records.
+  sig { params(tenant: Tenant).returns(Integer) }
+  def mutuals_count_in(tenant)
+    mutual_user_ids_in(tenant).size
+  end
+
+  # Users who are tuned in to this user AND who this user is tuned in to,
+  # within the given tenant. The publicly-shareable symmetric subset of the
+  # tune-in graph. Returns Users with their TenantUser pre-attached so the
+  # caller can hit `handle` / `display_name` / `path` without extra queries.
+  sig { params(tenant: Tenant).returns(T::Array[User]) }
+  def mutuals_in(tenant)
+    ids = mutual_user_ids_in(tenant)
+    return [] if ids.empty?
+
+    TenantUser
+      .where(tenant_id: tenant.id, user_id: ids)
+      .includes(:user)
+      .map do |tu|
+        u = tu.user
+        u.tenant_user = tu
+        u
+      end
+  end
+
   # Trustee grant associations
   # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",

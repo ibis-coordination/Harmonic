@@ -335,6 +335,8 @@ Rails.application.routes.draw do
     post 'actions/tune_out' => 'users#execute_tune_out',  on: :member
     # UserList — listing of lists owned by this user (markdown)
     get  'lists'                    => 'user_lists#index',                on: :member
+    # Mutuals — users who tune in to this user AND who this user tunes in to
+    get  'mutuals'                  => 'users#mutuals',                   on: :member
     # User settings actions
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
