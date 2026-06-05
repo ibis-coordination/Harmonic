@@ -41,6 +41,7 @@ class NotificationDispatcher
     return if target.nil? || list.nil?
     return if event.actor_id && target.id == event.actor_id
     return unless list.is_primary || list.public?
+    return if recent_tune_in_notification_exists?(event: event, recipient: target)
 
     title, url = member_added_title_and_url(event, list)
     notify_user(
@@ -50,6 +51,22 @@ class NotificationDispatcher
       title: title,
       url: url,
     )
+  end
+
+  # Suppresses a fresh tune_in notification when the recipient already has
+  # an undismissed one from the same actor in the same tenant. Prevents
+  # rapid tune-out / tune-in cycles from spamming the target's inbox.
+  sig { params(event: Event, recipient: User).returns(T::Boolean) }
+  def self.recent_tune_in_notification_exists?(event:, recipient:)
+    return false if event.actor_id.nil?
+
+    NotificationRecipient
+      .joins(:notification)
+      .joins("INNER JOIN events ON events.id = notifications.event_id")
+      .where(user_id: recipient.id, tenant_id: event.tenant_id, dismissed_at: nil)
+      .where(notifications: { notification_type: "tune_in" })
+      .where(events: { actor_id: event.actor_id })
+      .exists?
   end
 
   sig { params(event: Event, list: UserList).returns([String, T.nilable(String)]) }

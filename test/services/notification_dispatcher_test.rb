@@ -595,6 +595,31 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_nil Notification.where(notification_type: "tune_in").last
   end
 
+  test "rapid tune-out + tune-in does not create a second tune_in notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+    member = UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    assert_equal 1, Notification.where(notification_type: "tune_in").count
+
+    member.destroy!
+    assert_no_difference -> { Notification.where(notification_type: "tune_in").count } do
+      UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    end
+  end
+
+  test "re-tune-in after dismissal creates a fresh notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+    member = UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    Notification.where(notification_type: "tune_in").last.notification_recipients
+      .update_all(dismissed_at: Time.current, status: "dismissed")
+    member.destroy!
+
+    assert_difference -> { Notification.where(notification_type: "tune_in").count }, +1 do
+      UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    end
+  end
+
   test "user_list_member.deleted event creates no notification" do
     _tenant, _collective, actor, target = setup_tune_in_actors
     actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
