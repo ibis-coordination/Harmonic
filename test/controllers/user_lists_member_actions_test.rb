@@ -392,6 +392,14 @@ class UserListsMemberActionsTest < ActionDispatch::IntegrationTest
     assert list.user_list_members.exists?(user_id: @other.id)
   end
 
+  test "join: self-add via controller does not fire a tune_in notification" do
+    list = list_with(add_policy: "self_add")
+    assert_no_difference -> { Notification.where(notification_type: "tune_in").count } do
+      post "/lists/#{list.truncated_id}/actions/join_list", params: "{}", headers: @other_h
+    end
+    assert_response :success
+  end
+
   test "join: anyone_add list adds the actor" do
     list = list_with(add_policy: "anyone_add")
     post "/lists/#{list.truncated_id}/actions/join_list", params: "{}", headers: @other_h

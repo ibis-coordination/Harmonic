@@ -121,21 +121,24 @@ by `test/models/user_block_test.rb`.
 Custom-list cleanup negation test (#12) kept — it's a real contract
 worth pinning.
 
-### 9. `tune_in` accepts suspended and `collective_identity` targets
+### 9. `tune_in` accepts suspended and `collective_identity` targets — DROPPED
 
-**Behavior.** Search excludes these
-([app/services/search_query.rb:137,142](app/services/search_query.rb#L137-L142)),
-but the direct `execute_tune_in` endpoint doesn't. Suspended users
-remain tune-targets; collective-identity users produce broken
-notification URLs (their `path` may be nil).
+The review agent classified this "Low — inconsistent UX." On closer
+look, neither case is a real bug:
 
-**Repro.** Two tests:
-(a) Try to tune in to a suspended user → 422.
-(b) Try to tune in to a collective_identity user → 422.
+- **Suspended target:** the feed doesn't filter suspended authors,
+  so a new tune-in just surfaces their existing content. They can't
+  see your notification (can't log in). Pre-suspension tune-ins
+  survive; no reason new ones should behave differently.
+- **Collective-identity target:** their `path` is the collective's
+  path, not nil. Tuning in to a collective's voice is a legitimate
+  use case (see new posts under that identity in your feed).
+  Notifications route to the actor's profile, not the recipient's,
+  so the `path` shape doesn't matter for dispatch.
 
-**Fix.** Add guards in `execute_tune_in` (and `execute_join_list` /
-`execute_add_member_to_list` for the same reason). Mirror existing
-self-tune-in rejection.
+Search excludes them for surface-specific UI reasons (broken-looking
+links in result rows), which is a different concern than blocking
+the action entirely.
 
 ### 10. `primary_user_list_in!` rescue is too broad
 
