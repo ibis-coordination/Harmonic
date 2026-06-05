@@ -30,15 +30,18 @@ class UserListsController < ApplicationController
     # Auto-prefill the global header search with `list:<id>` while we're here.
     @current_list_for_search = @list
 
-    # Preload members + the handles we'll display so the view doesn't N+1
-    # on per-member tenant_user lookups. One query for member rows, one
-    # query for User records, one query for handles (covering members + owner).
+    # Preload members + the TenantUsers we'll display so the view doesn't
+    # N+1 on per-member tenant_user lookups. Pre-attach the TenantUser onto
+    # each User so #display_name / #path / avatar render without round-trips.
     member_user_ids = @list.user_list_members.pluck(:user_id)
-    @members = User.where(id: member_user_ids).to_a
-    @handles_by_user_id = TenantUser
+    tenant_users_by_user_id = TenantUser
       .where(tenant_id: @list.tenant_id, user_id: ([@list.owner_id] + member_user_ids).uniq)
-      .pluck(:user_id, :handle)
-      .to_h
+      .index_by(&:user_id)
+    @handles_by_user_id = tenant_users_by_user_id.transform_values(&:handle)
+    @members = User.where(id: member_user_ids).to_a.each do |u|
+      tu = tenant_users_by_user_id[u.id]
+      u.tenant_user = tu if tu
+    end
 
     # Feed of recent content authored by members of this list, scoped to the
     # tenant's main collective (matching the home-feed shape). Members only

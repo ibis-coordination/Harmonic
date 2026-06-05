@@ -65,6 +65,43 @@ class UserListsShowTest < ActionDispatch::IntegrationTest
     assert_includes response.body, handle_of(@other)
   end
 
+  # Counts user-level SQL queries (skips SCHEMA + TRANSACTION noise).
+  def count_sql_queries(&block)
+    count = 0
+    callback = ->(_name, _start, _finish, _id, payload) do
+      next if payload[:name].to_s =~ /SCHEMA|TRANSACTION/
+      count += 1
+    end
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record", &block)
+    count
+  end
+
+  def add_member(list, suffix)
+    u = create_user(email: "m-#{suffix}@example.com", name: "M #{suffix}")
+    @tenant.add_user!(u)
+    @collective.add_user!(u)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    list.user_list_members.create!(added_by: @user, user: u)
+    u
+  end
+
+  test "show Members tab does not N+1 on member tenant_user lookups" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Friends")
+    2.times { |i| add_member(list, "small-#{i}-#{SecureRandom.hex(4)}") }
+    get "/lists/#{list.truncated_id}", headers: @headers # warm caches
+    small_count = count_sql_queries { get "/lists/#{list.truncated_id}", headers: @headers }
+
+    5.times { |i| add_member(list, "big-#{i}-#{SecureRandom.hex(4)}") }
+    large_count = count_sql_queries { get "/lists/#{list.truncated_id}", headers: @headers }
+
+    # Adding 5 more members should not add 5+ queries — allow a small slack
+    # for the broader Users / collective-membership prefetches that scale
+    # gently with member count, but reject a per-row TenantUser lookup.
+    assert_operator (large_count - small_count), :<, 5,
+      "Members tab is N+1: #{small_count} queries for 2 members, #{large_count} for 7"
+  end
+
   test "show 404s for an unknown list id" do
     get "/lists/deadbeef", headers: @headers
     assert_response :not_found

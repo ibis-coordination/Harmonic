@@ -35,6 +35,15 @@ class UsersController < ApplicationController
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
     @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+    # All collectives the viewer shares with the profile user (excluding the
+    # tenant-root main collective, which everyone is in). Computed once and
+    # reused for the panel listing AND the header count.
+    listable_common = if current_user
+      (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
+    else
+      []
+    end
+
     if params[:collective_handle]
       # Showing user in a specific collective
       sm = @showing_user.collective_members.where(collective: current_collective).first
@@ -42,16 +51,10 @@ class UsersController < ApplicationController
 
       @showing_user.collective_member = sm
       @common_collectives = [current_collective]
-      @additional_common_collective_count = if current_user
-                                              (
-                                                current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])
-                                              ).select(&:listable?).count - 1
-                                            else
-                                              0
-                                            end
+      @additional_common_collective_count = [listable_common.count - 1, 0].max
     elsif current_user
       # Showing user at the tenant level, so we want to show all common collectives between the current user and the showing user
-      @common_collectives = (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
+      @common_collectives = listable_common
       @additional_common_collective_count = 0
     else
       # Anonymous viewer has no collective membership — no common collectives to show.
@@ -59,12 +62,10 @@ class UsersController < ApplicationController
       @additional_common_collective_count = 0
     end
 
-    # Compute count of common collectives for profile display
-    if current_user && @current_user != @showing_user
-      all_common = (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
-      @common_collective_count = all_common.count
+    @common_collective_count = if current_user && @current_user != @showing_user
+      listable_common.count
     else
-      @common_collective_count = 0
+      0
     end
     # Load AI agent count for human users
     if @showing_user.human?
@@ -86,8 +87,7 @@ class UsersController < ApplicationController
 
     # "Add to your list" toggle state — already-on-list vs not. Skipped on
     # your own profile (button is hidden) and for anon viewers.
-    @target_on_my_list  = compute_target_on_my_list
-    @viewer_on_target_list = compute_viewer_on_target_list
+    @target_on_my_list, @viewer_on_target_list = compute_mutual_tune_in_state
 
     # Block state — when either direction is blocked, the tune-in button
     # and tuning-state line are replaced by a block message.
@@ -643,27 +643,33 @@ class UsersController < ApplicationController
 
   private
 
-  def compute_target_on_my_list
-    return false unless @current_user && @showing_user && @current_user.id != @showing_user.id
-    primary = UserList
-      .tenant_scoped_only(@current_tenant.id)
-      .where(owner_id: @current_user.id, is_primary: true, deleted_at: nil)
-      .first
-    return false if primary.nil?
-    primary.user_list_members.exists?(user_id: @showing_user.id)
-  end
+  # Returns [target_on_my_list, viewer_on_target_list] for the profile
+  # header's tuning-in state. Two queries: one to resolve both primary
+  # lists by owner, one OR'd existence check covering both directions.
+  def compute_mutual_tune_in_state
+    return [false, false] unless @current_user && @showing_user && @current_user.id != @showing_user.id
 
-  # The reverse direction of compute_target_on_my_list: is the current
-  # viewer on the profile user's primary list? Combined with the forward
-  # direction this gives the four mutual-tuning-in states.
-  def compute_viewer_on_target_list
-    return false unless @current_user && @showing_user && @current_user.id != @showing_user.id
-    target_primary = UserList
+    list_id_by_owner = UserList
       .tenant_scoped_only(@current_tenant.id)
-      .where(owner_id: @showing_user.id, is_primary: true, deleted_at: nil)
-      .first
-    return false if target_primary.nil?
-    target_primary.user_list_members.exists?(user_id: @current_user.id)
+      .where(owner_id: [@current_user.id, @showing_user.id], is_primary: true, deleted_at: nil)
+      .pluck(:owner_id, :id)
+      .to_h
+    my_list_id     = list_id_by_owner[@current_user.id]
+    target_list_id = list_id_by_owner[@showing_user.id]
+    return [false, false] if my_list_id.nil? && target_list_id.nil?
+
+    matches = UserListMember
+      .where(
+        "(user_list_id = ? AND user_id = ?) OR (user_list_id = ? AND user_id = ?)",
+        my_list_id, @showing_user.id, target_list_id, @current_user.id,
+      )
+      .pluck(:user_list_id)
+      .to_set
+
+    [
+      my_list_id.present? && matches.include?(my_list_id),
+      target_list_id.present? && matches.include?(target_list_id),
+    ]
   end
 
   def visible_lists_owned_by_for_profile(owner)
