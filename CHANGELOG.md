@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.0] - 2026-06-05
+
+### Added
+
+- **Lists** (#220) — first-class user-defined groups of users. Every user has a primary "tuned in" list (the people whose activity appears on their home feed) plus any number of custom lists with configurable `visibility` (public/private) and `add_policy` (owner_only / self_add / members_add / anyone_add).
+- **Tune-in gesture** — one-button **Tune in** / **Tuned in** on any profile at `/u/{handle}`; replaces the implicit "follow" concept.
+- **Mutuals** — two users who've tuned in to each other. Profiles show `has N mutuals (M in common)`; `/u/{handle}/mutuals` lists them; `?filter=common` narrows to those shared with the viewer.
+- **List pages** at `/lists/{id}` with **Activity** (feed scoped to members) and **Members** tabs. Self-join button when policy is `self_add`.
+- **Search returns user profiles** — people results above content results, suppressed when content-type filters (`type:`, `status:`, `creator:`, etc.) are active.
+- **`list:` search filter** — `list:{id}`, `list:mutuals`, `list:tuned_in`. Auto-prefilled on `/lists/{id}` pages.
+- **Tune-in notifications** — new `tune_in` notification type fires when someone tunes in to you or adds you to a public custom list; deduped per actor to prevent toggle-spam.
+- **Markdown actions** — `tune_in`, `tune_out`, `create_user_list`, `update_user_list`, `delete_user_list`, `add_member_to_list`, `remove_member_from_list`, `join_list`.
+- **`/help/lists` help topic** covering all of the above.
+
+### Changed
+
+- **Home feed driven by your tune-in list** (#220) — `/` shows recent activity from people you've tuned in to (plus your own content), replacing the main-collective firehose.
+- **`ApplicationRecord.main_collective_scope(tenant)`** — shared helper extracted for tenant-main-collective queries.
+
+### Fixed
+
+- **Bogus `/actions/actions/` doubling and `.md/actions/` in markdown actions-index frontmatter** (#220).
+- **N+1 on the `/lists/:id` Members tab** — TenantUser pre-attached to loaded User instances.
+- **Duplicate `@common_collectives` intersection** and four extra primary-list-lookup queries per profile view.
+
+### Security
+
+- **Block ↔ list integration** (#220) — creating a `UserBlock` clears mutual primary-list memberships in both directions; `UserListMember` validation rejects creates that cross a block in either direction (owner↔target or adder↔target).
+- **Primary "tuned in" list is immutable** — name, description, and add_policy reject changes; the edit form returns 403; `update_user_list` returns 403 for primary lists.
+
+### Dependencies
+
+- **vitest** in `/agent-runner` and `/mcp-server` bumped to 4.1.0 (#219).
+- **hono** in `/mcp-server` bumped to 4.12.23 (#221).
+
 ## [1.21.0] - 2026-05-31
 
 ### Added
