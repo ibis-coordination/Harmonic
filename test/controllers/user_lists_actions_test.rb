@@ -110,6 +110,21 @@ class UserListsActionsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "execute_create_user_list honors an add_policy param" do
+    post "/lists/actions/create_user_list",
+         params: { name: "Open House", add_policy: "anyone_add" }.to_json,
+         headers: @headers
+    assert_response :success
+    list = UserList.unscope(where: :collective_id).where(owner_id: @user.id, name: "Open House").first
+    assert_equal "anyone_add", list.add_policy
+  end
+
+  test "describe_create_user_list documents add_policy as a parameter" do
+    get "/lists/actions/create_user_list", headers: @headers
+    assert_response :success
+    assert_includes response.body, "add_policy"
+  end
+
   test "execute_create_user_list cannot create a primary list" do
     # is_primary should be ignored; the created list is never primary.
     post "/lists/actions/create_user_list",

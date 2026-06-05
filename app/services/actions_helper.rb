@@ -775,11 +775,13 @@ class ActionsHelper
     # hidden from non-viewers).
     "create_user_list" => {
       description: "Create a new list.",
-      params_string: "(name, description, visibility)",
+      params_string: "(name, description, visibility, add_policy)",
       params: [
         { name: "name",        type: "string", description: "The name of the list (max 80 chars)" },
         { name: "description", type: "string", required: false, description: "Optional description (max 500 chars)" },
         { name: "visibility",  type: "string", required: false, description: 'Either "public" (default) or "private"' },
+        { name: "add_policy",  type: "string", required: false,
+          description: 'One of "owner_only" (default), "self_add", "members_add", or "anyone_add"', },
       ],
       authorization: :authenticated,
     },
