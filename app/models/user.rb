@@ -55,13 +55,19 @@ class User < ApplicationRecord
       name: "tuned in",
       is_primary: true, visibility: "public",
     )
-  rescue ActiveRecord::RecordNotUnique
-    # Lost a race to a concurrent create — re-query and return the winner.
-    # Validation failures bubble up; only the uniqueness race re-queries.
-    T.must(UserList
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
+    # The uniqueness race can surface as either: the DB partial-unique-index
+    # raising RecordNotUnique, or the model's one_primary_per_owner_per_tenant
+    # validation raising RecordInvalid. If a primary now exists, that's the
+    # winner. If not, the failure was something else — re-raise so the caller
+    # sees the real error instead of a nil-must crash.
+    existing = UserList
       .tenant_scoped_only(tenant.id)
       .where(owner_id: id, is_primary: true, deleted_at: nil)
-      .first)
+      .first
+    raise e if existing.nil?
+
+    existing
   end
 
   # User IDs of mutuals (users who tune in to this user AND who this user
