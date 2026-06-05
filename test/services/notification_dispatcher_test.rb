@@ -560,6 +560,23 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_nil Notification.where(notification_type: "tune_in").last
   end
 
+  test "public custom-list add by a non-owner notifies the target with the ADDER's name" do
+    tenant, collective, owner, target = setup_tune_in_actors
+    adder = create_user(email: "adder-#{SecureRandom.hex(4)}@example.com", name: "Adder Person")
+    tenant.add_user!(adder, handle: "adder")
+    collective.add_user!(adder)
+    list = UserList.create!(creator: owner, owner: owner, name: "Open House",
+                            visibility: "public", add_policy: "anyone_add")
+
+    UserListMember.create!(user_list: list, user: target, added_by: adder)
+
+    notification = Notification.where(notification_type: "tune_in").last
+    assert_not_nil notification
+    assert_includes notification.title, "Adder Person"
+    refute_match(/#{Regexp.escape(owner.display_name)}/, notification.title)
+    assert_equal list.path, notification.url
+  end
+
   test "public custom-list add notifies the target with list URL" do
     _tenant, _collective, actor, target = setup_tune_in_actors
     list = UserList.create!(creator: actor, owner: actor, name: "Designers", visibility: "public")

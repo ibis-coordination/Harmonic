@@ -379,6 +379,29 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-user-mutuals-line", text: /\(1 in common\)/
   end
 
+  test "mutuals page redirects anonymous viewers to /login" do
+    get "/u/#{@other.handle}/mutuals"
+    assert_response :redirect
+    assert_match %r{/login}, response.location
+  end
+
+  test "mutuals page markdown renders for a profile with mutuals" do
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: @other)
+    @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: @user)
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Mutually tuned in|Mutuals/, response.body)
+    assert_match(/@#{@user.handle}/, response.body)
+  end
+
+  test "mutuals page markdown renders the empty state" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@other.handle}/mutuals", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/No mutuals/i, response.body)
+  end
+
   test "mutuals page HTML: lists the mutuals as profile cards" do
     @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: @other)
     @other.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @other, user: @user)

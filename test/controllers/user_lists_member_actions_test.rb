@@ -84,6 +84,18 @@ class UserListsMemberActionsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "remove_member_from_list"
   end
 
+  test "describe_add_member_to_list 404s on a private list the viewer cannot see" do
+    list = UserList.create!(creator: @owner, owner: @owner, name: "Hidden", visibility: "private")
+    get "/lists/#{list.truncated_id}/actions/add_member_to_list", headers: @other_h
+    assert_response :not_found
+  end
+
+  test "describe_remove_member_from_list 404s on a private list the viewer cannot see" do
+    list = UserList.create!(creator: @owner, owner: @owner, name: "Hidden", visibility: "private")
+    get "/lists/#{list.truncated_id}/actions/remove_member_from_list", headers: @other_h
+    assert_response :not_found
+  end
+
   # ============================================================
   # execute_add_member — owner_only policy
   # ============================================================

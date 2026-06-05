@@ -240,6 +240,12 @@ class UserListsActionsTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "delete_user_list"
   end
 
+  test "describe_delete_user_list 404s on a private list the viewer cannot see" do
+    list = UserList.create!(creator: @other, owner: @other, name: "Hidden", visibility: "private")
+    get "/lists/#{list.truncated_id}/actions/delete_user_list", headers: @headers
+    assert_response :not_found
+  end
+
   test "execute_delete_user_list soft-deletes a custom list owned by the actor" do
     list = UserList.create!(creator: @user, owner: @user, name: "Goner")
     post "/lists/#{list.truncated_id}/actions/delete_user_list",

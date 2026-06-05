@@ -242,3 +242,19 @@ commit when they share files; otherwise skipped.
 Coverage items #13-#16, #18 either fold naturally into a related
 commit above or skip if they don't fit cleanly. Don't force a
 catch-all "tests" commit — adds noise, harder to bisect.
+
+---
+
+## Resolution log
+
+- #1 + #2: `543621e`
+- #3 + #4 + #19: `85af02c`
+- #5 + #6 + #7: `7724864`
+- #8: dropped (theoretical race; not worth designing around)
+- #9: dropped (suspended/CI guards were UX-inconsistency papercuts, not bugs)
+- #10: `1d7492c`
+- #11: `f646818`
+- #12: `d6b13b0`
+- #13 + #14 + #15 + #18: batched coverage commit (this turn)
+- #16: skipped (existing tests cover most)
+- #17: `d1be9f8`
