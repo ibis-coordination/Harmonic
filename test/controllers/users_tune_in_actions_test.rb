@@ -42,6 +42,43 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     user.tenant_users.find_by(tenant_id: @tenant.id).handle
   end
 
+  def anon_json_headers
+    { "Accept" => "application/json", "Content-Type" => "application/json" }
+  end
+
+  def anon_md_headers
+    { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+  end
+
+  # ---- authentication ----
+  #
+  # Unauthenticated requests must never mutate state. For JSON the contract
+  # is 401; for markdown the global before-action redirects to /login.
+
+  test "execute_tune_in does not create a membership without authentication (json)" do
+    assert_no_difference -> { UserListMember.count } do
+      post "/u/#{handle_of(@target)}/actions/tune_in", params: {}.to_json, headers: anon_json_headers
+    end
+    assert_response :unauthorized
+  end
+
+  test "execute_tune_out does not destroy a membership without authentication (json)" do
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(user: @target, added_by: @user)
+    assert_no_difference -> { UserListMember.count } do
+      post "/u/#{handle_of(@target)}/actions/tune_out", params: {}.to_json, headers: anon_json_headers
+    end
+    assert_response :unauthorized
+  end
+
+  test "execute_tune_in redirects to /login without authentication (markdown)" do
+    assert_no_difference -> { UserListMember.count } do
+      post "/u/#{handle_of(@target)}/actions/tune_in", params: {}.to_json, headers: anon_md_headers
+    end
+    assert_response :redirect
+    assert_match %r{/login}, response.location
+  end
+
   # ---- describe_tune_in ----
 
   test "describe_tune_in returns the action description" do

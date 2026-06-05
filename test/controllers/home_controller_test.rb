@@ -21,6 +21,36 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "homepage hides content from tuned-in user posting in a different tenant" do
+    sign_in_as(@user, tenant: @tenant)
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    @user.primary_user_list_in!(@tenant).user_list_members.create!(user: @user, added_by: @user)
+    Collective.clear_thread_scope
+
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}", name: "Other Tenant")
+    other_tenant.add_user!(@user)
+    other_tenant.create_main_collective!(created_by: @user)
+    other_main = other_tenant.main_collective
+    other_main.add_user!(@user) unless other_main.user_is_member?(@user)
+    Tenant.scope_thread_to_tenant(subdomain: other_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: other_tenant.subdomain, handle: other_main.handle)
+    Note.create!(
+      tenant: other_tenant,
+      collective: other_main,
+      created_by: @user,
+      text: "CROSS_TENANT_LEAK_CANARY",
+      deadline: Time.current + 1.week,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/"
+    assert_response :success
+    refute_includes response.body, "CROSS_TENANT_LEAK_CANARY"
+  end
+
   test "homepage displays feed items from main collective" do
     sign_in_as(@user, tenant: @tenant)
 

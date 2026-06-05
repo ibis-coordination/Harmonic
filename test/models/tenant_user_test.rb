@@ -32,6 +32,12 @@ class TenantUserTest < ActiveSupport::TestCase
     channels = tenant_user.notification_channels_for("comment")
     assert_includes channels, "in_app"
     refute_includes channels, "email"
+
+    # tune_in defaults to in_app only — tune-ins can be high-volume and
+    # shouldn't push users to disable email entirely.
+    channels = tenant_user.notification_channels_for("tune_in")
+    assert_includes channels, "in_app"
+    refute_includes channels, "email"
   end
 
   test "notification_enabled? returns correct status" do
