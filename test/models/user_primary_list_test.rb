@@ -29,6 +29,17 @@ class UserPrimaryListTest < ActiveSupport::TestCase
     assert_equal first.id, second.id
   end
 
+  test "primary_user_list_in! lets unrelated RecordInvalid errors bubble up" do
+    # The rescue is for the uniqueness race only; an unrelated validation
+    # failure (e.g., a future schema change) must surface as itself rather
+    # than silently retrying and crashing on T.must(nil).
+    UserList.stub(:create!, ->(*_args) { raise ActiveRecord::RecordInvalid.new(UserList.new) }) do
+      assert_raises(ActiveRecord::RecordInvalid) do
+        @user.primary_user_list_in!(@tenant)
+      end
+    end
+  end
+
   test "primary_user_list_in! does not create a duplicate" do
     @user.primary_user_list_in!(@tenant)
     assert_no_difference -> { UserList.unscope(where: :collective_id).where(owner_id: @user.id, is_primary: true).count } do

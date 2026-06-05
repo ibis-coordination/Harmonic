@@ -55,8 +55,9 @@ class User < ApplicationRecord
       name: "tuned in",
       is_primary: true, visibility: "public",
     )
-  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+  rescue ActiveRecord::RecordNotUnique
     # Lost a race to a concurrent create — re-query and return the winner.
+    # Validation failures bubble up; only the uniqueness race re-queries.
     T.must(UserList
       .tenant_scoped_only(tenant.id)
       .where(owner_id: id, is_primary: true, deleted_at: nil)
