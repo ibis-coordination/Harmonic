@@ -112,6 +112,17 @@ module CapabilityCheck
     "report_content",
     # Chat
     "send_message",
+    # UserList — "tune in" gesture
+    "tune_in",
+    "tune_out",
+    # UserList — custom list CRUD
+    "create_user_list",
+    "update_user_list",
+    "delete_user_list",
+    # UserList — member management on specific lists
+    "add_member_to_list",
+    "remove_member_from_list",
+    "join_list",
   ].freeze
 
   # Check if a user has capability for an action

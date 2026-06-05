@@ -63,6 +63,115 @@ class SearchQuery
     @results ||= build_query
   end
 
+  # Phase 1 of the discoverability work: surface user profiles alongside
+  # content results. The home feed is now scoped to people you've tuned
+  # in to, so a discoverable "who exists in this tenant" surface is
+  # load-bearing. Layered as a separate query rather than indexed into
+  # SearchIndex because the User table is small enough to ILIKE per
+  # request and avoids a backfill.
+  #
+  # Matches on exact handle (highest signal) and case-insensitive name
+  # substring. Tenant-scoped; excludes self and any user with a block
+  # in either direction. Capped at PEOPLE_RESULT_LIMIT.
+  PEOPLE_RESULT_LIMIT = 10
+
+  # Param keys that, when set, signal the search is content-focused —
+  # users have no concept of status/type/subtype/voter/etc. The presence
+  # of any of these suppresses the People section entirely; the viewer's
+  # query string is clearly looking for content.
+  PEOPLE_INCOMPATIBLE_PARAM_KEYS = %i[
+    type exclude_types subtypes exclude_subtypes status
+    creator_handles exclude_creator_handles
+    read_by_handles exclude_read_by_handles
+    voter_handles exclude_voter_handles
+    participant_handles exclude_participant_handles
+    mentions_handles exclude_mentions_handles
+    replying_to_handles exclude_replying_to_handles
+    critical_mass_achieved
+    min_links max_links min_backlinks max_backlinks min_comments max_comments
+    min_readers max_readers min_voters max_voters min_participants max_participants
+    after_date before_date
+    scope exclude_scope
+  ].freeze
+
+  sig { returns(T::Array[User]) }
+  def people_results
+    @people_results ||= build_people_results
+  end
+
+  private
+
+  sig { returns(T::Boolean) }
+  def people_compatible_filters?
+    PEOPLE_INCOMPATIBLE_PARAM_KEYS.none? { |k| @params[k].present? }
+  end
+
+  sig { returns(T::Array[User]) }
+  def build_people_results
+    raw = query
+    return [] if raw.blank?
+    return [] unless people_compatible_filters?
+
+    q = T.must(raw).delete_prefix("@").strip
+    return [] if q.empty?
+
+    excluded_ids = [@current_user&.id].compact
+    if @current_user
+      excluded_ids.concat(
+        UserBlock
+          .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
+          .pluck(:blocker_id, :blocked_id)
+          .flatten,
+      )
+    end
+
+    like = "%#{ActiveRecord::Base.sanitize_sql_like(q)}%"
+    scope = TenantUser
+      .joins(:user)
+      .where(tenant_users: { tenant_id: @tenant.id, archived_at: nil })
+      .where(
+        "tenant_users.handle = ? OR tenant_users.handle ILIKE ? OR LOWER(tenant_users.display_name) LIKE LOWER(?)",
+        q, like, like,
+      )
+      .where.not(user_id: excluded_ids.uniq)
+      .where(users: { suspended_at: nil })
+      # Collective-identity users back a collective's avatar — their `path`
+      # depends on a separate Collective lookup that may return nil, so
+      # surfacing them yields broken links. Tune-in semantics don't apply
+      # to them either.
+      .where.not(users: { user_type: "collective_identity" })
+
+    # Honor the `collective:<handle>` DSL operator: narrow people results
+    # to members of that collective. Privacy gate: if the viewer can't see
+    # the collective (not a member of a non-main one), short-circuit to
+    # empty — otherwise a non-member could enumerate membership by name
+    # search.
+    if @collective
+      return [] unless accessible_collective_ids.include?(@collective.id)
+
+      scope = scope.where(
+        user_id: CollectiveMember.where(collective_id: @collective.id).select(:user_id),
+      )
+    end
+
+    # Honor `list:<id|mutuals|tuned_in>` — narrow to members of the named
+    # list. An empty resolution (no such list, no permission, or alias
+    # without a viewer) returns no people.
+    list_ids = list_filter_user_ids
+    scope = scope.where(user_id: list_ids) unless list_ids.nil?
+
+    # Eager-load the user and pre-populate each User's memoized tenant_user
+    # so callers can hit `user.handle` / `user.display_name` / `user.path`
+    # without a per-row TenantUser lookup (avoids N+1 in views and JSON).
+    scope.includes(:user).limit(PEOPLE_RESULT_LIMIT).map do |tu|
+      u = tu.user
+      u.tenant_user = tu
+      u
+    end
+  end
+
+  public
+
   sig { returns(ActiveRecord::Relation) }
   def paginated_results
     @paginated_results ||= begin
@@ -302,6 +411,39 @@ class SearchQuery
 
   private
 
+  # Resolves the `list:` DSL operator to the set of user IDs that should
+  # constrain results (both people and content). Returns:
+  #   nil            — no filter set
+  #   Array[String]  — user IDs the filter resolved to (possibly empty)
+  # Empty means "filter is set but resolves to no users" → callers should
+  # narrow results to none.
+  sig { returns(T.nilable(T::Array[String])) }
+  def list_filter_user_ids
+    return @list_filter_user_ids if defined?(@list_filter_user_ids)
+
+    value = @params[:list_id_or_alias].to_s.presence
+    return @list_filter_user_ids = nil if value.nil?
+
+    @list_filter_user_ids = case value
+    when "mutuals"
+      @current_user ? @current_user.mutual_user_ids_in(@tenant) : []
+    when "tuned_in"
+      @current_user ? UserListMember
+        .joins(:user_list)
+        .where(user_lists: {
+          tenant_id: @tenant.id, owner_id: @current_user.id,
+          is_primary: true, deleted_at: nil,
+        })
+        .pluck(:user_id) : []
+    else
+      list = UserList
+        .tenant_scoped_only(@tenant.id)
+        .where(deleted_at: nil)
+        .find_by(truncated_id: value)
+      list && list.visible_to?(@current_user) ? list.user_list_members.pluck(:user_id) : []
+    end
+  end
+
   sig { void }
   def resolve_collective_from_handle
     return if @collective.present? # Already have a collective object
@@ -347,6 +489,7 @@ class SearchQuery
     apply_time_window
     apply_basic_filters
     apply_user_filters
+    apply_list_filter
     apply_integer_filters
     apply_boolean_filters
     apply_sorting
@@ -598,6 +741,16 @@ class SearchQuery
     apply_participant_filter
     apply_mentions_filter
     apply_replying_to_filter
+  end
+
+  # `list:<id|mutuals|tuned_in>` narrows content to items authored by
+  # members of the named list.
+  sig { void }
+  def apply_list_filter
+    ids = list_filter_user_ids
+    return if ids.nil?
+
+    @relation = T.must(@relation).where(created_by_id: ids)
   end
 
   sig { void }

@@ -11,8 +11,17 @@ Showing <%= @start_position %>-<%= @end_position %> of <%= @total_count %> resul
 Total: <%= @total_count %> result<%= @total_count == 1 ? '' : 's' %>
 <% end -%>
 
-<% if @grouped_results.empty? -%>
+<% if @people_results.present? -%>
+## People (<%= @people_results.size %>)
+
+<% @people_results.each do |person| -%>
+* [<%= person.display_name.presence || person.handle %>](<%= person.path %>) (@<%= person.handle %>)
+<% end -%>
+
+<% end -%>
+<% if @grouped_results.empty? && @people_results.empty? -%>
 No results found.
+<% elsif @grouped_results.empty? -%>
 <% else -%>
 <% @grouped_results.each do |group_key, items| -%>
 ## <%= search_group_header_markdown(group_key) %> (<%= items.length %>)
@@ -50,6 +59,7 @@ Use operators to filter, sort, and group results. Plain text searches content. U
 |----------|--------|
 | `scope:` | public, shared, private |
 | `collective:` | collective handle |
+| `list:` | list id, or `mutuals` / `tuned_in` (your own) |
 | `type:` | note, decision, commitment |
 | `subtype:` | post, reminder, table, comment, statement, vote, lottery, executive, action, calendar_event, policy |
 | `status:` | open, closed |

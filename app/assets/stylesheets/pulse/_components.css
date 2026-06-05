@@ -72,6 +72,34 @@
   }
 }
 
+/* Monochrome custom icons — single SVG used as a mask so the icon takes
+   its color from the surrounding text (currentColor). Works on any
+   background (primary, secondary, danger buttons; sidebar; etc.) without
+   a separate dark-mode variant. Suitable only for single-color glyphs. */
+.pulse-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center center;
+          mask-position: center center;
+}
+
+.pulse-icon.icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.pulse-icon-tuning-in {
+  -webkit-mask-image: url(/resource-icons/tuning-in-icon.svg);
+          mask-image: url(/resource-icons/tuning-in-icon.svg);
+}
+
 /* Tri-logo icon for header branding */
 .tri-logo-icon {
   background-image: url(/tri-logo.svg);
@@ -107,9 +135,18 @@
   border: 1px solid var(--color-fg-default);
   padding: var(--button-padding-default);
   font-size: 14px;
+  line-height: 1.5;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 39px;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .pulse-action-btn:hover {
@@ -1053,12 +1090,15 @@
   border-color: var(--color-border-default);
   padding: 8px 16px;
   font-size: 14px;
+  line-height: 1.5;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 39px;
+  box-sizing: border-box;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -1785,6 +1825,14 @@ h1.pulse-resource-title {
   margin: 0;
 }
 
+/* Supplementary metadata line under the @handle: mutuals count + viewer-relative
+   counts. Same muted treatment as the handle so it reads as secondary info. */
+.pulse-user-mutuals-line {
+  font-size: 14px;
+  color: var(--color-fg-muted);
+  margin: 4px 0 0 0;
+}
+
 .pulse-user-actions {
   display: flex;
   gap: 8px;
@@ -1889,6 +1937,21 @@ a.pulse-activity-title:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Reset the padding + border-bottom inherited from the global
+     .pulse-collective-info rule (defined for the sidebar context). */
+  padding: 0;
+  border-bottom: none;
+}
+
+/* Member list on /lists/:id (Members tab). Rows are visually separated by
+   the .pulse-collective-item border-bottom — no extra gap needed, which
+   would otherwise float the borders away from adjacent rows. */
+.pulse-list-members {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .pulse-collective-name {

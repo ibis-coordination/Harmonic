@@ -78,6 +78,25 @@ class UserBlocksControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
+  test "unblock from profile page redirects back to the profile, not to /user-blocks" do
+    sign_in_as(@user, tenant: @tenant)
+    user_block = UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+    referer = "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@other_user.handle}"
+
+    delete "/user-blocks/#{user_block.id}", headers: { "HTTP_REFERER" => referer }
+
+    assert_redirected_to referer
+  end
+
+  test "unblock with no referer falls back to /user-blocks" do
+    sign_in_as(@user, tenant: @tenant)
+    user_block = UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+
+    delete "/user-blocks/#{user_block.id}"
+
+    assert_redirected_to "/user-blocks"
+  end
+
   test "user cannot delete someone else's block" do
     sign_in_as(@user, tenant: @tenant)
     third_user = create_user(email: "third-#{SecureRandom.hex(4)}@example.com", name: "Third User")

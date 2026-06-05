@@ -12,7 +12,7 @@ class ContentReportingTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
-  # === Phase 1: Report button on show pages ===
+  # === Report button on show pages ===
 
   # -- Notes --
 

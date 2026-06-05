@@ -38,7 +38,7 @@ class UserBlocksController < ApplicationController
     blocked_name = user_block.blocked.display_name || user_block.blocked.name
     user_block.destroy!
     flash[:notice] = "#{blocked_name} has been unblocked."
-    redirect_to "/user-blocks"
+    redirect_back fallback_location: "/user-blocks"
   end
 
   private

@@ -1,6 +1,7 @@
 # User: <%= @showing_user.display_name %><%= @showing_user.archived? ? ' (Archived)' : '' %>
 
 Handle: `<%= @showing_user.handle %>`
+Has [<%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>](<%= @showing_user.path %>/mutuals)<% if @mutuals_in_common_count %> (<%= @mutuals_in_common_count %> in common)<% end %>
 <% if @showing_user.ai_agent? %>
 Type: AI Agent
 <% end %>
@@ -12,12 +13,29 @@ Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.
 
 Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 <% end %>
-<% if @current_user != @showing_user && @common_collective_count > 0 %>
+<% if @current_user && @current_user.id != @showing_user.id %>
 
-<%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>
+<% if @viewer_blocks_target %>
+You have blocked <%= @showing_user.display_name %>.
+<% elsif @viewer_blocked_by_target %>
+<%= @showing_user.display_name %> has blocked you.
+<% elsif @target_on_my_list && @viewer_on_target_list %>
+You and <%= @showing_user.display_name %> are _mutually tuned in_ to each other.
+<% elsif @target_on_my_list %>
+You are _tuned in_ to <%= @showing_user.display_name %>.
+<% elsif @viewer_on_target_list %>
+<%= @showing_user.display_name %> is _tuned in_ to you.
+<% else %>
+You are _not tuned in_ to <%= @showing_user.display_name %>.
+<% end %>
+<% end %>
+<% blocked_either_way = @viewer_blocks_target || @viewer_blocked_by_target %>
+<% if @current_user != @showing_user && @common_collective_count > 0 && !blocked_either_way %>
+
+You and <%= @showing_user.display_name %> have <%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>.
 <% end %>
 
-<% if @current_user != @showing_user && @common_collectives.length > 0 %>
+<% if @current_user != @showing_user && @common_collectives.length > 0 && !blocked_either_way %>
 ## Common Collectives
 
 <% @common_collectives.each do |collective| %>
@@ -27,7 +45,7 @@ Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>
 And <%= @additional_common_collective_count %> more...
 <% end %>
 <% end %>
-<% if @proximity_users.present? %>
+<% if @proximity_users.present? && !blocked_either_way %>
 
 ## Social Proximity (<%= @proximity_users.size %>)
 
@@ -35,7 +53,7 @@ And <%= @additional_common_collective_count %> more...
 * [<%= user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
 <% end %>
 <% end %>
-<% if @feed_items.present? %>
+<% if @feed_items.present? && !blocked_either_way %>
 
 ## Recent Activity (<%= @feed_items.size %>)
 

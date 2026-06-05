@@ -27,7 +27,14 @@ module MarkdownHelper
       ActionAuthorization.authorized?(action[:name], current_user, context)
     end
 
-    # Build full action info with path and params
+    # Build full action info with path and params.
+    # Strip a trailing .md (explicit-format requests) and a trailing /actions
+    # (when the request is itself the actions index endpoint) so the
+    # advertised URL is the resource path, not the page path. Without this,
+    # /lists/actions.md publishes /lists/actions.md/actions/<name> (404) and
+    # /lists/actions publishes /lists/actions/actions/<name> (also 404).
+    base_path = request.path.sub(/\.md\z/, "").sub(%r{/actions\z}, "")
+
     all_actions.map do |action|
       action_name = action[:name]
       definition = ActionsHelper.action_definition(action_name)
@@ -35,7 +42,7 @@ module MarkdownHelper
       {
         name: action_name,
         description: action[:description] || definition&.dig(:description) || "",
-        path: "#{request.path}/actions/#{action_name}",
+        path: "#{base_path}/actions/#{action_name}",
         params: (definition&.dig(:params) || []).map do |param|
           {
             name: param[:name],
@@ -106,7 +113,8 @@ module MarkdownHelper
       collective: instance_variable_get(:@current_collective),
       resource: instance_variable_get(:@note) ||
                 instance_variable_get(:@decision) ||
-                instance_variable_get(:@commitment),
+                instance_variable_get(:@commitment) ||
+                instance_variable_get(:@list),
       target_user: instance_variable_get(:@showing_user),
       representation_session: instance_variable_get(:@current_representation_session),
     }
@@ -123,6 +131,7 @@ module MarkdownHelper
       resource: instance_variable_get(:@note) ||
                 instance_variable_get(:@decision) ||
                 instance_variable_get(:@commitment),
+      showing_user: instance_variable_get(:@showing_user),
     }
   end
 end

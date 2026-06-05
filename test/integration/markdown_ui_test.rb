@@ -1091,7 +1091,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     collective_member&.remove_role!('admin')
   end
 
-  # === Phase 2: User Management Actions ===
+  # === User Management Actions ===
 
   test "GET /u/:handle/settings returns 200 markdown with actions in frontmatter" do
     get "/u/#{@user.handle}/settings", headers: @headers
@@ -1592,7 +1592,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     destroy_user!(other_ai_agent)
   end
 
-  # === Phase 3: Admin Panel Markdown API ===
+  # === Admin Panel Markdown API ===
 
   test "GET /admin redirects to appropriate admin section for admin user" do
     # Make user an admin
@@ -1949,7 +1949,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     destroy_user!(ai_agent)
   end
 
-  # === Phase 4: File Attachments Markdown API ===
+  # === File Attachments Markdown API ===
 
   test "Note show page displays attachments section when attachments exist" do
     note = create_note(text: "Note with attachment")

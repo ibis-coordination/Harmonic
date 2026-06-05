@@ -743,6 +743,115 @@ class ActionsHelper
       params: [],
       authorization: :self,
     },
+
+    # UserList — "tune in" gesture (adds the target to the actor's primary list).
+    # Authorization hides the actions on the actor's own profile (where
+    # target_user == current_user). Permissive when no target_user is in
+    # context — matches the convention used by :self / :resource_owner.
+    "tune_in" => {
+      description: "Tune in to this user.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        target = context[:target_user]
+        target.nil? || target.id != user.id
+      },
+    },
+    "tune_out" => {
+      description: "Tune out from this user.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        target = context[:target_user]
+        target.nil? || target.id != user.id
+      },
+    },
+
+    # UserList — custom list CRUD.
+    # Mutations on existing lists require ownership; visibility-hiding for
+    # private lists is enforced controller-side via set_list (existence is
+    # hidden from non-viewers).
+    "create_user_list" => {
+      description: "Create a new list.",
+      params_string: "(name, description, visibility, add_policy)",
+      params: [
+        { name: "name",        type: "string", description: "The name of the list (max 80 chars)" },
+        { name: "description", type: "string", required: false, description: "Optional description (max 500 chars)" },
+        { name: "visibility",  type: "string", required: false, description: 'Either "public" (default) or "private"' },
+        { name: "add_policy",  type: "string", required: false,
+          description: 'One of "owner_only" (default), "self_add", "members_add", or "anyone_add"', },
+      ],
+      authorization: :authenticated,
+    },
+    "update_user_list" => {
+      description: "Update this list.",
+      params_string: "(name, description, visibility, add_policy)",
+      params: [
+        { name: "name",        type: "string", required: false, description: "The name of the list (max 80 chars)" },
+        { name: "description", type: "string", required: false, description: "The description (max 500 chars)" },
+        { name: "visibility",  type: "string", required: false, description: 'Either "public" or "private"' },
+        { name: "add_policy",  type: "string", required: false,
+          description: 'One of "owner_only", "self_add", "members_add", or "anyone_add"', },
+      ],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        resource.is_a?(UserList) ? resource.owner_id == user.id : true
+      },
+    },
+    "delete_user_list" => {
+      description: "Delete this list.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        return true unless resource.is_a?(UserList)
+        resource.owner_id == user.id && !resource.is_primary
+      },
+    },
+    "add_member_to_list" => {
+      description: "Add a user to this list.",
+      params_string: "(user_handle)",
+      params: [
+        { name: "user_handle", type: "string", required: true, description: "The handle of the user to add (without the leading @)" },
+      ],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        return true unless resource.is_a?(UserList)
+        # Owner always sees it; can_add?(self, self) covers self_add and anyone_add.
+        # members_add additionally lets list members see it (they can add others).
+        next true if resource.can_add?(actor: user, target: user)
+        resource.add_policy == "members_add" &&
+          resource.user_list_members.exists?(user_id: user.id)
+      },
+    },
+    "join_list" => {
+      description: "Join this list (add yourself as a member). No params — the actor is always the new member.",
+      params_string: "()",
+      params: [],
+      authorization: ->(user, context) {
+        return false unless user
+        resource = context[:resource]
+        return false unless resource.is_a?(UserList)
+        # You can join if the policy lets you self-add AND you aren't on the list yet.
+        # Owners of self_add/anyone_add lists technically qualify too, but `add_member_to_list`
+        # is the more general affordance for them and stays visible.
+        next false if resource.user_list_members.exists?(user_id: user.id)
+        resource.can_add?(actor: user, target: user)
+      },
+    },
+    "remove_member_from_list" => {
+      description: "Remove a user from this list. Anyone can remove themselves; only the owner can remove others.",
+      params_string: "(user_handle)",
+      params: [
+        { name: "user_handle", type: "string", required: true, description: "The handle of the user to remove (without the leading @)" },
+      ],
+      authorization: ->(user, _context) { user.present? },
+    },
   }.freeze
 
   # Route to actions mapping for actions index pages.
@@ -1090,11 +1199,61 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["add_attachment"][:description], },
       ],
     },
+    "/u/:handle" => {
+      controller_actions: ["users#show"],
+      actions: [],
+      conditional_actions: [
+        {
+          name: "tune_in",
+          condition: lambda { |context|
+            viewer = context[:user]
+            target = context[:showing_user]
+            next false if viewer.nil? || target.nil? || viewer.id == target.id
+            !UserBlock.between?(viewer, target)
+          },
+        },
+        {
+          name: "tune_out",
+          condition: lambda { |context|
+            viewer = context[:user]
+            target = context[:showing_user]
+            next false if viewer.nil? || target.nil? || viewer.id == target.id
+            !UserBlock.between?(viewer, target)
+          },
+        },
+      ],
+    },
     "/u/:handle/settings" => {
       controller_actions: ["users#settings"],
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
           description: ACTION_DEFINITIONS["update_profile"][:description], },
+      ],
+    },
+    "/u/:handle/lists" => {
+      controller_actions: ["user_lists#index"],
+      actions: [],
+    },
+    "/lists" => {
+      controller_actions: ["user_lists#actions_index_new"],
+      actions: [
+        { name: "create_user_list", params_string: ACTION_DEFINITIONS["create_user_list"][:params_string],
+          description: ACTION_DEFINITIONS["create_user_list"][:description], },
+      ],
+    },
+    "/lists/:list_id" => {
+      controller_actions: ["user_lists#show"],
+      actions: [
+        { name: "update_user_list", params_string: ACTION_DEFINITIONS["update_user_list"][:params_string],
+          description: ACTION_DEFINITIONS["update_user_list"][:description], },
+        { name: "delete_user_list", params_string: ACTION_DEFINITIONS["delete_user_list"][:params_string],
+          description: ACTION_DEFINITIONS["delete_user_list"][:description], },
+        { name: "add_member_to_list", params_string: ACTION_DEFINITIONS["add_member_to_list"][:params_string],
+          description: ACTION_DEFINITIONS["add_member_to_list"][:description], },
+        { name: "remove_member_from_list", params_string: ACTION_DEFINITIONS["remove_member_from_list"][:params_string],
+          description: ACTION_DEFINITIONS["remove_member_from_list"][:description], },
+        { name: "join_list", params_string: ACTION_DEFINITIONS["join_list"][:params_string],
+          description: ACTION_DEFINITIONS["join_list"][:description], },
       ],
     },
     "/u/:handle/settings/tokens/new" => {

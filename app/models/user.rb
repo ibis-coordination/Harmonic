@@ -30,6 +30,88 @@ class User < ApplicationRecord
   has_many :user_blocks_given, class_name: "UserBlock", foreign_key: "blocker_id", dependent: :destroy
   has_many :user_blocks_received, class_name: "UserBlock", foreign_key: "blocked_id", dependent: :destroy
 
+  # UserList associations
+  has_many :created_user_lists, class_name: "UserList", foreign_key: :creator_id,
+                                dependent: :restrict_with_exception
+  has_many :owned_user_lists,   class_name: "UserList", foreign_key: :owner_id,
+                                dependent: :restrict_with_exception
+  has_many :user_list_memberships, class_name: "UserListMember", dependent: :destroy
+  has_many :lists_im_on, through: :user_list_memberships, source: :user_list
+
+  # Returns the user's primary list in `tenant`, creating one in
+  # `tenant.main_collective` if absent. Idempotent and race-safe: a
+  # concurrent create that wins gets re-queried.
+  sig { params(tenant: Tenant).returns(UserList) }
+  def primary_user_list_in!(tenant)
+    existing = UserList
+      .tenant_scoped_only(tenant.id)
+      .where(owner_id: id, is_primary: true, deleted_at: nil)
+      .first
+    return existing if existing
+
+    UserList.create!(
+      creator: self, owner: self,
+      tenant: tenant, collective: tenant.main_collective,
+      name: "tuned in",
+      is_primary: true, visibility: "public",
+    )
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
+    # The uniqueness race can surface as either: the DB partial-unique-index
+    # raising RecordNotUnique, or the model's one_primary_per_owner_per_tenant
+    # validation raising RecordInvalid. If a primary now exists, that's the
+    # winner. If not, the failure was something else — re-raise so the caller
+    # sees the real error instead of a nil-must crash.
+    existing = UserList
+      .tenant_scoped_only(tenant.id)
+      .where(owner_id: id, is_primary: true, deleted_at: nil)
+      .first
+    raise e if existing.nil?
+
+    existing
+  end
+
+  # User IDs of mutuals (users who tune in to this user AND who this user
+  # tunes in to) within the given tenant.
+  sig { params(tenant: Tenant).returns(T::Array[String]) }
+  def mutual_user_ids_in(tenant)
+    outbound_ids = UserListMember
+      .joins(:user_list)
+      .where(user_lists: { tenant_id: tenant.id, owner_id: id, is_primary: true, deleted_at: nil })
+      .pluck(:user_id)
+    return [] if outbound_ids.empty?
+
+    inbound_owner_ids = UserList
+      .tenant_scoped_only(tenant.id)
+      .where(is_primary: true, deleted_at: nil)
+      .joins(:user_list_members)
+      .where(user_list_members: { user_id: id })
+      .pluck(:owner_id)
+
+    outbound_ids & inbound_owner_ids
+  end
+
+  sig { params(tenant: Tenant).returns(Integer) }
+  def mutuals_count_in(tenant)
+    mutual_user_ids_in(tenant).size
+  end
+
+  # Returns Users with their TenantUser pre-attached so callers can hit
+  # `handle` / `display_name` / `path` without an extra query per row.
+  sig { params(tenant: Tenant).returns(T::Array[User]) }
+  def mutuals_in(tenant)
+    ids = mutual_user_ids_in(tenant)
+    return [] if ids.empty?
+
+    TenantUser
+      .where(tenant_id: tenant.id, user_id: ids)
+      .includes(:user)
+      .map do |tu|
+        u = tu.user
+        u.tenant_user = tu
+        u
+      end
+  end
+
   # Trustee grant associations
   # granted_trustee_grants: grants where this user is the granting party (e.g., an AI agent granting authority)
   has_many :granted_trustee_grants, class_name: "TrusteeGrant",
@@ -579,11 +661,11 @@ class User < ApplicationRecord
     omni_auth_identity&.otp_enabled || false
   end
 
-  # Phase-4 activation predicate. True when this user satisfies all three
-  # activation checks for the given tenant. Only meaningful for human users;
-  # AI agents and collective_identity users are NOT subject to activation
-  # (agents inherit via their parent's activation enforced at creation;
-  # collective_identity users are system-generated, not real users).
+  # True when this user satisfies all three activation checks for the given
+  # tenant. Only meaningful for human users; AI agents and collective_identity
+  # users are NOT subject to activation (agents inherit via their parent's
+  # activation enforced at creation; collective_identity users are
+  # system-generated, not real users).
   #
   # Sys/app admins are platform operators, exempt from all activation checks.
   sig { params(tenant: Tenant).returns(T::Boolean) }

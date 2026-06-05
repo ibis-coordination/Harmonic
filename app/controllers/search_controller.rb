@@ -16,6 +16,7 @@ class SearchController < ApplicationController
     @grouped_results = @search.grouped_results
     @total_count = @search.total_count
     @next_cursor = @search.next_cursor
+    @people_results = @search.people_results
 
     # Track offset for display purposes (separate from pagination logic)
     @offset = (params[:offset].presence || 0).to_i
@@ -67,6 +68,18 @@ class SearchController < ApplicationController
       total_count: @total_count,
       next_cursor: @next_cursor,
       results: @results.map(&:api_json),
+      people: @people_results.map { |u| person_json(u) },
+    }
+  end
+
+  def person_json(user)
+    # `user.tenant_user` is pre-populated by SearchQuery#people_results so
+    # this needs no extra query.
+    {
+      id: user.id,
+      handle: user.handle,
+      display_name: user.display_name.presence || user.name,
+      path: user.path,
     }
   end
 end

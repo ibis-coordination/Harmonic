@@ -34,7 +34,16 @@ class UsersController < ApplicationController
     @showing_user = tu.user
     @showing_user.tenant_user = tu
     @page_title = @showing_user.display_name
-    @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+    # All collectives the viewer shares with the profile user (excluding the
+    # tenant-root main collective, which everyone is in). Computed once and
+    # reused for the panel listing AND the header count.
+    listable_common = if current_user
+      (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
+    else
+      []
+    end
+
     if params[:collective_handle]
       # Showing user in a specific collective
       sm = @showing_user.collective_members.where(collective: current_collective).first
@@ -42,16 +51,10 @@ class UsersController < ApplicationController
 
       @showing_user.collective_member = sm
       @common_collectives = [current_collective]
-      @additional_common_collective_count = if current_user
-                                              (
-                                                current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])
-                                              ).select(&:listable?).count - 1
-                                            else
-                                              0
-                                            end
+      @additional_common_collective_count = [listable_common.count - 1, 0].max
     elsif current_user
       # Showing user at the tenant level, so we want to show all common collectives between the current user and the showing user
-      @common_collectives = (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
+      @common_collectives = listable_common
       @additional_common_collective_count = 0
     else
       # Anonymous viewer has no collective membership — no common collectives to show.
@@ -59,12 +62,10 @@ class UsersController < ApplicationController
       @additional_common_collective_count = 0
     end
 
-    # Compute count of common collectives for profile display
-    if current_user && @current_user != @showing_user
-      all_common = (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
-      @common_collective_count = all_common.count
+    @common_collective_count = if current_user && @current_user != @showing_user
+      listable_common.count
     else
-      @common_collective_count = 0
+      0
     end
     # Load AI agent count for human users
     if @showing_user.human?
@@ -79,16 +80,69 @@ class UsersController < ApplicationController
     # them — not visible to other logged-in users, not visible to anon.
     load_proximity_connections if @current_user == @showing_user
 
+    # Lists owned by the profile user that the viewer can see, for the
+    # "Lists" accordion. Reuses the same visibility logic as
+    # UserListsController#index, kept narrow so private lists never leak.
+    @showing_user_lists = visible_lists_owned_by_for_profile(@showing_user)
+
+    # "Add to your list" toggle state — already-on-list vs not. Skipped on
+    # your own profile (button is hidden) and for anon viewers.
+    @target_on_my_list, @viewer_on_target_list = compute_mutual_tune_in_state
+
+    # Block state — when either direction is blocked, the tune-in button
+    # and tuning-state line are replaced by a block message.
+    @viewer_blocks_target     = @current_user.present? && @current_user.blocked?(@showing_user)
+    @viewer_blocked_by_target = @current_user.present? && @current_user.blocked_by?(@showing_user)
+
+    target_mutual_ids = @showing_user.mutual_user_ids_in(@current_tenant)
+    @mutuals_count = target_mutual_ids.size
+
+    # Mutuals shared between the viewer and the profile user. Hidden on
+    # the viewer's own profile (the value would just equal their own
+    # mutuals count) and for anon viewers.
+    @mutuals_in_common_count = if @current_user && @current_user.id != @showing_user.id
+      viewer_mutual_ids = @current_user.mutual_user_ids_in(@current_tenant)
+      (target_mutual_ids & viewer_mutual_ids).size
+    end
+
     # Build user's main collective (public) content timeline
-    main_cid = @current_tenant.main_collective_id
     @feed_items = FeedBuilder.new(
-      notes_scope: Note.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id),
-      decisions_scope: Decision.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id),
-      commitments_scope: Commitment.unscope_collective
-        .where(collective_id: main_cid, created_by_id: @showing_user.id)
+      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+      decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
     ).feed_items
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  def mutuals
+    @sidebar_mode = "minimal"
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: :not_found if tu.nil?
+
+    @showing_user = tu.user
+    @showing_user.tenant_user = tu
+
+    # ?filter=common narrows the list to mutuals shared with the viewer
+    # (only meaningful for a logged-in viewer who isn't the profile user).
+    can_apply_common = @current_user.present? && @current_user.id != @showing_user.id
+    @filter = (params[:filter] == "common" && can_apply_common) ? "common" : nil
+    @page_title = @filter == "common" ? "Mutuals in common · #{@showing_user.display_name}" : "Mutuals · #{@showing_user.display_name}"
+
+    ids = @showing_user.mutual_user_ids_in(@current_tenant)
+    ids &= @current_user.mutual_user_ids_in(@current_tenant) if @filter == "common"
+
+    @mutuals = if ids.empty?
+      []
+    else
+      TenantUser
+        .where(tenant_id: @current_tenant.id, user_id: ids)
+        .includes(:user)
+        .map { |t| u = t.user; u.tenant_user = t; u }
+    end
 
     respond_to do |format|
       format.html
@@ -527,7 +581,130 @@ class UsersController < ApplicationController
     end
   end
 
+  # ---- UserList: "tune in" gesture ----
+
+  def describe_tune_in
+    return render "shared/404", status: :not_found if showing_user_from_handle.nil?
+
+    render_action_description(ActionsHelper.action_description("tune_in", resource: showing_user_from_handle))
+  end
+
+  def execute_tune_in
+    target = showing_user_from_handle
+    return list_action_not_found("tune_in") if target.nil?
+    return list_action_unauthenticated("tune_in") if @current_user.nil?
+
+    if target.id == @current_user.id
+      return render_action_error({
+                                   action_name: "tune_in",
+                                   resource: target,
+                                   error: "You can't tune in to yourself.",
+                                 })
+    end
+
+    list = @current_user.primary_user_list_in!(@current_tenant)
+    membership = list.user_list_members.find_or_initialize_by(user_id: target.id)
+    return render_action_success({ action_name: "tune_in", resource: target, result: "Already tuned in." }) if membership.persisted?
+
+    membership.added_by = @current_user
+    if membership.save
+      render_action_success({ action_name: "tune_in", resource: target, result: "Tuned in." })
+    else
+      render_action_error({
+                            action_name: "tune_in",
+                            resource: target,
+                            error: membership.errors.full_messages.join(", "),
+                          })
+    end
+  end
+
+  def describe_tune_out
+    return render "shared/404", status: :not_found if showing_user_from_handle.nil?
+
+    render_action_description(ActionsHelper.action_description("tune_out", resource: showing_user_from_handle))
+  end
+
+  def execute_tune_out
+    target = showing_user_from_handle
+    return list_action_not_found("tune_out") if target.nil?
+    return list_action_unauthenticated("tune_out") if @current_user.nil?
+
+    list = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: @current_user.id, is_primary: true, deleted_at: nil)
+      .first
+
+    membership = list&.user_list_members&.find_by(user_id: target.id)
+    membership&.destroy!
+
+    result = membership ? "Tuned out." : "Not tuned in."
+    render_action_success({ action_name: "tune_out", resource: target, result: result })
+  end
+
   private
+
+  # Returns [target_on_my_list, viewer_on_target_list] for the profile
+  # header's tuning-in state. Two queries: one to resolve both primary
+  # lists by owner, one OR'd existence check covering both directions.
+  def compute_mutual_tune_in_state
+    return [false, false] unless @current_user && @showing_user && @current_user.id != @showing_user.id
+
+    list_id_by_owner = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: [@current_user.id, @showing_user.id], is_primary: true, deleted_at: nil)
+      .pluck(:owner_id, :id)
+      .to_h
+    my_list_id     = list_id_by_owner[@current_user.id]
+    target_list_id = list_id_by_owner[@showing_user.id]
+    return [false, false] if my_list_id.nil? && target_list_id.nil?
+
+    matches = UserListMember
+      .where(
+        "(user_list_id = ? AND user_id = ?) OR (user_list_id = ? AND user_id = ?)",
+        my_list_id, @showing_user.id, target_list_id, @current_user.id,
+      )
+      .pluck(:user_list_id)
+      .to_set
+
+    [
+      my_list_id.present? && matches.include?(my_list_id),
+      target_list_id.present? && matches.include?(target_list_id),
+    ]
+  end
+
+  def visible_lists_owned_by_for_profile(owner)
+    base = UserList
+      .tenant_scoped_only(@current_tenant.id)
+      .where(owner_id: owner.id, deleted_at: nil)
+      .includes(:user_list_members, :members, :collective)
+      .order(is_primary: :desc, created_at: :asc)
+
+    return base.to_a if @current_user && @current_user.id == owner.id
+    return [] if @current_user.nil?
+
+    coll_ids = CollectiveMember
+      .where(user_id: @current_user.id)
+      .joins(:collective).where(collectives: { tenant_id: @current_tenant.id })
+      .pluck(:collective_id)
+    base.where(visibility: "public", collective_id: coll_ids).to_a
+  end
+
+  def showing_user_from_handle
+    return @showing_user_from_handle if defined?(@showing_user_from_handle)
+
+    tu = @current_tenant.tenant_users.find_by(handle: params[:handle])
+    @showing_user_from_handle = tu&.user
+  end
+
+  def list_action_not_found(action_name)
+    render_action_error({ action_name: action_name, error: "User not found.", status: :not_found })
+  end
+
+  def list_action_unauthenticated(action_name)
+    render_action_error({ action_name: action_name, error: "You must be logged in.", status: :unauthorized })
+  end
+
+  # ---- end UserList action helpers ----
 
   def token_authenticated_action?
     action_name == "confirm_email"
@@ -539,10 +716,14 @@ class UsersController < ApplicationController
     all_connections = @showing_user.most_proximate_users(tenant_id: current_tenant.id, limit: 30)
 
     @proximity_users = all_connections.filter_map do |user, _score|
-      next if user.nil? || user.archived?
+      next if user.nil?
 
+      # Look up the TenantUser first. Without one, the user is no longer in
+      # this tenant (e.g., removed since the proximity cache was warmed) —
+      # skip them. User#archived? raises if tenant_user is nil, so don't
+      # call it before the lookup.
       tu = user.tenant_users.find_by(tenant_id: current_tenant.id)
-      next if tu.nil?
+      next if tu.nil? || tu.archived?
 
       user.tenant_user = tu
       user

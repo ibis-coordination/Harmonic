@@ -47,6 +47,16 @@ class ApplicationRecord < ActiveRecord::Base
     unscope(where: :collective_id)
   end
 
+  # Constrain a query to the tenant's main collective regardless of the
+  # request's current collective scope. Drops the default collective filter,
+  # then re-applies it to `main_collective_id`. Use for feeds and listings
+  # that should always show main-collective content (e.g. the home feed,
+  # the per-list feed).
+  sig { params(tenant: Tenant).returns(T.untyped) }
+  def self.main_collective_scope(tenant)
+    unscope_collective.where(collective_id: tenant.main_collective_id)
+  end
+
   # Query with only tenant scoping (bypasses ALL other default scopes including soft-delete).
   # Use this instead of `unscoped` when you need cross-collective access within a tenant
   # AND you need to find records regardless of deletion status (e.g., audit trails, path lookups).

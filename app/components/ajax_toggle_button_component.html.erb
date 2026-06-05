@@ -1,0 +1,11 @@
+<%= tag.button type: "button", class: current_class, title: @title,
+      data: {
+        controller: "ajax-toggle",
+        action: "click->ajax-toggle#toggle",
+        ajax_toggle_url_value: current_url,
+        ajax_toggle_alt_url_value: alt_url,
+        ajax_toggle_alt_html_value: alt_html,
+        ajax_toggle_alt_class_value: alt_class,
+      } do %>
+  <%= current_html %>
+<% end %>

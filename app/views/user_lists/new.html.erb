@@ -1,0 +1,10 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Your lists', "#{@current_user.path}/lists"],
+  'New'
+] %>
+
+<article class="pulse-resource-detail">
+  <h1 class="pulse-resource-title">New list</h1>
+  <%= render 'form', form_url: '/lists/actions/create_user_list', submit_label: 'Create list' %>
+</article>

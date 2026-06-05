@@ -1095,7 +1095,7 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.is_trusted_as?(identity_user)
   end
 
-  # === Auto-creation of TrusteeGrant for AiAgents (Phase 7) ===
+  # === Auto-creation of TrusteeGrant for AiAgents ===
 
   test "creating a ai_agent auto-creates TrusteeGrant for parent" do
     ai_agent = User.create!(

@@ -1,0 +1,9 @@
+# Lists by <%= @owner.display_name %>
+
+<% if @lists.empty? %>
+_No lists._
+<% else %>
+<% @lists.each do |list| %>
+* [<%= list.display_name %>](<%= list.path %>) — <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %><%= list.visibility == "private" ? " (private)" : "" %>
+<% end %>
+<% end %>

@@ -467,7 +467,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  # === Phase 5: Admin enhancements ===
+  # === Admin enhancements ===
 
   test "dashboard shows pending report count" do
     Collective.scope_thread_to_collective(subdomain: @primary_tenant.subdomain, handle: @primary_collective.handle)

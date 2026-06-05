@@ -7,6 +7,7 @@
        data-header-search-collective-handle-value="<%= search_is_workspace ? '' : search_collective&.handle %>"
        data-header-search-collective-name-value="<%= search_is_workspace ? '' : search_collective&.name %>"
        data-header-search-workspace-value="<%= search_is_workspace ? 'true' : '' %>"
+       data-header-search-list-id-value="<%= @current_list_for_search&.truncated_id %>"
        class="header-search-wrapper">
     <button type="button"
             class="header-search-toggle"
@@ -52,6 +53,10 @@
         <li>
           <%= octicon 'person' %>
           <a href="<%= @current_user.path %>">Profile</a>
+        </li>
+        <li>
+          <%= octicon 'list-unordered' %>
+          <a href="<%= @current_user.path %>/lists">Your lists</a>
         </li>
         <% if @current_tenant&.ai_agents_enabled? %>
           <li>

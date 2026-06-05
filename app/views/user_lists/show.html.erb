@@ -1,0 +1,145 @@
+<% is_owner = @current_user && @current_user.id == @list.owner_id %>
+<% owner_handle = @handles_by_user_id[@list.owner_id] %>
+
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  [@list.owner.display_name, @list.owner.path],
+  ['Lists', "/u/#{owner_handle}/lists"],
+  @list.display_name
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+    <div>
+      <h1 class="pulse-resource-title">
+        <% if @list.is_primary %><%= pulse_icon('tuning_in') %><% end %>
+        <%= @list.display_name %>
+        <% if @list.private? %>
+          <span class="pulse-badge pulse-badge-muted" title="Only you can see this list">private</span>
+        <% end %>
+      </h1>
+      <p class="pulse-resource-meta">
+        Owned by <a href="<%= @list.owner.path %>"><%= @list.owner.display_name %></a>
+        &middot; <%= @members.size %> member<%= @members.size == 1 ? "" : "s" %>
+      </p>
+      <% if @list.description.present? %>
+        <p class="pulse-resource-description"><%= @list.description %></p>
+      <% end %>
+    </div>
+    <% if is_owner && !@list.is_primary %>
+      <div class="pulse-user-actions" style="flex-shrink: 0;">
+        <a href="<%= @list.path %>/edit" class="pulse-action-btn-secondary">
+          <%= octicon 'pencil', height: 14 %> Edit
+        </a>
+      </div>
+    <% end %>
+  </header>
+
+  <nav class="pulse-list-tabs" style="margin-top: 20px; border-bottom: 1px solid var(--color-border-default); display: flex; gap: 4px;">
+    <a href="<%= @list.path %>"
+       <% if @active_tab == "feed" %>aria-current="page"<% end %>
+       class="pulse-list-tab"
+       style="padding: 8px 16px; text-decoration: none; color: var(--color-fg-default); border-bottom: 2px solid <%= @active_tab == 'feed' ? 'var(--color-fg-default)' : 'transparent' %>; font-weight: <%= @active_tab == 'feed' ? '600' : '400' %>;">
+      Activity
+    </a>
+    <a href="<%= @list.path %>?tab=members"
+       <% if @active_tab == "members" %>aria-current="page"<% end %>
+       class="pulse-list-tab"
+       style="padding: 8px 16px; text-decoration: none; color: var(--color-fg-default); border-bottom: 2px solid <%= @active_tab == 'members' ? 'var(--color-fg-default)' : 'transparent' %>; font-weight: <%= @active_tab == 'members' ? '600' : '400' %>;">
+      Members (<%= @members.size %>)
+    </a>
+  </nav>
+
+  <% if @active_tab == "feed" %>
+    <section style="margin-top: 24px;">
+      <% if @feed_items.present? %>
+        <div class="pulse-feed" style="padding: 0;">
+          <% @feed_items.each do |feed_item| %>
+            <%= render 'pulse/feed_item', feed_item: feed_item %>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="pulse-feed-empty">
+          <p>No recent activity from members of this list.</p>
+        </div>
+      <% end %>
+    </section>
+  <% else %>
+    <%
+      current_user_is_member = @current_user && @list.user_list_members.exists?(user_id: @current_user.id)
+      # The owner always sees the add-anyone form. A non-owner sees the
+      # add-anyone form only when they're actually permitted to add OTHERS:
+      # members of a members_add list, or anyone on an anyone_add list.
+      show_add_anyone_form = is_owner ||
+        (@current_user && @list.add_policy == "anyone_add") ||
+        (@current_user && @list.add_policy == "members_add" && current_user_is_member)
+      # A non-owner non-member on a self_add list gets a single Join button
+      # — typing your own handle into a text input is silly UX.
+      show_join_button = @current_user && !is_owner && !current_user_is_member && @list.add_policy == "self_add"
+    %>
+
+    <% if show_add_anyone_form %>
+      <section style="margin-top: 16px;">
+        <%= form_with(url: "#{@list.path}/actions/add_member_to_list", method: :post, class: "pulse-form") do |form| %>
+          <div class="pulse-form-group">
+            <label class="pulse-form-label" for="add_member_handle">Add a member</label>
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+              <input type="text" id="add_member_handle" name="user_handle"
+                     class="pulse-form-input" required autocomplete="off"
+                     placeholder="@handle" style="flex: 1;">
+              <button type="submit" class="pulse-action-btn">Add</button>
+            </div>
+            <% if is_owner %>
+              <p class="pulse-form-hint">
+                <% case @list.add_policy
+                   when "owner_only"   %>Only you can add members.
+                <% when "self_add"    %>You can add anyone. Others can add themselves.
+                <% when "members_add" %>You and other list members can add anyone in the collective.
+                <% when "anyone_add"  %>Anyone in the collective can add anyone.
+                <% end %>
+              </p>
+            <% end %>
+          </div>
+        <% end %>
+      </section>
+    <% elsif show_join_button %>
+      <section style="margin-top: 16px;">
+        <%= button_to "#{@list.path}/actions/join_list",
+              method: :post,
+              class: "pulse-action-btn" do %>
+          <%= octicon 'plus', height: 14 %> Join
+        <% end %>
+      </section>
+    <% end %>
+
+    <section style="margin-top: 24px;">
+      <% if @members.empty? %>
+        <p class="pulse-body-text-muted">No members yet.</p>
+      <% else %>
+        <ul class="pulse-list-members">
+          <% @members.each do |member| %>
+            <% member_handle = @handles_by_user_id[member.id] %>
+            <li class="pulse-collective-item">
+              <%= render "shared/avatar_div", record: member, variant: :thumbnail %>
+              <div class="pulse-collective-info" style="flex: 1;">
+                <a href="<%= member.path %>" class="pulse-collective-name"><%= member.display_name %></a>
+                <span class="pulse-body-text-muted">@<%= member_handle %></span>
+              </div>
+              <% can_remove = is_owner || (@current_user && @current_user.id == member.id) %>
+              <% if can_remove %>
+                <%= button_to "#{@list.path}/actions/remove_member_from_list",
+                      method: :post,
+                      params: { user_handle: member_handle },
+                      form: { data: { turbo_confirm: (is_owner && member.id != @current_user.id ? "Remove #{member.display_name} from this list?" : nil) } },
+                      class: "pulse-action-btn-secondary" do %>
+                  <%= octicon 'x', height: 14 %>
+                  <%= is_owner && member.id != @current_user.id ? "Remove" : "Leave" %>
+                <% end %>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </section>
+  <% end %>
+</article>

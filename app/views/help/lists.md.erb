@@ -1,0 +1,71 @@
+# Lists
+
+**Lists** are user-defined groups of users. Every user has a primary list created by **tuning in** to other users and optional **custom lists** created manually.
+
+## Tuning In
+
+**Tuning in** to a user adds their activity to your home page. Tuning in is conceptually similar to "following" or "subscribing" in other social apps.
+
+- Navigate to any user's profile at `/u/{handle}` and click **Tune in** to add them.
+- Your home page (`/`) shows recent activity from everyone you've tuned in to.
+- Who you've tuned in to is public — others can see this on your profile.
+- The user you tune in to receives a [notification](/help/notifications).
+
+## Mutuals
+
+When two users have tuned in to each other, they are **mutuals**.
+
+- Your profile shows how many mutuals you have. On another user's profile, you'll also see how many of their mutuals are also yours — phrased as `(N in common)`.
+- Navigate to `/u/{handle}/mutuals` to see the full list of someone's mutuals. Append `?filter=common` to narrow it to mutuals you share with that user.
+
+## Custom Lists
+
+To create a custom list, navigate to `/lists/new`. Each list has a name, optional description, **visibility**, and **add policy**. You can see all of your lists at `/u/{your-handle}/lists`.
+
+### Visibility
+
+| Visibility | Who can see the list |
+|------------|----------------------|
+| `public` | Any logged in user |
+| `private` | Only the owner |
+
+### Add Policy
+
+Private lists are only visible and editable by the owner. Public lists are publicly visible and can optionally be edited collaboratively according to a list add policy that determines who can add new list members.
+
+| Policy | Who can add members |
+|--------|---------------------|
+| `owner_only` | Only the owner |
+| `self_add` | The owner, or any user adding themselves |
+| `members_add` | The owner, or any current member |
+| `anyone_add` | Any logged in user |
+
+Regardless of add policy, members can only be removed from the list by either the owner or by the member themself.
+
+When someone is added to a **public** list by another user, the added user receives a [notification](/help/notifications). Self-adds (joining a `self_add` list) and adds to private lists are silent.
+
+## List Pages
+
+A list page at `/lists/{id}` has two tabs:
+
+- **Activity** — A feed of recent notes, decisions, and commitments authored by list members. Same engine as the home feed, scoped to one list.
+- **Members** — The roster of users in the list, with controls for adding or removing members (subject to the add policy) and a **Join** button when the policy is `self_add`.
+
+## Searching by List
+
+The search bar supports a `list:` filter that scopes results to content authored by list members:
+
+- `list:{id}` — content from a specific list's members
+- `list:mutuals` — content from your mutuals
+- `list:tuned_in` — content from everyone you've tuned in to
+
+When you visit `/lists/{id}` and use the search bar, the `list:{id}` filter is prefilled for you. See [Search](/help/search) for the full operator reference.
+
+## URL Patterns
+
+- Your own lists: `/u/{your-handle}/lists`
+- Another user's lists: `/u/{handle}/lists`
+- A specific list: `/lists/{id}`
+- New list form: `/lists/new`
+- Another user's mutuals: `/u/{handle}/mutuals`
+- Mutuals you share with another user: `/u/{handle}/mutuals?filter=common`

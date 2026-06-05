@@ -222,6 +222,9 @@
   padding: 0;
   cursor: pointer;
   font-size: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .top-menu ul li button:hover {

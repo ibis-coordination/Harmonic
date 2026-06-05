@@ -2079,6 +2079,46 @@ CREATE TABLE public.user_item_status_p9 (
 
 
 --
+-- Name: user_list_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_list_members (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    user_list_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    added_by_id uuid NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
+-- Name: user_lists; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_lists (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    creator_id uuid NOT NULL,
+    owner_id uuid NOT NULL,
+    truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
+    name character varying NOT NULL,
+    description text,
+    visibility character varying DEFAULT 'public'::character varying NOT NULL,
+    is_primary boolean DEFAULT false NOT NULL,
+    deleted_at timestamp(6) without time zone,
+    deleted_by_id uuid,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    add_policy character varying DEFAULT 'owner_only'::character varying NOT NULL,
+    CONSTRAINT user_lists_restricted_owner_only CHECK ((((add_policy)::text = 'owner_only'::text) OR ((is_primary = false) AND ((visibility)::text = 'public'::text))))
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3012,6 +3052,22 @@ ALTER TABLE ONLY public.user_item_status_p8
 
 ALTER TABLE ONLY public.user_item_status_p9
     ADD CONSTRAINT user_item_status_p9_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: user_list_members user_list_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_list_members
+    ADD CONSTRAINT user_list_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_lists user_lists_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lists
+    ADD CONSTRAINT user_lists_pkey PRIMARY KEY (id);
 
 
 --
@@ -4666,6 +4722,111 @@ CREATE UNIQUE INDEX index_user_blocks_on_blocker_id_and_blocked_id_and_tenant_id
 --
 
 CREATE INDEX index_user_blocks_on_tenant_id ON public.user_blocks USING btree (tenant_id);
+
+
+--
+-- Name: index_user_list_members_on_added_by_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_list_members_on_added_by_id ON public.user_list_members USING btree (added_by_id);
+
+
+--
+-- Name: index_user_list_members_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_list_members_on_collective_id ON public.user_list_members USING btree (collective_id);
+
+
+--
+-- Name: index_user_list_members_on_list_and_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_user_list_members_on_list_and_user ON public.user_list_members USING btree (user_list_id, user_id);
+
+
+--
+-- Name: index_user_list_members_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_list_members_on_tenant_id ON public.user_list_members USING btree (tenant_id);
+
+
+--
+-- Name: index_user_list_members_on_user_and_collective; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_list_members_on_user_and_collective ON public.user_list_members USING btree (user_id, collective_id);
+
+
+--
+-- Name: index_user_list_members_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_list_members_on_user_id ON public.user_list_members USING btree (user_id);
+
+
+--
+-- Name: index_user_list_members_on_user_list_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_list_members_on_user_list_id ON public.user_list_members USING btree (user_list_id);
+
+
+--
+-- Name: index_user_lists_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_lists_on_collective_id ON public.user_lists USING btree (collective_id);
+
+
+--
+-- Name: index_user_lists_on_collective_id_and_visibility; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_lists_on_collective_id_and_visibility ON public.user_lists USING btree (collective_id, visibility);
+
+
+--
+-- Name: index_user_lists_on_creator_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_lists_on_creator_id ON public.user_lists USING btree (creator_id);
+
+
+--
+-- Name: index_user_lists_on_deleted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_lists_on_deleted_at ON public.user_lists USING btree (deleted_at);
+
+
+--
+-- Name: index_user_lists_on_owner_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_lists_on_owner_id ON public.user_lists USING btree (owner_id);
+
+
+--
+-- Name: index_user_lists_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_user_lists_on_tenant_id ON public.user_lists USING btree (tenant_id);
+
+
+--
+-- Name: index_user_lists_on_truncated_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_user_lists_on_truncated_id ON public.user_lists USING btree (truncated_id);
+
+
+--
+-- Name: index_user_lists_one_primary_per_owner_per_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_user_lists_one_primary_per_owner_per_tenant ON public.user_lists USING btree (tenant_id, owner_id) WHERE ((is_primary = true) AND (deleted_at IS NULL));
 
 
 --
@@ -8643,6 +8804,14 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: user_list_members fk_rails_2e435dca1e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_list_members
+    ADD CONSTRAINT fk_rails_2e435dca1e FOREIGN KEY (added_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: oauth_identities fk_rails_2f75762ff1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8672,6 +8841,14 @@ ALTER TABLE ONLY public.notes
 
 ALTER TABLE ONLY public.representation_sessions
     ADD CONSTRAINT fk_rails_33f2d734e7 FOREIGN KEY (representative_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_list_members fk_rails_35f0c951e0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_list_members
+    ADD CONSTRAINT fk_rails_35f0c951e0 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -8851,6 +9028,14 @@ ALTER TABLE ONLY public.chat_messages
 
 
 --
+-- Name: user_lists fk_rails_6392b88cd0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lists
+    ADD CONSTRAINT fk_rails_6392b88cd0 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: note_history_events fk_rails_63e2a8744d; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8907,6 +9092,14 @@ ALTER TABLE ONLY public.collective_members
 
 
 --
+-- Name: user_lists fk_rails_699eec5dc6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lists
+    ADD CONSTRAINT fk_rails_699eec5dc6 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
 -- Name: decision_audit_entries fk_rails_6b2eb0532e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8936,6 +9129,14 @@ ALTER TABLE ONLY public.notes
 
 ALTER TABLE ONLY public.data_imports
     ADD CONSTRAINT fk_rails_6e6105b87f FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
+-- Name: user_list_members fk_rails_712920c6bc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_list_members
+    ADD CONSTRAINT fk_rails_712920c6bc FOREIGN KEY (user_list_id) REFERENCES public.user_lists(id);
 
 
 --
@@ -9203,6 +9404,14 @@ ALTER TABLE ONLY public.webhook_deliveries
 
 
 --
+-- Name: user_list_members fk_rails_b23952833f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_list_members
+    ADD CONSTRAINT fk_rails_b23952833f FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: content_reports fk_rails_b25d672583; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9272,6 +9481,22 @@ ALTER TABLE ONLY public.heartbeats
 
 ALTER TABLE ONLY public.chat_messages
     ADD CONSTRAINT fk_rails_c4d58352c0 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: user_lists fk_rails_c5c49a82a6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lists
+    ADD CONSTRAINT fk_rails_c5c49a82a6 FOREIGN KEY (creator_id) REFERENCES public.users(id);
+
+
+--
+-- Name: user_list_members fk_rails_c632cee326; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_list_members
+    ADD CONSTRAINT fk_rails_c632cee326 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -9424,6 +9649,14 @@ ALTER TABLE ONLY public.trustee_grants
 
 ALTER TABLE ONLY public.tenant_users
     ADD CONSTRAINT fk_rails_e3b237e564 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: user_lists fk_rails_e3c4588b74; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_lists
+    ADD CONSTRAINT fk_rails_e3c4588b74 FOREIGN KEY (owner_id) REFERENCES public.users(id);
 
 
 --
@@ -9609,6 +9842,9 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260601231650'),
+('20260601223743'),
+('20260601205324'),
 ('20260530120000'),
 ('20260530000000'),
 ('20260529205324'),

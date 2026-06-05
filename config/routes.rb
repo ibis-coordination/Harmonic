@@ -121,9 +121,8 @@ Rails.application.routes.draw do
   post 'invite-required/accept' => 'signup#accept_invite', as: :accept_invite
 
   # Activation checklist (post-signup gate that ensures a user has joined a
-  # workspace, verified their email, and enabled 2FA — see Phase 4 in the
-  # signup-invite-gate-ux plan). Reachable directly via the user menu while
-  # any of those are incomplete.
+  # workspace, verified their email, and enabled 2FA). Reachable directly via
+  # the user menu while any of those are incomplete.
   get 'activate' => 'activation#show', as: :activation
   post 'activate/send-confirmation' => 'activation#send_email_confirmation', as: :resend_email_confirmation
 
@@ -178,7 +177,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links agents trio automations api rest-api markdown-ui notifications representation].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui notifications representation].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
@@ -186,6 +185,30 @@ Rails.application.routes.draw do
 
   # User blocks
   resources :user_blocks, only: [:index, :create, :destroy], path: "user-blocks"
+
+  # UserList — addressable subgroups within a collective. Routes live at
+  # tenant root; lists in non-main collectives are schema-supported but the
+  # routes aren't wired yet (deferred).
+  scope '/lists' do
+    get  'actions'                    => 'user_lists#actions_index_new'
+    get  'actions/create_user_list'   => 'user_lists#describe_create_user_list'
+    post 'actions/create_user_list'   => 'user_lists#execute_create_user_list'
+  end
+  resources :user_lists, path: 'lists', param: :list_id, only: [:show, :new, :edit] do
+    member do
+      get  'actions'                  => 'user_lists#actions_index_show'
+      get  'actions/update_user_list' => 'user_lists#describe_update_user_list'
+      post 'actions/update_user_list' => 'user_lists#execute_update_user_list'
+      get  'actions/delete_user_list' => 'user_lists#describe_delete_user_list'
+      post 'actions/delete_user_list' => 'user_lists#execute_delete_user_list'
+      get  'actions/add_member_to_list'       => 'user_lists#describe_add_member_to_list'
+      post 'actions/add_member_to_list'       => 'user_lists#execute_add_member_to_list'
+      get  'actions/remove_member_from_list'    => 'user_lists#describe_remove_member_from_list'
+      post 'actions/remove_member_from_list'    => 'user_lists#execute_remove_member_from_list'
+      get  'actions/join_list'             => 'user_lists#describe_join_list'
+      post 'actions/join_list'             => 'user_lists#execute_join_list'
+    end
+  end
 
   # Notifications
   get 'notifications' => 'notifications#index'
@@ -305,6 +328,15 @@ Rails.application.routes.draw do
     delete 'represent' => 'users#stop_representing', on: :member
     post 'add_to_collective' => 'users#add_ai_agent_to_collective', on: :member
     delete 'remove_from_collective' => 'users#remove_ai_agent_from_collective', on: :member
+    # UserList — "tune in" gesture
+    get  'actions/tune_in'  => 'users#describe_tune_in',  on: :member
+    post 'actions/tune_in'  => 'users#execute_tune_in',   on: :member
+    get  'actions/tune_out' => 'users#describe_tune_out', on: :member
+    post 'actions/tune_out' => 'users#execute_tune_out',  on: :member
+    # UserList — listing of lists owned by this user (markdown)
+    get  'lists'                    => 'user_lists#index',                on: :member
+    # Mutuals — users who tune in to this user AND who this user tunes in to
+    get  'mutuals'                  => 'users#mutuals',                   on: :member
     # User settings actions
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member

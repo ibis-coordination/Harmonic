@@ -24,6 +24,25 @@
       <% end %>
     </section>
 
+    <% if @search.raw_query.present? && @people_results.present? %>
+      <section class="pulse-settings-section pulse-people-results">
+        <h2 class="pulse-section-label">People (<%= @people_results.size %>)</h2>
+        <ul class="pulse-list-members">
+          <% @people_results.each do |person| %>
+            <li class="pulse-collective-item">
+              <%= render "shared/avatar_div", record: person, variant: :thumbnail %>
+              <div class="pulse-collective-info" style="flex: 1;">
+                <a href="<%= person.path %>" class="pulse-collective-name"><%= person.display_name.presence || person.handle %></a>
+                <% if person.display_name.present? %>
+                  <span class="pulse-body-text-muted">@<%= person.handle %></span>
+                <% end %>
+              </div>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
     <% if @search.raw_query.present? %>
       <div class="pulse-resource-meta">
         <% if @end_position < @total_count || @start_position > 1 %>
@@ -40,8 +59,10 @@
       </div>
 
       <section class="pulse-settings-section">
-        <% if @grouped_results.empty? %>
+        <% if @grouped_results.empty? && @people_results.empty? %>
           <p class="pulse-empty-content"><em>No results found.</em></p>
+        <% elsif @grouped_results.empty? %>
+          <%# People matched but no content — say nothing here; the People section above stands on its own. %>
         <% else %>
         <% @grouped_results.each do |group_key, items| %>
           <%= render 'shared/pulse_accordion', title: search_group_header(group_key), open: true, count: items.length do %>
@@ -98,6 +119,7 @@
         <tbody>
           <tr><td><code>scope:</code></td><td>public, shared, private</td></tr>
           <tr><td><code>collective:</code></td><td>collective handle</td></tr>
+          <tr><td><code>list:</code></td><td>list id, or <code>mutuals</code> / <code>tuned_in</code> (your own)</td></tr>
           <tr><td><code>type:</code></td><td>note, decision, commitment</td></tr>
           <tr><td><code>subtype:</code></td><td>text, reminder, table, comment, statement, vote, lottery, executive, action, calendar_event, policy</td></tr>
           <tr><td><code>status:</code></td><td>open, closed</td></tr>

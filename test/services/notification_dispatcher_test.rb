@@ -522,4 +522,129 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
   # Note: AI agent task triggering tests have been moved to AutomationDispatcherTest
   # since agent triggering is now handled by the automation system via AutomationDispatcher
   # instead of the hardcoded triggers that were previously in NotificationDispatcher.
+
+  # ---- tune_in notifications ----
+
+  def setup_tune_in_actors
+    tenant, collective, actor = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    actor.tenant_user.update!(handle: "alice")
+
+    target = create_user(email: "target-#{SecureRandom.hex(4)}@example.com", name: "Target User")
+    tenant.add_user!(target, handle: "bob")
+    collective.add_user!(target)
+
+    [tenant, collective, actor, target]
+  end
+
+  test "tune-in list add notifies the target with actor profile URL" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+
+    UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+
+    notification = Notification.where(notification_type: "tune_in").last
+    assert_not_nil notification
+    assert_equal "#{actor.display_name} tuned in to you", notification.title
+    assert_equal "/u/alice", notification.url
+    recipient = notification.notification_recipients.first
+    assert_equal target.id, recipient.user_id
+  end
+
+  test "self-add to a list creates no notification" do
+    _tenant, _collective, actor, _target = setup_tune_in_actors
+    list = UserList.create!(creator: actor, owner: actor, name: "My picks", visibility: "public", add_policy: "self_add")
+
+    UserListMember.create!(user_list: list, user: actor, added_by: actor)
+
+    assert_nil Notification.where(notification_type: "tune_in").last
+  end
+
+  test "public custom-list add by a non-owner notifies the target with the ADDER's name" do
+    tenant, collective, owner, target = setup_tune_in_actors
+    adder = create_user(email: "adder-#{SecureRandom.hex(4)}@example.com", name: "Adder Person")
+    tenant.add_user!(adder, handle: "adder")
+    collective.add_user!(adder)
+    list = UserList.create!(creator: owner, owner: owner, name: "Open House",
+                            visibility: "public", add_policy: "anyone_add")
+
+    UserListMember.create!(user_list: list, user: target, added_by: adder)
+
+    notification = Notification.where(notification_type: "tune_in").last
+    assert_not_nil notification
+    assert_includes notification.title, "Adder Person"
+    refute_match(/#{Regexp.escape(owner.display_name)}/, notification.title)
+    assert_equal list.path, notification.url
+  end
+
+  test "public custom-list add notifies the target with list URL" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    list = UserList.create!(creator: actor, owner: actor, name: "Designers", visibility: "public")
+
+    UserListMember.create!(user_list: list, user: target, added_by: actor)
+
+    notification = Notification.where(notification_type: "tune_in").last
+    assert_not_nil notification
+    assert_includes notification.title, "added you to their list"
+    assert_includes notification.title, "Designers"
+    assert_equal list.path, notification.url
+  end
+
+  test "private custom-list add creates no notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    list = UserList.create!(creator: actor, owner: actor, name: "Notes to self", visibility: "private")
+
+    UserListMember.create!(user_list: list, user: target, added_by: actor)
+
+    assert_nil Notification.where(notification_type: "tune_in").last
+  end
+
+  test "tune-in across a block boundary does not create a notification" do
+    tenant, _collective, actor, target = setup_tune_in_actors
+    UserBlock.create!(tenant: tenant, blocker: target, blocked: actor)
+    actor_primary = actor.primary_user_list_in!(tenant)
+
+    # Block-cleanup already removed any tune-ins, and the validation will
+    # reject the create. We catch the exception and assert no notification.
+    assert_raises(ActiveRecord::RecordInvalid) do
+      UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    end
+    assert_nil Notification.where(notification_type: "tune_in").last
+  end
+
+  test "rapid tune-out + tune-in does not create a second tune_in notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+    member = UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    assert_equal 1, Notification.where(notification_type: "tune_in").count
+
+    member.destroy!
+    assert_no_difference -> { Notification.where(notification_type: "tune_in").count } do
+      UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    end
+  end
+
+  test "re-tune-in after dismissal creates a fresh notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+    member = UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    Notification.where(notification_type: "tune_in").last.notification_recipients
+      .update_all(dismissed_at: Time.current, status: "dismissed")
+    member.destroy!
+
+    assert_difference -> { Notification.where(notification_type: "tune_in").count }, +1 do
+      UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    end
+  end
+
+  test "user_list_member.deleted event creates no notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+    member = UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    Notification.where(notification_type: "tune_in").destroy_all
+
+    member.destroy!
+
+    assert_nil Notification.where(notification_type: "tune_in").last
+  end
 end

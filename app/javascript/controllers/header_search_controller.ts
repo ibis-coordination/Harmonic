@@ -31,6 +31,7 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
     collectiveHandle: String,
     collectiveName: String,
     workspace: String,
+    listId: String,
   }
 
   declare readonly formTarget: HTMLFormElement
@@ -39,6 +40,7 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
   declare collectiveHandleValue: string
   declare collectiveNameValue: string
   declare workspaceValue: string
+  declare listIdValue: string
 
   private hasAutoPopulated = false
   private boundClickOutside: ((event: Event) => void) | null = null
@@ -56,9 +58,14 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
 
   /**
    * Build the auto-populated prefix based on context.
-   * Returns `scope:private` for workspaces, `collective:handle` for collectives.
+   * `list:<id>` takes precedence on list pages, then `scope:private` for
+   * workspaces, then `collective:handle` for collectives.
    */
   private buildPrefix(): string | null {
+    if (this.listIdValue) {
+      return `list:${this.listIdValue}`
+    }
+
     if (this.workspaceValue) {
       return "scope:private"
     }

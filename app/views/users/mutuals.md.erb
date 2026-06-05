@@ -1,0 +1,11 @@
+# Mutually tuned in with <%= @showing_user.display_name %><%= @filter == "common" ? " · in common with you" : "" %>
+
+<%= @mutuals.size %> <%= @mutuals.size == 1 ? "person" : "people" %><%= @filter == "common" ? " · [show all](#{@showing_user.path}/mutuals)" : "" %>
+
+<% if @mutuals.empty? -%>
+<%= @filter == "common" ? "_No common mutuals yet._" : "_No mutuals yet._" %>
+<% else -%>
+<% @mutuals.each do |person| -%>
+* [<%= person.display_name.presence || person.handle %>](<%= person.path %>) (@<%= person.handle %>)
+<% end -%>
+<% end -%>

@@ -1,0 +1,52 @@
+<%# Used by both new and edit. Submits to the matching action endpoint. %>
+<% form_url = local_assigns.fetch(:form_url) %>
+<% submit_label = local_assigns.fetch(:submit_label) %>
+
+<%= form_with(url: form_url, method: :post, class: "pulse-form",
+              data: { controller: "list-form" }) do |form| %>
+  <div class="pulse-form-group">
+    <label class="pulse-form-label" for="user_list_name">Name</label>
+    <input type="text" id="user_list_name" name="name" value="<%= @list.name %>"
+           class="pulse-form-input" required maxlength="80"
+           placeholder="e.g. Friends, Collaborators, ..." autofocus>
+  </div>
+
+  <div class="pulse-form-group">
+    <label class="pulse-form-label" for="user_list_description">
+      Description <span style="font-weight: normal; color: var(--color-fg-muted);">(optional)</span>
+    </label>
+    <textarea id="user_list_description" name="description"
+              class="pulse-form-textarea" rows="3" maxlength="500"
+              placeholder="What is this list for?"><%= @list.description %></textarea>
+  </div>
+
+  <div class="pulse-form-group">
+    <label class="pulse-form-label" for="user_list_visibility">Visibility</label>
+    <select id="user_list_visibility" name="visibility" class="pulse-form-input" style="max-width: 300px;"
+            data-list-form-target="visibility"
+            data-action="change->list-form#sync">
+      <option value="public" <%= "selected" if @list.visibility == "public" %>>Public — collective members can see it</option>
+      <option value="private" <%= "selected" if @list.visibility == "private" %>>Private — only you can see it</option>
+    </select>
+  </div>
+
+  <div class="pulse-form-group">
+    <label class="pulse-form-label" for="user_list_add_policy">Who can add members?</label>
+    <select id="user_list_add_policy" name="add_policy" class="pulse-form-input" style="max-width: 300px;"
+            data-list-form-target="addPolicy">
+      <option value="owner_only"  <%= "selected" if @list.add_policy == "owner_only"  %>>Only me (the owner)</option>
+      <option value="self_add"    <%= "selected" if @list.add_policy == "self_add"    %>>Anyone can add themselves</option>
+      <option value="members_add" <%= "selected" if @list.add_policy == "members_add" %>>People on the list can add others</option>
+      <option value="anyone_add"  <%= "selected" if @list.add_policy == "anyone_add"  %>>Anyone in the collective can add anyone</option>
+    </select>
+  </div>
+
+  <div style="display: flex; gap: 8px; margin-top: 16px;">
+    <button type="submit" class="pulse-action-btn"><%= submit_label %></button>
+    <% if @list.persisted? %>
+      <a href="<%= @list.path %>" class="pulse-action-btn-secondary">Cancel</a>
+    <% else %>
+      <a href="<%= @current_user.path %>/lists" class="pulse-action-btn-secondary">Cancel</a>
+    <% end %>
+  </div>
+<% end %>

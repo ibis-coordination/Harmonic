@@ -1,0 +1,26 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Your lists', "#{@current_user.path}/lists"],
+  [@list.display_name, @list.path],
+  'Edit'
+] %>
+
+<article class="pulse-resource-detail">
+  <h1 class="pulse-resource-title">Edit list</h1>
+  <%= render 'form', form_url: "#{@list.path}/actions/update_user_list", submit_label: 'Save changes' %>
+
+  <% unless @list.is_primary %>
+    <section style="margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--color-border-default);">
+      <h2 class="pulse-section-label">Danger zone</h2>
+      <p class="pulse-body-text-muted" style="margin: 8px 0 12px;">
+        Deleting this list cannot be undone.
+      </p>
+      <%= button_to "#{@list.path}/actions/delete_user_list",
+            method: :post,
+            form: { data: { turbo_confirm: "Delete '#{@list.display_name}'? This cannot be undone." } },
+            class: "pulse-action-btn-danger" do %>
+        <%= octicon 'trash', height: 14 %> Delete this list
+      <% end %>
+    </section>
+  <% end %>
+</article>
