@@ -105,24 +105,21 @@ list + 1 EXISTS for membership = 4 round-trips per profile.
 **Fix.** Single combined query (two `UserListMember` rows keyed by
 `(owner, user)` pairs in one `WHERE IN`).
 
-### 8. Block-cleanup race window leaves stale UserListMember
+### 8. Block-cleanup race window — DROPPED
 
-**Behavior.** TX1 inserts `UserListMember(A→B)` after passing
-`respects_blocks` (no block yet). TX2 commits `UserBlock(B,A)` and
-runs `clear_mutual_primary_list_memberships`, missing the in-flight
-row. After both commit, the row exists despite the block.
-`User#mutual_user_ids_in` is pure SQL with no block filter →
-stale mutual surfaces on the profile count and `/u/:handle/mutuals`.
+The review agent flagged a hypothetical race: TX1 inserts a
+UserListMember while TX2's cleanup runs before T1 commits, so the
+cleanup misses the in-flight row. Vanishingly rare in practice;
+no production fix.
 
-**Repro.** Bypass `respects_blocks` by inserting a stale row
-directly: create the UserBlock first, then call `UserListMember.new(
-list, user, added_by).save(validate: false)` to simulate the race
-outcome. Assert that `mutual_user_ids_in` returns the blocked user
-(demonstrating the leak). Then add the defense, re-run, expect empty.
+The existing artificial test that bypassed `respects_blocks` to
+manufacture the post-race state has been removed — it was testing
+behavior that doesn't matter for any real user flow. The real
+block-cleanup contract under normal conditions is already covered
+by `test/models/user_block_test.rb`.
 
-**Fix.** Add `block_related_user_ids` filter to
-`User#mutual_user_ids_in` (defense in depth: even if the cleanup
-race occurs, the mutuals computation excludes blocked pairs).
+Custom-list cleanup negation test (#12) kept — it's a real contract
+worth pinning.
 
 ### 9. `tune_in` accepts suspended and `collective_identity` targets
 

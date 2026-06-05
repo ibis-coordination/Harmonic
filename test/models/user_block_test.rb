@@ -143,4 +143,14 @@ class UserBlockTest < ActiveSupport::TestCase
       UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
     end
   end
+
+  test "blocking does NOT remove membership from custom (non-primary) lists" do
+    custom = UserList.create!(creator: @user, owner: @user, name: "Reading")
+    custom.user_list_members.create!(added_by: @user, user: @other_user)
+
+    UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+
+    assert custom.user_list_members.exists?(user_id: @other_user.id),
+           "custom-list memberships should survive blocks (cleanup is primary-only)"
+  end
 end
