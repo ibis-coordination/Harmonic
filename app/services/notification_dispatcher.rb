@@ -24,9 +24,51 @@ class NotificationDispatcher
       handle_commitment_created_event(event)
     when "option.created"
       handle_option_created_event(event)
+    when "user_list_member.created"
+      handle_member_added_event(event)
     when /^agent\./
       handle_agent_event(event)
     end
+  end
+
+  sig { params(event: Event).void }
+  def self.handle_member_added_event(event)
+    membership = event.subject
+    return unless membership.is_a?(UserListMember)
+
+    list = membership.user_list
+    target = membership.user
+    return if target.nil? || list.nil?
+    return if event.actor_id && target.id == event.actor_id
+    return unless list.is_primary || list.public?
+
+    title, url = member_added_title_and_url(event, list)
+    notify_user(
+      event: event,
+      recipient: target,
+      notification_type: "tune_in",
+      title: title,
+      url: url,
+    )
+  end
+
+  sig { params(event: Event, list: UserList).returns([String, T.nilable(String)]) }
+  def self.member_added_title_and_url(event, list)
+    actor_name = event.actor&.display_name || "Someone"
+    if list.is_primary
+      handle = actor_tenant_handle(event)
+      ["#{actor_name} tuned in to you", handle ? "/u/#{handle}" : nil]
+    else
+      ["#{actor_name} added you to their list \"#{list.display_name}\"", list.path]
+    end
+  end
+
+  sig { params(event: Event).returns(T.nilable(String)) }
+  def self.actor_tenant_handle(event)
+    actor = event.actor
+    return nil if actor.nil?
+
+    actor.tenant_users.find_by(tenant_id: event.tenant_id)&.handle
   end
 
   sig { params(event: Event).void }

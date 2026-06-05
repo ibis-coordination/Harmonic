@@ -16,6 +16,29 @@ class UserListMemberTest < ActiveSupport::TestCase
     u
   end
 
+  # ---- Tracked / event emission ----
+
+  test "created_by returns added_by (Tracked actor resolution)" do
+    m = UserListMember.create!(user_list: @list, user: @other, added_by: @user)
+    assert_equal @user, m.created_by
+  end
+
+  test "create emits a user_list_member.created event with actor and subject" do
+    assert_difference -> { Event.where(event_type: "user_list_member.created").count }, +1 do
+      UserListMember.create!(user_list: @list, user: @other, added_by: @user)
+    end
+    event = Event.where(event_type: "user_list_member.created").last
+    assert_equal @user.id, event.actor_id
+    assert_equal @collective.id, event.collective_id
+  end
+
+  test "destroy emits a user_list_member.deleted event" do
+    m = UserListMember.create!(user_list: @list, user: @other, added_by: @user)
+    assert_difference -> { Event.where(event_type: "user_list_member.deleted").count }, +1 do
+      m.destroy!
+    end
+  end
+
   # ---- Creation ----
 
   test "create with required fields succeeds" do

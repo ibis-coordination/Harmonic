@@ -3,6 +3,8 @@
 class UserListMember < ApplicationRecord
   extend T::Sig
 
+  include Tracked
+
   belongs_to :tenant
   belongs_to :collective
   belongs_to :user_list
@@ -15,6 +17,13 @@ class UserListMember < ApplicationRecord
   validate  :member_is_collective_member
 
   attr_readonly :tenant_id, :collective_id, :user_list_id
+
+  # Tracked resolves the event actor via #created_by — surface our added_by
+  # column under that name without a schema change.
+  sig { returns(T.nilable(User)) }
+  def created_by
+    added_by
+  end
 
   private
 

@@ -78,6 +78,16 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "execute_tune_in creates a tune_in notification for the target" do
+    assert_difference -> { Notification.where(notification_type: "tune_in").count }, +1 do
+      post "/u/#{handle_of(@target)}/actions/tune_in", params: {}.to_json, headers: @headers
+    end
+    notification = Notification.where(notification_type: "tune_in").last
+    assert_equal "#{@user.display_name} tuned in to you", notification.title
+    recipient = notification.notification_recipients.first
+    assert_equal @target.id, recipient.user_id
+  end
+
   test "execute_tune_in is idempotent — adding twice succeeds without error" do
     post "/u/#{handle_of(@target)}/actions/tune_in", params: {}.to_json, headers: @headers
     assert_response :success
