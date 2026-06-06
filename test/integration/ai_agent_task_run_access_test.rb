@@ -5,7 +5,8 @@ class AiAgentTaskRunAccessTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @collective = @global_collective
     @parent = @global_user
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
 
     @ai_agent = create_ai_agent_for(@parent, "My AiAgent")
     @other_parent = create_user(name: "Other Parent")

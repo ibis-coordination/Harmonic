@@ -15,12 +15,25 @@
 | Model | `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>` |
 <% end %>
 
-<% if @ai_agent.internal_ai_agent? && @ai_agent.agent_configuration&.dig("identity_prompt").present? %>
+<% if @ai_agent.agent_configuration&.dig("identity_prompt").present? %>
 ## Identity Prompt
 
 ```
 <%= @ai_agent.agent_configuration&.dig("identity_prompt") %>
 ```
+<% end %>
+
+## Capabilities
+
+<% caps = @ai_agent.agent_configuration&.dig("capabilities") %>
+<% if caps.nil? %>
+All grantable actions allowed (no explicit configuration).
+<% elsif caps.empty? %>
+No grantable actions allowed.
+<% else %>
+<% caps.each do |cap| %>
+* `<%= cap %>`
+<% end %>
 <% end %>
 
 <% if @ai_agent_collectives.any? %>

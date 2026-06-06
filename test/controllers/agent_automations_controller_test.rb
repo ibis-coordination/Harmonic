@@ -3,7 +3,8 @@ require "test_helper"
 class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @tenant.enable_api!
     @collective = @global_collective
     @collective.enable_api!

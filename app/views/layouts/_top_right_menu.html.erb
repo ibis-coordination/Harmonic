@@ -58,11 +58,11 @@
           <%= octicon 'list-unordered' %>
           <a href="<%= @current_user.path %>/lists">Your lists</a>
         </li>
-        <% if @current_tenant&.ai_agents_enabled? %>
-          <li>
-            <%= octicon 'comment-discussion' %>
-            <a href="/chat">Chat</a>
-          </li>
+        <li>
+          <%= octicon 'comment-discussion' %>
+          <a href="/chat">Chat</a>
+        </li>
+        <% if @current_tenant&.any_ai_agents_enabled? %>
           <li>
             <%= octicon 'command-palette' %>
             <a href="/ai-agents">AI Agents</a>

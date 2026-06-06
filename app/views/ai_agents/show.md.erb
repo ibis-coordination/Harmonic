@@ -45,6 +45,7 @@ No automations configured yet.
 * [Create Automation](/ai-agents/<%= @ai_agent.handle %>/automations/new)
 <% end %>
 
+<% if @ai_agent.internal_ai_agent? %>
 <% if @recent_runs.any? %>
 ## Recent Task Runs
 
@@ -59,6 +60,7 @@ No automations configured yet.
 ## Recent Task Runs
 
 No task runs yet.
+<% end %>
 <% end %>
 
 ## Navigation

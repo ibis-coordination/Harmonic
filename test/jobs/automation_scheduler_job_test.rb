@@ -7,7 +7,8 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
 
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
 
@@ -293,7 +294,8 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
     tenant2.add_user!(user2)
     collective2 = create_collective(tenant: tenant2, created_by: user2)
     collective2.add_user!(user2)
-    tenant2.set_feature_flag!("ai_agents", true)
+    tenant2.set_feature_flag!("internal_ai_agents", true)
+    tenant2.set_feature_flag!("external_ai_agents", true)
     ai_agent2 = create_ai_agent(parent: user2)
     tenant2.add_user!(ai_agent2)
 

@@ -10,7 +10,8 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
 
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     enable_stripe_billing_flag!(@tenant)
     # Make @collective paid_tier so @user has a billable resource by default —
     # most tests in this file pre-date the free/paid tier model and assumed a

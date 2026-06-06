@@ -7,7 +7,8 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
 
     # Add the AI agent to the tenant and collective
@@ -248,7 +249,8 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Create another tenant with its own user, agent, and rules
     other_tenant = Tenant.create!(name: "Other Tenant", subdomain: "other-tenant")
-    other_tenant.set_feature_flag!("ai_agents", true)
+    other_tenant.set_feature_flag!("internal_ai_agents", true)
+    other_tenant.set_feature_flag!("external_ai_agents", true)
     other_user = create_user(name: "Other User")
     other_tenant.add_user!(other_user)
     other_agent = create_ai_agent(parent: other_user, name: "Other Agent")
@@ -710,12 +712,16 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     AutomationContext.clear_chain!
   end
 
-  test "does not dispatch when ai_agents not enabled for tenant" do
-    @tenant.set_feature_flag!("ai_agents", false)
+  test "dispatches regardless of AI agent flags — gating now happens at trigger_agent execution" do
+    @tenant.set_feature_flag!("internal_ai_agents", false)
+    @tenant.set_feature_flag!("external_ai_agents", false)
     create_rule_without_mention_filter
     event = create_event_with_subject(event_type: "note.created")
 
-    assert_no_difference -> { AutomationRuleRun.count } do
+    # The dispatcher fires the rule. Whether the rule succeeds at executing the
+    # trigger_agent action is enforced by AutomationExecutor and
+    # AgentRunnerDispatchService, not by the dispatcher.
+    assert_difference -> { AutomationRuleRun.count }, 1 do
       AutomationDispatcher.dispatch(event)
     end
   end

@@ -158,26 +158,25 @@ class UsersController < ApplicationController
     @settings_user = tu.user
     return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
 
+    # AI agents have a single canonical settings surface at
+    # /ai-agents/<handle>/settings. /u/<agent>/settings used to host a
+    # parallel form; redirect to consolidate.
+    if @settings_user.ai_agent?
+      return redirect_to ai_agent_settings_path(@settings_user.handle)
+    end
+
     @settings_user.tenant_user = tu
     @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
 
-    # For human users, show their AI agents
-    if @settings_user.human?
-      @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :collective_members).where(tenant_users: { tenant_id: @current_tenant.id })
-      # Collectives where settings user has invite permission (for adding AI agents)
-      @invitable_collectives = @settings_user.collective_members.includes(:collective).select(&:can_invite?).map(&:collective)
+    @ai_agents = @settings_user.ai_agents.includes(:tenant_users, :collective_members).where(tenant_users: { tenant_id: @current_tenant.id })
 
-      # Load all API tokens: user's own + AI agents' tokens
-      # Sorted by: user's tokens first, then agents alphabetically, then by created_at desc
-      user_tokens = @settings_user.api_tokens.external.includes(:user).to_a
-      agent_tokens = @ai_agents.flat_map { |agent| agent.api_tokens.external.includes(:user).to_a }
-      @all_api_tokens = user_tokens.sort_by { |t| -t.created_at.to_i } +
-                        agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
-    else
-      @ai_agents = []
-      @invitable_collectives = []
-      @all_api_tokens = @settings_user.api_tokens.external.includes(:user).order(created_at: :desc).to_a
-    end
+    # Load all API tokens the user is responsible for: their own + every AI
+    # agent they own. The per-agent settings page also lists each agent's
+    # tokens; this is the aggregate view.
+    user_tokens = @settings_user.api_tokens.external.includes(:user).to_a
+    agent_tokens = @ai_agents.flat_map { |agent| agent.api_tokens.external.includes(:user).to_a }
+    @all_api_tokens = user_tokens.sort_by { |t| -t.created_at.to_i } +
+                      agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
 
     respond_to do |format|
       format.html
@@ -260,42 +259,6 @@ class UsersController < ApplicationController
       TenantUser.for_user_across_tenants(settings_user).where.not(id: tu.id).update_all(
         handle: params[:new_handle]
       )
-    end
-    # Handle identity_prompt for AI agents
-    if settings_user.ai_agent? && params.key?(:identity_prompt)
-      settings_user.agent_configuration ||= {}
-      settings_user.agent_configuration["identity_prompt"] = params[:identity_prompt].presence
-      settings_user.save!
-    end
-    # Handle mode for AI agents (internal vs external)
-    if settings_user.ai_agent? && params.key?(:mode)
-      settings_user.agent_configuration ||= {}
-      mode = params[:mode]
-      settings_user.agent_configuration["mode"] = ["internal", "external"].include?(mode) ? mode : "external"
-      settings_user.save!
-    end
-    # Handle model for internal AI agents
-    if settings_user.ai_agent? && params.key?(:model)
-      settings_user.agent_configuration ||= {}
-      settings_user.agent_configuration["model"] = params[:model].presence
-      settings_user.save!
-    end
-    # Handle capabilities for AI agents
-    # Checked = allowed, unchecked = blocked (standard checkbox model)
-    # Empty array (all unchecked) = NO grantable actions allowed
-    # nil (key absent) = all grantable actions allowed (backwards compatible default)
-    if settings_user.ai_agent?
-      settings_user.agent_configuration ||= {}
-      capabilities = params[:capabilities]
-      if capabilities.is_a?(Array) && capabilities.any?
-        # Filter to only valid grantable actions
-        valid_caps = capabilities & CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
-        settings_user.agent_configuration["capabilities"] = valid_caps
-      else
-        # All boxes unchecked = save empty array (nothing allowed)
-        settings_user.agent_configuration["capabilities"] = []
-      end
-      settings_user.save!
     end
     flash[:notice] = "Profile updated successfully"
     redirect_to "#{settings_user.path}/settings"

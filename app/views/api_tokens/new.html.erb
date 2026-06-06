@@ -23,11 +23,21 @@
       <section class="pulse-settings-section">
         <label class="pulse-label">Identity</label>
         <div style="padding: 8px 12px; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-secondary); font-style: italic;">
-          you
+          <% if @showing_user == @current_user %>
+            you
+          <% elsif @showing_user.ai_agent? %>
+            <%= @showing_user.display_name %> (AI agent)
+          <% else %>
+            <%= @showing_user.display_name %>
+          <% end %>
         </div>
         <p class="pulse-hint" style="margin-top: 8px;">
-          This token will be associated with your account. To create a token for an AI agent, go to
-          <a href="/ai-agents" class="pulse-link">AI Agents</a> and select the agent's settings page.
+          <% if @showing_user == @current_user %>
+            This token will be associated with your account. To create a token for an AI agent, go to
+            <a href="/ai-agents" class="pulse-link">AI Agents</a> and select the agent's settings page.
+          <% else %>
+            This token will be associated with <%= @showing_user.display_name %>. Actions taken through the API using this token will be attributed to <%= @showing_user.display_name %>.
+          <% end %>
         </p>
       </section>
 

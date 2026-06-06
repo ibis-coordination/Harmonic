@@ -6,7 +6,8 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @ai_agent = create_ai_agent

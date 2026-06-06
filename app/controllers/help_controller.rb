@@ -13,7 +13,6 @@ class HelpController < ApplicationController
   FEATURE_GATED_TOPICS = {
     "api" => "api",
     "rest_api" => "api",
-    "agents" => "ai_agents",
     "trio" => "trio",
   }.freeze
 
@@ -51,6 +50,8 @@ class HelpController < ApplicationController
   end
 
   def help_topic_available?(topic)
+    return current_tenant.any_ai_agents_enabled? if topic.to_s == "agents"
+
     flag = FEATURE_GATED_TOPICS[topic.to_s]
     return true if flag.nil?
 

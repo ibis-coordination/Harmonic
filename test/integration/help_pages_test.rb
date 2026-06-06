@@ -4,7 +4,8 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
     @tenant.enable_feature_flag!("trio")
     @user = @global_user
     @api_token = ApiToken.create!(
@@ -54,7 +55,8 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
 
   test "help index links to automations (always shown, not feature-gated)" do
     @tenant.disable_feature_flag!("api")
-    @tenant.disable_feature_flag!("ai_agents")
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.disable_feature_flag!("external_ai_agents")
     get "/help"
     assert_response :success
     assert_includes response.body, "/help/automations"
@@ -108,7 +110,6 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   GATED_TOPICS = {
     "api" => "api",
     "rest-api" => "api",
-    "agents" => "ai_agents",
     "trio" => "trio",
   }.freeze
 
@@ -138,5 +139,42 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
       assert_response :success
       assert_includes response.body, "/help/#{topic}"
     end
+  end
+
+  test "help agents returns 404 when both ai_agents feature flags are disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.disable_feature_flag!("external_ai_agents")
+    get "/help/agents"
+    assert_response :not_found
+  end
+
+  test "help agents renders when only internal_ai_agents flag is enabled" do
+    @tenant.disable_feature_flag!("external_ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    get "/help/agents"
+    assert_response :success
+  end
+
+  test "help agents renders when only external_ai_agents flag is enabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
+    get "/help/agents"
+    assert_response :success
+  end
+
+  test "help index hides agents link when both ai_agents feature flags are disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.disable_feature_flag!("external_ai_agents")
+    get "/help"
+    assert_response :success
+    refute_includes response.body, "/help/agents"
+  end
+
+  test "help index shows agents link when any ai_agents feature flag is enabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
+    get "/help"
+    assert_response :success
+    assert_includes response.body, "/help/agents"
   end
 end

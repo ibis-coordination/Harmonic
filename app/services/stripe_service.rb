@@ -96,6 +96,15 @@ class StripeService
   # - Stripe API error: returns success: false with a human-readable error.
   sig { params(user: T.untyped).returns(SyncResult) }
   def self.sync_subscription_quantity!(user)
+    # Admins are exempt from the $3/month subscription — their billable_quantity
+    # always returns 0 regardless of resources (see User#billable_quantity).
+    # Syncing would interpret that 0 as "all resources removed" and cancel any
+    # subscription they hold. Admins may legitimately hold a StripeCustomer
+    # record (with active or inactive subscription) for LLM credit attribution —
+    # credit grants attach to the customer ID, not the subscription. Skipping
+    # sync entirely preserves whatever subscription state they intentionally have.
+    return SyncResult.new(success: true) if user.respond_to?(:sys_admin?) && (user.sys_admin? || user.app_admin?)
+
     sc = user.stripe_customer
     return SyncResult.new(success: true) unless sc&.active? && sc.stripe_subscription_id.present?
 

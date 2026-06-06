@@ -7,7 +7,8 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     @collective = @global_collective
     @collective.enable_api!
     @parent = @global_user
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
 
     @ai_agent = create_ai_agent_for(@parent, "Capability Test AiAgent")
 
@@ -156,7 +157,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
 
     # Update capabilities via the profile form (POST not PATCH)
-    post "/u/#{@ai_agent.handle}/settings/profile",
+    post "/ai-agents/#{@ai_agent.handle}/settings",
       params: {
         name: @ai_agent.name,
         capabilities: ["create_note", "add_comment", "vote"],
@@ -173,11 +174,13 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    # Uncheck all capabilities (no capabilities param sent = empty array saved)
-    post "/u/#{@ai_agent.handle}/settings/profile",
+    # Form submission with all capability checkboxes unchecked.
+    # The form ships a hidden sentinel `capabilities[]=""` so the param is
+    # always present; the controller filters blank values and writes [].
+    post "/ai-agents/#{@ai_agent.handle}/settings",
       params: {
         name: @ai_agent.name,
-        # No capabilities param = all boxes unchecked = empty array
+        capabilities: [""],
       }
 
     assert_response :redirect
@@ -190,7 +193,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
     sign_in_as(@parent, tenant: @tenant)
 
     # Try to set invalid capabilities
-    post "/u/#{@ai_agent.handle}/settings/profile",
+    post "/ai-agents/#{@ai_agent.handle}/settings",
       params: {
         name: @ai_agent.name,
         capabilities: ["create_note", "invalid_action", "create_collective"],

@@ -5,7 +5,8 @@ require "test_helper"
 class AutomationRuleRunTest < ActiveSupport::TestCase
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
 

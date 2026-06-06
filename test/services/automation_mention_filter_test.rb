@@ -7,7 +7,8 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     @tenant = @global_tenant
     @collective = @global_collective
     @user = @global_user
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     Collective.scope_thread_to_collective(
       subdomain: @tenant.subdomain,
       handle: @collective.handle

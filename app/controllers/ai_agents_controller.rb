@@ -4,11 +4,20 @@ class AiAgentsController < ApplicationController
   TASK_RUNS_PER_MINUTE = 5
 
   before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
-  before_action :require_ai_agents_enabled, only: [:index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run]
+  before_action :require_any_ai_agents_enabled, only: [
+    :index, :show, :settings, :update_settings,
+    :describe_update_ai_agent, :execute_update_ai_agent, :settings_actions_index,
+  ]
+  before_action :require_internal_ai_agents_enabled, only: [:run_task, :execute_task, :runs, :show_run, :cancel_run]
+  before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
   before_action :require_billing_for_creation, only: [:new]
   before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
   before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
-  before_action :authorize_parent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
+  before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index]
+  before_action :authorize_parent, only: [
+    :update_settings, :describe_update_ai_agent, :execute_update_ai_agent,
+    :deactivate, :reactivate,
+  ]
 
   # GET /ai-agents - List all AI agents owned by current user
   def index
@@ -115,7 +124,10 @@ class AiAgentsController < ApplicationController
     config["identity_prompt"] = identity_prompt if identity_prompt.present?
     config["mode"] = mode if mode.present?
     config["model"] = model if mode == "internal" && model.present?
-    config["capabilities"] = capabilities if capabilities.present?
+    if params.key?(:capabilities)
+      caps = Array(capabilities).compact_blank
+      config["capabilities"] = caps & CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
+    end
     @ai_agent.agent_configuration = config
 
     if @ai_agent.save
@@ -133,6 +145,7 @@ class AiAgentsController < ApplicationController
 
     @ai_agent = find_ai_agent_by_handle
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
+    return render status: :not_found, plain: "404 Not Found" unless @ai_agent.internal_ai_agent?
 
     @page_title = "Run Task - #{@ai_agent.display_name}"
     @max_steps_default = AiAgentTaskRun::DEFAULT_MAX_STEPS
@@ -144,6 +157,7 @@ class AiAgentsController < ApplicationController
 
     @ai_agent = find_ai_agent_by_handle
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
+    return render status: :not_found, plain: "404 Not Found" unless @ai_agent.internal_ai_agent?
 
     begin
       enforce_rate_limit!(
@@ -252,7 +266,7 @@ class AiAgentsController < ApplicationController
     return render status: :not_found, plain: "404 Not Found" unless @task_run
 
     unless @task_run.status.in?(["queued", "running"])
-      flash[:error] = "Can only cancel queued or running tasks"
+      flash[:alert] = "Can only cancel queued or running tasks"
       return redirect_to ai_agent_run_path(@ai_agent.handle, @task_run.id)
     end
 
@@ -360,20 +374,44 @@ class AiAgentsController < ApplicationController
           })
         end
         format.any do
-          flash[:error] = "You must confirm the billing charge to create an AI agent."
+          flash[:alert] = "You must confirm the billing charge to create an AI agent."
           return redirect_to new_ai_agent_path
         end
       end
     end
 
-    @ai_agent = api_helper.create_ai_agent
+    begin
+      @ai_agent = api_helper.create_ai_agent
+    rescue ActiveRecord::RecordNotUnique
+      # Most likely cause: the parameterized name collides with an existing
+      # tenant_user handle. TenantUser auto-suffixes only for reserved
+      # handles, not for general uniqueness, so a user picking a name like
+      # "alice" when @alice already exists hits the DB constraint here.
+      msg = "An account with that handle already exists. Please choose a different name."
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: msg,
+          })
+        end
+        format.any do
+          flash[:alert] = msg
+          return redirect_to new_ai_agent_path
+        end
+      end
+    end
     charged_cents = nil
     if current_tenant.feature_enabled?("stripe_billing")
       assign_billing_customer!(@ai_agent)
-      # If user has no active subscription, mark agent as pending
-      if !current_user.stripe_customer&.active?
+      # Decide whether the new agent needs to wait for billing setup.
+      # Use requires_stripe_billing? rather than stripe_customer.active?
+      # so admins (who are billing-exempt — billable_quantity is always 0)
+      # don't get their agents spuriously pending-flagged.
+      if current_user.requires_stripe_billing?(current_tenant)
         @ai_agent.update!(pending_billing_setup: true)
-      else
+      elsif current_user.stripe_customer&.active?
         result = StripeService.sync_subscription_quantity!(current_user)
         if result.success
           charged_cents = result.charged_cents
@@ -382,6 +420,7 @@ class AiAgentsController < ApplicationController
           @ai_agent.update!(pending_billing_setup: true)
         end
       end
+      # Else: user doesn't need billing (admin / fully exempt) — leave the agent active.
     end
     # Only generate token for external AI agents (not for pending agents)
     if !@ai_agent.pending_billing_setup? && @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
@@ -390,11 +429,32 @@ class AiAgentsController < ApplicationController
 
     notice = if @ai_agent.pending_billing_setup?
       "AI Agent #{@ai_agent.display_name} created. Set up billing to activate it."
+    elsif @token
+      "AI Agent #{@ai_agent.display_name} created. Save the token value now — you will not be able to see it again."
     elsif charged_cents && charged_cents > 0
       "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
     else
       "AI Agent #{@ai_agent.display_name} created successfully."
     end
+
+    # When a token was just generated, we must render the show page directly
+    # so the plaintext token is visible. The token is hashed at rest; a
+    # redirect would destroy @token and the user would never see it.
+    # Mirrors ApiTokensController#create's `render "show"`.
+    if @token
+      @page_title = @ai_agent.display_name
+      @automation_rules = AutomationRule.tenant_scoped_only
+        .where(ai_agent_id: @ai_agent.id).order(created_at: :desc).limit(5)
+      @recent_runs = AiAgentTaskRun
+        .where(ai_agent: @ai_agent).order(created_at: :desc).limit(5)
+      flash.now[:notice] = notice
+      respond_to do |format|
+        format.html { render "show" }
+        format.md { render "show" }
+      end
+      return
+    end
+
     flash[:notice] = notice
     redirect_path = @ai_agent.pending_billing_setup? ? "/billing" : ai_agent_path(@ai_agent.handle)
     respond_to do |format|
@@ -483,9 +543,27 @@ class AiAgentsController < ApplicationController
     redirect_to "/billing"
   end
 
-  def require_ai_agents_enabled
-    return if @current_tenant&.ai_agents_enabled?
+  def require_any_ai_agents_enabled
+    return if @current_tenant&.any_ai_agents_enabled?
 
+    render_ai_agents_disabled
+  end
+
+  def require_internal_ai_agents_enabled
+    return if @current_tenant&.internal_ai_agents_enabled?
+
+    render_ai_agents_disabled
+  end
+
+  def require_flag_for_create_mode
+    mode = ["internal", "external"].include?(params[:mode]) ? params[:mode] : "external"
+    return if mode == "internal" && @current_tenant&.internal_ai_agents_enabled?
+    return if mode == "external" && @current_tenant&.external_ai_agents_enabled?
+
+    render_ai_agents_disabled
+  end
+
+  def render_ai_agents_disabled
     respond_to do |format|
       format.html { render status: :forbidden, plain: "403 Forbidden - AI Agents feature is not enabled for this tenant" }
       format.json { render status: :forbidden, json: { error: "AI Agents feature is not enabled for this tenant" } }
@@ -507,6 +585,13 @@ class AiAgentsController < ApplicationController
 
   def authorize_parent
     return render status: :forbidden, plain: "403 Unauthorized" unless @ai_agent.parent_id == current_user&.id
+  end
+
+  def authorize_parent_or_self
+    return if @ai_agent.parent_id == current_user&.id
+    return if @ai_agent == current_user
+
+    render status: :forbidden, plain: "403 Unauthorized"
   end
 
   def find_ai_agent_by_handle
