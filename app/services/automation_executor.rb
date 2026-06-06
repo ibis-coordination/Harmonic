@@ -43,6 +43,22 @@ class AutomationExecutor
       return
     end
 
+    # Agent-owned rules trigger the AI agent via the Task Runner — gated on
+    # the internal AI agents flag and the agent being internal-mode. System
+    # agents (Trio) run on the deployment's account and are inherently
+    # internal-mode; exempt them from both checks, same as billing.
+    unless ai_agent.system?
+      unless @rule.tenant.internal_ai_agents_enabled?
+        @run.mark_failed!("Internal AI Agents are not enabled for this tenant.")
+        return
+      end
+
+      unless ai_agent.internal_ai_agent?
+        @run.mark_failed!("Agent-owned automations require an internal-mode agent. External agents cannot be triggered by the Task Runner.")
+        return
+      end
+    end
+
     # Agent must be active (not archived, suspended, or pending billing)
     if ai_agent.pending_billing_setup?
       @run.mark_failed!("Agent is pending billing setup. Set up billing at /billing to activate this agent.")
@@ -272,6 +288,19 @@ class AutomationExecutor
 
     agent = User.find_by(id: agent_id)
     return { "status" => "failed", "error" => "Agent not found or not an AI agent" } unless agent&.ai_agent?
+
+    # trigger_agent dispatches via the Task Runner — gated on the internal AI
+    # agents flag and the target agent being internal-mode. System agents (Trio)
+    # are exempt from both checks (same as billing).
+    unless agent.system?
+      unless @rule.tenant.internal_ai_agents_enabled?
+        return { "status" => "failed", "error" => "Internal AI Agents are not enabled for this tenant." }
+      end
+
+      unless agent.internal_ai_agent?
+        return { "status" => "failed", "error" => "Cannot trigger external agents via the Task Runner. trigger_agent requires an internal-mode agent." }
+      end
+    end
 
     # Billing gate: if stripe_billing is enabled, agent must have active billing.
     # System agents (e.g., Trio) are exempt — same as the gate above and in

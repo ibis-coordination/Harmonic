@@ -90,7 +90,8 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
 
   test "ai_agents index page shows ai_agent collective memberships" do
     # Enable AI agents feature flag and add ai_agent to collective first
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @collective.add_user!(@ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
@@ -102,7 +103,8 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
 
   test "ai_agents settings page shows available collectives to add agent to" do
     # Enable AI agents feature flag and create another collective where parent has invite permission
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     another_collective = create_collective(tenant: @tenant, created_by: @parent, handle: "another-collective-#{SecureRandom.hex(4)}")
 
     sign_in_as(@parent, tenant: @tenant)
@@ -115,7 +117,8 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
 
   test "ai_agents index page shows archived badge for archived ai_agent" do
     # Enable AI agents feature flag and archive the ai_agent
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @ai_agent.tenant_user = @tenant.tenant_users.find_by(user: @ai_agent)
     @ai_agent.archive!
 

@@ -4,6 +4,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
     @collective = @global_collective
     @collective.enable_api!
     @user = @global_user
@@ -1222,7 +1224,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "POST create_ai_agent action with generate_token creates ai_agent with token" do
     ai_agent_name = "AiAgent With Token #{SecureRandom.hex(4)}"
     post "/ai-agents/new/actions/create_ai_agent",
-      params: { name: ai_agent_name, generate_token: true }.to_json,
+      params: { name: ai_agent_name, mode: "external", generate_token: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
@@ -1230,6 +1232,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     new_ai_agent = User.find_by(name: ai_agent_name)
     assert new_ai_agent, "AiAgent should exist"
     assert ApiToken.unscoped.where(user: new_ai_agent).any?, "AiAgent should have an API token"
+
+    # The plaintext token is only available immediately — it's hashed at rest.
+    # The markdown response must include it (and the warning) so the LLM can
+    # capture it for subsequent use.
+    assert_match(/\b[a-f0-9]{40}\b/, response.body,
+      "plaintext token (40-char hex) must appear in the markdown response")
+    assert_match(/won't be able to see|will not be able to see/i, response.body,
+      "must warn that this is the only chance to copy the token")
   ensure
     # Query directly — User#api_tokens relies on Tenant.current_id which is
     # cleared by CurrentAttributes auto-reset after the request.
@@ -2374,7 +2384,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # AiAgent task run markdown tests
   test "GET ai_agent task run returns markdown and strips JSON from think steps" do
     # Enable ai_agents feature for this tenant
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
 
     # Create a ai_agent
     ai_agent = User.create!(
@@ -2493,7 +2504,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   end
 
   test "GET ai_agent task run markdown surfaces tool_calls and reasoning on think steps" do
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
 
     ai_agent = User.create!(
       name: "Observability Test Agent",

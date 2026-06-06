@@ -37,9 +37,17 @@ feature_flags:
     default_collective: false
     collective_level: true
 
-  ai_agents:
-    name: "AI Agents Task Runner"
-    description: "Enables the internal AI Agents task runner for executing automated tasks. External agents interacting via the API only need the 'api' flag."
+  internal_ai_agents:
+    name: "Internal AI Agents (Task Runner)"
+    description: "Enables the Harmonic-managed Task Runner for executing internal AI agent runs (the agent-runner service, automation rule dispatch, and Trio's runtime path)."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false
+
+  external_ai_agents:
+    name: "External AI Agents"
+    description: "Allows users to create AI agents that interact with Harmonic via the API using API tokens. Requires the 'api' flag."
     app_enabled: true
     default_tenant: false
     default_collective: false

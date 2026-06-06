@@ -7,7 +7,8 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @tenant = @global_tenant
     @user = @global_user
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
     @collective = @tenant.main_collective
 
     @ai_agent = create_ai_agent(parent: @user)

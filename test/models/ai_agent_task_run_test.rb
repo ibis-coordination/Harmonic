@@ -303,7 +303,8 @@ class AiAgentTaskRunTest < ActiveSupport::TestCase
   end
 
   test "triggered_by_automation? returns true when automation_rule is set" do
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
 
     automation_rule = AutomationRule.create!(
       tenant: @tenant,
@@ -331,7 +332,8 @@ class AiAgentTaskRunTest < ActiveSupport::TestCase
   end
 
   test "create_queued accepts automation_rule parameter" do
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
 
     automation_rule = AutomationRule.create!(
       tenant: @tenant,

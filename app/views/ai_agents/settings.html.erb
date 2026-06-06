@@ -40,7 +40,23 @@
     <% else %>
       <%# Active agent: show full settings %>
 
-      <form action="/ai-agents/<%= @ai_agent.handle %>/settings" method="post" class="pulse-form">
+      <%
+        internal_enabled = @current_tenant.internal_ai_agents_enabled?
+        external_enabled = @current_tenant.external_ai_agents_enabled?
+        both_modes = internal_enabled && external_enabled
+        current_mode = @ai_agent.internal_ai_agent? ? "internal" : "external"
+      %>
+
+      <%# Profile image upload has its own form (multipart), so it must live
+          OUTSIDE the main settings form — nested forms are invalid HTML and
+          would break the image-cropper Stimulus controller's target lookup. %>
+      <section class="pulse-settings-section">
+        <h3>Profile Image</h3>
+        <p class="pulse-hint">Click the image to upload a new one</p>
+        <%= render 'shared/profile_image_upload', resource: @ai_agent, size: 64 %>
+      </section>
+
+      <form id="ai-agent-settings-form" action="/ai-agents/<%= @ai_agent.handle %>/settings" method="post" class="pulse-form" data-controller="ai-agent-mode">
         <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
 
         <section class="pulse-settings-section">
@@ -56,36 +72,126 @@
             <input type="text" id="new_handle" name="new_handle" value="<%= @ai_agent.handle %>" class="pulse-form-input">
             <small class="pulse-hint">The handle is used in URLs and @mentions</small>
           </div>
+
+          <div class="pulse-form-group">
+            <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
+            <textarea id="identity_prompt" name="identity_prompt" rows="6" class="pulse-form-input"><%= @ai_agent.agent_configuration&.dig("identity_prompt") %></textarea>
+            <small class="pulse-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</small>
+          </div>
         </section>
 
-        <% if @ai_agent.internal_ai_agent? %>
+        <%# Mode is fixed when only one of the two flags is enabled — submit it
+            as a hidden field so the controller still receives it. No visible
+            section in that case (would be an empty header). %>
+        <% unless both_modes || internal_enabled %>
+          <%= hidden_field_tag :mode, current_mode %>
+        <% end %>
+
+        <% if both_modes || internal_enabled %>
           <section class="pulse-settings-section">
-            <h3>Agent Configuration</h3>
+            <h3>Runtime</h3>
 
-            <div class="pulse-form-group">
-              <label for="model" class="pulse-label">Model</label>
-              <select id="model" name="model" class="pulse-form-input">
-                <option value="" <%= @ai_agent.agent_configuration&.dig("model").nil? ? "selected" : "" %>>Default</option>
-                <option value="claude-3-5-sonnet" <%= @ai_agent.agent_configuration&.dig("model") == "claude-3-5-sonnet" ? "selected" : "" %>>Claude 3.5 Sonnet</option>
-                <option value="claude-3-5-haiku" <%= @ai_agent.agent_configuration&.dig("model") == "claude-3-5-haiku" ? "selected" : "" %>>Claude 3.5 Haiku</option>
-                <option value="claude-3-opus" <%= @ai_agent.agent_configuration&.dig("model") == "claude-3-opus" ? "selected" : "" %>>Claude 3 Opus</option>
-              </select>
-              <small class="pulse-hint">The AI model used for this agent's tasks</small>
-            </div>
+            <% if both_modes %>
+              <div class="pulse-form-group">
+                <label class="pulse-label">Mode</label>
+                <small class="pulse-hint" style="margin-bottom: 12px; display: block;">Choose how this AI Agent is powered.</small>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <%= radio_button_tag :mode, "internal", current_mode == "internal", data: { action: "ai-agent-mode#updateVisibility" } %>
+                    <span>
+                      <strong>Internal</strong>
+                      <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</small>
+                    </span>
+                  </label>
+                  <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <%= radio_button_tag :mode, "external", current_mode == "external", data: { action: "ai-agent-mode#updateVisibility" } %>
+                    <span>
+                      <strong>External</strong>
+                      <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</small>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            <% else %>
+              <%= hidden_field_tag :mode, current_mode %>
+            <% end %>
 
-            <div class="pulse-form-group">
-              <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
-              <textarea id="identity_prompt" name="identity_prompt" rows="6" class="pulse-form-input"><%= @ai_agent.agent_configuration&.dig("identity_prompt") %></textarea>
-              <small class="pulse-hint">Custom instructions that define this agent's personality and behavior</small>
-            </div>
+            <% if internal_enabled %>
+              <div class="pulse-form-group" data-ai-agent-mode-target="internalOnly" style="<%= !both_modes || current_mode == 'internal' ? '' : 'display: none;' %>">
+                <label for="model" class="pulse-label">Model</label>
+                <%= select_tag :model, options_for_select(available_llm_models, @ai_agent.agent_configuration&.dig("model") || "default"), class: "pulse-form-input" %>
+                <small class="pulse-hint">The LLM model this AI Agent will use for reasoning.</small>
+              </div>
+            <% end %>
           </section>
         <% end %>
 
-        <section class="pulse-settings-section pulse-action-row">
-          <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Save Settings</button>
-          <a href="/ai-agents/<%= @ai_agent.handle %>" class="pulse-action-btn">Cancel</a>
+        <section class="pulse-settings-section">
+          <h3>Capabilities</h3>
+          <p class="pulse-hint">
+            Check the actions this agent is allowed to perform. Unchecked actions will be blocked.
+          </p>
+
+          <%# Sentinel so an all-unchecked submission still includes a capabilities param —
+              the controller writes [] when present-but-empty, preserving "uncheck all" semantics. %>
+          <%= hidden_field_tag "capabilities[]", "" %>
+
+          <% current_caps = @ai_agent.agent_configuration&.dig("capabilities") %>
+          <% caps_not_configured = current_caps.nil? %>
+
+          <%
+            action_groups = {
+              "Always Allowed" => CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED,
+              "Notes" => %w[create_note update_note confirm_read],
+              "Decisions" => %w[create_decision update_decision_settings vote add_options],
+              "Commitments" => %w[create_commitment update_commitment_settings join_commitment],
+              "Comments" => %w[add_comment],
+              "Pins" => %w[pin_note unpin_note pin_decision unpin_decision pin_commitment unpin_commitment],
+              "Attachments" => %w[add_attachment remove_attachment],
+              "Trustee Grant Responses" => %w[accept_trustee_grant decline_trustee_grant],
+              "Trustee Grant Admin" => %w[create_trustee_grant revoke_trustee_grant],
+            }
+            disabled_by_default = %w[Attachments Trustee\ Grant\ Admin]
+          %>
+
+          <% action_groups.each do |group_name, actions| %>
+            <% is_always_allowed = group_name == "Always Allowed" %>
+            <div style="margin-top: 16px;" data-controller="<%= 'checkbox-group' unless is_always_allowed %>">
+              <div style="font-weight: 500; font-size: 13px; margin-bottom: 8px; color: <%= is_always_allowed ? 'var(--text-muted)' : 'var(--text-primary)' %>; display: flex; align-items: center; gap: 12px;">
+                <span><%= group_name %></span>
+                <% if is_always_allowed %>
+                  <span style="font-weight: normal; font-size: 12px;">(cannot be disabled)</span>
+                <% else %>
+                  <span style="font-weight: normal; font-size: 12px;">
+                    <a href="#" data-action="checkbox-group#checkAll" class="pulse-link">all</a>
+                    /
+                    <a href="#" data-action="checkbox-group#uncheckAll" class="pulse-link">none</a>
+                  </span>
+                <% end %>
+              </div>
+              <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+                <% actions.each do |action| %>
+                  <% if is_always_allowed %>
+                    <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: not-allowed; opacity: 0.6;">
+                      <%= check_box_tag nil, action, true, disabled: true, id: "cap_#{action}" %>
+                      <code style="font-size: 12px;"><%= action %></code>
+                    </label>
+                  <% else %>
+                    <% checked = caps_not_configured ? !disabled_by_default.include?(group_name) : current_caps&.include?(action) %>
+                    <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                      <%= check_box_tag "capabilities[]", action, checked, id: "cap_#{action}", data: { checkbox_group_target: "checkbox" } %>
+                      <code style="font-size: 12px;"><%= action %></code>
+                    </label>
+                  <% end %>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
         </section>
+
       </form>
+
+      <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--color-border-default);">
 
       <% if @ai_agent_collectives.any? %>
         <section class="pulse-settings-section">
@@ -189,6 +295,16 @@
           </p>
         </section>
       <% end %>
+
+      <%# Save button uses HTML5's `form` attribute so it can sit visually at
+          the bottom of the page while still submitting the agent-settings
+          form above. The management sections in between have their own forms
+          (nested forms are invalid HTML), so the Save button must live
+          outside any form. %>
+      <section class="pulse-settings-section pulse-action-row" style="margin-top: 32px;">
+        <button type="submit" form="ai-agent-settings-form" class="pulse-action-btn pulse-action-btn-primary">Save Settings</button>
+        <a href="/ai-agents/<%= @ai_agent.handle %>" class="pulse-action-btn">Cancel</a>
+      </section>
     <% end %>
   </div>
 </article>

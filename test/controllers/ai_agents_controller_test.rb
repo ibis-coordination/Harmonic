@@ -10,7 +10,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
 
     # Enable AI agents for this tenant
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
 
     # Create an AI agent for tests
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -95,7 +96,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   # === Feature Flag Tests ===
 
   test "index returns forbidden when AI agents feature is disabled" do
-    @tenant.set_feature_flag!("ai_agents", false)
+    @tenant.set_feature_flag!("internal_ai_agents", false)
+    @tenant.set_feature_flag!("external_ai_agents", false)
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents"
     assert_response :forbidden
@@ -655,7 +657,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # `system_role: "trio"` would grant billing exemption + workspace-membership
     # + reserved-handle privileges. Only TrioSeeder may assign it; user-supplied
     # params must not.
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
@@ -678,6 +681,356 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     @ai_agent.tenant_users.find_by(tenant: @tenant).reload
     assert_equal @ai_agent_handle, @ai_agent.tenant_users.find_by(tenant: @tenant).handle
+  end
+
+  # === Split-flag scenario tests ===
+
+  test "run_task is reachable when internal_ai_agents is enabled" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/run"
+    assert_response :success
+  end
+
+  test "run_task returns 403 when internal_ai_agents is disabled even if external is enabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/run"
+    assert_response :forbidden
+  end
+
+  test "run_task returns 404 for an external agent even with internal flag on" do
+    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/run"
+    assert_response :not_found
+  end
+
+  test "execute_task returns 404 for an external agent" do
+    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "x" }
+    assert_response :not_found
+  end
+
+  test "settings is reachable when only external_ai_agents is enabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :success
+  end
+
+  test "settings is reachable when only internal_ai_agents is enabled" do
+    @tenant.disable_feature_flag!("external_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :success
+  end
+
+  test "settings returns 403 when both flags are disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.disable_feature_flag!("external_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :forbidden
+  end
+
+  test "create with mode=internal is blocked when internal_ai_agents is disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Blocked Internal Agent",
+      mode: "internal",
+      confirm_billing: "1",
+    }
+    assert_response :forbidden
+  end
+
+  test "create with mode=external is blocked when external_ai_agents is disabled" do
+    @tenant.disable_feature_flag!("external_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Blocked External Agent",
+      mode: "external",
+      confirm_billing: "1",
+    }
+    assert_response :forbidden
+  end
+
+  test "create with missing mode defaults to external and is blocked when external_ai_agents is disabled" do
+    @tenant.disable_feature_flag!("external_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Blocked Default-mode Agent",
+      confirm_billing: "1",
+    }
+    assert_response :forbidden
+  end
+
+  test "agent itself can read its own /ai-agents/handle/settings via authorize_parent_or_self" do
+    @tenant.enable_api!
+    token = ApiToken.create!(
+      user: @ai_agent,
+      tenant: @tenant,
+      name: "Self-Read Token",
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+    )
+    get "/ai-agents/#{@ai_agent_handle}/settings",
+      headers: {
+        "Authorization" => "Bearer #{token.plaintext_token}",
+        "Accept" => "text/markdown",
+      }
+    assert_response :success
+  end
+
+  test "non-parent, non-self user is 403 on settings" do
+    other_user = create_user(email: "other-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    sign_in_as(other_user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :forbidden
+  end
+
+  test "agent itself cannot POST update_settings" do
+    token = ApiToken.create!(
+      user: @ai_agent,
+      tenant: @tenant,
+      name: "Self-Write Token",
+      scopes: ApiToken.write_scopes + ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+    )
+    post "/ai-agents/#{@ai_agent_handle}/settings",
+      params: { name: "Self-renamed" },
+      headers: {
+        "Authorization" => "Bearer #{token.plaintext_token}",
+        "Accept" => "text/markdown",
+      }
+    assert_response :forbidden
+  end
+
+  # === External-only rollout (the production rollout config) ===
+  #
+  # This is the configuration external customers will see first: external AI
+  # agents are enabled, internal (Task Runner) AI agents are not. These tests
+  # exercise the human-facing UX flow end-to-end in that configuration to
+  # catch any place where the UI assumes internal is on.
+
+  test "external-only: index page is reachable and lists existing external agent" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents"
+    assert_response :success
+    assert_includes response.body, @ai_agent.name
+  end
+
+  test "external-only: index empty-state copy mentions API access" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    # Ensure the parent user has no agents in this tenant so the empty state renders.
+    @user.ai_agents.find_each { |a| destroy_user!(a) }
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents"
+    assert_response :success
+    assert_match(/No AI Agents Yet/, response.body)
+    assert_match(/programmatic access to the API/, response.body)
+  end
+
+  test "external-only: per-agent action row hides Run Task/Runs but keeps Settings and Automations" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents"
+    assert_response :success
+    refute_includes response.body, "Run Task"
+    assert_includes response.body, "Settings"
+    assert_includes response.body, "Automations"
+  end
+
+  test "external-only: show page is reachable and hides Run Task button" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}"
+    assert_response :success
+    refute_includes response.body, ">Run Task"
+  end
+
+  test "external-only: new agent form is reachable" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/new"
+    assert_response :success
+  end
+
+  test "external-only: new agent form hides Mode radio and sends hidden mode=external" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/new"
+    assert_response :success
+    refute_match(/radio_button.*mode/, response.body)
+    refute_match(/<label[^>]*>\s*<input[^>]*type="radio"[^>]*name="mode"/, response.body)
+    assert_match(/<input[^>]*type="hidden"[^>]*name="mode"[^>]*value="external"/, response.body)
+  end
+
+  test "create with name that produces an already-taken handle surfaces a friendly error, not a 500" do
+    sign_in_as(@user, tenant: @tenant)
+    existing = create_ai_agent(parent: @user, name: "Collision Target")
+    existing_handle = @tenant.add_user!(existing).handle
+
+    assert_no_difference -> { User.where(user_type: "ai_agent").count } do
+      post "/ai-agents/new/actions/create_ai_agent", params: {
+        name: existing_handle,
+        mode: "external",
+        confirm_billing: "1",
+      }
+    end
+
+    assert_response :redirect, "should redirect back to the form, not 500"
+    assert_match(/handle|already|taken|in use|different name/i, flash[:alert] || flash[:error] || flash[:notice] || "",
+      "flash must explain why creation failed so the user can pick a different name")
+    follow_redirect!
+    # Use a key the layout renders. The layout renders :notice and :alert
+    # (Rails convention). Pre-existing flash[:error] uses in this controller
+    # are a separate UX bug — out of scope here.
+    assert_match(/handle|already|taken|in use|different name/i, response.body,
+      "flash should be visible in the rendered form so the user knows why it failed")
+  end
+
+  test "external-only: admin user creating an agent does NOT get pending_billing_setup even with inactive stripe_customer" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    # Pre-existing inactive stripe_customer (e.g. subscription was canceled or never activated)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_admin_test", active: false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Admin External Agent",
+      mode: "external",
+      generate_token: "1",
+      confirm_billing: "1",
+    }
+
+    new_agent = @user.ai_agents.find_by(name: "Admin External Agent")
+    assert new_agent
+    refute new_agent.pending_billing_setup?,
+      "admin-created agents should NOT be marked pending_billing_setup just because the admin's stripe_customer happens to be inactive — admins are billing-exempt"
+  end
+
+  test "external-only: regular user with inactive stripe_customer creating an agent DOES get pending_billing_setup" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    enable_stripe_billing_flag!(@tenant)
+    # Clear pre-existing agents so the user passes the early
+    # requires_stripe_billing? redirect (billable_quantity must be 0 going
+    # into the request — otherwise they'd hit the early redirect, not the
+    # pending-flag code path we're testing).
+    @user.ai_agents.find_each { |a| destroy_user!(a) }
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_regular_test", active: false)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Regular User External Agent",
+      mode: "external",
+      generate_token: "1",
+      confirm_billing: "1",
+    }
+
+    new_agent = @user.ai_agents.find_by(name: "Regular User External Agent")
+    assert new_agent
+    assert new_agent.pending_billing_setup?,
+      "non-admin user without an active subscription must have the new agent marked pending so the runner blocks it until billing is set up"
+  end
+
+  test "external-only: external agent creation with generate_token reveals plaintext token in response" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "External Agent With Token",
+      mode: "external",
+      generate_token: "1",
+      confirm_billing: "1",
+    }
+    assert_response :success, "should render show page directly (not redirect) so the freshly created plaintext token is visible"
+
+    new_agent = @user.ai_agents.find_by(name: "External Agent With Token")
+    assert new_agent
+    assert ApiToken.unscoped.where(user_id: new_agent.id).any?, "token should be persisted"
+
+    # The plaintext is only available on the in-memory ApiToken returned from
+    # the controller request — it's hashed in the DB. So we assert the
+    # response body contains a 40-char hex string (SecureRandom.hex(20))
+    # AND the "save it now" message that this is the only chance to copy it.
+    assert_match(/\b[a-f0-9]{40}\b/, response.body,
+      "plaintext token (40-char hex) must appear in the response — it is hashed at rest and never retrievable")
+    assert_match(/won't be able to see|will not be able to see/i, response.body,
+      "must warn the user this is the only chance to copy the token")
+  end
+
+  test "external-only: external agent creation without generate_token redirects (no token rendered)" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "External Agent No Token",
+      mode: "external",
+      confirm_billing: "1",
+    }
+    assert_response :redirect
+    new_agent = @user.ai_agents.find_by(name: "External Agent No Token")
+    assert new_agent
+    assert_empty ApiToken.unscoped.where(user_id: new_agent.id)
+  end
+
+  test "external-only: external agent creation succeeds via markdown action" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    assert_difference -> { @user.ai_agents.where(tenant_users: { tenant_id: @tenant.id }).joins(:tenant_users).count }, 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: {
+        name: "External Only Agent",
+        mode: "external",
+        confirm_billing: "1",
+      }
+    end
+    new_agent = @user.ai_agents.find_by(name: "External Only Agent")
+    assert new_agent
+    assert new_agent.external_ai_agent?, "agent should be external-mode"
+  end
+
+  test "external-only: create with no mode param succeeds (defaults to external)" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Default Mode Agent",
+      confirm_billing: "1",
+    }
+    new_agent = @user.ai_agents.find_by(name: "Default Mode Agent")
+    assert new_agent, "agent should be created"
+    assert new_agent.external_ai_agent?, "agent should default to external mode"
+  end
+
+  test "external-only: runs index is gated (no UI surface for runs)" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs"
+    assert_response :forbidden
+  end
+
+  test "external-only: any_ai_agents_enabled? is true so top nav AI Agents link renders" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_match %r{href="/ai-agents"}, response.body, "Top nav AI Agents link should be visible"
+  end
+
+  test "update_settings accepts capabilities with sentinel and writes []" do
+    sign_in_as(@user, tenant: @tenant)
+    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: {
+      name: @ai_agent.name,
+      capabilities: [""],
+    }
+    assert_response :redirect
+    @ai_agent.reload
+    assert_equal [], @ai_agent.agent_configuration["capabilities"]
   end
 
   private

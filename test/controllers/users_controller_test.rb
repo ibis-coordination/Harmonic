@@ -368,6 +368,96 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   # === AiAgent Count Scoping Tests ===
 
+  # === /u/<agent>/settings redirects to /ai-agents/<handle>/settings ===
+  # AI agents have a single canonical settings surface; visits to the
+  # user-settings URL for an agent redirect to the canonical page.
+
+  test "GET /u/<agent>/settings redirects to /ai-agents/<handle>/settings for AI agents" do
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    ai_agent = create_ai_agent(parent: @user, name: "Redirect Test Agent")
+    @tenant.add_user!(ai_agent)
+    handle = ai_agent.tenant_users.find_by(tenant: @tenant).handle
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{handle}/settings"
+    assert_redirected_to "/ai-agents/#{handle}/settings"
+  end
+
+  test "GET /u/<agent>/settings.md redirects to /ai-agents/<handle>/settings.md for AI agents" do
+    @tenant.enable_api!
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    ai_agent = create_ai_agent(parent: @user, name: "Redirect MD Test Agent")
+    @tenant.add_user!(ai_agent)
+    handle = ai_agent.tenant_users.find_by(tenant: @tenant).handle
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    api_token = ApiToken.create!(
+      user: @user,
+      tenant: @tenant,
+      name: "Redirect MD Test #{SecureRandom.hex(4)}",
+      scopes: ApiToken.read_scopes,
+    )
+    get "/u/#{handle}/settings",
+      headers: {
+        "Accept" => "text/markdown",
+        "Authorization" => "Bearer #{api_token.plaintext_token}",
+      }
+    assert_response :redirect
+    assert_match %r{/ai-agents/#{handle}/settings}, response.headers["Location"]
+  end
+
+  test "GET /ai-agents/<handle>/settings includes the profile image upload" do
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    ai_agent = create_ai_agent(parent: @user, name: "Profile Image Test Agent")
+    @tenant.add_user!(ai_agent)
+    handle = ai_agent.tenant_users.find_by(tenant: @tenant).handle
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{handle}/settings"
+    assert_response :success
+    assert_match(/Profile Image/i, response.body,
+      "agent settings should include profile image upload — the only thing previously unique to /u/<agent>/settings")
+  end
+
+  test "POST /u/<agent>/settings/profile no longer mutates agent_configuration" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    ai_agent = create_ai_agent(parent: @user, name: "Profile POST Test Agent")
+    ai_agent.update!(agent_configuration: { "mode" => "external", "capabilities" => ["create_note"] })
+    @tenant.add_user!(ai_agent)
+    handle = ai_agent.tenant_users.find_by(tenant: @tenant).handle
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{handle}/settings/profile", params: {
+      name: "Updated Name",
+      mode: "internal",
+      capabilities: [""],
+      identity_prompt: "ignored",
+    }
+    assert_response :redirect
+    ai_agent.reload
+    assert_equal "Updated Name", ai_agent.name
+    assert_equal "external", ai_agent.agent_configuration["mode"]
+    assert_equal ["create_note"], ai_agent.agent_configuration["capabilities"]
+    assert_nil ai_agent.agent_configuration["identity_prompt"]
+  end
+
   test "ai_agent count only includes ai_agents in current tenant" do
     # Create two ai_agents
     ai_agent1 = create_ai_agent(parent: @user, name: "AiAgent In Tenant")

@@ -11,8 +11,6 @@ class AutomationDispatcher
   # Dispatch an event to all matching automation rules
   sig { params(event: Event).void }
   def self.dispatch(event)
-    return unless event.tenant&.ai_agents_enabled?
-
     matching_rules = find_matching_rules(event)
     return if matching_rules.empty?
 

@@ -6,7 +6,8 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
 
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @ai_agent = create_ai_agent
@@ -209,7 +210,8 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   end
 
   test "skips dispatch when ai_agents not enabled" do
-    @tenant.disable_feature_flag!("ai_agents")
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    @tenant.disable_feature_flag!("external_ai_agents")
 
     redis = Redis.new(url: ENV["REDIS_URL"])
     redis.del("agent_tasks")

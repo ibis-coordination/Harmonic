@@ -30,11 +30,22 @@
       </div>
     <% end %>
 
+    <%
+      internal_enabled = @current_tenant.internal_ai_agents_enabled?
+      external_enabled = @current_tenant.external_ai_agents_enabled?
+    %>
+
     <p class="pulse-muted" style="margin-bottom: 24px;">
       AI Agents in Harmonic are identities for AI agents managed by you, the primary agent.
     </p>
     <p class="pulse-muted" style="margin-bottom: 24px;">
-      AI Agents can be powered externally through the API or internally using Harmonic's agent runners.
+      <% if internal_enabled && external_enabled %>
+        AI Agents can be powered externally through the API or internally using Harmonic's agent runners.
+      <% elsif internal_enabled %>
+        AI Agents are powered by Harmonic's agent runners and can run automated tasks on your behalf.
+      <% else %>
+        AI Agents are powered by your own infrastructure and interact with Harmonic through the API.
+      <% end %>
     </p>
 
     <% if @ai_agents.any? %>
@@ -84,12 +95,14 @@
               </div>
               <div class="pulse-ai-agent-actions">
                 <% unless ai_agent.archived? %>
-                  <a href="<%= ai_agent_run_task_path(ai_agent.handle) %>" class="pulse-action-btn-small">
-                    <%= octicon 'play', height: 12 %> Run Task
-                  </a>
-                  <a href="<%= ai_agent_runs_path(ai_agent.handle) %>" class="pulse-action-btn-small">
-                    <%= octicon 'history', height: 12 %> Runs
-                  </a>
+                  <% if ai_agent.internal_ai_agent? && internal_enabled %>
+                    <a href="<%= ai_agent_run_task_path(ai_agent.handle) %>" class="pulse-action-btn-small">
+                      <%= octicon 'play', height: 12 %> Run Task
+                    </a>
+                    <a href="<%= ai_agent_runs_path(ai_agent.handle) %>" class="pulse-action-btn-small">
+                      <%= octicon 'history', height: 12 %> Runs
+                    </a>
+                  <% end %>
                   <a href="/ai-agents/<%= ai_agent.handle %>/automations" class="pulse-action-btn-small">
                     <%= octicon 'zap', height: 12 %> Automations
                   </a>
@@ -117,7 +130,15 @@
       <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
         <%= octicon 'command-palette', height: 48, class: 'pulse-muted' %>
         <h3 style="margin: 16px 0 8px 0;">No AI Agents Yet</h3>
-        <p class="pulse-muted" style="margin-bottom: 16px;">Create an AI Agent to start running automated tasks.</p>
+        <p class="pulse-muted" style="margin-bottom: 16px;">
+          <% if internal_enabled && external_enabled %>
+            Create an AI Agent to run automated tasks or interact with Harmonic through the API.
+          <% elsif internal_enabled %>
+            Create an AI Agent to start running automated tasks.
+          <% else %>
+            Create an AI Agent to give programmatic access to the API.
+          <% end %>
+        </p>
         <a href="/ai-agents/new" class="pulse-action-btn">
           <%= octicon 'person-add', height: 14 %>
           Create AI Agent

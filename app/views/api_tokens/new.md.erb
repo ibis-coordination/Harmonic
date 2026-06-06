@@ -4,9 +4,13 @@ Create a new API token for **<%= @showing_user.display_name %>**.
 
 ## Identity
 
+<% if @showing_user == @current_user %>
 This token will be associated with **you** (<%= @showing_user.display_name %>).
 
 To create a token for an AI agent, go to [AI Agents](/ai-agents) and select the agent's settings page.
+<% else %>
+This token will be associated with **<%= @showing_user.display_name %>**. Actions taken through the API using this token will be attributed to <%= @showing_user.display_name %>.
+<% end %>
 
 ## Parameters
 

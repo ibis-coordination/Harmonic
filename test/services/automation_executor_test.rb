@@ -7,7 +7,8 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
-    @tenant.set_feature_flag!("ai_agents", true)
+    @tenant.set_feature_flag!("internal_ai_agents", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     @ai_agent = create_ai_agent(parent: @user)
     @tenant.add_user!(@ai_agent)
   end
@@ -679,6 +680,122 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     run.reload
     assert_not_equal "failed", run.status, "system agent should not fail the billing gate: #{run.error_message}"
     assert_equal 1, dispatched.length
+  end
+
+  # === External-only rollout scenario ===
+  # When internal_ai_agents is off but external_ai_agents is on, the Task
+  # Runner shouldn't fire. trigger_agent actions and agent-owned rules must
+  # fail with a clear error rather than silently queueing.
+
+  test "external-only rollout: agent-owned rule fails clearly when internal_ai_agents is disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    rule = create_agent_rule(task: "Run this task")
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    dispatched = []
+    AgentRunnerDispatchService.stub :dispatch, ->(tr) { dispatched << tr } do
+      assert_no_difference "AiAgentTaskRun.count" do
+        AutomationExecutor.execute(run)
+      end
+    end
+    assert_equal 0, dispatched.length, "should not dispatch to runner"
+
+    run.reload
+    assert_equal "failed", run.status
+    assert_match(/Internal AI Agents are not enabled/, run.error_message)
+  end
+
+  test "external-only rollout: trigger_agent action fails clearly when internal_ai_agents is disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    target_agent = create_ai_agent(parent: @user, name: "Target Internal Agent")
+    @tenant.add_user!(target_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "External-only trigger_agent test",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "trigger_agent", "agent_id" => target_agent.id, "task" => "Do something" },
+      ],
+      enabled: true,
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    result = run.actions_executed.first["result"]
+    assert_equal "failed", result["status"]
+    assert_match(/Internal AI Agents are not enabled/, result["error"])
+  end
+
+  test "external-only rollout: trigger_agent fails for external-mode target agent even when internal flag is on" do
+    external_target = create_ai_agent(
+      parent: @user,
+      name: "External Target",
+      agent_configuration: { "mode" => "external" },
+    )
+    @tenant.add_user!(external_target)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "External agent target test",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "trigger_agent", "agent_id" => external_target.id, "task" => "Do something" },
+      ],
+      enabled: true,
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "AiAgentTaskRun.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    result = run.actions_executed.first["result"]
+    assert_equal "failed", result["status"]
+    assert_match(/external|internal-mode agent/i, result["error"])
+  end
+
+  test "external-only rollout: webhook automations still fire when internal_ai_agents is disabled" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Webhook automation in external-only rollout",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [
+        { "type" => "webhook", "url" => "https://example.invalid/hook", "method" => "POST" },
+      ],
+      enabled: true,
+    )
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+
+    run.reload
+    # The webhook execute path returns "failed" only on actual network errors;
+    # in test it produces a delivery. Either way, the run must not be blocked
+    # by the internal flag.
+    refute_match(/Internal AI Agents are not enabled/, run.error_message.to_s,
+      "webhook automations must not be gated by internal_ai_agents flag")
   end
 
   test "agent rule runs normally when stripe_billing flag disabled" do

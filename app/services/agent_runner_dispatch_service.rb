@@ -25,7 +25,7 @@ class AgentRunnerDispatchService
 
     # Precondition checks
     return unless ai_agent&.ai_agent?
-    return unless tenant&.ai_agents_enabled?
+    return unless tenant&.internal_ai_agents_enabled?
 
     # Only dispatch tasks that are still queued. Guards against a race where
     # the rake `agent_runner:redispatch_queued` task enumerates queued runs

@@ -6,13 +6,6 @@
 
 Name: <%= @settings_user.name %>
 Handle: `<%= @settings_user.handle %>`
-<% if @settings_user.ai_agent? %>
-Type: AI Agent (managed by <%= @settings_user.parent&.display_name || 'Unknown' %>)
-Mode: <%= @settings_user.internal_ai_agent? ? "Internal" : "External" %>
-<% if @settings_user.internal_ai_agent? %>
-Model: `<%= @settings_user.agent_configuration&.dig("model") || "default" %>`
-<% end %>
-<% end %>
 
 <% if is_own_settings && @settings_user.external_oauth_identities.any? %>
 ## Connected Accounts

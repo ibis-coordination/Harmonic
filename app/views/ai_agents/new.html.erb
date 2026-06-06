@@ -111,40 +111,54 @@
         <% end %>
       </section>
 
-      <section class="pulse-settings-section">
-        <label class="pulse-label">Mode</label>
-        <small class="pulse-hint" style="margin-bottom: 12px; display: block;">Choose how this AI Agent will be powered.</small>
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-            <%= radio_button_tag :mode, "internal", true, data: { action: "ai-agent-mode#updateVisibility" } %>
-            <span>
-              <strong>Internal</strong>
-              <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</small>
-            </span>
-          </label>
-          <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-            <%= radio_button_tag :mode, "external", false, data: { action: "ai-agent-mode#updateVisibility" } %>
-            <span>
-              <strong>External</strong>
-              <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</small>
-            </span>
-          </label>
-        </div>
-      </section>
+      <%
+        internal_enabled = @current_tenant.internal_ai_agents_enabled?
+        external_enabled = @current_tenant.external_ai_agents_enabled?
+        both_modes = internal_enabled && external_enabled
+      %>
 
-      <section class="pulse-settings-section" data-ai-agent-mode-target="internalOnly">
-        <label for="model" class="pulse-label">Model</label>
-        <%= form.select :model, available_llm_models, {}, class: "pulse-form-select" %>
-        <small class="pulse-hint">The LLM model this AI Agent will use for reasoning. Models are defined in <code>config/litellm_config.yaml</code>.</small>
-      </section>
+      <% if both_modes %>
+        <section class="pulse-settings-section">
+          <label class="pulse-label">Mode</label>
+          <small class="pulse-hint" style="margin-bottom: 12px; display: block;">Choose how this AI Agent will be powered.</small>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <%= radio_button_tag :mode, "internal", true, data: { action: "ai-agent-mode#updateVisibility" } %>
+              <span>
+                <strong>Internal</strong>
+                <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by Harmonic's agent runners. No API access.</small>
+              </span>
+            </label>
+            <label class="pulse-radio-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <%= radio_button_tag :mode, "external", false, data: { action: "ai-agent-mode#updateVisibility" } %>
+              <span>
+                <strong>External</strong>
+                <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</small>
+              </span>
+            </label>
+          </div>
+        </section>
+      <% else %>
+        <%= hidden_field_tag :mode, internal_enabled ? "internal" : "external" %>
+      <% end %>
 
-      <section class="pulse-settings-section" data-ai-agent-mode-target="externalOnly" style="display: none;">
-        <label class="pulse-checkbox-label">
-          <%= form.check_box :generate_token, checked: true %>
-          Generate an API token for this AI Agent
-        </label>
-        <small class="pulse-hint">Required for the AI Agent to access the API.</small>
-      </section>
+      <% if internal_enabled %>
+        <section class="pulse-settings-section" data-ai-agent-mode-target="internalOnly">
+          <label for="model" class="pulse-label">Model</label>
+          <%= form.select :model, available_llm_models, {}, class: "pulse-form-select" %>
+          <small class="pulse-hint">The LLM model this AI Agent will use for reasoning. Models are defined in <code>config/litellm_config.yaml</code>.</small>
+        </section>
+      <% end %>
+
+      <% if external_enabled %>
+        <section class="pulse-settings-section" data-ai-agent-mode-target="externalOnly" style="<%= both_modes ? 'display: none;' : '' %>">
+          <label class="pulse-checkbox-label">
+            <%= form.check_box :generate_token, checked: true %>
+            Generate an API token for this AI Agent
+          </label>
+          <small class="pulse-hint">Required for the AI Agent to access the API.</small>
+        </section>
+      <% end %>
 
       <% if @current_tenant.feature_enabled?("stripe_billing") %>
         <section class="pulse-settings-section">

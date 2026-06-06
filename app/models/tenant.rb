@@ -265,8 +265,18 @@ class Tenant < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def ai_agents_enabled?
-    FeatureFlagService.tenant_enabled?(self, "ai_agents")
+  def internal_ai_agents_enabled?
+    FeatureFlagService.tenant_enabled?(self, "internal_ai_agents")
+  end
+
+  sig { returns(T::Boolean) }
+  def external_ai_agents_enabled?
+    FeatureFlagService.tenant_enabled?(self, "external_ai_agents")
+  end
+
+  sig { returns(T::Boolean) }
+  def any_ai_agents_enabled?
+    internal_ai_agents_enabled? || external_ai_agents_enabled?
   end
 
   # Check if a feature is enabled at the tenant level (with cascade from app)

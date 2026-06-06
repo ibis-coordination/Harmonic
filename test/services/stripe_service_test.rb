@@ -8,7 +8,8 @@ class StripeServiceTest < ActiveSupport::TestCase
     @tenant, @collective, @user = create_tenant_collective_user
     # Set as main collective so it doesn't count toward billing
     @tenant.update!(main_collective_id: @collective.id)
-    @tenant.enable_feature_flag!("ai_agents")
+    @tenant.enable_feature_flag!("internal_ai_agents")
+    @tenant.enable_feature_flag!("external_ai_agents")
     enable_stripe_billing_flag!(@tenant)
 
     # Set Stripe API key for tests
@@ -330,6 +331,30 @@ class StripeServiceTest < ActiveSupport::TestCase
       body = Rack::Utils.parse_query(req.body)
       body["quantity"] == "2"
     end
+  end
+
+  test "sync_subscription_quantity! does NOT cancel subscription for admin users (their billable_quantity is zero by admin exemption, but they may hold the customer for LLM credit attribution)" do
+    @user.update!(app_admin: true)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_admin", active: true, stripe_subscription_id: "sub_admin")
+    cancel_stub = stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_admin")
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert result.success, "sync should report success (no-op)"
+    assert_not_requested cancel_stub
+    assert sc.reload.active?, "local StripeCustomer must remain active"
+  end
+
+  test "sync_subscription_quantity! does NOT cancel subscription for sys_admin users either" do
+    @user.update!(sys_admin: true)
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_sysadmin", active: true, stripe_subscription_id: "sub_sysadmin")
+    cancel_stub = stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_sysadmin")
+
+    result = StripeService.sync_subscription_quantity!(@user)
+
+    assert result.success
+    assert_not_requested cancel_stub
+    assert sc.reload.active?
   end
 
   test "sync_subscription_quantity! cancels subscription for a billing_exempt user (their billable_quantity is zero)" do
