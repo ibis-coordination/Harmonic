@@ -14,7 +14,6 @@ class NotesController < ApplicationController
     @page_title = @note.title.presence || excerpt(@note.text, max: 50) || "Note #{@note.truncated_id}"
     @page_description = excerpt(@note.text, max: 200) || "Note page"
     @sidebar_mode = "resource"
-    @team = @current_collective.team
     return if @note.deleted?
 
     set_pin_vars

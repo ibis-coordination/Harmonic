@@ -212,6 +212,64 @@ class CollectiveTest < ActiveSupport::TestCase
     Collective.clear_thread_scope
   end
 
+  test "Collective#member_count returns active member count without instantiating records" do
+    tenant = create_tenant(subdomain: "member-count-#{SecureRandom.hex(4)}")
+    creator = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: creator,
+      name: "Member Count",
+      handle: "member-count-#{SecureRandom.hex(4)}",
+    )
+    collective.add_user!(creator)
+    3.times { collective.add_user!(create_user(name: "MC #{SecureRandom.hex(4)}")) }
+    archived = create_user(name: "Archived #{SecureRandom.hex(4)}")
+    collective.add_user!(archived)
+    collective.collective_members.find_by(user: archived).archive!
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+
+    queries = []
+    callback = ->(_name, _start, _finish, _id, payload) do
+      sql = payload[:sql]
+      next if payload[:name] == "SCHEMA" || sql.start_with?("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE SAVEPOINT")
+      queries << sql
+    end
+    count = nil
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { count = collective.member_count }
+
+    assert_equal 4, count, "creator + 3 added members; archived member excluded"
+    assert(queries.any? { |q| q.start_with?("SELECT COUNT") && q.include?("collective_members") },
+      "expected a COUNT query; got: #{queries.inspect}")
+    refute(queries.any? { |q| q.start_with?("SELECT \"collective_members\".*") },
+      "expected no SELECT * on collective_members; got: #{queries.inspect}")
+  end
+
+  test "Collective#team does not fire a CollectiveMember query per member" do
+    tenant = create_tenant(subdomain: "team-nplus1-#{SecureRandom.hex(4)}")
+    creator = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: creator,
+      name: "Team N+1",
+      handle: "team-nplus1-#{SecureRandom.hex(4)}",
+    )
+    5.times { collective.add_user!(create_user(name: "Member #{SecureRandom.hex(4)}")) }
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    Collective.set_thread_context(collective)
+
+    queries = []
+    callback = ->(_name, _start, _finish, _id, payload) do
+      sql = payload[:sql]
+      next if payload[:name] == "SCHEMA" || sql.start_with?("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE SAVEPOINT")
+      queries << sql
+    end
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { collective.team }
+
+    member_lookups = queries.count { |q| q.include?("collective_members") && q.include?("user_id") && q.include?("LIMIT") }
+    assert_equal 0, member_lookups,
+      "Expected zero per-user CollectiveMember lookups in #team; got #{member_lookups}: #{queries.select { |q| q.include?('collective_members') }.inspect}"
+  end
+
   test "Collective.add_user! adds a user to the collective" do
     tenant = create_tenant
     user = create_user

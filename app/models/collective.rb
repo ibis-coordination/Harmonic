@@ -761,6 +761,11 @@ class Collective < ApplicationRecord
     false
   end
 
+  sig { returns(Integer) }
+  def member_count
+    collective_members.where(archived_at: nil).count
+  end
+
   sig { params(limit: Integer).returns(T::Array[User]) }
   def team(limit: 100)
     collective_members

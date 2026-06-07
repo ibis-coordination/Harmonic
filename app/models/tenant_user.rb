@@ -54,8 +54,12 @@ class TenantUser < ApplicationRecord
   sig { returns(User) }
   def user
     @user ||= super
-    T.must(@user).tenant_user ||= self
-    T.must(@user)
+    u = T.must(@user)
+    # Back-populate the user's cached tenant_user so later callers don't query
+    # for it. Check @tenant_user directly — `u.tenant_user ||= self` would
+    # invoke the getter, which fires SQL when the slot is empty.
+    u.tenant_user = self unless u.instance_variable_get(:@tenant_user)
+    u
   end
 
   sig { void }

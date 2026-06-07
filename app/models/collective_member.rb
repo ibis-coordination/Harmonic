@@ -22,8 +22,12 @@ class CollectiveMember < ApplicationRecord
   sig { returns(User) }
   def user
     @user ||= super
-    T.must(@user).collective_member ||= self
-    T.must(@user)
+    u = T.must(@user)
+    # Back-populate the user's cached collective_member so later callers don't
+    # query for it. Check @collective_member directly — `u.collective_member ||= self`
+    # would invoke the getter, which fires SQL when the slot is empty.
+    u.collective_member = self unless u.instance_variable_get(:@collective_member)
+    u
   end
 
   sig { params(limit: Integer).returns(ActiveRecord::Relation) }

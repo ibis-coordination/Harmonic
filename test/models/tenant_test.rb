@@ -160,6 +160,24 @@ class TenantTest < ActiveSupport::TestCase
     assert_includes team, user2
   end
 
+  test "Tenant.team does not fire a TenantUser query per member" do
+    tenant = create_tenant(subdomain: "tenant-team-nplus1-#{SecureRandom.hex(4)}")
+    5.times { |i| tenant.add_user!(create_user(name: "Team Member #{SecureRandom.hex(4)}")) }
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+
+    queries = []
+    callback = ->(_name, _start, _finish, _id, payload) do
+      sql = payload[:sql]
+      next if payload[:name] == "SCHEMA" || sql.start_with?("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE SAVEPOINT")
+      queries << sql
+    end
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { tenant.team }
+
+    user_lookups = queries.count { |q| q.include?("tenant_users") && q.include?("user_id") && q.include?("LIMIT") }
+    assert_equal 0, user_lookups,
+      "Expected zero per-user TenantUser lookups in #team; got #{user_lookups}: #{queries.select { |q| q.include?('tenant_users') }.inspect}"
+  end
+
   test "Tenant.url generates the correct URL" do
     tenant = create_tenant(subdomain: "example")
     expected_url = "https://example.#{ENV['HOSTNAME']}"
