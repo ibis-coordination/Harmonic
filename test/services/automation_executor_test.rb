@@ -878,6 +878,58 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_not run.failed?, "Should not have failed: #{run.error_message}"
   end
 
+  # === User-owned notification webhook rules ===
+
+  test "user-owned notification webhook rule creates a WebhookDelivery" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "My webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://my-server.example.com/hook" },
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_difference "WebhookDelivery.count", 1 do
+      AutomationExecutor.execute(run)
+    end
+
+    delivery = WebhookDelivery.last
+    assert_equal "https://my-server.example.com/hook", delivery.url
+    assert_equal "pending", delivery.status
+  end
+
+  test "user-owned webhook rule fails when user's tenant_user is archived" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "My webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://my-server.example.com/hook" },
+      enabled: true
+    )
+
+    @user.tenant_users.find_by(tenant_id: @tenant.id)&.update!(archived_at: Time.current)
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "WebhookDelivery.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    assert run.failed?
+    assert_match(/no longer active/i, run.error_message)
+  end
+
   test "external-agent rule fails when agent is suspended" do
     external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(external_agent)
@@ -933,7 +985,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     run.reload
     assert run.failed?
-    assert_match(/deactivated/i, run.error_message)
+    assert_match(/no longer active/i, run.error_message)
   end
 
   def create_agent_rule(task:, max_steps: nil)

@@ -74,14 +74,14 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "new redirects external agents to webhooks UI" do
+  test "new redirects external agents to their settings page (notification webhook lives there)" do
     external_agent = create_ai_agent(parent: @user, name: "Webhooks Test Agent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(external_agent)
 
     sign_in_as(@user)
     get "/ai-agents/#{external_agent.handle}/automations/new"
     assert_response :redirect
-    assert_match %r{/webhooks/new}, response.headers["Location"]
+    assert_match %r{/settings\z}, response.headers["Location"]
   end
 
   # === Index Tests ===

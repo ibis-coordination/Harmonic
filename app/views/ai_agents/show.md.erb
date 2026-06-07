@@ -27,6 +27,7 @@ Model: `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>`
 | Token Expires | in <%= time_ago_in_words(@token.expires_at) %> |
 
 <% end %>
+<% if @ai_agent.internal_ai_agent? %>
 <% if @automation_rules.any? %>
 ## Automations
 
@@ -43,6 +44,7 @@ Model: `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>`
 No automations configured yet.
 
 * [Create Automation](/ai-agents/<%= @ai_agent.handle %>/automations/new)
+<% end %>
 <% end %>
 
 <% if @ai_agent.internal_ai_agent? %>
@@ -66,8 +68,10 @@ No task runs yet.
 ## Navigation
 
 <% unless @ai_agent.archived? || @ai_agent.suspended? %>
+<% if @ai_agent.internal_ai_agent? %>
 * [Run Task](/ai-agents/<%= @ai_agent.handle %>/run)
 * [Automations](/ai-agents/<%= @ai_agent.handle %>/automations)
+<% end %>
 <% end %>
 * [Settings](/ai-agents/<%= @ai_agent.handle %>/settings)
 * [View Profile](<%= @ai_agent.path %>)

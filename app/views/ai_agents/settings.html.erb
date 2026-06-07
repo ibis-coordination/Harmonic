@@ -285,52 +285,24 @@
 
       <% if @ai_agent.external_ai_agent? %>
         <section class="pulse-settings-section">
-          <h3>Webhooks</h3>
-          <% webhook_rules = AutomationRule.tenant_scoped_only.where(ai_agent_id: @ai_agent.id).where("(actions->>'webhook_url') IS NOT NULL").order(created_at: :desc) %>
-          <% if webhook_rules.any? %>
-            <div class="pulse-table-wrapper">
-              <table class="pulse-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Trigger</th>
-                    <th>Status</th>
-                    <th>Last delivery</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% webhook_rules.each do |rule| %>
-                    <tr>
-                      <td>
-                        <a href="/ai-agents/<%= @ai_agent.handle %>/webhooks/<%= rule.truncated_id %>/edit" class="pulse-link">
-                          <%= rule.name %>
-                        </a>
-                      </td>
-                      <td><small class="pulse-hint"><%= rule.event_type %> (<%= rule.mention_filter %>)</small></td>
-                      <td>
-                        <% if rule.enabled? %>
-                          <span class="pulse-badge pulse-badge-success">Enabled</span>
-                        <% else %>
-                          <span class="pulse-badge pulse-badge-muted">Disabled</span>
-                        <% end %>
-                      </td>
-                      <td><%= rule.last_executed_at ? "#{time_ago_in_words(rule.last_executed_at)} ago" : 'Never' %></td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
-            </div>
+          <h3>Notification webhook</h3>
+          <% if @notification_webhook %>
+            <p>
+              <%= @notification_webhook.enabled? ? "Enabled" : "Disabled" %> · forwarding to
+              <code><%= truncate(@notification_webhook.actions["webhook_url"].to_s, length: 60) %></code>
+            </p>
+            <p class="pulse-action-row">
+              <%= link_to "Manage webhook", ai_agent_notification_webhook_path(@ai_agent.handle), class: "pulse-action-btn pulse-action-btn-primary" %>
+            </p>
           <% else %>
-            <p class="pulse-hint">No webhooks configured yet.</p>
+            <p class="pulse-hint">
+              Forward every notification this agent receives to your URL —
+              @-mentions, comment replies, chat messages, reminders.
+            </p>
+            <p class="pulse-action-row">
+              <%= link_to "Set up webhook", ai_agent_notification_webhook_path(@ai_agent.handle), class: "pulse-action-btn" %>
+            </p>
           <% end %>
-          <div class="pulse-form-actions" style="margin-top:12px;">
-            <a href="/ai-agents/<%= @ai_agent.handle %>/webhooks/new" class="pulse-action-btn-small">
-              <%= octicon 'broadcast', height: 12 %> Create webhook
-            </a>
-            <a href="/ai-agents/<%= @ai_agent.handle %>/webhooks" class="pulse-action-btn-small">
-              All webhooks
-            </a>
-          </div>
         </section>
       <% end %>
 

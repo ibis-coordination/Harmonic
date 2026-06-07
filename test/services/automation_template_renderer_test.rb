@@ -160,6 +160,82 @@ class AutomationTemplateRendererTest < ActiveSupport::TestCase
 
   # === Full Template Rendering with Event Context ===
 
+  # === Notification-delivered event context ===
+
+  test "context_from_event for notifications.delivered exposes recipient, original actor, and notification" do
+    original_actor = @user
+    recipient_user = create_user(name: "Recipient")
+    @tenant.add_user!(recipient_user)
+    @collective.add_user!(recipient_user)
+
+    note = create_note(text: "Hello @recipient", created_by: original_actor)
+    triggering = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "note.created", actor: original_actor, subject: note,
+    )
+    notification = Notification.create!(
+      tenant: @tenant, event: triggering, notification_type: "mention",
+      title: "You were mentioned", body: "Hello @recipient", url: note.path,
+    )
+    delivered = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: recipient_user, subject: notification,
+      metadata: { "notification_type" => "mention", "channels" => ["in_app"] },
+    )
+
+    context = AutomationTemplateRenderer.context_from_event(delivered)
+
+    assert_equal recipient_user.id, context["recipient"]["id"]
+    assert_equal recipient_user.tenant_user.handle, context["recipient"]["handle"]
+    assert_equal original_actor.id, context["actor"]["id"]
+    assert_equal "mention", context["notification"]["type"]
+    assert_equal "You were mentioned", context["notification"]["title"]
+    assert_equal note.path, context["notification"]["url"]
+  end
+
+  test "context_from_event for notifications.delivered falls back to metadata.original_actor_id when notification has no event" do
+    sender = create_user(name: "Sender")
+    @tenant.add_user!(sender)
+    @collective.add_user!(sender)
+    recipient_user = create_user(name: "Chat Recipient")
+    @tenant.add_user!(recipient_user)
+    @collective.add_user!(recipient_user)
+
+    notification = Notification.create!(
+      tenant: @tenant, notification_type: "chat_message",
+      title: "New message from #{sender.display_name}", url: "/chat/#{sender.id}",
+    )
+    delivered = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: recipient_user, subject: notification,
+      metadata: { "notification_type" => "chat_message", "original_actor_id" => sender.id },
+    )
+
+    context = AutomationTemplateRenderer.context_from_event(delivered)
+
+    assert_equal recipient_user.id, context["recipient"]["id"]
+    assert_equal sender.id, context["actor"]["id"], "should fall back to metadata.original_actor_id"
+  end
+
+  test "context_from_event for reminders.delivered renders null actor when notification has no event and no fallback" do
+    recipient_user = create_user(name: "Reminded")
+    @tenant.add_user!(recipient_user)
+    @collective.add_user!(recipient_user)
+
+    notification = Notification.create!(
+      tenant: @tenant, notification_type: "reminder", title: "Reminder",
+    )
+    delivered = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "reminders.delivered", actor: recipient_user, subject: notification,
+      metadata: { "notification_type" => "reminder" },
+    )
+
+    context = AutomationTemplateRenderer.context_from_event(delivered)
+
+    assert_nil context["actor"], "actor should be nil for a reminder with no triggering event and no fallback id"
+  end
+
   test "renders template with event actor name" do
     note = create_note
     event = Event.create!(

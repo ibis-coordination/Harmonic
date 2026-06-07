@@ -286,6 +286,28 @@
       </div>
     <% end %>
 
+    <% if @settings_user.human? && is_own_settings %>
+      <%= render 'shared/pulse_accordion', title: 'Notification webhook' do %>
+        <% if @notification_webhook %>
+          <p>
+            <%= @notification_webhook.enabled? ? "Enabled" : "Disabled" %> · forwarding to
+            <code><%= truncate(@notification_webhook.actions["webhook_url"].to_s, length: 60) %></code>
+          </p>
+          <p class="pulse-action-row">
+            <%= link_to "Manage webhook", user_notification_webhook_path(@settings_user.tenant_user.handle), class: "pulse-action-btn pulse-action-btn-primary" %>
+          </p>
+        <% else %>
+          <p class="pulse-form-hint">
+            Forward every notification you receive to a URL of your choosing.
+            Set up a server endpoint and we'll POST signed payloads to it.
+          </p>
+          <p class="pulse-action-row">
+            <%= link_to "Set up webhook", user_notification_webhook_path(@settings_user.tenant_user.handle), class: "pulse-action-btn" %>
+          </p>
+        <% end %>
+      <% end %>
+    <% end %>
+
     <%# Download My Data — gated by the user_data_export feature flag %>
     <% if @settings_user.human? && is_own_settings && @current_tenant.feature_enabled?("user_data_export") %>
       <%= render 'shared/pulse_accordion', title: 'Download My Data' do %>

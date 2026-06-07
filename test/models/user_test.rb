@@ -1246,6 +1246,49 @@ class UserTest < ActiveSupport::TestCase
     assert_equal 0, fresh_user.billable_quantity
   end
 
+  test "human with only a notification webhook is billable (+1, same as a token)" do
+    fresh_tenant = create_tenant(subdomain: "wh-bill-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "wh-bill-#{SecureRandom.hex(4)}@example.com", name: "Webhook #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    AutomationRule.unscoped.create!(
+      tenant: fresh_tenant,
+      user: fresh_user,
+      created_by: fresh_user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    assert_equal 1, fresh_user.billable_quantity
+  end
+
+  test "human with both token and webhook is still billed only once (same +1)" do
+    fresh_tenant = create_tenant(subdomain: "wh-bill-both-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "wh-bill-both-#{SecureRandom.hex(4)}@example.com", name: "Both #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    create_api_token(user: fresh_user, tenant: fresh_tenant)
+    AutomationRule.unscoped.create!(
+      tenant: fresh_tenant,
+      user: fresh_user,
+      created_by: fresh_user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    assert_equal 1, fresh_user.billable_quantity, "having both a token and a webhook still counts as +1"
+  end
+
   test "counts_self_for_api_access? ignores expired tokens" do
     fresh_tenant = create_tenant(subdomain: "api-bill-exp-#{SecureRandom.hex(4)}")
     enable_stripe_billing_flag!(fresh_tenant)

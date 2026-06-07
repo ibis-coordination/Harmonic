@@ -42,7 +42,13 @@
     <% end %>
     <p>AI Agents are identities for AI agents managed by you, the primary agent.</p>
 
-    <%= form_with url: "/ai-agents/new/actions/create_ai_agent", class: "pulse-form", data: { controller: "ai-agent-mode" } do |form| %>
+    <%# turbo: false — this form triggers a Stripe Checkout redirect for non-admin users
+        on tenants with stripe_billing enabled. Turbo Drive's cross-origin handling has
+        produced silent failures here (form submits, agent is created, but the page
+        doesn't update — user double-clicks and hits a duplicate-handle error).
+        Matches the API tokens new form and the notification webhook form. %>
+    <%= form_with url: "/ai-agents/new/actions/create_ai_agent", class: "pulse-form",
+                  data: { controller: "ai-agent-mode", turbo: false } do |form| %>
       <section class="pulse-settings-section">
         <label for="name" class="pulse-label">Name</label>
         <%= form.text_field :name, placeholder: 'My Assistant', class: "pulse-form-input" %>
@@ -160,7 +166,10 @@
         </section>
       <% end %>
 
-      <% if @current_tenant.feature_enabled?("stripe_billing") %>
+      <%# Admins (sys_admin / app_admin) are billing-exempt — billable_quantity
+          is always 0, no Stripe charges fire — so the billing notice + confirm
+          checkbox would be misleading. Skip the whole section for them. %>
+      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_user.app_admin? && !@current_user.sys_admin? %>
         <section class="pulse-settings-section">
           <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
             <span>

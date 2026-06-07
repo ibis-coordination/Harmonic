@@ -30,6 +30,113 @@ class NotificationServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "create_and_deliver! fires notifications.delivered event once" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    event = Event.create!(
+      tenant: tenant, collective: collective, event_type: "note.created", actor: user,
+    )
+
+    initial = Event.where(event_type: "notifications.delivered").count
+
+    NotificationService.create_and_deliver!(
+      event: event,
+      recipient: user,
+      notification_type: "mention",
+      title: "Test",
+      channels: ["in_app"],
+    )
+
+    assert_equal initial + 1, Event.where(event_type: "notifications.delivered").count
+    delivered = Event.where(event_type: "notifications.delivered").last
+    assert_equal user.id, delivered.actor_id, "actor should be the recipient"
+  end
+
+  test "create_and_deliver! fires only ONE notifications.delivered event across multiple channels" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    event = Event.create!(
+      tenant: tenant, collective: collective, event_type: "note.created", actor: user,
+    )
+
+    initial = Event.where(event_type: "notifications.delivered").count
+
+    NotificationService.create_and_deliver!(
+      event: event,
+      recipient: user,
+      notification_type: "mention",
+      title: "Test",
+      channels: ["in_app", "email"],
+    )
+
+    assert_equal initial + 1, Event.where(event_type: "notifications.delivered").count
+  end
+
+  test "create_and_deliver! does NOT fire notifications.delivered for reminder notifications" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    event = Event.create!(
+      tenant: tenant, collective: collective, event_type: "note.created", actor: user,
+    )
+
+    initial = Event.where(event_type: "notifications.delivered").count
+
+    NotificationService.create_and_deliver!(
+      event: event,
+      recipient: user,
+      notification_type: "reminder",
+      title: "Reminder",
+      channels: ["in_app"],
+    )
+
+    assert_equal initial, Event.where(event_type: "notifications.delivered").count
+  end
+
+  test "notify_chat_message! fires notifications.delivered event with sender as original_actor_id" do
+    tenant, collective, sender = create_tenant_collective_user
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    initial = Event.where(event_type: "notifications.delivered").count
+
+    NotificationService.notify_chat_message!(
+      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+    )
+
+    assert_equal initial + 1, Event.where(event_type: "notifications.delivered").count
+    delivered = Event.where(event_type: "notifications.delivered").last
+    assert_equal recipient.id, delivered.actor_id
+    assert_equal sender.id, delivered.metadata["original_actor_id"]
+    assert_equal "chat_message", delivered.metadata["notification_type"]
+  end
+
+  test "notify_chat_message! does NOT fire event when upserting an existing undismissed notification" do
+    tenant, collective, sender = create_tenant_collective_user
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    NotificationService.notify_chat_message!(
+      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+    )
+    initial = Event.where(event_type: "notifications.delivered").count
+
+    # Second call within an undismissed window should be a no-op for events.
+    NotificationService.notify_chat_message!(
+      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+    )
+
+    assert_equal initial, Event.where(event_type: "notifications.delivered").count
+  end
+
   test "create_and_deliver! creates recipients for multiple channels" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

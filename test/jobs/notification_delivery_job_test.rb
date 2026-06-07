@@ -117,95 +117,24 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
     assert_equal original_time.to_i, recipient.delivered_at.to_i
   end
 
-  test "perform fires notifications.delivered event for non-reminder notifications" do
+  test "perform does NOT fire any notifications.delivered events itself" do
+    # Event firing was moved to NotificationService.create_and_deliver! so it
+    # happens once per notification regardless of channels. The job is now a
+    # pure delivery worker. See NotificationServiceTest for event coverage.
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
     notification = Notification.create!(
-      tenant: tenant,
-      event: event,
-      notification_type: "mention",
-      title: "Test Mention",
+      tenant: tenant, event: event, notification_type: "mention", title: "Test",
     )
-
     recipient = NotificationRecipient.create!(
-      notification: notification,
-      user: user,
-      channel: "in_app",
-      status: "pending",
+      notification: notification, user: user, channel: "in_app", status: "pending",
     )
 
-    initial_event_count = Event.where(event_type: "notifications.delivered").count
-
+    initial = Event.where(event_type: "notifications.delivered").count
     NotificationDeliveryJob.perform_now(recipient.id)
 
-    # Should fire one notifications.delivered event
-    assert_equal initial_event_count + 1, Event.where(event_type: "notifications.delivered").count
-  end
-
-  test "perform does NOT fire notifications.delivered event for reminder notifications" do
-    tenant, collective, user = create_tenant_collective_user
-    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-
-    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
-    notification = Notification.create!(
-      tenant: tenant,
-      event: event,
-      notification_type: "reminder",
-      title: "Reminder Test",
-    )
-
-    recipient = NotificationRecipient.create!(
-      notification: notification,
-      user: user,
-      channel: "in_app",
-      status: "pending",
-      scheduled_for: 1.hour.ago,  # Due reminder
-    )
-
-    initial_event_count = Event.where(event_type: "notifications.delivered").count
-
-    NotificationDeliveryJob.perform_now(recipient.id)
-
-    # Should NOT fire notifications.delivered event (reminders already have reminders.delivered)
-    assert_equal initial_event_count, Event.where(event_type: "notifications.delivered").count
-  end
-
-  test "perform fires only ONE notifications.delivered event for multiple channels" do
-    tenant, collective, user = create_tenant_collective_user
-    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-
-    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
-    notification = Notification.create!(
-      tenant: tenant,
-      event: event,
-      notification_type: "mention",
-      title: "Multi-channel Test",
-    )
-
-    # Create recipients for both channels (simulating what NotificationService does)
-    in_app_recipient = NotificationRecipient.create!(
-      notification: notification,
-      user: user,
-      channel: "in_app",
-      status: "pending",
-    )
-
-    email_recipient = NotificationRecipient.create!(
-      notification: notification,
-      user: user,
-      channel: "email",
-      status: "pending",
-    )
-
-    initial_event_count = Event.where(event_type: "notifications.delivered").count
-
-    # Deliver both channels
-    NotificationDeliveryJob.perform_now(in_app_recipient.id)
-    NotificationDeliveryJob.perform_now(email_recipient.id)
-
-    # Should fire only ONE notifications.delivered event (from in_app channel only)
-    assert_equal initial_event_count + 1, Event.where(event_type: "notifications.delivered").count
+    assert_equal initial, Event.where(event_type: "notifications.delivered").count
   end
 end

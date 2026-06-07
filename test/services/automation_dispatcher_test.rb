@@ -115,6 +115,31 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
+  test "rate limits user-owned notification webhook rule at 3 per minute (not the user-rule default of 10)" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "User notification webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+    event = create_event_with_subject(event_type: "note.created")
+
+    3.times do
+      AutomationRuleRun.create!(
+        tenant: @tenant, automation_rule: rule, trigger_source: "event", status: "completed",
+      )
+    end
+
+    # 4th should be rate-limited (notification-webhook rule shares the 3/min cap)
+    assert_no_difference -> { AutomationRuleRun.count } do
+      AutomationDispatcher.queue_rule_execution(rule, event)
+    end
+  end
+
   test "rate limits collective rule execution at 10 per minute" do
     # Create a collective rule (not an agent rule)
     rule = AutomationRule.create!(
@@ -799,6 +824,174 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
   ensure
     # Reset thread-local context
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+  end
+
+  # === Multi-event matching (event_types array) ===
+
+  test "rule with event_types array matches each listed event type" do
+    external_agent = create_ai_agent(parent: @user, name: "ExtA #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+    @collective.add_user!(external_agent)
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true
+    )
+
+    notif_event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: external_agent, subject: @collective,
+    )
+    rem_event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "reminders.delivered", actor: external_agent, subject: @collective,
+    )
+
+    assert_includes AutomationDispatcher.find_matching_rules(notif_event), rule
+    assert_includes AutomationDispatcher.find_matching_rules(rem_event), rule
+  end
+
+  test "rule with event_types array does not match an event_type not in the array" do
+    external_agent = create_ai_agent(parent: @user, name: "ExtB #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+    @collective.add_user!(external_agent)
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true
+    )
+    event = create_event_with_subject(event_type: "note.created")
+
+    assert_not_includes AutomationDispatcher.find_matching_rules(event), rule
+  end
+
+  test "single event_type form still matches (backwards compat)" do
+    rule = create_rule_without_mention_filter
+    event = create_event_with_subject(event_type: "note.created")
+
+    assert_includes AutomationDispatcher.find_matching_rules(event), rule
+  end
+
+  # === Self-trigger carve-out for notification-delivered events ===
+
+  test "notification-delivered event fires agent rule even when actor is the agent" do
+    external_agent = create_ai_agent(parent: @user, name: "ExtC #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+    @collective.add_user!(external_agent)
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true
+    )
+    event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: external_agent, subject: @collective,
+    )
+
+    assert_includes AutomationDispatcher.find_matching_rules(event), rule
+  end
+
+  test "notification-delivered event short-circuits dispatch when no webhook rule exists for the recipient" do
+    # Fast path: when no notification-webhook rule exists for the recipient,
+    # find_matching_rules must not perform the broader rule scan. Use the
+    # query count to assert the short-circuit kicked in.
+    other_user = create_user(name: "No webhook user")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: other_user, subject: @collective,
+    )
+
+    # Warm up to drop schema-introspection queries from the count.
+    AutomationDispatcher.find_matching_rules(event)
+
+    queries = []
+    callback = ->(_name, _start, _finish, _id, payload) { queries << payload[:sql] if payload[:sql] }
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+      assert_empty AutomationDispatcher.find_matching_rules(event)
+    end
+
+    rule_queries = queries.select { |s| s.match?(/\bFROM "automation_rules"/i) }
+    # Only the EXISTS short-circuit query should hit automation_rules.
+    assert_equal 1, rule_queries.size, "expected one short-circuit EXISTS query, got: #{rule_queries.inspect}"
+  end
+
+  test "notification-delivered event bypasses the collective tier gate (chat collectives are free-tier)" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    free_collective = Collective.create!(
+      tenant: @tenant, name: "Chat #{SecureRandom.hex(2)}",
+      handle: "chat-#{SecureRandom.hex(4)}", created_by: @user, tier: Collective::TIER_FREE,
+    )
+    free_collective.add_user!(@user)
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Forward chat",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+    event = Event.create!(
+      tenant: @tenant, collective: free_collective,
+      event_type: "notifications.delivered", actor: @user, subject: free_collective,
+    )
+
+    assert_includes AutomationDispatcher.find_matching_rules(event), rule
+  ensure
+    @tenant.set_feature_flag!("stripe_billing", false)
+  end
+
+  test "non-notification event in a free-tier collective is still blocked by the tier gate" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    free_collective = Collective.create!(
+      tenant: @tenant, name: "Free #{SecureRandom.hex(2)}",
+      handle: "free-#{SecureRandom.hex(4)}", created_by: @user, tier: Collective::TIER_FREE,
+    )
+    free_collective.add_user!(@user)
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Note rule in free collective",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "internal_action", "action" => "create_note" }],
+      enabled: true,
+    )
+    note = Note.create!(tenant: @tenant, collective: free_collective, created_by: @user, text: "Hi")
+    event = Event.create!(
+      tenant: @tenant, collective: free_collective,
+      event_type: "note.created", actor: @user, subject: note,
+    )
+
+    assert_not_includes AutomationDispatcher.find_matching_rules(event), rule
+  ensure
+    @tenant.set_feature_flag!("stripe_billing", false)
+  end
+
+  test "non-notification event with actor=agent still blocked (existing self-trigger guard)" do
+    rule = create_rule_without_mention_filter
+    event = create_event_with_subject(event_type: "note.created", actor: @ai_agent)
+
+    assert_not_includes AutomationDispatcher.find_matching_rules(event), rule
   end
 
   private

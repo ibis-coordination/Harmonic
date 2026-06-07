@@ -36,6 +36,11 @@ class NotificationService
       NotificationDeliveryJob.perform_later(notification_recipient.id)
     end
 
+    # Fire notifications.delivered event (for user-notification webhooks).
+    # Once per notification, regardless of channels. Reminders skip — they
+    # fire reminders.delivered from ReminderDeliveryJob.
+    fire_notifications_delivered_event(notification: notification, recipient: recipient, channels: channels)
+
     notification
   end
 
@@ -63,7 +68,7 @@ class NotificationService
         tenant: tenant,
         notification_type: "chat_message",
         title: "New message from #{sender.display_name}",
-        url: url,
+        url: url
       )
 
       NotificationRecipient.create!(
@@ -72,7 +77,17 @@ class NotificationService
         tenant: tenant,
         channel: "in_app",
         status: "delivered",
-        delivered_at: Time.current,
+        delivered_at: Time.current
+      )
+
+      # Chat-message notifications have no triggering Event, so the renderer's
+      # `notification.event.actor` path returns nil. Pass the sender id through
+      # metadata so the webhook payload still resolves an `actor`.
+      fire_notifications_delivered_event(
+        notification: notification,
+        recipient: recipient,
+        channels: ["in_app"],
+        extra_metadata: { "original_actor_id" => sender.id }
       )
     end
   end
@@ -136,5 +151,37 @@ class NotificationService
       .where(notifications: { event_id: nil })
       .in_app.unread.not_scheduled
       .update_all(dismissed_at: Time.current, status: "dismissed")
+  end
+
+  # Fires `notifications.delivered` for user-notification webhook routing.
+  # Skipped for reminder notifications — `ReminderDeliveryJob` fires
+  # `reminders.delivered` for those.
+  sig do
+    params(
+      notification: Notification,
+      recipient: User,
+      channels: T::Array[String],
+      extra_metadata: T::Hash[String, T.untyped]
+    ).void
+  end
+  def self.fire_notifications_delivered_event(notification:, recipient:, channels:, extra_metadata: {})
+    return if notification.notification_type == "reminder"
+
+    metadata = {
+      "notification_type" => notification.notification_type,
+      "title" => notification.title,
+      "body" => notification.body,
+      "url" => notification.url,
+      "channels" => channels,
+    }.merge(extra_metadata)
+
+    EventService.record!(
+      event_type: "notifications.delivered",
+      actor: recipient,
+      subject: notification,
+      metadata: metadata
+    )
+  rescue StandardError => e
+    Rails.logger.error("Failed to fire notifications.delivered event: #{e.message}")
   end
 end

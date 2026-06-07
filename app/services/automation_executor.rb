@@ -22,8 +22,8 @@ class AutomationExecutor
 
     if @rule.internal_agent_rule?
       execute_internal_agent_rule
-    elsif @rule.external_agent_rule?
-      execute_external_agent_rule
+    elsif @rule.notification_webhook_rule?
+      execute_notification_webhook_rule
     else
       execute_general_rule
     end
@@ -82,11 +82,9 @@ class AutomationExecutor
     # System agents (e.g., Trio) are exempt — they have no billing_customer
     # and run on the deployment's account, matching the same exemption in
     # AgentRunnerDispatchService.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
-      unless ai_agent.billing_customer&.active?
-        @run.mark_failed!("Billing is not set up for this agent's billing customer. Set up billing at /billing.")
-        return
-      end
+    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !ai_agent.billing_customer&.active?
+      @run.mark_failed!("Billing is not set up for this agent's billing customer. Set up billing at /billing.")
+      return
     end
 
     # Build the task prompt from the template
@@ -124,42 +122,38 @@ class AutomationExecutor
   end
 
   sig { void }
-  def execute_external_agent_rule
-    ai_agent = @rule.ai_agent
-    unless ai_agent
-      @run.mark_failed!("AI agent not found")
+  def execute_notification_webhook_rule
+    recipient = @rule.ai_agent || @rule.user
+    unless recipient
+      @run.mark_failed!("Recipient not found")
       return
     end
 
-    if ai_agent.suspended?
-      @run.mark_failed!("Agent is suspended.")
+    if recipient.suspended?
+      @run.mark_failed!("Recipient is suspended.")
       return
     end
 
-    # An archived external agent shouldn't fire webhooks (matches the internal
-    # path's deactivation check).
-    agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: @rule.tenant_id)
-    if agent_tenant_user&.archived?
-      @run.mark_failed!("Agent is deactivated.")
+    recipient_tu = recipient.tenant_users.find_by(tenant_id: @rule.tenant_id)
+    if recipient_tu.nil? || recipient_tu.archived?
+      @run.mark_failed!("Recipient no longer active in this tenant.")
       return
     end
 
-    # No billing gate: external webhooks don't use the Task Runner or LLM
+    # No billing gate: notification webhooks don't use the Task Runner or LLM
     # credits, so the $3/month subscription model doesn't apply.
 
     webhook_url = @rule.actions.is_a?(Hash) ? @rule.actions["webhook_url"] : nil
     payload_template = @rule.actions.is_a?(Hash) ? @rule.actions["payload_template"] : nil
-    signing_secret = @rule.actions.is_a?(Hash) ? @rule.actions["signing_secret"] : nil
 
     if webhook_url.blank?
       @run.mark_failed!("Webhook URL missing.")
       return
     end
 
-    secret = signing_secret.presence || @rule.webhook_secret
     body = build_webhook_body(payload_template || {})
 
-    delivery = create_webhook_delivery(url: webhook_url, secret: secret, request_body: body.to_json)
+    delivery = create_webhook_delivery(url: webhook_url, secret: @rule.webhook_secret, request_body: body.to_json)
     WebhookDeliveryJob.perform_later(delivery.id)
 
     @run.record_actions!(executed_actions: [{ "type" => "webhook", "delivery_id" => delivery.id }])
@@ -272,9 +266,7 @@ class AutomationExecutor
     # Basic URL format validation (SSRF protection is handled by ssrf_filter at delivery time)
     begin
       uri = URI.parse(url)
-      unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
-        return { "status" => "failed", "error" => "URL must be HTTP or HTTPS" }
-      end
+      return { "status" => "failed", "error" => "URL must be HTTP or HTTPS" } unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
       return { "status" => "failed", "error" => "URL must have a hostname" } if uri.host.blank?
     rescue URI::InvalidURIError
       return { "status" => "failed", "error" => "Invalid URL format" }
@@ -304,7 +296,7 @@ class AutomationExecutor
       url: url,
       secret: secret,
       request_body: request_body,
-      status: "pending",
+      status: "pending"
     )
   end
 
@@ -347,17 +339,16 @@ class AutomationExecutor
       end
 
       unless agent.internal_ai_agent?
-        return { "status" => "failed", "error" => "Cannot trigger external agents via the Task Runner. trigger_agent requires an internal-mode agent." }
+        return { "status" => "failed",
+                 "error" => "Cannot trigger external agents via the Task Runner. trigger_agent requires an internal-mode agent.", }
       end
     end
 
     # Billing gate: if stripe_billing is enabled, agent must have active billing.
     # System agents (e.g., Trio) are exempt — same as the gate above and in
     # AgentRunnerDispatchService.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system?
-      unless agent.billing_customer&.active?
-        return { "status" => "failed", "error" => "Billing is not set up for this agent's billing customer. Set up billing at /billing." }
-      end
+    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? && !agent.billing_customer&.active?
+      return { "status" => "failed", "error" => "Billing is not set up for this agent's billing customer. Set up billing at /billing." }
     end
 
     # Authorization check: can the rule creator trigger this agent?
@@ -408,9 +399,7 @@ class AutomationExecutor
     rule_creator = @rule.created_by
 
     # Rule creator owns the agent (is the parent)
-    if agent.parent_id == rule_creator.id
-      return { "authorized" => true }
-    end
+    return { "authorized" => true } if agent.parent_id == rule_creator.id
 
     # For collective rules: check if the agent is a member of the same collective
     if @rule.collective_rule? && @rule.collective_id.present?
@@ -418,9 +407,7 @@ class AutomationExecutor
         .where(collective_id: @rule.collective_id, user_id: agent.id)
         .exists?
 
-      if agent_is_collective_member
-        return { "authorized" => true }
-      end
+      return { "authorized" => true } if agent_is_collective_member
     end
 
     # Not authorized

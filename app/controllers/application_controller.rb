@@ -1452,6 +1452,9 @@ class ApplicationController < ActionController::Base
     # flow on create (and resumes via #finalize). Bouncing to /billing here
     # would prevent it from running.
     return if is_a?(ApiTokensController)
+    # NotificationWebhooksController follows the same self-managed Stripe
+    # flow as ApiTokensController.
+    return if is_a?(NotificationWebhooksController)
     return if request.path.start_with?("/api/")
     # API requests (any path) have their own billing check inside api_authorize!.
     # Without this, collective-scoped API paths like /collectives/X/api/v1/...

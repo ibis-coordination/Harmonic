@@ -741,18 +741,39 @@ class User < ApplicationRecord
 
     active_billable_agent_count(tenant_ids) +
       active_billable_collective_count(tenant_ids) +
-      (counts_self_for_api_access? ? 1 : 0)
+      (counts_self_for_paid_human_features?(tenant_ids) ? 1 : 0)
+  end
+
+  # True when this human user has any per-identity paid resource (currently
+  # external API tokens or notification webhooks). Both fall under the same
+  # $3/month "personal programmatic access" line on the subscription —
+  # having both still only adds +1.
+  sig { params(tenant_ids: T::Array[String]).returns(T::Boolean) }
+  def counts_self_for_paid_human_features?(tenant_ids = billing_tenant_ids)
+    counts_self_for_api_access?(tenant_ids) || has_notification_webhook?(tenant_ids)
+  end
+
+  # True if this human has at least one notification webhook in a
+  # billing-enabled tenant. Used by `billable_quantity`.
+  sig { params(tenant_ids: T::Array[String]).returns(T::Boolean) }
+  def has_notification_webhook?(tenant_ids = billing_tenant_ids)
+    return false unless human?
+    return false if sys_admin? || app_admin?
+    return false if tenant_ids.empty?
+
+    AutomationRule.for_user_across_tenants(self)
+      .where(tenant_id: tenant_ids)
+      .where("(actions->>'webhook_url') IS NOT NULL")
+      .exists?
   end
 
   # True when this human user has at least one active external API token in a
   # billing-enabled tenant. AI agents are billed via active_billable_agent_count;
   # their tokens are not separately surcharged. Sys/app admins are exempt.
-  sig { returns(T::Boolean) }
-  def counts_self_for_api_access?
+  sig { params(tenant_ids: T::Array[String]).returns(T::Boolean) }
+  def counts_self_for_api_access?(tenant_ids = billing_tenant_ids)
     return false unless human?
     return false if sys_admin? || app_admin?
-
-    tenant_ids = billing_tenant_ids
     return false if tenant_ids.empty?
 
     # Use for_user_across_tenants to bypass the default tenant scope so this

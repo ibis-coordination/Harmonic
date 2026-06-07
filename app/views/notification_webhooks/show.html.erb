@@ -1,0 +1,226 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@target_user.ai_agent? ? 'AI Agents' : 'Home', @target_user.ai_agent? ? '/ai-agents' : '/'],
+  [@target_user.display_name, @target_user.ai_agent? ? "/ai-agents/#{@target_handle}" : "/u/#{@target_handle}"],
+  ['Settings', settings_path_for_target],
+  'Notification webhook'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'broadcast', height: 14, class: 'pulse-resource-icon' %>
+        Notification webhook
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Notification webhook</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>
+      <% if @target_user.ai_agent? %>
+        Sends a POST to your URL whenever this agent receives a notification —
+        @-mentions, comment replies, chat messages, reminders.
+      <% else %>
+        Sends a POST to your URL whenever you receive a notification —
+        @-mentions, comment replies, chat messages, reminders.
+        <strong>Only enable this for servers you control</strong>: the payload
+        includes comment text, decision titles, and the actor's handle.
+      <% end %>
+    </p>
+
+    <% if @webhook_rule.nil? %>
+      <%# === No rule yet: create form === %>
+      <% if @target_user.human? && @current_tenant.feature_enabled?("stripe_billing") &&
+            !@target_user.app_admin? && !@target_user.sys_admin? %>
+        <% if @target_user.counts_self_for_paid_human_features? %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-canvas-subtle);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              Personal programmatic access is already on your subscription ($3/mo). Adding a webhook does not increase the cost.
+            </div>
+          </section>
+        <% elsif @target_user.stripe_customer&.active? %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-attention-subtle);border:1px solid var(--color-attention-muted);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              <strong>Adding a webhook will add $3/month to your subscription</strong>, prorated for the current billing period.
+            </div>
+          </section>
+        <% else %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-attention-subtle);border:1px solid var(--color-attention-muted);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              <strong>The notification webhook costs $3/month.</strong> When you click <em>Create webhook</em>, you'll be sent to Stripe to set up billing. The webhook is created once payment succeeds.
+            </div>
+          </section>
+        <% end %>
+      <% end %>
+
+      <section class="pulse-settings-section">
+        <%= form_with(url: show_path_for_target, method: :patch, class: "pulse-form", data: { turbo: false }) do %>
+          <label for="webhook_url_field" class="pulse-label">Webhook URL</label>
+          <input type="url" name="webhook_url" id="webhook_url_field" class="pulse-form-input"
+                 value="<%= @form_url %>"
+                 placeholder="https://your-server.example.com/harmonic-webhook" required>
+          <p class="pulse-hint">Must be an HTTPS URL.</p>
+          <p class="pulse-action-row">
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create webhook</button>
+            <a href="<%= settings_path_for_target %>" class="pulse-action-btn">Cancel</a>
+          </p>
+        <% end %>
+      </section>
+    <% else %>
+      <%# === Rule exists: show + manage === %>
+
+      <% if @reveal_secret.present? %>
+        <%# Just created or rotated: reveal secret exactly once %>
+        <div class="pulse-notice pulse-notice-warning">
+          <strong>Save this signing secret now. You won't be able to see it again.</strong>
+        </div>
+        <section class="pulse-settings-section">
+          <label class="pulse-label">Signing secret</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" class="pulse-form-input" readonly value="<%= @reveal_secret %>"
+                   style="flex:1;min-width:0;font-family:var(--font-family-mono);">
+            <%= render 'shared/copy_button', text: @reveal_secret %>
+          </div>
+          <p class="pulse-hint">
+            Use this secret to verify the <code>X-Harmonic-Signature</code> header on incoming requests.
+            Signature scheme: HMAC-SHA256 over <code>"&lt;timestamp&gt;.&lt;body&gt;"</code>.
+          </p>
+        </section>
+      <% end %>
+
+      <section class="pulse-settings-section">
+        <table class="pulse-table">
+          <tr>
+            <th style="width:140px;">Status</th>
+            <td>
+              <% if @webhook_rule.enabled? %>
+                <span class="pulse-tag pulse-tag-success">Enabled</span>
+              <% else %>
+                <span class="pulse-tag">Disabled</span>
+              <% end %>
+            </td>
+          </tr>
+          <tr>
+            <th>URL</th>
+            <td><code class="pulse-monospace"><%= @webhook_rule.actions["webhook_url"] %></code></td>
+          </tr>
+          <tr>
+            <th>Signing secret</th>
+            <td><em class="pulse-muted-text">Set. Use "Rotate signing secret" below to reveal a new one.</em></td>
+          </tr>
+          <tr>
+            <th>Last delivery</th>
+            <td>
+              <% if @webhook_rule.last_executed_at %>
+                <%= time_ago_in_words(@webhook_rule.last_executed_at) %> ago
+              <% else %>
+                <em class="pulse-muted-text">Never</em>
+              <% end %>
+            </td>
+          </tr>
+          <tr>
+            <th>Total deliveries</th>
+            <td>
+              <%= @webhook_rule.execution_count %>
+              <p class="pulse-hint" style="margin:4px 0 0;">Test deliveries are not counted.</p>
+            </td>
+          </tr>
+        </table>
+      </section>
+
+      <%# === Update URL === %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">URL</h2>
+        <%= form_with(url: show_path_for_target, method: :patch, class: "pulse-form", data: { turbo: false }) do %>
+          <label for="webhook_url_field" class="pulse-label">Webhook URL</label>
+          <input type="url" name="webhook_url" id="webhook_url_field" class="pulse-form-input"
+                 value="<%= @form_url.presence || @webhook_rule.actions["webhook_url"] %>" required>
+          <p class="pulse-action-row">
+            <button type="submit" class="pulse-action-btn">Save URL</button>
+          </p>
+        <% end %>
+      </section>
+
+      <%# === Enable / disable + test === %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Status</h2>
+
+        <p class="pulse-hint">
+          <% if @webhook_rule.enabled? %>
+            Webhook is live. Notifications are being forwarded to your URL.
+          <% else %>
+            Webhook is disabled. Notifications are not being forwarded.
+          <% end %>
+          You can send a test delivery any time to verify your server's setup.
+        </p>
+
+        <div data-controller="webhook-test"
+             data-webhook-test-url-value="<%= test_path_for_target %>">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">
+            <%= form_with(url: toggle_path_for_target, method: :post, data: { turbo: false }, html: { style: "display:inline;" }) do %>
+              <button type="submit" class="pulse-action-btn pulse-action-btn-primary">
+                <%= @webhook_rule.enabled? ? "Disable webhook" : "Enable webhook" %>
+              </button>
+            <% end %>
+
+            <button type="button" class="pulse-action-btn"
+                    data-action="webhook-test#send"
+                    data-webhook-test-target="button">
+              Send test delivery
+            </button>
+          </div>
+
+          <div data-webhook-test-target="result" id="test-result"></div>
+        </div>
+      </section>
+
+      <%# === Rotate secret === %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Rotate signing secret</h2>
+        <p class="pulse-hint">
+          Generates a new signing secret and reveals it once. The old secret stops working immediately.
+        </p>
+        <%= form_with(url: rotate_secret_path_for_target, method: :post, data: { turbo: false }, html: { style: "display:inline;" }) do %>
+          <button type="submit" class="pulse-action-btn">Rotate signing secret</button>
+        <% end %>
+      </section>
+
+      <%# === Recent deliveries === %>
+      <% if @recent_deliveries&.any? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Recent deliveries</h2>
+          <table class="pulse-table">
+            <thead>
+              <tr><th>When</th><th>Status</th><th>Response code</th><th>Attempts</th></tr>
+            </thead>
+            <tbody>
+              <% @recent_deliveries.each do |d| %>
+                <tr>
+                  <td><%= time_ago_in_words(d.created_at) %> ago</td>
+                  <td><%= d.status %></td>
+                  <td><%= d.response_code %></td>
+                  <td><%= d.attempt_count %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </section>
+      <% end %>
+
+      <%# === Delete === %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Delete</h2>
+        <p class="pulse-hint">
+          Permanently removes this webhook. You'll need to set it up again to receive notifications at the URL.
+        </p>
+        <%= form_with(url: show_path_for_target, method: :delete, data: { turbo: false, confirm: "Delete this webhook? This cannot be undone." }, html: { style: "display:inline;" }) do %>
+          <button type="submit" class="pulse-action-btn pulse-action-btn-danger">Delete webhook</button>
+        <% end %>
+      </section>
+    <% end %>
+  </div>
+</article>

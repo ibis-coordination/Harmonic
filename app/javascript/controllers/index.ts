@@ -77,6 +77,7 @@ import CommitmentSubtypeController from "./commitment_subtype_controller"
 import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
+import WebhookTestController from "./webhook_test_controller"
 
 // Register all controllers
 application.register("ajax-toggle", AjaxToggleController)
@@ -145,5 +146,6 @@ application.register("checkbox-group", CheckboxGroupController)
 application.register("kebab-menu", KebabMenuController)
 application.register("dialog", DialogController)
 application.register("tabs", TabsController)
+application.register("webhook-test", WebhookTestController)
 
 export { application }

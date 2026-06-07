@@ -24,6 +24,7 @@ class AgentAutomationsController < ApplicationController
     @page_title = "Automations - #{@ai_agent.display_name}"
     @automation_rules = AutomationRule.tenant_scoped_only
       .where(ai_agent_id: @ai_agent.id)
+      .excluding_notification_webhooks
       .order(created_at: :desc)
   end
 
@@ -252,12 +253,11 @@ class AgentAutomationsController < ApplicationController
   def redirect_external_agents_to_webhooks
     return unless @ai_agent&.external_ai_agent?
 
-    target = "/ai-agents/#{@agent_handle}/webhooks"
-    target = "#{target}/new" if action_name == "new"
+    target = "/ai-agents/#{@agent_handle}/settings"
     respond_to do |format|
-      format.html { redirect_to target, notice: "Use Webhooks instead — external agents don't have task runs." }
-      format.json { render json: { error: "External agents use the Webhooks UI" }, status: :forbidden }
-      format.md { render plain: "# Error\n\nExternal agents use the Webhooks UI.", status: :forbidden }
+      format.html { redirect_to target, notice: "This agent doesn't have automations. Manage its notification webhook here on the settings page." }
+      format.json { render json: { error: "Not available for this agent" }, status: :forbidden }
+      format.md { render plain: "# Error\n\nNot available for this agent. The notification webhook is on the agent settings page.", status: :forbidden }
     end
   end
 

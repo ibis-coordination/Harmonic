@@ -106,7 +106,7 @@
           <%= octicon 'play' %> Run Task
         </a>
       <% end %>
-      <% if active %>
+      <% if active && @ai_agent.internal_ai_agent? %>
         <a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-action-btn">
           <%= octicon 'zap' %> Automations
         </a>
@@ -119,56 +119,58 @@
       </a>
     </p>
 
-    <% if @automation_rules.any? %>
-      <section class="pulse-settings-section">
-        <h3>Automations</h3>
-        <table class="pulse-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Trigger</th>
-              <th>Status</th>
-              <th>Runs</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @automation_rules.each do |rule| %>
+    <% if @ai_agent.internal_ai_agent? %>
+      <% if @automation_rules.any? %>
+        <section class="pulse-settings-section">
+          <h3>Automations</h3>
+          <table class="pulse-table">
+            <thead>
               <tr>
-                <td>
-                  <a href="/ai-agents/<%= @ai_agent.handle %>/automations/<%= rule.truncated_id %>" class="pulse-link">
-                    <%= rule.name %>
-                  </a>
-                </td>
-                <td>
-                  <span class="pulse-tag"><%= rule.trigger_type %></span>
-                  <% if rule.trigger_type == 'event' %>
-                    <small class="pulse-hint"><%= rule.event_type %></small>
-                  <% end %>
-                </td>
-                <td>
-                  <% if rule.enabled? %>
-                    <span class="pulse-tag pulse-tag-success">Enabled</span>
-                  <% else %>
-                    <span class="pulse-tag">Disabled</span>
-                  <% end %>
-                </td>
-                <td><%= rule.execution_count %></td>
+                <th>Name</th>
+                <th>Trigger</th>
+                <th>Status</th>
+                <th>Runs</th>
               </tr>
-            <% end %>
-          </tbody>
-        </table>
-        <p><a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-link">View all automations →</a></p>
-      </section>
-    <% else %>
-      <section class="pulse-settings-section">
-        <h3>Automations</h3>
-        <p class="pulse-muted">No automations configured yet.</p>
-        <p>
-          <a href="/ai-agents/<%= @ai_agent.handle %>/automations/new" class="pulse-action-btn">
-            <%= octicon 'plus' %> Create Automation
-          </a>
-        </p>
-      </section>
+            </thead>
+            <tbody>
+              <% @automation_rules.each do |rule| %>
+                <tr>
+                  <td>
+                    <a href="/ai-agents/<%= @ai_agent.handle %>/automations/<%= rule.truncated_id %>" class="pulse-link">
+                      <%= rule.name %>
+                    </a>
+                  </td>
+                  <td>
+                    <span class="pulse-tag"><%= rule.trigger_type %></span>
+                    <% if rule.trigger_type == 'event' %>
+                      <small class="pulse-hint"><%= rule.event_type %></small>
+                    <% end %>
+                  </td>
+                  <td>
+                    <% if rule.enabled? %>
+                      <span class="pulse-tag pulse-tag-success">Enabled</span>
+                    <% else %>
+                      <span class="pulse-tag">Disabled</span>
+                    <% end %>
+                  </td>
+                  <td><%= rule.execution_count %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+          <p><a href="/ai-agents/<%= @ai_agent.handle %>/automations" class="pulse-link">View all automations →</a></p>
+        </section>
+      <% else %>
+        <section class="pulse-settings-section">
+          <h3>Automations</h3>
+          <p class="pulse-muted">No automations configured yet.</p>
+          <p>
+            <a href="/ai-agents/<%= @ai_agent.handle %>/automations/new" class="pulse-action-btn">
+              <%= octicon 'plus' %> Create Automation
+            </a>
+          </p>
+        </section>
+      <% end %>
     <% end %>
 
     <% if @ai_agent.internal_ai_agent? %>
