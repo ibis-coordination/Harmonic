@@ -1,6 +1,8 @@
 require "test_helper"
 
 class SignupControllerTest < ActionDispatch::IntegrationTest
+  include ActiveSupport::Testing::TimeHelpers
+
   def setup
     @tenant = create_tenant(subdomain: "signup-test-#{SecureRandom.hex(4)}", name: "Signup Test Tenant")
     @host_user = create_user(email: "host-#{SecureRandom.hex(4)}@example.com", name: "Host")
@@ -373,15 +375,17 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "POST /invite-required submitted faster than 2 seconds after render is rejected" do
+  test "POST /invite-required submitted faster than MIN_FORM_TIME_SECONDS after render is rejected" do
     with_bot_protection do
       invite = create_invite
       sign_in_without_membership(@uninvited_user)
 
-      post "/invite-required", params: {
-        code: invite.code,
-        form_render_ts: Time.current.to_i.to_s, # rendered "just now" — too fast
-      }
+      freeze_time do
+        post "/invite-required", params: {
+          code: invite.code,
+          form_render_ts: Time.current.to_i.to_s, # rendered "just now" — too fast
+        }
+      end
 
       assert_response :redirect
       assert_no_match(/#{Regexp.escape(@collective.name)}/, response.body)
