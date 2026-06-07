@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.1] - 2026-06-07
+
+### Fixed
+
+- **N+1 on note show page** — `CollectiveMember#user` and `TenantUser#user` back-populated the user's cached membership with `||=`, which invoked the getter and fired a SQL query per team member iterated in `Collective#team` / `Tenant#team`. Replaced with a guarded direct setter.
+- **Note show loaded the full team just to render "N members"** — `NotesController#show` assigned `@team = @current_collective.team` (up to 100 user rows) solely so the sidebar could call `@team.count`. Added `Collective#member_count` (one COUNT query) and dropped the `@team` load from `notes#show`.
+
 ## [1.23.0] - 2026-06-07
 
 ### Added
