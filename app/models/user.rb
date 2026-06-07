@@ -132,6 +132,7 @@ class User < ApplicationRecord
   validates :name, presence: true
   validates :system_role, inclusion: { in: SYSTEM_ROLES, allow_nil: true }
   validate :ai_agent_must_have_parent
+  validate :agent_mode_is_immutable, if: :ai_agent?
 
   scope :system_agents, -> { where.not(system_role: nil) }
 
@@ -189,6 +190,19 @@ class User < ApplicationRecord
   end
 
   sig { void }
+  def agent_mode_is_immutable
+    return unless persisted?
+    return unless agent_configuration_changed?
+
+    old_mode = (agent_configuration_was || {})["mode"]
+    new_mode = (agent_configuration || {})["mode"]
+    return if old_mode.nil?
+    return if old_mode == new_mode
+
+    errors.add(:agent_configuration, "mode cannot be changed after agent creation")
+  end
+
+  sig { void }
   def ai_agent_must_have_parent
     if parent_id.present? && !ai_agent?
       errors.add(:parent_id, "can only be set for AI agent users")
@@ -229,6 +243,10 @@ class User < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def internal_ai_agent?
+    # System agents (e.g., Trio) run on the deployment account and are
+    # inherently internal-mode regardless of agent_configuration.
+    return true if ai_agent? && system?
+
     ai_agent? && agent_configuration&.dig("mode") == "internal"
   end
 

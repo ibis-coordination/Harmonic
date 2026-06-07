@@ -20,6 +20,8 @@ class AutomationRule < ApplicationRecord
   validate :only_one_scope_type
   validate :ai_agent_must_be_agent_type
   validate :webhook_path_required_for_webhook_trigger
+  validate :require_task_for_internal_agent_rule
+  validate :require_webhook_url_for_external_agent_rule
 
   before_validation :generate_webhook_secret, on: :create
   before_validation :generate_webhook_path, on: :create
@@ -32,6 +34,16 @@ class AutomationRule < ApplicationRecord
   sig { returns(T::Boolean) }
   def agent_rule?
     ai_agent_id.present?
+  end
+
+  sig { returns(T::Boolean) }
+  def internal_agent_rule?
+    ai_agent_id.present? && !!ai_agent&.internal_ai_agent?
+  end
+
+  sig { returns(T::Boolean) }
+  def external_agent_rule?
+    ai_agent_id.present? && !!ai_agent&.external_ai_agent?
   end
 
   sig { returns(T::Boolean) }
@@ -185,6 +197,22 @@ class AutomationRule < ApplicationRecord
     return if webhook_path.present?
 
     errors.add(:webhook_path, "is required for webhook triggers")
+  end
+
+  sig { void }
+  def require_task_for_internal_agent_rule
+    return unless internal_agent_rule?
+
+    task = actions.is_a?(Hash) ? actions["task"] : nil
+    errors.add(:actions, "must include a task") if task.blank?
+  end
+
+  sig { void }
+  def require_webhook_url_for_external_agent_rule
+    return unless external_agent_rule?
+
+    url = actions.is_a?(Hash) ? actions["webhook_url"] : nil
+    errors.add(:actions, "must include a webhook_url") if url.blank?
   end
 
   sig { void }

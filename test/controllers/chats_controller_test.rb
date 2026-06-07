@@ -12,7 +12,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @collective = @tenant.main_collective
 
     @ai_agent = create_ai_agent(parent: @user)
-    @ai_agent.update!(agent_configuration: { "mode" => "internal" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "internal" })
     @tenant.add_user!(@ai_agent)
     @collective.add_user!(@ai_agent)
     @agent_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @ai_agent).handle
@@ -202,7 +202,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "send_message to external agent saves message but does not dispatch" do
     external_agent = create_ai_agent(parent: @user, name: "External Bot #{SecureRandom.hex(4)}")
-    external_agent.update!(agent_configuration: { "mode" => "external" })
+    external_agent.update_columns(agent_configuration: { "mode" => "external" })
     @tenant.add_user!(external_agent)
     @collective.add_user!(external_agent)
     ext_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: external_agent).handle
@@ -1036,7 +1036,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @collective.add_user!(other_user)
 
     other_agent = create_ai_agent(parent: other_user, name: "Other Agent #{SecureRandom.hex(4)}")
-    other_agent.update!(agent_configuration: { "mode" => "external" })
+    other_agent.update_columns(agent_configuration: { "mode" => "external" })
     @tenant.add_user!(other_agent)
     @collective.add_user!(other_agent)
 
@@ -1058,7 +1058,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
   test "sending message to external agent does not show thinking indicator" do
     external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(4)}")
-    external_agent.update!(agent_configuration: { "mode" => "external" })
+    external_agent.update_columns(agent_configuration: { "mode" => "external" })
     @tenant.add_user!(external_agent)
     @collective.add_user!(external_agent)
     ext_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: external_agent).handle

@@ -699,14 +699,14 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "run_task returns 404 for an external agent even with internal flag on" do
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/run"
     assert_response :not_found
   end
 
   test "execute_task returns 404 for an external agent" do
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "x" }
     assert_response :not_found
@@ -817,7 +817,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: index page is reachable and lists existing external agent" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents"
     assert_response :success
@@ -837,7 +837,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: per-agent action row hides Run Task/Runs but keeps Settings and Automations" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents"
     assert_response :success
@@ -848,7 +848,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: show page is reachable and hides Run Task button" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}"
     assert_response :success
@@ -1023,7 +1023,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "update_settings accepts capabilities with sentinel and writes []" do
     sign_in_as(@user, tenant: @tenant)
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update!(agent_configuration: @ai_agent.agent_configuration.to_h.merge("capabilities" => ["create_note"]))
     post "/ai-agents/#{@ai_agent_handle}/settings", params: {
       name: @ai_agent.name,
       capabilities: [""],

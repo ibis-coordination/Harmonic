@@ -509,6 +509,39 @@ class UserTest < ActiveSupport::TestCase
     assert_nil agent.effective_identity_prompt
   end
 
+  # === Agent mode immutability ===
+
+  test "agent_configuration mode cannot be changed after creation" do
+    agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+
+    agent.agent_configuration = (agent.agent_configuration || {}).merge("mode" => "external")
+    assert_not agent.valid?
+    assert_includes agent.errors[:agent_configuration], "mode cannot be changed after agent creation"
+  end
+
+  test "other agent_configuration fields can be changed after creation" do
+    agent = create_ai_agent(
+      parent: @user,
+      agent_configuration: { "mode" => "internal", "identity_prompt" => "old" },
+    )
+
+    agent.agent_configuration = agent.agent_configuration.merge("identity_prompt" => "new")
+    assert agent.valid?, "Expected to be able to update identity_prompt while keeping mode unchanged: #{agent.errors.full_messages}"
+    agent.save!
+    assert_equal "new", agent.reload.agent_configuration["identity_prompt"]
+  end
+
+  test "agent_configuration mode immutability does not block initial assignment on a fresh load" do
+    # An existing agent with no mode set yet (legacy) should be allowed to set
+    # mode for the first time.
+    agent = create_ai_agent(parent: @user, agent_configuration: { "identity_prompt" => "hi" })
+    agent.update_columns(agent_configuration: { "identity_prompt" => "hi" }) # ensure no "mode" key
+    agent.reload
+
+    agent.agent_configuration = agent.agent_configuration.merge("mode" => "external")
+    assert agent.valid?, agent.errors.full_messages.to_s
+  end
+
   test "system_agents scope returns only users with system_role set" do
     trio = User.create!(
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",

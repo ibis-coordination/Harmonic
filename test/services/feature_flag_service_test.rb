@@ -13,6 +13,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert config.key?("trio")
     assert config.key?("internal_ai_agents")
     assert config.key?("external_ai_agents")
+    assert config.key?("automations")
     assert_not config.key?("ai_agents"), "old `ai_agents` flag should have been removed"
   end
 
@@ -23,6 +24,7 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
     assert flags.include?("trio")
     assert flags.include?("internal_ai_agents")
     assert flags.include?("external_ai_agents")
+    assert flags.include?("automations")
     assert_not flags.include?("ai_agents")
   end
 
@@ -201,5 +203,21 @@ class FeatureFlagServiceTest < ActiveSupport::TestCase
 
   test "external_ai_agents default is false for tenant" do
     assert_not FeatureFlagService.default_for_tenant("external_ai_agents")
+  end
+
+  test "automations flag is app enabled" do
+    assert FeatureFlagService.app_enabled?("automations")
+  end
+
+  test "automations default is false for tenant" do
+    assert_not FeatureFlagService.default_for_tenant("automations")
+  end
+
+  test "automations_enabled? on tenant uses feature flag service" do
+    @tenant.set_feature_flag!("automations", true)
+    assert @tenant.automations_enabled?
+
+    @tenant.set_feature_flag!("automations", false)
+    assert_not @tenant.automations_enabled?
   end
 end

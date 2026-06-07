@@ -437,7 +437,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     ai_agent = create_ai_agent(parent: @user, name: "Profile POST Test Agent")
-    ai_agent.update!(agent_configuration: { "mode" => "external", "capabilities" => ["create_note"] })
+    ai_agent.update_columns(agent_configuration: { "mode" => "external", "capabilities" => ["create_note"] })
     @tenant.add_user!(ai_agent)
     handle = ai_agent.tenant_users.find_by(tenant: @tenant).handle
     Collective.clear_thread_scope

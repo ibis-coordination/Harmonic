@@ -80,6 +80,17 @@ Rails.application.routes.draw do
   post 'ai-agents/:handle/automations/:automation_id/actions/toggle_automation_rule' => 'agent_automations#execute_toggle'
   get 'ai-agents/:handle/automations/:automation_id/edit/actions' => 'agent_automations#actions_index_edit'
 
+  # Agent webhooks (for external AI agents)
+  get    'ai-agents/:handle/webhooks'          => 'agent_webhooks#index',  as: 'ai_agent_webhooks'
+  get    'ai-agents/:handle/webhooks/new'      => 'agent_webhooks#new',    as: 'new_ai_agent_webhook'
+  post   'ai-agents/:handle/webhooks'          => 'agent_webhooks#create'
+  get    'ai-agents/:handle/webhooks/:id/edit' => 'agent_webhooks#edit',   as: 'edit_ai_agent_webhook'
+  patch  'ai-agents/:handle/webhooks/:id'      => 'agent_webhooks#update', as: 'ai_agent_webhook'
+  delete 'ai-agents/:handle/webhooks/:id'      => 'agent_webhooks#destroy'
+  post   'ai-agents/:handle/webhooks/:id/test' => 'agent_webhooks#test_delivery', as: 'test_ai_agent_webhook'
+  post   'ai-agents/:handle/webhooks/:id/rotate_secret' => 'agent_webhooks#rotate_secret', as: 'rotate_secret_ai_agent_webhook'
+  post   'ai-agents/:handle/webhooks/:id/toggle' => 'agent_webhooks#toggle', as: 'toggle_ai_agent_webhook'
+
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
     post 'login' => 'honor_system_sessions#create'

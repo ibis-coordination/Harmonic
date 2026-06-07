@@ -8,6 +8,7 @@ class CollectiveAutomationsController < ApplicationController
 
   before_action :require_user
   before_action :require_collective_admin
+  before_action :require_automations_flag
   before_action :set_sidebar_mode, only: [:index, :new, :show, :edit, :runs, :run_show]
   before_action :set_automation_rule, only: [
     :show, :edit, :runs, :run_show,
@@ -476,6 +477,16 @@ class CollectiveAutomationsController < ApplicationController
       format.html { redirect_to @current_collective.path, alert: "You must be a collective admin to manage automations." }
       format.json { render json: { error: "Forbidden" }, status: :forbidden }
       format.md { render plain: "# Error\n\nYou must be a collective admin to manage automations.", status: :forbidden }
+    end
+  end
+
+  def require_automations_flag
+    return if @current_tenant.automations_enabled?
+
+    respond_to do |format|
+      format.html { redirect_to @current_collective.path, alert: "Automations are not enabled for this tenant." }
+      format.json { render json: { error: "Not Found" }, status: :not_found }
+      format.md { render plain: "# Error\n\nAutomations are not enabled for this tenant.", status: :not_found }
     end
   end
 

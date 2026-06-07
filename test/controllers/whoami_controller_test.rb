@@ -100,7 +100,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_api!
 
     ai_agent = create_ai_agent(parent: @user, name: "Test Assistant")
-    ai_agent.update!(agent_configuration: { "identity_prompt" => "You are a helpful assistant for scheduling meetings." })
+    ai_agent.update_columns(agent_configuration: { "identity_prompt" => "You are a helpful assistant for scheduling meetings." })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -266,7 +266,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_api!
 
     ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
-    ai_agent.update!(agent_configuration: { "scratchpad" => "Remember to check the weekly sync notes." })
+    ai_agent.update_columns(agent_configuration: { "scratchpad" => "Remember to check the weekly sync notes." })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -400,7 +400,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_api!
 
     ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
-    ai_agent.update!(agent_configuration: { "scratchpad" => "Old notes" })
+    ai_agent.update_columns(agent_configuration: { "scratchpad" => "Old notes" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(

@@ -369,4 +369,101 @@ class AutomationRuleTest < ActiveSupport::TestCase
     assert rule.ip_allowed?("10.0.0.1")
     assert_not rule.ip_allowed?("10.0.0.2")
   end
+
+  # === Internal vs external agent rule predicates ===
+
+  test "internal_agent_rule? is true for internal-mode agent" do
+    internal_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: internal_agent,
+      created_by: @user,
+      name: "Internal rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Do it" }
+    )
+
+    assert rule.internal_agent_rule?
+    assert_not rule.external_agent_rule?
+  end
+
+  test "external_agent_rule? is true for external-mode agent" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+
+    assert rule.external_agent_rule?
+    assert_not rule.internal_agent_rule?
+  end
+
+  test "neither predicate is true for non-agent rules" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "internal_action", "action" => "create_note" }]
+    )
+
+    assert_not rule.internal_agent_rule?
+    assert_not rule.external_agent_rule?
+  end
+
+  # === Conditional validations ===
+
+  test "internal-agent rule requires actions to include a task" do
+    internal_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: internal_agent,
+      created_by: @user,
+      name: "No task",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: {}
+    )
+
+    assert_not rule.valid?
+    assert_includes rule.errors[:actions], "must include a task"
+  end
+
+  test "external-agent rule requires actions to include a webhook_url" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "No URL",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: {}
+    )
+
+    assert_not rule.valid?
+    assert_includes rule.errors[:actions], "must include a webhook_url"
+  end
+
+  test "external-agent rule does not require task; internal-agent rule does not require webhook_url" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert rule.persisted?
+  end
 end

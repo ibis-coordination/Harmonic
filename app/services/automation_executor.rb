@@ -20,8 +20,10 @@ class AutomationExecutor
   def execute
     @run.mark_running!
 
-    if @rule.agent_rule?
-      execute_agent_rule
+    if @rule.internal_agent_rule?
+      execute_internal_agent_rule
+    elsif @rule.external_agent_rule?
+      execute_external_agent_rule
     else
       execute_general_rule
     end
@@ -36,7 +38,7 @@ class AutomationExecutor
   private
 
   sig { void }
-  def execute_agent_rule
+  def execute_internal_agent_rule
     ai_agent = @rule.ai_agent
     unless ai_agent
       @run.mark_failed!("AI agent not found")
@@ -119,6 +121,48 @@ class AutomationExecutor
 
     # Record the action but don't mark as completed - task run will report back when done
     @run.record_actions!(executed_actions: [{ type: "trigger_agent", task_run_id: task_run.id }])
+  end
+
+  sig { void }
+  def execute_external_agent_rule
+    ai_agent = @rule.ai_agent
+    unless ai_agent
+      @run.mark_failed!("AI agent not found")
+      return
+    end
+
+    if ai_agent.suspended?
+      @run.mark_failed!("Agent is suspended.")
+      return
+    end
+
+    # An archived external agent shouldn't fire webhooks (matches the internal
+    # path's deactivation check).
+    agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: @rule.tenant_id)
+    if agent_tenant_user&.archived?
+      @run.mark_failed!("Agent is deactivated.")
+      return
+    end
+
+    # No billing gate: external webhooks don't use the Task Runner or LLM
+    # credits, so the $3/month subscription model doesn't apply.
+
+    webhook_url = @rule.actions.is_a?(Hash) ? @rule.actions["webhook_url"] : nil
+    payload_template = @rule.actions.is_a?(Hash) ? @rule.actions["payload_template"] : nil
+    signing_secret = @rule.actions.is_a?(Hash) ? @rule.actions["signing_secret"] : nil
+
+    if webhook_url.blank?
+      @run.mark_failed!("Webhook URL missing.")
+      return
+    end
+
+    secret = signing_secret.presence || @rule.webhook_secret
+    body = build_webhook_body(payload_template || {})
+
+    delivery = create_webhook_delivery(url: webhook_url, secret: secret, request_body: body.to_json)
+    WebhookDeliveryJob.perform_later(delivery.id)
+
+    @run.record_actions!(executed_actions: [{ "type" => "webhook", "delivery_id" => delivery.id }])
   end
 
   sig { void }
@@ -240,23 +284,28 @@ class AutomationExecutor
     # Accept both "body" and "payload" keys for user convenience
     body = build_webhook_body(action["payload"] || action["body"] || {})
 
-    # Create a WebhookDelivery record for tracking and retries
-    delivery = WebhookDelivery.create!(
-      tenant: @rule.tenant,
-      automation_rule_run: @run,
-      event: @event,
-      url: url,
-      secret: @rule.webhook_secret,
-      request_body: body.to_json,
-      status: "pending",
-    )
-
-    # Queue async delivery with retry support
+    delivery = create_webhook_delivery(url: url, secret: @rule.webhook_secret, request_body: body.to_json)
     WebhookDeliveryJob.perform_later(delivery.id)
 
     { "status" => "success", "delivery_id" => delivery.id }
   rescue StandardError => e
     { "status" => "failed", "error" => e.message }
+  end
+
+  # Factored shared helper for creating a pending WebhookDelivery record.
+  # Both the collective-rule webhook-action path and the external-agent-rule
+  # path use this so the WebhookDelivery constructor lives in one place.
+  sig { params(url: String, secret: String, request_body: String).returns(WebhookDelivery) }
+  def create_webhook_delivery(url:, secret:, request_body:)
+    WebhookDelivery.create!(
+      tenant: @rule.tenant,
+      automation_rule_run: @run,
+      event: @event,
+      url: url,
+      secret: secret,
+      request_body: request_body,
+      status: "pending",
+    )
   end
 
   sig { params(body: T.untyped).returns(T.untyped) }

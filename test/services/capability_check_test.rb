@@ -32,7 +32,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
   # Test: AiAgent with no capabilities configured can do all grantable actions
   test "ai_agent with no capabilities configured can do all grantable actions" do
     # No agent_configuration = all grantable actions allowed
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
       assert CapabilityCheck.allowed?(@ai_agent, action),
@@ -42,7 +42,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: AiAgent with empty capabilities array cannot do any grantable actions
   test "ai_agent with empty capabilities array cannot do any grantable actions" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => [] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => [] })
 
     CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
       refute CapabilityCheck.allowed?(@ai_agent, action),
@@ -58,7 +58,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: AiAgent with capabilities configured can only do listed actions
   test "ai_agent with capabilities configured can only do listed actions" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
 
     # Allowed actions
     assert CapabilityCheck.allowed?(@ai_agent, "create_note")
@@ -73,7 +73,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
   # Test: AiAgent can always perform infrastructure actions
   test "ai_agent can always perform infrastructure actions" do
     # Even with restricted capabilities
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert CapabilityCheck.allowed?(@ai_agent, action),
@@ -84,7 +84,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
   # Test: AiAgent cannot perform blocked actions regardless of config
   test "ai_agent cannot perform blocked actions regardless of config" do
     # Even with no restrictions
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED.each do |action|
       refute CapabilityCheck.allowed?(@ai_agent, action),
@@ -92,7 +92,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     end
 
     # Even if explicitly listed in capabilities (would be invalid config)
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_collective", "update_profile"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_collective", "update_profile"] })
 
     refute CapabilityCheck.allowed?(@ai_agent, "create_collective")
     refute CapabilityCheck.allowed?(@ai_agent, "update_profile")
@@ -100,7 +100,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: allowed_actions returns infrastructure + configured for ai_agent
   test "allowed_actions returns infrastructure plus configured actions for ai_agent" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "vote"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note", "vote"] })
 
     allowed = CapabilityCheck.allowed_actions(@ai_agent)
 
@@ -126,7 +126,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: allowed_actions returns all grantable when no config
   test "allowed_actions returns all grantable actions when no config" do
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     allowed = CapabilityCheck.allowed_actions(@ai_agent)
 
@@ -143,7 +143,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: restricted_actions returns nil when no config
   test "restricted_actions returns nil when no config" do
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
     assert_nil CapabilityCheck.restricted_actions(@ai_agent)
   end
 
@@ -154,7 +154,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: restricted_actions returns denied actions when configured
   test "restricted_actions returns denied actions when configured" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
 
     restricted = CapabilityCheck.restricted_actions(@ai_agent)
 
@@ -170,7 +170,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: Integration with ActionAuthorization
   test "ActionAuthorization respects capability restrictions" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Allowed capability
     assert ActionAuthorization.authorized?("create_note", @ai_agent, { collective: @collective })
@@ -260,7 +260,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # Test: fail-closed for uncategorized actions even with nil capabilities.
   test "ai_agent with nil capabilities is denied an uncategorized action" do
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     # A hypothetical action that isn't in any list. The system must not allow it
     # just because capabilities is unset.
