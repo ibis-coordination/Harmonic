@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.23.0] - 2026-06-07
+
+### Added
+
+- **Notification webhooks** (#223) — one webhook per recipient (human or external agent) forwards every notification (@-mentions, comment replies, chat messages, reminders) to a user-set HTTPS URL. Managed at `/u/<handle>/webhook` and `/ai-agents/<handle>/webhook`; signing secret revealed once at create/rotate (HMAC-SHA256 over `"<timestamp>.<body>"`); inline test delivery; last-10 delivery history. For humans, this is part of the existing $3/mo personal programmatic-access charge that already covers API tokens — having both still adds +1 to billable quantity, not +2.
+- **`automations` tenant feature flag** (#223) — gates the YAML automations authoring UI. Existing rules continue to fire when off; only authoring is gated. Data migration backfills `automations = true` for tenants with existing rules.
+- **Split `ai_agents` feature flag into `internal_ai_agents` + `external_ai_agents`** (#222) — tenants can enable external API-token-based agents without standing up the internal Task Runner (and vice versa). Migration copies the existing `ai_agents` value into both new keys so every tenant's capability set is preserved.
+- **Canonical AI-agent settings page** at `/ai-agents/<handle>/settings` (#222) — single surface for profile image, name, handle, identity prompt, mode, model, capabilities, collective memberships, API tokens. `/u/<agent>/settings` redirects here (HTML and MD).
+
+### Fixed
+
+- **OAuth signup avatar upload `IOError: closed stream`** (#223) — `image.attach(io:)` on an unpersisted `User.create!(image_url: ...)` deferred the upload to an `after_commit` callback, by which time the IO was closed. Upload the blob synchronously and attach the already-uploaded blob.
+- **External agents could submit the "Run task" form** (#222) — the runner would immediately fail the task and the user landed on a failed-run page. `run_task`/`execute_task` now 404 for external agents; the show page hides "Recent Task Runs" for them.
+- **New-token plaintext lost on AI-agent create** (#222) — `execute_create_ai_agent` redirected to show, destroying `@token` before the view could display it. Now renders `show` directly when a token was just minted.
+- **Admin Stripe subscription cancelled on agent create** (#222) — `sync_subscription_quantity!` interpreted admins' always-zero `billable_quantity` as "all resources removed" and cancelled the admin's subscription. The sync now no-ops for `sys_admin` / `app_admin`.
+- **Admin agents marked `pending_billing_setup`** (#222) — admins lack `stripe_customer` by exemption, which previously short-circuited new agents into the pending state. `execute_create_ai_agent` now uses `requires_stripe_billing?` to decide, matching the early-redirect predicate.
+- **AI-agent create form forced `confirm_billing` checkbox even for billing-exempt admins** (#223) — `$3/month` notice and confirm checkbox now hidden for `app_admin` / `sys_admin`.
+- **AI-agent create form was Turbo-enabled and broke on cross-origin Stripe Checkout redirect** (#223) — `data: { turbo: false }` plus PRG-with-flash for the plaintext token, so the URL bar lands on the agent show page instead of `/actions/create_ai_agent`.
+- **500 on AI-agent handle collision** (#222) — `RecordNotUnique` now becomes a friendly `flash[:alert]`.
+- **AI-agent index "Collective Memberships"** showed auto-created chat collectives (#223) — filter switched from `!private_workspace?` to `listable?` so only standard collectives appear.
+- **Invisible `flash[:error]` on AI-agent redirects** (#222) — application layout renders `:notice` and `:alert` only; switched call sites that were silently dropping their error messages.
+- **`api_tokens/new` said "Identity: you" / "associated with your account" regardless of owner** (#222) — identity badge and hint now branch on `@showing_user`, so AI-agent owners see the agent's identity.
+
+### Security
+
+- **`AutomationDispatcher` no longer gates rule matching on the AI-agents flag** (#222) — previously, disabling AI agents disabled webhook delivery too, even though webhook rules don't need a runner. The gate now lives in `AutomationExecutor` where `trigger_agent` actually dispatches.
+- **Agent mode is immutable post-create** (#223) — `User` rejects changes to `agent_configuration["mode"]` after the agent exists; closes a path where an internal-only agent could be flipped to external (or vice versa) after billing/quota decisions had been made.
+
 ## [1.22.0] - 2026-06-05
 
 ### Added
