@@ -156,6 +156,17 @@ class HasImageTest < ActiveSupport::TestCase
     assert_not @user.image.attached?
   end
 
+  test "attach_bounded_image! works on an unpersisted record" do
+    tempfile = synthetic_image_tempfile(width: 100, height: 100)
+    new_user = User.new(email: "deferred_#{SecureRandom.hex(4)}@example.com", name: "Deferred", user_type: "human")
+    File.open(tempfile.path) do |f|
+      new_user.attach_bounded_image!(f, filename: "x.png")
+    end
+    new_user.save!
+    assert new_user.image.attached?
+    assert_nothing_raised { new_user.image.download }
+  end
+
   test "parse_safe_external_uri accepts a public host" do
     # We can't make an actual network call in tests, but we can verify
     # the URL passes the SSRF validator (returns a URI, not nil).

@@ -509,6 +509,39 @@ class UserTest < ActiveSupport::TestCase
     assert_nil agent.effective_identity_prompt
   end
 
+  # === Agent mode immutability ===
+
+  test "agent_configuration mode cannot be changed after creation" do
+    agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+
+    agent.agent_configuration = (agent.agent_configuration || {}).merge("mode" => "external")
+    assert_not agent.valid?
+    assert_includes agent.errors[:agent_configuration], "mode cannot be changed after agent creation"
+  end
+
+  test "other agent_configuration fields can be changed after creation" do
+    agent = create_ai_agent(
+      parent: @user,
+      agent_configuration: { "mode" => "internal", "identity_prompt" => "old" },
+    )
+
+    agent.agent_configuration = agent.agent_configuration.merge("identity_prompt" => "new")
+    assert agent.valid?, "Expected to be able to update identity_prompt while keeping mode unchanged: #{agent.errors.full_messages}"
+    agent.save!
+    assert_equal "new", agent.reload.agent_configuration["identity_prompt"]
+  end
+
+  test "agent_configuration mode immutability does not block initial assignment on a fresh load" do
+    # An existing agent with no mode set yet (legacy) should be allowed to set
+    # mode for the first time.
+    agent = create_ai_agent(parent: @user, agent_configuration: { "identity_prompt" => "hi" })
+    agent.update_columns(agent_configuration: { "identity_prompt" => "hi" }) # ensure no "mode" key
+    agent.reload
+
+    agent.agent_configuration = agent.agent_configuration.merge("mode" => "external")
+    assert agent.valid?, agent.errors.full_messages.to_s
+  end
+
   test "system_agents scope returns only users with system_role set" do
     trio = User.create!(
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
@@ -1211,6 +1244,49 @@ class UserTest < ActiveSupport::TestCase
 
     assert_not fresh_user.counts_self_for_api_access?
     assert_equal 0, fresh_user.billable_quantity
+  end
+
+  test "human with only a notification webhook is billable (+1, same as a token)" do
+    fresh_tenant = create_tenant(subdomain: "wh-bill-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "wh-bill-#{SecureRandom.hex(4)}@example.com", name: "Webhook #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    AutomationRule.unscoped.create!(
+      tenant: fresh_tenant,
+      user: fresh_user,
+      created_by: fresh_user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    assert_equal 1, fresh_user.billable_quantity
+  end
+
+  test "human with both token and webhook is still billed only once (same +1)" do
+    fresh_tenant = create_tenant(subdomain: "wh-bill-both-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "wh-bill-both-#{SecureRandom.hex(4)}@example.com", name: "Both #{SecureRandom.hex(4)}")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+
+    create_api_token(user: fresh_user, tenant: fresh_tenant)
+    AutomationRule.unscoped.create!(
+      tenant: fresh_tenant,
+      user: fresh_user,
+      created_by: fresh_user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    assert_equal 1, fresh_user.billable_quantity, "having both a token and a webhook still counts as +1"
   end
 
   test "counts_self_for_api_access? ignores expired tokens" do

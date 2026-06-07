@@ -27,9 +27,13 @@ class AutomationTemplateRenderer
     end
   end
 
+  NOTIFICATION_DELIVERED_EVENTS = T.let(["notifications.delivered", "reminders.delivered"].freeze, T::Array[String])
+
   # Build context hash from an event
   sig { params(event: Event).returns(T::Hash[String, T.untyped]) }
   def self.context_from_event(event)
+    return notification_delivered_context(event) if NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+
     context = {
       "event" => build_event_context(event),
       "subject" => build_subject_context(event.subject),
@@ -39,6 +43,40 @@ class AutomationTemplateRenderer
     context["collective"] = build_collective_context(collective) if collective
 
     context
+  end
+
+  # For notification-delivered events:
+  # - `event.actor` is the recipient (existing pipeline semantic).
+  # - The original actor lives at `notification.event&.actor`, with a fallback
+  #   to `event.metadata["original_actor_id"]` for event-less notifications
+  #   (chat messages and reminders).
+  # The `notification` block carries the Notification's own metadata; we skip
+  # the standard subject builder because Notification has no `display_path`.
+  sig { params(event: Event).returns(T::Hash[String, T.untyped]) }
+  def self.notification_delivered_context(event)
+    notification = event.subject
+    base = { "event" => build_event_context(event) }
+    collective = event.collective
+    base["collective"] = build_collective_context(collective) if collective
+    return base unless notification.is_a?(Notification)
+
+    original_actor = notification.event&.actor
+    fallback_id = event.metadata && event.metadata["original_actor_id"]
+    original_actor ||= User.find_by(id: fallback_id) if fallback_id.present?
+
+    recipient = event.actor
+    base.merge(
+      "recipient" => recipient ? build_user_context(recipient) : nil,
+      "actor" => original_actor ? build_user_context(original_actor) : nil,
+      "notification" => {
+        "id" => notification.id,
+        "type" => notification.notification_type,
+        "title" => notification.title,
+        "body" => notification.body,
+        "url" => notification.url,
+        "created_at" => notification.created_at.iso8601,
+      }
+    )
   end
 
   # Build context hash from trigger_data (for webhook/schedule/manual triggers without events)
@@ -56,9 +94,7 @@ class AutomationTemplateRenderer
 
     # Expose manual trigger inputs for template access
     # e.g., {{inputs.message}}, {{inputs.count}}
-    if trigger_data["inputs"].is_a?(Hash)
-      context["inputs"] = trigger_data["inputs"]
-    end
+    context["inputs"] = trigger_data["inputs"] if trigger_data["inputs"].is_a?(Hash)
 
     # Expose webhook metadata
     # e.g., {{webhook.path}}, {{webhook.source_ip}}

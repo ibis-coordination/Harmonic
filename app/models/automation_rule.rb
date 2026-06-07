@@ -20,18 +20,56 @@ class AutomationRule < ApplicationRecord
   validate :only_one_scope_type
   validate :ai_agent_must_be_agent_type
   validate :webhook_path_required_for_webhook_trigger
+  validate :require_task_for_internal_agent_rule
+  validate :no_webhook_shape_on_collective_only_rule
+  validate :one_notification_webhook_per_user
 
   before_validation :generate_webhook_secret, on: :create
   before_validation :generate_webhook_path, on: :create
 
   scope :enabled, -> { where(enabled: true) }
-  scope :for_event_type, ->(event_type) { where(trigger_type: "event").where("trigger_config->>'event_type' = ?", event_type) }
+  # Matches both the singular `event_type` (legacy) and `event_types` array forms.
+  # Uses jsonb's `@>` containment operator (no `?` to escape) — array form must
+  # be a JSON array of strings; the bind is a one-element JSON array literal.
+  scope :for_event_type, lambda { |event_type|
+    where(trigger_type: "event").where(
+      "trigger_config->>'event_type' = :t OR trigger_config->'event_types' @> :arr::jsonb",
+      t: event_type,
+      arr: [event_type].to_json
+    )
+  }
   scope :for_ai_agent, ->(ai_agent) { where(ai_agent_id: ai_agent.id) }
   scope :scheduled, -> { where(trigger_type: "schedule") }
+  # Excludes notification-webhook rules (managed in their own UI) from
+  # general automation listings.
+  scope :excluding_notification_webhooks, lambda {
+    where("(actions->>'webhook_url') IS NULL OR (ai_agent_id IS NULL AND user_id IS NULL)")
+  }
+  # The recipient's notification webhook rule, if any. Recipient is a User
+  # (human) or an AI agent (also a User). Backed by the partial unique index
+  # on (tenant_id, COALESCE(ai_agent_id, user_id)) — at most one row.
+  scope :notification_webhook_for, lambda { |owner|
+    column = owner.ai_agent? ? :ai_agent_id : :user_id
+    where(trigger_type: "event")
+      .where(column => owner.id)
+      .where("(actions->>'webhook_url') IS NOT NULL")
+  }
 
   sig { returns(T::Boolean) }
   def agent_rule?
     ai_agent_id.present?
+  end
+
+  sig { returns(T::Boolean) }
+  def internal_agent_rule?
+    ai_agent_id.present? && !!ai_agent&.internal_ai_agent?
+  end
+
+  sig { returns(T::Boolean) }
+  def notification_webhook_rule?
+    return false if ai_agent_id.nil? && user_id.nil?
+
+    actions.is_a?(Hash) && actions["webhook_url"].present?
   end
 
   sig { returns(T::Boolean) }
@@ -185,6 +223,39 @@ class AutomationRule < ApplicationRecord
     return if webhook_path.present?
 
     errors.add(:webhook_path, "is required for webhook triggers")
+  end
+
+  sig { void }
+  def require_task_for_internal_agent_rule
+    return unless internal_agent_rule?
+
+    task = actions.is_a?(Hash) ? actions["task"] : nil
+    errors.add(:actions, "must include a task") if task.blank?
+  end
+
+  sig { void }
+  def no_webhook_shape_on_collective_only_rule
+    return unless collective_id.present? && ai_agent_id.nil? && user_id.nil?
+    return unless actions.is_a?(Hash) && actions["webhook_url"].present?
+
+    errors.add(:actions, "collective-only rules cannot use notification-webhook shape")
+  end
+
+  sig { void }
+  def one_notification_webhook_per_user
+    return unless notification_webhook_rule?
+
+    recipient_id = ai_agent_id || user_id
+    return if recipient_id.nil?
+
+    scope = AutomationRule.tenant_scoped_only(tenant_id).where(
+      "(ai_agent_id = :rid OR user_id = :rid) AND (actions->>'webhook_url') IS NOT NULL",
+      rid: recipient_id
+    )
+    scope = scope.where.not(id: id) if persisted?
+    return unless scope.exists?
+
+    errors.add(:base, "This user already has a notification webhook. Edit or delete the existing one first.")
   end
 
   sig { void }

@@ -26,11 +26,6 @@ class NotificationDeliveryJob < TenantScopedJob
       # In-app notifications are already created, just mark as delivered
       recipient.mark_delivered!
     end
-
-    # Fire notifications.delivered event for user webhooks
-    # Skip if this is a reminder being delivered as part of ReminderDeliveryJob batch
-    # (those already fire reminders.delivered)
-    fire_notification_delivered_event(recipient)
   end
 
   private
@@ -49,44 +44,5 @@ class NotificationDeliveryJob < TenantScopedJob
     # failures in the future.
     Rails.logger.error("Failed to deliver notification email: #{e.message}")
     recipient.mark_delivered!
-  end
-
-  sig { params(recipient: NotificationRecipient).void }
-  def fire_notification_delivered_event(recipient)
-    notification = recipient.notification
-    return unless notification
-
-    # Skip reminders - ReminderDeliveryJob already fires reminders.delivered for them
-    return if notification.notification_type == "reminder"
-
-    # Only fire event for in_app channel to avoid duplicates when users have
-    # multiple channels (email + in_app). in_app is the default/primary channel.
-    return unless recipient.channel == "in_app"
-
-    event = notification.event
-    user = recipient.user
-
-    # Need tenant and collective context to fire events
-    return unless event&.tenant_id && event.collective_id
-
-    # Set collective context for EventService
-    collective = event.collective
-    set_collective_context!(collective) if collective
-
-    EventService.record!(
-      event_type: "notifications.delivered",
-      actor: user,
-      subject: notification,
-      metadata: {
-        "notification_type" => notification.notification_type,
-        "title" => notification.title,
-        "body" => notification.body,
-        "url" => notification.url,
-        "channel" => recipient.channel,
-      }
-    )
-  rescue StandardError => e
-    # Don't fail the job if event recording fails
-    Rails.logger.error("Failed to fire notifications.delivered event: #{e.message}")
   end
 end

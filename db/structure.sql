@@ -6062,6 +6062,13 @@ CREATE INDEX search_index_p9_tenant_id_replying_to_id_idx ON public.search_index
 
 
 --
+-- Name: uniq_notification_webhook_per_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX uniq_notification_webhook_per_user ON public.automation_rules USING btree (tenant_id, COALESCE(ai_agent_id, user_id)) WHERE ((actions ->> 'webhook_url'::text) IS NOT NULL);
+
+
+--
 -- Name: user_item_status_p0_tenant_id_user_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9842,6 +9849,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260606010000'),
+('20260606000000'),
 ('20260605000000'),
 ('20260601231650'),
 ('20260601223743'),

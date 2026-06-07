@@ -4,6 +4,7 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @tenant.enable_api!
+    @tenant.set_feature_flag!("automations", true)
     @collective = @global_collective
     @collective.enable_api!
     @user = @global_user
@@ -66,6 +67,15 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
       yaml_source: valid_yaml,
     }
     AutomationRule.unscoped.create!(defaults.merge(attrs))
+  end
+
+  # === Feature flag gating ===
+
+  test "index returns not_found when automations flag is off" do
+    @tenant.set_feature_flag!("automations", false)
+
+    get "/collectives/#{@collective.handle}/settings/automations", headers: @headers
+    assert_response :not_found
   end
 
   # === Index Tests ===

@@ -619,6 +619,9 @@ class AutomationRule
     def excluding(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def excluding_notification_webhooks(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def extending(*args, &blk); end
 
     sig { params(association: Symbol).returns(T::Array[T.untyped]) }
@@ -668,6 +671,9 @@ class AutomationRule
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def none(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def notification_webhook_for(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def null_relation?(*args, &blk); end
@@ -2093,6 +2099,9 @@ class AutomationRule
     def excluding(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def excluding_notification_webhooks(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def extending(*args, &blk); end
 
     sig { params(association: Symbol).returns(T::Array[T.untyped]) }
@@ -2142,6 +2151,9 @@ class AutomationRule
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def none(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def notification_webhook_for(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def null_relation?(*args, &blk); end

@@ -2,8 +2,10 @@
 
 class AgentAutomationsController < ApplicationController
   before_action :require_login
+  before_action :require_automations_flag
   before_action :set_ai_agent
   before_action :authorize_parent_user
+  before_action :redirect_external_agents_to_webhooks
   before_action :set_sidebar_mode, only: [:index, :new, :show, :edit, :templates, :runs]
   before_action :set_automation_rule, only: [
     :show, :edit, :runs,
@@ -22,6 +24,7 @@ class AgentAutomationsController < ApplicationController
     @page_title = "Automations - #{@ai_agent.display_name}"
     @automation_rules = AutomationRule.tenant_scoped_only
       .where(ai_agent_id: @ai_agent.id)
+      .excluding_notification_webhooks
       .order(created_at: :desc)
   end
 
@@ -79,6 +82,14 @@ class AgentAutomationsController < ApplicationController
   end
 
   def execute_create
+    if @ai_agent.external_ai_agent?
+      return render_action_error({
+        action_name: "create_automation_rule",
+        resource: @ai_agent,
+        error: "External agents use the Webhooks UI, not YAML automations.",
+      })
+    end
+
     yaml_source = params[:yaml_source]
 
     if yaml_source.blank?
@@ -226,6 +237,27 @@ class AgentAutomationsController < ApplicationController
       format.html { redirect_to "/login" }
       format.json { render json: { error: "Unauthorized" }, status: :unauthorized }
       format.md { render plain: "# Error\n\nYou must be logged in to manage automations.", status: :unauthorized }
+    end
+  end
+
+  def require_automations_flag
+    return if @current_tenant.automations_enabled?
+
+    respond_to do |format|
+      format.html { redirect_to "/", alert: "Automations are not enabled for this tenant." }
+      format.json { render json: { error: "Not Found" }, status: :not_found }
+      format.md { render plain: "# Error\n\nAutomations are not enabled for this tenant.", status: :not_found }
+    end
+  end
+
+  def redirect_external_agents_to_webhooks
+    return unless @ai_agent&.external_ai_agent?
+
+    target = "/ai-agents/#{@agent_handle}/settings"
+    respond_to do |format|
+      format.html { redirect_to target, notice: "This agent doesn't have automations. Manage its notification webhook here on the settings page." }
+      format.json { render json: { error: "Not available for this agent" }, status: :forbidden }
+      format.md { render plain: "# Error\n\nNot available for this agent. The notification webhook is on the agent settings page.", status: :forbidden }
     end
   end
 

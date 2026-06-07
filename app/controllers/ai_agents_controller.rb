@@ -3,7 +3,9 @@
 class AiAgentsController < ApplicationController
   TASK_RUNS_PER_MINUTE = 5
 
-  before_action :set_sidebar_mode, only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate, :reactivate]
+  before_action :set_sidebar_mode,
+                only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate,
+                       :reactivate,]
   before_action :require_any_ai_agents_enabled, only: [
     :index, :show, :settings, :update_settings,
     :describe_update_ai_agent, :execute_update_ai_agent, :settings_actions_index,
@@ -12,7 +14,9 @@ class AiAgentsController < ApplicationController
   before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
   before_action :require_billing_for_creation, only: [:new]
   before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
-  before_action :set_ai_agent, only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate, :reactivate]
+  before_action :set_ai_agent,
+                only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate,
+                       :reactivate,]
   before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index]
   before_action :authorize_parent, only: [
     :update_settings, :describe_update_ai_agent, :execute_update_ai_agent,
@@ -66,9 +70,11 @@ class AiAgentsController < ApplicationController
   def show
     @page_title = @ai_agent.display_name
 
-    # Get automation rules for this agent
+    # Get automation rules for this agent (excluding notification webhooks,
+    # which have their own UI on the settings page)
     @automation_rules = AutomationRule.tenant_scoped_only
       .where(ai_agent_id: @ai_agent.id)
+      .excluding_notification_webhooks
       .order(created_at: :desc)
       .limit(5)
 
@@ -77,12 +83,27 @@ class AiAgentsController < ApplicationController
       .where(ai_agent: @ai_agent)
       .order(created_at: :desc)
       .limit(5)
+
+    # When arriving here from create-with-token, the plaintext token rides
+    # through one flash round-trip. Wrap in a transient struct so the show
+    # view's `@token.plaintext_token` / `@token.expires_at` paths work
+    # without branching. Refreshing the page clears the flash → secret can
+    # only be revealed once. no_store prevents bfcache replay.
+    if flash[:reveal_token].present?
+      @token = Struct.new(:plaintext_token, :expires_at).new(
+        flash[:reveal_token],
+        Time.iso8601(flash[:reveal_token_expires_at])
+      )
+      response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+      response.headers["Pragma"] = "no-cache"
+    end
   end
 
   # POST /ai-agents/:handle/deactivate
   # GET /ai-agents/:handle/settings - Show settings for a specific AI agent
   def settings
     @page_title = "Settings - #{@ai_agent.display_name}"
+    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).first if @ai_agent.external_ai_agent?
 
     # Proration preview no longer needed here — reactivation is managed on /billing
 
@@ -164,7 +185,7 @@ class AiAgentsController < ApplicationController
         scope: "agent_task_runs",
         key: [current_user.id, @ai_agent.id],
         limit: TASK_RUNS_PER_MINUTE,
-        period: 1.minute,
+        period: 1.minute
       )
     rescue RateLimits::Exceeded
       respond_to do |format|
@@ -172,7 +193,9 @@ class AiAgentsController < ApplicationController
           flash[:alert] = "You're starting tasks too quickly. Please wait a moment and try again."
           redirect_to ai_agent_run_task_path(@ai_agent.handle)
         end
-        format.json { render status: :too_many_requests, json: { error: "rate_limited", message: "Too many task runs. Please wait a minute and try again." } }
+        format.json do
+          render status: :too_many_requests, json: { error: "rate_limited", message: "Too many task runs. Please wait a minute and try again." }
+        end
       end
       return
     end
@@ -293,9 +316,7 @@ class AiAgentsController < ApplicationController
   def new
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
 
-    if current_tenant.feature_enabled?("stripe_billing")
-      @proration_amount_cents = StripeService.preview_proration(current_user)
-    end
+    @proration_amount_cents = StripeService.preview_proration(current_user) if current_tenant.feature_enabled?("stripe_billing")
 
     respond_to do |format|
       format.html
@@ -349,10 +370,10 @@ class AiAgentsController < ApplicationController
       respond_to do |format|
         format.md do
           return render_action_error({
-            action_name: "create_ai_agent",
-            resource: @current_user,
-            error: "Billing is not set up. Please set up billing at /billing before creating AI agents.",
-          })
+                                       action_name: "create_ai_agent",
+                                       resource: @current_user,
+                                       error: "Billing is not set up. Please set up billing at /billing before creating AI agents.",
+                                     })
         end
         format.any do
           session[:billing_return_to] = new_ai_agent_path
@@ -363,15 +384,19 @@ class AiAgentsController < ApplicationController
     end
 
     # Require billing confirmation when stripe_billing is enabled.
-    # The new agent will cost $3/mo regardless of user's own exemption status.
-    if current_tenant.feature_enabled?("stripe_billing") && params[:confirm_billing] != "1"
+    # Admins (sys_admin / app_admin) are billing-exempt — they never see the
+    # confirm-billing checkbox in the UI, so don't reject them for not
+    # checking it.
+    if current_tenant.feature_enabled?("stripe_billing") &&
+       !current_user.app_admin? && !current_user.sys_admin? &&
+       params[:confirm_billing] != "1"
       respond_to do |format|
         format.md do
           return render_action_error({
-            action_name: "create_ai_agent",
-            resource: @current_user,
-            error: "You must confirm that you understand each AI agent costs $3/month added to your subscription.",
-          })
+                                       action_name: "create_ai_agent",
+                                       resource: @current_user,
+                                       error: "You must confirm that you understand each AI agent costs $3/month added to your subscription.",
+                                     })
         end
         format.any do
           flash[:alert] = "You must confirm the billing charge to create an AI agent."
@@ -391,10 +416,10 @@ class AiAgentsController < ApplicationController
       respond_to do |format|
         format.md do
           return render_action_error({
-            action_name: "create_ai_agent",
-            resource: @current_user,
-            error: msg,
-          })
+                                       action_name: "create_ai_agent",
+                                       resource: @current_user,
+                                       error: msg,
+                                     })
         end
         format.any do
           flash[:alert] = msg
@@ -428,30 +453,38 @@ class AiAgentsController < ApplicationController
     end
 
     notice = if @ai_agent.pending_billing_setup?
-      "AI Agent #{@ai_agent.display_name} created. Set up billing to activate it."
-    elsif @token
-      "AI Agent #{@ai_agent.display_name} created. Save the token value now — you will not be able to see it again."
-    elsif charged_cents && charged_cents > 0
-      "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{format("%.2f", charged_cents / 100.0)} (prorated for the current billing period)."
-    else
-      "AI Agent #{@ai_agent.display_name} created successfully."
-    end
+               "AI Agent #{@ai_agent.display_name} created. Set up billing to activate it."
+             elsif @token
+               "AI Agent #{@ai_agent.display_name} created. Save the token value now — you will not be able to see it again."
+             elsif charged_cents && charged_cents > 0
+               "AI Agent #{@ai_agent.display_name} created successfully. You were charged $#{format("%.2f",
+                                                                                                    charged_cents / 100.0)} (prorated for the current billing period)."
+             else
+               "AI Agent #{@ai_agent.display_name} created successfully."
+             end
 
-    # When a token was just generated, we must render the show page directly
-    # so the plaintext token is visible. The token is hashed at rest; a
-    # redirect would destroy @token and the user would never see it.
-    # Mirrors ApiTokensController#create's `render "show"`.
+    # When a token was just generated, the plaintext value exists only in
+    # memory on this @token (hashed at rest). For HTML we redirect to the
+    # canonical show URL and carry the plaintext through a flash round-trip
+    # in the encrypted session cookie, so the URL bar lands on the agent's
+    # show page instead of the POST endpoint. Markdown stays inline since
+    # the API has no URL bar to confuse.
     if @token
-      @page_title = @ai_agent.display_name
-      @automation_rules = AutomationRule.tenant_scoped_only
-        .where(ai_agent_id: @ai_agent.id).order(created_at: :desc).limit(5)
-      @recent_runs = AiAgentTaskRun
-        .where(ai_agent: @ai_agent).order(created_at: :desc).limit(5)
-      flash.now[:notice] = notice
-      respond_to do |format|
-        format.html { render "show" }
-        format.md { render "show" }
+      if request.format.md?
+        @page_title = @ai_agent.display_name
+        @automation_rules = AutomationRule.tenant_scoped_only
+          .where(ai_agent_id: @ai_agent.id)
+          .excluding_notification_webhooks
+          .order(created_at: :desc).limit(5)
+        @recent_runs = AiAgentTaskRun
+          .where(ai_agent: @ai_agent).order(created_at: :desc).limit(5)
+        flash.now[:notice] = notice
+        render "show"
+        return
       end
+      redirect_to ai_agent_path(@ai_agent.handle),
+                  notice: notice,
+                  flash: { reveal_token: @token.plaintext_token, reveal_token_expires_at: @token.expires_at.iso8601 }
       return
     end
 
@@ -460,11 +493,11 @@ class AiAgentsController < ApplicationController
     respond_to do |format|
       format.md do
         render_action_success({
-          action_name: "create_ai_agent",
-          resource: @ai_agent,
-          result: notice,
-          redirect_to: redirect_path,
-        })
+                                action_name: "create_ai_agent",
+                                resource: @ai_agent,
+                                result: notice,
+                                redirect_to: redirect_path,
+                              })
       end
       format.html { redirect_to redirect_path }
     end
@@ -503,17 +536,17 @@ class AiAgentsController < ApplicationController
 
     if @ai_agent.save
       render_action_success({
-        action_name: "update_profile",
-        resource: @ai_agent,
-        result: "AI Agent settings updated successfully",
-        redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
-      })
+                              action_name: "update_profile",
+                              resource: @ai_agent,
+                              result: "AI Agent settings updated successfully",
+                              redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
+                            })
     else
       render_action_error({
-        action_name: "update_profile",
-        resource: @ai_agent,
-        error: @ai_agent.errors.full_messages.join(", "),
-      })
+                            action_name: "update_profile",
+                            resource: @ai_agent,
+                            error: @ai_agent.errors.full_messages.join(", "),
+                          })
     end
   end
 
@@ -580,11 +613,11 @@ class AiAgentsController < ApplicationController
     return render status: :not_found, plain: "404 Not Found" if tu.nil?
 
     @ai_agent = tu.user
-    return render status: :not_found, plain: "404 Not Found" unless @ai_agent&.ai_agent?
+    render status: :not_found, plain: "404 Not Found" unless @ai_agent&.ai_agent?
   end
 
   def authorize_parent
-    return render status: :forbidden, plain: "403 Unauthorized" unless @ai_agent.parent_id == current_user&.id
+    render status: :forbidden, plain: "403 Unauthorized" unless @ai_agent.parent_id == current_user&.id
   end
 
   def authorize_parent_or_self

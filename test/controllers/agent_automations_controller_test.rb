@@ -5,6 +5,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @tenant.set_feature_flag!("internal_ai_agents", true)
     @tenant.set_feature_flag!("external_ai_agents", true)
+    @tenant.set_feature_flag!("automations", true)
     @tenant.enable_api!
     @collective = @global_collective
     @collective.enable_api!
@@ -62,6 +63,25 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     }
     # Use unscoped to bypass default scope during test record creation
     AutomationRule.unscoped.create!(defaults.merge(attrs))
+  end
+
+  # === Feature flag gating ===
+
+  test "index returns not_found when automations flag is off" do
+    @tenant.set_feature_flag!("automations", false)
+
+    get "/ai-agents/#{@ai_agent.handle}/automations", headers: @headers
+    assert_response :not_found
+  end
+
+  test "new redirects external agents to their settings page (notification webhook lives there)" do
+    external_agent = create_ai_agent(parent: @user, name: "Webhooks Test Agent", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+
+    sign_in_as(@user)
+    get "/ai-agents/#{external_agent.handle}/automations/new"
+    assert_response :redirect
+    assert_match %r{/settings\z}, response.headers["Location"]
   end
 
   # === Index Tests ===

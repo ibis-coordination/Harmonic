@@ -80,6 +80,27 @@ Rails.application.routes.draw do
   post 'ai-agents/:handle/automations/:automation_id/actions/toggle_automation_rule' => 'agent_automations#execute_toggle'
   get 'ai-agents/:handle/automations/:automation_id/edit/actions' => 'agent_automations#actions_index_edit'
 
+  # Notification webhook (singular — one per user/agent).
+  # GET /webhook is the canonical refreshable show page; PATCH/POST also
+  # render :show so the URL is stable across mutations (mirrors the API
+  # token show page pattern). The settings accordion is just a summary
+  # card linking here.
+  get    'u/:handle/webhook'                => 'notification_webhooks#show',           as: 'user_notification_webhook'
+  patch  'u/:handle/webhook'                => 'notification_webhooks#update'
+  delete 'u/:handle/webhook'                => 'notification_webhooks#destroy'
+  get    'u/:handle/webhook/finalize'       => 'notification_webhooks#finalize',       as: 'finalize_user_notification_webhook'
+  post   'u/:handle/webhook/toggle'         => 'notification_webhooks#toggle',         as: 'toggle_user_notification_webhook'
+  post   'u/:handle/webhook/test'           => 'notification_webhooks#test_delivery',  as: 'test_user_notification_webhook'
+  post   'u/:handle/webhook/rotate_secret'  => 'notification_webhooks#rotate_secret',  as: 'rotate_secret_user_notification_webhook'
+
+  get    'ai-agents/:handle/webhook'                => 'notification_webhooks#show',           as: 'ai_agent_notification_webhook'
+  patch  'ai-agents/:handle/webhook'                => 'notification_webhooks#update'
+  delete 'ai-agents/:handle/webhook'                => 'notification_webhooks#destroy'
+  get    'ai-agents/:handle/webhook/finalize'       => 'notification_webhooks#finalize',       as: 'finalize_ai_agent_notification_webhook'
+  post   'ai-agents/:handle/webhook/toggle'         => 'notification_webhooks#toggle',         as: 'toggle_ai_agent_notification_webhook'
+  post   'ai-agents/:handle/webhook/test'           => 'notification_webhooks#test_delivery',  as: 'test_ai_agent_notification_webhook'
+  post   'ai-agents/:handle/webhook/rotate_secret'  => 'notification_webhooks#rotate_secret',  as: 'rotate_secret_ai_agent_notification_webhook'
+
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'
     post 'login' => 'honor_system_sessions#create'

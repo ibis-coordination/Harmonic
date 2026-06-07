@@ -369,4 +369,245 @@ class AutomationRuleTest < ActiveSupport::TestCase
     assert rule.ip_allowed?("10.0.0.1")
     assert_not rule.ip_allowed?("10.0.0.2")
   end
+
+  # === Internal vs external agent rule predicates ===
+
+  test "internal_agent_rule? is true for internal-mode agent" do
+    internal_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: internal_agent,
+      created_by: @user,
+      name: "Internal rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Do it" }
+    )
+
+    assert rule.internal_agent_rule?
+  end
+
+  test "internal_agent_rule? is false for external-mode agent" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+
+    assert_not rule.internal_agent_rule?
+  end
+
+  test "internal_agent_rule? is false for collective rules" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "internal_action", "action" => "create_note" }]
+    )
+
+    assert_not rule.internal_agent_rule?
+  end
+
+  # === Conditional validations ===
+
+  test "internal-agent rule requires actions to include a task" do
+    internal_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: internal_agent,
+      created_by: @user,
+      name: "No task",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: {}
+    )
+
+    assert_not rule.valid?
+    assert_includes rule.errors[:actions], "must include a task"
+  end
+
+  test "internal-agent rule does not require webhook_url" do
+    # Sanity: internal-agent rule with task is valid even without a webhook URL.
+    internal_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "internal" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: internal_agent,
+      created_by: @user,
+      name: "Internal",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Do it" }
+    )
+    assert rule.persisted?
+  end
+
+  # === Notification-webhook rule predicate ===
+
+  test "notification_webhook_rule? is true for agent-owned rule with webhook_url" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Agent webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert rule.notification_webhook_rule?
+  end
+
+  test "notification_webhook_rule? is true for user-owned rule with webhook_url" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "User webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert rule.notification_webhook_rule?
+  end
+
+  test "notification_webhook_rule? is false for collective-only rule even with webhook_url shape" do
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective with webhook shape",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert_not rule.notification_webhook_rule?
+  end
+
+  test "notification_webhook_rule? is false for rules without webhook_url" do
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "User rule no webhook",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "internal_action", "action" => "create_note" }]
+    )
+    assert_not rule.notification_webhook_rule?
+  end
+
+  # === Shape-mixing validation ===
+
+  test "collective-only rule cannot use notification-webhook shape" do
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective with webhook shape",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert_not rule.valid?
+    assert_includes rule.errors[:actions], "collective-only rules cannot use notification-webhook shape"
+  end
+
+  # === Single-notification-webhook-per-user validation ===
+
+  test "second notification webhook for the same agent is rejected" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "First webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/first" }
+    )
+    second = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Second webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/second" }
+    )
+    assert_not second.valid?
+    assert_includes second.errors[:base].join(" "), "already has a notification webhook"
+  end
+
+  test "second notification webhook for the same user is rejected" do
+    AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "First user webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/first" }
+    )
+    second = AutomationRule.new(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Second user webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/second" }
+    )
+    assert_not second.valid?
+    assert_includes second.errors[:base].join(" "), "already has a notification webhook"
+  end
+
+  test "DB partial unique index rejects a second webhook rule that bypasses validation" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "First",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/first" }
+    )
+    second = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Second",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/second" }
+    )
+
+    # Simulate a race that lost the validation check: save with validate: false.
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      second.save(validate: false)
+    end
+  end
+
+  test "updating the existing webhook rule does not trigger the single-webhook validation" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/first" }
+    )
+    rule.actions = rule.actions.merge("webhook_url" => "https://example.com/updated")
+    assert rule.valid?, rule.errors.full_messages.to_s
+  end
 end

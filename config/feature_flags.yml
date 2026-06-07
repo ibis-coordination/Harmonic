@@ -53,6 +53,14 @@ feature_flags:
     default_collective: false
     collective_level: false
 
+  automations:
+    name: "Automations"
+    description: "Enables the full Automations UI with YAML authoring, all trigger and action types. Existing rules continue to fire when the flag is off — only the authoring UI is gated. Agent webhooks for external AI agents are available separately without this flag."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false
+
   stripe_billing:
     name: "Stripe Billing"
     description: "Enables all Stripe billing: account subscriptions and AI Agent usage metering via AI Gateway. Required for harmonic.social; not needed for self-hosted instances."

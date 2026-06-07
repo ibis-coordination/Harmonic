@@ -196,11 +196,11 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
   test "user cannot create token for another user's AI agent" do
     other_user = create_user(name: "Other Parent")
     @tenant.add_user!(other_user)
-    other_ai_agent = create_ai_agent(parent: other_user, name: "Other Agent")
+    # External mode so the agent can have tokens; mode is immutable after
+    # creation, so set it at create time.
+    other_ai_agent = create_ai_agent(parent: other_user, name: "Other Agent",
+                                     agent_configuration: { "mode" => "external" })
     @tenant.add_user!(other_ai_agent)
-    # Make it external so it can have tokens
-    other_ai_agent.agent_configuration = { "mode" => "external" }
-    other_ai_agent.save!
 
     sign_in_as(@user, tenant: @tenant)
 
@@ -214,11 +214,11 @@ class ApiTokensTest < ActionDispatch::IntegrationTest
   end
 
   test "parent can create token for their own AI agent" do
-    ai_agent = create_ai_agent(parent: @user, name: "My Agent")
+    # External mode so the agent can have tokens; mode is immutable after
+    # creation, so set it at create time.
+    ai_agent = create_ai_agent(parent: @user, name: "My Agent",
+                               agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
-    # Make it external so it can have tokens
-    ai_agent.agent_configuration = { "mode" => "external" }
-    ai_agent.save!
 
     sign_in_with_reverification(@user, tenant: @tenant, path: "/u/#{ai_agent.handle}/settings/tokens", method: :post)
 

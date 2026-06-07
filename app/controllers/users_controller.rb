@@ -39,10 +39,10 @@ class UsersController < ApplicationController
     # tenant-root main collective, which everyone is in). Computed once and
     # reused for the panel listing AND the header count.
     listable_common = if current_user
-      (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
-    else
-      []
-    end
+                        (current_user.collectives & (@showing_user.collectives - [current_tenant.main_collective])).select(&:listable?)
+                      else
+                        []
+                      end
 
     if params[:collective_handle]
       # Showing user in a specific collective
@@ -63,10 +63,10 @@ class UsersController < ApplicationController
     end
 
     @common_collective_count = if current_user && @current_user != @showing_user
-      listable_common.count
-    else
-      0
-    end
+                                 listable_common.count
+                               else
+                                 0
+                               end
     # Load AI agent count for human users
     if @showing_user.human?
       @ai_agent_count = @showing_user.ai_agents
@@ -101,15 +101,15 @@ class UsersController < ApplicationController
     # the viewer's own profile (the value would just equal their own
     # mutuals count) and for anon viewers.
     @mutuals_in_common_count = if @current_user && @current_user.id != @showing_user.id
-      viewer_mutual_ids = @current_user.mutual_user_ids_in(@current_tenant)
-      (target_mutual_ids & viewer_mutual_ids).size
-    end
+                                 viewer_mutual_ids = @current_user.mutual_user_ids_in(@current_tenant)
+                                 (target_mutual_ids & viewer_mutual_ids).size
+                               end
 
     # Build user's main collective (public) content timeline
     @feed_items = FeedBuilder.new(
       notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
       decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
-      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id)
     ).feed_items
 
     respond_to do |format|
@@ -129,20 +129,24 @@ class UsersController < ApplicationController
     # ?filter=common narrows the list to mutuals shared with the viewer
     # (only meaningful for a logged-in viewer who isn't the profile user).
     can_apply_common = @current_user.present? && @current_user.id != @showing_user.id
-    @filter = (params[:filter] == "common" && can_apply_common) ? "common" : nil
+    @filter = params[:filter] == "common" && can_apply_common ? "common" : nil
     @page_title = @filter == "common" ? "Mutuals in common · #{@showing_user.display_name}" : "Mutuals · #{@showing_user.display_name}"
 
     ids = @showing_user.mutual_user_ids_in(@current_tenant)
     ids &= @current_user.mutual_user_ids_in(@current_tenant) if @filter == "common"
 
     @mutuals = if ids.empty?
-      []
-    else
-      TenantUser
-        .where(tenant_id: @current_tenant.id, user_id: ids)
-        .includes(:user)
-        .map { |t| u = t.user; u.tenant_user = t; u }
-    end
+                 []
+               else
+                 TenantUser
+                   .where(tenant_id: @current_tenant.id, user_id: ids)
+                   .includes(:user)
+                   .map do |t|
+                   u = t.user
+                   u.tenant_user = t
+                   u
+                 end
+               end
 
     respond_to do |format|
       format.html
@@ -161,9 +165,7 @@ class UsersController < ApplicationController
     # AI agents have a single canonical settings surface at
     # /ai-agents/<handle>/settings. /u/<agent>/settings used to host a
     # parallel form; redirect to consolidate.
-    if @settings_user.ai_agent?
-      return redirect_to ai_agent_settings_path(@settings_user.handle)
-    end
+    return redirect_to ai_agent_settings_path(@settings_user.handle) if @settings_user.ai_agent?
 
     @settings_user.tenant_user = tu
     @page_title = @settings_user == current_user ? "Your Settings" : "#{@settings_user.display_name}'s Settings"
@@ -177,6 +179,8 @@ class UsersController < ApplicationController
     agent_tokens = @ai_agents.flat_map { |agent| agent.api_tokens.external.includes(:user).to_a }
     @all_api_tokens = user_tokens.sort_by { |t| -t.created_at.to_i } +
                       agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
+
+    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@settings_user).first
 
     respond_to do |format|
       format.html
@@ -624,7 +628,7 @@ class UsersController < ApplicationController
     matches = UserListMember
       .where(
         "(user_list_id = ? AND user_id = ?) OR (user_list_id = ? AND user_id = ?)",
-        my_list_id, @showing_user.id, target_list_id, @current_user.id,
+        my_list_id, @showing_user.id, target_list_id, @current_user.id
       )
       .pluck(:user_list_id)
       .to_set

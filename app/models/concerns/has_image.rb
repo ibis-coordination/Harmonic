@@ -131,8 +131,11 @@ module HasImage
       .resize_to_limit(SOURCE_MAX_DIMENSION, SOURCE_MAX_DIMENSION)
       .call
 
+    # Upload synchronously: image.attach(io:) defers to after_commit, by
+    # which point both `f` and `processed` are closed.
     File.open(processed.path) do |f|
-      image.attach(io: f, filename: filename)
+      blob = ActiveStorage::Blob.create_and_upload!(io: f, filename: filename)
+      image.attach(blob)
     end
   ensure
     processed&.close

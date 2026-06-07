@@ -171,18 +171,6 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_equal @user, task_run.initiated_by
   end
 
-  test "fails when task prompt is empty" do
-    rule = create_agent_rule(task: "")
-    event = create_test_event
-    run = create_automation_run(rule, event)
-
-    AutomationExecutor.execute(run)
-
-    run.reload
-    assert run.failed?
-    assert_equal "Task prompt is empty", run.error_message
-  end
-
   test "fails and records error for general rule with invalid actions" do
     # Create a rule that will cause an execution error
     rule = AutomationRule.create!(
@@ -822,6 +810,182 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  # === External agent rule (webhook delivery) ===
+
+  test "external-agent rule creates a WebhookDelivery and queues delivery job" do
+    external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External webhook rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      actions: {
+        "webhook_url" => "https://parent.example.com/hook",
+        "payload_template" => { "event" => "{{event.type}}" },
+      },
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_difference "WebhookDelivery.count", 1 do
+      assert_no_difference "AiAgentTaskRun.count" do
+        AutomationExecutor.execute(run)
+      end
+    end
+
+    delivery = WebhookDelivery.last
+    assert_equal "https://parent.example.com/hook", delivery.url
+    assert_equal "pending", delivery.status
+    assert_equal rule.webhook_secret, delivery.secret
+
+    run.reload
+    assert_equal 1, run.actions_executed.size
+    assert_equal "webhook", run.actions_executed.first["type"]
+    assert_equal delivery.id, run.actions_executed.first["delivery_id"]
+  end
+
+  test "external-agent rule does not require internal_ai_agents flag" do
+    external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+    @tenant.set_feature_flag!("internal_ai_agents", false)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External webhook rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      actions: { "webhook_url" => "https://parent.example.com/hook" },
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AutomationExecutor.execute(run)
+
+    assert_equal "pending", WebhookDelivery.last.status
+    run.reload
+    assert_not run.failed?, "Should not have failed: #{run.error_message}"
+  end
+
+  # === User-owned notification webhook rules ===
+
+  test "user-owned notification webhook rule creates a WebhookDelivery" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "My webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://my-server.example.com/hook" },
+      enabled: true
+    )
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_difference "WebhookDelivery.count", 1 do
+      AutomationExecutor.execute(run)
+    end
+
+    delivery = WebhookDelivery.last
+    assert_equal "https://my-server.example.com/hook", delivery.url
+    assert_equal "pending", delivery.status
+  end
+
+  test "user-owned webhook rule fails when user's tenant_user is archived" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "My webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://my-server.example.com/hook" },
+      enabled: true
+    )
+
+    @user.tenant_users.find_by(tenant_id: @tenant.id)&.update!(archived_at: Time.current)
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "WebhookDelivery.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    assert run.failed?
+    assert_match(/no longer active/i, run.error_message)
+  end
+
+  test "external-agent rule fails when agent is suspended" do
+    external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External webhook rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "webhook_url" => "https://parent.example.com/hook" },
+      enabled: true
+    )
+
+    external_agent.update!(suspended_at: Time.current)
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "WebhookDelivery.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    assert run.failed?
+    assert_match(/suspended/i, run.error_message)
+  end
+
+  test "external-agent rule fails when agent's tenant_user is archived" do
+    external_agent = create_ai_agent(parent: @user, name: "External Agent #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "External webhook rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "webhook_url" => "https://parent.example.com/hook" },
+      enabled: true
+    )
+
+    external_agent.tenant_users.find_by(tenant_id: @tenant.id)&.update!(archived_at: Time.current)
+
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    assert_no_difference "WebhookDelivery.count" do
+      AutomationExecutor.execute(run)
+    end
+
+    run.reload
+    assert run.failed?
+    assert_match(/no longer active/i, run.error_message)
   end
 
   def create_agent_rule(task:, max_steps: nil)

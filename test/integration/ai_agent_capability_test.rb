@@ -45,7 +45,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "whoami shows full capabilities when no restrictions" do
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     get "/whoami", headers: api_headers
 
@@ -55,7 +55,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   end
 
   test "whoami shows restricted capabilities when configured" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
 
     get "/whoami", headers: api_headers
 
@@ -74,7 +74,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
   test "ai_agent cannot execute action not in capabilities" do
     # Give ai_agent only create_note capability
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first to establish collective context
     post "/collectives/#{@collective.handle}/actions/send_heartbeat",
@@ -108,7 +108,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
   test "ai_agent can execute action in capabilities" do
     # Give ai_agent full capabilities
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     # Send heartbeat first to ensure collective access
     post "/collectives/#{@collective.handle}/actions/send_heartbeat",
@@ -126,7 +126,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
   test "ai_agent can always execute infrastructure actions" do
     # Restrict capabilities to only create_note
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     # send_heartbeat is always allowed
     post "/collectives/#{@collective.handle}/actions/send_heartbeat",
@@ -142,7 +142,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
   test "ai_agent cannot execute blocked actions even with no capability restrictions" do
     # No capability restrictions
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     # Check that the capability check denies blocked actions
     refute CapabilityCheck.allowed?(@ai_agent, "create_collective")
@@ -170,7 +170,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
   test "unchecking all capabilities blocks all grantable actions" do
     # Start with some capabilities
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     sign_in_as(@parent, tenant: @tenant)
 
@@ -210,7 +210,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "ai_agent with no config can execute any grantable action" do
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     # Send heartbeat first
     post "/collectives/#{@collective.handle}/actions/send_heartbeat",
@@ -229,7 +229,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "ai_agent cannot create note via legacy HTML route when not in capabilities" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["vote"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["vote"] })
 
     # Try to create note via legacy HTML route (not /actions/)
     post "/collectives/#{@collective.handle}/note",
@@ -242,7 +242,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   end
 
   test "ai_agent can create note via legacy HTML route when in capabilities" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     # Send heartbeat first
     post "/collectives/#{@collective.handle}/actions/send_heartbeat",
@@ -258,7 +258,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   end
 
   test "ai_agent cannot create decision via legacy HTML route when not in capabilities" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     post "/collectives/#{@collective.handle}/decide",
       params: { question: "Test decision?" },
@@ -269,7 +269,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   end
 
   test "ai_agent cannot create commitment via legacy HTML route when not in capabilities" do
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
 
     post "/collectives/#{@collective.handle}/commit",
       params: { title: "Test commitment" },
@@ -281,7 +281,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
 
   test "ai_agent cannot create collective via legacy HTML route" do
     # Even with no restrictions, create_collective is always blocked
-    @ai_agent.update!(agent_configuration: nil)
+    @ai_agent.update_columns(agent_configuration: nil)
 
     post "/collectives",
       params: { name: "New Collective", handle: "new-collective-#{SecureRandom.hex(4)}" },

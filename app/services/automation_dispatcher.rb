@@ -8,6 +8,11 @@ class AutomationDispatcher
   # but this ensures no single tenant can overwhelm the system
   TENANT_RUNS_PER_MINUTE = 100
 
+  # For these events, `event.actor` is the recipient (the user being notified)
+  # rather than the originator — so the self-trigger guard on agent rules must
+  # NOT block them. See `notification_delivery_job.rb` and `reminder_delivery_job.rb`.
+  NOTIFICATION_DELIVERED_EVENTS = T.let(["notifications.delivered", "reminders.delivered"].freeze, T::Array[String])
+
   # Dispatch an event to all matching automation rules
   sig { params(event: Event).void }
   def self.dispatch(event)
@@ -33,9 +38,30 @@ class AutomationDispatcher
     collective_id = event.collective_id
     return [] if collective_id.nil?
 
+    # Fast path: notification-forwarding events fire per-recipient and can be
+    # high-volume. Short-circuit when the recipient (event.actor) has no
+    # notification-webhook rule. Hits the partial unique index on
+    # `(tenant_id, COALESCE(ai_agent_id, user_id))` filtered by webhook_url.
+    if NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+      recipient_id = event.actor_id
+      return [] if recipient_id.nil?
+      return [] unless AutomationRule
+        .tenant_scoped_only(event.tenant_id)
+        .enabled
+        .where("(actions->>'webhook_url') IS NOT NULL")
+        .where("ai_agent_id = :rid OR user_id = :rid", rid: recipient_id)
+        .exists?
+    end
+
     collective = Collective.tenant_scoped_only(event.tenant_id).find_by(id: collective_id)
     return [] if collective.nil?
-    return [] unless collective.tier_unlocks_paid_features?
+    # Notification-forwarding events bypass the tier gate — the webhook is a
+    # forwarder for the notification system the user already has, not a paid
+    # automation. Chat collectives are free-tier; without this bypass, chat
+    # message webhooks would never fire on stripe-billing tenants.
+    unless NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+      return [] unless collective.tier_unlocks_paid_features?
+    end
 
     # Find rules with collective access in a single query
     rules = AutomationRule
@@ -70,8 +96,13 @@ class AutomationDispatcher
     # Check conditions
     return false unless AutomationConditionEvaluator.evaluate_all(rule.conditions, event)
 
-    # Don't trigger if the actor is the same agent (prevent self-triggering)
-    return false if rule.agent_rule? && event.actor_id == rule.ai_agent_id
+    # Don't trigger if the actor is the same agent (prevent self-triggering),
+    # except for notification-delivered events where actor==recipient is exactly
+    # when the webhook should fire.
+    if rule.agent_rule? && event.actor_id == rule.ai_agent_id &&
+       !NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+      return false
+    end
 
     true
   end
@@ -128,9 +159,11 @@ class AutomationDispatcher
     AutomationContext.record_rule_execution!(rule, event)
 
     # Rate limit for all rules to prevent runaway execution
-    # Agent rules: 3/min (conservative, agents can do lots of work)
-    # Collective rules: 10/min (more lenient, typically just webhook/internal actions)
-    max_per_minute = rule.agent_rule? ? 3 : 10
+    # Agent rules + notification webhooks: 3/min (conservative — agents can do
+    # lots of work; notification webhooks fire per notification and can be
+    # high-volume during active periods).
+    # Other rules (e.g., collective YAML automations): 10/min.
+    max_per_minute = (rule.agent_rule? || rule.notification_webhook_rule?) ? 3 : 10
 
     recent_runs = AutomationRuleRun
       .where(automation_rule: rule, tenant_id: event.tenant_id)

@@ -53,7 +53,7 @@
         <% @ai_agents.each do |ai_agent| %>
           <% active_collective_members = ai_agent.collective_members.reject(&:archived?) %>
           <% all_ai_agent_collectives = active_collective_members.map(&:collective) %>
-          <% ai_agent_collectives = all_ai_agent_collectives.reject { |s| s == @current_tenant.main_collective || s.private_workspace? } %>
+          <% ai_agent_collectives = all_ai_agent_collectives.reject { |s| s == @current_tenant.main_collective || !s.listable? } %>
 
           <div class="pulse-ai-agent-card">
             <div class="pulse-ai-agent-header">
@@ -102,10 +102,10 @@
                     <a href="<%= ai_agent_runs_path(ai_agent.handle) %>" class="pulse-action-btn-small">
                       <%= octicon 'history', height: 12 %> Runs
                     </a>
+                    <a href="/ai-agents/<%= ai_agent.handle %>/automations" class="pulse-action-btn-small">
+                      <%= octicon 'zap', height: 12 %> Automations
+                    </a>
                   <% end %>
-                  <a href="/ai-agents/<%= ai_agent.handle %>/automations" class="pulse-action-btn-small">
-                    <%= octicon 'zap', height: 12 %> Automations
-                  </a>
                 <% end %>
                 <a href="/ai-agents/<%= ai_agent.handle %>/settings" class="pulse-action-btn-small">Settings</a>
               </div>

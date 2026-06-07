@@ -653,6 +653,22 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/ai-agents/new}, response.location
   end
 
+  test "create does NOT require billing confirmation for app_admin (billing-exempt)" do
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    # No confirm_billing param — admin should still be allowed through because
+    # the billing UI is hidden from them and no Stripe charges apply.
+    assert_difference "User.where(user_type: 'ai_agent').count", 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "Admin Agent", mode: "internal" }
+    end
+    assert_response :redirect
+    assert_no_match %r{/ai-agents/new\z}, response.location, "should not bounce back to the new form"
+  ensure
+    @user.update!(app_admin: false)
+  end
+
   test "execute_create_ai_agent ignores system_role param" do
     # `system_role: "trio"` would grant billing exemption + workspace-membership
     # + reserved-handle privileges. Only TrioSeeder may assign it; user-supplied
@@ -699,14 +715,14 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "run_task returns 404 for an external agent even with internal flag on" do
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/run"
     assert_response :not_found
   end
 
   test "execute_task returns 404 for an external agent" do
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "x" }
     assert_response :not_found
@@ -817,7 +833,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: index page is reachable and lists existing external agent" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents"
     assert_response :success
@@ -835,20 +851,22 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/programmatic access to the API/, response.body)
   end
 
-  test "external-only: per-agent action row hides Run Task/Runs but keeps Settings and Automations" do
+  test "external-only: per-agent action row hides Run Task/Runs/Automations but keeps Settings" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents"
     assert_response :success
     refute_includes response.body, "Run Task"
     assert_includes response.body, "Settings"
-    assert_includes response.body, "Automations"
+    # External agents manage their notification webhook on settings — no
+    # automations surface, no Automations button in the agent list.
+    refute_includes response.body, "Automations"
   end
 
   test "external-only: show page is reachable and hides Run Task button" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    @ai_agent.update!(agent_configuration: { "mode" => "external" })
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}"
     assert_response :success
@@ -950,20 +968,31 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       generate_token: "1",
       confirm_billing: "1",
     }
-    assert_response :success, "should render show page directly (not redirect) so the freshly created plaintext token is visible"
 
+    # PRG: redirect to the canonical agent show URL so the URL bar isn't
+    # stuck on the POST endpoint. Plaintext rides through one flash round-trip.
     new_agent = @user.ai_agents.find_by(name: "External Agent With Token")
     assert new_agent
+    new_agent_handle = TenantUser.find_by(tenant: @tenant, user: new_agent).handle
+    assert_redirected_to "/ai-agents/#{new_agent_handle}"
     assert ApiToken.unscoped.where(user_id: new_agent.id).any?, "token should be persisted"
 
-    # The plaintext is only available on the in-memory ApiToken returned from
-    # the controller request — it's hashed in the DB. So we assert the
-    # response body contains a 40-char hex string (SecureRandom.hex(20))
-    # AND the "save it now" message that this is the only chance to copy it.
+    follow_redirect!
+    assert_response :success
+
+    # Plaintext token is only available in-memory on the freshly created
+    # ApiToken — hashed in the DB and never retrievable. After follow_redirect!,
+    # the show page must have revealed it AND warned the user it's one-time.
     assert_match(/\b[a-f0-9]{40}\b/, response.body,
       "plaintext token (40-char hex) must appear in the response — it is hashed at rest and never retrievable")
     assert_match(/won't be able to see|will not be able to see/i, response.body,
       "must warn the user this is the only chance to copy the token")
+
+    # Refreshing the show page (re-GET without the flash) must NOT re-reveal
+    # the secret — flash is single-use, so a refresh-replay attack fails.
+    get "/ai-agents/#{new_agent_handle}"
+    assert_no_match(/\b[a-f0-9]{40}\b/, response.body,
+      "refresh after reveal must not re-show the plaintext token")
   end
 
   test "external-only: external agent creation without generate_token redirects (no token rendered)" do
@@ -1023,7 +1052,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "update_settings accepts capabilities with sentinel and writes []" do
     sign_in_as(@user, tenant: @tenant)
-    @ai_agent.update!(agent_configuration: { "capabilities" => ["create_note"] })
+    @ai_agent.update!(agent_configuration: @ai_agent.agent_configuration.to_h.merge("capabilities" => ["create_note"]))
     post "/ai-agents/#{@ai_agent_handle}/settings", params: {
       name: @ai_agent.name,
       capabilities: [""],
