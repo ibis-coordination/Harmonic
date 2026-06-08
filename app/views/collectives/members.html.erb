@@ -22,7 +22,7 @@
         <% @team.each do |u| %>
           <div class="pulse-participant">
             <%= render "shared/avatar", user: u %>
-            <a href="<%= u.collective_member.path %>" class="pulse-participant-name"><%= u.display_name %></a>
+            <a href="<%= u.path %>" class="pulse-participant-name"><%= u.display_name %></a>
             <% if u.ai_agent? %>
               <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>

@@ -27,11 +27,11 @@ UI surface only. Delete the accordion, partial, `load_proximity_connections` (`u
 
 ---
 
-## P2 — Profile links → top-level `/u/:handle`
+## P2 — Profile links → top-level `/u/:handle` ✅ shipped
 
-Grep `collective_member.path`; replace with `user.path` at every render site (members page, feed bylines, list rows, decision votes, commitment joins, comment authors). Spot-check @mentions (likely already correct). Delete `CollectiveMember#path` if no non-profile caller survives the audit; otherwise note who keeps it alive.
+Render sites swapped (`shared/_team.html.erb`, `collectives/members.html.erb`). All other byline / list / mention sites already used `user.path`. No callers of `CollectiveMember#path` remained, so the method was deleted along with its tests. The `/c/:handle/u/:user_handle` route still resolves but is no longer linked from any view — leave for a future routes cleanup.
 
-**Test:** GET collective members page → links contain `/u/<handle>`, not `/c/.../m/...`.
+**Test:** GET collective members page → `a.pulse-participant-name` links to `/u/:handle`, never to a collective-scoped URL.
 
 ---
 

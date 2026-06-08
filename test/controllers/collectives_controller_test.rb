@@ -225,6 +225,16 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "member rows link to the top-level /u/:handle, not the collective-scoped /m/" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    handle = @user.tenant_users.find_by(tenant_id: @tenant.id).handle
+    assert_select "a.pulse-participant-name[href=?]", "/u/#{handle}"
+    assert_select "a.pulse-participant-name[href*=?]", "/collectives/", false,
+                  "member rows must not link to a collective-scoped profile"
+  end
+
   # === Invite Tests ===
 
   test "admin can access invite page" do
