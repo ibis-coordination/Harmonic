@@ -142,12 +142,6 @@
     <% end %>
   <% end %>
 
-  <% if @proximity_users.present? %>
-    <%= render 'shared/pulse_accordion', title: 'Social Proximity', count: @proximity_users.size, icon: 'people', open: false do %>
-      <%= render 'users/proximity_connections' %>
-    <% end %>
-  <% end %>
-
   <% viewer_is_owner = @current_user && @current_user.id == @showing_user.id %>
   <% if (@showing_user_lists.present? || viewer_is_owner) && !blocked_either_way %>
     <% showing_handle = @showing_user.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>

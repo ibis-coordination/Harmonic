@@ -45,14 +45,6 @@ You and <%= @showing_user.display_name %> have <%= @common_collective_count %> c
 And <%= @additional_common_collective_count %> more...
 <% end %>
 <% end %>
-<% if @proximity_users.present? && !blocked_either_way %>
-
-## Social Proximity (<%= @proximity_users.size %>)
-
-<% @proximity_users.each do |user| %>
-* [<%= user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
-<% end %>
-<% end %>
 <% if @feed_items.present? && !blocked_either_way %>
 
 ## Recent Activity (<%= @feed_items.size %>)

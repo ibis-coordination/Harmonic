@@ -75,11 +75,6 @@ class UsersController < ApplicationController
         .count
     end
 
-    # Load proximity connections only when viewing your OWN profile.
-    # Proximity exposes the profile owner's social graph and is private to
-    # them — not visible to other logged-in users, not visible to anon.
-    load_proximity_connections if @current_user == @showing_user
-
     # Lists owned by the profile user that the viewer can see, for the
     # "Lists" accordion. Reuses the same visibility logic as
     # UserListsController#index, kept narrow so private lists never leak.
@@ -677,23 +672,4 @@ class UsersController < ApplicationController
     action_name == "confirm_email"
   end
 
-  # Load proximity connections for the user profile being viewed
-  # Returns a simple sorted list of the most proximate users
-  def load_proximity_connections
-    all_connections = @showing_user.most_proximate_users(tenant_id: current_tenant.id, limit: 30)
-
-    @proximity_users = all_connections.filter_map do |user, _score|
-      next if user.nil?
-
-      # Look up the TenantUser first. Without one, the user is no longer in
-      # this tenant (e.g., removed since the proximity cache was warmed) —
-      # skip them. User#archived? raises if tenant_user is nil, so don't
-      # call it before the lookup.
-      tu = user.tenant_users.find_by(tenant_id: current_tenant.id)
-      next if tu.nil? || tu.archived?
-
-      user.tenant_user = tu
-      user
-    end
-  end
 end
