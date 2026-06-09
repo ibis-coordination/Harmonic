@@ -360,6 +360,27 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/pulse-profile-tabs/, response.body)
   end
 
+  # === "Joined" header line ===
+
+  test "profile header shows the month and year the user joined the tenant" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update_column(:created_at, Time.zone.local(2024, 3, 15))
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-member-since", text: /Joined March 2024/
+    assert_select ".pulse-user-member-since svg.octicon-calendar"
+  end
+
+  test "profile markdown includes the joined month and year" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update_column(:created_at, Time.zone.local(2025, 1, 1))
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^Joined January 2025/, response.body)
+  end
+
   # === Profile pic editor on /u/:handle ===
 
   test "profile page shows the image-cropper editor for the profile owner" do

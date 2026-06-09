@@ -1876,6 +1876,18 @@ h1.pulse-resource-title {
   margin: 4px 0 0 0;
 }
 
+.pulse-user-member-since {
+  font-size: 14px;
+  margin: 4px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-user-member-since .octicon {
+  fill: currentColor;
+}
+
 .pulse-user-actions {
   display: flex;
   gap: 8px;

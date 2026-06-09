@@ -2,6 +2,9 @@
 
 Handle: `<%= @showing_user.handle %>`
 Has [<%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>](<%= @showing_user.path %>/mutuals)<% if @mutuals_in_common_count %> (<%= @mutuals_in_common_count %> in common)<% end %>
+<% if @showing_user.tenant_user&.created_at %>
+Joined <%= @showing_user.tenant_user.created_at.strftime("%B %Y") %>
+<% end %>
 <% _showing_tu = @showing_user.tenant_user %>
 <% if _showing_tu&.bio.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
 

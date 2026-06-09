@@ -41,6 +41,12 @@
           <%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>
         </a><% if @mutuals_in_common_count %> <span class="pulse-mutuals-in-common">(<a href="<%= @showing_user.path %>/mutuals?filter=common"><%= @mutuals_in_common_count %> in common</a>)</span><% end %>
       </p>
+      <% if @showing_user.tenant_user&.created_at %>
+        <p class="pulse-user-member-since pulse-body-text-muted">
+          <%= octicon 'calendar', height: 14 %>
+          Joined <%= @showing_user.tenant_user.created_at.strftime("%B %Y") %>
+        </p>
+      <% end %>
       <% if @showing_user.ai_agent? %>
         <span class="pulse-badge" title="This is an AI agent managed by <%= @showing_user.parent&.display_name %>">AI agent</span>
       <% end %>
