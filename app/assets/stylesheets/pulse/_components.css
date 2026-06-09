@@ -1032,6 +1032,32 @@
   padding: 16px;
 }
 
+/* Tabs */
+.pulse-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border-default);
+  margin-top: 20px;
+}
+
+.pulse-tab {
+  padding: 8px 16px;
+  text-decoration: none;
+  color: var(--color-fg-default);
+  border-bottom: 2px solid transparent;
+  font-weight: 400;
+}
+
+.pulse-tab-active {
+  border-bottom-color: var(--color-fg-default);
+  font-weight: 600;
+}
+
+.pulse-tab-count {
+  color: var(--color-fg-muted);
+  font-weight: 400;
+}
+
 /* Forms */
 .pulse-form-group {
   margin-bottom: 16px;

@@ -149,10 +149,10 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/lists/#{list.truncated_id}"
     assert_response :success
-    assert_select ".pulse-list-tabs a", text: /Activity/
-    assert_select ".pulse-list-tabs a", text: /Members/
+    assert_select "nav.pulse-tabs a", text: /Activity/
+    assert_select "nav.pulse-tabs a", text: /Members/
     # Activity is the default-active tab; aria-current set to "page" indicates the active one.
-    assert_select ".pulse-list-tabs a[aria-current='page']", text: /Activity/
+    assert_select "nav.pulse-tabs a[aria-current='page']", text: /Activity/
   end
 
   test "show HTML: ?tab=members marks the Members tab active and renders the member list" do
@@ -161,7 +161,7 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/lists/#{list.truncated_id}?tab=members"
     assert_response :success
-    assert_select ".pulse-list-tabs a[aria-current='page']", text: /Members/
+    assert_select "nav.pulse-tabs a[aria-current='page']", text: /Members/
     assert_select ".pulse-list-members a", text: /#{Regexp.escape(@other.display_name)}/
   end
 
@@ -641,18 +641,20 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "profile HTML: Lists accordion renders for owner even when empty" do
+  test "profile HTML: Lists tab is present for owner; New list link appears on the Lists tab body" do
     sign_in_as(@user, tenant: @tenant)
-    get "/u/#{@user.handle}"
+    get "/u/#{@user.handle}?tab=lists"
     assert_response :success
-    assert_select "details summary", text: /Lists/
+    assert_select "nav.pulse-profile-tabs a", text: /Lists/
     assert_select "a[href='/lists/new']", text: /New list/
   end
 
-  test "profile HTML: Lists accordion is hidden when viewing another user with no visible lists" do
+  test "profile HTML: Lists tab is present (with zero count) when viewing another user with no visible lists" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@other.handle}"
     assert_response :success
-    assert_select "details summary", text: /^Lists/, count: 0
+    # Lists tab is always visible per the new tab visibility rules; it carries
+    # an empty state on the body. Confirm the tab is in the nav.
+    assert_select "nav.pulse-profile-tabs a", text: /Lists/
   end
 end

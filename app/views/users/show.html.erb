@@ -112,9 +112,7 @@
     </div>
   <% end %>
 
-  <% blocked_either_way = @viewer_blocks_target || @viewer_blocked_by_target %>
-
-  <% if @current_user != @showing_user && @common_collective_count > 0 && !blocked_either_way %>
+  <% if @current_user != @showing_user && @common_collective_count > 0 && !@blocked_either_way %>
     <div class="pulse-user-common-counts">
       <span class="pulse-common-count-item">
         <%= octicon 'lock', height: 14 %>
@@ -123,79 +121,96 @@
     </div>
   <% end %>
 
-  <% if @current_user != @showing_user && @common_collectives.count > 0 && !blocked_either_way %>
-    <%# Common Collectives Section %>
-    <%= render 'shared/pulse_accordion', title: 'Common Collectives', count: @common_collectives.count + @additional_common_collective_count, open: true do %>
-      <div class="pulse-collectives-list">
-        <% @common_collectives.each do |collective| %>
-          <div class="pulse-collective-item">
-            <%= render "shared/avatar_div", record: collective, style: "border-radius:6px;" %>
-            <div class="pulse-collective-info">
-              <a href="<%= collective.path %>" class="pulse-collective-name"><%= collective.name %></a>
-            </div>
-          </div>
-        <% end %>
-        <% if @additional_common_collective_count > 0 %>
-          <p class="pulse-form-hint">and <%= @additional_common_collective_count %> more...</p>
-        <% end %>
-      </div>
-    <% end %>
-  <% end %>
+  <% unless @blocked_either_way %>
+    <%
+      profile_tabs = []
+      profile_tabs << TabsComponent::Tab.new(key: "activity", label: "Activity", href: @showing_user.path)
+      profile_tabs << TabsComponent::Tab.new(
+        key: "lists", label: "Lists",
+        href: "#{@showing_user.path}?tab=lists",
+        count: @showing_user_lists_count,
+      )
+      if show_profile_common_collectives_tab?
+        profile_tabs << TabsComponent::Tab.new(
+          key: "common_collectives", label: "Common Collectives",
+          href: "#{@showing_user.path}?tab=common_collectives",
+          count: @common_collective_count,
+        )
+      end
+    %>
 
-  <% viewer_is_owner = @current_user && @current_user.id == @showing_user.id %>
-  <% if (@showing_user_lists.present? || viewer_is_owner) && !blocked_either_way %>
-    <% showing_handle = @showing_user.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
-    <%= render 'shared/pulse_accordion', title: 'Lists', icon: 'list-unordered', count: @showing_user_lists.size, open: false do %>
-      <% if @showing_user_lists.empty? %>
-        <p class="pulse-body-text-muted">No lists yet.</p>
-      <% else %>
-        <ul class="pulse-collectives-list" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
-          <% @showing_user_lists.each do |list| %>
-            <li class="pulse-collective-item">
+    <%= render TabsComponent.new(active_key: @active_tab, tabs: profile_tabs, css_class: "pulse-profile-tabs") %>
+
+    <section class="pulse-profile-tab-body" style="margin-top: 24px;">
+      <% case @active_tab %>
+      <% when "common_collectives" %>
+        <div class="pulse-collectives-list">
+          <% @common_collectives.each do |collective| %>
+            <div class="pulse-collective-item">
+              <%= render "shared/avatar_div", record: collective, style: "border-radius:6px;" %>
               <div class="pulse-collective-info">
-                <a href="<%= list.path %>" class="pulse-collective-name">
-                  <% if list.is_primary %><%= pulse_icon('tuning_in', size: :sm) %><% end %>
-                  <%= list.display_name %>
-                </a>
-                <% if list.private? %>
-                  <span class="pulse-badge pulse-badge-muted">private</span>
-                <% end %>
-                <div class="pulse-body-text-muted">
-                  <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %>
-                </div>
+                <a href="<%= collective.path %>" class="pulse-collective-name"><%= collective.name %></a>
               </div>
-            </li>
+            </div>
           <% end %>
-        </ul>
-      <% end %>
-      <% if viewer_is_owner %>
-        <p style="margin-top: 8px; display: flex; gap: 8px;">
-          <a href="/lists/new" class="pulse-action-btn-secondary">
-            <%= octicon 'plus', height: 14 %> New list
-          </a>
-          <% if showing_handle && @showing_user_lists.any? %>
+          <% if @additional_common_collective_count > 0 %>
+            <p class="pulse-form-hint">and <%= @additional_common_collective_count %> more...</p>
+          <% end %>
+        </div>
+      <% when "lists" %>
+        <% viewer_is_owner = @current_user && @current_user.id == @showing_user.id %>
+        <% showing_handle = @showing_user.tenant_users.find_by(tenant_id: @current_tenant.id)&.handle %>
+        <% if @showing_user_lists.empty? %>
+          <p class="pulse-body-text-muted">No lists yet.</p>
+        <% else %>
+          <ul class="pulse-collectives-list" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+            <% @showing_user_lists.each do |list| %>
+              <li class="pulse-collective-item">
+                <div class="pulse-collective-info">
+                  <a href="<%= list.path %>" class="pulse-collective-name">
+                    <% if list.is_primary %><%= pulse_icon('tuning_in', size: :sm) %><% end %>
+                    <%= list.display_name %>
+                  </a>
+                  <% if list.private? %>
+                    <span class="pulse-badge pulse-badge-muted">private</span>
+                  <% end %>
+                  <div class="pulse-body-text-muted">
+                    <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %>
+                  </div>
+                </div>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+        <% if viewer_is_owner %>
+          <p style="margin-top: 8px; display: flex; gap: 8px;">
+            <a href="/lists/new" class="pulse-action-btn-secondary">
+              <%= octicon 'plus', height: 14 %> New list
+            </a>
+            <% if showing_handle && @showing_user_lists.any? %>
+              <a href="/u/<%= showing_handle %>/lists" class="pulse-action-btn-secondary">
+                See all lists
+              </a>
+            <% end %>
+          </p>
+        <% elsif showing_handle && @showing_user_lists.any? %>
+          <p style="margin-top: 8px;">
             <a href="/u/<%= showing_handle %>/lists" class="pulse-action-btn-secondary">
               See all lists
             </a>
-          <% end %>
-        </p>
-      <% elsif showing_handle && @showing_user_lists.any? %>
-        <p style="margin-top: 8px;">
-          <a href="/u/<%= showing_handle %>/lists" class="pulse-action-btn-secondary">
-            See all lists
-          </a>
-        </p>
-      <% end %>
-    <% end %>
-  <% end %>
-
-  <% if @feed_items.present? && !blocked_either_way %>
-    <%= render 'shared/pulse_accordion', title: 'Recent Activity', icon: 'pulse', count: @feed_items.size, open: true do %>
-      <div class="pulse-feed" style="padding: 0;">
-        <% @feed_items.each do |feed_item| %>
-          <%= render 'pulse/feed_item', feed_item: feed_item %>
+          </p>
         <% end %>
-      </div>
-    <% end %>
+      <% else %>
+        <% if @feed_items.present? %>
+          <div class="pulse-feed" style="padding: 0;">
+            <% @feed_items.each do |feed_item| %>
+              <%= render 'pulse/feed_item', feed_item: feed_item %>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="pulse-body-text-muted">No activity yet.</p>
+        <% end %>
+      <% end %>
+    </section>
   <% end %>
 </article>

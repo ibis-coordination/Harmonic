@@ -208,6 +208,77 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# User: #{@user.display_name}"
   end
 
+  # === Tabs on /u/:handle ===
+
+  test "profile page renders a tab nav with Activity, Lists, and (when viewing other w/ commons) Common Collectives" do
+    other = create_user(email: "other-tab-viewer@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    common = Collective.create!(
+      tenant: @tenant, name: "Common", handle: "common-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    common.add_user!(@user)
+    common.add_user!(other)
+
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs"
+    assert_select "nav.pulse-profile-tabs a", text: /Activity/
+    assert_select "nav.pulse-profile-tabs a", text: /Lists/
+    assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/
+  end
+
+  test "profile page hides Common Collectives tab when viewing own profile" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs"
+    assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/, count: 0
+  end
+
+  test "profile page hides Common Collectives tab when no common collectives" do
+    other = create_user(email: "no-common-viewer@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/, count: 0
+  end
+
+  test "profile page defaults to Activity tab" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Activity/
+  end
+
+  test "?tab=lists makes Lists the active tab and Activity feed isn't rendered" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=lists"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Lists/
+    assert_select ".pulse-feed", count: 0
+  end
+
+  test "blocked-either-way profile shows no tab nav" do
+    other = create_user(email: "blocked-tab-viewer@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    UserBlock.create!(blocker: other, blocked: @user, tenant: @tenant)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs", count: 0
+  end
+
+  test "markdown profile renders all sections inline regardless of ?tab" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=lists", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    # Markdown view ignores ?tab and renders all sections that have content.
+    assert_no_match(/pulse-profile-tabs/, response.body)
+  end
+
   test "profile page does not render a Social Proximity section (HTML)" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"

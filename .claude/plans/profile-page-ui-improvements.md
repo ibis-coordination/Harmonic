@@ -35,19 +35,15 @@ Render sites swapped (`shared/_team.html.erb`, `collectives/members.html.erb`). 
 
 ---
 
-## P3 — Tabs instead of accordions
+## P3 — Tabs instead of accordions ✅ shipped
 
 Tabs at end of phase: **Activity (default), Lists, Common Collectives**. P4 will add **Posts** and flip default.
 
-- Visibility: Common Collectives tab visible only when viewing someone else AND count > 0. Lists always visible (empty state). Activity always visible.
-- Extract `TabsComponent` from the inline nav in `user_lists/show.html.erb:38-50`; migrate the lists page to use it.
-- Controller: `@active_tab` from `params[:tab]`. Split into `load_header_data` (always: showing user, tune-in state, mutuals + common-collective counts, block state, lists count) and `load_<tab>_data` (only for active tab). P6 will extend the header loader with bio/location/website.
-- Markdown view unaffected — calls all loaders, renders inline.
+- Visibility implemented per plan: Common Collectives tab only when viewing someone else AND count > 0. Lists always visible (empty state). Activity always visible.
+- `TabsComponent` extracted (with `Tab` value class); CSS for `.pulse-tabs` / `.pulse-tab` / `.pulse-tab-active` lives in `_components.css`. Migrated `user_lists/show.html.erb` to use it.
+- Controller: `@active_tab` from `params[:tab]`. Split into `load_profile_header_data` (always) and `load_profile_<tab>_data` (active tab only on HTML; all on markdown). P6 will extend the header loader with bio/location/website.
+- Markdown view unchanged — preserves inline sections, ignores `?tab`.
 - Pagination unchanged from today.
-
-**Tests:** per-tab partial renders + non-active tab data not loaded; header always loads; tab visibility rules; TabsComponent unit; markdown still renders current sections inline.
-
-**Risk:** medium — biggest user-visible change; watch markdown drift.
 
 ---
 

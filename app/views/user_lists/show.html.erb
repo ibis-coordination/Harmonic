@@ -35,20 +35,13 @@
     <% end %>
   </header>
 
-  <nav class="pulse-list-tabs" style="margin-top: 20px; border-bottom: 1px solid var(--color-border-default); display: flex; gap: 4px;">
-    <a href="<%= @list.path %>"
-       <% if @active_tab == "feed" %>aria-current="page"<% end %>
-       class="pulse-list-tab"
-       style="padding: 8px 16px; text-decoration: none; color: var(--color-fg-default); border-bottom: 2px solid <%= @active_tab == 'feed' ? 'var(--color-fg-default)' : 'transparent' %>; font-weight: <%= @active_tab == 'feed' ? '600' : '400' %>;">
-      Activity
-    </a>
-    <a href="<%= @list.path %>?tab=members"
-       <% if @active_tab == "members" %>aria-current="page"<% end %>
-       class="pulse-list-tab"
-       style="padding: 8px 16px; text-decoration: none; color: var(--color-fg-default); border-bottom: 2px solid <%= @active_tab == 'members' ? 'var(--color-fg-default)' : 'transparent' %>; font-weight: <%= @active_tab == 'members' ? '600' : '400' %>;">
-      Members (<%= @members.size %>)
-    </a>
-  </nav>
+  <%= render TabsComponent.new(
+        active_key: @active_tab,
+        tabs: [
+          TabsComponent::Tab.new(key: "feed", label: "Activity", href: @list.path),
+          TabsComponent::Tab.new(key: "members", label: "Members", href: "#{@list.path}?tab=members", count: @members.size),
+        ],
+      ) %>
 
   <% if @active_tab == "feed" %>
     <section style="margin-top: 24px;">
