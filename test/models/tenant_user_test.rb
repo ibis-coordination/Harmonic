@@ -154,4 +154,71 @@ class TenantUserTest < ActiveSupport::TestCase
       tu.update!(handle: "trio")
     end
   end
+
+  # === Profile fields: bio / location / website ===
+
+  test "bio is valid when blank" do
+    tu = first_tenant_user_for_validation
+    tu.bio = nil
+    assert tu.valid?
+  end
+
+  test "bio rejects values longer than 500 chars" do
+    tu = first_tenant_user_for_validation
+    tu.bio = "x" * 501
+    assert_not tu.valid?
+    assert_includes tu.errors[:bio].to_s, "too long"
+  end
+
+  test "bio accepts exactly 500 chars" do
+    tu = first_tenant_user_for_validation
+    tu.bio = "x" * 500
+    assert tu.valid?, tu.errors.full_messages.to_sentence
+  end
+
+  test "location rejects values longer than 100 chars" do
+    tu = first_tenant_user_for_validation
+    tu.location = "x" * 101
+    assert_not tu.valid?
+    assert_includes tu.errors[:location].to_s, "too long"
+  end
+
+  test "website accepts an https URL" do
+    tu = first_tenant_user_for_validation
+    tu.website = "https://example.com"
+    assert tu.valid?, tu.errors.full_messages.to_sentence
+  end
+
+  test "website accepts an http URL" do
+    tu = first_tenant_user_for_validation
+    tu.website = "http://example.com"
+    assert tu.valid?, tu.errors.full_messages.to_sentence
+  end
+
+  test "website rejects a non-http(s) scheme" do
+    tu = first_tenant_user_for_validation
+    tu.website = "javascript:alert(1)"
+    assert_not tu.valid?
+    assert_includes tu.errors[:website].to_s, "http"
+  end
+
+  test "website rejects a URL without a hostname" do
+    tu = first_tenant_user_for_validation
+    tu.website = "https://"
+    assert_not tu.valid?
+  end
+
+  test "website is valid when blank" do
+    tu = first_tenant_user_for_validation
+    tu.website = nil
+    assert tu.valid?
+  end
+
+  private
+
+  def first_tenant_user_for_validation
+    tenant = create_tenant(subdomain: "fields-#{SecureRandom.hex(4)}")
+    user   = create_user(email: "fields-#{SecureRandom.hex(4)}@example.com")
+    tenant.add_user!(user)
+  end
 end

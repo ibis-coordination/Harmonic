@@ -651,6 +651,51 @@ class TenantUser
     sig { void }
     def archived_at_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def bio; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def bio=(value); end
+
+    sig { returns(T::Boolean) }
+    def bio?; end
+
+    sig { returns(T.nilable(::String)) }
+    def bio_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def bio_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def bio_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def bio_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def bio_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def bio_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def bio_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def bio_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def bio_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def bio_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def bio_was; end
+
+    sig { void }
+    def bio_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
 
@@ -876,8 +921,56 @@ class TenantUser
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def location; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def location=(value); end
+
+    sig { returns(T::Boolean) }
+    def location?; end
+
+    sig { returns(T.nilable(::String)) }
+    def location_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def location_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def location_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def location_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def location_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def location_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def location_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def location_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def location_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def location_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def location_was; end
+
+    sig { void }
+    def location_will_change!; end
+
     sig { void }
     def restore_archived_at!; end
+
+    sig { void }
+    def restore_bio!; end
 
     sig { void }
     def restore_created_at!; end
@@ -895,6 +988,9 @@ class TenantUser
     def restore_id_value!; end
 
     sig { void }
+    def restore_location!; end
+
+    sig { void }
     def restore_settings!; end
 
     sig { void }
@@ -906,11 +1002,20 @@ class TenantUser
     sig { void }
     def restore_user_id!; end
 
+    sig { void }
+    def restore_website!; end
+
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_archived_at; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_bio; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_bio?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -942,6 +1047,12 @@ class TenantUser
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_location; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_location?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_settings; end
 
@@ -965,6 +1076,12 @@ class TenantUser
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_website; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_website?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.untyped) }
     def settings; end
@@ -1146,8 +1263,56 @@ class TenantUser
     sig { void }
     def user_id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def website; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def website=(value); end
+
+    sig { returns(T::Boolean) }
+    def website?; end
+
+    sig { returns(T.nilable(::String)) }
+    def website_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def website_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def website_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def website_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def website_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def website_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def website_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def website_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def website_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def website_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def website_was; end
+
+    sig { void }
+    def website_will_change!; end
+
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_archived_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_bio?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
@@ -1165,6 +1330,9 @@ class TenantUser
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_location?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_settings?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1175,6 +1343,9 @@ class TenantUser
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_website?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods

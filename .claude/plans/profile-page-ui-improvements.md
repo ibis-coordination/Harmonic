@@ -82,17 +82,17 @@ Each surface's controller calls `TuneInState.compute(...)` once with the rendere
 
 ---
 
-## P6 — TenantUser profile fields: bio, location, website
+## P6 — TenantUser profile fields: bio, location, website ✅ shipped
 
-**Schema:** migration adds `bio:text`, `location:string`, `website:string` to `tenant_users`, all nullable.
+**Schema:** migration `20260609000000_add_profile_fields_to_tenant_users` added `bio:text`, `location:string`, `website:string` to `tenant_users`, all nullable.
 
-**Validations:** bio ≤ 500 chars, location ≤ 100 chars, website HTTP/HTTPS only (`HasImage#parse_safe_external_uri`-style scheme check). Render website with `rel="nofollow noopener"`.
+**Validations on `TenantUser`:** `bio ≤ 500` chars (`BIO_MAX_LENGTH`), `location ≤ 100` chars (`LOCATION_MAX_LENGTH`), website rejects anything that isn't an http/https URL with a hostname. Website rendered with `rel="nofollow noopener" target="_blank"`.
 
-**Views:** new "Profile" block above the tab nav, below the header. Hidden when blocked-either-way OR when all three fields are blank. Markdown gets the same fields inline. Settings page adds bio (textarea) / location / website fields.
+**Views:** new `.pulse-user-profile-info` block between the header and the tab nav, hidden when blocked-either-way OR when all three fields are blank. Markdown view interpolates the same fields inline. Settings form adds bio (textarea, `maxlength` capped) / location / website (`type="url"`).
 
-**Controller:** permit the three fields on the existing settings update permit list. API serializer exposes read-only.
+**Controller:** `update_profile` writes the three fields on the per-tenant TenantUser via a `params.key?(:field)` guard so absent fields stay untouched and empty strings clear. Validation errors flash via `:alert` and redirect back.
 
-**Tests:** validation tests (length, URL scheme); settings update persists each field; HTML + markdown render; blocked-either-way hides the block.
+**Tests** in `tenant_user_test.rb` (validations) and `users_controller_test.rb` (renders, settings form, update_profile happy + invalid-website paths).
 
 ---
 

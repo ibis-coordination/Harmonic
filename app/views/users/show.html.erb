@@ -121,6 +121,33 @@
     </div>
   <% end %>
 
+  <%
+    showing_tu = @showing_user.tenant_user
+    profile_bio      = showing_tu&.bio.presence
+    profile_location = showing_tu&.location.presence
+    profile_website  = showing_tu&.website.presence
+    has_profile_info = profile_bio || profile_location || profile_website
+  %>
+  <% if has_profile_info && !@blocked_either_way %>
+    <section class="pulse-user-profile-info">
+      <% if profile_bio %>
+        <p class="pulse-user-bio"><%= profile_bio %></p>
+      <% end %>
+      <% if profile_location %>
+        <p class="pulse-user-location">
+          <%= octicon 'location', height: 14 %>
+          <%= profile_location %>
+        </p>
+      <% end %>
+      <% if profile_website %>
+        <p class="pulse-user-website">
+          <%= octicon 'link', height: 14 %>
+          <a href="<%= profile_website %>" rel="nofollow noopener" target="_blank"><%= profile_website %></a>
+        </p>
+      <% end %>
+    </section>
+  <% end %>
+
   <% unless @blocked_either_way %>
     <%
       profile_tabs = []

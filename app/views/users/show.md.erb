@@ -2,6 +2,19 @@
 
 Handle: `<%= @showing_user.handle %>`
 Has [<%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>](<%= @showing_user.path %>/mutuals)<% if @mutuals_in_common_count %> (<%= @mutuals_in_common_count %> in common)<% end %>
+<% _showing_tu = @showing_user.tenant_user %>
+<% if _showing_tu&.bio.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
+
+<%= _showing_tu.bio %>
+<% end %>
+<% if _showing_tu&.location.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
+
+Location: <%= _showing_tu.location %>
+<% end %>
+<% if _showing_tu&.website.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
+
+Website: <%= _showing_tu.website %>
+<% end %>
 <% if @showing_user.ai_agent? %>
 Type: AI Agent
 <% end %>

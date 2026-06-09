@@ -231,7 +231,19 @@ class UsersController < ApplicationController
         handle: params[:new_handle]
       )
     end
+
+    # Bio / location / website are per-tenant — write straight to the
+    # TenantUser. Use `key?` so a deliberate empty string clears the field
+    # but not submitting the field at all leaves it untouched.
+    %i[bio location website].each do |field|
+      tu[field] = params[field].to_s.strip.presence if params.key?(field)
+    end
+    tu.save!
+
     flash[:notice] = "Profile updated successfully"
+    redirect_to "#{settings_user.path}/settings"
+  rescue ActiveRecord::RecordInvalid => e
+    flash[:alert] = e.record.errors.full_messages.to_sentence
     redirect_to "#{settings_user.path}/settings"
   end
 

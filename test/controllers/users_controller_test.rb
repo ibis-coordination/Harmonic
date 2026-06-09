@@ -360,6 +360,93 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/pulse-profile-tabs/, response.body)
   end
 
+  # === TenantUser profile fields: bio / location / website ===
+
+  test "profile HTML shows bio, location, website when set on the viewed user's TenantUser" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update!(
+      bio: "Likes long walks on the gradient.",
+      location: "Seattle, WA",
+      website: "https://example.com/me",
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_includes response.body, "Likes long walks on the gradient."
+    assert_includes response.body, "Seattle, WA"
+    assert_select "a.pulse-user-website a, .pulse-user-website a" do
+      assert_select "[href=?]", "https://example.com/me"
+      assert_select "[rel*=nofollow]"
+    end
+  end
+
+  test "profile HTML hides the profile info block when all three fields are blank" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-profile-info", count: 0
+  end
+
+  test "profile HTML hides the profile info block when blocked either way" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update!(bio: "Hidden when blocked")
+    other = create_user(email: "blocked-bio-viewer@example.com", name: "Blocked Viewer")
+    @tenant.add_user!(other)
+    UserBlock.create!(blocker: other, blocked: @user, tenant: @tenant)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-profile-info", count: 0
+  end
+
+  test "profile markdown renders bio + location + website" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update!(
+      bio: "Md bio body.",
+      location: "Md Location",
+      website: "https://md.example.com",
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Md bio body."
+    assert_match(/^Location: Md Location/, response.body)
+    assert_match(%r{^Website: https://md\.example\.com}, response.body)
+  end
+
+  test "update_profile persists bio / location / website to TenantUser" do
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/profile", params: {
+      bio: "Updated bio",
+      location: "New York",
+      website: "https://updated.example.com",
+    }
+    assert_response :redirect
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_equal "Updated bio", tu.bio
+    assert_equal "New York", tu.location
+    assert_equal "https://updated.example.com", tu.website
+  end
+
+  test "update_profile rejects an invalid website scheme and redirects with an error" do
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/profile", params: { website: "javascript:alert(1)" }
+    assert_response :redirect
+    follow_redirect!
+    assert_match(/http or https/i, response.body)
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_nil tu.website
+  end
+
+  test "settings page renders the bio / location / website form fields" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}/settings"
+    assert_response :success
+    assert_select "textarea[name=?]", "bio"
+    assert_select "input[name=?]", "location"
+    assert_select "input[name=?][type=?]", "website", "url"
+  end
+
   # === Tune-in buttons on /u/:handle/mutuals ===
 
   def add_to_primary_list(list:, member:, added_by:)
