@@ -360,6 +360,27 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/pulse-profile-tabs/, response.body)
   end
 
+  # === Profile pic editor on /u/:handle ===
+
+  test "profile page shows the image-cropper editor for the profile owner" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "[data-controller='image-cropper']"
+    assert_select "form[action=?][method=?]", "/u/#{@user.handle}/image", "post"
+    assert_select "input[name='cropped_image_data']"
+  end
+
+  test "profile page hides the image-cropper editor for a non-owner viewer" do
+    other = create_user(email: "non-owner-viewer@example.com", name: "Non Owner")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "[data-controller='image-cropper']", count: 0
+    assert_select "form[action=?]", "/u/#{@user.handle}/image", count: 0
+  end
+
   # === TenantUser profile fields: bio / location / website ===
 
   test "profile HTML shows bio, location, website when set on the viewed user's TenantUser" do

@@ -6,7 +6,13 @@
 
 <article class="pulse-user-profile">
   <header class="pulse-user-header">
-    <%= render "shared/avatar_div", record: @showing_user, css_class: "pulse-user-avatar-large", variant: :thumbnail %>
+    <% if @current_user && @current_user.can_edit?(@showing_user) %>
+      <div class="pulse-user-avatar-editable">
+        <%= render "shared/profile_image_upload", resource: @showing_user, size: 80, border_radius: "50%" %>
+      </div>
+    <% else %>
+      <%= render "shared/avatar_div", record: @showing_user, css_class: "pulse-user-avatar-large", variant: :thumbnail %>
+    <% end %>
     <div class="pulse-user-info">
       <h1 class="pulse-user-name">
         <%= @showing_user.display_name %>

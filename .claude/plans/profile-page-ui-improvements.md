@@ -96,27 +96,14 @@ Each surface's controller calls `TuneInState.compute(...)` once with the rendere
 
 ---
 
-## P7 — Profile pic editor (modal)
+## P7 — Profile pic editor (modal) ✅ shipped
 
-Owner clicks avatar → modal with file picker + crop + preview → Save → Turbo Stream swaps the avatar.
+The existing `shared/_profile_image_upload` partial already wraps a complete cropperjs-based image upload + crop modal that POSTs `cropped_image_data` to the existing `PATCH /u/:handle/image` endpoint (and hits `HasImage#cropped_image_data=`). Reused as-is.
 
-**First step:** grep for an existing cropper modal on the settings page. If it already hits `cropped_image_data=`, add a profile-page trigger that opens the same modal — no new endpoint, no new lib. Bullets below assume nothing reusable.
+Changes:
+- Partial gained a `border_radius:` local (defaults to `"8px"` for backward compat); the profile-page invocation passes `"50%"` to keep the avatar circular.
+- `/u/:handle` header: when `current_user.can_edit?(@showing_user)`, render `_profile_image_upload` with `size: 80, border_radius: "50%"`. Other viewers (including anon) still see the read-only `shared/avatar_div`.
 
-- Stimulus controller `profile_pic_modal_controller.ts` manages the cropper and submits the data URL.
-- Cropper lib: cropperjs (BSD-3) if nothing vendored.
-- Modal: `<dialog>` next to the avatar, gated on `current_user.can_edit?(@showing_user)`. Click-avatar or pencil overlay to open.
-- POST `cropped_image_data` to existing or new endpoint → Turbo Stream replaces avatar `<div>`.
+No new endpoint, no new JS dependency, no `<dialog>` element (the partial uses a div overlay that already works across browsers).
 
-**Tests:** upload endpoint (auth, size guard, happy path); Vitest unit for the Stimulus controller (open/cancel/submit).
-
-**Risk:** medium.
-- `<dialog>` + Turbo Drive interactions (focus trap, history, modal across navs).
-- iOS Safari `<dialog>` support varies — verify or fall back to div.
-- New JS dep (cropperjs) if needed.
-
----
-
-## Open questions
-
-1. **Cropperjs vendor:** add as npm dep, or preferred existing library?
-2. **Bio length cap:** 500 chars OK?
+**Tests:** profile page renders the cropper editor for the owner; profile page does NOT render it for a non-owner viewer.
