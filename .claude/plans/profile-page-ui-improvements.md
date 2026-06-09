@@ -62,29 +62,23 @@ Tabs at end of phase: **Activity (default), Lists, Common Collectives**. P4 will
 
 ---
 
-## P5 — Easier tune-in from list pages and notifications
+## P5 — Easier tune-in from list pages and notifications ✅ shipped
 
-Add tune-in button on three surfaces:
-1. **List members tab** rows.
-2. **Tune-in notification** (X tuned in to you) — "Tune in back" button. **Prereq:** confirm whether notification HTML is render-time or dispatch-time. Dispatch-time → button must be a Turbo Frame that re-evaluates, otherwise stale state. Resolve before tests.
-3. **Someone else's mutuals page** (`/u/:handle/mutuals` where `:handle != current_user`). Skip on viewer's own mutuals page — every row is already reciprocal.
+Tune-in button on three surfaces:
+1. **List members tab** rows (`user_lists/show.html.erb`, `?tab=members`).
+2. **Tune-in notification** rows ("X tuned in to you"). Notification page renders per-request — no Turbo Frame needed; button reflects current state via the controller's batch-loaded state ivars.
+3. **Other user's mutuals page** (`/u/:handle/mutuals`). Skipped on viewer's own mutuals page (every row is already reciprocal).
 
-In all cases: hidden when viewer == target or either side blocks.
+In all cases: hidden when `viewer == target` or either side blocks.
 
-**Component:** wrap `AjaxToggleButtonComponent` in `shared/_tune_in_button.html.erb (viewer, target)`.
+**Building blocks added:**
+- `app/views/shared/_tune_in_button.html.erb (viewer, target, on_list, blocked)` — wraps `AjaxToggleButtonComponent`. Renders nothing for the anon/self/blocked cases.
+- `TuneInState.compute(viewer:, target_ids:, tenant:)` (PORO at `app/services/tune_in_state.rb`) — returns `(on_list_ids, blocked_pair_ids)` as Sets.
+- `UserBlock.blocked_pair_user_ids(viewer_id, target_ids)` — symmetric one-query batch lookup.
 
-**Batch loading (read-only, no lazy create on GET):**
-```ruby
-viewer_primary_list_id = UserList.tenant_scoped_only(tenant.id)
-  .where(owner_id: viewer.id, is_primary: true, deleted_at: nil).pick(:id)
-viewer_list_member_user_ids = viewer_primary_list_id ?
-  UserListMember.where(user_list_id: viewer_primary_list_id, user_id: shown_ids).pluck(:user_id).to_set :
-  Set.new
-blocked_pair_ids = UserBlock.between_pairs(viewer.id, shown_ids)  # add scope if missing; symmetric
-```
-Partial reads from the sets — no per-row queries.
+Each surface's controller calls `TuneInState.compute(...)` once with the rendered users and stashes the result in `@tune_in_state`; the view does O(1) Set lookups per row.
 
-**Tests:** state matrix per surface (tune-in / Tuned in / self / blocked); button absent on viewer's own mutuals page; click → membership created; N+1 regression (query count constant in N).
+**Tests:** state matrix per surface (Tune in / Tuned in / self / blocked); button absent on viewer's own mutuals page; model tests for `UserBlock.blocked_pair_user_ids`.
 
 ---
 

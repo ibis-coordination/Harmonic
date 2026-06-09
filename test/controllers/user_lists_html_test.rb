@@ -165,6 +165,45 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-list-members a", text: /#{Regexp.escape(@other.display_name)}/
   end
 
+  test "show HTML: members tab shows a tune-in button next to each non-self member" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    # @other is not yet on @user's primary list — button should read "Tune in"
+    assert_select ".pulse-list-members .pulse-tune-in-btn"
+    assert_select ".pulse-list-members .pulse-tune-in-btn", text: /Tune in/
+  end
+
+  test "show HTML: members tab hides the tune-in button on the viewer's own row" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    # Viewer is the same user that's a list owner; also add @user to the list as a member.
+    list.user_list_members.create!(added_by: @user, user: @user)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    # There must NOT be a tune-in button on the @user row (self-row).
+    # @other still gets one.
+    rendered = response.body
+    assert_match(/pulse-tune-in-btn/, rendered)
+    member_rows = Nokogiri::HTML(rendered).css(".pulse-list-members li.pulse-collective-item")
+    own_row = member_rows.find { |r| r.text.include?(@user.display_name) }
+    assert own_row, "expected the viewer's own member row to be in the rendered list"
+    assert_no_match(/pulse-tune-in-btn/, own_row.to_s)
+  end
+
+  test "show HTML: members tab hides the tune-in button when the member is blocked either way" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select ".pulse-tune-in-btn", count: 0
+  end
+
   test "show HTML: self_add list shows a Join button (not a handle input) for a non-owner non-member" do
     list = UserList.create!(creator: @user, owner: @user, name: "Self-add list", add_policy: "self_add")
     sign_in_as(@other, tenant: @tenant)

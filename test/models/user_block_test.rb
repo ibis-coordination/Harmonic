@@ -153,4 +153,30 @@ class UserBlockTest < ActiveSupport::TestCase
     assert custom.user_list_members.exists?(user_id: @other_user.id),
            "custom-list memberships should survive blocks (cleanup is primary-only)"
   end
+
+  # === blocked_pair_user_ids (batch) ===
+
+  test "blocked_pair_user_ids returns empty set when target_ids is empty" do
+    assert_equal Set.new, UserBlock.blocked_pair_user_ids(@user.id, [])
+  end
+
+  test "blocked_pair_user_ids returns ids where viewer blocks the target" do
+    UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+    result = UserBlock.blocked_pair_user_ids(@user.id, [@other_user.id])
+    assert_equal Set.new([@other_user.id]), result
+  end
+
+  test "blocked_pair_user_ids returns ids where the target blocks the viewer (symmetric)" do
+    UserBlock.create!(blocker: @other_user, blocked: @user, tenant: @tenant)
+    result = UserBlock.blocked_pair_user_ids(@user.id, [@other_user.id])
+    assert_equal Set.new([@other_user.id]), result
+  end
+
+  test "blocked_pair_user_ids omits ids that aren't blocked in either direction" do
+    third = create_user(email: "third-unblocked@example.com", name: "Third")
+    @tenant.add_user!(third)
+    UserBlock.create!(blocker: @user, blocked: @other_user, tenant: @tenant)
+    result = UserBlock.blocked_pair_user_ids(@user.id, [@other_user.id, third.id])
+    assert_equal Set.new([@other_user.id]), result
+  end
 end

@@ -81,6 +81,14 @@
                       <span class="pulse-notification-time"><%= time_ago_in_words(recipient.created_at) %> ago</span>
                     </div>
                     <div class="pulse-notification-actions">
+                      <% tune_in_actor = @actor_for_tune_in_recipient[recipient.id] %>
+                      <% if tune_in_actor %>
+                        <%= render "shared/tune_in_button",
+                              viewer:  @current_user,
+                              target:  tune_in_actor,
+                              on_list: @tune_in_state.on_list_ids.include?(tune_in_actor.id),
+                              blocked: @tune_in_state.blocked_pair_ids.include?(tune_in_actor.id) %>
+                      <% end %>
                       <button type="button"
                               class="pulse-action-btn-icon"
                               title="Dismiss"

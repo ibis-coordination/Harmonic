@@ -101,6 +101,20 @@ class UsersController < ApplicationController
                  end
                end
 
+    # On someone else's mutuals page, the viewer hasn't necessarily tuned
+    # in to those people — show tune-in buttons per row. On the viewer's
+    # OWN mutuals page, every row is reciprocal by definition, so we skip
+    # the precompute (the partial would short-circuit anyway since the
+    # viewer's own primary list contains all of them).
+    @show_tune_in_on_mutuals = @current_user.present? && @current_user.id != @showing_user.id
+    @tune_in_state = if @show_tune_in_on_mutuals
+                       TuneInState.compute(
+                         viewer:     @current_user,
+                         target_ids: @mutuals.map(&:id),
+                         tenant:     @current_tenant,
+                       )
+                     end
+
     respond_to do |format|
       format.html
       format.md

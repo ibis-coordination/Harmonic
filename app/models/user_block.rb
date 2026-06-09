@@ -20,6 +20,19 @@ class UserBlock < ApplicationRecord
       .exists?
   end
 
+  # User IDs from `target_ids` where there is a block in either direction
+  # between `viewer_id` and that target. Two queries (one per direction),
+  # constant in N. Returned as a Set so callers can use it for O(1)
+  # lookups while iterating rows.
+  sig { params(viewer_id: String, target_ids: T::Array[String]).returns(T::Set[String]) }
+  def self.blocked_pair_user_ids(viewer_id, target_ids)
+    return Set.new if target_ids.empty?
+
+    ids = where(blocker_id: viewer_id, blocked_id: target_ids).pluck(:blocked_id)
+    ids += where(blocker_id: target_ids, blocked_id: viewer_id).pluck(:blocker_id)
+    ids.to_set
+  end
+
   private
 
   sig { void }

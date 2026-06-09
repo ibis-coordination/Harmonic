@@ -50,6 +50,41 @@ class NotificationsController < ApplicationController
     # Now set the full scope for other controller methods
     @current_tenant = Tenant.find_by(id: Tenant.current_id)
 
+    # Look up actors for tune_in notifications so the view can render a
+    # "Tune in back" button per row. Batched: one Event query, one User
+    # query, one TenantUser query — independent of recipient count.
+    tune_in_recipients_with_event = @notification_recipients.filter_map do |nr|
+      next unless nr.notification.notification_type == "tune_in"
+
+      eid = notification_event_map[nr.notification_id]
+      eid ? [nr.id, eid] : nil
+    end
+
+    tune_in_event_ids = tune_in_recipients_with_event.map { |_, eid| eid }.uniq
+    event_actor_map = tune_in_event_ids.any? ?
+      Event.tenant_scoped_only.where(id: tune_in_event_ids).pluck(:id, :actor_id).to_h :
+      {}
+
+    tune_in_actor_ids = event_actor_map.values.compact.uniq
+    tune_in_actors_by_id = User.where(id: tune_in_actor_ids).index_by(&:id)
+    if tune_in_actors_by_id.any?
+      # Attach the TenantUser so #path returns the correct /u/:handle URL.
+      TenantUser
+        .where(tenant_id: @current_tenant.id, user_id: tune_in_actors_by_id.keys)
+        .each { |tu| tune_in_actors_by_id[tu.user_id]&.tenant_user = tu }
+    end
+
+    @actor_for_tune_in_recipient = tune_in_recipients_with_event.each_with_object({}) do |(nr_id, eid), acc|
+      actor = tune_in_actors_by_id[event_actor_map[eid]]
+      acc[nr_id] = actor if actor
+    end
+
+    @tune_in_state = TuneInState.compute(
+      viewer:     current_user,
+      target_ids: tune_in_actor_ids,
+      tenant:     @current_tenant,
+    )
+
     @unread_count = NotificationService.unread_count_for(current_user, tenant: current_tenant)
     @page_title = @unread_count > 0 ? "(#{@unread_count}) Notifications" : "Notifications"
   end

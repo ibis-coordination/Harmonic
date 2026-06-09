@@ -118,6 +118,11 @@
                 <a href="<%= member.path %>" class="pulse-collective-name"><%= member.display_name %></a>
                 <span class="pulse-body-text-muted">@<%= member_handle %></span>
               </div>
+              <%= render "shared/tune_in_button",
+                    viewer:  @current_user,
+                    target:  member,
+                    on_list: @tune_in_state.on_list_ids.include?(member.id),
+                    blocked: @tune_in_state.blocked_pair_ids.include?(member.id) %>
               <% can_remove = is_owner || (@current_user && @current_user.id == member.id) %>
               <% if can_remove %>
                 <%= button_to "#{@list.path}/actions/remove_member_from_list",

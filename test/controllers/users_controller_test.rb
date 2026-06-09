@@ -360,6 +360,50 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/pulse-profile-tabs/, response.body)
   end
 
+  # === Tune-in buttons on /u/:handle/mutuals ===
+
+  def add_to_primary_list(list:, member:, added_by:)
+    list.user_list_members.create!(
+      tenant:     list.tenant,
+      collective: list.collective,
+      added_by:   added_by,
+      user:       member,
+    )
+  end
+
+  test "another user's mutuals page shows a tune-in button next to each non-self mutual" do
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    other = create_user(email: "tu-mutuals-other@example.com", name: "Other")
+    @tenant.add_user!(other); main.add_user!(other)
+    third = create_user(email: "tu-mutuals-third@example.com", name: "Third Person")
+    @tenant.add_user!(third); main.add_user!(third)
+    # @other ↔ third are mutuals.
+    add_to_primary_list(list: other.primary_user_list_in!(@tenant), member: third, added_by: other)
+    add_to_primary_list(list: third.primary_user_list_in!(@tenant), member: other, added_by: third)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{other.handle}/mutuals"
+    assert_response :success
+    # @user is not yet tuned in to `third` — should see a Tune in button on third's row.
+    assert_select ".pulse-list-members .pulse-tune-in-btn", text: /Tune in/
+  end
+
+  test "your own mutuals page hides the tune-in button (every row is already reciprocal)" do
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    other = create_user(email: "own-mutuals-other@example.com", name: "Other")
+    @tenant.add_user!(other); main.add_user!(other)
+    # @user ↔ other are mutuals.
+    add_to_primary_list(list: @user.primary_user_list_in!(@tenant), member: other, added_by: @user)
+    add_to_primary_list(list: other.primary_user_list_in!(@tenant), member: @user, added_by: other)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}/mutuals"
+    assert_response :success
+    assert_select ".pulse-tune-in-btn", count: 0
+  end
+
   test "profile page does not render a Social Proximity section (HTML)" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
