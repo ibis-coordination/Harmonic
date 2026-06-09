@@ -1,5 +1,17 @@
-<nav class="pulse-create-tabs">
-  <%= link_to "Note", "#{@current_collective.path}/note", class: "pulse-create-tab #{'active' if current == :note}" %>
-  <%= link_to "Decide", "#{@current_collective.path}/decide", class: "pulse-create-tab #{'active' if current == :decision}" %>
-  <%= link_to "Commit", "#{@current_collective.path}/commit", class: "pulse-create-tab #{'active' if current == :commitment}" %>
-</nav>
+<%
+  current_collective_path = @current_collective.path
+  active_key = case current
+               when :note       then "note"
+               when :decision   then "decision"
+               when :commitment then "commitment"
+               end
+%>
+<%= render TabsComponent.new(
+      active_key: active_key.to_s,
+      css_class: "pulse-create-tabs",
+      tabs: [
+        TabsComponent::Tab.new(key: "note",       label: "Note",   href: "#{current_collective_path}/note"),
+        TabsComponent::Tab.new(key: "decision",   label: "Decide", href: "#{current_collective_path}/decide"),
+        TabsComponent::Tab.new(key: "commitment", label: "Commit", href: "#{current_collective_path}/commit"),
+      ],
+    ) %>

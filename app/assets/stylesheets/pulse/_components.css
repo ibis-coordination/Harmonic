@@ -3669,41 +3669,32 @@ a.pulse-activity-title:hover {
   margin-top: 24px;
 }
 
-/* Create Tabs (for Note/Decision/Commitment) */
+/* Create Tabs (for Note/Decision/Commitment) — variant of .pulse-tabs */
 .pulse-create-tabs {
-  display: flex;
   gap: 24px;
+  margin-top: 0;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--color-border-default);
 }
 
-.pulse-create-tab {
+.pulse-create-tabs .pulse-tab {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 0;
-  text-decoration: none;
   color: var(--color-fg-muted);
   font-size: 14px;
   font-weight: 500;
-  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.pulse-create-tab:hover {
+.pulse-create-tabs .pulse-tab:hover {
   color: var(--color-fg-default);
   text-decoration: none;
 }
 
-.pulse-create-tab.active {
+.pulse-create-tabs .pulse-tab-active {
   color: var(--color-fg-default);
-  border-bottom-color: var(--color-fg-default);
-  text-decoration: none;
-}
-
-.pulse-create-tab.active:hover {
-  text-decoration: none;
 }
 
 /* Search Group Headers */
