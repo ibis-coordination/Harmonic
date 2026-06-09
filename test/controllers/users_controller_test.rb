@@ -381,6 +381,31 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", "/u/#{@user.handle}/image", count: 0
   end
 
+  test "non-owner viewer can click the showing user's image to open a lightbox" do
+    image = Vips::Image.black(100, 100) + [128, 64, 200]
+    tempfile = Tempfile.new(["lightbox", ".png"])
+    tempfile.close
+    image.write_to_file(tempfile.path)
+    @user.image.attach(io: File.open(tempfile.path), filename: "lightbox.png", content_type: "image/png")
+
+    other = create_user(email: "lightbox-viewer@example.com", name: "Lightbox Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "button.pulse-user-avatar-lightbox[data-controller='lightbox']"
+    assert_select "button.pulse-user-avatar-lightbox[data-action*='lightbox#open']"
+  end
+
+  test "lightbox trigger is absent when the showing user has no uploaded image" do
+    other = create_user(email: "no-image-viewer@example.com", name: "No Image Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "button.pulse-user-avatar-lightbox", count: 0
+  end
+
   # === TenantUser profile fields: bio / location / website ===
 
   test "profile HTML shows bio, location, website when set on the viewed user's TenantUser" do

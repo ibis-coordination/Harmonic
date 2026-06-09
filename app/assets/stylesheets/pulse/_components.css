@@ -590,6 +590,15 @@
   border-radius: 6px;
 }
 
+.lightbox-img-circle {
+  border-radius: var(--border-radius-full);
+  object-fit: cover;
+  aspect-ratio: 1 / 1;
+  width: min(80vmin, 480px);
+  height: min(80vmin, 480px);
+  max-height: calc(100vh - 120px);
+}
+
 .lightbox-caption {
   margin-top: 12px;
   color: var(--color-fg-on-emphasis);
@@ -1832,6 +1841,14 @@ h1.pulse-resource-title {
   height: 100%;
   object-fit: cover;
   z-index: 2;
+  border-radius: var(--border-radius-full);
+}
+
+.pulse-user-avatar-lightbox {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: zoom-in;
   border-radius: var(--border-radius-full);
 }
 

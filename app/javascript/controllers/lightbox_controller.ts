@@ -22,10 +22,11 @@ export default class LightboxController extends Controller<HTMLElement> {
     const url = target.dataset.lightboxLargeUrlParam || ""
     const alt = target.dataset.lightboxAltParam || ""
     const caption = target.dataset.lightboxCaptionParam || ""
+    const shape = target.dataset.lightboxShapeParam || ""
 
     if (!url) return
 
-    this.render(url, alt, caption)
+    this.render(url, alt, caption, shape)
   }
 
   close() {
@@ -37,7 +38,7 @@ export default class LightboxController extends Controller<HTMLElement> {
     }
   }
 
-  private render(url: string, alt: string, caption: string) {
+  private render(url: string, alt: string, caption: string, shape: string) {
     this.close()
 
     const backdrop = document.createElement("div")
@@ -51,7 +52,7 @@ export default class LightboxController extends Controller<HTMLElement> {
     const img = document.createElement("img")
     img.src = url
     img.alt = alt
-    img.className = "lightbox-img"
+    img.className = shape === "circle" ? "lightbox-img lightbox-img-circle" : "lightbox-img"
     backdrop.appendChild(img)
 
     if (caption.trim().length > 0) {

@@ -11,7 +11,22 @@
         <%= render "shared/profile_image_upload", resource: @showing_user, size: 80, border_radius: "50%" %>
       </div>
     <% else %>
-      <%= render "shared/avatar_div", record: @showing_user, css_class: "pulse-user-avatar-large", variant: :thumbnail %>
+      <% large_image_url = @showing_user.image_url(variant: :display) %>
+      <% if large_image_url.present? %>
+        <button type="button"
+                class="pulse-user-avatar-lightbox"
+                data-controller="lightbox"
+                data-lightbox-target="trigger"
+                data-action="click->lightbox#open"
+                data-lightbox-large-url-param="<%= large_image_url %>"
+                data-lightbox-alt-param="<%= @showing_user.display_name %>"
+                data-lightbox-shape-param="circle"
+                aria-label="View <%= @showing_user.display_name %>'s profile picture">
+          <%= render "shared/avatar_div", record: @showing_user, css_class: "pulse-user-avatar-large", variant: :thumbnail %>
+        </button>
+      <% else %>
+        <%= render "shared/avatar_div", record: @showing_user, css_class: "pulse-user-avatar-large", variant: :thumbnail %>
+      <% end %>
     <% end %>
     <div class="pulse-user-info">
       <h1 class="pulse-user-name">
