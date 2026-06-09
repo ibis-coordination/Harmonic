@@ -45,11 +45,20 @@ You and <%= @showing_user.display_name %> have <%= @common_collective_count %> c
 And <%= @additional_common_collective_count %> more...
 <% end %>
 <% end %>
-<% if @feed_items.present? && !blocked_either_way %>
+<% if @posts_feed_items.present? && !blocked_either_way %>
 
-## Recent Activity (<%= @feed_items.size %>)
+## Posts (<%= @posts_feed_items.size %>)
 
-<% @feed_items.each do |feed_item| -%>
+<% @posts_feed_items.each do |feed_item| -%>
+<% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
+* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
+<% end -%>
+<% end %>
+<% if @activity_feed_items.present? && !blocked_either_way %>
+
+## Activity (<%= @activity_feed_items.size %>)
+
+<% @activity_feed_items.each do |feed_item| -%>
 <% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
 * [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
 <% end -%>

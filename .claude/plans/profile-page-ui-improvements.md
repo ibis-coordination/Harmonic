@@ -47,14 +47,18 @@ Tabs at end of phase: **Activity (default), Lists, Common Collectives**. P4 will
 
 ---
 
-## P4 — Split Recent Activity into Posts + Activity
+## P4 — Split Recent Activity into Posts + Activity ✅ shipped
 
-- **Posts**: notes with `subtype = "post"`. New default tab.
-- **Activity allow-list:** notes with subtype in `["reminder", "table", "comment", "statement"]`; decision activity (votes, creations) by the showing user; commitment activity (joins, creations) by the showing user; `user_list_member.created` events by the showing user. Anything else FeedBuilder surfaces → confirm at implementation and add here.
-- Two scopes: `posts_feed_items_for(user)`, `activity_feed_items_for(user)` (everything FeedBuilder produces today minus post-subtype notes). Load only the active one.
-- Markdown: two consecutive sections, parallel to HTML tabs.
+- **Posts**: notes with `subtype = "post"`. Default tab (flipped from Activity).
+- **Activity**: everything FeedBuilder produces today minus post-subtype notes (i.e., non-post notes + decision/commitment creations).
+- Per-tab loaders: `load_profile_posts_data` (sets `@posts_feed_items`), `load_profile_activity_data` (sets `@activity_feed_items`). Load only the active one in HTML; markdown calls both.
+- Markdown: two consecutive sections (`## Posts`, `## Activity`), parallel to HTML tabs.
 
-**Tests:** posts shows only post notes; activity excludes post notes; no item in both. Completeness: `posts ∪ activity == FeedBuilder.feed_items_for(user)` baseline (call the existing method directly), no overlap. Default-tab flip: GET `/u/:handle` renders Posts.
+**Tests** in `users_controller_test.rb`:
+- Posts tab renders only post-subtype notes; Activity excludes posts.
+- Default tab is Posts.
+- Partition invariant: `posts ∪ activity == FeedBuilder(user)` baseline, and no overlap.
+- Markdown renders both sections inline.
 
 ---
 

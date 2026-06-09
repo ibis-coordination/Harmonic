@@ -210,7 +210,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   # === Tabs on /u/:handle ===
 
-  test "profile page renders a tab nav with Activity, Lists, and (when viewing other w/ commons) Common Collectives" do
+  test "profile page renders a tab nav with Posts, Activity, Lists, and (when viewing other w/ commons) Common Collectives" do
     other = create_user(email: "other-tab-viewer@example.com", name: "Other Viewer")
     @tenant.add_user!(other)
     common = Collective.create!(
@@ -224,6 +224,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     get "/u/#{@user.handle}"
     assert_response :success
     assert_select "nav.pulse-profile-tabs"
+    assert_select "nav.pulse-profile-tabs a", text: /Posts/
     assert_select "nav.pulse-profile-tabs a", text: /Activity/
     assert_select "nav.pulse-profile-tabs a", text: /Lists/
     assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/
@@ -246,11 +247,91 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/, count: 0
   end
 
-  test "profile page defaults to Activity tab" do
+  test "profile page defaults to Posts tab" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}"
     assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Posts/
+  end
+
+  test "Posts tab shows only post-subtype notes" do
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post")
+    post_note.update!(subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder")
+    reminder_note.update!(subtype: "reminder")
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=posts"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Posts/
+    assert_includes response.body, "A Post"
+    assert_not_includes response.body, "A Reminder"
+  end
+
+  test "Activity tab excludes post-subtype notes; surfaces non-post notes" do
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post")
+    post_note.update!(subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder")
+    reminder_note.update!(subtype: "reminder")
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=activity"
+    assert_response :success
     assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Activity/
+    assert_not_includes response.body, "A Post"
+    assert_includes response.body, "A Reminder"
+  end
+
+  test "Posts and Activity partition the legacy feed (union equals baseline, no overlap)" do
+    main = @tenant.main_collective
+    post = create_note(tenant: @tenant, collective: main, created_by: @user, title: "P")
+    post.update!(subtype: "post")
+    reminder = create_note(tenant: @tenant, collective: main, created_by: @user, title: "R")
+    reminder.update!(subtype: "reminder")
+    decision = create_decision(tenant: @tenant, collective: main, created_by: @user, question: "D?")
+    commitment = create_commitment(tenant: @tenant, collective: main, created_by: @user, title: "C")
+
+    baseline = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@tenant).where(created_by_id: @user.id),
+      decisions_scope: Decision.main_collective_scope(@tenant).where(created_by_id: @user.id),
+      commitments_scope: Commitment.main_collective_scope(@tenant).where(created_by_id: @user.id),
+    ).feed_items
+
+    posts_only = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@tenant).where(created_by_id: @user.id, subtype: "post"),
+      decisions_scope: Decision.none,
+      commitments_scope: Commitment.none,
+    ).feed_items
+
+    activity_only = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@tenant).where(created_by_id: @user.id).where.not(subtype: "post"),
+      decisions_scope: Decision.main_collective_scope(@tenant).where(created_by_id: @user.id),
+      commitments_scope: Commitment.main_collective_scope(@tenant).where(created_by_id: @user.id),
+    ).feed_items
+
+    baseline_ids   = baseline.map { |i| [i[:type], i[:item].id] }.to_set
+    posts_ids      = posts_only.map { |i| [i[:type], i[:item].id] }.to_set
+    activity_ids   = activity_only.map { |i| [i[:type], i[:item].id] }.to_set
+
+    assert_equal baseline_ids, (posts_ids | activity_ids), "posts ∪ activity must equal baseline feed"
+    assert_empty (posts_ids & activity_ids), "no item may appear in both posts and activity"
+    # Sanity: each fixture lands somewhere.
+    assert_includes posts_ids,    ["Note", post.id]
+    assert_includes activity_ids, ["Note", reminder.id]
+    assert_includes activity_ids, ["Decision", decision.id]
+    assert_includes activity_ids, ["Commitment", commitment.id]
+  end
+
+  test "markdown profile renders both Posts and Activity sections inline" do
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost")
+    post_note.update!(subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdReminder")
+    reminder_note.update!(subtype: "reminder")
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^## Posts/, response.body)
+    assert_match(/^## Activity/, response.body)
+    assert_includes response.body, "MdPost"
+    assert_includes response.body, "MdReminder"
   end
 
   test "?tab=lists makes Lists the active tab and Activity feed isn't rendered" do

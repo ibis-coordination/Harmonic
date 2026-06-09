@@ -26,7 +26,8 @@ class UsersController < ApplicationController
     redirect_to "#{current_user.path}/settings/webhooks"
   end
 
-  AVAILABLE_PROFILE_TABS = %w[activity lists common_collectives].freeze
+  AVAILABLE_PROFILE_TABS = %w[posts activity lists common_collectives].freeze
+  DEFAULT_PROFILE_TAB = "posts"
 
   def show
     @sidebar_mode = "minimal"
@@ -53,12 +54,14 @@ class UsersController < ApplicationController
     if request.format.md?
       load_profile_common_collectives_data unless @common_collectives
       load_profile_lists_data
+      load_profile_posts_data
       load_profile_activity_data
     else
       case @active_tab
       when "lists"               then load_profile_lists_data
       when "common_collectives"  then load_profile_common_collectives_data unless @common_collectives
-      else                            load_profile_activity_data
+      when "activity"            then load_profile_activity_data
+      else                            load_profile_posts_data
       end
     end
 
@@ -652,18 +655,26 @@ class UsersController < ApplicationController
     @showing_user_lists ||= visible_lists_owned_by_for_profile(@showing_user)
   end
 
+  def load_profile_posts_data
+    @posts_feed_items = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id, subtype: "post"),
+      decisions_scope: Decision.none,
+      commitments_scope: Commitment.none,
+    ).feed_items
+  end
+
   def load_profile_activity_data
-    @feed_items = FeedBuilder.new(
-      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+    @activity_feed_items = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id).where.not(subtype: "post"),
       decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
       commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
     ).feed_items
   end
 
   def resolve_active_profile_tab(requested)
-    return "activity" if @blocked_either_way
-    return "activity" unless AVAILABLE_PROFILE_TABS.include?(requested)
-    return "activity" if requested == "common_collectives" && !show_profile_common_collectives_tab?
+    return DEFAULT_PROFILE_TAB if @blocked_either_way
+    return DEFAULT_PROFILE_TAB unless AVAILABLE_PROFILE_TABS.include?(requested)
+    return DEFAULT_PROFILE_TAB if requested == "common_collectives" && !show_profile_common_collectives_tab?
 
     requested
   end

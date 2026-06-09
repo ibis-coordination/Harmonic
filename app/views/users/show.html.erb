@@ -124,7 +124,8 @@
   <% unless @blocked_either_way %>
     <%
       profile_tabs = []
-      profile_tabs << TabsComponent::Tab.new(key: "activity", label: "Activity", href: @showing_user.path)
+      profile_tabs << TabsComponent::Tab.new(key: "posts",    label: "Posts",    href: @showing_user.path)
+      profile_tabs << TabsComponent::Tab.new(key: "activity", label: "Activity", href: "#{@showing_user.path}?tab=activity")
       profile_tabs << TabsComponent::Tab.new(
         key: "lists", label: "Lists",
         href: "#{@showing_user.path}?tab=lists",
@@ -200,15 +201,25 @@
             </a>
           </p>
         <% end %>
-      <% else %>
-        <% if @feed_items.present? %>
+      <% when "activity" %>
+        <% if @activity_feed_items.present? %>
           <div class="pulse-feed" style="padding: 0;">
-            <% @feed_items.each do |feed_item| %>
+            <% @activity_feed_items.each do |feed_item| %>
               <%= render 'pulse/feed_item', feed_item: feed_item %>
             <% end %>
           </div>
         <% else %>
           <p class="pulse-body-text-muted">No activity yet.</p>
+        <% end %>
+      <% else %>
+        <% if @posts_feed_items.present? %>
+          <div class="pulse-feed" style="padding: 0;">
+            <% @posts_feed_items.each do |feed_item| %>
+              <%= render 'pulse/feed_item', feed_item: feed_item %>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="pulse-body-text-muted">No posts yet.</p>
         <% end %>
       <% end %>
     </section>
