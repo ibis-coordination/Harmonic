@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.24.0] - 2026-06-10
+
+### Added
+
+- **Profile page tabs** (#225) — Posts / Activity / Lists / Common Collectives replace the old accordions. Posts is the default; Activity covers non-post notes plus decision/commitment creations.
+- **Bio, location, website on `TenantUser`** (#225) — per-tenant profile fields, edited from settings, rendered above the tabs and inline in markdown.
+- **Editable profile picture for the owner** (#225) — reuses the existing cropperjs modal. Non-owner viewers get a circular-crop lightbox instead.
+- **Tune-in button on list members, mutuals, and tune_in notifications** (#225) — hidden when viewer == target or either side blocks. Backed by a batch state service so each surface renders in O(1) per row.
+- **"📅 Joined &lt;Month YYYY&gt;" in the profile header** (#225), from `tenant_user.created_at`.
+- **`TabsComponent`** (#225) — reusable ViewComponent; the user-lists page and the Note/Decide/Commit nav both use it now.
+
+### Changed
+
+- **Profile links route to the top-level `/u/:handle`** (#225) on the collective members and team views (were collective-scoped). `CollectiveMember#path` removed.
+- **`User` enforces a backing Collective for `collective_identity` users on update** (#225) — orphan state was previously a silent crash far from its root cause.
+
+### Removed
+
+- **Social Proximity section on `/u/:handle`** (#225) — UI-only removal. The calculator, `User#social_proximity_to`, and `FeedBuilder`'s proximity ranking path remain for future use.
+
 ## [1.23.1] - 2026-06-07
 
 ### Fixed
