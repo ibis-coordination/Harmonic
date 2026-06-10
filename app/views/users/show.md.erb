@@ -51,16 +51,7 @@ You are _not tuned in_ to <%= @showing_user.display_name %>.
 You and <%= @showing_user.display_name %> have <%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>.
 <% end %>
 
-<% if @current_user != @showing_user && @common_collectives.length > 0 && !blocked_either_way %>
-## Common Collectives
-
-<% @common_collectives.each do |collective| %>
-* [<%= collective.name %>](<%= collective.path %>)
-<% end %>
-<% if @additional_common_collective_count > 0 %>
-And <%= @additional_common_collective_count %> more...
-<% end %>
-<% end %>
+<%# Sections below mirror the HTML tab order: Posts, Activity, Lists, Common Collectives. %>
 <% if @posts_feed_items.present? && !blocked_either_way %>
 
 ## Posts (<%= @posts_feed_items.size %>)
@@ -78,5 +69,24 @@ And <%= @additional_common_collective_count %> more...
 <% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
 * [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
 <% end -%>
+<% end %>
+<% if @showing_user_lists.present? && !blocked_either_way %>
+
+## Lists (<%= @showing_user_lists.size %>)
+
+<% @showing_user_lists.each do |list| -%>
+* [<%= list.display_name %>](<%= list.path %>) — <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %><%= list.private? ? " (private)" : "" %>
+<% end -%>
+<% end %>
+<% if @current_user != @showing_user && @common_collectives.length > 0 && !blocked_either_way %>
+
+## Common Collectives
+
+<% @common_collectives.each do |collective| %>
+* [<%= collective.name %>](<%= collective.path %>)
+<% end %>
+<% if @additional_common_collective_count > 0 %>
+And <%= @additional_common_collective_count %> more...
+<% end %>
 <% end %>
 

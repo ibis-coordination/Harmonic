@@ -320,6 +320,19 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes activity_ids, ["Commitment", commitment.id]
   end
 
+  test "markdown profile renders a Lists section when the owner has visible lists" do
+    UserList.create!(
+      creator: @user, owner: @user,
+      tenant: @tenant, collective: @tenant.main_collective,
+      name: "Reading",
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^## Lists/, response.body)
+    assert_match(/Reading/, response.body)
+  end
+
   test "markdown profile renders both Posts and Activity sections inline" do
     post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost")
     post_note.update!(subtype: "post")
