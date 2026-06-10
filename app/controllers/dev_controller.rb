@@ -1,5 +1,7 @@
 # typed: false
 
+require "ostruct"
+
 class DevController < ApplicationController
   before_action :ensure_development_environment
 

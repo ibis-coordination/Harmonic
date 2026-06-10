@@ -9,7 +9,15 @@ Bundler.require(*Rails.groups)
 module RailsRuby3
   class Application < Rails::Application
     # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 7.2
+    config.load_defaults 8.1
+
+    # Opt out of `executor_around_test_case`: wrapping the whole test in a
+    # Rails executor block makes the per-request `executor.wrap` reentrant,
+    # which suppresses the `to_complete` callbacks that reset
+    # CurrentAttributes between requests. That breaks tests asserting that
+    # per-request state (e.g. AutomationContext) is cleared at request
+    # boundaries — behavior we rely on in production.
+    config.active_support.executor_around_test_case = false
 
     # Configuration for the application, engines, and railties goes here.
     #
