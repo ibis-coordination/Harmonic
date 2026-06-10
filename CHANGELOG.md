@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.25.0] - 2026-06-10
+
+### Infrastructure
+
+- **Rails 7.2 → 8.1** (#226) — bumped rails, turbo-rails 2.x, view_component, jbuilder, and related Hotwire/Sentry/factory_bot gems. `config.load_defaults 8.1` flipped; opted out of `executor_around_test_case` so CurrentAttributes still reset between requests in integration tests. Qualified an ambiguous `scheduled_for` join column in `NotificationRecipient.not_scheduled`.
+- **Bundler bumps** (#227) — faraday 2.14.1 → 2.14.2, jwt patch.
+
 ## [1.24.0] - 2026-06-10
 
 ### Added
