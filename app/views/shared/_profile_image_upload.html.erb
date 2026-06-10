@@ -1,5 +1,6 @@
 <link rel="stylesheet" href="<%= asset_path 'image_cropper.css' %>">
 <% size ||= 64 %>
+<% border_radius ||= "8px" %>
 
 <div data-controller="image-cropper">
   <div class="profile-image-upload">
@@ -65,14 +66,9 @@
     width: <%= size %>px;
     height: <%= size %>px;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: <%= border_radius %>;
     overflow: hidden;
-    border: 2px dashed var(--color-border-default, #d1d5db);
-    transition: border-color 0.2s;
-  }
-
-  .profile-image-container:hover {
-    border-color: var(--color-fg-muted, #6b7280);
+    border: 1px solid var(--color-border-default);
   }
 
   .profile-image-container:hover .profile-image-overlay {

@@ -149,10 +149,10 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/lists/#{list.truncated_id}"
     assert_response :success
-    assert_select ".pulse-list-tabs a", text: /Activity/
-    assert_select ".pulse-list-tabs a", text: /Members/
+    assert_select "nav.pulse-tabs a", text: /Activity/
+    assert_select "nav.pulse-tabs a", text: /Members/
     # Activity is the default-active tab; aria-current set to "page" indicates the active one.
-    assert_select ".pulse-list-tabs a[aria-current='page']", text: /Activity/
+    assert_select "nav.pulse-tabs a[aria-current='page']", text: /Activity/
   end
 
   test "show HTML: ?tab=members marks the Members tab active and renders the member list" do
@@ -161,8 +161,47 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/lists/#{list.truncated_id}?tab=members"
     assert_response :success
-    assert_select ".pulse-list-tabs a[aria-current='page']", text: /Members/
+    assert_select "nav.pulse-tabs a[aria-current='page']", text: /Members/
     assert_select ".pulse-list-members a", text: /#{Regexp.escape(@other.display_name)}/
+  end
+
+  test "show HTML: members tab shows a tune-in button next to each non-self member" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    # @other is not yet on @user's primary list — button should read "Tune in"
+    assert_select ".pulse-list-members .pulse-tune-in-btn"
+    assert_select ".pulse-list-members .pulse-tune-in-btn", text: /Tune in/
+  end
+
+  test "show HTML: members tab hides the tune-in button on the viewer's own row" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    # Viewer is the same user that's a list owner; also add @user to the list as a member.
+    list.user_list_members.create!(added_by: @user, user: @user)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    # There must NOT be a tune-in button on the @user row (self-row).
+    # @other still gets one.
+    rendered = response.body
+    assert_match(/pulse-tune-in-btn/, rendered)
+    member_rows = Nokogiri::HTML(rendered).css(".pulse-list-members li.pulse-collective-item")
+    own_row = member_rows.find { |r| r.text.include?(@user.display_name) }
+    assert own_row, "expected the viewer's own member row to be in the rendered list"
+    assert_no_match(/pulse-tune-in-btn/, own_row.to_s)
+  end
+
+  test "show HTML: members tab hides the tune-in button when the member is blocked either way" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
+    list.user_list_members.create!(added_by: @user, user: @other)
+    UserBlock.create!(blocker: @user, blocked: @other, tenant: @tenant)
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+    assert_select ".pulse-tune-in-btn", count: 0
   end
 
   test "show HTML: self_add list shows a Join button (not a handle input) for a non-owner non-member" do
@@ -641,18 +680,20 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "profile HTML: Lists accordion renders for owner even when empty" do
+  test "profile HTML: Lists tab is present for owner; New list link appears on the Lists tab body" do
     sign_in_as(@user, tenant: @tenant)
-    get "/u/#{@user.handle}"
+    get "/u/#{@user.handle}?tab=lists"
     assert_response :success
-    assert_select "details summary", text: /Lists/
+    assert_select "nav.pulse-profile-tabs a", text: /Lists/
     assert_select "a[href='/lists/new']", text: /New list/
   end
 
-  test "profile HTML: Lists accordion is hidden when viewing another user with no visible lists" do
+  test "profile HTML: Lists tab is present (with zero count) when viewing another user with no visible lists" do
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@other.handle}"
     assert_response :success
-    assert_select "details summary", text: /^Lists/, count: 0
+    # Lists tab is always visible per the new tab visibility rules; it carries
+    # an empty state on the body. Confirm the tab is in the nav.
+    assert_select "nav.pulse-profile-tabs a", text: /Lists/
   end
 end

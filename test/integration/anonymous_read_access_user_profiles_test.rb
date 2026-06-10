@@ -50,8 +50,15 @@ class AnonymousReadAccessUserProfilesTest < ActionDispatch::IntegrationTest
     @public_tenant.add_user!(@ai_agent)
     @ai_agent_handle = @public_tenant.tenant_users.find_by(user: @ai_agent).handle
 
-    @collective_identity = User.create!(email: "ci@example.com", name: "Visible CI", user_type: "collective_identity")
-    @public_tenant.add_user!(@collective_identity)
+    # A collective_identity User only exists as the spawn of a Collective —
+    # `Collective#create_identity_user!` runs on before_validation and creates
+    # both the User and its TenantUser. Going through that path keeps the
+    # invariant intact (no orphan identity_user without a backing Collective).
+    ci_collective = Collective.create!(
+      tenant: @public_tenant, created_by: @human,
+      name: "Visible CI", handle: "visible-ci",
+    )
+    @collective_identity = ci_collective.identity_user
     @ci_handle = @public_tenant.tenant_users.find_by(user: @collective_identity).handle
 
     # Archival is on TenantUser, not User.
@@ -143,7 +150,8 @@ class AnonymousReadAccessUserProfilesTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
 
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
-    get "/u/#{@human_handle}"
+    # Decisions live on the Activity tab; Posts is the default and shows only post-subtype notes.
+    get "/u/#{@human_handle}?tab=activity"
     assert_response :success
     assert_match(/Log in.*to vote/m, response.body)
     assert_no_match(/class="pulse-feed-action-btn-link"[^>]*>[^<]*Vote/, response.body,
@@ -158,7 +166,8 @@ class AnonymousReadAccessUserProfilesTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
 
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
-    get "/u/#{@human_handle}"
+    # Commitments live on the Activity tab; Posts is the default and shows only post-subtype notes.
+    get "/u/#{@human_handle}?tab=activity"
     assert_response :success
     assert_match(/Log in.*to (join|sign|rsvp)/im, response.body)
     assert_no_match(/data-pulse-action-url-value="[^"]*\/actions\/join_commitment"/, response.body,

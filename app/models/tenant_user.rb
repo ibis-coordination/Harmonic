@@ -17,7 +17,13 @@ class TenantUser < ApplicationRecord
   # random hex handles to avoid the tenant-wide uniqueness collision).
   RESERVED_HANDLES = T.let({ "trio" => "trio" }.freeze, T::Hash[String, String])
 
+  BIO_MAX_LENGTH      = 500
+  LOCATION_MAX_LENGTH = 100
+
   validate :reserved_handle_requires_matching_system_role
+  validates :bio,      length: { maximum: BIO_MAX_LENGTH }, allow_blank: true
+  validates :location, length: { maximum: LOCATION_MAX_LENGTH }, allow_blank: true
+  validate  :website_scheme_is_http_or_https
 
   sig { void }
   def set_defaults
@@ -27,6 +33,19 @@ class TenantUser < ApplicationRecord
     T.must(self.settings)["pinned"] ||= {}
     T.must(self.settings)["roles"] ||= []
     T.must(T.must(self.settings)["roles"]) << "default"
+  end
+
+  sig { void }
+  def website_scheme_is_http_or_https
+    url = website
+    return if url.blank?
+
+    uri = URI.parse(url)
+    return if ["http", "https"].include?(uri.scheme) && uri.hostname.present?
+
+    errors.add(:website, "must be an http or https URL")
+  rescue URI::InvalidURIError
+    errors.add(:website, "is not a valid URL")
   end
 
   sig { void }

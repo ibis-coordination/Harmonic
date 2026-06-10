@@ -304,7 +304,7 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_not_includes frontmatter, "tune_out"
   end
 
-  test "markdown profile: blocked profile is mostly empty — no Common Collectives, Social Proximity, or Recent Activity sections" do
+  test "markdown profile: blocked profile is mostly empty — no Common Collectives or Recent Activity sections" do
     other_collective = Collective.create!(
       tenant: @tenant, name: "Common", handle: "common-#{SecureRandom.hex(4)}",
       collective_type: "standard", created_by: @user, updated_by: @user
@@ -317,7 +317,6 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_not_includes response.body, "## Common Collectives"
-    assert_not_includes response.body, "## Social Proximity"
     assert_not_includes response.body, "## Recent Activity"
     assert_not_includes response.body, "common collective"
   end

@@ -133,6 +133,12 @@ class User < ApplicationRecord
   validates :system_role, inclusion: { in: SYSTEM_ROLES, allow_nil: true }
   validate :ai_agent_must_have_parent
   validate :agent_mode_is_immutable, if: :ai_agent?
+  # collective_identity Users only exist as the spawn of a Collective; an
+  # orphan (no backing Collective) is data corruption. Validated on update
+  # only — the create path (Collective#create_identity_user!) instantiates
+  # the User before the Collective has been saved with identity_user_id, so
+  # an on: :create check would block every legitimate Collective creation.
+  validate :collective_identity_must_have_backing_collective, on: :update, if: :collective_identity?
 
   scope :system_agents, -> { where.not(system_role: nil) }
 
@@ -200,6 +206,19 @@ class User < ApplicationRecord
     return if old_mode == new_mode
 
     errors.add(:agent_configuration, "mode cannot be changed after agent creation")
+  end
+
+  sig { void }
+  def collective_identity_must_have_backing_collective
+    # The backing Collective can live in any tenant — Users are global,
+    # Collectives are tenant-scoped, and the current Tenant scope may not
+    # match the Collective's tenant when a User is updated. `unscope(where:
+    # :tenant_id)` lifts only the tenant clause; the safer alternatives
+    # (`tenant_scoped_only`, `unscoped_for_system_job`) don't fit because
+    # we have no tenant_id to pass and we may be inside a tenant context.
+    return if Collective.unscope(where: :tenant_id).where(identity_user_id: id).exists?
+
+    errors.add(:base, "collective_identity user must have a backing Collective")
   end
 
   sig { void }

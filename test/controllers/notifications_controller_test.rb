@@ -53,6 +53,61 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_match "Test notification", response.body
   end
 
+  # === Tune-in back button on tune_in notifications ===
+
+  test "tune_in notification renders a 'Tune in' button (viewer not yet tuned in to actor)" do
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    actor = create_user(email: "ti-actor@example.com", name: "Tune Actor")
+    @tenant.add_user!(actor); main.add_user!(actor)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    event = Event.create!(tenant: @tenant, collective: main, actor_id: actor.id, event_type: "user_list_member.added")
+    notification = Notification.create!(
+      tenant: @tenant, event: event, notification_type: "tune_in",
+      title: "Tune Actor tuned in to you", url: "/u/#{actor.handle}",
+    )
+    NotificationRecipient.create!(
+      notification: notification, user: @user, channel: "in_app", status: "delivered",
+    )
+    Collective.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/notifications"
+    assert_response :success
+    assert_select ".pulse-notification .pulse-tune-in-btn", text: /Tune in/
+  end
+
+  test "tune_in notification hides the button when viewer is already tuned in to actor" do
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    actor = create_user(email: "ti-actor-already@example.com", name: "Already Tuned")
+    @tenant.add_user!(actor); main.add_user!(actor)
+
+    # Viewer is already tuned in to actor.
+    list = @user.primary_user_list_in!(@tenant)
+    list.user_list_members.create!(
+      tenant: list.tenant, collective: list.collective, added_by: @user, user: actor,
+    )
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    event = Event.create!(tenant: @tenant, collective: main, actor_id: actor.id, event_type: "user_list_member.added")
+    notification = Notification.create!(
+      tenant: @tenant, event: event, notification_type: "tune_in",
+      title: "Already Tuned tuned in to you", url: "/u/#{actor.handle}",
+    )
+    NotificationRecipient.create!(
+      notification: notification, user: @user, channel: "in_app", status: "delivered",
+    )
+    Collective.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/notifications"
+    assert_response :success
+    # Button shows "Tuned in" (the on-state) since the viewer is already tuned in
+    assert_select ".pulse-notification .pulse-tune-in-btn", text: /Tuned in/
+  end
+
   # === Unread Count Tests ===
 
   test "unread_count returns correct count" do

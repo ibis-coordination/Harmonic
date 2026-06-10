@@ -1,0 +1,11 @@
+<nav class="pulse-tabs <%= @css_class %>">
+  <% @tabs.each do |tab| %>
+    <% active = tab.key == @active_key %>
+    <a href="<%= tab.href %>"
+       class="pulse-tab<%= ' pulse-tab-active' if active %>"
+       data-tab-key="<%= tab.key %>"
+       <% if active %>aria-current="page"<% end %>>
+      <%= tab.label %><% if tab.count %> <span class="pulse-tab-count">(<%= tab.count %>)</span><% end %>
+    </a>
+  <% end %>
+</nav>

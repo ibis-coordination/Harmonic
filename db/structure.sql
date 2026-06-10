@@ -1644,7 +1644,10 @@ CREATE TABLE public.tenant_users (
     settings jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    archived_at timestamp(6) without time zone
+    archived_at timestamp(6) without time zone,
+    bio text,
+    location character varying,
+    website character varying
 );
 
 
@@ -9849,6 +9852,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260609000000'),
 ('20260606010000'),
 ('20260606000000'),
 ('20260605000000'),

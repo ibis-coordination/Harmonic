@@ -1,0 +1,21 @@
+<%
+  # Render a tune-in toggle button for `viewer` w.r.t. `target`. Renders
+  # nothing when `viewer` is nil (anon), when viewer == target, or when
+  # there is a block in either direction (`blocked` flag).
+  #
+  # Callers MUST precompute `on_list` and `blocked` in batch when rendering
+  # many rows — see `UserBlock.blocked_pair_user_ids` and
+  # `tune_in_on_list_user_ids` for the batch-loading pattern.
+%>
+<% if viewer && viewer.id != target.id && !blocked %>
+  <%= render AjaxToggleButtonComponent.new(
+        on:        on_list,
+        on_url:    "#{target.path}/actions/tune_out",
+        on_html:   pulse_icon('tuning_in', size: :sm) + " Tuned in",
+        on_class:  "pulse-action-btn-secondary pulse-tune-in-btn",
+        off_url:   "#{target.path}/actions/tune_in",
+        off_html:  octicon('plus', height: 14) + " Tune in",
+        off_class: "pulse-action-btn pulse-tune-in-btn",
+        title:     "Tuning in adds this user's activity to your timeline view",
+      ) %>
+<% end %>

@@ -590,6 +590,15 @@
   border-radius: 6px;
 }
 
+.lightbox-img-circle {
+  border-radius: var(--border-radius-full);
+  object-fit: cover;
+  aspect-ratio: 1 / 1;
+  width: min(80vmin, 480px);
+  height: min(80vmin, 480px);
+  max-height: calc(100vh - 120px);
+}
+
 .lightbox-caption {
   margin-top: 12px;
   color: var(--color-fg-on-emphasis);
@@ -1030,6 +1039,32 @@
 
 .pulse-accordion-content {
   padding: 16px;
+}
+
+/* Tabs */
+.pulse-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border-default);
+  margin-top: 20px;
+}
+
+.pulse-tab {
+  padding: 8px 16px;
+  text-decoration: none;
+  color: var(--color-fg-default);
+  border-bottom: 2px solid transparent;
+  font-weight: 400;
+}
+
+.pulse-tab-active {
+  border-bottom-color: var(--color-fg-default);
+  font-weight: 600;
+}
+
+.pulse-tab-count {
+  color: var(--color-fg-muted);
+  font-weight: 400;
 }
 
 /* Forms */
@@ -1809,6 +1844,14 @@ h1.pulse-resource-title {
   border-radius: var(--border-radius-full);
 }
 
+.pulse-user-avatar-lightbox {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: zoom-in;
+  border-radius: var(--border-radius-full);
+}
+
 .pulse-user-info {
   flex: 1;
 }
@@ -1831,6 +1874,18 @@ h1.pulse-resource-title {
   font-size: 14px;
   color: var(--color-fg-muted);
   margin: 4px 0 0 0;
+}
+
+.pulse-user-member-since {
+  font-size: 14px;
+  margin: 4px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-user-member-since .octicon {
+  fill: currentColor;
 }
 
 .pulse-user-actions {
@@ -3643,41 +3698,32 @@ a.pulse-activity-title:hover {
   margin-top: 24px;
 }
 
-/* Create Tabs (for Note/Decision/Commitment) */
+/* Create Tabs (for Note/Decision/Commitment) — variant of .pulse-tabs */
 .pulse-create-tabs {
-  display: flex;
   gap: 24px;
+  margin-top: 0;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--color-border-default);
 }
 
-.pulse-create-tab {
+.pulse-create-tabs .pulse-tab {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 0;
-  text-decoration: none;
   color: var(--color-fg-muted);
   font-size: 14px;
   font-weight: 500;
-  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.pulse-create-tab:hover {
+.pulse-create-tabs .pulse-tab:hover {
   color: var(--color-fg-default);
   text-decoration: none;
 }
 
-.pulse-create-tab.active {
+.pulse-create-tabs .pulse-tab-active {
   color: var(--color-fg-default);
-  border-bottom-color: var(--color-fg-default);
-  text-decoration: none;
-}
-
-.pulse-create-tab.active:hover {
-  text-decoration: none;
 }
 
 /* Search Group Headers */

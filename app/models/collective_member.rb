@@ -117,16 +117,6 @@ class CollectiveMember < ApplicationRecord
     has_role?('admin')
   end
 
-  sig { returns(T.nilable(String)) }
-  def path
-    if user.collective_identity?
-      c = Collective.where(identity_user: user).first
-      c&.path
-    else
-      "#{T.must(collective).path}/u/#{user.handle}"
-    end
-  end
-
   sig { void }
   def archive!
     self.archived_at = T.cast(Time.current, ActiveSupport::TimeWithZone)

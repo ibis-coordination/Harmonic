@@ -43,6 +43,14 @@ class UserListsController < ApplicationController
       u.tenant_user = tu if tu
     end
 
+    # Batch-compute tune-in state for the rendered members so the view
+    # can render a tune-in button per row without N+1 queries.
+    @tune_in_state = TuneInState.compute(
+      viewer:     @current_user,
+      target_ids: @members.map(&:id),
+      tenant:     @current_tenant,
+    )
+
     # Feed of recent content authored by members of this list, scoped to the
     # tenant's main collective (matching the home-feed shape). Members only
     # — no self-inclusion: a custom list is "these people," not "these

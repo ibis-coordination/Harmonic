@@ -2,6 +2,22 @@
 
 Handle: `<%= @showing_user.handle %>`
 Has [<%= @mutuals_count %> <%= @mutuals_count == 1 ? "mutual" : "mutuals" %>](<%= @showing_user.path %>/mutuals)<% if @mutuals_in_common_count %> (<%= @mutuals_in_common_count %> in common)<% end %>
+<% if @showing_user.tenant_user&.created_at %>
+Joined <%= @showing_user.tenant_user.created_at.strftime("%B %Y") %>
+<% end %>
+<% _showing_tu = @showing_user.tenant_user %>
+<% if _showing_tu&.bio.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
+
+<%= _showing_tu.bio %>
+<% end %>
+<% if _showing_tu&.location.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
+
+Location: <%= _showing_tu.location %>
+<% end %>
+<% if _showing_tu&.website.present? && !(@viewer_blocks_target || @viewer_blocked_by_target) %>
+
+Website: <%= _showing_tu.website %>
+<% end %>
 <% if @showing_user.ai_agent? %>
 Type: AI Agent
 <% end %>
@@ -35,7 +51,35 @@ You are _not tuned in_ to <%= @showing_user.display_name %>.
 You and <%= @showing_user.display_name %> have <%= @common_collective_count %> common collective<%= 's' unless @common_collective_count == 1 %>.
 <% end %>
 
+<%# Sections below mirror the HTML tab order: Posts, Activity, Lists, Common Collectives. %>
+<% if @posts_feed_items.present? && !blocked_either_way %>
+
+## Posts (<%= @posts_feed_items.size %>)
+
+<% @posts_feed_items.each do |feed_item| -%>
+<% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
+* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
+<% end -%>
+<% end %>
+<% if @activity_feed_items.present? && !blocked_either_way %>
+
+## Activity (<%= @activity_feed_items.size %>)
+
+<% @activity_feed_items.each do |feed_item| -%>
+<% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
+* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
+<% end -%>
+<% end %>
+<% if @showing_user_lists.present? && !blocked_either_way %>
+
+## Lists (<%= @showing_user_lists.size %>)
+
+<% @showing_user_lists.each do |list| -%>
+* [<%= list.display_name %>](<%= list.path %>) — <%= list.members.size %> member<%= list.members.size == 1 ? "" : "s" %><%= list.private? ? " (private)" : "" %>
+<% end -%>
+<% end %>
 <% if @current_user != @showing_user && @common_collectives.length > 0 && !blocked_either_way %>
+
 ## Common Collectives
 
 <% @common_collectives.each do |collective| %>
@@ -44,22 +88,5 @@ You and <%= @showing_user.display_name %> have <%= @common_collective_count %> c
 <% if @additional_common_collective_count > 0 %>
 And <%= @additional_common_collective_count %> more...
 <% end %>
-<% end %>
-<% if @proximity_users.present? && !blocked_either_way %>
-
-## Social Proximity (<%= @proximity_users.size %>)
-
-<% @proximity_users.each do |user| %>
-* [<%= user.display_name %>](<%= user.path %>) (@<%= user.handle %>)
-<% end %>
-<% end %>
-<% if @feed_items.present? && !blocked_either_way %>
-
-## Recent Activity (<%= @feed_items.size %>)
-
-<% @feed_items.each do |feed_item| -%>
-<% next if feed_item[:created_by] && block_related_user_ids.include?(feed_item[:created_by].id) -%>
-* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
-<% end -%>
 <% end %>
 

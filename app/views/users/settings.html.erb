@@ -49,6 +49,25 @@
         <p class="pulse-form-hint">This is your unique identifier used in URLs and mentions</p>
       </div>
 
+      <% settings_tu = @settings_user.tenant_users.find_by(tenant_id: @current_tenant.id) %>
+
+      <div class="pulse-form-section">
+        <label class="pulse-form-label" for="bio">Bio</label>
+        <%= form.text_area :bio, value: settings_tu&.bio, rows: 3, class: 'pulse-form-textarea', placeholder: 'A short description' %>
+        <p class="pulse-form-hint">Up to <%= TenantUser::BIO_MAX_LENGTH %> characters.</p>
+      </div>
+
+      <div class="pulse-form-section">
+        <label class="pulse-form-label" for="location">Location</label>
+        <%= form.text_field :location, value: settings_tu&.location, class: 'pulse-form-input', placeholder: 'City, Country' %>
+      </div>
+
+      <div class="pulse-form-section">
+        <label class="pulse-form-label" for="website">Website</label>
+        <%= form.url_field :website, value: settings_tu&.website, class: 'pulse-form-input', placeholder: 'https://example.com' %>
+        <p class="pulse-form-hint">Must start with http:// or https://</p>
+      </div>
+
       <div class="pulse-form-actions">
         <%= form.submit 'Save Changes', class: 'pulse-action-btn-primary' %>
       </div>

@@ -37,6 +37,13 @@
                 <span class="pulse-body-text-muted">@<%= person.handle %></span>
               <% end %>
             </div>
+            <% if @show_tune_in_on_mutuals %>
+              <%= render "shared/tune_in_button",
+                    viewer:  @current_user,
+                    target:  person,
+                    on_list: @tune_in_state.on_list_ids.include?(person.id),
+                    blocked: @tune_in_state.blocked_pair_ids.include?(person.id) %>
+            <% end %>
           </li>
         <% end %>
       </ul>

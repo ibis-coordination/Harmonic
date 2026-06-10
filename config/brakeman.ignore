@@ -79,8 +79,16 @@
       "file": "app/jobs/backfill_search_index_job.rb",
       "line": 53,
       "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "21ab0fe00fdd5899ffc405cff75aadb91b805ee996a614f7e27b08a287e9062d",
+      "code": null,
+      "message": "Support for Rails 7.2.3.1 ends on 2026-08-09",
+      "file": "Gemfile.lock",
+      "line": 286,
+      "note": "Brakeman EOLRails warning — Rails 7.2 EOL 2026-08-09. Upgrade plan: .claude/plans/rails-8-upgrade.md. Remove this entry once Rails is bumped."
     }
   ],
-  "updated": "2026-05-04",
+  "updated": "2026-06-10",
   "brakeman_version": "8.0.4"
 }

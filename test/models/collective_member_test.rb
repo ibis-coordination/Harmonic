@@ -108,23 +108,6 @@ class CollectiveMemberTest < ActiveSupport::TestCase
     assert_not @collective_member.archived?
   end
 
-  # === path Tests ===
-
-  test "path returns collective member path for person user" do
-    expected_path = "#{@collective.path}/u/#{@user.handle}"
-    assert_equal expected_path, @collective_member.path
-  end
-
-  test "path returns collective path for identity user" do
-    identity = @collective.identity_user
-    @collective.add_user!(identity) rescue nil # May already be added
-    identity_collective_member = CollectiveMember.unscoped.find_by(user: identity, collective: @collective)
-    # Identity user's path should be the collective path
-    if identity_collective_member
-      assert_equal @collective.path, identity_collective_member.path
-    end
-  end
-
   # === Identity User Validation Tests ===
 
   test "identity user cannot be member of main collective" do

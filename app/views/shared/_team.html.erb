@@ -1,7 +1,7 @@
 <ul>
 <% team.each do |u| %>
   <li>
-    <a href="<%= u.collective_member.path %>" class="user-profile-link">
+    <a href="<%= u.path %>" class="user-profile-link">
       <%= inline_avatar(u) %> <%= u.display_name %>
     </a>
     <% if u.ai_agent? %>

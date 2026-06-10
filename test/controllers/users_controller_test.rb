@@ -208,93 +208,381 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# User: #{@user.display_name}"
   end
 
-  # === Social Proximity visibility ===
-  #
-  # The Social Proximity accordion exposes the profile owner's social graph.
-  # It must ONLY be visible to the profile owner themselves — not to other
-  # logged-in users, not to anon viewers.
-  #
-  # Test cache is :null_store (see config/environments/test.rb) so we can't
-  # seed proximity via Rails.cache.write — every fetch misses and recomputes.
-  # Stubbing SocialProximityCalculator.new lets us return deterministic
-  # scores for the duration of a request without depending on a real graph.
-  def with_stubbed_proximity(owner:, others:)
-    fake_calculator = Class.new do
-      def initialize(scores); @scores = scores; end
-      def compute; @scores; end
-    end.new(others.each_with_index.to_h { |u, i| [u.id, 1.0 - (i * 0.1)] })
+  # === Tabs on /u/:handle ===
 
-    original = SocialProximityCalculator.method(:new)
-    SocialProximityCalculator.define_singleton_method(:new) do |*_, **_|
-      fake_calculator
-    end
-    yield
-  ensure
-    SocialProximityCalculator.singleton_class.send(:remove_method, :new)
-    SocialProximityCalculator.define_singleton_method(:new, original)
+  test "profile page renders a tab nav with Posts, Activity, Lists, and (when viewing other w/ commons) Common Collectives" do
+    other = create_user(email: "other-tab-viewer@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    common = Collective.create!(
+      tenant: @tenant, name: "Common", handle: "common-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    common.add_user!(@user)
+    common.add_user!(other)
+
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs"
+    assert_select "nav.pulse-profile-tabs a", text: /Posts/
+    assert_select "nav.pulse-profile-tabs a", text: /Activity/
+    assert_select "nav.pulse-profile-tabs a", text: /Lists/
+    assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/
   end
 
-  test "social proximity section IS shown when viewing OWN profile" do
-    proximate = create_user(email: "proxi@example.com", name: "Proximate Person")
-    @tenant.add_user!(proximate)
+  test "profile page hides Common Collectives tab when viewing own profile" do
     sign_in_as(@user, tenant: @tenant)
-
-    with_stubbed_proximity(owner: @user, others: [proximate]) do
-      get "/u/#{@user.handle}"
-    end
+    get "/u/#{@user.handle}"
     assert_response :success
-    assert_match(/Social Proximity/, response.body)
-    assert_match(/Proximate Person/, response.body)
+    assert_select "nav.pulse-profile-tabs"
+    assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/, count: 0
   end
 
-  test "social proximity section is HIDDEN when a different logged-in user views the profile" do
-    proximate = create_user(email: "proxi2@example.com", name: "Proximate Person")
-    @tenant.add_user!(proximate)
-    other = create_user(email: "other-viewer@example.com", name: "Other Viewer")
+  test "profile page hides Common Collectives tab when no common collectives" do
+    other = create_user(email: "no-common-viewer@example.com", name: "Other Viewer")
     @tenant.add_user!(other)
     sign_in_as(other, tenant: @tenant)
-
-    with_stubbed_proximity(owner: @user, others: [proximate]) do
-      get "/u/#{@user.handle}"
-    end
+    get "/u/#{@user.handle}"
     assert_response :success
-    assert_no_match(/Social Proximity/, response.body,
-                    "another logged-in user must not see the profile owner's social graph")
-    assert_no_match(/Proximate Person/, response.body,
-                    "the proximate user's name leaked")
+    assert_select "nav.pulse-profile-tabs a", text: /Common Collectives/, count: 0
   end
 
-  test "social proximity section is HIDDEN in markdown when a different logged-in user views" do
-    proximate = create_user(email: "proxi3@example.com", name: "Proximate Person")
-    @tenant.add_user!(proximate)
-    other = create_user(email: "other-viewer-md@example.com", name: "Other Viewer")
+  test "profile page defaults to Posts tab" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Posts/
+  end
+
+  test "Posts tab shows only post-subtype notes" do
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post")
+    post_note.update!(subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder")
+    reminder_note.update!(subtype: "reminder")
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=posts"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Posts/
+    assert_includes response.body, "A Post"
+    assert_not_includes response.body, "A Reminder"
+  end
+
+  test "Activity tab excludes post-subtype notes; surfaces non-post notes" do
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post")
+    post_note.update!(subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder")
+    reminder_note.update!(subtype: "reminder")
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=activity"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Activity/
+    assert_not_includes response.body, "A Post"
+    assert_includes response.body, "A Reminder"
+  end
+
+  test "Posts and Activity partition the legacy feed (union equals baseline, no overlap)" do
+    main = @tenant.main_collective
+    post = create_note(tenant: @tenant, collective: main, created_by: @user, title: "P")
+    post.update!(subtype: "post")
+    reminder = create_note(tenant: @tenant, collective: main, created_by: @user, title: "R")
+    reminder.update!(subtype: "reminder")
+    decision = create_decision(tenant: @tenant, collective: main, created_by: @user, question: "D?")
+    commitment = create_commitment(tenant: @tenant, collective: main, created_by: @user, title: "C")
+
+    baseline = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@tenant).where(created_by_id: @user.id),
+      decisions_scope: Decision.main_collective_scope(@tenant).where(created_by_id: @user.id),
+      commitments_scope: Commitment.main_collective_scope(@tenant).where(created_by_id: @user.id),
+    ).feed_items
+
+    posts_only = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@tenant).where(created_by_id: @user.id, subtype: "post"),
+      decisions_scope: Decision.none,
+      commitments_scope: Commitment.none,
+    ).feed_items
+
+    activity_only = FeedBuilder.new(
+      notes_scope: Note.main_collective_scope(@tenant).where(created_by_id: @user.id).where.not(subtype: "post"),
+      decisions_scope: Decision.main_collective_scope(@tenant).where(created_by_id: @user.id),
+      commitments_scope: Commitment.main_collective_scope(@tenant).where(created_by_id: @user.id),
+    ).feed_items
+
+    baseline_ids   = baseline.map { |i| [i[:type], i[:item].id] }.to_set
+    posts_ids      = posts_only.map { |i| [i[:type], i[:item].id] }.to_set
+    activity_ids   = activity_only.map { |i| [i[:type], i[:item].id] }.to_set
+
+    assert_equal baseline_ids, (posts_ids | activity_ids), "posts ∪ activity must equal baseline feed"
+    assert_empty (posts_ids & activity_ids), "no item may appear in both posts and activity"
+    # Sanity: each fixture lands somewhere.
+    assert_includes posts_ids,    ["Note", post.id]
+    assert_includes activity_ids, ["Note", reminder.id]
+    assert_includes activity_ids, ["Decision", decision.id]
+    assert_includes activity_ids, ["Commitment", commitment.id]
+  end
+
+  test "markdown profile renders a Lists section when the owner has visible lists" do
+    UserList.create!(
+      creator: @user, owner: @user,
+      tenant: @tenant, collective: @tenant.main_collective,
+      name: "Reading",
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^## Lists/, response.body)
+    assert_match(/Reading/, response.body)
+  end
+
+  test "markdown profile renders both Posts and Activity sections inline" do
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost")
+    post_note.update!(subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdReminder")
+    reminder_note.update!(subtype: "reminder")
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^## Posts/, response.body)
+    assert_match(/^## Activity/, response.body)
+    assert_includes response.body, "MdPost"
+    assert_includes response.body, "MdReminder"
+  end
+
+  test "?tab=lists makes Lists the active tab and Activity feed isn't rendered" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=lists"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs a[aria-current=page]", text: /Lists/
+    assert_select ".pulse-feed", count: 0
+  end
+
+  test "blocked-either-way profile shows no tab nav" do
+    other = create_user(email: "blocked-tab-viewer@example.com", name: "Other Viewer")
+    @tenant.add_user!(other)
+    UserBlock.create!(blocker: other, blocked: @user, tenant: @tenant)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "nav.pulse-profile-tabs", count: 0
+  end
+
+  test "markdown profile renders all sections inline regardless of ?tab" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}?tab=lists", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    # Markdown view ignores ?tab and renders all sections that have content.
+    assert_no_match(/pulse-profile-tabs/, response.body)
+  end
+
+  # === "Joined" header line ===
+
+  test "profile header shows the month and year the user joined the tenant" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update_column(:created_at, Time.zone.local(2024, 3, 15))
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-member-since", text: /Joined March 2024/
+    assert_select ".pulse-user-member-since svg.octicon-calendar"
+  end
+
+  test "profile markdown includes the joined month and year" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update_column(:created_at, Time.zone.local(2025, 1, 1))
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^Joined January 2025/, response.body)
+  end
+
+  # === Profile pic editor on /u/:handle ===
+
+  test "profile page shows the image-cropper editor for the profile owner" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "[data-controller='image-cropper']"
+    assert_select "form[action=?][method=?]", "/u/#{@user.handle}/image", "post"
+    assert_select "input[name='cropped_image_data']"
+  end
+
+  test "profile page hides the image-cropper editor for a non-owner viewer" do
+    other = create_user(email: "non-owner-viewer@example.com", name: "Non Owner")
     @tenant.add_user!(other)
     sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "[data-controller='image-cropper']", count: 0
+    assert_select "form[action=?]", "/u/#{@user.handle}/image", count: 0
+  end
 
-    with_stubbed_proximity(owner: @user, others: [proximate]) do
-      get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+  test "non-owner viewer can click the showing user's image to open a lightbox" do
+    image = Vips::Image.black(100, 100) + [128, 64, 200]
+    tempfile = Tempfile.new(["lightbox", ".png"])
+    tempfile.close
+    image.write_to_file(tempfile.path)
+    @user.image.attach(io: File.open(tempfile.path), filename: "lightbox.png", content_type: "image/png")
+
+    other = create_user(email: "lightbox-viewer@example.com", name: "Lightbox Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "button.pulse-user-avatar-lightbox[data-controller='lightbox']"
+    assert_select "button.pulse-user-avatar-lightbox[data-action*='lightbox#open']"
+  end
+
+  test "lightbox trigger is absent when the showing user has no uploaded image" do
+    other = create_user(email: "no-image-viewer@example.com", name: "No Image Viewer")
+    @tenant.add_user!(other)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select "button.pulse-user-avatar-lightbox", count: 0
+  end
+
+  # === TenantUser profile fields: bio / location / website ===
+
+  test "profile HTML shows bio, location, website when set on the viewed user's TenantUser" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update!(
+      bio: "Likes long walks on the gradient.",
+      location: "Seattle, WA",
+      website: "https://example.com/me",
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_includes response.body, "Likes long walks on the gradient."
+    assert_includes response.body, "Seattle, WA"
+    assert_select "a.pulse-user-website a, .pulse-user-website a" do
+      assert_select "[href=?]", "https://example.com/me"
+      assert_select "[rel*=nofollow]"
     end
+  end
+
+  test "profile HTML hides the profile info block when all three fields are blank" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-profile-info", count: 0
+  end
+
+  test "profile HTML hides the profile info block when blocked either way" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update!(bio: "Hidden when blocked")
+    other = create_user(email: "blocked-bio-viewer@example.com", name: "Blocked Viewer")
+    @tenant.add_user!(other)
+    UserBlock.create!(blocker: other, blocked: @user, tenant: @tenant)
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{@user.handle}"
+    assert_response :success
+    assert_select ".pulse-user-profile-info", count: 0
+  end
+
+  test "profile markdown renders bio + location + website" do
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    tu.update!(
+      bio: "Md bio body.",
+      location: "Md Location",
+      website: "https://md.example.com",
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Md bio body."
+    assert_match(/^Location: Md Location/, response.body)
+    assert_match(%r{^Website: https://md\.example\.com}, response.body)
+  end
+
+  test "update_profile persists bio / location / website to TenantUser" do
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/profile", params: {
+      bio: "Updated bio",
+      location: "New York",
+      website: "https://updated.example.com",
+    }
+    assert_response :redirect
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_equal "Updated bio", tu.bio
+    assert_equal "New York", tu.location
+    assert_equal "https://updated.example.com", tu.website
+  end
+
+  test "update_profile rejects an invalid website scheme and redirects with an error" do
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{@user.handle}/settings/profile", params: { website: "javascript:alert(1)" }
+    assert_response :redirect
+    follow_redirect!
+    assert_match(/http or https/i, response.body)
+    tu = @user.tenant_users.find_by(tenant_id: @tenant.id)
+    assert_nil tu.website
+  end
+
+  test "settings page renders the bio / location / website form fields" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}/settings"
+    assert_response :success
+    assert_select "textarea[name=?]", "bio"
+    assert_select "input[name=?]", "location"
+    assert_select "input[name=?][type=?]", "website", "url"
+  end
+
+  # === Tune-in buttons on /u/:handle/mutuals ===
+
+  def add_to_primary_list(list:, member:, added_by:)
+    list.user_list_members.create!(
+      tenant:     list.tenant,
+      collective: list.collective,
+      added_by:   added_by,
+      user:       member,
+    )
+  end
+
+  test "another user's mutuals page shows a tune-in button next to each non-self mutual" do
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    other = create_user(email: "tu-mutuals-other@example.com", name: "Other")
+    @tenant.add_user!(other); main.add_user!(other)
+    third = create_user(email: "tu-mutuals-third@example.com", name: "Third Person")
+    @tenant.add_user!(third); main.add_user!(third)
+    # @other ↔ third are mutuals.
+    add_to_primary_list(list: other.primary_user_list_in!(@tenant), member: third, added_by: other)
+    add_to_primary_list(list: third.primary_user_list_in!(@tenant), member: other, added_by: third)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{other.handle}/mutuals"
+    assert_response :success
+    # @user is not yet tuned in to `third` — should see a Tune in button on third's row.
+    assert_select ".pulse-list-members .pulse-tune-in-btn", text: /Tune in/
+  end
+
+  test "your own mutuals page hides the tune-in button (every row is already reciprocal)" do
+    main = @tenant.main_collective
+    main.add_user!(@user) unless main.user_is_member?(@user)
+    other = create_user(email: "own-mutuals-other@example.com", name: "Other")
+    @tenant.add_user!(other); main.add_user!(other)
+    # @user ↔ other are mutuals.
+    add_to_primary_list(list: @user.primary_user_list_in!(@tenant), member: other, added_by: @user)
+    add_to_primary_list(list: other.primary_user_list_in!(@tenant), member: @user, added_by: other)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}/mutuals"
+    assert_response :success
+    assert_select ".pulse-tune-in-btn", count: 0
+  end
+
+  test "profile page does not render a Social Proximity section (HTML)" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{@user.handle}"
     assert_response :success
     assert_no_match(/Social Proximity/, response.body)
   end
 
-  # Regression: the proximity cache can return user IDs for people who are
-  # no longer in the tenant (e.g., removed since the cache was warmed).
-  # User#archived? would crash on those because it does T.must(tenant_user).
-  # load_proximity_connections must look up the TenantUser first and skip
-  # users without one.
-  test "self-profile does not 500 when a proximate user has no tenant_user" do
-    ex_member = create_user(email: "ex-member-#{SecureRandom.hex(4)}@example.com", name: "Ex Member")
-    @tenant.add_user!(ex_member)
-    # Now remove them from the tenant — proximity cache still references them.
-    TenantUser.unscope(where: :tenant_id).where(user_id: ex_member.id, tenant_id: @tenant.id).delete_all
-
+  test "profile page does not render a Social Proximity section (markdown)" do
     sign_in_as(@user, tenant: @tenant)
-    with_stubbed_proximity(owner: @user, others: [ex_member]) do
-      get "/u/#{@user.handle}"
-    end
+    get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_not_includes response.body, "Ex Member"
+    assert_no_match(/Social Proximity/, response.body)
   end
 
   # === AiAgent Count Tests (HTML) ===

@@ -1835,5 +1835,42 @@ class UserTest < ActiveSupport::TestCase
     assert identity.present?
     assert_equal HasImage::COLLECTIVE_AVATAR_COLOR, identity.avatar_color
   end
+
+  # === collective_identity backing-Collective invariant ===
+
+  test "Collective creation succeeds even though identity_user has no backing Collective at the moment of User.create!" do
+    # `Collective#create_identity_user!` instantiates the identity User before
+    # the Collective has been saved with identity_user_id; the on: :update
+    # qualifier on the validation keeps this legitimate path open.
+    tenant = create_tenant(subdomain: "ci-create-#{SecureRandom.hex(4)}")
+    human = create_user(email: "hum-ci-#{SecureRandom.hex(4)}@example.com")
+    tenant.add_user!(human)
+    assert_nothing_raised do
+      Collective.create!(tenant: tenant, created_by: human, name: "C", handle: "c-#{SecureRandom.hex(4)}")
+    end
+  end
+
+  test "updating an orphan collective_identity user fails with the backing-Collective validation" do
+    # Manufacture the corruption case by creating the User directly (bypassing
+    # the Collective flow). Subsequent update must be rejected.
+    orphan = User.create!(
+      email: "orphan-ci-#{SecureRandom.hex(4)}@example.com",
+      name: "Orphan CI",
+      user_type: "collective_identity",
+    )
+    orphan.name = "Renamed"
+    assert_not orphan.valid?
+    assert_match(/must have a backing Collective/, orphan.errors[:base].join)
+  end
+
+  test "updating a collective_identity user with a backing Collective passes validation" do
+    tenant = create_tenant(subdomain: "ci-upd-#{SecureRandom.hex(4)}")
+    human = create_user(email: "hum-ci-upd-#{SecureRandom.hex(4)}@example.com")
+    tenant.add_user!(human)
+    collective = Collective.create!(tenant: tenant, created_by: human, name: "Ok", handle: "ok-#{SecureRandom.hex(4)}")
+    identity = collective.identity_user
+    identity.name = "Renamed"
+    assert identity.valid?, identity.errors.full_messages.to_sentence
+  end
 end
 
