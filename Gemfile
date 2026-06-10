@@ -4,7 +4,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 ruby "3.3.7"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 7.2"
+gem "rails", "~> 8.1"
 
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
@@ -19,7 +19,7 @@ gem "puma", "~> 6.0"
 gem "jsbundling-rails"
 
 # Hotwire's SPA-like page accelerator [https://turbo.hotwired.dev]
-gem "turbo-rails"
+gem "turbo-rails", "~> 2.0"
 
 # Hotwire's modest JavaScript framework [https://stimulus.hotwired.dev]
 gem "stimulus-rails"
@@ -87,6 +87,10 @@ end
 gem 'sorbet-runtime'
 
 group :test do
+  # Pin minitest to 5.x — 6.0 dropped bundled helpers (minitest/mock) and
+  # Rails 8.1's test_help wasn't updated for it.
+  gem "minitest", "~> 5.20"
+
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
@@ -121,7 +125,7 @@ gem 'redcarpet'
 gem 'octicons_helper'
 
 # ViewComponent - component-based view architecture
-gem "view_component", "~> 4.9.0"
+gem "view_component", "~> 4.12"
 
 gem 'aws-sdk-s3', '~> 1.208'
 
