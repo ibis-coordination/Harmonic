@@ -63,7 +63,7 @@ export async function login(page: Page, options: LoginOptions): Promise<void> {
   ])
 
   if (await otpField.isVisible()) {
-    await otpField.fill(process.env.E2E_2FA_CODE || "333333")
+    await otpField.fill(process.env.DEV_2FA_BYPASS_CODE || "333333")
     // The verify form is also bot-protected — same minimum form time
     await page.waitForTimeout(1500)
     await page.locator('input[type="submit"][value="Verify"]').click()

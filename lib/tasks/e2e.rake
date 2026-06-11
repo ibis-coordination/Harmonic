@@ -52,9 +52,20 @@ namespace :e2e do
     end
 
     # Seed a fresh unread notification so the notifications spec has data.
-    # The spec dismisses it, so these don't accumulate across runs.
+    # Prior seeds are removed first so repeated setup runs stay idempotent.
     if tenant.main_collective
       Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: tenant.main_collective.handle)
+
+      NotificationRecipient
+        .where(user: user, tenant: tenant)
+        .joins(:notification)
+        .where(notifications: { title: "[E2E] You were mentioned" })
+        .destroy_all
+      Notification
+        .where(title: "[E2E] You were mentioned")
+        .where.missing(:notification_recipients)
+        .destroy_all
+
       event = Event.create!(tenant: tenant, collective: tenant.main_collective, event_type: "note.created")
       notification = Notification.create!(
         tenant: tenant,
