@@ -131,7 +131,7 @@ Surveyed while reviewing; each is independent. Recommended disposition in bracke
 
 1. **Help doc gaps** [bundle into Phase 4]. `/help/notifications` documents 5 of 8 notification types — `participation` (votes, decision resolved, commitment joined, critical mass), `system`, and `trio_unavailable` are missing from both the trigger table and the channel-defaults table.
 
-2. **Retention/purge** [small follow-up PR]. Dismissed recipient rows and their notifications accumulate forever. Add a scheduled system job (inherit per `check-job-inheritance.sh` rules) purging dismissed rows older than ~90 days, and orphaned `notifications` with no remaining recipients. Cheap, prevents unbounded growth.
+2. **Retention/purge** [shipped on this branch]. Dismissed recipient rows and their notifications accumulate forever. `PurgeDismissedNotificationsJob` (daily, 4 AM) purges recipients dismissed more than 90 days ago and orphaned `notifications` with no remaining recipients, excluding those referenced by a reminder note; supported by a partial index on `dismissed_at`.
 
 3. **Real-time badge via Turbo Streams** [worthwhile, separate plan]. The badge polls every 30s per open tab — latency and constant background traffic. Broadcasting a Turbo Stream on recipient create/read/dismiss (Hotwire is already in the stack, Redis present) would make the badge instant and remove polling. Touches layout + delivery path; deserves its own doc.
 
