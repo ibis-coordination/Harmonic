@@ -43,6 +43,11 @@ Sidekiq.configure_server do |_config|
       "class" => "HardDeleteExpiredRecordsJob",
       "description" => "Tombstone soft-deleted Notes whose grace period has expired",
     },
+    "purge_dismissed_notifications" => {
+      "cron" => "0 4 * * *", # Daily at 4 AM
+      "class" => "PurgeDismissedNotificationsJob",
+      "description" => "Delete long-dismissed notification recipients and orphaned notifications",
+    },
   }
 
   Sidekiq::Cron::Job.load_from_hash(schedule)
