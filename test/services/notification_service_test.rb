@@ -388,4 +388,134 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal "pending", normal_recipient.status
     assert_nil normal_recipient.dismissed_at
   end
+
+  # === Read State ===
+
+  test "unread_count_for does not count read notifications" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Test")
+
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+    read_recipient = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+    read_recipient.mark_read!
+
+    assert_equal 1, NotificationService.unread_count_for(user, tenant: tenant)
+  end
+
+  test "mark_all_read_for marks unread in_app notifications read without dismissing" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Test")
+
+    unread1 = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+    unread2 = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending")
+    email_recipient = NotificationRecipient.create!(notification: notification, user: user, channel: "email", status: "pending")
+    dismissed = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+    dismissed.dismiss!
+    dismissed_read_at = dismissed.reload.read_at
+
+    count = NotificationService.mark_all_read_for(user, tenant: tenant)
+
+    assert_equal 2, count
+
+    [unread1, unread2, email_recipient, dismissed].each(&:reload)
+
+    assert unread1.read?
+    assert_nil unread1.dismissed_at
+    assert unread2.read?
+    assert_nil unread2.dismissed_at
+
+    # Email rows and already-dismissed rows are untouched
+    assert_nil email_recipient.read_at
+    assert_equal dismissed_read_at, dismissed.read_at
+  end
+
+  test "mark_all_read_for does not mark future scheduled reminders" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    notification = Notification.create!(tenant: tenant, event: nil, notification_type: "reminder", title: "Future reminder")
+    future = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "pending",
+      scheduled_for: 1.hour.from_now,
+    )
+
+    count = NotificationService.mark_all_read_for(user, tenant: tenant)
+
+    assert_equal 0, count
+    assert_nil future.reload.read_at
+  end
+
+  test "mark_all_read_for_collective only marks notifications for that collective" do
+    tenant, collective1, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+
+    collective2 = Collective.create!(tenant: tenant, name: "Second Collective", handle: "second-collective", created_by: user)
+
+    event1 = Event.create!(tenant: tenant, collective: collective1, event_type: "note.created", actor: user)
+    notification1 = Notification.create!(tenant: tenant, event: event1, notification_type: "mention", title: "Collective1 notification")
+    recipient1 = NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    event2 = Event.create!(tenant: tenant, collective: collective2, event_type: "note.created", actor: user)
+    notification2 = Notification.create!(tenant: tenant, event: event2, notification_type: "mention", title: "Collective2 notification")
+    recipient2 = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    count = NotificationService.mark_all_read_for_collective(user, tenant: tenant, collective_id: collective1.id)
+
+    assert_equal 1, count
+
+    assert recipient1.reload.read?
+    assert_not recipient2.reload.read?
+  end
+
+  test "dismiss_all_for dismisses read notifications and sets read_at on unread ones" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Test")
+
+    unread = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+    read = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+    read.mark_read!
+    original_read_at = read.read_at
+
+    NotificationService.dismiss_all_for(user, tenant: tenant)
+
+    [unread, read].each(&:reload)
+
+    assert unread.dismissed?
+    assert unread.read_at.present?, "dismissing implies reading"
+    assert read.dismissed?
+    assert_equal original_read_at, read.read_at
+  end
+
+  test "notify_chat_message! creates a new notification when the prior one is read" do
+    tenant, collective, sender = create_tenant_collective_user
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    url = "/chat/#{sender.id}"
+    NotificationService.notify_chat_message!(sender: sender, recipient: recipient, tenant: tenant, url: url)
+
+    NotificationRecipient.where(user: recipient).in_app.unread.each(&:mark_read!)
+
+    assert_difference "NotificationRecipient.where(user: recipient).count", 1 do
+      NotificationService.notify_chat_message!(sender: sender, recipient: recipient, tenant: tenant, url: url)
+    end
+
+    assert_equal 1, NotificationRecipient.where(user: recipient).in_app.unread.count
+  end
 end

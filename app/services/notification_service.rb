@@ -52,16 +52,18 @@ class NotificationService
   def self.notify_chat_message!(sender:, recipient:, tenant:, url:)
     return if sender.id == recipient.id
 
-    # Find existing undismissed chat_message notification from this sender to this recipient
+    # Find existing unread chat_message notification from this sender to this
+    # recipient. Read or dismissed ones don't suppress — a new message after
+    # the recipient has seen the old notification is new information.
     existing = NotificationRecipient
       .joins(:notification)
       .where(user: recipient, tenant: tenant, channel: "in_app")
-      .where(dismissed_at: nil)
+      .where(dismissed_at: nil, read_at: nil)
       .where(notifications: { notification_type: "chat_message", url: url })
       .first
 
     if existing
-      # Already have an undismissed notification from this sender — nothing to do.
+      # Already have an unread notification from this sender — nothing to do.
       # The notification stays at its original position in the inbox.
     else
       notification = Notification.create!(
@@ -106,7 +108,7 @@ class NotificationService
       .where(user: user, tenant: tenant, channel: "in_app")
       .where(dismissed_at: nil)
       .where(notifications: { notification_type: "chat_message", url: chat_url })
-      .update_all(dismissed_at: Time.current, status: "dismissed")
+      .update_all(dismiss_attributes)
   end
 
   sig { params(user: User, tenant: Tenant).returns(Integer) }
@@ -122,24 +124,18 @@ class NotificationService
     # Exclude scheduled future reminders - they shouldn't be dismissed before they trigger
     NotificationRecipient
       .where(user: user, tenant: tenant)
-      .in_app.unread.not_scheduled.update_all(
-        dismissed_at: Time.current,
-        status: "dismissed"
-      )
+      .in_app.undismissed.not_scheduled.update_all(dismiss_attributes)
   end
 
   sig { params(user: User, tenant: Tenant, collective_id: String).returns(Integer) }
   def self.dismiss_all_for_collective(user, tenant:, collective_id:)
     # Dismiss all notifications for a specific collective
     # We bypass the collective scope on Event by using tenant_scoped_only
-    event_ids = Event.tenant_scoped_only(tenant.id).where(collective_id: collective_id).pluck(:id)
-    notification_ids = Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
-
     NotificationRecipient
       .where(user: user, tenant: tenant)
-      .where(notification_id: notification_ids)
-      .in_app.unread.not_scheduled
-      .update_all(dismissed_at: Time.current, status: "dismissed")
+      .where(notification_id: notification_ids_for_collective(tenant, collective_id))
+      .in_app.undismissed.not_scheduled
+      .update_all(dismiss_attributes)
   end
 
   sig { params(user: User, tenant: Tenant).returns(Integer) }
@@ -149,8 +145,40 @@ class NotificationService
       .joins(:notification)
       .where(user: user, tenant: tenant)
       .where(notifications: { event_id: nil })
+      .in_app.undismissed.not_scheduled
+      .update_all(dismiss_attributes)
+  end
+
+  sig { params(user: User, tenant: Tenant).returns(Integer) }
+  def self.mark_all_read_for(user, tenant:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
       .in_app.unread.not_scheduled
-      .update_all(dismissed_at: Time.current, status: "dismissed")
+      .update_all(read_at: Time.current)
+  end
+
+  sig { params(user: User, tenant: Tenant, collective_id: String).returns(Integer) }
+  def self.mark_all_read_for_collective(user, tenant:, collective_id:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .where(notification_id: notification_ids_for_collective(tenant, collective_id))
+      .in_app.unread.not_scheduled
+      .update_all(read_at: Time.current)
+  end
+
+  # Dismissing implies reading: rows dismissed in bulk keep an existing
+  # read_at and get one stamped otherwise. The COALESCE reference is
+  # table-qualified because some callers join :notification.
+  sig { returns(T::Array[T.untyped]) }
+  def self.dismiss_attributes
+    now = Time.current
+    ["dismissed_at = ?, status = 'dismissed', read_at = COALESCE(notification_recipients.read_at, ?)", now, now]
+  end
+
+  sig { params(tenant: Tenant, collective_id: String).returns(T::Array[String]) }
+  def self.notification_ids_for_collective(tenant, collective_id)
+    event_ids = Event.tenant_scoped_only(tenant.id).where(collective_id: collective_id).pluck(:id)
+    Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
   end
 
   # Fires `notifications.delivered` for user-notification webhook routing.
@@ -184,4 +212,6 @@ class NotificationService
   rescue StandardError => e
     Rails.logger.error("Failed to fire notifications.delivered event: #{e.message}")
   end
+
+  private_class_method :dismiss_attributes, :notification_ids_for_collective
 end

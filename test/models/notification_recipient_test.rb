@@ -368,6 +368,159 @@ class NotificationRecipientTest < ActiveSupport::TestCase
     assert nr.valid?
   end
 
+  # === Read State ===
+
+  test "mark_read! sets read_at without changing status" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "mention",
+      title: "Test",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    assert_not recipient.read?
+
+    recipient.mark_read!
+
+    assert recipient.read_at.present?
+    assert recipient.read?
+    assert_equal "delivered", recipient.status
+  end
+
+  test "mark_read! preserves the original read_at when called again" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "mention",
+      title: "Test",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    recipient.mark_read!
+    original_read_at = recipient.read_at
+
+    travel 1.hour do
+      recipient.mark_read!
+    end
+
+    assert_equal original_read_at, recipient.read_at
+  end
+
+  test "dismiss! sets read_at when not already read" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "mention",
+      title: "Test",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    recipient.dismiss!
+
+    assert recipient.read_at.present?
+    assert recipient.read?
+    assert recipient.dismissed?
+  end
+
+  test "dismiss! preserves read_at when already read" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "mention",
+      title: "Test",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    recipient.mark_read!
+    original_read_at = recipient.read_at
+
+    travel 1.hour do
+      recipient.dismiss!
+    end
+
+    assert_equal original_read_at, recipient.read_at
+    assert recipient.dismissed?
+  end
+
+  test "unread, read, and undismissed scopes filter by read and dismissed state" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: "mention",
+      title: "Test",
+    )
+
+    unread = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+
+    read = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+    read.mark_read!
+
+    dismissed = NotificationRecipient.create!(
+      notification: notification,
+      user: user,
+      channel: "in_app",
+      status: "delivered",
+    )
+    dismissed.dismiss!
+
+    assert_includes NotificationRecipient.unread.to_a, unread
+    assert_not_includes NotificationRecipient.unread.to_a, read
+    assert_not_includes NotificationRecipient.unread.to_a, dismissed
+
+    assert_not_includes NotificationRecipient.read.to_a, unread
+    assert_includes NotificationRecipient.read.to_a, read
+    assert_not_includes NotificationRecipient.read.to_a, dismissed
+
+    assert_includes NotificationRecipient.undismissed.to_a, unread
+    assert_includes NotificationRecipient.undismissed.to_a, read
+    assert_not_includes NotificationRecipient.undismissed.to_a, dismissed
+  end
+
   test "validates tenant matches notification tenant" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

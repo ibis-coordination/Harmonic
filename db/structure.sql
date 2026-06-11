@@ -4448,6 +4448,13 @@ CREATE INDEX index_notification_recipients_on_user_id_and_status ON public.notif
 
 
 --
+-- Name: index_notification_recipients_unread; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_unread ON public.notification_recipients USING btree (user_id, tenant_id) WHERE ((read_at IS NULL) AND (dismissed_at IS NULL) AND ((channel)::text = 'in_app'::text));
+
+
+--
 -- Name: index_notifications_on_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9852,6 +9859,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260611000000'),
 ('20260609000000'),
 ('20260606010000'),
 ('20260606000000'),
