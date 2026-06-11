@@ -166,6 +166,17 @@ class NotificationService
       .update_all(read_at: Time.current)
   end
 
+  sig { params(user: User, tenant: Tenant).returns(Integer) }
+  def self.mark_all_read_reminders(user, tenant:)
+    # Mark all notifications without an event (i.e., reminders that have become due)
+    NotificationRecipient
+      .joins(:notification)
+      .where(user: user, tenant: tenant)
+      .where(notifications: { event_id: nil })
+      .in_app.unread.not_scheduled
+      .update_all(read_at: Time.current)
+  end
+
   # Dismissing implies reading: rows dismissed in bulk keep an existing
   # read_at and get one stamped otherwise. The COALESCE reference is
   # table-qualified because some callers join :notification.

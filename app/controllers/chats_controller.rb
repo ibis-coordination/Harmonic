@@ -35,6 +35,10 @@ class ChatsController < ApplicationController
     @turn_running = @chat_session.task_runs.exists?(status: ["queued", "running"])
     check_agent_busy
 
+    # Viewing the conversation acknowledges it — the notification's job is
+    # done once the recipient is looking at the messages.
+    NotificationService.dismiss_chat_notifications_from!(user: current_user, sender: @partner, tenant: current_tenant)
+
     respond_to do |format|
       format.html
       format.md

@@ -477,6 +477,26 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_not recipient2.reload.read?
   end
 
+  test "mark_all_read_reminders only marks due reminders without events" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    reminder_notification = Notification.create!(tenant: tenant, event: nil, notification_type: "reminder", title: "Due reminder")
+    reminder = NotificationRecipient.create!(notification: reminder_notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user)
+    normal_notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Normal notification")
+    normal = NotificationRecipient.create!(notification: normal_notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    count = NotificationService.mark_all_read_reminders(user, tenant: tenant)
+
+    assert_equal 1, count
+    assert reminder.reload.read?
+    assert_nil reminder.dismissed_at
+    assert_not normal.reload.read?
+  end
+
   test "dismiss_all_for dismisses read notifications and sets read_at on unread ones" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

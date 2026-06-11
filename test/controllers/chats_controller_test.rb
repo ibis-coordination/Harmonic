@@ -739,6 +739,33 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "viewing the chat dismisses notifications from that partner" do
+    other_human = create_user(email: "view-dismiss-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    @collective.add_user!(other_human)
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_human).handle
+
+    # Other human sends a message to current user
+    sign_in_as(other_human, tenant: @tenant)
+    my_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+    post "/chat/#{my_handle}/message", params: { message: "Hey!" }
+    assert_response :ok
+
+    with_tenant_scope do
+      assert_equal 1, NotificationRecipient.where(user: @user).in_app.undismissed.count
+    end
+
+    # Current user views the conversation without replying
+    sign_in_as(@user, tenant: @tenant)
+    get "/chat/#{other_handle}"
+    assert_response :success
+
+    with_tenant_scope do
+      assert_equal 0, NotificationRecipient.where(user: @user).in_app.undismissed.count,
+        "viewing the chat should dismiss the notification from that partner"
+    end
+  end
+
   test "notification URL points to the sender's chat page" do
     post "/chat/#{@agent_handle}/message", params: { message: "Check URL" }
     assert_response :ok

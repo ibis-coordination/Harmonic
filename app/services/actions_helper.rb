@@ -631,6 +631,36 @@ class ActionsHelper
       ],
       authorization: :authenticated,
     },
+    "dismiss_for_chat" => {
+      description: "Dismiss chat notifications from a specific chat partner",
+      params_string: "(handle)",
+      params: [
+        { name: "handle", type: "string", description: "The handle of the chat partner whose notifications to dismiss" },
+      ],
+      authorization: :authenticated,
+    },
+    "mark_read" => {
+      description: "Mark a notification as read without dismissing it",
+      params_string: "(id)",
+      params: [
+        { name: "id", type: "string", description: "The ID of the notification recipient to mark read" },
+      ],
+      authorization: :authenticated,
+    },
+    "mark_all_read" => {
+      description: "Mark all notifications as read without dismissing them",
+      params_string: "()",
+      params: [],
+      authorization: :authenticated,
+    },
+    "mark_read_for_collective" => {
+      description: "Mark all notifications for a specific collective as read",
+      params_string: "(collective_id)",
+      params: [
+        { name: "collective_id", type: "string", description: "The ID of the collective, or 'reminders' to mark due reminders read" },
+      ],
+      authorization: :authenticated,
+    },
 
     # Webhook actions
     # Webhooks can be created for collectives (requires collective_admin) or users (requires self/representative).
@@ -1327,6 +1357,14 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["dismiss_all"][:description], },
         { name: "dismiss_for_collective", params_string: ACTION_DEFINITIONS["dismiss_for_collective"][:params_string],
           description: ACTION_DEFINITIONS["dismiss_for_collective"][:description], },
+        { name: "dismiss_for_chat", params_string: ACTION_DEFINITIONS["dismiss_for_chat"][:params_string],
+          description: ACTION_DEFINITIONS["dismiss_for_chat"][:description], },
+        { name: "mark_read", params_string: ACTION_DEFINITIONS["mark_read"][:params_string],
+          description: ACTION_DEFINITIONS["mark_read"][:description], },
+        { name: "mark_all_read", params_string: ACTION_DEFINITIONS["mark_all_read"][:params_string],
+          description: ACTION_DEFINITIONS["mark_all_read"][:description], },
+        { name: "mark_read_for_collective", params_string: ACTION_DEFINITIONS["mark_read_for_collective"][:params_string],
+          description: ACTION_DEFINITIONS["mark_read_for_collective"][:description], },
       ],
     },
     "/search" => {
