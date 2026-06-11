@@ -22,14 +22,22 @@
             No unread notifications
           <% end %>
         </span>
-        <% if @unread_count > 0 %>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <% if @unread_count > 0 %>
+            <button type="button"
+                    class="pulse-action-btn-secondary"
+                    data-action="click->notification-actions#markAllRead"
+                    data-notification-actions-target="markAllReadButton">
+              Mark all read
+            </button>
+          <% end %>
           <button type="button"
                   class="pulse-action-btn-secondary"
                   data-action="click->notification-actions#dismissAll"
                   data-notification-actions-target="dismissAllButton">
             Dismiss all
           </button>
-        <% end %>
+        </div>
       </div>
 
       <div class="pulse-notifications-grouped">
@@ -50,6 +58,13 @@
               <div style="display: flex; align-items: center; gap: 8px;">
                 <button type="button"
                         class="pulse-action-btn-small pulse-action-btn-secondary"
+                        data-action="click->notification-actions#markReadForCollective"
+                        data-collective-id="<%= collective_id %>"
+                        style="font-size: 12px; padding: 4px 8px;">
+                  Mark read
+                </button>
+                <button type="button"
+                        class="pulse-action-btn-small pulse-action-btn-secondary"
                         data-action="click->notification-actions#dismissForCollective"
                         data-collective-id="<%= collective_id %>"
                         style="font-size: 12px; padding: 4px 8px;">
@@ -63,11 +78,16 @@
                 <% recipients.each do |recipient| %>
                   <div data-notification-item="<%= recipient.id %>"
                        data-collective-id="<%= collective_id %>"
-                       class="pulse-notification pulse-notification-unread">
-                    <div class="pulse-notification-indicator"></div>
+                       class="pulse-notification<%= ' pulse-notification-unread' unless recipient.read? %>">
+                    <% unless recipient.read? %>
+                      <div class="pulse-notification-indicator"></div>
+                    <% end %>
                     <div class="pulse-notification-content">
                       <% if recipient.notification.url.present? %>
-                        <a href="<%= recipient.notification.url %>" class="pulse-notification-message">
+                        <a href="<%= recipient.notification.url %>"
+                           class="pulse-notification-message"
+                           data-action="click->notification-actions#markReadOnNavigate"
+                           data-notification-id="<%= recipient.id %>">
                           <%= recipient.notification.title %>
                         </a>
                       <% else %>
@@ -88,6 +108,16 @@
                               target:  tune_in_actor,
                               on_list: @tune_in_state.on_list_ids.include?(tune_in_actor.id),
                               blocked: @tune_in_state.blocked_pair_ids.include?(tune_in_actor.id) %>
+                      <% end %>
+                      <% unless recipient.read? %>
+                        <button type="button"
+                                class="pulse-action-btn-icon"
+                                title="Mark read"
+                                data-mark-read-button
+                                data-action="click->notification-actions#markRead"
+                                data-notification-id="<%= recipient.id %>">
+                          <%= octicon 'check', height: 14 %>
+                        </button>
                       <% end %>
                       <button type="button"
                               class="pulse-action-btn-icon"

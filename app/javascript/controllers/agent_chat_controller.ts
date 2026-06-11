@@ -57,6 +57,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
     hasOlderMessages: Boolean,
     oldestTimestamp: String,
     partnerIsAgent: Boolean,
+    partnerHandle: String,
     currentUserId: String,
   }
 
@@ -76,6 +77,7 @@ export default class AgentChatController extends Controller<HTMLElement> {
   declare hasOlderMessagesValue: boolean
   declare oldestTimestampValue: string
   declare partnerIsAgentValue: boolean
+  declare partnerHandleValue: string
   declare currentUserIdValue: string
 
   declare readonly messagesTarget: HTMLElement
@@ -309,6 +311,27 @@ export default class AgentChatController extends Controller<HTMLElement> {
     this.lastTimestamp = data.timestamp
     this.waitingForResponse = false
     this.scrollToBottom()
+    this.dismissPartnerNotifications()
+  }
+
+  // The user is watching the conversation, so the notification created for
+  // this message has already served its purpose — dismiss it server-side
+  // and let the badge refresh. Skipped when the tab is hidden: the user
+  // hasn't actually seen the message yet.
+  private dismissPartnerNotifications(): void {
+    if (document.visibilityState !== "visible") return
+    if (!this.partnerHandleValue) return
+
+    fetchWithCsrf("/notifications/actions/dismiss_for_chat", {
+      method: "POST",
+      body: JSON.stringify({ handle: this.partnerHandleValue }),
+    })
+      .then(() => {
+        window.dispatchEvent(new CustomEvent("notifications:changed"))
+      })
+      .catch(() => {
+        // Fire-and-forget: the badge poll will catch up
+      })
   }
 
   // --- Message sending ---
