@@ -198,7 +198,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui notifications representation].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui notifications representation billing].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
