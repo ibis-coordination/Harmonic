@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.26.0] - 2026-06-11
+
+### Added
+
+- **Notification read state** (#228) — unread → read → dismissed, with mark-read actions in both interfaces; the badge counts only unread. Chat notifications dismiss on viewing the conversation; rows dismissed >90 days are purged daily.
+- **Participation notifications** (#229) — commitment joins and critical mass, decision votes (deduped per voter while unread), and decision resolution now notify. These were documented but never fired: the dispatcher handled five event types that nothing emitted.
+
+### Changed
+
+- **Comments emit `comment.*` events instead of `note.*`** (#229) — automation rules can distinguish comments from top-level notes. Existing `self_or_reply` rules (including Trio's) were migrated to match both; bare `note.created` rules no longer fire for comments.
+- **Notification suppression keys on unread, not undismissed** (#228) — a new chat message or re-tune-in after the prior notification was read notifies again.
+
+### Documentation
+
+- **Docs refresh** (#229) — AUTOMATIONS.md rewritten (current event vocabulary, corrected webhook signing scheme, notification-webhooks and billing-gate sections); smaller fixes across ARCHITECTURE.md, USER_TYPES.md, STYLE_GUIDE.md, DEPLOYMENT.md, and several help topics.
+
 ## [1.25.0] - 2026-06-10
 
 ### Infrastructure
