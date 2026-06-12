@@ -52,16 +52,18 @@ class SessionsController < ApplicationController
         return
       end
 
-      # Check if this is an identity provider login with 2FA enabled
-      if request.env['omniauth.auth'].provider == 'identity'
-        omni_auth_identity = identity.user.omni_auth_identity
-        if omni_auth_identity&.otp_enabled
-          # Redirect to 2FA verification instead of completing login
-          session[:pending_2fa_identity_id] = omni_auth_identity.id
-          session[:pending_2fa_started_at] = Time.current.to_i
-          redirect_to '/login/verify-2fa'
-          return
-        end
+      # Challenge for the second factor regardless of provider. An external
+      # OAuth provider attests the user's identity with *its* credentials,
+      # but a require_2fa tenant's policy shouldn't be bypassable by picking
+      # the login method that skips the prompt — a compromised GitHub session
+      # would otherwise walk straight in.
+      omni_auth_identity = identity.user.omni_auth_identity
+      if omni_auth_identity&.otp_enabled
+        # Redirect to 2FA verification instead of completing login
+        session[:pending_2fa_identity_id] = omni_auth_identity.id
+        session[:pending_2fa_started_at] = Time.current.to_i
+        redirect_to '/login/verify-2fa'
+        return
       end
 
       session[:user_id] = identity.user.id
@@ -187,7 +189,12 @@ class SessionsController < ApplicationController
     # reads from cookies[:redirect_to_subdomain]
     tenant = original_tenant
     delete_redirect_to_subdomain_cookie
-    # TODO check if user is allowed to access this tenant
+    # No tenant-access check here by design: the token only proves "this user
+    # authenticated"; whether they may access the tenant is enforced on the
+    # tenant subdomain in process_token_and_redirect_to_resource_or_root
+    # (membership / invite / require_invite? checks, suspension, and the
+    # explicit-acceptance flow). Checking here would duplicate that gate
+    # with a second, divergence-prone copy.
     return redirect_to root_path unless tenant && current_user
     token = encrypt_token(tenant.id, current_user.id)
     set_shared_domain_cookie(:token, token, path: "/login/callback")
