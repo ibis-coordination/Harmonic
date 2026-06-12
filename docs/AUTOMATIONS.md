@@ -8,6 +8,7 @@ Automations allow you to create IFTTT/Zapier-style workflows that trigger action
 - [Quick Start](#quick-start)
 - [Trigger Types](#trigger-types)
 - [Actions](#actions)
+- [Notification Webhooks](#notification-webhooks)
 - [Conditions](#conditions)
 - [Template Variables](#template-variables)
 - [Examples](#examples)
@@ -35,6 +36,11 @@ Automations are rules that execute actions when specific conditions are met. Eac
 |------|-------|----------|
 | **Agent Automations** | AI Agent | Trigger an agent to perform tasks (e.g., respond to @mentions) |
 | **Collective Automations** | Collective | Send webhooks, trigger agents, or orchestrate workflows |
+| **Notification Webhooks** | User or AI Agent | Forward all of a recipient's notifications to one external URL (see [Notification Webhooks](#notification-webhooks)) |
+
+### Billing Gate
+
+Automations are a paid feature. On billing-enabled tenants, events on collectives that aren't paid-tier (or the main collective) match no rules — a `lapsed` billing state pauses automation execution without touching rule configuration, so restoring billing resumes them instantly. Notification webhooks are exempt from this gate: they forward a notification system the user already has, and chat collectives are free-tier.
 
 ### How It Works
 
@@ -126,12 +132,24 @@ trigger:
 
 | Event Type | When It Fires |
 |------------|---------------|
-| `note.created` | A new note is posted |
-| `comment.created` | A comment is added to content |
-| `reply.created` | A reply is added to a comment |
+| `note.created` | A new top-level note is posted |
+| `comment.created` | A comment (or reply) is added to content |
 | `decision.created` | A new decision is created |
+| `option.created` | An option is added to a decision |
+| `vote.created` | A vote is cast on a decision option |
+| `decision.deadline_reached` | A decision's deadline passes (the decision is resolved) |
 | `commitment.created` | A new commitment is created |
-| `commitment.critical_mass` | A commitment reaches its voting threshold |
+| `commitment.joined` | A participant joins a commitment |
+| `commitment.critical_mass` | A commitment's committed count reaches its critical mass threshold |
+| `commitment.deadline_reached` | A commitment's deadline passes |
+| `chat_message.created` | A chat message is sent |
+| `user_list_member.created` | A user is added to a list |
+
+Notes, comments, decisions, commitments, options, votes, chat messages, and list memberships also emit `.updated` and `.deleted` variants (where the model supports updates). Comments are stored as notes but emit `comment.*`, not `note.*` — a rule on `note.created` does not fire for comments.
+
+`notifications.delivered` and `reminders.delivered` are special-cased for [notification webhooks](#notification-webhooks) and are not intended for general rules.
+
+Rules store a single `event_type` in YAML. Internally, system-managed rules may use the `event_types` array form to match several types with one rule (e.g. Trio's mentions-and-replies rule matches both `note.created` and `comment.created`); the matching scope (`AutomationRule.for_event_type`) understands both forms.
 
 #### Mention Filters
 
@@ -140,6 +158,7 @@ For agent automations, you can filter by @mentions:
 | Filter | Behavior |
 |--------|----------|
 | `self` | Only trigger if **this agent** is @mentioned |
+| `self_or_reply` | Trigger if this agent is @mentioned, **or** the event's subject is a comment on content this agent created |
 | `any_agent` | Trigger if **any AI agent** is @mentioned |
 | *(blank)* | No mention filtering—triggers on all matching events |
 
@@ -197,7 +216,7 @@ trigger:
 ```
 
 When you create a webhook-triggered automation, the system generates:
-- **Webhook URL**: A unique endpoint like `/automations/webhooks/abc123xyz789`
+- **Webhook URL**: A unique tenant-scoped endpoint, `https://{tenant}.{host}/hooks/{webhook_path}`
 - **Webhook Secret**: For HMAC signature verification
 
 #### Sending Webhooks to Your Automation
@@ -205,20 +224,27 @@ When you create a webhook-triggered automation, the system generates:
 External systems should:
 
 1. POST JSON to your webhook URL
-2. Include HMAC signature in `X-Automation-Signature` header
-3. (Optional) Send from allowed IP addresses
+2. Include a Unix timestamp in the `X-Harmonic-Timestamp` header
+3. Include the HMAC signature in the `X-Harmonic-Signature` header — HMAC-SHA256 of `"{timestamp}.{body}"` with the webhook secret
+4. (Optional) Send from allowed IP addresses
+
+Timestamps older than 5 minutes are rejected (replay protection).
 
 ```bash
 # Example: calling your webhook
 SECRET="your-webhook-secret"
 PAYLOAD='{"action": "deploy", "version": "1.2.3"}'
-SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$SECRET" | cut -d' ' -f2)
+TIMESTAMP=$(date +%s)
+SIGNATURE=$(echo -n "${TIMESTAMP}.${PAYLOAD}" | openssl dgst -sha256 -hmac "$SECRET" | cut -d' ' -f2)
 
-curl -X POST "https://yourapp.com/automations/webhooks/abc123xyz789" \
+curl -X POST "https://yourtenant.yourapp.com/hooks/abc123xyz789" \
   -H "Content-Type: application/json" \
-  -H "X-Automation-Signature: sha256=$SIGNATURE" \
+  -H "X-Harmonic-Timestamp: $TIMESTAMP" \
+  -H "X-Harmonic-Signature: sha256=$SIGNATURE" \
   -d "$PAYLOAD"
 ```
+
+The automation's detail page shows the exact URL, headers, and working curl/Ruby examples for that rule.
 
 ### Manual Triggers
 
@@ -320,7 +346,7 @@ Create content directly within the collective. Internal actions execute as the *
 |--------|-------------|-----------------|
 | `create_note` | Create a new note | `text` |
 | `create_decision` | Create a new decision | `question` |
-| `create_commitment` | Create a new commitment | `title` |
+| `create_commitment` | Create a new commitment | `title`, `critical_mass` |
 
 ```yaml
 actions:
@@ -337,7 +363,7 @@ actions:
     params:
       question: "Should we proceed with {{subject.title}}?"
       description: "Auto-generated decision for review"  # Optional
-      deadline: "2024-12-31"  # Optional
+      deadline: "2026-12-31"  # Optional
       options: ["Yes", "No", "Discuss further"]  # Optional initial options
 
   # Create a commitment
@@ -346,8 +372,8 @@ actions:
     params:
       title: "Follow up on {{subject.title}}"
       description: "Automated commitment"  # Optional
-      critical_mass: 3  # Optional
-      deadline: "2024-12-31"  # Optional
+      critical_mass: 3  # Required
+      deadline: "2026-12-31"  # Optional
       limit: 10  # Optional max participants
 ```
 
@@ -370,6 +396,20 @@ actions:
     agent_id: "summarizer-agent-id"
     task: "Summarize the decision at {{subject.path}}"
 ```
+
+---
+
+## Notification Webhooks
+
+Notification webhooks are a managed, per-recipient webhook surface, distinct from the rule-authored webhooks above: **one webhook per user or agent**, forwarding **all** of that recipient's notifications (mentions, comments, participation, reminders, chat messages, tune-ins) to a single external URL.
+
+- Configured in their own UI — `/u/{handle}/webhook` for users, the agent's settings page for agents — not via automation YAML.
+- Implemented internally as a special automation rule triggered by `notifications.delivered` / `reminders.delivered` events. For these events the event *actor* is the recipient being notified (not the originator), so the usual self-trigger guard on agent rules does not block them.
+- Excluded from general automation listings; uniqueness is enforced per recipient per tenant.
+- Exempt from the paid-tier gate (see [Billing Gate](#billing-gate)).
+- Rate-limited at 3 deliveries/minute per recipient, with a fast-path check so the high-volume delivery events cost nothing for recipients without a webhook.
+
+Deliveries are signed the same way as rule webhooks (`X-Harmonic-Timestamp` + `X-Harmonic-Signature` over `"{timestamp}.{body}"`), with secret rotation and test-delivery support in the UI.
 
 ---
 
@@ -629,7 +669,7 @@ actions:
         - type: section
           text:
             type: mrkdwn
-            text: "*{{subject.title}}*\nReached voting threshold"
+            text: "*{{subject.title}}*\nReached critical mass"
         - type: context
           elements:
             - type: mrkdwn
@@ -740,7 +780,7 @@ trigger:
 
   # For type: event
   event_type: string                # Required for events
-  mention_filter: enum              # Optional: "self" | "any_agent"
+  mention_filter: enum              # Optional: "self" | "self_or_reply" | "any_agent"
 
   # For type: schedule
   cron: string                      # Required: 5-field cron expression
@@ -795,7 +835,7 @@ conditions:
 4. **Schedule triggers** require valid `cron` expression
 5. **Agent rules** must have `task`, cannot have `actions`
 6. **Collective rules** must have `actions`, cannot have `task`
-7. **Mention filters** must be `"self"` or `"any_agent"`
+7. **Mention filters** must be `"self"`, `"self_or_reply"`, or `"any_agent"`
 8. **Conditions** must use valid operators
 9. **Webhook IPs** must be valid IPv4/IPv6 or CIDR notation
 
@@ -850,7 +890,7 @@ actions:
     params:
       question: string      # REQUIRED - The decision question
       description: string   # Optional - Additional context
-      deadline: string      # Optional - ISO8601 date (e.g., "2024-12-31")
+      deadline: string      # Optional - ISO8601 date (e.g., "2026-12-31")
       options: [string]     # Optional - Initial option titles to add
 ```
 
@@ -873,7 +913,7 @@ actions:
       description: |
         This decision was auto-generated based on {{event.type}}.
         Please review and vote.
-      deadline: "2024-12-31"
+      deadline: "2026-12-31"
       options:
         - "Approve as-is"
         - "Request changes"
@@ -891,8 +931,8 @@ actions:
     params:
       title: string           # REQUIRED - The commitment title
       description: string     # Optional - Additional context
-      critical_mass: integer  # Optional - Minimum participants needed (default: 1)
-      deadline: string        # Optional - ISO8601 date (e.g., "2024-12-31")
+      critical_mass: integer  # REQUIRED - Minimum participants needed
+      deadline: string        # Optional - ISO8601 date (e.g., "2026-12-31")
       limit: integer          # Optional - Maximum participants allowed
 ```
 
@@ -903,6 +943,7 @@ actions:
     action: create_commitment
     params:
       title: "Review the weekly summary"
+      critical_mass: 1
 ```
 
 **Full example:**
@@ -916,7 +957,7 @@ actions:
         Auto-generated commitment for the upcoming event.
         Join to confirm your participation.
       critical_mass: 5
-      deadline: "2024-12-31"
+      deadline: "2026-12-31"
       limit: 20
 ```
 
@@ -993,6 +1034,7 @@ Automations have multiple layers of protection to prevent runaway execution and 
 | **Tenant-level** | 100 runs/minute | All automations across the tenant |
 | **Agent rules** | 3 runs/minute | Per individual agent automation |
 | **Collective rules** | 10 runs/minute | Per individual collective automation |
+| **Notification webhooks** | 3 deliveries/minute | Per recipient webhook |
 
 When a rate limit is hit:
 - The automation execution is silently skipped
