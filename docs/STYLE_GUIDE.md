@@ -15,8 +15,10 @@ Key token families: `--color-fg-*` (text), `--color-canvas-*` (backgrounds), `--
 ## Typography
 
 **Font stack:** `-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`
-**Monospace:** `"Source Code Pro", "Lucida Console", monospace`
+**Monospace:** `ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace` (use `var(--fontStack-monospace)`)
 **Line height:** 1.5
+
+Recommended defaults for new components (existing components vary):
 
 | Element | Size | Weight |
 |---------|------|--------|

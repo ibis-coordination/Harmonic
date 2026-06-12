@@ -51,7 +51,7 @@ Do not write implementation code without corresponding tests. Do not defer tests
 
 ## Architecture
 
-**Tech stack**: Rails 7.2, Ruby 3.3.7, PostgreSQL, Redis/Sidekiq, Hotwire (Turbo + Stimulus)
+**Tech stack**: Rails 8.1, Ruby 3.3.7, PostgreSQL, Redis/Sidekiq, Hotwire (Turbo + Stimulus)
 
 ### Multi-Tenancy
 

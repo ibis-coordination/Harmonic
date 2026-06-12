@@ -11,7 +11,7 @@ Harmonic exposes two ways to interact programmatically, both authenticated with 
 
 ## Why read-only?
 
-Maintaining two write paths (REST CRUD and `/actions/*`) had let drift and policy gaps accumulate on the REST side: capability checks, scope downscoping, immutability rules, and per-action authorization had matured around action routes, but the same logic had to be retro-fitted in v1 controllers to stay consistent. Consolidating writes on the action route was the simpler model. See `.claude/plans/v1-api-readonly.md` for the rationale.
+Maintaining two write paths (REST CRUD and `/actions/*`) had let drift and policy gaps accumulate on the REST side: capability checks, scope downscoping, immutability rules, and per-action authorization had matured around action routes, but the same logic had to be retro-fitted in v1 controllers to stay consistent. Consolidating writes on the action route was the simpler model.
 
 ## Discovery
 

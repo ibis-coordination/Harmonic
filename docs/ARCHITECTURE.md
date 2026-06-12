@@ -196,6 +196,21 @@ Link
 └── scoped to same tenant and collective
 ```
 
+#### UserList
+User-curated groups of users, served at `/lists`. Each user has a primary list built by **tuning in** to other users (displayed as "tuned in"; its attributes are immutable and it strictly belongs to its owner), plus optional named custom lists.
+
+```ruby
+UserList
+├── belongs_to :tenant, :collective, :creator, :owner
+├── has_many :user_list_members → :members (User)
+├── visibility: public | private
+├── add_policy: owner_only | self_add | members_add | anyone_add
+├── is_primary: boolean            # the tune-in list; one per owner per tenant
+└── includes HasTruncatedId, SoftDeletable
+```
+
+Member additions emit `user_list_member.created` events, which drive tune-in notifications. Search supports a `list:` filter (list id, or `mutuals` / `tuned_in` shorthands).
+
 ### Supporting Entities
 
 | Entity | Purpose |
@@ -213,12 +228,18 @@ Shared behaviors extracted into concerns:
 
 | Concern | Purpose | Used By |
 |---------|---------|---------|
-| `HasTruncatedId` | Short 8-char IDs for URLs | Note, Decision, Commitment |
+| `HasTruncatedId` | Short 8-char IDs for URLs | Note, Decision, Commitment, UserList, others |
 | `Linkable` | Bidirectional linking | Note, Decision, Commitment |
 | `Pinnable` | Can be pinned to collective | Note, Decision, Commitment |
 | `Attachable` | File attachments | Note, Decision, Commitment |
 | `Commentable` | Comments (which are Notes) | Note, Decision, Commitment |
-| `Tracked` | Webhook tracking (stubbed) | Note, Decision, Commitment |
+| `Tracked` | Emits `<model>.created/updated/deleted` events feeding notifications and automations | Note, Decision, Commitment, Option, Vote, ChatMessage, UserListMember |
+| `SoftDeletable` | Grace-period soft delete before hard delete | Note, Decision, Commitment, UserList |
+| `Searchable` | Maintains search index entries | Note, Decision, Commitment |
+| `InvalidatesSearchIndex` | Reindexes the parent item when child records change | Option, Vote, Link, CommitmentParticipant, NoteHistoryEvent, Note |
+| `TracksUserItemStatus` | Per-user participation/read status on items | Note, Decision, Commitment, Vote, CommitmentParticipant, NoteHistoryEvent |
+| `HasRepresentationSessionEvents` | Records actions taken during representation sessions | Note, Decision, Commitment, Option, Vote, participants, Heartbeat |
+| `Statementable` | Generated statements | Decision, Commitment, RepresentationSession |
 | `HasImage` | Profile/collective images | User, Collective |
 | `CanPin` | Can pin other items | Collective |
 

@@ -2,7 +2,7 @@
 
 ## Production Deployment
 
-Production uses pre-built Docker images from GitHub Container Registry. No source code needed on the server.
+Production uses pre-built Docker images from GitHub Container Registry. No source code needed on the server. The application stack (Rails 8.1, Ruby 3.3.7) ships inside the image, so framework upgrades arrive as ordinary image releases — but releases that include a framework upgrade should always use the migration deploy path below.
 
 ### Server Setup (One-Time)
 

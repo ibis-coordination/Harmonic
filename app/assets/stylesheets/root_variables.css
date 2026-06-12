@@ -18,6 +18,9 @@
   --avatar-size-default: 32px;
   --avatar-size-lg: 80px;
 
+  /* Font stacks */
+  --fontStack-monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
   /* Border radius */
   --border-radius-sm: 2px;
   --border-radius-default: 4px;
