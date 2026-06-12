@@ -178,19 +178,9 @@ class BillingController < ApplicationController
 
   def activate_pending_resources!
     stripe_customer = current_user.stripe_customer
+    return unless stripe_customer
 
-    # Activate ALL pending agents (cross-tenant — one subscription covers everything)
-    # Also backfill stripe_customer_id for agents created before billing was set up
-    pending_agents = current_user.ai_agents.where(pending_billing_setup: true)
-    if stripe_customer
-      pending_agents.where(stripe_customer_id: nil).update_all(stripe_customer_id: stripe_customer.id)
-    end
-    pending_agents.update_all(pending_billing_setup: false)
-
-    # Activate ALL pending collectives (cross-tenant)
-    Collective.for_user_across_tenants(current_user).where(
-      pending_billing_setup: true,
-    ).update_all(pending_billing_setup: false)
+    StripeService.activate_pending_resources_for(stripe_customer)
   end
 
   def find_owned_agent

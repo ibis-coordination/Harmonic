@@ -178,6 +178,65 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal "sub_test123", sc.stripe_subscription_id
   end
 
+  test "handle_webhook checkout.session.completed activates pending agents" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_pending_act", active: false)
+    agent = create_ai_agent(parent: @user, name: "Pending Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+    agent.update!(pending_billing_setup: true)
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: { "customer" => "cus_pending_act", "subscription" => "sub_pending_act" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    agent.reload
+    assert_not agent.pending_billing_setup?,
+               "paying on Stripe must activate pending agents even if the user never returns to the app"
+    assert_equal sc.id, agent.stripe_customer_id
+  end
+
+  test "handle_webhook checkout.session.completed clears legacy pending collectives" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_pending_coll", active: false)
+    collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Pending Coll #{SecureRandom.hex(4)}",
+      handle: "pending-coll-#{SecureRandom.hex(4)}",
+    )
+    # No current flow sets this on collectives; set directly to model a
+    # legacy row that should be healed.
+    collective.update!(pending_billing_setup: true)
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: { "customer" => "cus_pending_coll", "subscription" => "sub_pending_coll" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    assert_not collective.reload.pending_billing_setup?
+  end
+
+  test "handle_webhook checkout.session.completed redelivery after activation is a no-op" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_redeliver", active: false)
+    agent = create_ai_agent(parent: @user, name: "Redeliver Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+    agent.update!(pending_billing_setup: true)
+
+    event = build_stripe_event(
+      type: "checkout.session.completed",
+      object: { "customer" => "cus_redeliver", "subscription" => "sub_redeliver" },
+    )
+
+    StripeService.handle_webhook_event(event)
+    StripeService.handle_webhook_event(event)
+
+    assert_not agent.reload.pending_billing_setup?
+    assert sc.reload.active
+  end
+
   test "handle_webhook checkout.session.completed overwrites a stale subscription_id from a previously cancelled subscription" do
     # Re-upgrade-after-zero-quantity-cancel scenario: user dropped to zero
     # paid resources, sync_subscription_quantity! cancelled their Stripe

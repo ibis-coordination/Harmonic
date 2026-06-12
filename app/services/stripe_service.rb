@@ -385,12 +385,38 @@ class StripeService
       collective&.confirm_upgrade!
     end
 
+    # Activate resources created before billing was set up. The synchronous
+    # checkout-return path does this too, but the user may never come back
+    # to the app after paying (closed tab) — the webhook is the reliable
+    # path. Idempotent, so double execution is safe.
+    activate_pending_resources_for(sc)
+
     # If the customer was previously inactive (e.g. subscription lapsed and
     # they just re-upped), restore any lapsed collectives now that billing
     # is active again.
     restore_lapsed_collectives_for(sc) if !was_active && sc.billable.is_a?(User)
   end
   private_class_method :handle_subscription_checkout_completed
+
+  # Clear pending_billing_setup on the customer's resources and backfill
+  # stripe_customer_id on agents that were created before billing existed.
+  # Called from the checkout webhook, the synchronous checkout-return path
+  # (BillingController), and the reconciliation job's recovery sweep.
+  # Collectives no longer enter the pending state (the tier model replaced
+  # creation-time billing) — clearing them heals legacy rows.
+  sig { params(stripe_customer: StripeCustomer).void }
+  def self.activate_pending_resources_for(stripe_customer)
+    user = stripe_customer.billable
+    return unless user.is_a?(User)
+
+    pending_agents = user.ai_agents.where(pending_billing_setup: true)
+    pending_agents.where(stripe_customer_id: nil).update_all(stripe_customer_id: stripe_customer.id)
+    pending_agents.update_all(pending_billing_setup: false)
+
+    Collective.for_user_across_tenants(user)
+      .where(pending_billing_setup: true)
+      .update_all(pending_billing_setup: false)
+  end
 
   sig { params(session: T.untyped).void }
   def self.handle_credit_topup_completed(session)
