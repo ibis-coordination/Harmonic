@@ -77,18 +77,20 @@
           </tr>
         </thead>
         <tbody>
+          <%# Avoids is_main_collective?, which loads the tenant per row %>
+          <% main_collective_id = @showing_tenant.main_collective_id %>
           <% @tenant_collectives.each do |collective| %>
             <tr>
               <td><%= collective.name %> <code class="pulse-code"><%= collective.handle %></code></td>
               <td>
-                <% if collective.is_main_collective? %>
+                <% if collective.id == main_collective_id %>
                   <span class="pulse-muted">main (never billed)</span>
                 <% else %>
                   <%= collective.tier %><%= " (exempt)" if collective.billing_exempt? %>
                 <% end %>
               </td>
               <td style="text-align: right;">
-                <% unless collective.is_main_collective? %>
+                <% unless collective.id == main_collective_id %>
                   <%= form_tag "/app-admin/collectives/#{collective.id}/actions/toggle_billing_exempt", method: :post, style: "display:inline",
                                data: { turbo_confirm: collective.billing_exempt? ? "Revoke billing exemption for #{collective.name}?" : "Grant billing exemption to #{collective.name}?" } do %>
                     <button type="submit" class="pulse-action-btn-small">

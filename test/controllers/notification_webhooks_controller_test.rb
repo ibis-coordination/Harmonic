@@ -53,6 +53,22 @@ class NotificationWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_select "button", text: /Create webhook/i
   end
 
+  test "GET show shows the exemption notice instead of pricing for billing_exempt users" do
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(billing_exempt: true)
+
+    get "/u/#{@user_handle}/webhook"
+
+    assert_response :success
+    assert_no_match(%r{\$3/mo}i, response.body,
+                    "exempt users are never charged and never sent to Stripe — no pricing claims")
+    assert_match(/exempt/i, response.body,
+                 "tell the exempt user why the webhook is free")
+  ensure
+    @user.update!(billing_exempt: false)
+    @tenant.disable_feature_flag!("stripe_billing")
+  end
+
   test "GET show renders the manage view when a webhook exists" do
     rule = create_webhook_for(@user)
     get "/u/#{@user_handle}/webhook"

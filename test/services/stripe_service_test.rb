@@ -197,6 +197,33 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal sc.id, agent.stripe_customer_id
   end
 
+  test "activate_pending_resources_for logs recovered resource counts" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_recover_log", active: true)
+    agent = create_ai_agent(parent: @user, name: "Recover Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(agent)
+    agent.update!(pending_billing_setup: true)
+
+    logs = []
+    Rails.logger.stub(:info, ->(msg) { logs << msg }) do
+      StripeService.activate_pending_resources_for(sc)
+    end
+
+    assert logs.any? { |m| m.include?("Recovered") && m.include?("1 pending agent") },
+           "operators need a signal that pending-resource recovery actually fired (got: #{logs.inspect})"
+  end
+
+  test "activate_pending_resources_for logs nothing when there is nothing to recover" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_recover_noop", active: true)
+
+    logs = []
+    Rails.logger.stub(:info, ->(msg) { logs << msg }) do
+      StripeService.activate_pending_resources_for(sc)
+    end
+
+    assert_not logs.any? { |m| m.include?("Recovered") },
+               "a healthy no-op must not spam the daily reconciliation logs"
+  end
+
   test "handle_webhook checkout.session.completed clears legacy pending collectives" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_pending_coll", active: false)
     collective = Collective.create!(

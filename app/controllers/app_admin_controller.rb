@@ -209,13 +209,9 @@ class AppAdminController < ApplicationController
 
     user.unsuspend!
 
-    # Sync billing if unsuspending an AI agent
-    if user.ai_agent? && user.parent_id.present?
-      parent = User.find_by(id: user.parent_id)
-      if parent
-        StripeService.sync_subscription_quantity!(parent)
-      end
-    end
+    # Unsuspension changes billable quantity (agents bill to their parent)
+    billing_user = billing_owner_for(user)
+    StripeService.sync_subscription_quantity!(billing_user) if billing_user
 
     SecurityAuditLog.log_user_unsuspended(
       user: user,
@@ -306,6 +302,21 @@ class AppAdminController < ApplicationController
 
     # Collectives are billed on their creator's subscription
     owner = collective.created_by
+
+    # Quantity sync alone can't reconcile tier state here: sync no-ops when
+    # the owner has no active subscription, which is the common state when an
+    # admin reaches for this toggle. Apply the tier consequence directly.
+    if new_value
+      # An exempt collective isn't billed — a lapsed one resumes paid features
+      # now instead of waiting for a subscription that will never come.
+      collective.restore_from_lapsed!
+    elsif collective.paid_tier? && T.must(collective.tenant).feature_enabled?("stripe_billing") &&
+          !billing_covers_collective_owner?(owner)
+      # Nothing is billing for this collective anymore — pause paid features
+      # the same way subscription loss does.
+      collective.mark_lapsed!
+    end
+
     sync_result = StripeService.sync_subscription_quantity!(owner) if owner&.human?
 
     action = new_value ? "granted" : "revoked"
@@ -564,5 +575,15 @@ class AppAdminController < ApplicationController
     return User.find_by(id: user.parent_id) if user.ai_agent? && user.parent_id.present?
 
     nil
+  end
+
+  # True when the owner's billing arrangement covers their paid collectives:
+  # admins are platform operators exempt from all billing, and an active
+  # subscription picks up the collective on the next quantity sync.
+  def billing_covers_collective_owner?(owner)
+    return false unless owner
+    return true if owner.sys_admin? || owner.app_admin?
+
+    owner.stripe_customer&.active? || false
   end
 end

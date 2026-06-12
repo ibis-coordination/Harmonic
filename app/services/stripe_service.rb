@@ -426,11 +426,17 @@ class StripeService
 
     pending_agents = user.ai_agents.where(pending_billing_setup: true)
     pending_agents.where(stripe_customer_id: nil).update_all(stripe_customer_id: stripe_customer.id)
-    pending_agents.update_all(pending_billing_setup: false)
+    agent_count = pending_agents.update_all(pending_billing_setup: false)
 
-    Collective.for_user_across_tenants(user)
+    collective_count = Collective.for_user_across_tenants(user)
       .where(pending_billing_setup: true)
       .update_all(pending_billing_setup: false)
+
+    return if agent_count.zero? && collective_count.zero?
+
+    Rails.logger.info(
+      "[StripeService] Recovered #{agent_count} pending agent(s) and #{collective_count} pending collective(s) for user #{user.id}"
+    )
   end
 
   sig { params(session: T.untyped).void }

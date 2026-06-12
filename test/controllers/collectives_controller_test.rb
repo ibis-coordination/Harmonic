@@ -1081,6 +1081,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # No other paid resources — post-downgrade billable_quantity will be 0.
 
     stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_downgrade_zero")
+      .with(query: hash_including({}))
       .to_return(status: 200,
                  body: { id: "sub_downgrade_zero", object: "subscription", status: "canceled" }.to_json,
                  headers: { "Content-Type" => "application/json" })
@@ -1089,7 +1090,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/downgrade"
 
     assert_response :redirect
-    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_downgrade_zero", at_least_times: 1
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_downgrade_zero",
+                     query: hash_including({}), at_least_times: 1
     assert_equal Collective::TIER_FREE, @collective.reload.tier
     assert_match(/downgraded/i, flash[:notice].to_s)
   end

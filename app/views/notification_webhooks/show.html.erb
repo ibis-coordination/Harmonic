@@ -33,7 +33,14 @@
       <%# === No rule yet: create form === %>
       <% if @target_user.human? && @current_tenant.feature_enabled?("stripe_billing") &&
             !@target_user.app_admin? && !@target_user.sys_admin? %>
-        <% if @target_user.counts_self_for_paid_human_features? %>
+        <% if @target_user.billing_exempt? %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-canvas-subtle);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              Your account has a billing exemption — the notification webhook is free for you.
+            </div>
+          </section>
+        <% elsif @target_user.counts_self_for_paid_human_features? %>
           <section class="pulse-settings-section">
             <div class="pulse-notice" style="background:var(--color-canvas-subtle);padding:12px;border-radius:6px;font-size:13px;">
               <%= octicon 'credit-card', height: 14 %>

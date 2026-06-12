@@ -72,7 +72,14 @@
 
       <% if @showing_user.human? && @current_tenant.feature_enabled?("stripe_billing") &&
             !@showing_user.app_admin? && !@showing_user.sys_admin? %>
-        <% if @showing_user.counts_self_for_api_access? %>
+        <% if @showing_user.billing_exempt? %>
+          <section class="pulse-settings-section">
+            <div class="pulse-notice" style="background:var(--color-canvas-subtle);padding:12px;border-radius:6px;font-size:13px;">
+              <%= octicon 'credit-card', height: 14 %>
+              Your account has a billing exemption — API tokens are free for you.
+            </div>
+          </section>
+        <% elsif @showing_user.counts_self_for_api_access? %>
           <section class="pulse-settings-section">
             <div class="pulse-notice" style="background:var(--color-canvas-subtle);padding:12px;border-radius:6px;font-size:13px;">
               <%= octicon 'credit-card', height: 14 %>
