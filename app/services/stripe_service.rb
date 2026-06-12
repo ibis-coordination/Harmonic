@@ -160,9 +160,15 @@ class StripeService
   # historical reference; the active=false flag is what gates future syncs.
   # A future paid resource creation goes through BillingController#setup,
   # which creates a fresh subscription.
+  #
+  # prorate credits the unused remainder of the period; without it Stripe
+  # also DESTROYS pending proration credits from earlier quantity decreases.
+  # invoice_now sweeps those credits onto a final invoice, whose negative
+  # total lands on the customer balance — automatically offsetting a future
+  # resubscription (same Stripe customer is reused).
   sig { params(sc: StripeCustomer, user: T.untyped).returns(SyncResult) }
   def self.cancel_subscription_for_zero_quantity!(sc, user)
-    Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id))
+    Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id), { prorate: true, invoice_now: true })
     sc.update!(active: false)
     Rails.logger.info("[StripeService] Cancelled subscription #{sc.stripe_subscription_id} for user #{user.id} (billable_quantity dropped to 0)")
     SyncResult.new(success: true)
