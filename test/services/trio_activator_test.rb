@@ -34,19 +34,32 @@ class TrioActivatorTest < ActiveSupport::TestCase
     assert rules.exists?, "expected at least one default automation rule"
     assert rules.all? { |r| r.enabled? }, "default rules should be enabled"
     assert rules.all? { |r| r.trigger_type == "event" }, "default rules should be event-triggered"
-    assert rules.all? { |r| %w[self self_or_reply].include?(r.mention_filter) },
-      "default rules should filter on self-mentions (or self+reply)"
+    assert rules.all? { |r| ["self", "self_or_reply"].include?(r.mention_filter) },
+           "default rules should filter on self-mentions (or self+reply)"
   end
 
-  test "activate! seeds rules for note, decision, and commitment events" do
+  test "activate! seeds rules for note, comment, decision, and commitment events" do
     TrioActivator.activate!(@collective)
 
     trio = T.must(@collective.reload.trio_user)
-    event_types = AutomationRule.where(ai_agent_id: trio.id).map(&:event_type)
+    event_types = AutomationRule.where(ai_agent_id: trio.id).flat_map(&:event_types)
 
     assert_includes event_types, "note.created"
+    assert_includes event_types, "comment.created"
     assert_includes event_types, "decision.created"
     assert_includes event_types, "commitment.created"
+  end
+
+  test "the mentions-and-replies rule matches both note.created and comment.created events" do
+    TrioActivator.activate!(@collective)
+
+    trio = T.must(@collective.reload.trio_user)
+    rules = AutomationRule.where(ai_agent_id: trio.id)
+
+    assert rules.for_event_type("note.created").exists?,
+           "expected a rule matching note.created"
+    assert rules.for_event_type("comment.created").exists?,
+           "expected a rule matching comment.created — Trio responds to replies on its comments"
   end
 
   test "activate! is idempotent when trio is already active" do

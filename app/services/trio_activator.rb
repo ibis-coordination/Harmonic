@@ -52,11 +52,11 @@ class TrioActivator
   sig { params(trio: User, tenant_id: String).void }
   def self.seed_default_automations!(trio, tenant_id)
     existing_event_types = AutomationRule.where(ai_agent_id: trio.id, trigger_type: "event")
-      .map(&:event_type)
+      .flat_map(&:event_types)
 
     DEFAULT_AUTOMATIONS.each do |attrs|
-      event_type = attrs.fetch(:event_type)
-      next if existing_event_types.include?(event_type)
+      event_types = Array(attrs[:event_types] || attrs.fetch(:event_type))
+      next if existing_event_types.intersect?(event_types)
 
       AutomationRule.create!(
         tenant_id: tenant_id,
@@ -66,13 +66,13 @@ class TrioActivator
         description: attrs.fetch(:description),
         trigger_type: "event",
         trigger_config: {
-          "event_type" => event_type,
+          "event_types" => event_types,
           "mention_filter" => attrs.fetch(:mention_filter, "self"),
           "max_steps" => attrs.fetch(:max_steps, 20),
         },
         conditions: [],
         actions: { "task" => attrs.fetch(:task) },
-        enabled: true,
+        enabled: true
       )
     end
   end
@@ -158,7 +158,7 @@ class TrioActivator
       {
         name: "Respond to mentions and replies",
         description: "When @trio is mentioned, or when someone replies to a comment Trio wrote, navigate and respond.",
-        event_type: "note.created",
+        event_types: ["note.created", "comment.created"],
         mention_filter: "self_or_reply",
         max_steps: 20,
         task: <<~TASK,
@@ -191,6 +191,6 @@ class TrioActivator
         TASK
       },
     ].freeze,
-    T::Array[T::Hash[Symbol, T.untyped]],
+    T::Array[T::Hash[Symbol, T.untyped]]
   )
 end

@@ -97,6 +97,13 @@ class AutomationRule < ApplicationRecord
     trigger_config&.dig("event_type")
   end
 
+  # All event types this rule matches, normalized across the singular
+  # `event_type` and array `event_types` trigger_config forms.
+  sig { returns(T::Array[String]) }
+  def event_types
+    Array(trigger_config&.dig("event_types") || trigger_config&.dig("event_type"))
+  end
+
   sig { returns(T.nilable(String)) }
   def mention_filter
     trigger_config&.dig("mention_filter")

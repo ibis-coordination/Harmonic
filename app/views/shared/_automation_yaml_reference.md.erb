@@ -62,13 +62,19 @@ actions:
 
 ### Event Types
 - `note.created` - A note was created
-- `comment.created` - A comment was added
-- `reply.created` - A reply was added to a comment
+- `comment.created` - A comment (or reply) was added
 - `decision.created` - A decision was created
+- `option.created` - An option was added to a decision
+- `vote.created` - A vote was cast on a decision option
 - `decision.deadline_reached` - A decision's deadline has passed
 - `commitment.created` - A commitment was created
-- `commitment.deadline_reached` - A commitment's deadline has passed
+- `commitment.joined` - Someone joined a commitment
 - `commitment.critical_mass` - A commitment reached critical mass
+- `commitment.deadline_reached` - A commitment's deadline has passed
+- `chat_message.created` - A chat message was sent
+- `user_list_member.created` - Someone was added to a list
+
+Notes, comments, decisions, commitments, and options also emit `.updated` and `.deleted` variants.
 
 <% if automation_type == :agent %>
 ### Mention Filters

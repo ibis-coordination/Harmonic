@@ -322,10 +322,8 @@ class Note < ApplicationRecord
   # (e.g. Commentable#comments_with_threads) should set it via
   # `root_commentable=` after preloading to avoid the polymorphic walk
   # entirely — that's the hot path for rendering a thread.
-  sig { params(value: T.untyped).void }
-  def root_commentable=(value)
-    @root_commentable = value
-  end
+  sig { params(root_commentable: T.untyped).void }
+  attr_writer :root_commentable
 
   sig { returns(T.untyped) }
   def root_commentable
@@ -418,6 +416,14 @@ class Note < ApplicationRecord
   end
 
   private
+
+  # Override from Tracked: comments are Note rows, but their events are
+  # comment.* so automation rules and notification routing can distinguish
+  # them from top-level notes.
+  sig { returns(String) }
+  def tracked_event_prefix
+    is_comment? ? "comment" : "note"
+  end
 
   def should_validate_table_data?
     is_table? && !deleted_at?
