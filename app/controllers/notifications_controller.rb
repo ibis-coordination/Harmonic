@@ -9,12 +9,13 @@ class NotificationsController < ApplicationController
     # This is needed because notifications span all collectives, not just the current one
     Tenant.scope_thread_to_tenant(subdomain: request.subdomain)
 
-    # Show immediate notifications and due reminders (not future scheduled)
+    # Show immediate notifications and due reminders (not future scheduled).
+    # Read notifications stay in the inbox until dismissed.
     @notification_recipients = NotificationRecipient
       .where(user: current_user)
       .in_app
       .not_scheduled
-      .where.not(status: "dismissed")
+      .undismissed
       .includes(:notification)
       .order(created_at: :desc)
       .limit(50)
@@ -193,6 +194,139 @@ class NotificationsController < ApplicationController
           resource: nil,
           result: "#{count} notifications dismissed for #{collective_name}.",
         })
+      end
+    end
+  end
+
+  def describe_mark_read
+    render_action_description(ActionsHelper.action_description("mark_read", resource: nil))
+  end
+
+  def execute_mark_read
+    recipient = NotificationRecipient.find_by(id: params[:id], user: current_user)
+
+    respond_to do |format|
+      if recipient
+        recipient.mark_read!
+        format.json { render json: { success: true, id: recipient.id, action: "mark_read" } }
+        format.html { render json: { success: true, id: recipient.id, action: "mark_read" } }
+        format.md do
+          render_action_success({
+            action_name: "mark_read",
+            resource: nil,
+            result: "Notification marked read.",
+          })
+        end
+      else
+        format.json { render json: { success: false, error: "Notification not found." }, status: :not_found }
+        format.html { render json: { success: false, error: "Notification not found." }, status: :not_found }
+        format.md do
+          render_action_error({
+            action_name: "mark_read",
+            resource: nil,
+            error: "Notification not found.",
+            status: :not_found,
+          })
+        end
+      end
+    end
+  end
+
+  def describe_mark_all_read
+    render_action_description(ActionsHelper.action_description("mark_all_read", resource: nil))
+  end
+
+  def execute_mark_all_read
+    count = NotificationService.mark_all_read_for(current_user, tenant: current_tenant)
+
+    respond_to do |format|
+      format.json { render json: { success: true, action: "mark_all_read", count: count } }
+      format.html { render json: { success: true, action: "mark_all_read", count: count } }
+      format.md do
+        render_action_success({
+          action_name: "mark_all_read",
+          resource: nil,
+          result: "#{count} notifications marked read.",
+        })
+      end
+    end
+  end
+
+  def describe_mark_read_for_collective
+    render_action_description(ActionsHelper.action_description("mark_read_for_collective", resource: nil))
+  end
+
+  def execute_mark_read_for_collective
+    collective_id = params[:collective_id]
+
+    # Special case: "reminders" marks notifications without an event
+    if collective_id == "reminders"
+      count = NotificationService.mark_all_read_reminders(current_user, tenant: current_tenant)
+      collective_name = "Reminders"
+    else
+      collective = Collective.find_by(id: collective_id)
+      if collective.nil?
+        return respond_to do |format|
+          format.json { render json: { success: false, error: "Collective not found." }, status: :not_found }
+          format.html { render json: { success: false, error: "Collective not found." }, status: :not_found }
+          format.md do
+            render_action_error({
+              action_name: "mark_read_for_collective",
+              resource: nil,
+              error: "Collective not found.",
+              status: :not_found,
+            })
+          end
+        end
+      end
+
+      count = NotificationService.mark_all_read_for_collective(current_user, tenant: current_tenant, collective_id: collective.id)
+      collective_name = collective.name
+    end
+
+    respond_to do |format|
+      format.json { render json: { success: true, action: "mark_read_for_collective", collective_id: collective_id, count: count } }
+      format.html { render json: { success: true, action: "mark_read_for_collective", collective_id: collective_id, count: count } }
+      format.md do
+        render_action_success({
+          action_name: "mark_read_for_collective",
+          resource: nil,
+          result: "#{count} notifications marked read for #{collective_name}.",
+        })
+      end
+    end
+  end
+
+  def describe_dismiss_for_chat
+    render_action_description(ActionsHelper.action_description("dismiss_for_chat", resource: nil))
+  end
+
+  def execute_dismiss_for_chat
+    partner = TenantUser.tenant_scoped_only(current_tenant.id).find_by(handle: params[:handle])&.user
+
+    respond_to do |format|
+      if partner
+        NotificationService.dismiss_chat_notifications_from!(user: current_user, sender: partner, tenant: current_tenant)
+        format.json { render json: { success: true, action: "dismiss_for_chat", handle: params[:handle] } }
+        format.html { render json: { success: true, action: "dismiss_for_chat", handle: params[:handle] } }
+        format.md do
+          render_action_success({
+            action_name: "dismiss_for_chat",
+            resource: nil,
+            result: "Chat notifications dismissed.",
+          })
+        end
+      else
+        format.json { render json: { success: false, error: "User not found." }, status: :not_found }
+        format.html { render json: { success: false, error: "User not found." }, status: :not_found }
+        format.md do
+          render_action_error({
+            action_name: "dismiss_for_chat",
+            resource: nil,
+            error: "User not found.",
+            status: :not_found,
+          })
+        end
       end
     end
   end

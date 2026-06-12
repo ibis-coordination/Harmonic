@@ -11,7 +11,9 @@ class NotificationRecipient < ApplicationRecord
   validates :status, presence: true, inclusion: { in: ["pending", "delivered", "dismissed", "rate_limited"] }
   validate :tenant_matches_notification_tenant
 
-  scope :unread, -> { where(dismissed_at: nil) }
+  scope :unread, -> { where(read_at: nil, dismissed_at: nil) }
+  scope :read, -> { where.not(read_at: nil).where(dismissed_at: nil) }
+  scope :undismissed, -> { where(dismissed_at: nil) }
   scope :in_app, -> { where(channel: "in_app") }
   scope :email, -> { where(channel: "email") }
   scope :pending, -> { where(status: "pending") }
@@ -30,7 +32,14 @@ class NotificationRecipient < ApplicationRecord
 
   sig { void }
   def dismiss!
-    update!(dismissed_at: Time.current, status: "dismissed")
+    update!(dismissed_at: Time.current, status: "dismissed", read_at: read_at || Time.current)
+  end
+
+  sig { void }
+  def mark_read!
+    return if read?
+
+    update!(read_at: Time.current)
   end
 
   sig { void }
@@ -41,6 +50,11 @@ class NotificationRecipient < ApplicationRecord
   sig { returns(T::Boolean) }
   def dismissed?
     T.unsafe(self).dismissed_at.present?
+  end
+
+  sig { returns(T::Boolean) }
+  def read?
+    T.unsafe(self).read_at.present?
   end
 
   sig { returns(T::Boolean) }

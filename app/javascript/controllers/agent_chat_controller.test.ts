@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import AgentChatController from "./agent_chat_controller"
+import { fetchWithCsrf } from "../utils/csrf"
 
 // --- ActionCable mock ---
 
@@ -43,6 +44,7 @@ function setupDOM(options: { turnRunning?: boolean; partnerIsAgent?: boolean; cu
          data-agent-chat-poll-url-value="/chat/123/messages"
          data-agent-chat-turn-running-value="${options.turnRunning ?? false}"
          data-agent-chat-partner-is-agent-value="${options.partnerIsAgent ?? true}"
+         data-agent-chat-partner-handle-value="testbot"
          data-agent-chat-current-user-id-value="${options.currentUserId ?? "current-user-1"}">
       <div data-agent-chat-target="messages" id="chat-messages"></div>
       <textarea data-agent-chat-target="input"
@@ -217,6 +219,57 @@ describe("AgentChatController", () => {
       })
 
       expect(messageTexts()).toContain("Hello from other human")
+    })
+  })
+
+  // --- Notification dismissal on receipt ---
+
+  describe("notification dismissal on receipt", () => {
+    it("dismisses partner chat notifications when a message arrives while the tab is visible", async () => {
+      const listener = vi.fn()
+      window.addEventListener("notifications:changed", listener)
+
+      simulateCableConnected()
+      simulateCableReceived({
+        type: "message",
+        content: "Ping",
+        sender_name: "TestBot",
+        is_agent: true,
+        timestamp: new Date().toISOString(),
+        id: "msg-5",
+        sender_id: "agent-1",
+      })
+
+      expect(vi.mocked(fetchWithCsrf)).toHaveBeenCalledWith(
+        "/notifications/actions/dismiss_for_chat",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ handle: "testbot" }) }),
+      )
+
+      await vi.waitFor(() => expect(listener).toHaveBeenCalled())
+      window.removeEventListener("notifications:changed", listener)
+    })
+
+    it("does not dismiss when the document is hidden", () => {
+      vi.mocked(fetchWithCsrf).mockClear()
+      const visibilitySpy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden")
+
+      simulateCableConnected()
+      simulateCableReceived({
+        type: "message",
+        content: "Ping while away",
+        sender_name: "TestBot",
+        is_agent: true,
+        timestamp: new Date().toISOString(),
+        id: "msg-6",
+        sender_id: "agent-1",
+      })
+
+      expect(vi.mocked(fetchWithCsrf)).not.toHaveBeenCalledWith(
+        "/notifications/actions/dismiss_for_chat",
+        expect.anything(),
+      )
+
+      visibilitySpy.mockRestore()
     })
   })
 

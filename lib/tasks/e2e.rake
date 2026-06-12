@@ -14,13 +14,21 @@ namespace :e2e do
       puts "Enabled identity provider for tenant: #{tenant_subdomain}"
     end
 
-    # Create/update OmniAuthIdentity
+    # Create/update OmniAuthIdentity. 2FA must be ENABLED: tenants require
+    # 2FA for account activation by default, so a non-OTP user gets stuck on
+    # the activation interstitial. The Playwright auth helper passes the
+    # verify step with DEV_2FA_BYPASS_CODE (dev-only, see OmniAuthIdentity).
     identity = OmniAuthIdentity.find_or_initialize_by(email: e2e_email)
     identity.name = e2e_name
     identity.password = e2e_password
     identity.password_confirmation = e2e_password
+    unless identity.otp_enabled?
+      identity.otp_secret = ROTP::Base32.random
+      identity.otp_enabled = true
+      identity.otp_enabled_at = Time.current
+    end
     identity.save!
-    puts "OmniAuthIdentity ready: #{e2e_email}"
+    puts "OmniAuthIdentity ready: #{e2e_email} (otp_enabled: #{identity.otp_enabled?})"
 
     # Create/find User
     user = User.find_or_create_by!(email: e2e_email) do |u|
@@ -41,6 +49,40 @@ namespace :e2e do
         tenant.main_collective.add_user!(user)
         puts "Added user to main studio: #{tenant.main_collective.name}"
       end
+    end
+
+    # Seed a fresh unread notification so the notifications spec has data.
+    # Prior seeds are removed first so repeated setup runs stay idempotent.
+    if tenant.main_collective
+      Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: tenant.main_collective.handle)
+
+      NotificationRecipient
+        .where(user: user, tenant: tenant)
+        .joins(:notification)
+        .where(notifications: { title: "[E2E] You were mentioned" })
+        .destroy_all
+      Notification
+        .where(title: "[E2E] You were mentioned")
+        .where.missing(:notification_recipients)
+        .destroy_all
+
+      event = Event.create!(tenant: tenant, collective: tenant.main_collective, event_type: "note.created")
+      notification = Notification.create!(
+        tenant: tenant,
+        event: event,
+        notification_type: "mention",
+        title: "[E2E] You were mentioned",
+        body: "Hello from E2E test",
+        url: "/help",
+      )
+      NotificationRecipient.create!(
+        notification: notification,
+        user: user,
+        channel: "in_app",
+        status: "delivered",
+      )
+      Collective.clear_thread_scope
+      puts "Seeded unread notification for #{user.email}"
     end
 
     puts "E2E test user ready: #{e2e_email}"

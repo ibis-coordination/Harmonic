@@ -637,6 +637,18 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     end
   end
 
+  test "re-tune-in after the notification was read creates a fresh notification" do
+    _tenant, _collective, actor, target = setup_tune_in_actors
+    actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)
+    member = UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    Notification.where(notification_type: "tune_in").last.notification_recipients.each(&:mark_read!)
+    member.destroy!
+
+    assert_difference -> { Notification.where(notification_type: "tune_in").count }, +1 do
+      UserListMember.create!(user_list: actor_primary, user: target, added_by: actor)
+    end
+  end
+
   test "user_list_member.deleted event creates no notification" do
     _tenant, _collective, actor, target = setup_tune_in_actors
     actor_primary = actor.primary_user_list_in!(actor.tenant_users.first.tenant)

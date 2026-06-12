@@ -22,6 +22,10 @@ module CapabilityCheck
     "dismiss",
     "dismiss_all",
     "dismiss_for_collective",
+    "dismiss_for_chat",
+    "mark_read",
+    "mark_all_read",
+    "mark_read_for_collective",
     "search",
     "update_scratchpad",
   ].freeze

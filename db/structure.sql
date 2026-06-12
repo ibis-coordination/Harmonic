@@ -4406,6 +4406,13 @@ CREATE INDEX index_notification_recipients_on_channel ON public.notification_rec
 
 
 --
+-- Name: index_notification_recipients_on_dismissed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_on_dismissed_at ON public.notification_recipients USING btree (dismissed_at) WHERE (dismissed_at IS NOT NULL);
+
+
+--
 -- Name: index_notification_recipients_on_notification_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4445,6 +4452,13 @@ CREATE INDEX index_notification_recipients_on_user_id ON public.notification_rec
 --
 
 CREATE INDEX index_notification_recipients_on_user_id_and_status ON public.notification_recipients USING btree (user_id, status);
+
+
+--
+-- Name: index_notification_recipients_unread; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notification_recipients_unread ON public.notification_recipients USING btree (user_id, tenant_id) WHERE ((read_at IS NULL) AND (dismissed_at IS NULL) AND ((channel)::text = 'in_app'::text));
 
 
 --
@@ -9852,6 +9866,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260611120000'),
+('20260611000000'),
 ('20260609000000'),
 ('20260606010000'),
 ('20260606000000'),

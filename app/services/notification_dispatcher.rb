@@ -54,8 +54,9 @@ class NotificationDispatcher
   end
 
   # Suppresses a fresh tune_in notification when the recipient already has
-  # an undismissed one from the same actor in the same tenant. Prevents
-  # rapid tune-out / tune-in cycles from spamming the target's inbox.
+  # an unread one from the same actor in the same tenant. Prevents rapid
+  # tune-out / tune-in cycles from spamming the target's inbox. Once the
+  # notification is read or dismissed, a re-tune-in is news again.
   sig { params(event: Event, recipient: User).returns(T::Boolean) }
   def self.recent_tune_in_notification_exists?(event:, recipient:)
     return false if event.actor_id.nil?
@@ -63,10 +64,9 @@ class NotificationDispatcher
     NotificationRecipient
       .joins(:notification)
       .joins("INNER JOIN events ON events.id = notifications.event_id")
-      .where(user_id: recipient.id, tenant_id: event.tenant_id, dismissed_at: nil)
+      .where(user_id: recipient.id, tenant_id: event.tenant_id, dismissed_at: nil, read_at: nil)
       .where(notifications: { notification_type: "tune_in" })
-      .where(events: { actor_id: event.actor_id })
-      .exists?
+      .exists?(events: { actor_id: event.actor_id })
   end
 
   sig { params(event: Event, list: UserList).returns([String, T.nilable(String)]) }

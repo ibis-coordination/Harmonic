@@ -1,6 +1,6 @@
 # Notifications
 
-Unread: <%= @unread_count %>
+Unread: <%= @unread_count %><% if @unread_count > 0 %> - [mark_all_read](/notifications/actions/mark_all_read) | [dismiss_all](/notifications/actions/dismiss_all)<% end %>
 
 <% if @notification_recipients.empty? -%>
 No notifications.
@@ -10,14 +10,13 @@ No notifications.
 <% @notifications_by_collective.each do |collective, recipients| -%>
 <% collective_id = collective&.id || 'reminders' -%>
 <% collective_name = collective&.name || 'Other' -%>
-### <%= collective_name %> (<%= recipients.size %>) - [dismiss_for_collective](/notifications/actions/dismiss_for_collective?collective_id=<%= collective_id %>)
+### <%= collective_name %> (<%= recipients.size %>) - [mark_read_for_collective](/notifications/actions/mark_read_for_collective?collective_id=<%= collective_id %>) | [dismiss_for_collective](/notifications/actions/dismiss_for_collective?collective_id=<%= collective_id %>)
 
-| Title | Time | Actions |
-|-------|------|---------|
+| Title | Status | Time | Actions |
+|-------|--------|------|---------|
 <% recipients.each do |recipient| -%>
-| [<%= recipient.notification.title %>](<%= recipient.notification.url || '/notifications' %>) | <%= time_ago_in_words(recipient.created_at) %> ago | [dismiss](/notifications/actions/dismiss?id=<%= recipient.id %>) |
+| [<%= recipient.notification.title %>](<%= recipient.notification.url || '/notifications' %>) | <%= recipient.read? ? 'read' : 'unread' %> | <%= time_ago_in_words(recipient.created_at) %> ago | <% unless recipient.read? %>[mark_read](/notifications/actions/mark_read?id=<%= recipient.id %>) | <% end %>[dismiss](/notifications/actions/dismiss?id=<%= recipient.id %>) |
 <% end -%>
 
 <% end -%>
 <% end -%>
-

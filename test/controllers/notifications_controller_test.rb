@@ -382,4 +382,199 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "### Second Collective"
     assert_includes response.body, "dismiss_for_collective"
   end
+
+  # === Mark Read Tests ===
+
+  test "mark_read marks notification read without dismissing" do
+    sign_in_as(@user, tenant: @tenant)
+    recipient = create_notification_recipient(title: "Mark me read")
+
+    post "/notifications/actions/mark_read", params: { id: recipient.id }
+    assert_response :success
+
+    recipient.reload
+    assert recipient.read?
+    assert_nil recipient.dismissed_at
+    assert_equal "delivered", recipient.status
+  end
+
+  test "mark_read returns 404 for unknown notification" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/mark_read",
+      params: { id: SecureRandom.uuid },
+      headers: { "Accept" => "application/json" }
+    assert_response :not_found
+  end
+
+  test "mark_all_read marks all unread notifications read and returns count" do
+    sign_in_as(@user, tenant: @tenant)
+    recipient1 = create_notification_recipient(title: "First")
+    recipient2 = create_notification_recipient(title: "Second")
+
+    post "/notifications/actions/mark_all_read", headers: { "Accept" => "application/json" }
+    assert_response :success
+    assert_equal 2, JSON.parse(response.body)["count"]
+
+    [recipient1, recipient2].each do |recipient|
+      recipient.reload
+      assert recipient.read?
+      assert_nil recipient.dismissed_at
+    end
+  end
+
+  test "mark_all_read returns markdown action success for LLM" do
+    sign_in_as(@user, tenant: @tenant)
+    create_notification_recipient(title: "Readable")
+
+    post "/notifications/actions/mark_all_read", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match "marked", response.body
+  end
+
+  test "mark_read_for_collective only marks notifications for that collective" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    collective2 = Collective.create!(tenant: @tenant, name: "Second Collective", handle: "second-collective", created_by: @user)
+
+    event1 = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
+    notification1 = Notification.create!(tenant: @tenant, event: event1, notification_type: "mention", title: "Collective1 Notification")
+    recipient1 = NotificationRecipient.create!(notification: notification1, user: @user, channel: "in_app", status: "delivered")
+
+    event2 = Event.create!(tenant: @tenant, collective: collective2, event_type: "test.created")
+    notification2 = Notification.create!(tenant: @tenant, event: event2, notification_type: "mention", title: "Collective2 Notification")
+    recipient2 = NotificationRecipient.create!(notification: notification2, user: @user, channel: "in_app", status: "delivered")
+    Collective.clear_thread_scope
+
+    post "/notifications/actions/mark_read_for_collective",
+      params: { collective_id: @collective.id },
+      headers: { "Accept" => "application/json" }
+    assert_response :success
+    assert_equal 1, JSON.parse(response.body)["count"]
+
+    assert recipient1.reload.read?
+    assert_not recipient2.reload.read?
+  end
+
+  test "mark_read_for_collective with reminders marks due reminders only" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    reminder_notification = Notification.create!(tenant: @tenant, event: nil, notification_type: "reminder", title: "Due reminder")
+    reminder = NotificationRecipient.create!(notification: reminder_notification, user: @user, channel: "in_app", status: "pending")
+
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
+    normal_notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Normal")
+    normal = NotificationRecipient.create!(notification: normal_notification, user: @user, channel: "in_app", status: "delivered")
+    Collective.clear_thread_scope
+
+    post "/notifications/actions/mark_read_for_collective",
+      params: { collective_id: "reminders" },
+      headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    assert reminder.reload.read?
+    assert_not normal.reload.read?
+  end
+
+  test "mark_read_for_collective returns error for invalid collective" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/mark_read_for_collective",
+      params: { collective_id: SecureRandom.uuid },
+      headers: { "Accept" => "application/json" }
+    assert_response :not_found
+  end
+
+  # === Dismiss For Chat Tests ===
+
+  test "dismiss_for_chat dismisses chat notifications from the given partner only" do
+    sign_in_as(@user, tenant: @tenant)
+
+    hex = SecureRandom.hex(4)
+    partner = create_user(name: "Partner #{hex}", email: "partner-#{hex}@example.com")
+    other = create_user(name: "Other #{hex}", email: "other-#{hex}@example.com")
+    @tenant.add_user!(partner)
+    @tenant.add_user!(other)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    partner_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: partner).handle
+    other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other).handle
+    NotificationService.notify_chat_message!(sender: partner, recipient: @user, tenant: @tenant, url: "/chat/#{partner_handle}")
+    NotificationService.notify_chat_message!(sender: other, recipient: @user, tenant: @tenant, url: "/chat/#{other_handle}")
+    Collective.clear_thread_scope
+
+    post "/notifications/actions/dismiss_for_chat",
+      params: { handle: partner_handle },
+      headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    remaining = NotificationRecipient.where(user: @user, tenant: @tenant).in_app.undismissed
+    assert_equal 1, remaining.count
+    assert_equal "/chat/#{other_handle}", remaining.first.notification.url
+    Collective.clear_thread_scope
+  end
+
+  test "dismiss_for_chat returns error for unknown handle" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/actions/dismiss_for_chat",
+      params: { handle: "no-such-handle" },
+      headers: { "Accept" => "application/json" }
+    assert_response :not_found
+  end
+
+  # === Read State in Index ===
+
+  test "index includes read notifications until dismissed" do
+    sign_in_as(@user, tenant: @tenant)
+
+    read_recipient = create_notification_recipient(title: "Already read")
+    read_recipient.mark_read!
+    dismissed_recipient = create_notification_recipient(title: "Already dismissed")
+    dismissed_recipient.dismiss!
+
+    get "/notifications"
+    assert_response :success
+    assert_match "Already read", response.body
+    assert_no_match(/Already dismissed/, response.body)
+  end
+
+  test "markdown index shows read state and mark_read actions" do
+    sign_in_as(@user, tenant: @tenant)
+
+    unread_recipient = create_notification_recipient(title: "Unread one")
+    read_recipient = create_notification_recipient(title: "Read one")
+    read_recipient.mark_read!
+
+    get "/notifications", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match "mark_read?id=#{unread_recipient.id}", response.body
+    assert_match "mark_all_read", response.body
+    assert_match "unread", response.body
+    assert_no_match(/mark_read\?id=#{read_recipient.id}/, response.body)
+  end
+
+  private
+
+  def create_notification_recipient(title:)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
+    notification = Notification.create!(
+      tenant: @tenant,
+      event: event,
+      notification_type: "mention",
+      title: title,
+    )
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: @user,
+      channel: "in_app",
+      status: "delivered",
+    )
+    Collective.clear_thread_scope
+    recipient
+  end
 end

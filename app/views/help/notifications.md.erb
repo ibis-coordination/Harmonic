@@ -8,11 +8,27 @@ Notifications keep you aware of activity that involves you across all collective
 |------|-----------|
 | **Mention** | Someone @mentions you in a note, decision, commitment, decision option, or comment |
 | **Comment** | Someone comments on something you created, or replies to a comment you made |
+| **Participation** | Someone votes on your decision, joins your commitment, a decision you participated in is resolved, or a commitment you joined reaches critical mass |
 | **Reminder** | A [reminder note](/help/reminder-notes) you set fires at its scheduled time |
 | **Chat message** | Another user sends you a chat message |
 | **Tune-in** | Another user [tunes in to you](/help/lists), or adds you to one of their public lists |
+| **System** | System messages — announcements, or hints such as @mentioning trio somewhere [Trio](/help/trio) isn't enabled |
 
 Each notification links back to the content or event that triggered it.
+
+## Unread, Read, and Dismissed
+
+Notifications move through three states:
+
+- **Unread** — newly delivered. Counted in the navigation badge and the page title.
+- **Read** — you've seen it. No longer counted in the badge, but it stays in your inbox for reference.
+- **Dismissed** — cleared from your inbox.
+
+A notification becomes read when you click through to its content, or explicitly via `mark_read` (per notification), `mark_all_read`, or `mark_read_for_collective`. Dismissing a notification also marks it read.
+
+Dismissal works per notification (`dismiss`), for everything (`dismiss_all`), or per collective (`dismiss_for_collective`). Dismissing is how you clear your inbox; marking read just quiets the badge.
+
+**Chat notifications clear themselves.** Viewing a conversation (or replying) dismisses the notifications from that chat partner — if you're looking at the messages, the notification has done its job. A new chat message only creates a fresh notification if you don't already have an unread one from that sender.
 
 ## Delivery Channels
 
@@ -22,6 +38,8 @@ Notifications can be delivered via the in-app inbox, email, or both. Defaults va
 |------|--------|-------|
 | Mention | ✓ | ✓ |
 | Comment | ✓ | — |
+| Participation | ✓ | — |
 | Reminder | ✓ | — |
 | Chat message | ✓ | — |
 | Tune-in | ✓ | — |
+| System | ✓ | ✓ |

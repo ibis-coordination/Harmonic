@@ -43,11 +43,34 @@ export async function login(page: Page, options: LoginOptions): Promise<void> {
   await page.locator('input[name="auth_key"]').fill(email)
   await page.locator('input[name="password"]').fill(password)
 
+  // BotProtection rejects submits arriving less than MIN_FORM_TIME_SECONDS
+  // (1s) after the form renders, so pause before clicking
+  await page.waitForTimeout(1500)
+
   // Click the Login button (handle both input and button elements)
   await page.locator('input[type="submit"][value="Log in"], button:has-text("Log in")').first().click()
 
+  // Tenants require 2FA by default, so the test user has OTP enabled and
+  // login lands on the verify step. The dev server accepts the dev-only
+  // bypass code (DEV_2FA_BYPASS_CODE) instead of a real TOTP.
+  const tenantUrlPattern = new RegExp(
+    `${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+  )
+  const otpField = page.locator('input[name="code"]')
+  await Promise.race([
+    page.waitForURL(tenantUrlPattern),
+    otpField.waitFor({ state: "visible" }),
+  ])
+
+  if (await otpField.isVisible()) {
+    await otpField.fill(process.env.DEV_2FA_BYPASS_CODE || "333333")
+    // The verify form is also bot-protected — same minimum form time
+    await page.waitForTimeout(1500)
+    await page.locator('input[type="submit"][value="Verify"]').click()
+  }
+
   // Wait for redirect back to tenant
-  await page.waitForURL(new RegExp(`${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`))
+  await page.waitForURL(tenantUrlPattern)
 }
 
 /**
