@@ -222,6 +222,25 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{checkout\.stripe\.com}, response.location
   end
 
+  test "setup redirects without creating a checkout when subscription is already active" do
+    # A second subscription-mode checkout would open a duplicate Stripe
+    # subscription: the webhook repoints stripe_subscription_id at the new
+    # one and the old keeps charging, invisible to the app.
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_already_active",
+      stripe_subscription_id: "sub_already_active",
+      active: true,
+    )
+    checkout_stub = stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/billing/setup"
+
+    assert_redirected_to "/billing"
+    assert_not_requested checkout_stub
+  end
+
   test "setup passes return_to from session into success_url" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_return123")
 

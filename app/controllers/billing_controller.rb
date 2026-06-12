@@ -27,6 +27,15 @@ class BillingController < ApplicationController
 
   # POST /billing/setup
   def setup
+    # A second subscription-mode checkout would open a duplicate Stripe
+    # subscription that keeps charging invisibly after the webhook repoints
+    # stripe_subscription_id at the new one. Quantity changes go through
+    # sync_subscription_quantity!, never through a fresh checkout.
+    if current_user.stripe_customer&.active?
+      flash[:notice] = "Billing is already active."
+      return redirect_to billing_show_path
+    end
+
     stripe_customer = StripeService.find_or_create_customer(current_user)
 
     return_to = session.delete(:billing_return_to)
