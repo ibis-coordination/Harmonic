@@ -203,6 +203,55 @@ class UserTest < ActiveSupport::TestCase
     assert new_collective.user_is_member?(@user)
   end
 
+  test "accept_invite! records an invite.accepted event attributed to the invite's collective" do
+    new_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Tracked Invite Collective",
+      handle: "tracked-invite-#{SecureRandom.hex(4)}"
+    )
+    invite = Invite.create!(
+      tenant: @tenant,
+      collective: new_collective,
+      created_by: @user,
+      invited_user: @user,
+      code: SecureRandom.hex(8),
+      expires_at: 1.week.from_now
+    )
+
+    @user.accept_invite!(invite)
+
+    event = Event.tenant_scoped_only(@tenant.id).of_type("invite.accepted").for_subject(invite).last
+    assert_not_nil event, "expected an invite.accepted event recorded on acceptance"
+    assert_equal @user.id, event.actor_id
+    assert_equal new_collective.id, event.collective_id,
+                 "expected the event attributed to the invite's collective"
+    assert_equal invite.code, event.metadata["invite_code"]
+  end
+
+  test "accept_invite! does not record a duplicate event when the user is already a member" do
+    new_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Idempotent Invite Collective",
+      handle: "idem-invite-#{SecureRandom.hex(4)}"
+    )
+    invite = Invite.create!(
+      tenant: @tenant,
+      collective: new_collective,
+      created_by: @user,
+      invited_user: @user,
+      code: SecureRandom.hex(8),
+      expires_at: 1.week.from_now
+    )
+
+    @user.accept_invite!(invite)
+    @user.accept_invite!(invite)
+
+    count = Event.tenant_scoped_only(@tenant.id).of_type("invite.accepted").for_subject(invite).count
+    assert_equal 1, count, "re-accepting must not record a second event"
+  end
+
   test "user cannot accept invite for another user" do
     other_user = create_user(email: "other_#{SecureRandom.hex(4)}@example.com", name: "Other User")
     # Add to tenant with unique handle

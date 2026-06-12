@@ -3,7 +3,11 @@
 # Two-step signup flow for users who arrive at a tenant without an existing
 # TenantUser record on a require_invite tenant:
 #
-#   1. /invite-required (GET)         — landing page with invite-code form
+#   1. /invite-required (GET)         — landing page with invite-code form.
+#                                       With a usable code (?code= param or
+#                                       session[:pending_invite_code] stashed
+#                                       by the login callback), skips straight
+#                                       to the confirmation page.
 #   2. /invite-required (POST)        — validate code, render confirmation
 #                                       page showing the collective + tenant
 #                                       the user is about to join. No
@@ -25,7 +29,21 @@ class SignupController < ApplicationController
     return redirect_to "/login" unless @current_user
     return redirect_to root_path if @current_tenant.tenant_users.exists?(user: @current_user)
 
-    render_landing
+    # The login callback and invite links land here with ?code=, and the
+    # session carries a pending code for users who wandered off mid-flow.
+    # Either way, skip straight to the confirmation page so the user doesn't
+    # have to re-type a code we already know.
+    code = params[:code].presence || session[:pending_invite_code]
+    invite = lookup_invite(code)
+    if invite&.is_acceptable_by_user?(@current_user)
+      session[:pending_invite_code] = invite.code
+      render_confirmation(invite)
+    else
+      # A pending code that no longer resolves (expired, revoked) is dead —
+      # drop it so it stops short-circuiting this page.
+      session.delete(:pending_invite_code) if code.present? && code == session[:pending_invite_code]
+      render_landing
+    end
   end
 
   def confirm_invite
@@ -34,11 +52,8 @@ class SignupController < ApplicationController
 
     invite = lookup_invite(params[:code])
     if invite&.is_acceptable_by_user?(@current_user)
-      @invite = invite
-      @sidebar_mode = "none"
-      @hide_header = true
-      @page_title = "Confirm invite | #{@current_tenant.name}"
-      render "signup/confirm_invite", layout: "application"
+      session[:pending_invite_code] = invite.code
+      render_confirmation(invite)
     else
       flash.now[:alert] = "That invite code is not valid or has expired."
       render_landing(status: :unprocessable_entity)
@@ -61,6 +76,7 @@ class SignupController < ApplicationController
       @current_tenant.add_user!(@current_user) unless @current_tenant.tenant_users.exists?(user: @current_user)
       @current_user.accept_invite!(invite)
     end
+    session.delete(:pending_invite_code)
 
     redirect_to invite.collective.path
   end
@@ -72,6 +88,14 @@ class SignupController < ApplicationController
     return nil if code.blank?
 
     Invite.tenant_scoped_only(@current_tenant.id).find_by(code: code)
+  end
+
+  def render_confirmation(invite)
+    @invite = invite
+    @sidebar_mode = "none"
+    @hide_header = true
+    @page_title = "Confirm invite | #{@current_tenant.name}"
+    render "signup/confirm_invite", layout: "application"
   end
 
   def render_landing(status: :ok)

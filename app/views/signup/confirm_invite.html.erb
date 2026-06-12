@@ -1,7 +1,8 @@
 <div class="pulse-auth-page">
   <div class="pulse-auth-error">
     <div class="pulse-auth-error-icon">
-      <%= octicon 'check-circle', height: 48 %>
+      <%= inline_avatar @invite.collective, variant: :thumbnail,
+                        style: "width:64px;height:64px;border-radius:12px;font-size:24px;" %>
     </div>
     <h1 class="pulse-auth-title">You're invited to join <br/><%= @invite.collective.name %></h1>
     <p class="pulse-auth-subtitle">

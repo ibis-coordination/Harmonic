@@ -93,6 +93,75 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(%r{/billing}, response.body)
   end
 
+  # === GET /invite-required with a code (confirmation entry point) ===
+  # The login callback and invite links route here with ?code= so the user
+  # reviews what they're joining without re-typing the code.
+
+  test "GET /invite-required?code=valid renders the confirmation page directly" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: invite.code }
+
+    assert_response :success
+    assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                 "expected confirmation page naming the collective")
+    assert_select ".inline-avatar", { minimum: 1 },
+                  "expected the collective's avatar so the user can see what they're joining"
+    assert_select "form[action='/invite-required/accept']"
+    assert_select "input[type='hidden'][name='code'][value='#{invite.code}']"
+    assert_not @tenant.tenant_users.exists?(user: @uninvited_user),
+               "rendering the confirmation page must not create memberships"
+  end
+
+  test "GET /invite-required renders the confirmation page from a pending invite in the session" do
+    invite = create_invite
+    # The callback consumes the invite cookie into session[:pending_invite_code].
+    cookies[:collective_invite_code] = invite.code
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required"
+
+    assert_response :success
+    assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                 "expected the pending session invite to surface the confirmation page")
+    assert_select "form[action='/invite-required/accept']"
+  end
+
+  test "GET /invite-required?code=invalid falls back to the landing form" do
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: "bogus-#{SecureRandom.hex(4)}" }
+
+    assert_response :success
+    assert_select "form[action='/invite-required']",
+                  true, "expected the code-entry landing form for an unusable code"
+  end
+
+  test "GET /invite-required with expired pending session invite falls back to the landing form" do
+    invite = create_invite(expires_at: 1.week.from_now)
+    cookies[:collective_invite_code] = invite.code
+    sign_in_without_membership(@uninvited_user)
+    invite.update!(expires_at: 1.day.ago) # expires after login, before confirmation
+
+    get "/invite-required"
+
+    assert_response :success
+    assert_select "form[action='/invite-required']"
+  end
+
+  test "POST /invite-required/accept clears the pending invite code from the session" do
+    invite = create_invite
+    cookies[:collective_invite_code] = invite.code
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code }
+
+    assert_response :redirect
+    assert_nil session[:pending_invite_code],
+               "expected the pending invite session key consumed on acceptance"
+  end
+
   # === Pricing disclosure (humans are free; no per-user cost to disclose) ===
 
   test "GET /invite-required does NOT mention pricing even when stripe_billing is enabled" do

@@ -263,11 +263,18 @@ class SessionsController < ApplicationController
     )
     delete_collective_invite_cookie
     if invite && invite.is_acceptable_by_user?(@current_user)
-      tu = current_tenant.tenant_users.find_by(user: @current_user)
-      unless tu
-        current_tenant.add_user!(@current_user)
+      if current_tenant.tenant_users.exists?(user: @current_user)
+        # Existing members accept additional-collective invites on the
+        # collective's join page.
+        redirect_to "#{invite.collective.path}/join?code=#{invite.code}"
+      else
+        # Joining is explicit: stash the invite and send the user to the
+        # confirmation page, where accepting creates the TenantUser and
+        # CollectiveMember together. The session copy lets the activation
+        # flow recover the invite if the user wanders off before accepting.
+        session[:pending_invite_code] = invite.code
+        redirect_to "/invite-required?code=#{invite.code}"
       end
-      redirect_to "#{invite.collective.path}/join?code=#{invite.code}"
     else
       redirect_to root_path
     end

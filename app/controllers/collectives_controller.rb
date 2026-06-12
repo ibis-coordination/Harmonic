@@ -671,22 +671,28 @@ class CollectivesController < ApplicationController
 
   def accept_invite
     if current_user && current_user.collectives.include?(@current_collective)
-      return render status: 400, text: 'You are already a member of this collective'
+      # Double-submit or stale tab — they're in; just take them there.
+      return redirect_to @current_collective.path
     end
     invite = Invite.find_by(code: params[:code]) if params[:code]
     invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
     if invite && current_user
-      if invite.collective == @current_collective
+      if invite.collective != @current_collective
+        render plain: '404 invite code not found', status: 404
+      elsif invite.is_acceptable_by_user?(current_user)
         @current_user.accept_invite!(invite)
+        session.delete(:pending_invite_code) if session[:pending_invite_code] == invite.code
         redirect_to @current_collective.path
       else
-        return render plain: '404 invite code not found', status: 404
+        # Expired, revoked, or addressed to someone else.
+        flash[:alert] = "That invite code is not valid or has expired."
+        redirect_to "#{@current_collective.path}/join"
       end
     elsif invite && !current_user
       redirect_to "/login?code=#{invite.code}"
     else
       # TODO - check collective settings to see if public join is allowed
-      return render plain: '404 invite code not found', status: 404
+      render plain: '404 invite code not found', status: 404
     end
   end
 
