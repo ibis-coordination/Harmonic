@@ -12,7 +12,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
       user: @user,
       tenant: @tenant,
       name: "Help Test #{SecureRandom.hex(4)}",
-      scopes: ApiToken.valid_scopes,
+      scopes: ApiToken.valid_scopes
     )
     @md_headers = {
       "Accept" => "text/markdown",
@@ -23,11 +23,11 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
   end
 
-  TOPICS = %w[
-    privacy collectives notes reminder-notes table-notes
-    decisions executive-decisions lottery-decisions
-    commitments calendar-events policies cycles search links lists
-    agents trio automations api rest-api markdown-ui notifications representation
+  TOPICS = [
+    "privacy", "collectives", "notes", "reminder-notes", "table-notes",
+    "decisions", "executive-decisions", "lottery-decisions",
+    "commitments", "calendar-events", "policies", "cycles", "search", "links", "lists",
+    "agents", "trio", "automations", "api", "rest-api", "markdown-ui", "notifications", "representation",
   ].freeze
 
   # =========================================================================
@@ -70,7 +70,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
       assert_includes response.body, "pulse-prose"
       # Should not start with raw YAML frontmatter — that would mean the
       # markdown layout leaked into the HTML response.
-      refute_match(/\A\s*---\napp: Harmonic/, response.body)
+      assert_no_match(/\A\s*---\napp: Harmonic/, response.body)
     end
   end
 
@@ -100,7 +100,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   test "help pages have no actions" do
     get "/help", headers: @md_headers
     assert_response :success
-    refute_includes response.body, "actions:"
+    assert_not_includes response.body, "actions:"
   end
 
   # =========================================================================
@@ -130,7 +130,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
       @tenant.disable_feature_flag!(flag)
       get "/help"
       assert_response :success
-      refute_includes response.body, "/help/#{topic}"
+      assert_not_includes response.body, "/help/#{topic}"
     end
 
     test "help index shows #{topic} link when #{flag} feature flag is enabled" do
@@ -167,7 +167,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("external_ai_agents")
     get "/help"
     assert_response :success
-    refute_includes response.body, "/help/agents"
+    assert_not_includes response.body, "/help/agents"
   end
 
   test "help index shows agents link when any ai_agents feature flag is enabled" do
@@ -176,5 +176,48 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
     get "/help"
     assert_response :success
     assert_includes response.body, "/help/agents"
+  end
+
+  # Billing is tested outside the GATED_TOPICS loop because enabling the
+  # stripe_billing flag activates the application-level billing gate — the
+  # setup user's external API token would make them billable and every
+  # request would bounce to /billing. Deleting the token first keeps
+  # billable_quantity at 0 so the gate passes.
+  test "help billing returns 404 when stripe_billing feature flag is disabled" do
+    @tenant.disable_feature_flag!("stripe_billing")
+    get "/help/billing"
+    assert_response :not_found
+  end
+
+  test "help billing renders HTML when stripe_billing feature flag is enabled" do
+    @api_token.delete!
+    @tenant.enable_feature_flag!("stripe_billing")
+    get "/help/billing"
+    assert_response :success
+    assert_includes response.body, "pulse-prose"
+    assert_includes response.body, "$3"
+  end
+
+  test "help billing renders markdown when stripe_billing feature flag is enabled" do
+    @api_token.delete!
+    @tenant.enable_feature_flag!("stripe_billing")
+    get "/help/billing", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/^# Billing/, response.body)
+  end
+
+  test "help index hides billing link when stripe_billing feature flag is disabled" do
+    @tenant.disable_feature_flag!("stripe_billing")
+    get "/help"
+    assert_response :success
+    assert_not_includes response.body, "/help/billing"
+  end
+
+  test "help index shows billing link when stripe_billing feature flag is enabled" do
+    @api_token.delete!
+    @tenant.enable_feature_flag!("stripe_billing")
+    get "/help"
+    assert_response :success
+    assert_includes response.body, "/help/billing"
   end
 end

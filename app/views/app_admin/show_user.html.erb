@@ -146,6 +146,16 @@
     <% end %>
 
     <% if @showing_user.id != @current_user.id %>
+      <%= form_tag "/app-admin/users/#{@showing_user.id}/actions/toggle_billing_exempt", method: :post,
+                   data: { turbo_confirm: @showing_user.billing_exempt? ? "Revoke billing exemption for #{@showing_user.display_name}?" : "Grant billing exemption to #{@showing_user.display_name}?" } do %>
+        <button type="submit" class="pulse-action-btn">
+          <%= octicon 'credit-card', height: 14 %>
+          <%= @showing_user.billing_exempt? ? "Revoke Billing Exemption" : "Grant Billing Exemption" %>
+        </button>
+      <% end %>
+    <% end %>
+
+    <% if @showing_user.id != @current_user.id %>
       <details>
         <summary class="pulse-action-btn-danger" style="cursor: pointer; display: inline-block;">
           <%= octicon 'shield-lock', height: 14 %> Account Security Reset

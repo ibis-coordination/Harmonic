@@ -88,6 +88,7 @@ class AppAdminController < ApplicationController
     @showing_tenant = Tenant.find_by(subdomain: params[:subdomain])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_tenant
     @current_user_is_admin_of_showing_tenant = @showing_tenant.is_admin?(@current_user)
+    @tenant_collectives = Collective.tenant_scoped_only(@showing_tenant.id).order(:name)
     @page_title = @showing_tenant.name
     respond_to do |format|
       format.html
@@ -208,13 +209,9 @@ class AppAdminController < ApplicationController
 
     user.unsuspend!
 
-    # Sync billing if unsuspending an AI agent
-    if user.ai_agent? && user.parent_id.present?
-      parent = User.find_by(id: user.parent_id)
-      if parent
-        StripeService.sync_subscription_quantity!(parent)
-      end
-    end
+    # Unsuspension changes billable quantity (agents bill to their parent)
+    billing_user = billing_owner_for(user)
+    StripeService.sync_subscription_quantity!(billing_user) if billing_user
 
     SecurityAuditLog.log_user_unsuspended(
       user: user,
@@ -252,7 +249,8 @@ class AppAdminController < ApplicationController
     user.update!(billing_exempt: new_value)
 
     # Sync billing quantity after exemption change to keep Stripe in sync
-    StripeService.sync_subscription_quantity!(user) if user.human?
+    billing_user = billing_owner_for(user)
+    sync_result = StripeService.sync_subscription_quantity!(billing_user) if billing_user
 
     action = new_value ? "granted" : "revoked"
     SecurityAuditLog.log_admin_action(
@@ -263,6 +261,9 @@ class AppAdminController < ApplicationController
       details: { user_name: user.display_name },
     )
 
+    notice = "Billing exemption #{action} for #{user.display_name}."
+    notice += " Stripe sync failed — the daily reconciliation job will correct the subscription quantity." if sync_result && !sync_result.success
+
     respond_to do |format|
       format.md do
         @showing_user = user.reload
@@ -271,10 +272,66 @@ class AppAdminController < ApplicationController
         render "show_user"
       end
       format.html do
-        flash[:notice] = "Billing exemption #{action} for #{user.display_name}."
+        flash[:notice] = notice
         redirect_to "/app-admin/users/#{user.id}"
       end
     end
+  end
+
+  # GET /app-admin/collectives/:id/actions/toggle_billing_exempt
+  def describe_toggle_collective_billing_exempt
+    collective = Collective.unscoped_for_admin(@current_user).find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless collective
+
+    render_action_description(ActionsHelper.action_description("toggle_billing_exempt"))
+  end
+
+  # POST /app-admin/collectives/:id/actions/toggle_billing_exempt
+  def execute_toggle_collective_billing_exempt
+    collective = Collective.unscoped_for_admin(@current_user).find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless collective
+
+    # Main collectives are never billed — nothing to exempt.
+    if collective.is_main_collective?
+      flash[:notice] = "Main collectives are never billed."
+      return redirect_back(fallback_location: "/app-admin")
+    end
+
+    new_value = !collective.billing_exempt?
+    collective.update!(billing_exempt: new_value)
+
+    # Collectives are billed on their creator's subscription
+    owner = collective.created_by
+
+    # Quantity sync alone can't reconcile tier state here: sync no-ops when
+    # the owner has no active subscription, which is the common state when an
+    # admin reaches for this toggle. Apply the tier consequence directly.
+    if new_value
+      # An exempt collective isn't billed — a lapsed one resumes paid features
+      # now instead of waiting for a subscription that will never come.
+      collective.restore_from_lapsed!
+    elsif collective.paid_tier? && T.must(collective.tenant).feature_enabled?("stripe_billing") &&
+          !billing_covers_collective_owner?(owner)
+      # Nothing is billing for this collective anymore — pause paid features
+      # the same way subscription loss does.
+      collective.mark_lapsed!
+    end
+
+    sync_result = StripeService.sync_subscription_quantity!(owner) if owner&.human?
+
+    action = new_value ? "granted" : "revoked"
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "collective_billing_exempt_#{action}",
+      target_user_id: owner&.id,
+      details: { collective_id: collective.id, collective_name: collective.name },
+    )
+
+    notice = "Billing exemption #{action} for #{collective.name}."
+    notice += " Stripe sync failed — the daily reconciliation job will correct the subscription quantity." if sync_result && !sync_result.success
+    flash[:notice] = notice
+    redirect_back(fallback_location: "/app-admin")
   end
 
   # POST /app-admin/users/:id/actions/account_security_reset
@@ -508,5 +565,25 @@ class AppAdminController < ApplicationController
 
   def current_resource
     nil
+  end
+
+  # The user whose Stripe subscription pays for the given user. Agents are
+  # billed on their parent's subscription, so exempting an agent changes
+  # the PARENT's billable quantity.
+  def billing_owner_for(user)
+    return user if user.human?
+    return User.find_by(id: user.parent_id) if user.ai_agent? && user.parent_id.present?
+
+    nil
+  end
+
+  # True when the owner's billing arrangement covers their paid collectives:
+  # admins are platform operators exempt from all billing, and an active
+  # subscription picks up the collective on the next quantity sync.
+  def billing_covers_collective_owner?(owner)
+    return false unless owner
+    return true if owner.sys_admin? || owner.app_admin?
+
+    owner.stripe_customer&.active? || false
   end
 end

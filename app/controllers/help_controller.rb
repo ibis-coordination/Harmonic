@@ -1,11 +1,12 @@
 # typed: false
 
 class HelpController < ApplicationController
-  TOPICS = %w[
-    privacy collectives notes reminder_notes table_notes
-    decisions executive_decisions lottery_decisions
-    commitments calendar_events policies cycles search links lists
-    agents trio automations api rest_api markdown_ui notifications representation
+  TOPICS = [
+    "privacy", "collectives", "notes", "reminder_notes", "table_notes",
+    "decisions", "executive_decisions", "lottery_decisions",
+    "commitments", "calendar_events", "policies", "cycles", "search", "links", "lists",
+    "agents", "trio", "automations", "api", "rest_api", "markdown_ui", "notifications", "representation",
+    "billing",
   ].freeze
 
   # Topics that are only available when a feature flag is enabled.
@@ -14,6 +15,7 @@ class HelpController < ApplicationController
     "api" => "api",
     "rest_api" => "api",
     "trio" => "trio",
+    "billing" => "stripe_billing",
   }.freeze
 
   helper_method :help_topic_available?

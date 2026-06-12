@@ -231,6 +231,7 @@ class NotificationWebhooksController < ApplicationController
     return false unless @target_user.human?
     return false unless @current_tenant.feature_enabled?("stripe_billing")
     return false if @target_user.app_admin? || @target_user.sys_admin?
+    return false if @target_user.billing_exempt?
     return false if @target_user.stripe_customer&.active?
 
     true

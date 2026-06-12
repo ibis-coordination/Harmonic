@@ -160,9 +160,30 @@ class StripeService
   # historical reference; the active=false flag is what gates future syncs.
   # A future paid resource creation goes through BillingController#setup,
   # which creates a fresh subscription.
+  #
+  # prorate credits the unused remainder of the period; without it Stripe
+  # also DESTROYS pending proration credits from earlier quantity decreases.
+  # invoice_now sweeps those credits onto a final invoice, whose negative
+  # total lands on the customer balance — automatically offsetting a future
+  # resubscription (same Stripe customer is reused).
+  #
+  # invoice_now leaves that final invoice in DRAFT (observed live in test
+  # mode), and the credit doesn't reach the customer balance until the
+  # invoice finalizes. Auto-finalization is asynchronous — Stripe documents
+  # "approximately one hour"; we observed minutes — so finalize explicitly
+  # to ensure an immediate resubscription is offset by the credit.
   sig { params(sc: StripeCustomer, user: T.untyped).returns(SyncResult) }
   def self.cancel_subscription_for_zero_quantity!(sc, user)
-    Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id))
+    subscription = Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id), { prorate: true, invoice_now: true })
+    begin
+      final_invoice = subscription.respond_to?(:latest_invoice) ? subscription.latest_invoice : nil
+      final_invoice_id = final_invoice.is_a?(Stripe::Invoice) ? final_invoice.id : final_invoice
+      Stripe::Invoice.finalize_invoice(final_invoice_id) if final_invoice_id.present?
+    rescue Stripe::StripeError => e
+      # Best-effort: the cancel already succeeded, and Stripe auto-finalizes
+      # the draft within ~1 hour, so the credit still lands — just later.
+      Rails.logger.warn("[StripeService] Could not finalize final invoice #{final_invoice_id}: #{e.message}")
+    end
     sc.update!(active: false)
     Rails.logger.info("[StripeService] Cancelled subscription #{sc.stripe_subscription_id} for user #{user.id} (billable_quantity dropped to 0)")
     SyncResult.new(success: true)
@@ -379,12 +400,44 @@ class StripeService
       collective&.confirm_upgrade!
     end
 
+    # Activate resources created before billing was set up. The synchronous
+    # checkout-return path does this too, but the user may never come back
+    # to the app after paying (closed tab) — the webhook is the reliable
+    # path. Idempotent, so double execution is safe.
+    activate_pending_resources_for(sc)
+
     # If the customer was previously inactive (e.g. subscription lapsed and
     # they just re-upped), restore any lapsed collectives now that billing
     # is active again.
     restore_lapsed_collectives_for(sc) if !was_active && sc.billable.is_a?(User)
   end
   private_class_method :handle_subscription_checkout_completed
+
+  # Clear pending_billing_setup on the customer's resources and backfill
+  # stripe_customer_id on agents that were created before billing existed.
+  # Called from the checkout webhook, the synchronous checkout-return path
+  # (BillingController), and the reconciliation job's recovery sweep.
+  # Collectives no longer enter the pending state (the tier model replaced
+  # creation-time billing) — clearing them heals legacy rows.
+  sig { params(stripe_customer: StripeCustomer).void }
+  def self.activate_pending_resources_for(stripe_customer)
+    user = stripe_customer.billable
+    return unless user.is_a?(User)
+
+    pending_agents = user.ai_agents.where(pending_billing_setup: true)
+    pending_agents.where(stripe_customer_id: nil).update_all(stripe_customer_id: stripe_customer.id)
+    agent_count = pending_agents.update_all(pending_billing_setup: false)
+
+    collective_count = Collective.for_user_across_tenants(user)
+      .where(pending_billing_setup: true)
+      .update_all(pending_billing_setup: false)
+
+    return if agent_count.zero? && collective_count.zero?
+
+    Rails.logger.info(
+      "[StripeService] Recovered #{agent_count} pending agent(s) and #{collective_count} pending collective(s) for user #{user.id}"
+    )
+  end
 
   sig { params(session: T.untyped).void }
   def self.handle_credit_topup_completed(session)
@@ -493,12 +546,13 @@ class StripeService
 
     billing_tenant_ids = user.billing_tenant_ids
 
-    # Suspend agents on billing-enabled tenants only
+    # Suspend agents on billing-enabled tenants only. Exempt agents need no
+    # subscription, so losing it doesn't touch them.
     suspended_count = 0
     user.ai_agents
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: billing_tenant_ids })
-      .where(suspended_at: nil)
+      .where(suspended_at: nil, billing_exempt: false)
       .find_each do |agent|
       agent.suspend!(by: user, reason: reason, skip_billing_sync: true)
       suspended_count += 1
@@ -509,9 +563,10 @@ class StripeService
     # Lapse just flips the tier column — runtime gates short-circuit on
     # paid_tier? so feature access pauses without touching configuration.
     # Restore is instant and zero-loss once the owner fixes their billing.
+    # Exempt collectives need no subscription, so they don't lapse.
     lapsed_count = 0
     Collective.for_user_across_tenants(user)
-      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_PAID, archived_at: nil)
+      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_PAID, archived_at: nil, billing_exempt: false)
       .find_each do |collective|
       next if collective.is_main_collective?
       collective.mark_lapsed!

@@ -198,7 +198,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui notifications representation].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui notifications representation billing].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'
@@ -305,6 +305,8 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
   get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
   post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
+  get 'app-admin/collectives/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_collective_billing_exempt'
+  post 'app-admin/collectives/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_collective_billing_exempt'
   post 'app-admin/users/:id/actions/account_security_reset' => 'app_admin#execute_account_security_reset'
   get 'app-admin/reports' => 'app_admin#reports'
   get 'app-admin/reports/:id' => 'app_admin#show_report', as: 'app_admin_report'

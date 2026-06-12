@@ -108,6 +108,27 @@ class BillingGateTest < ActionDispatch::IntegrationTest
                     "fresh humans without agents or extra collectives should not be billing-gated"
   end
 
+  test "billing_exempt human with an API token is NOT redirected to /billing" do
+    fresh_tenant = create_tenant(subdomain: "exempt-gate-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(fresh_tenant)
+    fresh_user = create_user(email: "exempt-gate-#{SecureRandom.hex(4)}@example.com", name: "Exempt Gate")
+    fresh_tenant.add_user!(fresh_user)
+    fresh_tenant.create_main_collective!(created_by: fresh_user)
+    ApiToken.create!(
+      user: fresh_user,
+      tenant: fresh_tenant,
+      name: "Exempt Gate Token",
+      scopes: ["read:all"],
+      expires_at: 1.year.from_now,
+    )
+    fresh_user.update!(billing_exempt: true)
+
+    sign_in_as(fresh_user, tenant: fresh_tenant)
+    get "/"
+
+    assert_response :success
+  end
+
   # === return_to preservation ===
 
   test "billing gate saves request path to session so user is resumed after checkout" do

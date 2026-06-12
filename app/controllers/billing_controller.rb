@@ -27,6 +27,15 @@ class BillingController < ApplicationController
 
   # POST /billing/setup
   def setup
+    # A second subscription-mode checkout would open a duplicate Stripe
+    # subscription that keeps charging invisibly after the webhook repoints
+    # stripe_subscription_id at the new one. Quantity changes go through
+    # sync_subscription_quantity!, never through a fresh checkout.
+    if current_user.stripe_customer&.active?
+      flash[:notice] = "Billing is already active."
+      return redirect_to billing_show_path
+    end
+
     stripe_customer = StripeService.find_or_create_customer(current_user)
 
     return_to = session.delete(:billing_return_to)
@@ -169,19 +178,9 @@ class BillingController < ApplicationController
 
   def activate_pending_resources!
     stripe_customer = current_user.stripe_customer
+    return unless stripe_customer
 
-    # Activate ALL pending agents (cross-tenant — one subscription covers everything)
-    # Also backfill stripe_customer_id for agents created before billing was set up
-    pending_agents = current_user.ai_agents.where(pending_billing_setup: true)
-    if stripe_customer
-      pending_agents.where(stripe_customer_id: nil).update_all(stripe_customer_id: stripe_customer.id)
-    end
-    pending_agents.update_all(pending_billing_setup: false)
-
-    # Activate ALL pending collectives (cross-tenant)
-    Collective.for_user_across_tenants(current_user).where(
-      pending_billing_setup: true,
-    ).update_all(pending_billing_setup: false)
+    StripeService.activate_pending_resources_for(stripe_customer)
   end
 
   def find_owned_agent
@@ -197,21 +196,6 @@ class BillingController < ApplicationController
     # Set tenant_user so archive!/unarchive! can find it
     agent.tenant_user = tu
     agent
-  end
-
-  def find_owned_collective
-    collective = Collective.find_by(tenant_id: current_tenant.id, handle: params[:collective_handle])
-    unless collective && collective.created_by_id == current_user.id
-      flash[:error] = "You can only manage collectives you created."
-      return nil
-    end
-
-    if collective.is_main_collective?
-      flash[:error] = "The main collective cannot be deactivated."
-      return nil
-    end
-
-    collective
   end
 
   def set_sidebar_mode

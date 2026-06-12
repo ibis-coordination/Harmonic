@@ -83,6 +83,40 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
                  "expected an info line when API access is already billable")
   end
 
+  test "GET new shows the exemption notice instead of pricing for billing_exempt users" do
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(billing_exempt: true)
+    sign_in_for_tokens
+
+    get "/u/#{token_handle}/settings/tokens/new"
+
+    assert_response :success
+    assert_no_match(%r{\$3/mo}i, response.body,
+                    "exempt users are never charged and never sent to Stripe — no pricing claims")
+    assert_match(/exempt/i, response.body,
+                 "tell the exempt user why token creation is free")
+  ensure
+    @user.update!(billing_exempt: false)
+    @tenant.disable_feature_flag!("stripe_billing")
+  end
+
+  test "GET new shows the exemption notice for billing_exempt users who already hold a token" do
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(billing_exempt: true)
+    ApiToken.create!(user: @user, tenant: @tenant, name: "Pre-existing", scopes: ["read:all"])
+    sign_in_for_tokens
+
+    get "/u/#{token_handle}/settings/tokens/new"
+
+    assert_response :success
+    assert_no_match(/already on your subscription/i, response.body,
+                    "an exempt user's API access is NOT on a subscription")
+    assert_match(/exempt/i, response.body)
+  ensure
+    @user.update!(billing_exempt: false)
+    @tenant.disable_feature_flag!("stripe_billing")
+  end
+
   # === POST create: redirect to Stripe when billing setup is needed ===
 
   test "POST create redirects to Stripe Checkout when user has no active subscription" do
@@ -159,6 +193,18 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert ApiToken.unscoped.exists?(user: @user, name: "Free Tenant Token")
+  end
+
+  test "POST create creates the token directly for billing_exempt users" do
+    @user.update!(billing_exempt: true)
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_for_tokens
+
+    post "/u/#{token_handle}/settings/tokens",
+         params: { api_token: { name: "Exempt Token", read_write: "read" } }
+
+    assert_response :success
+    assert ApiToken.unscoped.exists?(user: @user, name: "Exempt Token")
   end
 
   test "POST create creates the token directly for sys_admin users (exempt from billing)" do

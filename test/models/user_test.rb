@@ -1246,6 +1246,48 @@ class UserTest < ActiveSupport::TestCase
     assert_equal 0, fresh_user.billable_quantity
   end
 
+  test "billing_exempt human with an active token is not billable for API access" do
+    create_api_token(user: @user, tenant: @tenant)
+    @user.update!(billing_exempt: true)
+
+    assert_not @user.counts_self_for_paid_human_features?
+    assert_equal 0, @user.billable_quantity
+  end
+
+  test "billing_exempt human with a notification webhook is not billable" do
+    AutomationRule.unscoped.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+    @user.update!(billing_exempt: true)
+
+    assert_equal 0, @user.billable_quantity
+  end
+
+  test "billing_exempt on a human does not exempt their agents" do
+    agent = create_ai_agent(parent: @user, name: "Still Billed")
+    @tenant.add_user!(agent)
+    @user.update!(billing_exempt: true)
+
+    assert_equal 1, @user.billable_quantity,
+                 "user-level exemption covers only the user's own +1, not their agents"
+  end
+
+  test "revoking billing_exempt on a human restores the API-access surcharge" do
+    create_api_token(user: @user, tenant: @tenant)
+    @user.update!(billing_exempt: true)
+    assert_equal 0, @user.billable_quantity
+
+    @user.update!(billing_exempt: false)
+    assert_equal 1, @user.billable_quantity
+  end
+
   test "human with only a notification webhook is billable (+1, same as a token)" do
     fresh_tenant = create_tenant(subdomain: "wh-bill-#{SecureRandom.hex(4)}")
     enable_stripe_billing_flag!(fresh_tenant)

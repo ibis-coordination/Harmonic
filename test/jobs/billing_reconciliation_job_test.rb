@@ -48,6 +48,7 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
     user.update!(billing_exempt: true)
     sc = StripeCustomer.create!(billable: user, stripe_id: "cus_exempt_recon", active: true, stripe_subscription_id: "sub_exempt_recon")
     stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_exempt_recon")
+      .with(query: hash_including({}))
       .to_return(status: 200,
                  body: { id: "sub_exempt_recon", object: "subscription", status: "canceled" }.to_json,
                  headers: { "Content-Type" => "application/json" })
@@ -58,7 +59,7 @@ class BillingReconciliationJobTest < ActiveJob::TestCase
     # holding an active Stripe subscription, it cancels the subscription —
     # rather than silently leaving them being charged. (Old behavior was a
     # no-op; the regression is covered by the matching service-level test.)
-    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_exempt_recon", at_least_times: 1
+    assert_requested :delete, "https://api.stripe.com/v1/subscriptions/sub_exempt_recon", query: hash_including({}), at_least_times: 1
     assert_not sc.reload.active?
   end
 

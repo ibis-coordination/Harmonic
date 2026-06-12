@@ -47,6 +47,7 @@ module CapabilityCheck
     "test_webhook",
     "suspend_user",
     "unsuspend_user",
+    "toggle_billing_exempt",
     "update_tenant_settings",
     "create_tenant",
     "retry_sidekiq_job",

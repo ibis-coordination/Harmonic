@@ -65,6 +65,50 @@
   <% end %>
 <% end %>
 
+<%= render 'shared/pulse_accordion', title: 'Collectives', icon: 'people', count: @tenant_collectives.count, open: false do %>
+  <% if @tenant_collectives.any? %>
+    <div class="pulse-table-wrapper">
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Plan</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%# Avoids is_main_collective?, which loads the tenant per row %>
+          <% main_collective_id = @showing_tenant.main_collective_id %>
+          <% @tenant_collectives.each do |collective| %>
+            <tr>
+              <td><%= collective.name %> <code class="pulse-code"><%= collective.handle %></code></td>
+              <td>
+                <% if collective.id == main_collective_id %>
+                  <span class="pulse-muted">main (never billed)</span>
+                <% else %>
+                  <%= collective.tier %><%= " (exempt)" if collective.billing_exempt? %>
+                <% end %>
+              </td>
+              <td style="text-align: right;">
+                <% unless collective.id == main_collective_id %>
+                  <%= form_tag "/app-admin/collectives/#{collective.id}/actions/toggle_billing_exempt", method: :post, style: "display:inline",
+                               data: { turbo_confirm: collective.billing_exempt? ? "Revoke billing exemption for #{collective.name}?" : "Grant billing exemption to #{collective.name}?" } do %>
+                    <button type="submit" class="pulse-action-btn-small">
+                      <%= collective.billing_exempt? ? "Revoke Exemption" : "Grant Exemption" %>
+                    </button>
+                  <% end %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="pulse-empty-message">No collectives.</p>
+  <% end %>
+<% end %>
+
 <div class="pulse-form-actions" style="margin-top: 24px;">
   <a href="/app-admin/tenants" class="pulse-action-btn-secondary">
     <%= octicon 'arrow-left', height: 14 %> Back to Tenants

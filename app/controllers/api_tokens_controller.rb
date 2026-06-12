@@ -199,6 +199,7 @@ class ApiTokensController < ApplicationController
     return false unless @showing_user.human?
     return false unless current_tenant.feature_enabled?("stripe_billing")
     return false if @showing_user.app_admin? || @showing_user.sys_admin?
+    return false if @showing_user.billing_exempt?
     return false if @showing_user.stripe_customer&.active?
 
     true
