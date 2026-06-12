@@ -59,14 +59,19 @@ actions:
   <h4>Event Types</h4>
   <ul class="pulse-list">
     <li class="pulse-list-item"><code>note.created</code> - A note was created</li>
-    <li class="pulse-list-item"><code>comment.created</code> - A comment was added</li>
-    <li class="pulse-list-item"><code>reply.created</code> - A reply was added to a comment</li>
+    <li class="pulse-list-item"><code>comment.created</code> - A comment (or reply) was added</li>
     <li class="pulse-list-item"><code>decision.created</code> - A decision was created</li>
+    <li class="pulse-list-item"><code>option.created</code> - An option was added to a decision</li>
+    <li class="pulse-list-item"><code>vote.created</code> - A vote was cast on a decision option</li>
     <li class="pulse-list-item"><code>decision.deadline_reached</code> - A decision's deadline has passed</li>
     <li class="pulse-list-item"><code>commitment.created</code> - A commitment was created</li>
-    <li class="pulse-list-item"><code>commitment.deadline_reached</code> - A commitment's deadline has passed</li>
+    <li class="pulse-list-item"><code>commitment.joined</code> - Someone joined a commitment</li>
     <li class="pulse-list-item"><code>commitment.critical_mass</code> - A commitment reached critical mass</li>
+    <li class="pulse-list-item"><code>commitment.deadline_reached</code> - A commitment's deadline has passed</li>
+    <li class="pulse-list-item"><code>chat_message.created</code> - A chat message was sent</li>
+    <li class="pulse-list-item"><code>user_list_member.created</code> - Someone was added to a list</li>
   </ul>
+  <p class="pulse-text-muted">Notes, comments, decisions, commitments, and options also emit <code>.updated</code> and <code>.deleted</code> variants.</p>
 
   <% if automation_type == :agent %>
   <h4>Mention Filters</h4>

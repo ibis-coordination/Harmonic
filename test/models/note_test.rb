@@ -1,7 +1,7 @@
 require "test_helper"
 
 class NoteTest < ActiveSupport::TestCase
-  # Note: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
+  # NOTE: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
 
   test "Note.create works" do
     tenant = create_tenant
@@ -882,7 +882,7 @@ class NoteTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       updated_by: user,
-      text: "Default subtype note",
+      text: "Default subtype note"
     )
 
     assert_equal "post", note.subtype
@@ -905,9 +905,7 @@ class NoteTest < ActiveSupport::TestCase
         text: "#{subtype} note",
         subtype: subtype,
       }
-      if subtype == "table"
-        attrs[:table_data] = { "columns" => [], "rows" => [] }
-      end
+      attrs[:table_data] = { "columns" => [], "rows" => [] } if subtype == "table"
 
       note = Note.create!(attrs)
       assert_equal subtype, note.subtype
@@ -924,7 +922,7 @@ class NoteTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       updated_by: user,
-      text: "Parent note",
+      text: "Parent note"
     )
 
     comment = Note.new(
@@ -934,7 +932,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       text: "This is a comment",
       subtype: "reminder",
-      commentable: parent,
+      commentable: parent
     )
 
     assert_not comment.valid?
@@ -951,7 +949,7 @@ class NoteTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       updated_by: user,
-      text: "Parent note",
+      text: "Parent note"
     )
 
     comment = Note.new(
@@ -961,7 +959,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       text: "This is a comment",
       subtype: "comment",
-      commentable: parent,
+      commentable: parent
     )
 
     assert comment.valid?
@@ -978,7 +976,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Not a comment",
-      subtype: "comment",
+      subtype: "comment"
     )
 
     assert_not note.valid?
@@ -1001,7 +999,7 @@ class NoteTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       updated_by: user,
-      text: nil,
+      text: nil
     )
 
     assert_not note.valid?
@@ -1018,7 +1016,7 @@ class NoteTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       updated_by: user,
-      text: "",
+      text: ""
     )
 
     assert_not note.valid?
@@ -1035,7 +1033,7 @@ class NoteTest < ActiveSupport::TestCase
       collective: collective,
       created_by: user,
       updated_by: user,
-      text: "   \n  ",
+      text: "   \n  "
     )
 
     assert_not note.valid?
@@ -1055,7 +1053,7 @@ class NoteTest < ActiveSupport::TestCase
       subtype: "table",
       title: "Test table",
       text: "",
-      table_data: { "columns" => [{ "name" => "Col", "type" => "text" }], "rows" => [] },
+      table_data: { "columns" => [{ "name" => "Col", "type" => "text" }], "rows" => [] }
     )
 
     assert note.valid?
@@ -1072,7 +1070,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Invalid subtype note",
-      subtype: "invalid",
+      subtype: "invalid"
     )
 
     assert_not note.valid?
@@ -1090,7 +1088,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "API json note",
-      subtype: "reminder",
+      subtype: "reminder"
     )
 
     json = note.api_json
@@ -1152,11 +1150,11 @@ class NoteTest < ActiveSupport::TestCase
       subtype: "table",
       title: "No table data",
       text: "",
-      table_data: nil,
+      table_data: nil
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("must be present") }
+    assert(note.errors[:table_data].any? { |e| e.include?("must be present") })
   end
 
   test "table note rejects more than 20 columns" do
@@ -1170,11 +1168,11 @@ class NoteTest < ActiveSupport::TestCase
       subtype: "table",
       title: "Too many columns",
       text: "",
-      table_data: { "columns" => columns, "rows" => [] },
+      table_data: { "columns" => columns, "rows" => [] }
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("20 columns") }
+    assert(note.errors[:table_data].any? { |e| e.include?("20 columns") })
   end
 
   test "table note rejects duplicate column names" do
@@ -1192,11 +1190,11 @@ class NoteTest < ActiveSupport::TestCase
           { "name" => "Status", "type" => "text" },
         ],
         "rows" => [],
-      },
+      }
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("unique") }
+    assert(note.errors[:table_data].any? { |e| e.include?("unique") })
   end
 
   test "table note rejects column names starting with underscore" do
@@ -1211,11 +1209,11 @@ class NoteTest < ActiveSupport::TestCase
       table_data: {
         "columns" => [{ "name" => "_id", "type" => "text" }],
         "rows" => [],
-      },
+      }
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("underscore") }
+    assert(note.errors[:table_data].any? { |e| e.include?("underscore") })
   end
 
   test "table note rejects column names with special characters" do
@@ -1230,11 +1228,11 @@ class NoteTest < ActiveSupport::TestCase
       table_data: {
         "columns" => [{ "name" => "Status<script>", "type" => "text" }],
         "rows" => [],
-      },
+      }
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("invalid characters") }
+    assert(note.errors[:table_data].any? { |e| e.include?("invalid characters") })
   end
 
   test "table note rejects invalid column type" do
@@ -1249,11 +1247,11 @@ class NoteTest < ActiveSupport::TestCase
       table_data: {
         "columns" => [{ "name" => "Col", "type" => "formula" }],
         "rows" => [],
-      },
+      }
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("invalid column type") }
+    assert(note.errors[:table_data].any? { |e| e.include?("invalid column type") })
   end
 
   test "table note rejects cell values exceeding 1000 chars" do
@@ -1268,11 +1266,11 @@ class NoteTest < ActiveSupport::TestCase
       table_data: {
         "columns" => [{ "name" => "Data", "type" => "text" }],
         "rows" => [{ "_id" => "abc1", "Data" => "x" * 1001 }],
-      },
+      }
     )
 
     assert_not note.valid?
-    assert note.errors[:table_data].any? { |e| e.include?("1000 characters") }
+    assert(note.errors[:table_data].any? { |e| e.include?("1000 characters") })
   end
 
   # Table soft delete test
@@ -1284,7 +1282,7 @@ class NoteTest < ActiveSupport::TestCase
     note = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
       subtype: "table", title: "Test Table", text: "",
-      table_data: { "columns" => [{ "name" => "Status", "type" => "text" }], "rows" => [] },
+      table_data: { "columns" => [{ "name" => "Status", "type" => "text" }], "rows" => [] }
     )
     table = NoteTableService.new(note)
     table.add_row!({ "Status" => "done" }, created_by: user)
@@ -1305,7 +1303,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1316,7 +1314,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     assert note.is_reminder?
@@ -1331,7 +1329,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1342,7 +1340,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     assert_equal notification, note.reminder_notification
@@ -1360,7 +1358,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       text: "Remember to do the thing",
       subtype: "reminder",
-      reminder_scheduled_for: scheduled_time,
+      reminder_scheduled_for: scheduled_time
     )
 
     assert_in_delta scheduled_time, note.reminder_scheduled_for, 1.second
@@ -1375,7 +1373,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Regular note",
-      subtype: "post",
+      subtype: "post"
     )
 
     assert_nil note.reminder_scheduled_for
@@ -1389,7 +1387,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1400,7 +1398,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     assert note.reminder_pending?
@@ -1414,7 +1412,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1425,7 +1423,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     # Simulate delivery
@@ -1442,7 +1440,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1453,7 +1451,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     assert_not note.reminder_delivered?
@@ -1471,7 +1469,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     scheduled_time = 1.day.from_now.in_time_zone("UTC")
@@ -1483,7 +1481,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: scheduled_time,
+      reminder_scheduled_for: scheduled_time
     )
 
     note.reminder_service.cancel!
@@ -1502,7 +1500,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1513,7 +1511,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Remember to do the thing",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note.soft_delete!(by: user)
@@ -1532,7 +1530,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1543,7 +1541,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     # Simulate delivery
@@ -1563,7 +1561,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1574,7 +1572,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
@@ -1593,7 +1591,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test reminder",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1604,7 +1602,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
@@ -1625,7 +1623,7 @@ class NoteTest < ActiveSupport::TestCase
       user: user,
       title: "Test reminder",
       scheduled_for: 1.day.from_now.in_time_zone("UTC"),
-      additional_recipients: [user2],
+      additional_recipients: [user2]
     )
 
     note = Note.create!(
@@ -1636,7 +1634,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
@@ -1654,7 +1652,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1665,7 +1663,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
@@ -1682,7 +1680,7 @@ class NoteTest < ActiveSupport::TestCase
     notification = ReminderService.create!(
       user: user,
       title: "Test",
-      scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     note = Note.create!(
@@ -1693,7 +1691,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     assert_equal "readers", note.metric_name
@@ -1709,7 +1707,7 @@ class NoteTest < ActiveSupport::TestCase
       user: user,
       title: "Test",
       scheduled_for: 1.day.from_now.in_time_zone("UTC"),
-      additional_recipients: [user2],
+      additional_recipients: [user2]
     )
 
     note = Note.create!(
@@ -1720,7 +1718,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "Reminder note",
       subtype: "reminder",
       reminder_notification_id: notification.id,
-      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
+      reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC")
     )
 
     notification.notification_recipients.each(&:mark_delivered!)
@@ -1739,7 +1737,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       text: "Reminder note",
-      subtype: "reminder",
+      subtype: "reminder"
     )
 
     json = note.api_json
@@ -1761,7 +1759,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       tenant: tenant,
       collective: collective,
-      deadline: Time.current,
+      deadline: Time.current
     )
     assert_not note.valid?
     assert note.errors[:subtype].any?
@@ -1779,7 +1777,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       question: "Test?",
       description: "",
-      deadline: 1.day.from_now,
+      deadline: 1.day.from_now
     )
 
     note = Note.new(
@@ -1790,7 +1788,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       tenant: tenant,
       collective: collective,
-      deadline: Time.current,
+      deadline: Time.current
     )
     assert note.valid?
   end
@@ -1807,7 +1805,7 @@ class NoteTest < ActiveSupport::TestCase
       updated_by: user,
       question: "Test?",
       description: "",
-      deadline: 1.day.from_now,
+      deadline: 1.day.from_now
     )
 
     note = Note.new(
@@ -1817,7 +1815,7 @@ class NoteTest < ActiveSupport::TestCase
       created_by: user,
       updated_by: user,
       tenant: tenant,
-      collective: collective,
+      collective: collective
     )
     assert_not note.valid?
     assert note.errors[:subtype].any?
@@ -1850,7 +1848,7 @@ class NoteTest < ActiveSupport::TestCase
     tenant, collective, user = create_tenant_collective_user
     note = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
-      title: "A standalone note", text: "hello",
+      title: "A standalone note", text: "hello"
     )
 
     assert_equal "#{collective.path}/n/#{note.truncated_id}", note.path
@@ -1862,14 +1860,46 @@ class NoteTest < ActiveSupport::TestCase
     comment = decision.add_comment(text: "hi", created_by: user)
 
     assert_equal "#{collective.path}/n/#{comment.truncated_id}", comment.path,
-      "Note#path must remain the bare /n/<id> URL — callers concatenate /comments, /actions/<name>"
+                 "Note#path must remain the bare /n/<id> URL — callers concatenate /comments, /actions/<name>"
+  end
+
+  test "a top-level note emits note.created" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+
+    assert_not_nil Event.where(event_type: "note.created", subject: note).last
+  end
+
+  test "a comment emits comment.created rather than note.created" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+    comment = note.add_comment(text: "a reply", created_by: user)
+
+    assert_not_nil Event.where(event_type: "comment.created", subject: comment).last
+    assert_nil Event.where(event_type: "note.created", subject: comment).last
+  end
+
+  test "editing a comment emits comment.updated" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+    comment = note.add_comment(text: "first draft", created_by: user)
+    comment.update!(text: "second draft")
+
+    assert_not_nil Event.where(event_type: "comment.updated", subject: comment).last
+    assert_nil Event.where(event_type: "note.updated", subject: comment).last
   end
 
   test "Note#display_path equals #path for non-comments" do
     tenant, collective, user = create_tenant_collective_user
     note = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
-      title: "A standalone note", text: "hello",
+      title: "A standalone note", text: "hello"
     )
 
     assert_equal note.path, note.display_path
@@ -1879,7 +1909,7 @@ class NoteTest < ActiveSupport::TestCase
     tenant, collective, user = create_tenant_collective_user
     note = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
-      title: "A standalone note", text: "hello",
+      title: "A standalone note", text: "hello"
     )
 
     assert_equal note, note.root_commentable
@@ -1915,7 +1945,7 @@ class NoteTest < ActiveSupport::TestCase
     tenant, collective, user = create_tenant_collective_user
     parent = Note.create!(
       tenant: tenant, collective: collective, created_by: user, updated_by: user,
-      title: "parent", text: "body",
+      title: "parent", text: "body"
     )
     comment = parent.add_comment(text: "a comment", created_by: user)
 
@@ -1947,20 +1977,21 @@ class NoteTest < ActiveSupport::TestCase
     queries = capture_sql { leaf_from_threads.display_path }
 
     assert_equal 0, queries.length,
-      "Expected zero SQL queries for #display_path after root injection; got: #{queries.inspect}"
+                 "Expected zero SQL queries for #display_path after root injection; got: #{queries.inspect}"
   end
 
   private
 
   # Capture SQL queries issued during the block.
-  def capture_sql
+  def capture_sql(&)
     queries = []
-    callback = ->(_name, _start, _finish, _id, payload) do
+    callback = lambda do |_name, _start, _finish, _id, payload|
       sql = payload[:sql]
       next if payload[:name] == "SCHEMA" || sql.start_with?("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE SAVEPOINT")
+
       queries << sql
     end
-    ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { yield }
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record", &)
     queries
   end
 end

@@ -6,13 +6,11 @@ class NotificationDispatcher
   sig { params(event: Event).void }
   def self.dispatch(event)
     case event.event_type
-    when /^note\.(created|updated)$/
+    when /^(note|comment)\.(created|updated)$/
       handle_note_event(event)
-    when "comment.created"
-      handle_comment_event(event)
-    when "decision.voted"
-      handle_decision_vote_event(event)
-    when "decision.resolved"
+    when "vote.created"
+      handle_vote_event(event)
+    when "decision.deadline_reached"
       handle_decision_resolved_event(event)
     when "commitment.joined"
       handle_commitment_join_event(event)
@@ -49,7 +47,7 @@ class NotificationDispatcher
       recipient: target,
       notification_type: "tune_in",
       title: title,
-      url: url,
+      url: url
     )
   end
 
@@ -107,7 +105,6 @@ class NotificationDispatcher
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
-
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
 
@@ -122,31 +119,6 @@ class NotificationDispatcher
     end
 
     maybe_send_trio_unavailable_hint(event, note.text, note.collective)
-  end
-
-  sig { params(event: Event).void }
-  def self.handle_comment_event(event)
-    subject = event.subject
-    return unless subject.is_a?(Note)
-
-    comment = T.let(subject, Note)
-    commentable = comment.commentable
-    return unless commentable
-
-    owner = get_created_by(commentable)
-    return if owner.nil? || owner.id == event.actor_id
-
-    actor_name = event.actor&.display_name || "Someone"
-    content_type = commentable.class.name.underscore.humanize.downcase
-
-    notify_user(
-      event: event,
-      recipient: owner,
-      notification_type: "comment",
-      title: "#{actor_name} commented on your #{content_type}",
-      body: comment.text.to_s.truncate(200),
-      url: get_path(commentable)
-    )
   end
 
   # Handle reply notifications when a note is a comment on another piece of content.
@@ -174,26 +146,42 @@ class NotificationDispatcher
   end
 
   sig { params(event: Event).void }
-  def self.handle_decision_vote_event(event)
+  def self.handle_vote_event(event)
     subject = event.subject
-    return unless subject.is_a?(Decision)
+    return unless subject.is_a?(Vote)
 
-    decision = T.let(subject, Decision)
+    decision = T.let(subject, Vote).decision
+    return if decision.nil?
 
     owner = decision.created_by
     return if owner.nil? || owner.id == event.actor_id
+    return if recent_vote_notification_exists?(event: event, decision: decision, recipient: owner)
 
     actor_name = event.actor&.display_name || "Someone"
-    vote_type = event.metadata&.dig("vote_type") || "voted"
 
     notify_user(
       event: event,
       recipient: owner,
       notification_type: "participation",
-      title: "#{actor_name} #{vote_type} on your decision",
+      title: "#{actor_name} voted on your decision",
       body: decision.description.to_s.truncate(200),
       url: decision.display_path
     )
+  end
+
+  # Suppresses repeat vote notifications while the recipient still has an
+  # unread one from the same voter on the same decision. A ballot is one vote
+  # row per option, so without this a single ballot would notify N times.
+  sig { params(event: Event, decision: Decision, recipient: User).returns(T::Boolean) }
+  def self.recent_vote_notification_exists?(event:, decision:, recipient:)
+    return false if event.actor_id.nil?
+
+    NotificationRecipient
+      .joins(:notification)
+      .joins("INNER JOIN events ON events.id = notifications.event_id")
+      .where(user_id: recipient.id, tenant_id: event.tenant_id, dismissed_at: nil, read_at: nil)
+      .where(notifications: { notification_type: "participation", url: decision.display_path })
+      .exists?(events: { actor_id: event.actor_id, event_type: "vote.created" })
   end
 
   sig { params(event: Event).void }
@@ -288,7 +276,6 @@ class NotificationDispatcher
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
 
-
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
 
@@ -321,7 +308,6 @@ class NotificationDispatcher
 
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
-
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -356,7 +342,6 @@ class NotificationDispatcher
 
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
-
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -424,7 +409,7 @@ class NotificationDispatcher
     params(
       event: Event,
       text: T.nilable(String),
-      collective: T.nilable(Collective),
+      collective: T.nilable(Collective)
     ).void
   end
   def self.maybe_send_trio_unavailable_hint(event, text, collective)
@@ -457,7 +442,7 @@ class NotificationDispatcher
       notification_type: "trio_unavailable",
       title: "Trio isn't enabled in #{collective.name}",
       body: body,
-      url: settings_url,
+      url: settings_url
     )
   end
 

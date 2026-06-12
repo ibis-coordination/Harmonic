@@ -18,7 +18,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hello @mentioned, check this out!",
+      text: "Hello @mentioned, check this out!"
     )
 
     # Get the created event
@@ -46,7 +46,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hey @trio, can you help with this?",
+      text: "Hey @trio, can you help with this?"
     )
 
     hint = Notification.where(notification_type: "trio_unavailable").last
@@ -70,7 +70,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: workspace,
       created_by: user,
-      text: "Hey @trio, help me organize this.",
+      text: "Hey @trio, help me organize this."
     )
 
     hint = Notification.where(notification_type: "trio_unavailable").last
@@ -86,7 +86,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
 
     trio = User.create!(
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil
     )
     tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
     collective.add_user!(trio)
@@ -96,7 +96,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hey @trio, can you help?",
+      text: "Hey @trio, can you help?"
     )
 
     hint = Notification.where(notification_type: "trio_unavailable").last
@@ -117,7 +117,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hello @selfmention!",
+      text: "Hello @selfmention!"
     )
 
     # No notification should be created for self-mention
@@ -134,7 +134,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hello world, no mentions here!",
+      text: "Hello world, no mentions here!"
     )
 
     # No notification should be created
@@ -154,7 +154,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hey @testuser!",
+      text: "Hey @testuser!"
     )
 
     event = Event.where(event_type: "note.created", subject: note).last
@@ -172,7 +172,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       event_type: "unknown.event",
-      actor: user,
+      actor: user
     )
 
     # Should not raise an error
@@ -188,7 +188,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     commitment = create_commitment(
       tenant: tenant,
       collective: collective,
-      created_by: user,
+      created_by: user
     )
 
     joining_user = create_user(email: "joiner@example.com", name: "Joiner")
@@ -201,7 +201,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       collective: collective,
       event_type: "commitment.joined",
       actor: joining_user,
-      subject: commitment,
+      subject: commitment
     )
 
     NotificationDispatcher.dispatch(event)
@@ -222,7 +222,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     commitment = create_commitment(
       tenant: tenant,
       collective: collective,
-      created_by: user,
+      created_by: user
     )
 
     initial_count = Notification.count
@@ -233,48 +233,13 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       collective: collective,
       event_type: "commitment.joined",
       actor: user,
-      subject: commitment,
+      subject: commitment
     )
 
     NotificationDispatcher.dispatch(event)
 
     # No notification should be created
     assert_equal initial_count, Notification.count
-  end
-
-  test "handle_decision_vote_event notifies decision owner" do
-    tenant, collective, user = create_tenant_collective_user
-    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-
-    decision = create_decision(
-      tenant: tenant,
-      collective: collective,
-      created_by: user,
-    )
-
-    voter = create_user(email: "voter@example.com", name: "Voter")
-    tenant.add_user!(voter)
-    collective.add_user!(voter)
-
-    # Simulate a decision.voted event
-    event = Event.create!(
-      tenant: tenant,
-      collective: collective,
-      event_type: "decision.voted",
-      actor: voter,
-      subject: decision,
-      metadata: { "vote_type" => "accepted" },
-    )
-
-    NotificationDispatcher.dispatch(event)
-
-    notification = Notification.where(event: event).last
-    assert_not_nil notification
-    assert_equal "participation", notification.notification_type
-    assert_includes notification.title, "accepted on your decision"
-
-    recipient = notification.notification_recipients.first
-    assert_equal user.id, recipient.user_id
   end
 
   # Preference-based channel selection tests
@@ -325,7 +290,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       event_type: "comment.created",
-      actor: user,
+      actor: user
     )
 
     # Call notify_user directly
@@ -333,7 +298,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       event: event,
       recipient: user,
       notification_type: "comment",
-      title: "Test comment",
+      title: "Test comment"
     )
 
     notification = Notification.where(event: event).last
@@ -360,7 +325,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hello @emailuser, check this out!",
+      text: "Hello @emailuser, check this out!"
     )
 
     # Get the created event
@@ -390,7 +355,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hello @noemailuser, check this out!",
+      text: "Hello @noemailuser, check this out!"
     )
 
     # Get the created event
@@ -419,10 +384,10 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: author,
-      text: "Original note content",
+      text: "Original note content"
     )
 
-    initial_notification_count = Notification.count
+    Notification.count
 
     # Create a reply to the note
     reply = create_note(
@@ -431,11 +396,11 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       created_by: replier,
       text: "This is a reply!",
       subtype: "comment",
-      commentable: original_note,
+      commentable: original_note
     )
 
     # Get the created event for the reply
-    event = Event.where(event_type: "note.created", subject: reply).last
+    event = Event.where(event_type: "comment.created", subject: reply).last
 
     # Check that a notification was created for the original author
     notification = Notification.where(event: event, notification_type: "comment").last
@@ -458,23 +423,23 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "My note",
+      text: "My note"
     )
 
     initial_notification_count = Notification.count
 
     # Create a reply to their own note
-    reply = create_note(
+    create_note(
       tenant: tenant,
       collective: collective,
       created_by: user,
       text: "Replying to myself",
       subtype: "comment",
-      commentable: original_note,
+      commentable: original_note
     )
 
     # No notification should be created for self-reply
-    comment_notifications = Notification.where(notification_type: "comment")
+    Notification.where(notification_type: "comment")
     assert_equal initial_notification_count, Notification.count
   end
 
@@ -491,7 +456,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     decision = create_decision(
       tenant: tenant,
       collective: collective,
-      created_by: decision_owner,
+      created_by: decision_owner
     )
 
     # Create a comment on the decision
@@ -501,11 +466,11 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       created_by: commenter,
       text: "Great decision!",
       subtype: "comment",
-      commentable: decision,
+      commentable: decision
     )
 
     # Get the created event for the comment
-    event = Event.where(event_type: "note.created", subject: comment).last
+    event = Event.where(event_type: "comment.created", subject: comment).last
 
     # Check that a notification was created for the decision owner
     notification = Notification.where(event: event, notification_type: "comment").last
@@ -519,7 +484,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal decision_owner.id, recipient.user_id
   end
 
-  # Note: AI agent task triggering tests have been moved to AutomationDispatcherTest
+  # NOTE: AI agent task triggering tests have been moved to AutomationDispatcherTest
   # since agent triggering is now handled by the automation system via AutomationDispatcher
   # instead of the hardcoded triggers that were previously in NotificationDispatcher.
 
@@ -573,7 +538,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     notification = Notification.where(notification_type: "tune_in").last
     assert_not_nil notification
     assert_includes notification.title, "Adder Person"
-    refute_match(/#{Regexp.escape(owner.display_name)}/, notification.title)
+    assert_no_match(/#{Regexp.escape(owner.display_name)}/, notification.title)
     assert_equal list.path, notification.url
   end
 
@@ -658,5 +623,196 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     member.destroy!
 
     assert_nil Notification.where(notification_type: "tune_in").last
+  end
+
+  test "a mention inside a comment notifies the mentioned user" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    mentioned_user = create_user(email: "replyfan@example.com", name: "Reply Fan")
+    tenant.add_user!(mentioned_user)
+    collective.add_user!(mentioned_user)
+    mentioned_user.tenant_user.update!(handle: "replyfan")
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+    comment = note.add_comment(text: "cc @replyfan", created_by: user)
+
+    event = Event.where(subject: comment).last
+    notification = Notification.where(event: event, notification_type: "mention").last
+    assert_not_nil notification, "Expected a mention notification from the comment"
+    assert_equal [mentioned_user.id], notification.notification_recipients.map(&:user_id).uniq
+  end
+
+  # ---- commitment join / critical mass notifications ----
+
+  def setup_commitment_with_joiner(critical_mass:)
+    tenant, collective, owner = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    joiner = create_user(email: "joiner-#{SecureRandom.hex(4)}@example.com", name: "Joiner")
+    tenant.add_user!(joiner)
+    collective.add_user!(joiner)
+
+    commitment = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: owner,
+      title: "Join me", description: "Test commitment",
+      critical_mass: critical_mass, deadline: 1.week.from_now
+    )
+
+    [commitment, owner, joiner]
+  end
+
+  def join!(commitment, user)
+    participant = CommitmentParticipantManager.new(commitment: commitment, user: user).find_or_create_participant
+    participant.committed = true
+    participant.save!
+  end
+
+  test "a join notifies the commitment creator" do
+    commitment, owner, joiner = setup_commitment_with_joiner(critical_mass: 2)
+
+    join!(commitment, joiner)
+
+    event = Event.where(event_type: "commitment.joined", subject: commitment).last
+    notification = Notification.where(event: event).last
+    assert_not_nil notification, "Expected a notification for the commitment creator"
+    assert_equal "participation", notification.notification_type
+    assert_equal [owner.id], notification.notification_recipients.map(&:user_id)
+  end
+
+  test "the creator joining their own commitment does not notify them" do
+    commitment, owner, _joiner = setup_commitment_with_joiner(critical_mass: 2)
+
+    join!(commitment, owner)
+
+    event = Event.where(event_type: "commitment.joined", subject: commitment).last
+    assert_not_nil event
+    assert_nil Notification.where(event: event).last
+  end
+
+  test "reaching critical mass notifies participants other than the crossing joiner" do
+    commitment, owner, joiner = setup_commitment_with_joiner(critical_mass: 2)
+    join!(commitment, owner)
+    join!(commitment, joiner)
+
+    event = Event.where(event_type: "commitment.critical_mass", subject: commitment).last
+    notification = Notification.where(event: event).last
+    assert_not_nil notification, "Expected a critical mass notification"
+    assert_equal "participation", notification.notification_type
+    assert_includes notification.title, "Critical mass"
+    assert_equal [owner.id], notification.notification_recipients.map(&:user_id)
+  end
+
+  # ---- decision vote notifications ----
+
+  def setup_decision_with_voter
+    tenant, collective, owner = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    voter = create_user(email: "voter-#{SecureRandom.hex(4)}@example.com", name: "Voter Vince")
+    tenant.add_user!(voter)
+    collective.add_user!(voter)
+
+    decision = create_decision(tenant: tenant, collective: collective, created_by: owner)
+    option = create_option(decision: decision, created_by: owner, title: "Option A")
+
+    [decision, option, owner, voter]
+  end
+
+  def cast_vote!(decision, option, user, preferred: 0)
+    participant = DecisionParticipantManager.new(decision: decision, user: user).find_or_create_participant
+    vote = Vote.new(
+      tenant: decision.tenant, collective: decision.collective, decision: decision,
+      option: option, decision_participant: participant, accepted: 1, preferred: preferred
+    )
+    DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: user)
+    vote
+  end
+
+  def vote_notifications_for(decision)
+    Notification
+      .joins(:event)
+      .where(notification_type: "participation", url: decision.display_path)
+      .where(events: { event_type: "vote.created" })
+  end
+
+  test "a vote notifies the decision creator and attributes the voter" do
+    decision, option, owner, voter = setup_decision_with_voter
+
+    cast_vote!(decision, option, voter)
+
+    event = Event.where(event_type: "vote.created").last
+    assert_equal voter.id, event.actor_id, "vote.created should be attributed to the voter"
+
+    notification = vote_notifications_for(decision).last
+    assert_not_nil notification, "Expected a vote notification for the decision creator"
+    assert_includes notification.title, "Voter Vince"
+    assert_equal [owner.id], notification.notification_recipients.map(&:user_id)
+  end
+
+  test "voting on your own decision creates no notification" do
+    decision, option, owner, _voter = setup_decision_with_voter
+
+    cast_vote!(decision, option, owner)
+
+    assert_nil vote_notifications_for(decision).last
+  end
+
+  test "a second vote while the first notification is unread does not notify again" do
+    decision, option_a, owner, voter = setup_decision_with_voter
+    option_b = create_option(decision: decision, created_by: owner, title: "Option B")
+
+    cast_vote!(decision, option_a, voter)
+    cast_vote!(decision, option_b, voter)
+
+    assert_equal 1, vote_notifications_for(decision).count
+    assert_equal [owner.id], vote_notifications_for(decision).last.notification_recipients.map(&:user_id)
+  end
+
+  test "a new vote after the notification is read notifies again" do
+    decision, option_a, owner, voter = setup_decision_with_voter
+    option_b = create_option(decision: decision, created_by: owner, title: "Option B")
+
+    cast_vote!(decision, option_a, voter)
+    vote_notifications_for(decision).last.notification_recipients.each(&:mark_read!)
+
+    cast_vote!(decision, option_b, voter)
+
+    assert_equal 2, vote_notifications_for(decision).count
+  end
+
+  # ---- decision resolution notifications ----
+
+  test "decision.deadline_reached notifies participants other than the actor" do
+    decision, option, owner, voter = setup_decision_with_voter
+    cast_vote!(decision, option, voter)
+
+    EventService.record!(
+      event_type: "decision.deadline_reached",
+      actor: owner,
+      subject: decision,
+      metadata: {}
+    )
+
+    event = Event.where(event_type: "decision.deadline_reached", subject: decision).last
+    notification = Notification.where(event: event).last
+    assert_not_nil notification, "Expected a resolution notification for participants"
+    assert_equal "participation", notification.notification_type
+    assert_includes notification.title, "resolved"
+    assert_equal [voter.id], notification.notification_recipients.map(&:user_id)
+  end
+
+  test "commitment.deadline_reached creates no notification" do
+    commitment, owner, _joiner = setup_commitment_with_joiner(critical_mass: 2)
+
+    EventService.record!(
+      event_type: "commitment.deadline_reached",
+      actor: owner,
+      subject: commitment,
+      metadata: {}
+    )
+
+    event = Event.where(event_type: "commitment.deadline_reached", subject: commitment).last
+    assert_nil Notification.where(event: event).last
   end
 end

@@ -19,11 +19,17 @@ module Tracked
 
   private
 
+  # Event-type prefix, normally the model name. Models whose records can play
+  # more than one role may override it (Note returns "comment" for comments).
+  def tracked_event_prefix
+    self.class.name.underscore
+  end
+
   def track_creation
     return if Current.importing_data
 
     EventService.record!(
-      event_type: "#{self.class.name.underscore}.created",
+      event_type: "#{tracked_event_prefix}.created",
       actor: respond_to?(:created_by) ? created_by : nil,
       subject: self,
       metadata: trackable_metadata_for_create
@@ -35,7 +41,7 @@ module Tracked
     return if saved_changes.except("updated_at").empty?
 
     EventService.record!(
-      event_type: "#{self.class.name.underscore}.updated",
+      event_type: "#{tracked_event_prefix}.updated",
       actor: respond_to?(:updated_by) ? updated_by : nil,
       subject: self,
       metadata: { changes: saved_changes.except("updated_at") }
@@ -46,7 +52,7 @@ module Tracked
     return if Current.importing_data
 
     EventService.record!(
-      event_type: "#{self.class.name.underscore}.deleted",
+      event_type: "#{tracked_event_prefix}.deleted",
       actor: nil,
       subject: self,
       metadata: trackable_metadata_for_delete

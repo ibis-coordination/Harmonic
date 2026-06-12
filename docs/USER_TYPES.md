@@ -74,7 +74,7 @@ A **collective_identity** is a synthetic user that enables collective agency. Id
                       | creates           | can_represent?
                       v                   v
 +-----------------------------+   +-----------------------------+
-|       SUBAGENT USER         |   |       COLLECTIVE            |
+|       AI AGENT USER         |   |       COLLECTIVE            |
 |  - parent_id -> human      |   |  - has identity_user        |
 |  - No OAuth identity        |   |  - has representative role  |
 |  - Parent can represent     |   +--------------+--------------+

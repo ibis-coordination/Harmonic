@@ -25,6 +25,13 @@ class Vote < ApplicationRecord
   validates :accepted, inclusion: { in: [0, 1] }
   validates :preferred, inclusion: { in: [0, 1] }
 
+  # Votes are authored by the participant's user. Exposing created_by lets
+  # Tracked attribute vote.created events to the voter.
+  sig { returns(T.nilable(User)) }
+  def created_by
+    decision_participant&.user
+  end
+
   sig { void }
   def set_tenant_id
     self.tenant_id = T.must(option).tenant_id if tenant_id.nil?

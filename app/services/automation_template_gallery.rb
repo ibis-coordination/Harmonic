@@ -162,8 +162,8 @@ class AutomationTemplateGallery
 
         trigger:
           type: event
-          event_type: reply.created
-          mention_filter: self
+          event_type: comment.created
+          mention_filter: self_or_reply
 
         task: |
           {{event.actor.name}} replied to your comment at {{subject.path}}.

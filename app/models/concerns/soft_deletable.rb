@@ -1,6 +1,6 @@
 # typed: false
 
-# Phase-2 grace-period soft delete.
+# Grace-period soft delete.
 #
 # soft_delete! is metadata-only — sets deleted_at, deleted_by_id, and
 # hard_delete_after — and removes the row from the search index and any
