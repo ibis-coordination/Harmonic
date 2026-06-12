@@ -291,6 +291,19 @@ class NotificationWebhooksControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("stripe_billing")
   end
 
+  test "billing_exempt human bypasses the billing gate" do
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(billing_exempt: true)
+
+    assert_difference "AutomationRule.unscoped.where(user_id: @user.id).count", 1 do
+      patch "/u/#{@user_handle}/webhook", params: { webhook_url: "https://exempt.example.com/hook" }
+    end
+    assert_redirected_to "/u/#{@user_handle}/webhook"
+  ensure
+    @user.update!(billing_exempt: false)
+    @tenant.disable_feature_flag!("stripe_billing")
+  end
+
   test "admin human bypasses the billing gate" do
     enable_stripe_billing_flag!(@tenant)
     @user.update!(app_admin: true)

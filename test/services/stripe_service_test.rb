@@ -810,6 +810,68 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_includes agent1.suspended_reason, "Subscription deleted"
   end
 
+  test "handle_webhook customer.subscription.deleted leaves billing_exempt agents unsuspended" do
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_del_exempt_agent",
+      stripe_subscription_id: "sub_del_exempt_agent",
+      active: true,
+    )
+
+    exempt_agent = create_ai_agent(parent: @user, name: "Exempt Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(exempt_agent)
+    exempt_agent.update!(billing_exempt: true)
+    billed_agent = create_ai_agent(parent: @user, name: "Billed Agent #{SecureRandom.hex(4)}")
+    @tenant.add_user!(billed_agent)
+
+    event = build_stripe_event(
+      type: "customer.subscription.deleted",
+      object: { "customer" => "cus_del_exempt_agent", "id" => "sub_del_exempt_agent" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    assert_not exempt_agent.reload.suspended?,
+               "exempt agents need no subscription, so losing it must not suspend them"
+    assert billed_agent.reload.suspended?
+  end
+
+  test "handle_webhook customer.subscription.deleted leaves billing_exempt paid collectives on the paid tier" do
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_del_exempt_coll",
+      stripe_subscription_id: "sub_del_exempt_coll",
+      active: true,
+    )
+
+    exempt_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Exempt Coll #{SecureRandom.hex(4)}",
+      handle: "exempt-coll-#{SecureRandom.hex(4)}",
+    )
+    exempt_collective.update!(tier: Collective::TIER_PAID, billing_exempt: true)
+
+    billed_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Billed Coll #{SecureRandom.hex(4)}",
+      handle: "billed-coll-#{SecureRandom.hex(4)}",
+    )
+    billed_collective.update!(tier: Collective::TIER_PAID)
+
+    event = build_stripe_event(
+      type: "customer.subscription.deleted",
+      object: { "customer" => "cus_del_exempt_coll", "id" => "sub_del_exempt_coll" },
+    )
+
+    StripeService.handle_webhook_event(event)
+
+    assert_equal Collective::TIER_PAID, exempt_collective.reload.tier,
+                 "exempt collectives need no subscription, so losing it must not lapse them"
+    assert_equal Collective::TIER_LAPSED, billed_collective.reload.tier
+  end
+
   test "handle_webhook customer.subscription.updated to canceled suspends agents" do
     sc = StripeCustomer.create!(
       billable: @user,

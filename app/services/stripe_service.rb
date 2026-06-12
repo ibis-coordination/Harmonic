@@ -493,12 +493,13 @@ class StripeService
 
     billing_tenant_ids = user.billing_tenant_ids
 
-    # Suspend agents on billing-enabled tenants only
+    # Suspend agents on billing-enabled tenants only. Exempt agents need no
+    # subscription, so losing it doesn't touch them.
     suspended_count = 0
     user.ai_agents
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: billing_tenant_ids })
-      .where(suspended_at: nil)
+      .where(suspended_at: nil, billing_exempt: false)
       .find_each do |agent|
       agent.suspend!(by: user, reason: reason, skip_billing_sync: true)
       suspended_count += 1
@@ -509,9 +510,10 @@ class StripeService
     # Lapse just flips the tier column — runtime gates short-circuit on
     # paid_tier? so feature access pauses without touching configuration.
     # Restore is instant and zero-loss once the owner fixes their billing.
+    # Exempt collectives need no subscription, so they don't lapse.
     lapsed_count = 0
     Collective.for_user_across_tenants(user)
-      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_PAID, archived_at: nil)
+      .where(tenant_id: billing_tenant_ids, tier: Collective::TIER_PAID, archived_at: nil, billing_exempt: false)
       .find_each do |collective|
       next if collective.is_main_collective?
       collective.mark_lapsed!

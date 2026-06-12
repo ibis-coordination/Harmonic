@@ -767,8 +767,13 @@ class User < ApplicationRecord
   # external API tokens or notification webhooks). Both fall under the same
   # $3/month "personal programmatic access" line on the subscription —
   # having both still only adds +1.
+  #
+  # billing_exempt excludes only the user's OWN +1; their agents and
+  # collectives keep their own billing_exempt flags and bill normally.
   sig { params(tenant_ids: T::Array[String]).returns(T::Boolean) }
   def counts_self_for_paid_human_features?(tenant_ids = billing_tenant_ids)
+    return false if billing_exempt?
+
     counts_self_for_api_access?(tenant_ids) || has_notification_webhook?(tenant_ids)
   end
 

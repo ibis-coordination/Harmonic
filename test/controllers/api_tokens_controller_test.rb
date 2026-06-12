@@ -161,6 +161,18 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
     assert ApiToken.unscoped.exists?(user: @user, name: "Free Tenant Token")
   end
 
+  test "POST create creates the token directly for billing_exempt users" do
+    @user.update!(billing_exempt: true)
+    enable_stripe_billing_flag!(@tenant)
+    sign_in_for_tokens
+
+    post "/u/#{token_handle}/settings/tokens",
+         params: { api_token: { name: "Exempt Token", read_write: "read" } }
+
+    assert_response :success
+    assert ApiToken.unscoped.exists?(user: @user, name: "Exempt Token")
+  end
+
   test "POST create creates the token directly for sys_admin users (exempt from billing)" do
     @user.update!(sys_admin: true)
     enable_stripe_billing_flag!(@tenant)
