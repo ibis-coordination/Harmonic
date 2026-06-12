@@ -208,21 +208,6 @@ class BillingController < ApplicationController
     agent
   end
 
-  def find_owned_collective
-    collective = Collective.find_by(tenant_id: current_tenant.id, handle: params[:collective_handle])
-    unless collective && collective.created_by_id == current_user.id
-      flash[:error] = "You can only manage collectives you created."
-      return nil
-    end
-
-    if collective.is_main_collective?
-      flash[:error] = "The main collective cannot be deactivated."
-      return nil
-    end
-
-    collective
-  end
-
   def set_sidebar_mode
     @sidebar_mode = "minimal"
   end
