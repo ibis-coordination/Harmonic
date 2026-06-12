@@ -65,6 +65,38 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
                     "fresh humans should not see a Set Up Billing button")
   end
 
+  test "show bills the self-line for a user with only a notification webhook" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_selfline_wh", stripe_subscription_id: "sub_selfline_wh", active: true)
+    AutomationRule.unscoped.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Forward notifications",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_match(/\$3\/mo\s*<[^>]*>\s*\(programmatic access\)/, response.body,
+                 "a webhook bills the user's own +1 — the self-line must not read 'free'")
+  end
+
+  test "show marks the self-line free for a billing_exempt user with a token" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_selfline_ex", stripe_subscription_id: "sub_selfline_ex", active: true)
+    ApiToken.create!(user: @user, tenant: @tenant, name: "Self Line Token", scopes: ["read:all"], expires_at: 1.year.from_now)
+    @user.update!(billing_exempt: true)
+    sign_in_as(@user, tenant: @tenant)
+    get "/billing"
+
+    assert_response :success
+    assert_no_match(/\(programmatic access\)/, response.body,
+                    "an exempt user's self-line must not show the $3 programmatic-access charge")
+  end
+
   test "show redirects unauthenticated user to login" do
     get "/billing"
     assert_response :redirect
