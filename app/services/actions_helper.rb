@@ -592,6 +592,12 @@ class ActionsHelper
       params: [],
       authorization: :app_admin,
     },
+    "toggle_billing_exempt" => {
+      description: "Toggle billing exemption — exempt resources don't count toward the owner's subscription quantity",
+      params_string: "()",
+      params: [],
+      authorization: :app_admin,
+    },
 
     # Search actions
     "search" => {

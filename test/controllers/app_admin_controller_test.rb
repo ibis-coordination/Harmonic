@@ -737,4 +737,82 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_not @secondary_user.reload.billing_exempt?
   end
+
+  test "describe toggle_billing_exempt renders instead of raising" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/users/#{@non_admin_user.id}/actions/toggle_billing_exempt"
+
+    assert_response :success
+  end
+
+  test "admin user page shows a billing exemption toggle button" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/users/#{@non_admin_user.id}"
+
+    assert_response :success
+    assert_match(/toggle_billing_exempt/, response.body,
+                 "the exemption toggle must be reachable from the admin user page, not POST-only")
+  end
+
+  # ==========================================
+  # Collective Billing Exempt Toggle Tests
+  # ==========================================
+
+  def create_extra_collective(tenant:, created_by:)
+    Collective.create!(
+      tenant: tenant,
+      created_by: created_by,
+      name: "Toggle Coll #{SecureRandom.hex(4)}",
+      handle: "toggle-coll-#{SecureRandom.hex(4)}",
+    )
+  end
+
+  test "toggling billing_exempt on a collective flips the flag and syncs the owner" do
+    collective = create_extra_collective(tenant: @primary_tenant, created_by: @non_admin_user)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    synced = []
+    capture_sync = lambda { |user| synced << user.id; StripeService::SyncResult.new(success: true) }
+    StripeService.stub(:sync_subscription_quantity!, capture_sync) do
+      post "/app-admin/collectives/#{collective.id}/actions/toggle_billing_exempt"
+    end
+
+    assert collective.reload.billing_exempt?
+    assert_equal [@non_admin_user.id], synced,
+                 "collective exemption changes the owner's billable quantity — the owner must be synced"
+  end
+
+  test "toggling billing_exempt on a main collective is a no-op" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { flunk "main collectives are never billed — no sync expected" }) do
+      post "/app-admin/collectives/#{@primary_collective.id}/actions/toggle_billing_exempt"
+    end
+
+    assert_not @primary_collective.reload.billing_exempt?
+  end
+
+  test "admin tenant page lists collectives with exemption toggles" do
+    collective = create_extra_collective(tenant: @primary_tenant, created_by: @non_admin_user)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/tenants/#{@primary_tenant.subdomain}"
+
+    assert_response :success
+    assert_includes response.body, collective.name
+    assert_match %r{collectives/#{collective.id}/actions/toggle_billing_exempt}, response.body,
+                 "the collective exemption toggle must be reachable from the admin tenant page"
+  end
+
+  test "non-admin cannot toggle collective billing_exempt" do
+    collective = create_extra_collective(tenant: @primary_tenant, created_by: @non_admin_user)
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/app-admin/collectives/#{collective.id}/actions/toggle_billing_exempt"
+
+    assert_response :forbidden
+    assert_not collective.reload.billing_exempt?
+  end
 end

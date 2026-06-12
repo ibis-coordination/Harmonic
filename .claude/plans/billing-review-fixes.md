@@ -201,7 +201,7 @@ Worst case: a user removes one agent mid-month (credit goes pending) and their l
 1. **Repair the describe endpoint:** add a `toggle_billing_exempt` entry to `ACTION_DEFINITIONS` (description + params, mirroring `suspend_user` / `unsuspend_user`).
 2. **Make the existing toggle visible:** add the toggle button to `app/views/app_admin/show_user.html.erb` (and the `.md.erb` actions surface), next to the suspend/unsuspend buttons, showing current exemption state.
 3. **Add the collective toggle:** route pair `GET`/`POST /app-admin/collectives/:id/actions/toggle_billing_exempt` mirroring the user version. The execute action: look up via `Collective.unscoped_for_admin`, no-op for main collectives (never billed), flip the flag, sync the owner's subscription (`created_by`, same billing-owner resolution as Phase 2, surfacing `SyncResult` failure), and audit-log via `SecurityAuditLog.log_admin_action`.
-4. **Button placement for collectives:** app-admin has no collective pages, so render an app-admin-only toggle on the collective settings page next to the existing exemption badge (`app/views/collectives/settings.html.erb:389`), rather than building a new admin section for one button.
+4. **Button placement for collectives:** a Collectives section on the admin tenant page (`/app-admin/tenants/:subdomain`) listing each collective's tier/exemption with a toggle button. (The collective settings page was considered but doesn't work: `/app-admin` routes are restricted to the primary subdomain, while settings pages live on each tenant's subdomain — a relative form POST would 404.)
 
 **Tests (red first).**
 - `GET /app-admin/users/:id/actions/toggle_billing_exempt` renders instead of raising (pins the `ACTION_DEFINITIONS` repair).

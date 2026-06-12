@@ -88,6 +88,7 @@ class AppAdminController < ApplicationController
     @showing_tenant = Tenant.find_by(subdomain: params[:subdomain])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_tenant
     @current_user_is_admin_of_showing_tenant = @showing_tenant.is_admin?(@current_user)
+    @tenant_collectives = Collective.tenant_scoped_only(@showing_tenant.id).order(:name)
     @page_title = @showing_tenant.name
     respond_to do |format|
       format.html
@@ -279,6 +280,47 @@ class AppAdminController < ApplicationController
         redirect_to "/app-admin/users/#{user.id}"
       end
     end
+  end
+
+  # GET /app-admin/collectives/:id/actions/toggle_billing_exempt
+  def describe_toggle_collective_billing_exempt
+    collective = Collective.unscoped_for_admin(@current_user).find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless collective
+
+    render_action_description(ActionsHelper.action_description("toggle_billing_exempt"))
+  end
+
+  # POST /app-admin/collectives/:id/actions/toggle_billing_exempt
+  def execute_toggle_collective_billing_exempt
+    collective = Collective.unscoped_for_admin(@current_user).find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless collective
+
+    # Main collectives are never billed — nothing to exempt.
+    if collective.is_main_collective?
+      flash[:notice] = "Main collectives are never billed."
+      return redirect_back(fallback_location: "/app-admin")
+    end
+
+    new_value = !collective.billing_exempt?
+    collective.update!(billing_exempt: new_value)
+
+    # Collectives are billed on their creator's subscription
+    owner = collective.created_by
+    sync_result = StripeService.sync_subscription_quantity!(owner) if owner&.human?
+
+    action = new_value ? "granted" : "revoked"
+    SecurityAuditLog.log_admin_action(
+      admin: @current_user,
+      ip: request.remote_ip,
+      action: "collective_billing_exempt_#{action}",
+      target_user_id: owner&.id,
+      details: { collective_id: collective.id, collective_name: collective.name },
+    )
+
+    notice = "Billing exemption #{action} for #{collective.name}."
+    notice += " Stripe sync failed — the daily reconciliation job will correct the subscription quantity." if sync_result && !sync_result.success
+    flash[:notice] = notice
+    redirect_back(fallback_location: "/app-admin")
   end
 
   # POST /app-admin/users/:id/actions/account_security_reset

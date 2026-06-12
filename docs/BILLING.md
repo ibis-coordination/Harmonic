@@ -14,7 +14,7 @@ The unit price is **$3/month per billable identity**. A user has one Stripe subs
 | AI agent | $3/month each, while active (not archived, not suspended). |
 | Collective | Free by default (`tier = "free"`). $3/month when explicitly upgraded (`tier = "paid"`). Each tenant's main collective is always free. |
 
-**Exemptions.** Sys/app admins are exempt from all billing as platform operators. Any resource can be marked `billing_exempt: true`, which excludes it from the quantity: on an agent or collective it exempts that resource; on a human user it exempts the user's own personal-programmatic-access line (their agents and collectives still bill normally — exemption never cascades). App admins toggle user/agent exemption from the admin UI (audit-logged); collective exemption has no admin surface yet and is set via console.
+**Exemptions.** Sys/app admins are exempt from all billing as platform operators. Any resource can be marked `billing_exempt: true`, which excludes it from the quantity: on an agent or collective it exempts that resource; on a human user it exempts the user's own personal-programmatic-access line (their agents and collectives still bill normally — exemption never cascades). App admins toggle exemption from the admin UI (audit-logged): user/agent exemption on the admin user page, collective exemption on the admin tenant page (`/app-admin/tenants/:subdomain`).
 
 **Why this shape.** A non-zero cost per identity discourages bad actors that rely on free or untraceable accounts (scam accounts, spam accounts, agents-fronting-as-humans). Humans without API access can join freely so the social layer doesn't have a price gate. Self-hosting remains an unrestricted alternative.
 

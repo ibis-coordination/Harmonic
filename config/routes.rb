@@ -305,6 +305,8 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
   get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
   post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
+  get 'app-admin/collectives/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_collective_billing_exempt'
+  post 'app-admin/collectives/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_collective_billing_exempt'
   post 'app-admin/users/:id/actions/account_security_reset' => 'app_admin#execute_account_security_reset'
   get 'app-admin/reports' => 'app_admin#reports'
   get 'app-admin/reports/:id' => 'app_admin#show_report', as: 'app_admin_report'
