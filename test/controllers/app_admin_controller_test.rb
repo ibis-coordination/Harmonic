@@ -684,4 +684,57 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     assert_equal "actioned", report.status
     assert_equal "Escalated after further investigation", report.admin_notes
   end
+
+  # ==========================================
+  # Billing Exempt Toggle Tests
+  # ==========================================
+
+  test "toggling billing_exempt on an AI agent syncs the parent's subscription" do
+    agent = create_ai_agent(parent: @non_admin_user, name: "Exempt Toggle Agent")
+    @primary_tenant.add_user!(agent)
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    synced = []
+    capture_sync = lambda { |user| synced << user.id; StripeService::SyncResult.new(success: true) }
+    StripeService.stub(:sync_subscription_quantity!, capture_sync) do
+      post "/app-admin/users/#{agent.id}/actions/toggle_billing_exempt"
+    end
+
+    assert agent.reload.billing_exempt?, "toggle should flip the agent's flag"
+    assert_equal [@non_admin_user.id], synced,
+                 "exempting an agent changes the PARENT's billable quantity — the parent must be synced"
+  end
+
+  test "toggling billing_exempt on a human syncs that human" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    synced = []
+    capture_sync = lambda { |user| synced << user.id; StripeService::SyncResult.new(success: true) }
+    StripeService.stub(:sync_subscription_quantity!, capture_sync) do
+      post "/app-admin/users/#{@non_admin_user.id}/actions/toggle_billing_exempt"
+    end
+
+    assert @non_admin_user.reload.billing_exempt?
+    assert_equal [@non_admin_user.id], synced
+  end
+
+  test "toggling billing_exempt twice returns the flag to its original state" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    StripeService.stub(:sync_subscription_quantity!, ->(_) { StripeService::SyncResult.new(success: true) }) do
+      post "/app-admin/users/#{@non_admin_user.id}/actions/toggle_billing_exempt"
+      post "/app-admin/users/#{@non_admin_user.id}/actions/toggle_billing_exempt"
+    end
+
+    assert_not @non_admin_user.reload.billing_exempt?
+  end
+
+  test "non-admin cannot toggle billing_exempt" do
+    sign_in_as(@non_admin_user, tenant: @primary_tenant)
+
+    post "/app-admin/users/#{@secondary_user.id}/actions/toggle_billing_exempt"
+
+    assert_response :forbidden
+    assert_not @secondary_user.reload.billing_exempt?
+  end
 end

@@ -252,7 +252,8 @@ class AppAdminController < ApplicationController
     user.update!(billing_exempt: new_value)
 
     # Sync billing quantity after exemption change to keep Stripe in sync
-    StripeService.sync_subscription_quantity!(user) if user.human?
+    billing_user = billing_owner_for(user)
+    sync_result = StripeService.sync_subscription_quantity!(billing_user) if billing_user
 
     action = new_value ? "granted" : "revoked"
     SecurityAuditLog.log_admin_action(
@@ -263,6 +264,9 @@ class AppAdminController < ApplicationController
       details: { user_name: user.display_name },
     )
 
+    notice = "Billing exemption #{action} for #{user.display_name}."
+    notice += " Stripe sync failed — the daily reconciliation job will correct the subscription quantity." if sync_result && !sync_result.success
+
     respond_to do |format|
       format.md do
         @showing_user = user.reload
@@ -271,7 +275,7 @@ class AppAdminController < ApplicationController
         render "show_user"
       end
       format.html do
-        flash[:notice] = "Billing exemption #{action} for #{user.display_name}."
+        flash[:notice] = notice
         redirect_to "/app-admin/users/#{user.id}"
       end
     end
@@ -507,6 +511,16 @@ class AppAdminController < ApplicationController
   end
 
   def current_resource
+    nil
+  end
+
+  # The user whose Stripe subscription pays for the given user. Agents are
+  # billed on their parent's subscription, so exempting an agent changes
+  # the PARENT's billable quantity.
+  def billing_owner_for(user)
+    return user if user.human?
+    return User.find_by(id: user.parent_id) if user.ai_agent? && user.parent_id.present?
+
     nil
   end
 end
