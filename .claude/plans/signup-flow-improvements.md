@@ -267,11 +267,13 @@ exercise well.
 
 1. **Phase 1 — invite acceptance fix** (Problem 1). Highest impact; it's a correctness bug, not
    polish. Includes the integration tests for the full invite journey.
+   **Shipped** (branch signup-flow-improvements, commit 90bd4b8a).
 2. **Phase 2 — 2FA mobile UX** (Problem 2, items 1-4). Small view-layer changes, independently
-   shippable.
+   shippable. **Shipped** (966abd56).
 3. **Phase 3 — OAuth test coverage + 2FA-at-login for all providers** (Problem 3). One
    deliberate behavior change (the verify-2fa provider condition); the rest is test coverage
-   that may surface bugs which become their own fixes.
+   that may surface bugs which become their own fixes. **Shipped** (af38e379), except the
+   Playwright E2E happy-path spec and the manual-test checklist, which remain open.
 4. **Phase 4 (separate plan if pursued)** — alternative 2FA methods (email codes or passkeys),
    live-updating /activate.
 
