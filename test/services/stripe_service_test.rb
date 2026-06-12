@@ -459,14 +459,20 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_not sc.reload.active?, "local StripeCustomer must be marked inactive after cancellation"
   end
 
-  test "cancel at zero quantity prorates and invoices so unused time becomes customer credit" do
+  test "cancel at zero quantity prorates, invoices, and finalizes so unused time becomes customer credit" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_drop_prorate", active: true, stripe_subscription_id: "sub_drop_prorate")
 
     stub_request(:delete, "https://api.stripe.com/v1/subscriptions/sub_drop_prorate")
       .with(query: hash_including({}))
       .to_return(
         status: 200,
-        body: { id: "sub_drop_prorate", object: "subscription", status: "canceled" }.to_json,
+        body: { id: "sub_drop_prorate", object: "subscription", status: "canceled", latest_invoice: "in_final_123" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/invoices/in_final_123/finalize")
+      .to_return(
+        status: 200,
+        body: { id: "in_final_123", object: "invoice", status: "open", total: -600 }.to_json,
         headers: { "Content-Type" => "application/json" },
       )
 
@@ -478,6 +484,12 @@ class StripeServiceTest < ActiveSupport::TestCase
     # balance and offsets a future resubscription.
     assert_requested(:delete, "https://api.stripe.com/v1/subscriptions/sub_drop_prorate",
                      query: { "prorate" => "true", "invoice_now" => "true" })
+    # invoice_now leaves the final credit invoice in draft (verified live in
+    # Stripe test mode), and the credit doesn't reach the customer balance
+    # until the invoice finalizes — which Stripe does asynchronously, on its
+    # own schedule. Finalize explicitly so an immediate resubscription is
+    # offset.
+    assert_requested(:post, "https://api.stripe.com/v1/invoices/in_final_123/finalize")
   end
 
   test "sync_subscription_quantity! returns failure SyncResult with error when Stripe cancellation fails" do

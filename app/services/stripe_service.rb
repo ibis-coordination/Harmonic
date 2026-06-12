@@ -166,9 +166,24 @@ class StripeService
   # invoice_now sweeps those credits onto a final invoice, whose negative
   # total lands on the customer balance — automatically offsetting a future
   # resubscription (same Stripe customer is reused).
+  #
+  # invoice_now leaves that final invoice in DRAFT (observed live in test
+  # mode), and the credit doesn't reach the customer balance until the
+  # invoice finalizes. Auto-finalization is asynchronous — Stripe documents
+  # "approximately one hour"; we observed minutes — so finalize explicitly
+  # to ensure an immediate resubscription is offset by the credit.
   sig { params(sc: StripeCustomer, user: T.untyped).returns(SyncResult) }
   def self.cancel_subscription_for_zero_quantity!(sc, user)
-    Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id), { prorate: true, invoice_now: true })
+    subscription = Stripe::Subscription.cancel(T.must(sc.stripe_subscription_id), { prorate: true, invoice_now: true })
+    begin
+      final_invoice = subscription.respond_to?(:latest_invoice) ? subscription.latest_invoice : nil
+      final_invoice_id = final_invoice.is_a?(Stripe::Invoice) ? final_invoice.id : final_invoice
+      Stripe::Invoice.finalize_invoice(final_invoice_id) if final_invoice_id.present?
+    rescue Stripe::StripeError => e
+      # Best-effort: the cancel already succeeded, and Stripe auto-finalizes
+      # the draft within ~1 hour, so the credit still lands — just later.
+      Rails.logger.warn("[StripeService] Could not finalize final invoice #{final_invoice_id}: #{e.message}")
+    end
     sc.update!(active: false)
     Rails.logger.info("[StripeService] Cancelled subscription #{sc.stripe_subscription_id} for user #{user.id} (billable_quantity dropped to 0)")
     SyncResult.new(success: true)
