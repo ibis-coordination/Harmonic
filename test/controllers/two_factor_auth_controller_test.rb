@@ -205,6 +205,61 @@ class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
                     "should no longer default to the awkward 2FA management page")
   end
 
+  # === Setup page mobile UX ===
+  # Users signing up on their phone can't scan the QR code with the same
+  # device, so the setup page must offer same-device paths: an otpauth://
+  # deep link that opens the installed authenticator app, and a one-tap
+  # copyable secret key.
+
+  test "setup page offers an otpauth:// deep link to open the authenticator app" do
+    @tenant.update!(main_collective_id: @collective.id)
+    user = create_user(email: "deeplink-#{SecureRandom.hex(4)}@example.com", name: "Deep Link")
+    user.find_or_create_omni_auth_identity!
+    sign_in_as(user, tenant: @tenant, activate: false)
+
+    get two_factor_setup_path
+
+    assert_response :success
+    assert_match(/href="otpauth:\/\//, response.body,
+                 "expected an otpauth:// link so mobile users can open their authenticator app directly")
+  end
+
+  test "setup page shows the secret key with a copy button" do
+    @tenant.update!(main_collective_id: @collective.id)
+    user = create_user(email: "copykey-#{SecureRandom.hex(4)}@example.com", name: "Copy Key")
+    user.find_or_create_omni_auth_identity!
+    sign_in_as(user, tenant: @tenant, activate: false)
+
+    get two_factor_setup_path
+
+    assert_response :success
+    secret = session[:pending_otp_secret]
+    chunked = secret.scan(/.{4}/).join(" ")
+    assert_match(/#{Regexp.escape(chunked)}/, response.body,
+                 "expected the secret displayed in readable 4-character groups")
+    assert_match(/data-action="click->clipboard#copy"/, response.body,
+                 "expected a one-tap copy button for the secret")
+    assert_match(/value="#{Regexp.escape(secret)}"/, response.body,
+                 "expected the copy button to copy the raw secret without spaces")
+  end
+
+  test "recovery codes page presents Copy as the primary action" do
+    @tenant.update!(main_collective_id: @collective.id)
+    user = create_user(email: "reccopy-#{SecureRandom.hex(4)}@example.com", name: "Rec Copy")
+    user.find_or_create_omni_auth_identity!
+    sign_in_as(user, tenant: @tenant, activate: false)
+    get two_factor_setup_path
+    totp = ROTP::TOTP.new(session[:pending_otp_secret])
+
+    post two_factor_confirm_path, params: { code: totp.now }
+
+    assert_response :success
+    assert_select "button.pulse-action-btn[data-action='recovery-codes#copy']", { count: 1 },
+                  "Copy should be the primary button (downloads are flaky on mobile browsers)"
+    assert_select "button.pulse-action-btn-secondary[data-action='recovery-codes#download']", { count: 1 },
+                  "Download stays available as the secondary action"
+  end
+
   # === Bot protection (honeypot only on verify_submit) ===
 
   test "POST /login/verify-2fa with filled honeypot is rejected by bot protection before any OTP check" do

@@ -2,7 +2,7 @@
   <input type="text" value="<%= text %>" data-clipboard-target="source" style="display:none;"/>
   <span class="pulse-copy-btn-content" data-clipboard-target="button">
     <%= octicon 'copy', height: 14 %>
-    <span>Copy link to clipboard</span>
+    <span><%= local_assigns.fetch(:label, "Copy link to clipboard") %></span>
   </span>
   <span class="pulse-copy-btn-content" data-clipboard-target="successMessage" style="display:none;">
     <%= octicon 'check', height: 14 %>

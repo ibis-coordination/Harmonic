@@ -5,32 +5,43 @@
 
   <h1 class="pulse-auth-title">Set Up Two-Factor Authentication</h1>
 
-  <p class="pulse-auth-subtitle">
-    Scan this QR code with your authenticator app
-    <br>(Google Authenticator, Authy, 1Password, etc.)
-  </p>
-
   <% if flash[:alert] %>
     <div class="pulse-alert" style="margin-bottom: 16px;">
       <%= flash[:alert] %>
     </div>
   <% end %>
 
-  <div class="two-factor-qr-code" style="background: white; padding: 16px; border-radius: 8px; display: inline-block; margin: 24px 0;">
-    <%= @qr_code.html_safe %>
+  <%# Desktop: the QR code is the primary path (scan it with the phone), with
+      the deep link + manual key tucked behind a disclosure. %>
+  <div class="pulse-2fa-setup-desktop">
+    <p class="pulse-auth-subtitle">
+      Scan this QR code with your authenticator app
+      <br>(Google Authenticator, Authy, 1Password, etc.)
+    </p>
+
+    <div class="two-factor-qr-code" style="background: white; padding: 16px; border-radius: 8px; display: inline-block; margin: 24px 0;">
+      <%= @qr_code.html_safe %>
+    </div>
+
+    <details style="margin-bottom: 24px; text-align: center; max-width: 400px; margin-left: auto; margin-right: auto;">
+      <summary style="cursor: pointer; color: var(--color-fg-muted);">
+        Can't scan the code?
+      </summary>
+      <div style="margin-top: 12px;">
+        <%= render "manual_key", provisioning_uri: @provisioning_uri, secret: @secret %>
+      </div>
+    </details>
   </div>
 
-  <details style="margin-bottom: 24px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
-    <summary style="cursor: pointer; color: var(--color-fg-muted);">
-      Can't scan the code?
-    </summary>
-    <p style="margin-top: 12px; color: var(--color-fg-muted); font-size: 0.875rem;">
-      Enter this key manually in your authenticator app:
+  <%# Mobile: the authenticator app lives on this same device, so a QR code is
+      unusable — lead with the deep link and copyable key instead. %>
+  <div class="pulse-2fa-setup-mobile" style="margin-bottom: 24px;">
+    <p class="pulse-auth-subtitle">
+      Add your account to your authenticator app
+      <br>(Google Authenticator, Authy, 1Password, etc.)
     </p>
-    <code class="pulse-code" style="display: block; margin-top: 8px; padding: 12px; word-break: break-all; font-size: 0.875rem;">
-      <%= @secret %>
-    </code>
-  </details>
+    <%= render "manual_key", provisioning_uri: @provisioning_uri, secret: @secret %>
+  </div>
 
   <p class="pulse-auth-subtitle">
     Enter the 6-digit code from your authenticator app to confirm setup.

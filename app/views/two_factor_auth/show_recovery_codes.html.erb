@@ -23,8 +23,10 @@
     </div>
 
     <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: center;">
+      <%# Copy is primary: the download attribute is unreliable in mobile
+          browsers, and mobile signups are where recovery codes matter most. %>
       <button type="button"
-              class="pulse-action-btn-secondary"
+              class="pulse-action-btn"
               data-action="recovery-codes#copy"
               data-recovery-codes-target="copyButton">
         Copy codes
