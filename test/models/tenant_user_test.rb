@@ -107,6 +107,35 @@ class TenantUserTest < ActiveSupport::TestCase
     assert_empty channels
   end
 
+  # === Handle generation ===
+
+  test "add_user! generates a unique handle when another tenant user already has the name-derived one" do
+    tenant = create_tenant(subdomain: "hgen-#{SecureRandom.hex(4)}")
+    first = create_user(email: "smith1-#{SecureRandom.hex(4)}@example.com", name: "Jane Smith")
+    second = create_user(email: "smith2-#{SecureRandom.hex(4)}@example.com", name: "Jane Smith")
+
+    first_tu = tenant.add_user!(first)
+    assert_equal "jane-smith", first_tu.handle
+
+    second_tu = tenant.add_user!(second)
+    assert_not_equal first_tu.handle, second_tu.handle,
+                     "two users with the same name must not collide on handle"
+    assert_match(/\Ajane-smith-/, second_tu.handle,
+                 "expected the derived handle with a uniquifying suffix")
+  end
+
+  test "add_user! with an identical name works in a different tenant without suffixing" do
+    tenant_a = create_tenant(subdomain: "hgena-#{SecureRandom.hex(4)}")
+    tenant_b = create_tenant(subdomain: "hgenb-#{SecureRandom.hex(4)}")
+    user_a = create_user(email: "ta-#{SecureRandom.hex(4)}@example.com", name: "Pat Doe")
+    user_b = create_user(email: "tb-#{SecureRandom.hex(4)}@example.com", name: "Pat Doe")
+
+    tenant_a.add_user!(user_a)
+    tu_b = tenant_b.add_user!(user_b)
+
+    assert_equal "pat-doe", tu_b.handle, "handle uniqueness is per-tenant"
+  end
+
   # === Reserved handles ===
 
   test "handle 'trio' is allowed for an ai_agent with system_role 'trio'" do

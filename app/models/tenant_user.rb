@@ -59,14 +59,17 @@ class TenantUser < ApplicationRecord
 
   # When auto-generating a handle from the user's name, suffix it if the
   # parameterized form lands on a reserved handle the user isn't entitled
-  # to claim — so a human named "Trio" gets "trio-XX", not "trio".
+  # to claim (a human named "Trio" gets "trio-XX", not "trio") or is already
+  # taken by another user in this tenant (the second "Jane Smith" gets
+  # "jane-smith-XX" instead of a unique-constraint crash on signup).
   sig { returns(String) }
   def generated_default_handle
     base = T.must(user).name.parameterize
     required_role = RESERVED_HANDLES[base]
-    return base if required_role.nil? || T.must(user).system_role == required_role
-
-    "#{base}-#{SecureRandom.hex(2)}"
+    candidate = base
+    candidate = "#{base}-#{SecureRandom.hex(2)}" unless required_role.nil? || T.must(user).system_role == required_role
+    candidate = "#{base}-#{SecureRandom.hex(2)}" while TenantUser.tenant_scoped_only(tenant_id).exists?(handle: candidate)
+    candidate
   end
   private :generated_default_handle
 
