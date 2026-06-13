@@ -272,9 +272,17 @@ exercise well.
    shippable. **Shipped** (966abd56).
 3. **Phase 3 — OAuth test coverage + 2FA-at-login for all providers** (Problem 3). One
    deliberate behavior change (the verify-2fa provider condition); the rest is test coverage
-   that may surface bugs which become their own fixes. **Shipped** (af38e379), except the
-   Playwright E2E happy-path spec and the manual-test checklist, which remain open.
-4. **Phase 4 (separate plan if pursued)** — alternative 2FA methods (email codes or passkeys),
+   that may surface bugs which become their own fixes. **Shipped** (af38e379). The E2E
+   coverage followed: happy-path spec + cross-device/abandonment/fresh-device/mobile-layout
+   variants in `e2e/tests/auth/signup*.spec.ts`; the manual checklist
+   (`test/manual/signup/`) keeps only real-device checks (otpauth:// handoff, mobile
+   clipboard/download, real-TOTP round-trip). The specs surfaced and fixed a real bug:
+   duplicate display names crashed `TenantUser` handle generation on the unique index.
+4. **Handle selection at acceptance** (grew out of the duplicate-name fix): the confirmation
+   page has an @-prefixed editable handle field; `TenantUser.default_handle_for` prefers the
+   external OAuth username over the name; handle uniqueness validation added (also fixes the
+   500 on taken-handle renames in settings). **Shipped** (414591b2).
+5. **Phase 4 (separate plan if pursued)** — alternative 2FA methods (email codes or passkeys),
    live-updating /activate.
 
 ## Open questions
