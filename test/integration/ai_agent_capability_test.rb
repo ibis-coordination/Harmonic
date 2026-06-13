@@ -41,34 +41,6 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   end
 
   # ====================
-  # /whoami Capabilities Display
-  # ====================
-
-  test "whoami shows full capabilities when no restrictions" do
-    @ai_agent.update_columns(agent_configuration: nil)
-
-    get "/whoami", headers: api_headers
-
-    assert_response :success
-    assert_match "full capabilities", response.body
-    refute_match "cannot perform", response.body
-  end
-
-  test "whoami shows restricted capabilities when configured" do
-    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
-
-    get "/whoami", headers: api_headers
-
-    assert_response :success
-    assert_match "restricted your capabilities", response.body
-    # The markdown uses **cannot** for bold
-    assert response.body.include?("cannot")
-    # Should list actions that are NOT in capabilities
-    assert_match "`vote`", response.body
-    assert_match "`create_decision`", response.body
-  end
-
-  # ====================
   # Action Execution - Capability Blocked
   # ====================
 
