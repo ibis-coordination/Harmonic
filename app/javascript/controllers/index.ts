@@ -16,6 +16,7 @@ import ListFormController from "./list_form_controller"
 import CardExpandController from "./card_expand_controller"
 import CardNavigateController from "./card_navigate_controller"
 import ClipboardController from "./clipboard_controller"
+import HandleInputController from "./handle_input_controller"
 import CodeBlockController from "./code_block_controller"
 import CollapsableSectionController from "./collapseable_section_controller"
 import CommentsController from "./comments_controller"
@@ -84,6 +85,7 @@ application.register("ajax-toggle", AjaxToggleController)
 application.register("card-expand", CardExpandController)
 application.register("card-navigate", CardNavigateController)
 application.register("clipboard", ClipboardController)
+application.register("handle-input", HandleInputController)
 application.register("code-block", CodeBlockController)
 application.register("csv-import", CsvImportController)
 application.register("collapseable-section", CollapsableSectionController)

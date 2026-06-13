@@ -154,18 +154,49 @@ class OauthSignupFlowTest < ActionDispatch::IntegrationTest
                "the session must not be established before the second factor is verified"
   end
 
-  test "completing the TOTP challenge after GitHub login establishes the session" do
+  test "completing the TOTP challenge after GitHub login establishes the session and audit-logs the login" do
     user = create_user(email: "ghotp2-#{SecureRandom.hex(4)}@example.com", name: "GH OTP Done")
     omni = user.find_or_create_omni_auth_identity!
     omni.generate_otp_secret!
     omni.enable_otp!
     github_callback(github_auth(email: user.email))
 
+    log_file = Rails.root.join("log/security_audit.log")
+    offset = File.exist?(log_file) ? File.readlines(log_file).size : 0
     totp = ROTP::TOTP.new(omni.otp_secret)
     post "/login/verify-2fa", params: { code: totp.now }
 
     assert_redirected_to "/login/return"
     assert_equal user.id, session[:user_id]
+    entries = File.readlines(log_file).drop(offset).filter_map do |line|
+      JSON.parse(line)
+    rescue JSON::ParserError
+      nil
+    end
+    success = entries.find { |e| e["event"] == "login_success" && e["user_id"] == user.id }
+    refute_nil success,
+               "2FA-protected logins must appear in the login-success audit trail like non-2FA logins do"
+  end
+
+  test "TOTP challenge completion resolves the user via the identity record, not an email string match" do
+    # The OmniAuthIdentity knows its user directly; completion must not
+    # depend on User.email matching OmniAuthIdentity.email (legacy rows and
+    # manual corrections can diverge).
+    user = create_user(email: "ghdiverge-#{SecureRandom.hex(4)}@example.com", name: "GH Diverged")
+    omni = user.find_or_create_omni_auth_identity!
+    omni.generate_otp_secret!
+    omni.enable_otp!
+    github_callback(github_auth(email: user.email))
+    # Simulate a legacy/diverged row: the identity's email no longer matches
+    # any User.email.
+    omni.update_column(:email, "diverged-#{SecureRandom.hex(4)}@example.com")
+
+    totp = ROTP::TOTP.new(omni.otp_secret)
+    post "/login/verify-2fa", params: { code: totp.now }
+
+    assert_redirected_to "/login/return"
+    assert_equal user.id, session[:user_id],
+                 "completion must resolve through identity.user, not break on email divergence"
   end
 
   test "GitHub login without TOTP enabled is not challenged" do

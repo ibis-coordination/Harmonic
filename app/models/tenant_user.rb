@@ -20,12 +20,19 @@ class TenantUser < ApplicationRecord
   BIO_MAX_LENGTH      = 500
   LOCATION_MAX_LENGTH = 100
 
+  # One normalization for every handle writer (signup confirmation, settings
+  # rename, add_user!): free text like "Jane Smith" becomes jane-smith, and
+  # blank input becomes nil so auto-generation kicks in.
+  normalizes :handle, with: ->(h) { h.to_s.parameterize.presence }
+
   validate :reserved_handle_requires_matching_system_role
   # allow_nil: on create, auto-generated handles are filled in set_defaults
   # (before_create, after validation) and are uniquified there; only
-  # explicitly chosen handles need the friendly validation. The DB unique
-  # index on (tenant_id, handle) remains the race backstop.
-  validates :handle, uniqueness: { scope: :tenant_id }, allow_nil: true
+  # explicitly chosen handles need the friendly validation. if: skips the
+  # lookup on the frequent saves that don't touch the handle (pins, roles,
+  # notices, settings). The DB unique index on (tenant_id, handle) remains
+  # the race backstop.
+  validates :handle, uniqueness: { scope: :tenant_id }, allow_nil: true, if: :will_save_change_to_handle?
   validates :bio,      length: { maximum: BIO_MAX_LENGTH }, allow_blank: true
   validates :location, length: { maximum: LOCATION_MAX_LENGTH }, allow_blank: true
   validate  :website_scheme_is_http_or_https
@@ -73,8 +80,11 @@ class TenantUser < ApplicationRecord
   # same value auto-generation would use.
   sig { params(tenant_id: String, user: User).returns(String) }
   def self.default_handle_for(tenant_id:, user:)
-    oauth_username = user.external_oauth_identities.filter_map(&:username).first
+    oauth_username = user.external_oauth_identities.where.not(username: [nil, ""]).pick(:username)
     base = (oauth_username.presence || user.name).parameterize
+    # Names with no parameterizable characters (e.g. CJK or emoji-only)
+    # yield "" — fall back to a neutral base rather than an empty handle.
+    base = "user" if base.blank?
     required_role = RESERVED_HANDLES[base]
     candidate = base
     candidate = "#{base}-#{SecureRandom.hex(2)}" unless required_role.nil? || user.system_role == required_role

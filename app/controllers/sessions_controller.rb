@@ -227,12 +227,15 @@ class SessionsController < ApplicationController
     end
 
     tenant_user = tenant.tenant_users.find_by(user: @current_user)
-    is_accepting_invite = cookies[:collective_invite_code].present?
     session[:user_id] = @current_user.id
     session[:logged_in_at] = Time.current.to_i
     session[:last_activity_at] = Time.current.to_i
-    if tenant_user || is_accepting_invite || !tenant.require_invite?
-      redirect_to_resource_or_invite_or_root
+    # Consume the invite cookie before any redirect branching, so a leftover
+    # redirect_to_resource cookie can't starve the invite: whichever redirect
+    # wins, the pending invite survives in the session for the signup flow.
+    invite = consume_collective_invite_cookie!(member: tenant_user.present?)
+    if tenant_user || invite || !tenant.require_invite?
+      redirect_to_resource_or_invite_or_root(invite, member: tenant_user.present?)
     else
       # user is signed in but not a member of this tenant and there's no
       # invite cookie — send them to the friendly explainer rather than a 403
@@ -240,11 +243,35 @@ class SessionsController < ApplicationController
     end
   end
 
-  def redirect_to_resource_or_invite_or_root
+  # Resolves and deletes the shared-domain invite cookie set before the OAuth
+  # round-trip. For non-members the invite is stashed per-tenant in the
+  # session so the rest of the signup flow can recover it. Returns the invite
+  # when it's still acceptable, nil otherwise.
+  def consume_collective_invite_cookie!(member:)
+    code = cookies[:collective_invite_code]
+    return nil if code.blank?
+
+    delete_collective_invite_cookie
+    # Query needs to bypass collective scope because current_collective
+    # will be different than the invite collective.
+    invite = Invite.tenant_scoped_only(current_tenant.id).find_by(code: code)
+    return nil unless invite && invite.is_acceptable_by_user?(@current_user)
+
+    stash_pending_invite!(invite) unless member
+    invite
+  end
+
+  def redirect_to_resource_or_invite_or_root(invite, member:)
     if cookies[:redirect_to_resource]
       redirect_to_resource_if_allowed
-    elsif cookies[:collective_invite_code]
-      redirect_to_invite_if_allowed
+    elsif invite && member
+      # Existing members accept additional-collective invites on the
+      # collective's join page.
+      redirect_to "#{invite.collective.path}/join?#{{ code: invite.code }.to_query}"
+    elsif invite
+      # Joining is explicit: the confirmation page performs the tenant +
+      # collective join when the user accepts.
+      redirect_to invite_required_path(code: invite.code)
     else
       redirect_to root_path
     end
@@ -256,32 +283,6 @@ class SessionsController < ApplicationController
     resource = LinkParser.parse_path(resource_path)
     if resource && resource.tenant_id == current_tenant.id
       redirect_to resource.path
-    else
-      redirect_to root_path
-    end
-  end
-
-  def redirect_to_invite_if_allowed
-    raise 'Unexpected subdomain.' if request.subdomain == auth_subdomain
-    # Query needs to bypass collective scope because current_collective
-    # will be different than the invite collective.
-    invite = Invite.tenant_scoped_only(current_tenant.id).find_by(
-      code: cookies[:collective_invite_code]
-    )
-    delete_collective_invite_cookie
-    if invite && invite.is_acceptable_by_user?(@current_user)
-      if current_tenant.tenant_users.exists?(user: @current_user)
-        # Existing members accept additional-collective invites on the
-        # collective's join page.
-        redirect_to "#{invite.collective.path}/join?code=#{invite.code}"
-      else
-        # Joining is explicit: stash the invite and send the user to the
-        # confirmation page, where accepting creates the TenantUser and
-        # CollectiveMember together. The session copy lets the activation
-        # flow recover the invite if the user wanders off before accepting.
-        session[:pending_invite_code] = invite.code
-        redirect_to "/invite-required?code=#{invite.code}"
-      end
     else
       redirect_to root_path
     end

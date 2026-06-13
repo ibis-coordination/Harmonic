@@ -225,11 +225,16 @@ class UsersController < ApplicationController
       )
     end
     if params[:new_handle].present?
-      tu.handle = params[:new_handle]
-      tu.save!
-      TenantUser.for_user_across_tenants(settings_user).where.not(id: tu.id).update_all(
-        handle: params[:new_handle]
-      )
+      # All-or-nothing across the user's tenants, through validated saves —
+      # update_all would skip the uniqueness validation and could leave the
+      # rename half-applied when another tenant has a collision.
+      ActiveRecord::Base.transaction do
+        tu.handle = params[:new_handle]
+        tu.save!
+        TenantUser.for_user_across_tenants(settings_user).where.not(id: tu.id).find_each do |other|
+          other.update!(handle: tu.handle)
+        end
+      end
     end
 
     # Bio / location / website are per-tenant — write straight to the
@@ -244,6 +249,11 @@ class UsersController < ApplicationController
     redirect_to "#{settings_user.path}/settings"
   rescue ActiveRecord::RecordInvalid => e
     flash[:alert] = e.record.errors.full_messages.to_sentence
+    redirect_to "#{settings_user.path}/settings"
+  rescue ActiveRecord::RecordNotUnique
+    # Race backstop: the uniqueness validation passed concurrently with
+    # another claim on the same handle and the DB index fired.
+    flash[:alert] = "That handle is already taken."
     redirect_to "#{settings_user.path}/settings"
   end
 

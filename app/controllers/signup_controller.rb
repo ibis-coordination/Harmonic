@@ -5,8 +5,9 @@
 #
 #   1. /invite-required (GET)         — landing page with invite-code form.
 #                                       With a usable code (?code= param or
-#                                       session[:pending_invite_code] stashed
-#                                       by the login callback), skips straight
+#                                       the per-tenant session stash written
+#                                       by the login callback — see
+#                                       PendingInviteStash), skips straight
 #                                       to the confirmation page.
 #   2. /invite-required (POST)        — validate code, render confirmation
 #                                       page showing the collective + tenant
@@ -32,16 +33,14 @@ class SignupController < ApplicationController
     # The login callback and invite links land here with ?code=, and the
     # session carries a pending code for users who wandered off mid-flow.
     # Either way, skip straight to the confirmation page so the user doesn't
-    # have to re-type a code we already know.
-    code = params[:code].presence || session[:pending_invite_code]
-    invite = lookup_invite(code)
-    if invite&.is_acceptable_by_user?(@current_user)
-      session[:pending_invite_code] = invite.code
+    # have to re-type a code we already know. A dead ?code= param must not
+    # shadow a still-valid pending invite, so fall back to the session stash
+    # (which self-clears codes that no longer resolve).
+    invite = acceptable_invite_from(params[:code]) || resolve_pending_invite
+    if invite
+      stash_pending_invite!(invite)
       render_confirmation(invite)
     else
-      # A pending code that no longer resolves (expired, revoked) is dead —
-      # drop it so it stops short-circuiting this page.
-      session.delete(:pending_invite_code) if code.present? && code == session[:pending_invite_code]
       render_landing
     end
   end
@@ -50,9 +49,9 @@ class SignupController < ApplicationController
     return redirect_to "/login" unless @current_user
     return redirect_to root_path if @current_tenant.tenant_users.exists?(user: @current_user)
 
-    invite = lookup_invite(params[:code])
-    if invite&.is_acceptable_by_user?(@current_user)
-      session[:pending_invite_code] = invite.code
+    invite = acceptable_invite_from(params[:code])
+    if invite
+      stash_pending_invite!(invite)
       render_confirmation(invite)
     else
       flash.now[:alert] = "That invite code is not valid or has expired."
@@ -63,31 +62,44 @@ class SignupController < ApplicationController
   def accept_invite
     return redirect_to "/login" unless @current_user
 
-    invite = lookup_invite(params[:code])
-    unless invite&.is_acceptable_by_user?(@current_user)
+    invite = acceptable_invite_from(params[:code])
+    unless invite
       flash[:alert] = "That invite code is not valid or has expired."
       return redirect_to invite_required_path
     end
 
-    # Free-text input is parameterized rather than format-validated: typing
-    # "Jane Smith" should yield jane-smith, not an error.
-    requested_handle = params[:handle].to_s.parameterize.presence
+    requested_handle = params[:handle].presence
+    retried = false
+    begin
+      # Tenant add is conditional so this action is idempotent even if the
+      # user became a tenant member between the confirm step and the accept
+      # (race or admin add). Either way the collective join still happens.
+      ActiveRecord::Base.transaction do
+        @current_tenant.add_user!(@current_user, handle: requested_handle) unless @current_tenant.tenant_users.exists?(user: @current_user)
+        @current_user.accept_invite!(invite)
+      end
+    rescue ActiveRecord::RecordNotUnique
+      # The handle validation passed on both sides of a race and the DB
+      # unique index fired — same suggested handle submitted concurrently,
+      # or a double-click racing itself on the membership indexes. One
+      # retry: a now-member skips add_user!, and a genuine handle collision
+      # surfaces as the friendly RecordInvalid below.
+      raise if retried
 
-    # Tenant add is conditional so this action is idempotent even if the user
-    # became a tenant member between the confirm step and the accept (race or
-    # admin add). In either case we still want the collective join to happen.
-    ActiveRecord::Base.transaction do
-      @current_tenant.add_user!(@current_user, handle: requested_handle) unless @current_tenant.tenant_users.exists?(user: @current_user)
-      @current_user.accept_invite!(invite)
+      retried = true
+      retry
     end
-    session.delete(:pending_invite_code)
+    clear_pending_invite!
 
     redirect_to invite.collective.path
   rescue ActiveRecord::RecordInvalid => e
-    # Taken or reserved handle — back to the confirmation page to pick
-    # another. The transaction rolled back, so nothing was joined.
+    # Only handle errors the confirmation page can actually fix (the
+    # handle); anything else from the join transaction must not be
+    # misattributed to the handle picker.
+    raise unless e.record.is_a?(TenantUser)
+
     flash.now[:alert] = e.record.errors.full_messages.to_sentence
-    @suggested_handle = requested_handle
+    @suggested_handle = params[:handle].to_s.parameterize.presence
     render_confirmation(invite, status: :unprocessable_entity)
   end
 
@@ -100,20 +112,35 @@ class SignupController < ApplicationController
     Invite.tenant_scoped_only(@current_tenant.id).find_by(code: code)
   end
 
+  def acceptable_invite_from(raw_code)
+    invite = lookup_invite(raw_code)
+    invite if invite&.is_acceptable_by_user?(@current_user)
+  end
+
   def render_confirmation(invite, status: :ok)
     @invite = invite
     @suggested_handle ||= TenantUser.default_handle_for(tenant_id: @current_tenant.id, user: @current_user)
     @sidebar_mode = "none"
     @hide_header = true
     @page_title = "Confirm invite | #{@current_tenant.name}"
-    render "signup/confirm_invite", layout: "application", status: status
+    render_signup_page("signup/confirm_invite", status: status)
   end
 
   def render_landing(status: :ok)
     @sidebar_mode = "none"
     @hide_header = true
     @page_title = "Invite required | #{@current_tenant.name}"
-    render "signup/invite_required", layout: "application", status: status
+    render_signup_page("signup/invite_required", status: status)
+  end
+
+  # The markdown variants skip the application layout: its nav (user path,
+  # notification counts) presumes tenant membership, which signup pages
+  # exist precisely to establish. They carry their own minimal frontmatter.
+  def render_signup_page(template, status:)
+    respond_to do |format|
+      format.html { render template, layout: "application", status: status }
+      format.md { render template, layout: false, status: status }
+    end
   end
 
   # Treated as an auth-flow controller so it's exempt from the billing gate,

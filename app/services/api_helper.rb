@@ -836,6 +836,10 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       raise "Valid invite required to join this collective" unless invite
       raise "Invite does not match collective" unless invite.collective == current_collective
+      # Same acceptability rules as the HTML join page: expired/revoked
+      # invites and invites addressed to someone else must not grant
+      # membership through the action route either.
+      raise "Invite is not valid or has expired" unless invite.is_acceptable_by_user?(current_user)
 
       current_user.accept_invite!(invite)
       collective_member = current_user.collective_members.find_by(collective: current_collective)

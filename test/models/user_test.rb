@@ -229,6 +229,56 @@ class UserTest < ActiveSupport::TestCase
     assert_equal invite.code, event.metadata["invite_code"]
   end
 
+  test "accept_invite! records the event only after the surrounding transaction commits" do
+    new_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Txn Invite Collective",
+      handle: "txn-invite-#{SecureRandom.hex(4)}"
+    )
+    invite = Invite.create!(
+      tenant: @tenant,
+      collective: new_collective,
+      created_by: @user,
+      invited_user: @user,
+      code: SecureRandom.hex(8),
+      expires_at: 1.week.from_now
+    )
+
+    events = -> { Event.tenant_scoped_only(@tenant.id).of_type("invite.accepted").for_subject(invite).count }
+    ActiveRecord::Base.transaction do
+      @user.accept_invite!(invite)
+      assert_equal 0, events.call,
+                   "event must not be created (nor handlers dispatched) before the join commits"
+    end
+    assert_equal 1, events.call, "event recorded once the transaction committed"
+  end
+
+  test "accept_invite! records no event when the surrounding transaction rolls back" do
+    new_collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Rollback Invite Collective",
+      handle: "rb-invite-#{SecureRandom.hex(4)}"
+    )
+    invite = Invite.create!(
+      tenant: @tenant,
+      collective: new_collective,
+      created_by: @user,
+      invited_user: @user,
+      code: SecureRandom.hex(8),
+      expires_at: 1.week.from_now
+    )
+
+    ActiveRecord::Base.transaction do
+      @user.accept_invite!(invite)
+      raise ActiveRecord::Rollback
+    end
+
+    count = Event.tenant_scoped_only(@tenant.id).of_type("invite.accepted").for_subject(invite).count
+    assert_equal 0, count, "a rolled-back join must not leave an invite.accepted event behind"
+  end
+
   test "accept_invite! does not record a duplicate event when the user is already a member" do
     new_collective = Collective.create!(
       tenant: @tenant,

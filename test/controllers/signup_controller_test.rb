@@ -116,7 +116,7 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
 
   test "GET /invite-required renders the confirmation page from a pending invite in the session" do
     invite = create_invite
-    # The callback consumes the invite cookie into session[:pending_invite_code].
+    # The callback consumes the invite cookie into the per-tenant session stash.
     cookies[:collective_invite_code] = invite.code
     sign_in_without_membership(@uninvited_user)
 
@@ -148,6 +148,34 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "form[action='/invite-required']"
+  end
+
+  # === Markdown variants (dual interface) ===
+  # The invite-link path used to render collectives/join.md.erb for markdown
+  # clients; the explicit-acceptance flow routes them here instead, so these
+  # pages must not be HTML-only dead ends.
+
+  test "GET /invite-required renders markdown for markdown clients" do
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert response.content_type.start_with?("text/markdown"),
+           "expected a markdown response, got #{response.content_type}"
+    assert_match(/invite code/i, response.body)
+  end
+
+  test "GET /invite-required?code=valid renders the markdown confirmation for markdown clients" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: invite.code }, headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert response.content_type.start_with?("text/markdown")
+    assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                 "expected the markdown confirmation to name the collective")
   end
 
   # === Handle selection on the confirmation page ===
@@ -221,8 +249,8 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     post "/invite-required/accept", params: { code: invite.code }
 
     assert_response :redirect
-    assert_nil session[:pending_invite_code],
-               "expected the pending invite session key consumed on acceptance"
+    assert_nil session[:pending_invite_codes],
+               "expected the pending invite session stash consumed on acceptance"
   end
 
   # === Pricing disclosure (humans are free; no per-user cost to disclose) ===

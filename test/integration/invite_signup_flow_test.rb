@@ -77,8 +77,8 @@ class InviteSignupFlowTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     assert_match(%r{/invite-required\?code=#{invite.code}}, response.location,
                  "expected to land on the invite confirmation page after callback")
-    assert_equal invite.code, session[:pending_invite_code],
-                 "expected the invite code stashed in the session for the activation flow"
+    assert_equal invite.code, session[:pending_invite_codes][@host_tenant.id],
+                 "expected the invite code stashed per-tenant in the session for the activation flow"
     assert_equal @invited_user.id, session[:user_id],
                  "expected user to be signed in after callback"
     assert_not @host_tenant.tenant_users.exists?(user: @invited_user),
@@ -140,7 +140,7 @@ class InviteSignupFlowTest < ActionDispatch::IntegrationTest
            "expected TenantUser created on explicit accept"
     assert @target_collective.user_is_member?(@invited_user),
            "expected CollectiveMember created on explicit accept"
-    assert_nil session[:pending_invite_code],
+    assert_nil session[:pending_invite_codes],
                "expected pending invite cleared from session after acceptance"
   end
 
@@ -157,6 +157,25 @@ class InviteSignupFlowTest < ActionDispatch::IntegrationTest
                "expected invite cookie to be cleared after callback handled it"
   end
 
+  test "a leftover redirect_to_resource cookie does not starve the invite" do
+    # Both shared-domain cookies can coexist (set by separate /login visits).
+    # The resource redirect may win the post-login routing, but the invite
+    # must still be consumed into the session so the signup flow can recover.
+    invite = create_invite
+
+    host! tenant_host(@host_tenant)
+    cookies[:collective_invite_code] = invite.code
+    cookies[:redirect_to_resource] = "/n/abc123"
+    cookies[:token] = generate_test_token(@host_tenant, @invited_user)
+
+    get "/login/callback"
+
+    assert_equal invite.code, session[:pending_invite_codes][@host_tenant.id],
+                 "the pending invite must survive whichever redirect wins"
+    assert_nil cookies[:collective_invite_code].presence,
+               "the invite cookie is consumed even when the resource redirect wins"
+  end
+
   test "expired invite via cookie does not grant collective membership" do
     expired = create_invite(expires_at: 1.day.ago)
 
@@ -168,7 +187,7 @@ class InviteSignupFlowTest < ActionDispatch::IntegrationTest
 
     assert_not @target_collective.user_is_member?(@invited_user),
                "expected expired invite not to grant collective membership"
-    assert_nil session[:pending_invite_code],
+    assert_nil session[:pending_invite_codes],
                "expected no pending invite stashed for an expired code"
   end
 

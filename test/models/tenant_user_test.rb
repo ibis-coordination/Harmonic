@@ -145,6 +145,27 @@ class TenantUserTest < ActiveSupport::TestCase
     assert_equal "sam-jones", tu.handle
   end
 
+  test "default handle falls back to a neutral base for names with no parameterizable characters" do
+    tenant = create_tenant(subdomain: "hcjk-#{SecureRandom.hex(4)}")
+    user = create_user(email: "cjk-#{SecureRandom.hex(4)}@example.com", name: "山田太郎")
+
+    tu = tenant.add_user!(user)
+
+    assert_match(/\Auser(-\h{4})?\z/, tu.handle,
+                 "expected a usable fallback handle, not an empty string")
+  end
+
+  test "handle is normalized on assignment for every writer" do
+    tenant = create_tenant(subdomain: "hnorm-#{SecureRandom.hex(4)}")
+    user = create_user(email: "norm-#{SecureRandom.hex(4)}@example.com", name: "Norm Writer")
+    tu = tenant.add_user!(user)
+
+    tu.update!(handle: "Renamed Handle")
+
+    assert_equal "renamed-handle", tu.reload.handle,
+                 "settings renames must normalize the same way signup does"
+  end
+
   test "an explicit duplicate handle fails validation instead of crashing on the DB constraint" do
     tenant = create_tenant(subdomain: "hdup-#{SecureRandom.hex(4)}")
     first = create_user(email: "hdup1-#{SecureRandom.hex(4)}@example.com", name: "First User")

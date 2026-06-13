@@ -23,7 +23,9 @@
                 offset the flex centering of the @ prefix %>
             <input type="text" name="handle" id="handle-field" class="pulse-form-input"
                    style="flex: 1; margin-bottom: 0;"
-                   value="<%= @suggested_handle %>" autocomplete="off" spellcheck="false">
+                   value="<%= @suggested_handle %>" autocomplete="off" spellcheck="false"
+                   data-controller="handle-input" data-action="input->handle-input#sanitize"
+                   pattern="[a-z0-9_\-]*" title="Lowercase letters, numbers, dashes, and underscores">
           </div>
           <p class="pulse-form-hint" style="margin: 4px 0 0 0;">
             You can change this later in your settings.

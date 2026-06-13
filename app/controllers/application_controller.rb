@@ -3,6 +3,7 @@
 class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
+  include PendingInviteStash
   # Session timeout configuration (in seconds)
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
@@ -535,8 +536,8 @@ class ApplicationController < ActionController::Base
         # goes to the confirmation page, where accepting creates the
         # TenantUser and CollectiveMember together. Never silently add them
         # to the tenant here.
-        session[:pending_invite_code] = current_invite.code
-        redirect_to "/invite-required?code=#{current_invite.code}"
+        stash_pending_invite!(current_invite)
+        redirect_to invite_required_path(code: current_invite.code)
         return
       end
     else
