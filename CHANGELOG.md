@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.27.0] - 2026-06-12
+
+### Added
+
+- **Explicit invite acceptance** (#233) — invite links route to a confirmation page that joins the tenant and collective atomically on accept, instead of silently joining during login. Acceptance records an `invite.accepted` event for the upcoming collective-policies feature.
+- **Handle selection on signup** (#233) — choose your handle (separate from display name) when accepting an invite, with normalization and graceful handling of taken handles.
+- **Independent handle field for AI agents** (#233) — agent creation takes an optional handle distinct from the name; generic names auto-disambiguate and taken handles return a friendly error.
+- **Mobile-friendly 2FA setup** (#233) — small screens lead with an `otpauth://` deep link and copyable secret instead of a second-device QR code.
+
+### Changed
+
+- **2FA challenged at login for all OAuth providers** (#233) — previously only email/password prompted, letting a `require_2fa` policy be bypassed by provider choice.
+
+### Fixed
+
+- **Billing exemptions and subscription edges** (#230) — exemption toggles repaired for users and added for collectives; `billing_exempt` honored on humans; cancel-at-zero prorates and finalizes the final invoice; `POST /billing/setup` guarded against duplicate subscriptions; checkout webhook activates pending resources; `BillingReconciliationJob` scheduled daily.
+
+### Infrastructure
+
+- **Dependency bumps** — puma 7.2.1 (#234), npm_and_yarn group (#232), bundler group.
+
 ## [1.26.0] - 2026-06-11
 
 ### Added
