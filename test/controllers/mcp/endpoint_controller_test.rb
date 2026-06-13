@@ -155,18 +155,26 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
   # tools/list
   # ====================
 
-  test "tools/list includes fetch_page tool" do
+  test "tools/list returns all expected tools with descriptions and input schemas" do
     post_jsonrpc({ jsonrpc: "2.0", id: 2, method: "tools/list" })
 
     assert_response :success
     body = response.parsed_body
     tool_names = body.dig("result", "tools").map { |t| t["name"] }
-    assert_includes tool_names, "fetch_page"
+
+    ["fetch_page", "execute_action"].each do |name|
+      assert_includes tool_names, name, "tools/list missing #{name}"
+      tool = body["result"]["tools"].find { |t| t["name"] == name }
+      assert tool["description"].is_a?(String) && tool["description"].present?, "#{name} missing description"
+      assert tool["inputSchema"].is_a?(Hash), "#{name} missing inputSchema"
+    end
 
     fetch_page = body["result"]["tools"].find { |t| t["name"] == "fetch_page" }
-    assert fetch_page["description"].is_a?(String) && fetch_page["description"].present?
-    assert fetch_page["inputSchema"].is_a?(Hash)
     assert_includes fetch_page["inputSchema"]["required"], "path"
+
+    execute_action = body["result"]["tools"].find { |t| t["name"] == "execute_action" }
+    assert_includes execute_action["inputSchema"]["required"], "path"
+    assert_includes execute_action["inputSchema"]["required"], "action"
   end
 
   # ====================
@@ -315,6 +323,175 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     body = response.parsed_body
     assert body["result"]["isError"]
     assert_match(/Invalid path/, body["result"]["content"].first["text"])
+  end
+
+  # ====================
+  # execute_action
+  # ====================
+
+  test "execute_action create_note posts to action endpoint and returns markdown result" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 60,
+                   method: "tools/call",
+                   params: {
+                     name: "execute_action",
+                     arguments: {
+                       path: "/collectives/#{@collective.handle}/note",
+                       action: "create_note",
+                       params: { text: "Hello from MCP test" },
+                     },
+                   },
+                 })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "should succeed"
+    assert Note.exists?(text: "Hello from MCP test", created_by: @user)
+  end
+
+  test "execute_action without path returns tool error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 61,
+                   method: "tools/call",
+                   params: { name: "execute_action", arguments: { action: "create_note", params: {} } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/path/, body["result"]["content"].first["text"])
+  end
+
+  test "execute_action without action returns tool error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 62,
+                   method: "tools/call",
+                   params: { name: "execute_action", arguments: { path: "/collectives/#{@collective.handle}", params: {} } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/action/, body["result"]["content"].first["text"])
+  end
+
+  test "execute_action with non-Hash params returns tool error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 63,
+                   method: "tools/call",
+                   params: { name: "execute_action", arguments: { path: "/x", action: "y", params: [1, 2, 3] } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/params/, body["result"]["content"].first["text"])
+  end
+
+  test "execute_action strips a pasted /actions/<name> suffix from path" do
+    # Agents often paste the full action URL they see in fetch_page output.
+    # The trailing /actions/<name> should be stripped so we POST to the
+    # right place, not to /collectives/.../note/actions/create_note/actions/create_note.
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 64,
+                   method: "tools/call",
+                   params: {
+                     name: "execute_action",
+                     arguments: {
+                       path: "/collectives/#{@collective.handle}/note/actions/create_note",
+                       action: "create_note",
+                       params: { text: "Stripped suffix path" },
+                     },
+                   },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "should succeed after stripping suffix"
+    assert Note.exists?(text: "Stripped suffix path", created_by: @user)
+  end
+
+  test "execute_action strips query string from path" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 65,
+                   method: "tools/call",
+                   params: {
+                     name: "execute_action",
+                     arguments: {
+                       path: "/collectives/#{@collective.handle}/note?some=garbage",
+                       action: "create_note",
+                       params: { text: "Stripped query path" },
+                     },
+                   },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "should succeed after stripping query string"
+    assert Note.exists?(text: "Stripped query path", created_by: @user)
+  end
+
+  test "execute_action rejects absolute URL" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 66,
+                   method: "tools/call",
+                   params: {
+                     name: "execute_action",
+                     arguments: {
+                       path: "https://evil.example.com/exfiltrate",
+                       action: "create_note",
+                       params: { text: "should not exist" },
+                     },
+                   },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/Invalid path/, body["result"]["content"].first["text"])
+    assert_not Note.exists?(text: "should not exist")
+  end
+
+  test "execute_action capability-denied surfaces the inner-dispatch error body to the agent" do
+    # AI agents without the capability for the action get 403'd by the
+    # inner controllers. The agent needs to see WHY it failed so it can
+    # adjust — not just a generic "Access denied".
+    ai_agent = create_ai_agent(parent: @user, name: "Capability Test Agent")
+    @tenant.add_user!(ai_agent)
+    @collective.add_user!(ai_agent)
+    ai_agent.update_columns(agent_configuration: { "capabilities" => [] })
+    agent_token = ApiToken.create!(
+      tenant: @tenant,
+      user: ai_agent,
+      scopes: ApiToken.valid_scopes
+    )
+
+    post_jsonrpc(
+      {
+        jsonrpc: "2.0",
+        id: 67,
+        method: "tools/call",
+        params: {
+          name: "execute_action",
+          arguments: {
+            path: "/collectives/#{@collective.handle}/note",
+            action: "create_note",
+            params: { text: "should not exist" },
+          },
+        },
+      },
+      headers: auth_headers(token: agent_token.plaintext_token)
+    )
+
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    # Inner controller's 403 body explains which capability is missing —
+    # that body should reach the agent so it can act on the information.
+    text = body["result"]["content"].first["text"]
+    assert_match(/create_note/, text, "expected the action name in the error body so the agent knows what's blocked")
+    assert_not Note.exists?(text: "should not exist")
   end
 
   # ====================

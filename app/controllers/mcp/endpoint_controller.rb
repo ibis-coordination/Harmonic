@@ -50,6 +50,51 @@ module Mcp
     INVALID_PARAMS = -32_602
     INTERNAL_ERROR = -32_603
 
+    # ====================
+    # Tool descriptors
+    # ====================
+
+    FETCH_PAGE_TOOL = {
+      name: "fetch_page",
+      description:
+        "Fetch the markdown representation of a Harmonic page at the given path. " \
+        "The response includes content plus a list of actions available at that path, " \
+        "each with a fully-qualified action URL you can pass back to execute_action. " \
+        "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
+      inputSchema: {
+        type: "object",
+        required: ["path"],
+        properties: {
+          path: { type: "string", description: "Relative path (e.g., '/collectives/team/n/abc123')" },
+        },
+      },
+      annotations: { readOnlyHint: true },
+    }.freeze
+
+    EXECUTE_ACTION_TOOL = {
+      name: "execute_action",
+      description:
+        "Execute an action at a given Harmonic page. " \
+        "Pass the path of the page (e.g. '/collectives/team/n/abc123'), the action name " \
+        "(from the page's action list, e.g. 'add_comment'), and any params the action requires.",
+      inputSchema: {
+        type: "object",
+        required: ["path", "action"],
+        properties: {
+          path: { type: "string", description: "Path of the page the action operates on (e.g., '/collectives/team/n/abc123')." },
+          action: { type: "string", description: "Action name (from the action list on the page)." },
+          params: {
+            type: "object",
+            additionalProperties: true,
+            description: "Parameters for the action (see the action's parameter list).",
+          },
+        },
+      },
+      annotations: { destructiveHint: true },
+    }.freeze
+
+    TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL].freeze
+
     # No browser session, no CSRF.
     skip_forgery_protection
 
@@ -193,7 +238,7 @@ module Mcp
       when "ping"
         jsonrpc_result(id, {})
       when "tools/list"
-        jsonrpc_result(id, { tools: tool_descriptors })
+        jsonrpc_result(id, { tools: TOOL_DESCRIPTORS })
       when "tools/call"
         handle_tools_call(id, params)
       else
@@ -215,27 +260,6 @@ module Mcp
     # Tools
     # ====================
 
-    def tool_descriptors
-      [
-        {
-          name: "fetch_page",
-          description:
-            "Fetch the markdown representation of a Harmonic page at the given path. " \
-            "The response includes content plus a list of actions available at that path, " \
-            "each with a fully-qualified action URL you can pass back to execute_action. " \
-            "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
-          inputSchema: {
-            type: "object",
-            required: ["path"],
-            properties: {
-              path: { type: "string", description: "Relative path (e.g., '/collectives/team/n/abc123')" },
-            },
-          },
-          annotations: { readOnlyHint: true },
-        },
-      ]
-    end
-
     def handle_tools_call(id, params)
       return jsonrpc_error_envelope(id, INVALID_PARAMS, "params must be an object") unless params.is_a?(Hash)
 
@@ -246,6 +270,8 @@ module Mcp
       case name
       when "fetch_page"
         call_fetch_page(id, args)
+      when "execute_action"
+        call_execute_action(id, args)
       else
         tool_error_result(id, "Unknown tool: #{name}")
       end
@@ -254,18 +280,87 @@ module Mcp
     def call_fetch_page(id, args)
       path = args["path"]
       return tool_error_result(id, "Missing required argument: path") if path.blank?
-      # Reject anything that isn't a relative path under this host. Protocol-
-      # relative ("//evil.com") and absolute URLs ("https://...") are not
-      # things you should be able to fetch through an in-tenant tool.
-      unless path.is_a?(String) && path.start_with?("/") && !path.start_with?("//")
-        return tool_error_result(id, "Invalid path: must start with '/' and reference a path within this tenant")
-      end
+      return tool_error_result(id, invalid_path_message) unless valid_relative_path?(path)
 
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
+      surface_dispatch_result(id, result)
+    end
 
+    def call_execute_action(id, args)
+      path = args["path"]
+      action_name = args["action"]
+      raw_params = args["params"]
+      action_params = raw_params.nil? ? {} : raw_params
+
+      return tool_error_result(id, "Missing required argument: path") if path.blank?
+      return tool_error_result(id, "Missing required argument: action") if action_name.blank?
+      return tool_error_result(id, "action must be a string") unless action_name.is_a?(String)
+      return tool_error_result(id, "params must be an object") unless action_params.is_a?(Hash)
+      return tool_error_result(id, invalid_path_message) unless valid_relative_path?(path)
+
+      normalized = normalize_action_path(path)
+      return tool_error_result(id, invalid_path_message) if normalized.empty?
+
+      service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
+      result = service.with_provided_token(@plaintext_bearer) do
+        service.set_path(normalized)
+        service.execute_action(action_name, action_params)
+      end
+      surface_dispatch_result(id, result)
+    end
+
+    # Reject anything that isn't a relative path under this host. Protocol-
+    # relative ("//evil.com") and absolute URLs ("https://...") are not
+    # things you should be able to reach through an in-tenant tool.
+    def valid_relative_path?(path)
+      path.is_a?(String) && path.start_with?("/") && !path.start_with?("//")
+    end
+
+    def invalid_path_message
+      "Invalid path: must start with '/' and reference a path within this tenant"
+    end
+
+    # Strip a query string and any pasted /actions/<name> suffix, leaving the
+    # bare resource path. Agents commonly paste the full action URL they see
+    # in fetch_page output; we want POSTing to {path}/actions/{action} to
+    # land on the right place, not /foo/actions/x/actions/x.
+    def normalize_action_path(path)
+      result = path.dup
+      if (qs = result.index("?"))
+        result = result[0...qs] || ""
+      end
+      if (slash_idx = result.index("/actions/"))
+        result = result[0...slash_idx] || ""
+      elsif result.end_with?("/actions")
+        result = result[0...-"/actions".length] || ""
+      end
+      result
+    end
+
+    # Wrap a MarkdownUiService result into the JSON-RPC tool-result shape.
+    #
+    # `result` is the Hash returned by MarkdownUiService#navigate or
+    # #execute_action. The shape (NavigateResult / ActionResult in that file)
+    # is `{ content: String, error: T.nilable(String), ... }`:
+    #
+    #   - `:content` is the raw HTTP response body from the inner dispatch.
+    #     For 2xx it's the markdown the agent wanted; for 4xx/5xx it's the
+    #     specific error message the inner controller rendered (e.g.,
+    #     "capabilities do not include create_note").
+    #   - `:error` is a coarse category derived from the status code
+    #     ("Access denied", "Not found", "HTTP 502") — useful only as a
+    #     fallback when the body is empty.
+    #
+    # The body is almost always more actionable than the category, so we
+    # prefer it. Both fields are guaranteed populated by MarkdownUiService's
+    # Sorbet sigs; if the inner controller renders an empty body for some
+    # reason, `presence` falls us back to the category so the agent at
+    # least sees something.
+    def surface_dispatch_result(id, result)
       if result[:error]
-        tool_error_result(id, result[:error])
+        text = result[:content].presence || result[:error]
+        tool_error_result(id, text)
       else
         jsonrpc_result(id, { content: [{ type: "text", text: result[:content] }] })
       end
