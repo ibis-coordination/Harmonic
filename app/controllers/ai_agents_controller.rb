@@ -130,14 +130,22 @@ class AiAgentsController < ApplicationController
     mode = params[:mode]
     model = params[:model]
     capabilities = params[:capabilities]
+    # Capture before any handle change — a failed update leaves the rejected
+    # handle in the in-memory tenant_user, which would otherwise feed a bad
+    # value into the redirect path below.
+    original_handle = @ai_agent.handle
 
     # Update name if provided
     @ai_agent.name = name if name.present?
 
-    # Update handle if provided (via tenant_user)
+    # Update handle if provided (via tenant_user). A taken or reserved handle
+    # fails validation — surface it as a friendly error rather than a 500.
     if new_handle.present?
       tu = @ai_agent.tenant_user
-      tu.update!(handle: new_handle) if tu
+      if tu && !tu.update(handle: new_handle)
+        flash[:error] = tu.errors.full_messages.to_sentence
+        return redirect_to ai_agent_settings_path(original_handle)
+      end
     end
 
     # Update agent configuration
@@ -407,12 +415,15 @@ class AiAgentsController < ApplicationController
 
     begin
       @ai_agent = api_helper.create_ai_agent
-    rescue ActiveRecord::RecordNotUnique
-      # Most likely cause: the parameterized name collides with an existing
-      # tenant_user handle. TenantUser auto-suffixes only for reserved
-      # handles, not for general uniqueness, so a user picking a name like
-      # "alice" when @alice already exists hits the DB constraint here.
-      msg = "An account with that handle already exists. Please choose a different name."
+    rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
+      # An explicitly-chosen handle that's already taken (or reserved) fails:
+      # the uniqueness validation raises RecordInvalid, with the DB index as
+      # the race backstop (RecordNotUnique). A blank handle auto-generates and
+      # never reaches here. Re-raise any unrelated validation failure rather
+      # than mislabeling it as a handle problem.
+      raise if e.is_a?(ActiveRecord::RecordInvalid) && !e.record.errors.key?(:handle)
+
+      msg = "That handle is already taken. Please choose a different one."
       respond_to do |format|
         format.md do
           return render_action_error({

@@ -56,6 +56,18 @@
       </section>
 
       <section class="pulse-settings-section">
+        <label for="handle" class="pulse-label">Handle</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span aria-hidden="true" style="font-weight: 600; color: var(--color-fg-muted);">@</span>
+          <%= form.text_field :handle, placeholder: 'auto-generated from name', class: "pulse-form-input",
+                style: "flex: 1;", autocomplete: "off", spellcheck: "false",
+                pattern: '[a-z0-9_\-]*', title: "Lowercase letters, numbers, dashes, and underscores",
+                data: { controller: "handle-input", action: "input->handle-input#sanitize" } %>
+        </div>
+        <small class="pulse-hint">The agent's @-mention handle. Leave blank to generate one from the name.</small>
+      </section>
+
+      <section class="pulse-settings-section">
         <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
         <%= form.text_area :identity_prompt, placeholder: 'You are a helpful assistant...', class: "pulse-form-textarea", rows: 4 %>
         <small class="pulse-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</small>

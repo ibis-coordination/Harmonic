@@ -747,7 +747,11 @@ class ApiHelper
         parent_id: current_user.id,
         agent_configuration: agent_config
       )
-      tenant_user = current_tenant.add_user!(user)
+      # Handle is independent of the display name. When provided it's used
+      # explicitly (a collision surfaces as a validation error for the creator
+      # to resolve); left blank it auto-generates from the name and
+      # auto-disambiguates, so generic names like "Claude" never collide.
+      tenant_user = current_tenant.add_user!(user, handle: params[:handle])
       user.tenant_user = tenant_user
       T.must(current_tenant.main_collective).add_user!(user)
       current_collective.add_user!(user) if current_collective.id != current_tenant.main_collective_id
