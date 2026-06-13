@@ -36,7 +36,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
     CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
       assert CapabilityCheck.allowed?(@ai_agent, action),
-        "AiAgent with no config should be able to do #{action}"
+             "AiAgent with no config should be able to do #{action}"
     end
   end
 
@@ -45,14 +45,14 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     @ai_agent.update_columns(agent_configuration: { "capabilities" => [] })
 
     CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
-      refute CapabilityCheck.allowed?(@ai_agent, action),
-        "AiAgent with empty capabilities should NOT be able to do #{action}"
+      assert_not CapabilityCheck.allowed?(@ai_agent, action),
+                 "AiAgent with empty capabilities should NOT be able to do #{action}"
     end
 
     # But infrastructure actions should still work
     CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert CapabilityCheck.allowed?(@ai_agent, action),
-        "AiAgent should still be able to do infrastructure action #{action}"
+             "AiAgent should still be able to do infrastructure action #{action}"
     end
   end
 
@@ -65,9 +65,9 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     assert CapabilityCheck.allowed?(@ai_agent, "add_comment")
 
     # Disallowed grantable actions
-    refute CapabilityCheck.allowed?(@ai_agent, "vote")
-    refute CapabilityCheck.allowed?(@ai_agent, "create_decision")
-    refute CapabilityCheck.allowed?(@ai_agent, "create_commitment")
+    assert_not CapabilityCheck.allowed?(@ai_agent, "vote")
+    assert_not CapabilityCheck.allowed?(@ai_agent, "create_decision")
+    assert_not CapabilityCheck.allowed?(@ai_agent, "create_commitment")
   end
 
   # Test: AiAgent can always perform infrastructure actions
@@ -77,7 +77,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
     CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert CapabilityCheck.allowed?(@ai_agent, action),
-        "AiAgent should always be able to do #{action}"
+             "AiAgent should always be able to do #{action}"
     end
   end
 
@@ -87,15 +87,15 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     @ai_agent.update_columns(agent_configuration: nil)
 
     CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED.each do |action|
-      refute CapabilityCheck.allowed?(@ai_agent, action),
-        "AiAgent should never be able to do #{action}"
+      assert_not CapabilityCheck.allowed?(@ai_agent, action),
+                 "AiAgent should never be able to do #{action}"
     end
 
     # Even if explicitly listed in capabilities (would be invalid config)
     @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_collective", "update_profile"] })
 
-    refute CapabilityCheck.allowed?(@ai_agent, "create_collective")
-    refute CapabilityCheck.allowed?(@ai_agent, "update_profile")
+    assert_not CapabilityCheck.allowed?(@ai_agent, "create_collective")
+    assert_not CapabilityCheck.allowed?(@ai_agent, "update_profile")
   end
 
   # Test: allowed_actions returns infrastructure + configured for ai_agent
@@ -114,8 +114,8 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     assert_includes allowed, "vote"
 
     # Should not include non-configured grantable actions
-    refute_includes allowed, "create_decision"
-    refute_includes allowed, "create_commitment"
+    assert_not_includes allowed, "create_decision"
+    assert_not_includes allowed, "create_commitment"
   end
 
   # Test: allowed_actions returns all ACTION_DEFINITIONS for non-ai_agent
@@ -141,33 +141,6 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     end
   end
 
-  # Test: restricted_actions returns nil when no config
-  test "restricted_actions returns nil when no config" do
-    @ai_agent.update_columns(agent_configuration: nil)
-    assert_nil CapabilityCheck.restricted_actions(@ai_agent)
-  end
-
-  # Test: restricted_actions returns nil for non-ai_agent
-  test "restricted_actions returns nil for non-ai_agent" do
-    assert_nil CapabilityCheck.restricted_actions(@user)
-  end
-
-  # Test: restricted_actions returns denied actions when configured
-  test "restricted_actions returns denied actions when configured" do
-    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note", "add_comment"] })
-
-    restricted = CapabilityCheck.restricted_actions(@ai_agent)
-
-    # Should not include configured actions
-    refute_includes restricted, "create_note"
-    refute_includes restricted, "add_comment"
-
-    # Should include non-configured grantable actions
-    assert_includes restricted, "vote"
-    assert_includes restricted, "create_decision"
-    assert_includes restricted, "create_commitment"
-  end
-
   # Test: Integration with ActionAuthorization
   test "ActionAuthorization respects capability restrictions" do
     @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
@@ -176,20 +149,20 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     assert ActionAuthorization.authorized?("create_note", @ai_agent, { collective: @collective })
 
     # Disallowed capability (vote is grantable but not in config)
-    refute ActionAuthorization.authorized?("vote", @ai_agent, { collective: @collective })
+    assert_not ActionAuthorization.authorized?("vote", @ai_agent, { collective: @collective })
 
     # Infrastructure action (always allowed)
     assert ActionAuthorization.authorized?("search", @ai_agent, {})
 
     # Blocked action (never allowed for ai_agents)
-    refute ActionAuthorization.authorized?("create_collective", @ai_agent, {})
+    assert_not ActionAuthorization.authorized?("create_collective", @ai_agent, {})
   end
 
   # Test: All grantable actions are valid action names
   test "all grantable actions are valid action names" do
     CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS.each do |action|
       assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
-        "Grantable action '#{action}' is not defined in ACTION_DEFINITIONS"
+             "Grantable action '#{action}' is not defined in ACTION_DEFINITIONS"
     end
   end
 
@@ -197,7 +170,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
   test "all always-allowed actions are valid action names" do
     CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action|
       assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
-        "Always-allowed action '#{action}' is not defined in ACTION_DEFINITIONS"
+             "Always-allowed action '#{action}' is not defined in ACTION_DEFINITIONS"
     end
   end
 
@@ -205,7 +178,7 @@ class CapabilityCheckTest < ActiveSupport::TestCase
   test "all always-blocked actions are valid action names" do
     CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED.each do |action|
       assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
-        "Always-blocked action '#{action}' is not defined in ACTION_DEFINITIONS"
+             "Always-blocked action '#{action}' is not defined in ACTION_DEFINITIONS"
     end
   end
 
@@ -216,11 +189,11 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     grantable = CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
 
     assert_empty always_allowed & always_blocked,
-      "Always-allowed and always-blocked should not overlap"
+                 "Always-allowed and always-blocked should not overlap"
     assert_empty always_allowed & grantable,
-      "Always-allowed and grantable should not overlap"
+                 "Always-allowed and grantable should not overlap"
     assert_empty always_blocked & grantable,
-      "Always-blocked and grantable should not overlap"
+                 "Always-blocked and grantable should not overlap"
   end
 
   # Test: every defined action is categorized in exactly one list.
@@ -237,9 +210,9 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
     uncategorized = ActionsHelper::ACTION_DEFINITIONS.keys - always_allowed - always_blocked - grantable
     assert_empty uncategorized,
-      "Actions defined in ACTION_DEFINITIONS but not placed in any capability list: " \
-      "#{uncategorized.inspect}. Add each to AI_AGENT_ALWAYS_ALLOWED (infrastructure), " \
-      "AI_AGENT_ALWAYS_BLOCKED (human-only), or AI_AGENT_GRANTABLE_ACTIONS (owner-configurable)."
+                 "Actions defined in ACTION_DEFINITIONS but not placed in any capability list: " \
+                 "#{uncategorized.inspect}. Add each to AI_AGENT_ALWAYS_ALLOWED (infrastructure), " \
+                 "AI_AGENT_ALWAYS_BLOCKED (human-only), or AI_AGENT_GRANTABLE_ACTIONS (owner-configurable)."
   end
 
   # Test: every CONTROLLER_ACTION_MAP value is a valid capability action name
@@ -248,14 +221,14 @@ class CapabilityCheckTest < ActiveSupport::TestCase
                   CapabilityCheck::AI_AGENT_ALWAYS_BLOCKED +
                   CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
 
-    invalid = ActionCapabilityCheck::CONTROLLER_ACTION_MAP.select do |key, action|
+    invalid = ActionCapabilityCheck::CONTROLLER_ACTION_MAP.select do |_key, action|
       !all_actions.include?(action)
     end
 
     assert_empty invalid,
-      "CONTROLLER_ACTION_MAP entries map to unknown capability actions: " \
-      "#{invalid.inspect}. Each value must appear in AI_AGENT_ALWAYS_ALLOWED, " \
-      "AI_AGENT_ALWAYS_BLOCKED, or AI_AGENT_GRANTABLE_ACTIONS."
+                 "CONTROLLER_ACTION_MAP entries map to unknown capability actions: " \
+                 "#{invalid.inspect}. Each value must appear in AI_AGENT_ALWAYS_ALLOWED, " \
+                 "AI_AGENT_ALWAYS_BLOCKED, or AI_AGENT_GRANTABLE_ACTIONS."
   end
 
   # Test: fail-closed for uncategorized actions even with nil capabilities.
@@ -264,7 +237,44 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
     # A hypothetical action that isn't in any list. The system must not allow it
     # just because capabilities is unset.
-    refute CapabilityCheck.allowed?(@ai_agent, "hypothetical_new_dangerous_action"),
-      "Uncategorized actions must fail closed, not allowed by default"
+    assert_not CapabilityCheck.allowed?(@ai_agent, "hypothetical_new_dangerous_action"),
+               "Uncategorized actions must fail closed, not allowed by default"
+  end
+
+  # AI_AGENT_GRANTABLE_GROUPS is the source of truth for how the agent-creation
+  # form presents grantable capabilities to humans. These tests enforce that the
+  # groups stay in lockstep with AI_AGENT_GRANTABLE_ACTIONS — every action shows
+  # up in exactly one group, no group lists an action that isn't grantable, and
+  # every group is properly described. If you add an action to
+  # AI_AGENT_GRANTABLE_ACTIONS, these tests will fail until you add it to a
+  # group; if you remove one, they'll fail until you remove it from its group.
+
+  test "every grantable action appears in exactly one group" do
+    grouped_actions = CapabilityCheck::AI_AGENT_GRANTABLE_GROUPS.flat_map { |g| g[:actions] }
+
+    missing = CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS - grouped_actions
+    assert_empty missing,
+                 "Actions in AI_AGENT_GRANTABLE_ACTIONS are missing from AI_AGENT_GRANTABLE_GROUPS — " \
+                 "the agent-creation form won't expose them. Add them to a group: #{missing.inspect}"
+
+    extras = grouped_actions - CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
+    assert_empty extras,
+                 "AI_AGENT_GRANTABLE_GROUPS lists actions that aren't in AI_AGENT_GRANTABLE_ACTIONS. " \
+                 "The form would render checkboxes the server will silently drop: #{extras.inspect}"
+
+    duplicates = grouped_actions.tally.select { |_, count| count > 1 }.keys
+    assert_empty duplicates,
+                 "Actions appear in multiple groups; pick one home for each: #{duplicates.inspect}"
+  end
+
+  test "every group has a name and description" do
+    CapabilityCheck::AI_AGENT_GRANTABLE_GROUPS.each do |group|
+      assert group[:name].is_a?(String) && group[:name].present?,
+             "Group missing name: #{group.inspect}"
+      assert group[:description].is_a?(String) && group[:description].present?,
+             "Group missing description: #{group.inspect}"
+      assert group[:actions].is_a?(Array) && group[:actions].any?,
+             "Group has no actions: #{group.inspect}"
+    end
   end
 end
