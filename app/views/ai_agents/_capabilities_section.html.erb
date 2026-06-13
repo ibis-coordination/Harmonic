@@ -1,0 +1,52 @@
+<%# Renders the capabilities picker used by both the new-agent form and the
+    agent settings form.
+
+    Required local: current_caps — array of currently-granted capability strings,
+    or nil for a brand-new agent with no configuration yet. nil triggers
+    default-on / default-off behavior per group. %>
+
+<%# Sentinel so an all-unchecked submission still includes a capabilities param —
+    the controller writes [] when present-but-empty, preserving "uncheck all" semantics. %>
+<%= hidden_field_tag "capabilities[]", "" %>
+
+<% caps_not_configured = current_caps.nil? %>
+
+<div style="margin-top: 16px;">
+  <div style="font-weight: 500; font-size: 13px; margin-bottom: 4px; color: var(--text-muted); display: flex; align-items: center; gap: 12px;">
+    <span>Always allowed</span>
+    <span style="font-weight: normal; font-size: 12px;">(cannot be disabled)</span>
+  </div>
+  <small class="pulse-hint" style="display: block; margin-bottom: 8px;">Infrastructure actions needed for navigation and basic operation.</small>
+  <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+    <% CapabilityCheck::AI_AGENT_ALWAYS_ALLOWED.each do |action| %>
+      <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: not-allowed; opacity: 0.6;">
+        <%= check_box_tag nil, action, true, disabled: true, id: "cap_#{action}" %>
+        <code style="font-size: 12px;"><%= action %></code>
+      </label>
+    <% end %>
+  </div>
+</div>
+
+<% CapabilityCheck::AI_AGENT_GRANTABLE_GROUPS.each do |group| %>
+  <% group_default_checked = !group[:default_unchecked] %>
+  <div style="margin-top: 16px;" data-controller="checkbox-group">
+    <div style="font-weight: 500; font-size: 13px; margin-bottom: 4px; color: var(--text-primary); display: flex; align-items: center; gap: 12px;">
+      <span><%= group[:name] %></span>
+      <span style="font-weight: normal; font-size: 12px;">
+        <a href="#" data-action="checkbox-group#checkAll" class="pulse-link">all</a>
+        /
+        <a href="#" data-action="checkbox-group#uncheckAll" class="pulse-link">none</a>
+      </span>
+    </div>
+    <small class="pulse-hint" style="display: block; margin-bottom: 8px;"><%= group[:description] %></small>
+    <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+      <% group[:actions].each do |action| %>
+        <% checked = caps_not_configured ? group_default_checked : current_caps.include?(action) %>
+        <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <%= check_box_tag "capabilities[]", action, checked, id: "cap_#{action}", data: { checkbox_group_target: "checkbox" } %>
+          <code style="font-size: 12px;"><%= action %></code>
+        </label>
+      <% end %>
+    </div>
+  </div>
+<% end %>

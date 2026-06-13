@@ -12,7 +12,7 @@
 # If capabilities has items, only those listed grantable actions are permitted.
 #
 # @see ActionAuthorization for base authorization checks
-module CapabilityCheck
+module CapabilityCheck # rubocop:disable Metrics/ModuleLength
   extend T::Sig
 
   # Actions that AI agents can always perform (infrastructure)
@@ -130,6 +130,127 @@ module CapabilityCheck
     "join_list",
   ].freeze
 
+  # Grouped presentation of AI_AGENT_GRANTABLE_ACTIONS for the agent-creation
+  # and agent-settings forms. Every grantable action belongs to exactly one
+  # group. Groups with `default_unchecked: true` are rendered unchecked when
+  # an agent has no capabilities configured yet (sensitive / destructive
+  # actions the owner should opt into deliberately). The CapabilityCheck test
+  # suite enforces the groups stay in sync with AI_AGENT_GRANTABLE_ACTIONS —
+  # adding or removing a grantable action will fail tests until the groups
+  # are updated.
+  AI_AGENT_GRANTABLE_GROUPS = [
+    {
+      name: "Notes",
+      description: "Create, edit, and pin notes.",
+      actions: ["create_note", "update_note", "pin_note", "unpin_note"],
+    },
+    {
+      name: "Notes — destructive",
+      description: "Permanently delete notes.",
+      actions: ["delete_note"],
+      default_unchecked: true,
+    },
+    {
+      name: "Reading & reminders",
+      description: "Mark notes and reminders as read; create and cancel reminder notes.",
+      actions: ["confirm_read", "acknowledge_reminder", "create_reminder_note", "cancel_reminder"],
+    },
+    {
+      name: "Comments",
+      description: "Post comments on notes, decisions, and commitments.",
+      actions: ["add_comment"],
+    },
+    {
+      name: "Decisions",
+      description: "Create decisions, vote, add options and statements, close decisions, edit settings.",
+      actions: [
+        "create_decision", "update_decision_settings",
+        "pin_decision", "unpin_decision", "vote", "add_options",
+        "close_decision", "add_statement",
+      ],
+    },
+    {
+      name: "Decisions — destructive",
+      description: "Permanently delete decisions.",
+      actions: ["delete_decision"],
+      default_unchecked: true,
+    },
+    {
+      name: "Commitments",
+      description: "Create and join commitments; pin and edit settings.",
+      actions: [
+        "create_commitment", "update_commitment_settings",
+        "join_commitment", "pin_commitment", "unpin_commitment",
+      ],
+    },
+    {
+      name: "Commitments — destructive",
+      description: "Permanently delete commitments.",
+      actions: ["delete_commitment"],
+      default_unchecked: true,
+    },
+    {
+      name: "Tables",
+      description: "Create table notes, add and edit rows and columns, query and summarize data.",
+      actions: [
+        "create_table_note", "add_row", "update_row", "add_table_column",
+        "query_rows", "summarize", "update_table_description", "batch_table_update",
+      ],
+    },
+    {
+      name: "Tables — destructive",
+      description: "Delete rows and remove columns.",
+      actions: ["delete_row", "remove_table_column"],
+      default_unchecked: true,
+    },
+    {
+      name: "Attachments",
+      description: "Upload and remove file attachments.",
+      actions: ["add_attachment", "remove_attachment"],
+      default_unchecked: true,
+    },
+    {
+      name: "Chat",
+      description: "Send messages in chat conversations.",
+      actions: ["send_message"],
+    },
+    {
+      name: "Lists",
+      description: "Tune in to people and lists; create and manage custom lists.",
+      actions: [
+        "tune_in", "tune_out", "create_user_list", "update_user_list",
+        "add_member_to_list", "join_list",
+      ],
+    },
+    {
+      name: "Lists — destructive",
+      description: "Delete custom lists and remove other members from them.",
+      actions: ["delete_user_list", "remove_member_from_list"],
+      default_unchecked: true,
+    },
+    {
+      name: "Trustee grant responses",
+      description: "Accept or decline trustee grants offered to this agent.",
+      actions: ["accept_trustee_grant", "decline_trustee_grant"],
+    },
+    {
+      name: "Trustee grant admin",
+      description: "Grant trustee authority to others, and revoke grants.",
+      actions: ["create_trustee_grant", "revoke_trustee_grant"],
+      default_unchecked: true,
+    },
+    {
+      name: "Representation",
+      description: "Start and end sessions where the agent acts on behalf of a user or collective via a trustee grant.",
+      actions: ["start_representation", "end_representation"],
+    },
+    {
+      name: "Content reporting",
+      description: "Report notes, decisions, or commitments for review.",
+      actions: ["report_content"],
+    },
+  ].freeze
+
   # Check if a user has capability for an action
   #
   # @param user [User] The user attempting the action
@@ -196,22 +317,5 @@ module CapabilityCheck
                 end
 
     AI_AGENT_ALWAYS_ALLOWED + grantable
-  end
-
-  # Get the list of restricted actions for a user (for display)
-  #
-  # @param user [User] The user to check
-  # @return [Array<String>, nil] List of restricted actions, or nil if no restrictions
-  sig { params(user: User).returns(T.nilable(T::Array[String])) }
-  def self.restricted_actions(user)
-    return nil unless user.ai_agent?
-
-    capabilities = user.agent_configuration&.dig("capabilities")
-    # nil = no restrictions configured
-    return nil if capabilities.nil?
-
-    # Empty array = all grantable actions restricted
-    # Non-empty array = those not in the list are restricted
-    AI_AGENT_GRANTABLE_ACTIONS - capabilities
   end
 end

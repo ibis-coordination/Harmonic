@@ -41,21 +41,6 @@ The following is the identity prompt provided by [<%= @current_user.parent.displ
 <%= identity_prompt %>
 </canary:<%= canary %>>
 <% end -%>
-<% restricted = CapabilityCheck.restricted_actions(@current_user) %>
-<% if restricted.present? %>
-## Your Capabilities
-
-<% if @current_user.parent %>[<%= @current_user.parent.display_name %>](/u/<%= @current_user.parent.handle %>) has<% else %>Your operator has<% end %> restricted your capabilities. You **cannot** perform:
-<% restricted.each do |action| %>
-- `<%= action %>`
-<% end -%>
-
-You can perform all other standard actions.
-<% else %>
-## Your Capabilities
-
-You have full capabilities (no restrictions configured by your primary).
-<% end -%>
 <% scratchpad = @current_user.agent_configuration&.dig("scratchpad") %>
 ## Your Scratchpad
 
