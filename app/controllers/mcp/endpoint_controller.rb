@@ -93,7 +93,24 @@ module Mcp
       annotations: { destructiveHint: true },
     }.freeze
 
-    TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL].freeze
+    SEARCH_TOOL = {
+      name: "search",
+      description:
+        "Search Harmonic for notes, decisions, commitments, and people. " \
+        "Supports filter, sort, and group operators (e.g. type:, collective:, " \
+        "creator:@handle, status:). For the full operator reference, fetch " \
+        "/help/search.",
+      inputSchema: {
+        type: "object",
+        required: ["query"],
+        properties: {
+          query: { type: "string", description: "Search query." },
+        },
+      },
+      annotations: { readOnlyHint: true },
+    }.freeze
+
+    TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL, SEARCH_TOOL].freeze
 
     # No browser session, no CSRF.
     skip_forgery_protection
@@ -272,6 +289,8 @@ module Mcp
         call_fetch_page(id, args)
       when "execute_action"
         call_execute_action(id, args)
+      when "search"
+        call_search(id, args)
       else
         tool_error_result(id, "Unknown tool: #{name}")
       end
@@ -307,6 +326,17 @@ module Mcp
         service.set_path(normalized)
         service.execute_action(action_name, action_params)
       end
+      surface_dispatch_result(id, result)
+    end
+
+    def call_search(id, args)
+      query = args["query"]
+      return tool_error_result(id, "Missing required argument: query") if query.blank?
+      return tool_error_result(id, "query must be a string") unless query.is_a?(String)
+
+      path = "/search?q=#{CGI.escape(query)}"
+      service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
+      result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
       surface_dispatch_result(id, result)
     end
 

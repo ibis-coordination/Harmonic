@@ -162,7 +162,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     body = response.parsed_body
     tool_names = body.dig("result", "tools").map { |t| t["name"] }
 
-    ["fetch_page", "execute_action"].each do |name|
+    ["fetch_page", "execute_action", "search"].each do |name|
       assert_includes tool_names, name, "tools/list missing #{name}"
       tool = body["result"]["tools"].find { |t| t["name"] == name }
       assert tool["description"].is_a?(String) && tool["description"].present?, "#{name} missing description"
@@ -175,6 +175,9 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     execute_action = body["result"]["tools"].find { |t| t["name"] == "execute_action" }
     assert_includes execute_action["inputSchema"]["required"], "path"
     assert_includes execute_action["inputSchema"]["required"], "action"
+
+    search = body["result"]["tools"].find { |t| t["name"] == "search" }
+    assert_includes search["inputSchema"]["required"], "query"
   end
 
   # ====================
@@ -492,6 +495,72 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     text = body["result"]["content"].first["text"]
     assert_match(/create_note/, text, "expected the action name in the error body so the agent knows what's blocked")
     assert_not Note.exists?(text: "should not exist")
+  end
+
+  # ====================
+  # search
+  # ====================
+
+  test "search with a query returns markdown content" do
+    # Create a note we can find
+    create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "unique-mcp-search-marker", title: "Search Target")
+
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 70,
+                   method: "tools/call",
+                   params: { name: "search", arguments: { query: "unique-mcp-search-marker" } },
+                 })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"]
+    text = body["result"]["content"].first["text"]
+    assert_match(/unique-mcp-search-marker/, text, "search results should include the matching note")
+  end
+
+  test "search without query returns tool error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 71,
+                   method: "tools/call",
+                   params: { name: "search", arguments: {} },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/query/, body["result"]["content"].first["text"])
+  end
+
+  test "search with non-String query returns tool error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 72,
+                   method: "tools/call",
+                   params: { name: "search", arguments: { query: [1, 2, 3] } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/query/, body["result"]["content"].first["text"])
+  end
+
+  test "search URL-encodes the query" do
+    # A query with characters that have URL-special meaning (& = ? #) must be
+    # encoded so they reach /search?q=... as the literal query, not as URL
+    # delimiters that change the meaning of the request.
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 73,
+                   method: "tools/call",
+                   params: { name: "search", arguments: { query: "foo & bar = baz #qux" } },
+                 })
+
+    assert_response :success
+    body = response.parsed_body
+    # Whether anything matches isn't the point — the point is that the call
+    # completes without an inner-dispatch error caused by mangled URL.
+    assert_not body["result"]["isError"], "encoded special characters should not break the dispatch"
   end
 
   # ====================
