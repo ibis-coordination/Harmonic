@@ -1,0 +1,293 @@
+# typed: false
+# frozen_string_literal: true
+
+# MCP (Model Context Protocol) Streamable HTTP endpoint.
+#
+# Speaks the JSON-RPC 2.0 envelope for the 2025-11-25 revision of the
+# Streamable HTTP transport. External MCP clients (Claude Desktop, Claude
+# Code, Cursor, etc.) POST JSON-RPC messages here authenticated by their
+# Bearer token, and call tools like fetch_page that delegate to the
+# existing markdown-rendering controllers via internal dispatch through
+# MarkdownUiService.
+#
+# Inherits from ActionController::Base (not ApplicationController) for the
+# same reason as Internal::BaseController: ApplicationController's filter
+# chain assumes browser sessions, collective-scoped routes, and a
+# resource-model heuristic — none of which apply to a JSON-RPC endpoint.
+#
+# Security model
+# --------------
+# The Bearer check here is DEFENSE IN DEPTH, not the authoritative gate. Every
+# tool call dispatches through MarkdownUiService, which makes a real internal
+# HTTP request through ActionDispatch::Integration::Session with the caller's
+# Bearer token. That inner request hits ApplicationController's full filter
+# chain — api_authorize! (tenant.api_enabled?, collective.api_enabled?,
+# billing, activation) and ActionCapabilityCheck (per-action capability gate).
+# So anything reachable via MCP is reachable via direct HTTPS to the same
+# path with the same Bearer, and vice versa. No new privilege surface; no
+# bypass paths. The endpoint-level checks below exist to (a) return MCP-shaped
+# errors before we ever touch the inner dispatch, and (b) produce the
+# spec-mandated WWW-Authenticate header.
+#
+# This contract is pinned by the "Inner-dispatch security" tests in the
+# endpoint controller test file — they intentionally disable tenant/collective
+# API at the model layer and assert that tool calls surface the rejection.
+# If you find yourself moving auth logic out of the inner controllers into
+# this one, you are wrong; the test will catch it.
+#
+# Spec: https://modelcontextprotocol.io/specification/2025-11-25
+module Mcp
+  # rubocop:disable Rails/ApplicationController
+  class EndpointController < ActionController::Base
+    # rubocop:enable Rails/ApplicationController
+    SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25"].freeze
+    SERVER_VERSION = "0.1.0"
+
+    # JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification#error_object)
+    PARSE_ERROR = -32_700
+    INVALID_REQUEST = -32_600
+    METHOD_NOT_FOUND = -32_601
+    INVALID_PARAMS = -32_602
+    INTERNAL_ERROR = -32_603
+
+    # No browser session, no CSRF.
+    skip_forgery_protection
+
+    # Catch any unhandled exception and return a JSON-RPC error envelope.
+    # Without this, ActionController::Base falls back to Rails' default HTML
+    # error page — useless for an MCP client expecting JSON.
+    rescue_from StandardError, with: :render_internal_error
+
+    before_action :resolve_mcp_tenant!
+    before_action :reject_invalid_origin!
+    before_action :reject_unsupported_protocol_version!
+    before_action :authenticate_mcp_bearer!
+
+    def handle
+      raw = request.raw_post
+      body = parse_body(raw)
+
+      return render_parse_error if body.nil?
+      return render_batch_unsupported if body.is_a?(Array)
+      return render_invalid_request("Request body must be a JSON object") unless body.is_a?(Hash)
+
+      response = dispatch_method(body)
+      if response == :accepted
+        head :accepted
+      else
+        render json: response
+      end
+    end
+
+    private
+
+    # ====================
+    # Filters
+    # ====================
+
+    def resolve_mcp_tenant!
+      @current_tenant = Tenant.find_by(subdomain: request.subdomain)
+      return head :not_found unless @current_tenant
+
+      Tenant.scope_thread_to_tenant(subdomain: @current_tenant.subdomain)
+    end
+
+    attr_reader :current_tenant
+
+    def reject_invalid_origin!
+      origin = request.headers["Origin"]
+      return if origin.blank? # Desktop MCP clients send no Origin; that's allowed.
+
+      allowed = ["https://#{request.host}", "http://#{request.host}"]
+      return if allowed.include?(origin)
+
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Invalid Origin"), status: :forbidden
+    end
+
+    def reject_unsupported_protocol_version!
+      version = request.headers["MCP-Protocol-Version"]
+      return if version.blank?
+      return if SUPPORTED_PROTOCOL_VERSIONS.include?(version)
+
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Unsupported MCP-Protocol-Version: #{version}"),
+             status: :bad_request
+    end
+
+    def authenticate_mcp_bearer!
+      auth_header = request.headers["Authorization"].to_s
+      return render_mcp_unauthorized if auth_header.blank?
+
+      prefix, plaintext = auth_header.split(" ", 2)
+      # RFC 7235: auth-scheme is case-insensitive.
+      return render_mcp_unauthorized unless prefix.to_s.downcase == "bearer" && plaintext.present?
+
+      token = ApiToken.authenticate(plaintext, tenant_id: current_tenant.id)
+      return render_mcp_unauthorized unless token&.active?
+
+      token.token_used!
+      @current_token = token
+      @plaintext_bearer = plaintext
+    end
+
+    def render_mcp_unauthorized
+      response.set_header(
+        "WWW-Authenticate",
+        %(Bearer realm="Harmonic", resource_metadata="#{resource_metadata_url}")
+      )
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Unauthorized"), status: :unauthorized
+    end
+
+    def resource_metadata_url
+      # The MCP spec's WWW-Authenticate scheme requires advertising this URL
+      # so clients can discover the OAuth Protected Resource Metadata document
+      # (RFC 9728) once that endpoint is served at this location.
+      "https://#{request.host}/.well-known/oauth-protected-resource"
+    end
+
+    # ====================
+    # Request parsing
+    # ====================
+
+    def parse_body(raw)
+      JSON.parse(raw)
+    rescue JSON::ParserError
+      nil
+    end
+
+    def render_parse_error
+      render json: jsonrpc_error_envelope(nil, PARSE_ERROR, "Parse error")
+    end
+
+    def render_batch_unsupported
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "JSON-RPC batches are not supported"),
+             status: :bad_request
+    end
+
+    def render_invalid_request(message)
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, message), status: :bad_request
+    end
+
+    def render_internal_error(error)
+      Rails.logger.error("[Mcp::EndpointController] #{error.class}: #{error.message}\n#{error.backtrace&.first(10)&.join("\n")}")
+      render json: jsonrpc_error_envelope(nil, INTERNAL_ERROR, "Internal error"), status: :internal_server_error
+    end
+
+    # ====================
+    # JSON-RPC dispatch
+    # ====================
+
+    def dispatch_method(body)
+      # Per JSON-RPC 2.0: a message without an `id` field is a notification.
+      # Method name (including "notifications/*" by MCP convention) is
+      # informational; absence of `id` is what makes it a notification, and
+      # the server MUST NOT respond. We ack with 202.
+      return :accepted unless body.key?("id")
+
+      id = body["id"]
+      method = body["method"].to_s
+      params = body["params"] || {}
+
+      case method
+      when "initialize"
+        handle_initialize(id, params)
+      when "ping"
+        jsonrpc_result(id, {})
+      when "tools/list"
+        jsonrpc_result(id, { tools: tool_descriptors })
+      when "tools/call"
+        handle_tools_call(id, params)
+      else
+        jsonrpc_error_envelope(id, METHOD_NOT_FOUND, "Method not found: #{method}")
+      end
+    end
+
+    def handle_initialize(id, _params)
+      jsonrpc_result(id, {
+                       protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.first,
+                       serverInfo: { name: "harmonic", version: SERVER_VERSION },
+                       # Advertise only the capabilities we actually implement —
+                       # no prompts, logging, or sampling.
+                       capabilities: { tools: {}, resources: {} },
+                     })
+    end
+
+    # ====================
+    # Tools
+    # ====================
+
+    def tool_descriptors
+      [
+        {
+          name: "fetch_page",
+          description:
+            "Fetch the markdown representation of a Harmonic page at the given path. " \
+            "The response includes content plus a list of actions available at that path, " \
+            "each with a fully-qualified action URL you can pass back to execute_action. " \
+            "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
+          inputSchema: {
+            type: "object",
+            required: ["path"],
+            properties: {
+              path: { type: "string", description: "Relative path (e.g., '/collectives/team/n/abc123')" },
+            },
+          },
+          annotations: { readOnlyHint: true },
+        },
+      ]
+    end
+
+    def handle_tools_call(id, params)
+      return jsonrpc_error_envelope(id, INVALID_PARAMS, "params must be an object") unless params.is_a?(Hash)
+
+      name = params["name"].to_s
+      args = params["arguments"]
+      args = {} unless args.is_a?(Hash)
+
+      case name
+      when "fetch_page"
+        call_fetch_page(id, args)
+      else
+        tool_error_result(id, "Unknown tool: #{name}")
+      end
+    end
+
+    def call_fetch_page(id, args)
+      path = args["path"]
+      return tool_error_result(id, "Missing required argument: path") if path.blank?
+      # Reject anything that isn't a relative path under this host. Protocol-
+      # relative ("//evil.com") and absolute URLs ("https://...") are not
+      # things you should be able to fetch through an in-tenant tool.
+      unless path.is_a?(String) && path.start_with?("/") && !path.start_with?("//")
+        return tool_error_result(id, "Invalid path: must start with '/' and reference a path within this tenant")
+      end
+
+      service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
+      result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
+
+      if result[:error]
+        tool_error_result(id, result[:error])
+      else
+        jsonrpc_result(id, { content: [{ type: "text", text: result[:content] }] })
+      end
+    end
+
+    # ====================
+    # JSON-RPC envelope helpers
+    # ====================
+
+    def jsonrpc_result(id, result)
+      { jsonrpc: "2.0", id: id, result: result }
+    end
+
+    def jsonrpc_error_envelope(id, code, message)
+      { jsonrpc: "2.0", id: id, error: { code: code, message: message } }
+    end
+
+    def tool_error_result(id, message)
+      jsonrpc_result(id, {
+                       isError: true,
+                       content: [{ type: "text", text: message }],
+                     })
+    end
+  end
+end

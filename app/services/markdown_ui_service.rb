@@ -70,7 +70,7 @@ class MarkdownUiService
     type_parameters(:T)
       .params(
         context: T.any(AiAgentTaskRun, AutomationRuleRun),
-        blk: T.proc.returns(T.type_parameter(:T)),
+        blk: T.proc.returns(T.type_parameter(:T))
       )
       .returns(T.type_parameter(:T))
   end
@@ -79,10 +79,30 @@ class MarkdownUiService
 
     @token = ApiToken.create_internal_token(user: @user, tenant: @tenant, context: context)
     @plaintext_token = @token.plaintext_token
-    yield
+    blk.call
   ensure
     @token&.destroy
     @token = nil
+    @plaintext_token = nil
+  end
+
+  # Execute a block using an externally-supplied plaintext token (typically the
+  # caller's already-validated Bearer token). Unlike with_internal_token this
+  # doesn't mint or destroy anything — the caller owns the token's lifecycle.
+  # Used by the MCP endpoint so an external client's auth carries through the
+  # internal dispatch without minting a separate internal token.
+  sig do
+    type_parameters(:T)
+      .params(
+        plaintext_token: String,
+        blk: T.proc.returns(T.type_parameter(:T))
+      )
+      .returns(T.type_parameter(:T))
+  end
+  def with_provided_token(plaintext_token, &blk)
+    @plaintext_token = plaintext_token
+    blk.call
+  ensure
     @plaintext_token = nil
   end
 
@@ -209,12 +229,12 @@ class MarkdownUiService
   # `context` association, so it doesn't need to be saved/restored here.
   sig { params(blk: T.proc.void).void }
   def with_current_preserved(&blk)
-    yield
+    blk.call
   ensure
     begin
       Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
       Collective.set_thread_context(@collective) if @collective
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn("Failed to restore Current context after dispatch: #{e.message}")
     end
   end
@@ -225,7 +245,7 @@ class MarkdownUiService
     return if @session
 
     @session = ActionDispatch::Integration::Session.new(Rails.application)
-    @session.host = "#{@tenant.subdomain}.#{ENV['HOSTNAME'] || 'localhost'}"
+    @session.host = "#{@tenant.subdomain}.#{ENV["HOSTNAME"] || "localhost"}"
   end
 
   sig { returns(ActionDispatch::Integration::Session) }
@@ -244,9 +264,7 @@ class MarkdownUiService
       "X-Forwarded-Proto" => "https",
     }
 
-    if @plaintext_token.present?
-      headers["Authorization"] = "Bearer #{@plaintext_token}"
-    end
+    headers["Authorization"] = "Bearer #{@plaintext_token}" if @plaintext_token.present?
 
     headers
   end
