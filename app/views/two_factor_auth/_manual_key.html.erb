@@ -1,0 +1,16 @@
+<%# Same-device setup paths: the otpauth:// deep link opens the user's
+    authenticator app with the account pre-filled; the copyable key covers
+    apps that don't register the otpauth:// handler. The copy button copies
+    the raw secret (no spaces) — the spaced display is just for reading. %>
+<a href="<%= provisioning_uri %>" class="pulse-action-btn" style="display: inline-block; margin-bottom: 12px;">
+  Open in authenticator app
+</a>
+<p style="color: var(--color-fg-muted); font-size: 0.875rem; margin: 8px 0;">
+  Or enter this key manually:
+</p>
+<div style="display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap;">
+  <code class="pulse-code" style="padding: 12px; font-size: 0.875rem;">
+    <%= secret.scan(/.{4}/).join(" ") %>
+  </code>
+  <%= render "shared/copy_to_clipboard", text: secret, label: "Copy key" %>
+</div>

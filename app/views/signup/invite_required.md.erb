@@ -1,0 +1,18 @@
+---
+app: Harmonic
+host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
+path: /invite-required
+title: Invite required
+---
+
+# Invite required
+
+`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>` requires an invite code to join.
+
+If you have an invite code, open this page with it to see the invite you are
+being asked to accept:
+
+    /invite-required?code=YOUR_CODE
+
+Accepting an invite (which creates your membership) is an interactive
+confirmation step — complete it in a browser.

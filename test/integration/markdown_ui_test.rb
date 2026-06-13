@@ -28,6 +28,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
+  # API authorization enforces the activation gate, so users exercising
+  # action routes need a verified email + 2FA.
+  def activate_user!(user)
+    identity = user.find_or_create_omni_auth_identity!
+    identity.update!(email_confirmed_at: Time.current)
+    identity.generate_otp_secret!
+    identity.enable_otp!
+  end
+
   def is_markdown?
     response.content_type.starts_with?("text/markdown") &&
     response.body.start_with?("---\napp: Harmonic")
@@ -877,6 +886,57 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # Removed: "POST join_collective action joins open collective" test
   # Open collectives no longer exist; all non-main collectives are invite-only.
+
+  test "POST join_collective action rejects an expired invite" do
+    joiner = create_user(email: "joiner-#{SecureRandom.hex(4)}@example.com", name: "Joiner")
+    @tenant.add_user!(joiner)
+    activate_user!(joiner)
+    target = Collective.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Expired Join Target", handle: "exp-join-#{SecureRandom.hex(4)}",
+    )
+    target.add_user!(@user)
+    target.enable_api!
+    invite = Invite.create!(
+      tenant: @tenant, collective: target, created_by: @user,
+      code: SecureRandom.hex(8), expires_at: 1.day.ago,
+    )
+    token = ApiToken.create!(tenant: @tenant, user: joiner, scopes: ApiToken.valid_scopes)
+    headers = @headers.merge("Authorization" => "Bearer #{token.plaintext_token}")
+
+    post "/collectives/#{target.handle}/join/actions/join_collective",
+         params: { code: invite.code }.to_json, headers: headers
+
+    assert_not target.user_is_member?(joiner),
+               "an expired invite must not grant membership via the action route"
+    assert_match(/not valid|expired/i, response.body)
+  end
+
+  test "POST join_collective action rejects someone else's personal invite" do
+    intended = create_user(email: "intended-#{SecureRandom.hex(4)}@example.com", name: "Intended")
+    @tenant.add_user!(intended)
+    interloper = create_user(email: "interloper-#{SecureRandom.hex(4)}@example.com", name: "Interloper")
+    @tenant.add_user!(interloper)
+    activate_user!(interloper)
+    target = Collective.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Personal Join Target", handle: "pers-join-#{SecureRandom.hex(4)}",
+    )
+    target.add_user!(@user)
+    target.enable_api!
+    invite = Invite.create!(
+      tenant: @tenant, collective: target, created_by: @user,
+      invited_user: intended, code: SecureRandom.hex(8), expires_at: 1.week.from_now,
+    )
+    token = ApiToken.create!(tenant: @tenant, user: interloper, scopes: ApiToken.valid_scopes)
+    headers = @headers.merge("Authorization" => "Bearer #{token.plaintext_token}")
+
+    post "/collectives/#{target.handle}/join/actions/join_collective",
+         params: { code: invite.code }.to_json, headers: headers
+
+    assert_not target.user_is_member?(interloper)
+    assert_match(/not valid|expired/i, response.body)
+  end
 
   # === Pin/Unpin Action Tests ===
 

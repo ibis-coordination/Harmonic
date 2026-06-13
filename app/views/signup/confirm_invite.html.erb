@@ -1,7 +1,8 @@
 <div class="pulse-auth-page">
   <div class="pulse-auth-error">
     <div class="pulse-auth-error-icon">
-      <%= octicon 'check-circle', height: 48 %>
+      <%= inline_avatar @invite.collective, variant: :thumbnail,
+                        style: "width:64px;height:64px;border-radius:12px;font-size:24px;" %>
     </div>
     <h1 class="pulse-auth-title">You're invited to join <br/><%= @invite.collective.name %></h1>
     <p class="pulse-auth-subtitle">
@@ -11,6 +12,26 @@
     <%= form_with url: accept_invite_path, method: :post, class: "pulse-auth-form", local: true do %>
       <%= render "shared/bot_protection_fields" %>
       <input type="hidden" name="code" value="<%= @invite.code %>">
+      <% unless @current_tenant.tenant_users.exists?(user: @current_user) %>
+        <div style="margin-bottom: 12px;">
+          <label for="handle-field" class="pulse-form-hint" style="display: block; margin-bottom: 4px;">
+            Your handle on <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
+          </label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span aria-hidden="true" style="font-weight: 600; color: var(--color-fg-muted);">@</span>
+            <%# margin-bottom: 0 — the auth-form input margin would otherwise
+                offset the flex centering of the @ prefix %>
+            <input type="text" name="handle" id="handle-field" class="pulse-form-input"
+                   style="flex: 1; margin-bottom: 0;"
+                   value="<%= @suggested_handle %>" autocomplete="off" spellcheck="false"
+                   data-controller="handle-input" data-action="input->handle-input#sanitize"
+                   pattern="[a-z0-9_\-]*" title="Lowercase letters, numbers, dashes, and underscores">
+          </div>
+          <p class="pulse-form-hint" style="margin: 4px 0 0 0;">
+            You can change this later in your settings.
+          </p>
+        </div>
+      <% end %>
       <div class="pulse-form-actions">
         <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Accept and join</button>
       </div>

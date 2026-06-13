@@ -321,6 +321,60 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "POST /join with an expired invite is rejected with a friendly message" do
+    test_collective = create_test_collective
+    expired = Invite.create!(
+      tenant: @tenant, collective: test_collective, created_by: @user,
+      code: SecureRandom.hex(8), expires_at: 1.day.ago,
+    )
+    member = create_user(name: "Expired Join Attempt")
+    @tenant.add_user!(member)
+
+    sign_in_as(member, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/join", params: { code: expired.code }
+
+    assert_response :redirect
+    assert_match(/not valid|expired/i, flash[:alert].to_s,
+                 "expected a friendly alert for an expired invite")
+    assert_not test_collective.user_is_member?(member),
+               "an expired invite must not grant collective membership"
+  end
+
+  test "POST /join with someone else's personal invite is rejected without a 500" do
+    test_collective = create_test_collective
+    intended = create_user(name: "Intended Recipient")
+    @tenant.add_user!(intended)
+    personal = Invite.create!(
+      tenant: @tenant, collective: test_collective, created_by: @user,
+      invited_user: intended, code: SecureRandom.hex(8), expires_at: 1.week.from_now,
+    )
+    interloper = create_user(name: "Interloper")
+    @tenant.add_user!(interloper)
+
+    sign_in_as(interloper, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/join", params: { code: personal.code }
+
+    assert_response :redirect
+    assert_match(/not valid|expired/i, flash[:alert].to_s)
+    assert_not test_collective.user_is_member?(interloper)
+  end
+
+  test "POST /join when already a member redirects to the collective instead of erroring" do
+    test_collective = create_test_collective
+    invite = Invite.create!(
+      tenant: @tenant, collective: test_collective, created_by: @user,
+      code: SecureRandom.hex(8), expires_at: 1.week.from_now,
+    )
+    # @user is already a member of test_collective via create_test_collective.
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{test_collective.handle}/join", params: { code: invite.code }
+
+    assert_response :redirect
+    assert_match(%r{#{Regexp.escape(test_collective.path)}}, response.location,
+                 "a member double-submitting join should just land on the collective")
+  end
+
   # === Collective Billing and Archive Tests ===
 
   test "create succeeds without billing confirmation (collectives start at free tier)" do

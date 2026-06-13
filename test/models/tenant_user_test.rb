@@ -107,6 +107,89 @@ class TenantUserTest < ActiveSupport::TestCase
     assert_empty channels
   end
 
+  # === Handle generation ===
+
+  test "add_user! generates a unique handle when another tenant user already has the name-derived one" do
+    tenant = create_tenant(subdomain: "hgen-#{SecureRandom.hex(4)}")
+    first = create_user(email: "smith1-#{SecureRandom.hex(4)}@example.com", name: "Jane Smith")
+    second = create_user(email: "smith2-#{SecureRandom.hex(4)}@example.com", name: "Jane Smith")
+
+    first_tu = tenant.add_user!(first)
+    assert_equal "jane-smith", first_tu.handle
+
+    second_tu = tenant.add_user!(second)
+    assert_not_equal first_tu.handle, second_tu.handle,
+                     "two users with the same name must not collide on handle"
+    assert_match(/\Ajane-smith-/, second_tu.handle,
+                 "expected the derived handle with a uniquifying suffix")
+  end
+
+  test "default handle prefers the user's external OAuth username over their name" do
+    tenant = create_tenant(subdomain: "hoauth-#{SecureRandom.hex(4)}")
+    user = create_user(email: "gh-#{SecureRandom.hex(4)}@example.com", name: "Jane Smith")
+    OauthIdentity.create!(provider: "github", uid: SecureRandom.hex(6), user: user, username: "JaneSmith-Dev")
+
+    tu = tenant.add_user!(user)
+
+    assert_equal "janesmith-dev", tu.handle,
+                 "expected the GitHub username (parameterized), not the name-derived handle"
+  end
+
+  test "default handle falls back to the name when the external OAuth identity has no username" do
+    tenant = create_tenant(subdomain: "hnouser-#{SecureRandom.hex(4)}")
+    user = create_user(email: "nouser-#{SecureRandom.hex(4)}@example.com", name: "Sam Jones")
+    OauthIdentity.create!(provider: "github", uid: SecureRandom.hex(6), user: user, username: nil)
+
+    tu = tenant.add_user!(user)
+
+    assert_equal "sam-jones", tu.handle
+  end
+
+  test "default handle falls back to a neutral base for names with no parameterizable characters" do
+    tenant = create_tenant(subdomain: "hcjk-#{SecureRandom.hex(4)}")
+    user = create_user(email: "cjk-#{SecureRandom.hex(4)}@example.com", name: "山田太郎")
+
+    tu = tenant.add_user!(user)
+
+    assert_match(/\Auser(-\h{4})?\z/, tu.handle,
+                 "expected a usable fallback handle, not an empty string")
+  end
+
+  test "handle is normalized on assignment for every writer" do
+    tenant = create_tenant(subdomain: "hnorm-#{SecureRandom.hex(4)}")
+    user = create_user(email: "norm-#{SecureRandom.hex(4)}@example.com", name: "Norm Writer")
+    tu = tenant.add_user!(user)
+
+    tu.update!(handle: "Renamed Handle")
+
+    assert_equal "renamed-handle", tu.reload.handle,
+                 "settings renames must normalize the same way signup does"
+  end
+
+  test "an explicit duplicate handle fails validation instead of crashing on the DB constraint" do
+    tenant = create_tenant(subdomain: "hdup-#{SecureRandom.hex(4)}")
+    first = create_user(email: "hdup1-#{SecureRandom.hex(4)}@example.com", name: "First User")
+    second = create_user(email: "hdup2-#{SecureRandom.hex(4)}@example.com", name: "Second User")
+    tenant.add_user!(first, handle: "wanted-handle")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      tenant.add_user!(second, handle: "wanted-handle")
+    end
+    assert_match(/taken/i, error.message)
+  end
+
+  test "add_user! with an identical name works in a different tenant without suffixing" do
+    tenant_a = create_tenant(subdomain: "hgena-#{SecureRandom.hex(4)}")
+    tenant_b = create_tenant(subdomain: "hgenb-#{SecureRandom.hex(4)}")
+    user_a = create_user(email: "ta-#{SecureRandom.hex(4)}@example.com", name: "Pat Doe")
+    user_b = create_user(email: "tb-#{SecureRandom.hex(4)}@example.com", name: "Pat Doe")
+
+    tenant_a.add_user!(user_a)
+    tu_b = tenant_b.add_user!(user_b)
+
+    assert_equal "pat-doe", tu_b.handle, "handle uniqueness is per-tenant"
+  end
+
   # === Reserved handles ===
 
   test "handle 'trio' is allowed for an ai_agent with system_role 'trio'" do

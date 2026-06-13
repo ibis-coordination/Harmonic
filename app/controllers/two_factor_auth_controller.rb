@@ -233,25 +233,30 @@ class TwoFactorAuthController < ApplicationController
   def complete_2fa_login
     identity = pending_identity
 
-    # Find the user associated with this identity via OauthIdentity (provider: identity)
-    oauth_identity = OauthIdentity.find_by(provider: "identity", uid: identity.id.to_s)
-    unless oauth_identity
-      # Fallback: find user by email directly
-      user = User.find_by(email: identity.email)
-      unless user
-        flash[:alert] = "Could not complete login. Please try again."
-        clear_pending_2fa_session
-        redirect_to "/login"
-        return
-      end
-      session[:user_id] = user.id
-    else
-      session[:user_id] = oauth_identity.user.id
+    # The OmniAuthIdentity row knows its user directly — every login path
+    # (identity-provider and external OAuth alike) links it before the 2FA
+    # challenge fires. The email match is a last-resort fallback for legacy
+    # rows that predate the link.
+    user = identity.user || User.find_by(email: identity.email)
+    unless user
+      flash[:alert] = "Could not complete login. Please try again."
+      clear_pending_2fa_session
+      redirect_to "/login"
+      return
     end
 
+    session[:user_id] = user.id
     session[:logged_in_at] = Time.current.to_i
     session[:last_activity_at] = Time.current.to_i
     clear_pending_2fa_session
+    # Mirror the non-2FA branch of oauth_callback — without this, every
+    # 2FA-protected login would be missing from the login-success audit
+    # trail while weaker non-2FA logins are recorded.
+    SecurityAuditLog.log_login_success(
+      user: user,
+      ip: request.remote_ip,
+      user_agent: request.user_agent,
+    )
 
     redirect_to "/login/return"
   end

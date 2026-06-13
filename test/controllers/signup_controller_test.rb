@@ -93,6 +93,166 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(%r{/billing}, response.body)
   end
 
+  # === GET /invite-required with a code (confirmation entry point) ===
+  # The login callback and invite links route here with ?code= so the user
+  # reviews what they're joining without re-typing the code.
+
+  test "GET /invite-required?code=valid renders the confirmation page directly" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: invite.code }
+
+    assert_response :success
+    assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                 "expected confirmation page naming the collective")
+    assert_select ".inline-avatar", { minimum: 1 },
+                  "expected the collective's avatar so the user can see what they're joining"
+    assert_select "form[action='/invite-required/accept']"
+    assert_select "input[type='hidden'][name='code'][value='#{invite.code}']"
+    assert_not @tenant.tenant_users.exists?(user: @uninvited_user),
+               "rendering the confirmation page must not create memberships"
+  end
+
+  test "GET /invite-required renders the confirmation page from a pending invite in the session" do
+    invite = create_invite
+    # The callback consumes the invite cookie into the per-tenant session stash.
+    cookies[:collective_invite_code] = invite.code
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required"
+
+    assert_response :success
+    assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                 "expected the pending session invite to surface the confirmation page")
+    assert_select "form[action='/invite-required/accept']"
+  end
+
+  test "GET /invite-required?code=invalid falls back to the landing form" do
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: "bogus-#{SecureRandom.hex(4)}" }
+
+    assert_response :success
+    assert_select "form[action='/invite-required']",
+                  true, "expected the code-entry landing form for an unusable code"
+  end
+
+  test "GET /invite-required with expired pending session invite falls back to the landing form" do
+    invite = create_invite(expires_at: 1.week.from_now)
+    cookies[:collective_invite_code] = invite.code
+    sign_in_without_membership(@uninvited_user)
+    invite.update!(expires_at: 1.day.ago) # expires after login, before confirmation
+
+    get "/invite-required"
+
+    assert_response :success
+    assert_select "form[action='/invite-required']"
+  end
+
+  # === Markdown variants (dual interface) ===
+  # The invite-link path used to render collectives/join.md.erb for markdown
+  # clients; the explicit-acceptance flow routes them here instead, so these
+  # pages must not be HTML-only dead ends.
+
+  test "GET /invite-required renders markdown for markdown clients" do
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert response.content_type.start_with?("text/markdown"),
+           "expected a markdown response, got #{response.content_type}"
+    assert_match(/invite code/i, response.body)
+  end
+
+  test "GET /invite-required?code=valid renders the markdown confirmation for markdown clients" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: invite.code }, headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert response.content_type.start_with?("text/markdown")
+    assert_match(/#{Regexp.escape(@collective.name)}/, response.body,
+                 "expected the markdown confirmation to name the collective")
+  end
+
+  # === Handle selection on the confirmation page ===
+
+  test "confirmation page shows a handle input prefilled with the name-derived default" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: invite.code }
+
+    assert_response :success
+    assert_select "input[name='handle'][value='uninvited-user']",
+                  true, "expected an editable handle field prefilled from the user's name"
+  end
+
+  test "POST /invite-required/accept with a custom handle uses it for the TenantUser" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "captain-custom" }
+
+    assert_response :redirect
+    tu = @tenant.tenant_users.find_by(user: @uninvited_user)
+    assert_equal "captain-custom", tu.handle
+  end
+
+  test "POST /invite-required/accept normalizes a free-text handle" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "Captain Custom" }
+
+    tu = @tenant.tenant_users.find_by(user: @uninvited_user)
+    assert_equal "captain-custom", tu.handle
+  end
+
+  test "POST /invite-required/accept with a taken handle re-renders the confirmation page with an error and no memberships" do
+    invite = create_invite
+    taken = create_user(email: "taken-#{SecureRandom.hex(4)}@example.com", name: "Already Here")
+    @tenant.add_user!(taken, handle: "taken-handle")
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "taken-handle" }
+
+    assert_response :unprocessable_entity
+    assert_match(/taken|already/i, flash[:alert].to_s)
+    assert_select "form[action='/invite-required/accept']",
+                  true, "expected the confirmation page re-rendered for another attempt"
+    assert_not @tenant.tenant_users.exists?(user: @uninvited_user),
+               "expected the tenant join rolled back"
+    assert_not @collective.user_is_member?(@uninvited_user),
+               "expected the collective join rolled back"
+  end
+
+  test "POST /invite-required/accept with a reserved handle is rejected with a friendly error" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "trio" }
+
+    assert_response :unprocessable_entity
+    assert_match(/reserved/i, flash[:alert].to_s)
+    assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
+  end
+
+  test "POST /invite-required/accept clears the pending invite code from the session" do
+    invite = create_invite
+    cookies[:collective_invite_code] = invite.code
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code }
+
+    assert_response :redirect
+    assert_nil session[:pending_invite_codes],
+               "expected the pending invite session stash consumed on acceptance"
+  end
+
   # === Pricing disclosure (humans are free; no per-user cost to disclose) ===
 
   test "GET /invite-required does NOT mention pricing even when stripe_billing is enabled" do

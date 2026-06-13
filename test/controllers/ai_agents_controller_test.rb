@@ -890,28 +890,98 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/<input[^>]*type="hidden"[^>]*name="mode"[^>]*value="external"/, response.body)
   end
 
-  test "create with name that produces an already-taken handle surfaces a friendly error, not a 500" do
+  test "create with a name whose default handle is taken auto-disambiguates, no error" do
+    # Name and handle are independent. A generic name like "Claude" whose
+    # derived handle is already taken must not error — leaving the handle
+    # field blank auto-generates a distinct one, like human signup does.
     sign_in_as(@user, tenant: @tenant)
     existing = create_ai_agent(parent: @user, name: "Collision Target")
+    existing_handle = @tenant.add_user!(existing).handle
+    before_ids = User.where(user_type: "ai_agent").pluck(:id)
+
+    assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: {
+        name: "Collision Target", # same name → same base handle, left blank
+        mode: "external",
+        confirm_billing: "1",
+      }
+    end
+
+    assert_response :redirect
+    new_agent = User.where(user_type: "ai_agent").where.not(id: before_ids).first
+    new_handle = new_agent.tenant_users.find_by(tenant: @tenant).handle
+    assert_not_equal existing_handle, new_handle, "expected a distinct auto-disambiguated handle"
+    assert_match(/\A#{Regexp.escape(existing_handle)}-/, new_handle, "expected the taken base with a suffix")
+  end
+
+  test "create with an explicitly-typed handle that is taken surfaces a friendly error, not a 500" do
+    sign_in_as(@user, tenant: @tenant)
+    existing = create_ai_agent(parent: @user, name: "Existing Agent")
     existing_handle = @tenant.add_user!(existing).handle
 
     assert_no_difference -> { User.where(user_type: "ai_agent").count } do
       post "/ai-agents/new/actions/create_ai_agent", params: {
-        name: existing_handle,
+        name: "A Totally Different Display Name",
+        handle: existing_handle,
         mode: "external",
         confirm_billing: "1",
       }
     end
 
     assert_response :redirect, "should redirect back to the form, not 500"
-    assert_match(/handle|already|taken|in use|different name/i, flash[:alert] || flash[:error] || flash[:notice] || "",
-      "flash must explain why creation failed so the user can pick a different name")
+    assert_match(/handle|already|taken|in use|different/i, flash[:alert] || flash[:error] || flash[:notice] || "",
+      "flash must explain why creation failed so the user can pick a different handle")
     follow_redirect!
-    # Use a key the layout renders. The layout renders :notice and :alert
-    # (Rails convention). Pre-existing flash[:error] uses in this controller
-    # are a separate UX bug — out of scope here.
-    assert_match(/handle|already|taken|in use|different name/i, response.body,
+    assert_match(/handle|already|taken|in use|different/i, response.body,
       "flash should be visible in the rendered form so the user knows why it failed")
+  end
+
+  test "create with an explicit handle uses that handle, independent of the name" do
+    sign_in_as(@user, tenant: @tenant)
+    chosen = "helper-#{SecureRandom.hex(3)}"
+    before_ids = User.where(user_type: "ai_agent").pluck(:id)
+
+    assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
+      post "/ai-agents/new/actions/create_ai_agent", params: {
+        name: "My Helper Bot",
+        handle: chosen,
+        mode: "external",
+        confirm_billing: "1",
+      }
+    end
+
+    new_agent = User.where(user_type: "ai_agent").where.not(id: before_ids).first
+    assert_equal chosen, new_agent.tenant_users.find_by(tenant: @tenant).handle
+    assert_equal "My Helper Bot", new_agent.name, "the display name is preserved independent of the handle"
+  end
+
+  test "create via the markdown action with a taken handle returns an action error, not a 500" do
+    sign_in_as(@user, tenant: @tenant)
+    existing = create_ai_agent(parent: @user, name: "Existing Md Agent")
+    existing_handle = @tenant.add_user!(existing).handle
+
+    assert_no_difference -> { User.where(user_type: "ai_agent").count } do
+      post "/ai-agents/new/actions/create_ai_agent",
+           params: { name: "New Md Agent", handle: existing_handle, mode: "external", confirm_billing: "1" },
+           headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_response :unprocessable_entity
+    assert_match(/handle|taken|already|different/i, response.body)
+  end
+
+  test "update_settings with a taken handle surfaces a friendly error, not a 500" do
+    sign_in_as(@user, tenant: @tenant)
+    other = create_ai_agent(parent: @user, name: "Other Agent")
+    taken_handle = @tenant.add_user!(other).handle
+    original_handle = @ai_agent.tenant_users.find_by(tenant: @tenant).handle
+
+    post "/ai-agents/#{original_handle}/settings", params: { new_handle: taken_handle }
+
+    assert_response :redirect
+    assert_match(/handle|taken|already|reserved/i, flash[:error].to_s)
+    assert_equal original_handle, @ai_agent.tenant_users.find_by(tenant: @tenant).reload.handle,
+                 "the handle must be unchanged after a rejected rename"
   end
 
   test "external-only: admin user creating an agent does NOT get pending_billing_setup even with inactive stripe_customer" do

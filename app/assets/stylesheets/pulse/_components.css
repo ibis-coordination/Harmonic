@@ -141,6 +141,9 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  /* Keep label centered when the button is stretched full-width (e.g.
+     .pulse-auth-form .pulse-form-actions uses align-items: stretch). */
+  justify-content: center;
   gap: 6px;
   min-height: 39px;
   box-sizing: border-box;
@@ -3481,6 +3484,23 @@ a.pulse-activity-title:hover {
 
 .pulse-auth-form {
   text-align: left;
+}
+
+/* Two-factor setup: a QR code only makes sense when the authenticator app is
+   on a different device. On small screens the user IS the phone, so swap the
+   QR block for the otpauth:// deep link + copyable key. */
+.pulse-2fa-setup-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .pulse-2fa-setup-desktop {
+    display: none;
+  }
+
+  .pulse-2fa-setup-mobile {
+    display: block;
+  }
 }
 
 .pulse-auth-form .pulse-form-input {

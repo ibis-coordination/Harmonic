@@ -547,8 +547,25 @@ class User < ApplicationRecord
   def accept_invite!(invite)
     raise "Cannot accept invite for another user" unless invite.invited_user_id == id || invite.invited_user_id.nil?
 
-    CollectiveMember.find_or_create_by!(collective_id: invite.collective_id, user_id: id)
-    # TODO: track invite accepted event
+    member = CollectiveMember.find_or_create_by!(collective_id: invite.collective_id, user_id: id)
+    if member.previously_new_record?
+      # Defer past any enclosing transaction (signup wraps the tenant +
+      # collective join in one): handlers enqueue Sidekiq jobs that must not
+      # race the COMMIT, and a dispatch failure must not roll back the join.
+      # Runs immediately when no transaction is open. Matches the
+      # after_*_commit convention used by every other event emitter.
+      ActiveRecord.after_all_transactions_commit do
+        EventService.record!(
+          event_type: "invite.accepted",
+          actor: self,
+          subject: invite,
+          metadata: { "invite_code" => invite.code, "collective_handle" => T.must(invite.collective).handle },
+          tenant_id: invite.tenant_id,
+          collective_id: invite.collective_id,
+        )
+      end
+    end
+    member
   end
 
   sig { returns(ActiveRecord::Relation) }

@@ -538,9 +538,12 @@ class ActionsHelper
     },
     "create_ai_agent" => {
       description: "Create a new AI agent",
-      params_string: "(name, identity_prompt, generate_token)",
+      params_string: "(name, handle, identity_prompt, generate_token)",
       params: [
         { name: "name", type: "string", description: "The name of the AI agent" },
+        { name: "handle", type: "string",
+          description: "The agent's @-mention handle (lowercase letters, numbers, dashes, underscores). " \
+                       "Optional — generated from the name if omitted. Must be unique within the tenant.", },
         { name: "identity_prompt", type: "string",
           description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose", },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },

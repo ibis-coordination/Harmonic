@@ -20,7 +20,19 @@ class TenantUser < ApplicationRecord
   BIO_MAX_LENGTH      = 500
   LOCATION_MAX_LENGTH = 100
 
+  # One normalization for every handle writer (signup confirmation, settings
+  # rename, add_user!): free text like "Jane Smith" becomes jane-smith, and
+  # blank input becomes nil so auto-generation kicks in.
+  normalizes :handle, with: ->(h) { h.to_s.parameterize.presence }
+
   validate :reserved_handle_requires_matching_system_role
+  # allow_nil: on create, auto-generated handles are filled in set_defaults
+  # (before_create, after validation) and are uniquified there; only
+  # explicitly chosen handles need the friendly validation. if: skips the
+  # lookup on the frequent saves that don't touch the handle (pins, roles,
+  # notices, settings). The DB unique index on (tenant_id, handle) remains
+  # the race backstop.
+  validates :handle, uniqueness: { scope: :tenant_id }, allow_nil: true, if: :will_save_change_to_handle?
   validates :bio,      length: { maximum: BIO_MAX_LENGTH }, allow_blank: true
   validates :location, length: { maximum: LOCATION_MAX_LENGTH }, allow_blank: true
   validate  :website_scheme_is_http_or_https
@@ -57,16 +69,32 @@ class TenantUser < ApplicationRecord
     errors.add(:handle, "is reserved")
   end
 
-  # When auto-generating a handle from the user's name, suffix it if the
+  # Default handle for a user joining a tenant. Prefers the username from an
+  # external OAuth identity (e.g. the GitHub username — already unique and
+  # handle-shaped) and falls back to the user's name. Suffixed if the
   # parameterized form lands on a reserved handle the user isn't entitled
-  # to claim — so a human named "Trio" gets "trio-XX", not "trio".
+  # to claim (a human named "Trio" gets "trio-XX", not "trio") or is already
+  # taken by another user in this tenant (the second "Jane Smith" gets
+  # "jane-smith-XX" instead of a unique-constraint crash on signup). Public
+  # so the invite confirmation page can prefill its handle field with the
+  # same value auto-generation would use.
+  sig { params(tenant_id: String, user: User).returns(String) }
+  def self.default_handle_for(tenant_id:, user:)
+    oauth_username = user.external_oauth_identities.where.not(username: [nil, ""]).pick(:username)
+    base = (oauth_username.presence || user.name).parameterize
+    # Names with no parameterizable characters (e.g. CJK or emoji-only)
+    # yield "" — fall back to a neutral base rather than an empty handle.
+    base = "user" if base.blank?
+    required_role = RESERVED_HANDLES[base]
+    candidate = base
+    candidate = "#{base}-#{SecureRandom.hex(2)}" unless required_role.nil? || user.system_role == required_role
+    candidate = "#{base}-#{SecureRandom.hex(2)}" while tenant_scoped_only(tenant_id).exists?(handle: candidate)
+    candidate
+  end
+
   sig { returns(String) }
   def generated_default_handle
-    base = T.must(user).name.parameterize
-    required_role = RESERVED_HANDLES[base]
-    return base if required_role.nil? || T.must(user).system_role == required_role
-
-    "#{base}-#{SecureRandom.hex(2)}"
+    self.class.default_handle_for(tenant_id: T.must(tenant_id), user: user)
   end
   private :generated_default_handle
 

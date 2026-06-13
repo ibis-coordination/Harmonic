@@ -331,13 +331,19 @@ class UserDataExportServiceTest < ActiveSupport::TestCase
   end
 
   test "a malformed agent handle falls back to UUID — no path traversal risk in subdir name" do
-    # Handles are normally name.parameterize'd (alphanumeric + hyphens),
-    # but defense-in-depth: if a handle were ever set outside that flow
-    # to contain `..` or `/`, the service must NOT use it as part of a
-    # filesystem path. Falls back to the agent's UUID.
+    # Handles are normally name.parameterize'd (alphanumeric + hyphens), and
+    # `normalizes :handle` now sanitizes them even through update_columns — so
+    # a malformed handle can only reach the DB outside the model (a legacy row,
+    # a raw migration, manual SQL). Defense-in-depth: if one ever did, the
+    # service must NOT use it as part of a filesystem path — it falls back to
+    # the agent's UUID. Plant it with raw SQL to bypass normalization.
     agent = create_ai_agent(parent: @user)
     @tenant.add_user!(agent)
-    agent.tenant_users.find_by!(tenant_id: @tenant.id).update_columns(handle: "../escape/attempt")
+    malicious_tu = agent.tenant_users.find_by!(tenant_id: @tenant.id)
+    conn = TenantUser.connection
+    conn.execute(
+      "UPDATE tenant_users SET handle = #{conn.quote('../escape/attempt')} WHERE id = #{conn.quote(malicious_tu.id)}",
+    )
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 

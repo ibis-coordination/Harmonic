@@ -3,6 +3,7 @@
 class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
+  include PendingInviteStash
   # Session timeout configuration (in seconds)
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
@@ -531,12 +532,13 @@ class ApplicationController < ActionController::Base
         # falls through to the collective_members.add_user! branch below and
         # creates a spurious main-collective membership for non-tenant-members.
       elsif accepting_invite && current_invite.is_acceptable_by_user?(@current_user)
-        # The user still has to click "accept" to accept the invite to the collective,
-        # but they need to access the tenant to do so.
-        # Not sure how to handle the case where the user does not accept the invite.
-        # Should we remove the tenant_user record somehow?
-        # Should we require that all tenant users be a member of at least one (non-main) collective?
-        @current_tenant.add_user!(@current_user)
+        # Joining is explicit: a non-member arriving with a valid invite code
+        # goes to the confirmation page, where accepting creates the
+        # TenantUser and CollectiveMember together. Never silently add them
+        # to the tenant here.
+        stash_pending_invite!(current_invite)
+        redirect_to invite_required_path(code: current_invite.code)
+        return
       end
     else
       # This assignment prevents unnecessary reloading.

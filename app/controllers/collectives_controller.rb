@@ -671,22 +671,36 @@ class CollectivesController < ApplicationController
 
   def accept_invite
     if current_user && current_user.collectives.include?(@current_collective)
-      return render status: 400, text: 'You are already a member of this collective'
+      # Double-submit or stale tab — they're in; just take them there.
+      return redirect_to @current_collective.path
     end
+    # Both lookups are collective-scoped (the default scope pins Invite to
+    # @current_collective), so a code belonging to another collective is
+    # indistinguishable from an unknown one.
     invite = Invite.find_by(code: params[:code]) if params[:code]
     invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
     if invite && current_user
-      if invite.collective == @current_collective
+      if invite.is_acceptable_by_user?(current_user)
         @current_user.accept_invite!(invite)
+        clear_pending_invite! if pending_invite_code == invite.code
         redirect_to @current_collective.path
       else
-        return render plain: '404 invite code not found', status: 404
+        # Expired, revoked, or addressed to someone else.
+        flash[:alert] = "That invite code is not valid or has expired."
+        if @current_tenant.tenant_users.exists?(user: current_user)
+          redirect_to "#{@current_collective.path}/join"
+        else
+          # A non-member GETting /join with no code would be bounced again
+          # before rendering, eating the flash — send them straight to the
+          # code-entry page, which renders it.
+          redirect_to invite_required_path
+        end
       end
     elsif invite && !current_user
-      redirect_to "/login?code=#{invite.code}"
+      redirect_to "/login?#{{ code: invite.code }.to_query}"
     else
       # TODO - check collective settings to see if public join is allowed
-      return render plain: '404 invite code not found', status: 404
+      render plain: '404 invite code not found', status: 404
     end
   end
 

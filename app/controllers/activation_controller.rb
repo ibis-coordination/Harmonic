@@ -22,6 +22,13 @@ class ActivationController < ApplicationController
     # accidentally a parking page. (The gate redirects here only when at least
     # one item is incomplete; direct visits after completion should pass through.)
     if @all_satisfied
+      # A pending invite outranks the stashed return path: a non-member with
+      # a finished checklist still has to explicitly accept their invite, so
+      # send them to the confirmation page rather than dropping them at root
+      # (where the membership gate would bounce them anyway).
+      if !tenant_member? && pending_invite
+        return redirect_to invite_required_path(code: pending_invite.code)
+      end
       return_to = session.delete(:activation_return_to)
       if safe_return_path?(return_to)
         return redirect_to(return_to)
@@ -62,45 +69,47 @@ class ActivationController < ApplicationController
   end
 
   def invite_item
-    # Check #1 in the activation flow: tenant membership OR a valid pending
-    # invite cookie. The latter lets a user clear this item just by holding
-    # a fresh invite — they don't have to actually accept yet (acceptance is
-    # a follow-up action after the whole checklist is done).
-    is_member = @current_tenant.tenant_users.exists?(user: @current_user)
-    pending_invite = pending_invite_for_current_tenant
-    satisfied = is_member || pending_invite.present?
-    body = if is_member
-             "You have accepted your invite."
-           elsif pending_invite
-             "Invite found — accept it once your account is fully active."
-           else
-             "Enter an invite code to continue."
-           end
+    # Check #1 in the activation flow: tenant membership OR a pending invite
+    # stashed in the session by the login callback. The latter lets a user
+    # clear this item just by holding a fresh invite — acceptance stays an
+    # explicit step on the /invite-required confirmation page.
+    body, action_path, action_label =
+      if tenant_member?
+        # No action button — there's no separate invite-management UI.
+        ["You have accepted your invite.", nil, nil]
+      elsif pending_invite
+        ["Invite to #{pending_invite.collective.name} found — review and accept it on the confirmation page.",
+         invite_required_path(code: pending_invite.code), "Review invite",]
+      else
+        ["Enter an invite code to continue.", invite_required_path, "Enter invite code"]
+      end
     {
       key: :invite,
       title: "Accept invite",
       body: body,
-      satisfied: satisfied,
-      action_path: invite_required_path,
-      # No action button when satisfied — there's no separate invite-management
-      # UI to send the user to, and /invite-required would just bounce them
-      # back here via root_path.
-      action_label: satisfied ? nil : "Enter invite code",
+      satisfied: tenant_member? || pending_invite.present?,
+      action_path: action_path,
+      action_label: action_label,
     }
   end
 
-  # Tenant-wide invite-cookie lookup. The application_controller's
-  # `current_invite` helper is collective-scoped (and `/activate` lives on
-  # the bare tenant subdomain, where current_collective is the main
-  # collective), so it can't see invites for non-main collectives. This
-  # finds any invite in the current tenant matching the cookie code that
-  # the user is still able to accept.
-  def pending_invite_for_current_tenant
-    code = cookies[:collective_invite_code]
-    return nil if code.blank?
-    invite = Invite.tenant_scoped_only(@current_tenant.id).find_by(code: code)
-    return nil unless invite&.is_acceptable_by_user?(@current_user)
-    invite
+  def tenant_member?
+    return @tenant_member if defined?(@tenant_member)
+
+    @tenant_member = @current_tenant.tenant_users.exists?(user: @current_user)
+  end
+
+  # Pending invite from the per-tenant session stash (see PendingInviteStash).
+  # The application_controller's `current_invite` helper is collective-scoped
+  # (and `/activate` lives on the bare tenant subdomain, where
+  # current_collective is the main collective), so it can't see invites for
+  # non-main collectives. Memoized — both the checklist item and the
+  # all-satisfied redirect read it on the same request. Members skip the
+  # lookup entirely; their pending stash is moot.
+  def pending_invite
+    return @pending_invite if defined?(@pending_invite)
+
+    @pending_invite = tenant_member? ? nil : resolve_pending_invite
   end
 
   def email_item

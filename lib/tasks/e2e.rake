@@ -85,6 +85,33 @@ namespace :e2e do
       puts "Seeded unread notification for #{user.email}"
     end
 
+    # Seed a collective + non-expiring open invite for the signup
+    # happy-path spec (e2e/tests/auth/signup.spec.ts). The spec registers a
+    # brand-new user each run, so the invite must be reusable.
+    signup_handle = "e2e-signup"
+    signup_collective = Collective.tenant_scoped_only(tenant.id).find_by(handle: signup_handle)
+    unless signup_collective
+      signup_collective = Collective.create!(
+        tenant: tenant,
+        created_by: user,
+        name: "E2E Signup Collective",
+        handle: signup_handle
+      )
+      signup_collective.add_user!(user)
+      puts "Created signup collective: #{signup_handle}"
+    end
+
+    invite_code = ENV.fetch("E2E_SIGNUP_INVITE_CODE", "e2e-signup-invite-code")
+    invite = Invite.tenant_scoped_only(tenant.id).find_or_initialize_by(
+      collective_id: signup_collective.id,
+      code: invite_code
+    )
+    invite.tenant = tenant
+    invite.created_by ||= user
+    invite.expires_at = 1.year.from_now
+    invite.save!
+    puts "Signup invite ready: #{invite_code}"
+
     puts "E2E test user ready: #{e2e_email}"
   end
 end
