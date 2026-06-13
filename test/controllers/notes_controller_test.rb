@@ -1023,7 +1023,9 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "pending reminder show page shows confirm read not acknowledge" do
-    sign_in_as(@user, tenant: @tenant)
+    other_user = create_user(name: "Other User")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
     Tenant.current_id = @tenant.id
 
     notification = ReminderService.create!(
@@ -1043,6 +1045,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       reminder_scheduled_for: 1.day.from_now.in_time_zone("UTC"),
     )
 
+    sign_in_as(other_user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
 
     assert_response :success

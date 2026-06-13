@@ -96,6 +96,7 @@ class NoteHistoryEvent < ApplicationRecord
         user_id: user_id,
         item_type: "Note",
         item_id: note_id,
+        is_creator: user_id == T.must(note).created_by_id,
         has_read: true,
         read_at: happened_at,
       },
