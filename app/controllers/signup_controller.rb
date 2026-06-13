@@ -69,16 +69,26 @@ class SignupController < ApplicationController
       return redirect_to invite_required_path
     end
 
+    # Free-text input is parameterized rather than format-validated: typing
+    # "Jane Smith" should yield jane-smith, not an error.
+    requested_handle = params[:handle].to_s.parameterize.presence
+
     # Tenant add is conditional so this action is idempotent even if the user
     # became a tenant member between the confirm step and the accept (race or
     # admin add). In either case we still want the collective join to happen.
     ActiveRecord::Base.transaction do
-      @current_tenant.add_user!(@current_user) unless @current_tenant.tenant_users.exists?(user: @current_user)
+      @current_tenant.add_user!(@current_user, handle: requested_handle) unless @current_tenant.tenant_users.exists?(user: @current_user)
       @current_user.accept_invite!(invite)
     end
     session.delete(:pending_invite_code)
 
     redirect_to invite.collective.path
+  rescue ActiveRecord::RecordInvalid => e
+    # Taken or reserved handle — back to the confirmation page to pick
+    # another. The transaction rolled back, so nothing was joined.
+    flash.now[:alert] = e.record.errors.full_messages.to_sentence
+    @suggested_handle = requested_handle
+    render_confirmation(invite, status: :unprocessable_entity)
   end
 
   private
@@ -90,12 +100,13 @@ class SignupController < ApplicationController
     Invite.tenant_scoped_only(@current_tenant.id).find_by(code: code)
   end
 
-  def render_confirmation(invite)
+  def render_confirmation(invite, status: :ok)
     @invite = invite
+    @suggested_handle ||= TenantUser.default_handle_for(tenant_id: @current_tenant.id, user: @current_user)
     @sidebar_mode = "none"
     @hide_header = true
     @page_title = "Confirm invite | #{@current_tenant.name}"
-    render "signup/confirm_invite", layout: "application"
+    render "signup/confirm_invite", layout: "application", status: status
   end
 
   def render_landing(status: :ok)

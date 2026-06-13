@@ -141,6 +141,9 @@
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  /* Keep label centered when the button is stretched full-width (e.g.
+     .pulse-auth-form .pulse-form-actions uses align-items: stretch). */
+  justify-content: center;
   gap: 6px;
   min-height: 39px;
   box-sizing: border-box;

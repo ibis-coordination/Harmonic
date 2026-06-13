@@ -21,6 +21,11 @@ class TenantUser < ApplicationRecord
   LOCATION_MAX_LENGTH = 100
 
   validate :reserved_handle_requires_matching_system_role
+  # allow_nil: on create, auto-generated handles are filled in set_defaults
+  # (before_create, after validation) and are uniquified there; only
+  # explicitly chosen handles need the friendly validation. The DB unique
+  # index on (tenant_id, handle) remains the race backstop.
+  validates :handle, uniqueness: { scope: :tenant_id }, allow_nil: true
   validates :bio,      length: { maximum: BIO_MAX_LENGTH }, allow_blank: true
   validates :location, length: { maximum: LOCATION_MAX_LENGTH }, allow_blank: true
   validate  :website_scheme_is_http_or_https
@@ -57,19 +62,29 @@ class TenantUser < ApplicationRecord
     errors.add(:handle, "is reserved")
   end
 
-  # When auto-generating a handle from the user's name, suffix it if the
+  # Default handle for a user joining a tenant. Prefers the username from an
+  # external OAuth identity (e.g. the GitHub username — already unique and
+  # handle-shaped) and falls back to the user's name. Suffixed if the
   # parameterized form lands on a reserved handle the user isn't entitled
   # to claim (a human named "Trio" gets "trio-XX", not "trio") or is already
   # taken by another user in this tenant (the second "Jane Smith" gets
-  # "jane-smith-XX" instead of a unique-constraint crash on signup).
-  sig { returns(String) }
-  def generated_default_handle
-    base = T.must(user).name.parameterize
+  # "jane-smith-XX" instead of a unique-constraint crash on signup). Public
+  # so the invite confirmation page can prefill its handle field with the
+  # same value auto-generation would use.
+  sig { params(tenant_id: String, user: User).returns(String) }
+  def self.default_handle_for(tenant_id:, user:)
+    oauth_username = user.external_oauth_identities.filter_map(&:username).first
+    base = (oauth_username.presence || user.name).parameterize
     required_role = RESERVED_HANDLES[base]
     candidate = base
-    candidate = "#{base}-#{SecureRandom.hex(2)}" unless required_role.nil? || T.must(user).system_role == required_role
-    candidate = "#{base}-#{SecureRandom.hex(2)}" while TenantUser.tenant_scoped_only(tenant_id).exists?(handle: candidate)
+    candidate = "#{base}-#{SecureRandom.hex(2)}" unless required_role.nil? || user.system_role == required_role
+    candidate = "#{base}-#{SecureRandom.hex(2)}" while tenant_scoped_only(tenant_id).exists?(handle: candidate)
     candidate
+  end
+
+  sig { returns(String) }
+  def generated_default_handle
+    self.class.default_handle_for(tenant_id: T.must(tenant_id), user: user)
   end
   private :generated_default_handle
 

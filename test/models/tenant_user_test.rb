@@ -124,6 +124,39 @@ class TenantUserTest < ActiveSupport::TestCase
                  "expected the derived handle with a uniquifying suffix")
   end
 
+  test "default handle prefers the user's external OAuth username over their name" do
+    tenant = create_tenant(subdomain: "hoauth-#{SecureRandom.hex(4)}")
+    user = create_user(email: "gh-#{SecureRandom.hex(4)}@example.com", name: "Jane Smith")
+    OauthIdentity.create!(provider: "github", uid: SecureRandom.hex(6), user: user, username: "JaneSmith-Dev")
+
+    tu = tenant.add_user!(user)
+
+    assert_equal "janesmith-dev", tu.handle,
+                 "expected the GitHub username (parameterized), not the name-derived handle"
+  end
+
+  test "default handle falls back to the name when the external OAuth identity has no username" do
+    tenant = create_tenant(subdomain: "hnouser-#{SecureRandom.hex(4)}")
+    user = create_user(email: "nouser-#{SecureRandom.hex(4)}@example.com", name: "Sam Jones")
+    OauthIdentity.create!(provider: "github", uid: SecureRandom.hex(6), user: user, username: nil)
+
+    tu = tenant.add_user!(user)
+
+    assert_equal "sam-jones", tu.handle
+  end
+
+  test "an explicit duplicate handle fails validation instead of crashing on the DB constraint" do
+    tenant = create_tenant(subdomain: "hdup-#{SecureRandom.hex(4)}")
+    first = create_user(email: "hdup1-#{SecureRandom.hex(4)}@example.com", name: "First User")
+    second = create_user(email: "hdup2-#{SecureRandom.hex(4)}@example.com", name: "Second User")
+    tenant.add_user!(first, handle: "wanted-handle")
+
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      tenant.add_user!(second, handle: "wanted-handle")
+    end
+    assert_match(/taken/i, error.message)
+  end
+
   test "add_user! with an identical name works in a different tenant without suffixing" do
     tenant_a = create_tenant(subdomain: "hgena-#{SecureRandom.hex(4)}")
     tenant_b = create_tenant(subdomain: "hgenb-#{SecureRandom.hex(4)}")

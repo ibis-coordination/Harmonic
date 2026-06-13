@@ -150,6 +150,69 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action='/invite-required']"
   end
 
+  # === Handle selection on the confirmation page ===
+
+  test "confirmation page shows a handle input prefilled with the name-derived default" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    get "/invite-required", params: { code: invite.code }
+
+    assert_response :success
+    assert_select "input[name='handle'][value='uninvited-user']",
+                  true, "expected an editable handle field prefilled from the user's name"
+  end
+
+  test "POST /invite-required/accept with a custom handle uses it for the TenantUser" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "captain-custom" }
+
+    assert_response :redirect
+    tu = @tenant.tenant_users.find_by(user: @uninvited_user)
+    assert_equal "captain-custom", tu.handle
+  end
+
+  test "POST /invite-required/accept normalizes a free-text handle" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "Captain Custom" }
+
+    tu = @tenant.tenant_users.find_by(user: @uninvited_user)
+    assert_equal "captain-custom", tu.handle
+  end
+
+  test "POST /invite-required/accept with a taken handle re-renders the confirmation page with an error and no memberships" do
+    invite = create_invite
+    taken = create_user(email: "taken-#{SecureRandom.hex(4)}@example.com", name: "Already Here")
+    @tenant.add_user!(taken, handle: "taken-handle")
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "taken-handle" }
+
+    assert_response :unprocessable_entity
+    assert_match(/taken|already/i, flash[:alert].to_s)
+    assert_select "form[action='/invite-required/accept']",
+                  true, "expected the confirmation page re-rendered for another attempt"
+    assert_not @tenant.tenant_users.exists?(user: @uninvited_user),
+               "expected the tenant join rolled back"
+    assert_not @collective.user_is_member?(@uninvited_user),
+               "expected the collective join rolled back"
+  end
+
+  test "POST /invite-required/accept with a reserved handle is rejected with a friendly error" do
+    invite = create_invite
+    sign_in_without_membership(@uninvited_user)
+
+    post "/invite-required/accept", params: { code: invite.code, handle: "trio" }
+
+    assert_response :unprocessable_entity
+    assert_match(/reserved/i, flash[:alert].to_s)
+    assert_not @tenant.tenant_users.exists?(user: @uninvited_user)
+  end
+
   test "POST /invite-required/accept clears the pending invite code from the session" do
     invite = create_invite
     cookies[:collective_invite_code] = invite.code
