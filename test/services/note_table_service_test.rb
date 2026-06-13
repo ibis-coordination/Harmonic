@@ -233,7 +233,7 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     note = create_table_note
     table = NoteTableService.new(note)
 
-    assert_equal 1, note.note_history_events.count # just the "create" event
+    assert_equal 2, note.note_history_events.count # "create" + creator auto-confirmation
 
     table.batch_update! do |t|
       t.add_row!({ "Status" => "a", "Due" => "2026-04-20" }, created_by: note.created_by)
@@ -243,7 +243,7 @@ class NoteTableServiceTest < ActiveSupport::TestCase
 
     assert_equal 3, table.rows.length
     assert_equal 1, note.note_history_events.where(event_type: "update").count
-    assert_equal 2, note.note_history_events.count
+    assert_equal 3, note.note_history_events.count
     assert_includes note.text, "| a |"
     assert_includes note.text, "| c |"
   end

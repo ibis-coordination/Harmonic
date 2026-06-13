@@ -116,6 +116,24 @@ class NoteTest < ActiveSupport::TestCase
 
   test "Note.user_has_read? returns false if user has not read the note" do
     tenant = create_tenant
+    author = create_user
+    other_user = create_user(name: "Other User")
+    collective = create_collective(tenant: tenant, created_by: author)
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: author,
+      updated_by: author,
+      title: "Test Note",
+      text: "This is a test note."
+    )
+
+    assert_not note.user_has_read?(other_user)
+  end
+
+  test "creating a note auto-confirms the creator as a reader" do
+    tenant = create_tenant
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
 
@@ -128,7 +146,141 @@ class NoteTest < ActiveSupport::TestCase
       text: "This is a test note."
     )
 
-    assert_not note.user_has_read?(user)
+    assert note.user_has_read?(user)
+    assert_equal 1, note.confirmed_reads
+    confirmation = note.note_history_events.find_by(event_type: "read_confirmation")
+    assert confirmation.present?
+    assert_equal user, confirmation.user
+  end
+
+  test "creating a comment on a note auto-confirms the commenter as a reader of the parent note" do
+    tenant = create_tenant
+    author = create_user
+    commenter = create_user
+    collective = create_collective(tenant: tenant, created_by: author)
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: author,
+      updated_by: author,
+      title: "Test Note",
+      text: "This is a test note."
+    )
+
+    assert_not note.user_has_read?(commenter)
+
+    Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: commenter,
+      updated_by: commenter,
+      text: "A comment",
+      subtype: "comment",
+      commentable: note
+    )
+
+    assert note.user_has_read?(commenter)
+    assert_equal 2, note.confirmed_reads
+  end
+
+  test "commenter auto-confirmation is idempotent when commenter already manually confirmed" do
+    tenant = create_tenant
+    author = create_user
+    commenter = create_user
+    collective = create_collective(tenant: tenant, created_by: author)
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: author,
+      updated_by: author,
+      title: "Test Note",
+      text: "This is a test note."
+    )
+
+    note.confirm_read!(commenter)
+    confirmations_before = note.note_history_events.where(user: commenter, event_type: "read_confirmation").count
+    assert_equal 1, confirmations_before
+
+    Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: commenter,
+      updated_by: commenter,
+      text: "A comment",
+      subtype: "comment",
+      commentable: note
+    )
+
+    confirmations_after = note.note_history_events.where(user: commenter, event_type: "read_confirmation").count
+    assert_equal 1, confirmations_after
+  end
+
+  test "commenting after a note update creates a fresh read confirmation" do
+    tenant = create_tenant
+    author = create_user
+    commenter = create_user
+    collective = create_collective(tenant: tenant, created_by: author)
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: author,
+      updated_by: author,
+      title: "Test Note",
+      text: "This is a test note."
+    )
+
+    note.confirm_read!(commenter)
+    travel_to 1.minute.from_now do
+      note.update!(text: "Updated text", updated_by: author)
+    end
+
+    travel_to 2.minutes.from_now do
+      Note.create!(
+        tenant: tenant,
+        collective: collective,
+        created_by: commenter,
+        updated_by: commenter,
+        text: "A comment",
+        subtype: "comment",
+        commentable: note
+      )
+    end
+
+    confirmations = note.note_history_events.where(user: commenter, event_type: "read_confirmation").order(:happened_at)
+    assert_equal 2, confirmations.count
+    assert confirmations.last.happened_at > note.updated_at
+  end
+
+  test "commenting on a Decision does not raise and does not affect read confirmations" do
+    tenant = create_tenant
+    author = create_user
+    commenter = create_user
+    collective = create_collective(tenant: tenant, created_by: author)
+
+    decision = Decision.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: author,
+      question: "Test Decision?",
+      description: "desc",
+      deadline: 1.week.from_now,
+      options_open: true
+    )
+
+    assert_nothing_raised do
+      Note.create!(
+        tenant: tenant,
+        collective: collective,
+        created_by: commenter,
+        updated_by: commenter,
+        text: "A comment on a decision",
+        subtype: "comment",
+        commentable: decision
+      )
+    end
   end
 
   test "Note.api_json includes expected fields" do
@@ -355,8 +507,8 @@ class NoteTest < ActiveSupport::TestCase
     note.update!(text: "Second update", updated_by: user)
     note.update!(text: "Third update", updated_by: user)
 
-    # 1 create + 3 updates = 4 events
-    assert_equal 4, note.note_history_events.count
+    # 1 create + 1 creator read_confirmation + 3 updates = 5 events
+    assert_equal 5, note.note_history_events.count
   end
 
   # === Comment Threading Tests ===
@@ -841,33 +993,28 @@ class NoteTest < ActiveSupport::TestCase
 
   test "confirm_read clears memoized confirmed_reads count" do
     tenant = create_tenant
-    user1 = create_user
-    user2 = create_user(name: "Second User")
-    collective = create_collective(tenant: tenant, created_by: user1, handle: "memo-test-#{SecureRandom.hex(4)}")
+    author = create_user
+    reader1 = create_user(name: "Reader One")
+    reader2 = create_user(name: "Reader Two")
+    collective = create_collective(tenant: tenant, created_by: author, handle: "memo-test-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant,
       collective: collective,
-      created_by: user1,
-      updated_by: user1,
+      created_by: author,
+      updated_by: author,
       title: "Test Note",
       text: "Test content"
     )
 
-    # First, get the initial count (should be 0)
-    assert_equal 0, note.confirmed_reads
-
-    # Confirm read as user1
-    note.confirm_read!(user1)
-
-    # The memoized value should be cleared, so this should return 1
+    # Creator is auto-confirmed at create time
     assert_equal 1, note.confirmed_reads
 
-    # Confirm read as user2
-    note.confirm_read!(user2)
-
-    # The memoized value should be cleared again, so this should return 2
+    note.confirm_read!(reader1)
     assert_equal 2, note.confirmed_reads
+
+    note.confirm_read!(reader2)
+    assert_equal 3, note.confirmed_reads
   end
 
   # Subtype tests

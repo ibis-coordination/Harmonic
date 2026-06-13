@@ -459,6 +459,33 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert note.comments.exists?, "Comment should have been created on note"
   end
 
+  test "POST add_comment action on note auto-confirms the commenter as a reader of the parent" do
+    author = create_user(name: "Author")
+    @tenant.add_user!(author)
+    @collective.add_user!(author)
+
+    commenter = create_user(name: "Commenter")
+    @tenant.add_user!(commenter)
+    @collective.add_user!(commenter)
+    activate_user!(commenter)
+    commenter_token = ApiToken.create!(tenant: @tenant, user: commenter, scopes: ApiToken.valid_scopes)
+    commenter_headers = {
+      "Authorization" => "Bearer #{commenter_token.plaintext_token}",
+      "Accept" => "text/markdown",
+      "Content-Type" => "application/json",
+    }
+
+    note = create_note(collective: @collective, created_by: author, title: "Author's note")
+    assert_not note.user_has_read?(commenter)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_comment",
+      params: { text: "A comment via markdown" }.to_json,
+      headers: commenter_headers
+
+    assert_equal 200, response.status
+    assert note.user_has_read?(commenter), "Commenter should be auto-confirmed as reader of the parent note"
+  end
+
   test "POST add_comment action on decision returns 200 markdown" do
     decision = create_decision(collective: @collective, created_by: @user, question: "Test decision?")
     post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/add_comment",

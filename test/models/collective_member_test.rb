@@ -141,16 +141,6 @@ class CollectiveMemberTest < ActiveSupport::TestCase
   test "confirmed_read_note_events returns read confirmation events for user" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
 
-    # Create a read confirmation event
-    NoteHistoryEvent.create!(
-      tenant: @tenant,
-      collective: @collective,
-      note: note,
-      user: @user,
-      event_type: 'read_confirmation',
-      happened_at: Time.current,
-    )
-
     events = @collective_member.confirmed_read_note_events
     assert_equal 1, events.count
     assert_equal note, events.first.note
@@ -160,15 +150,6 @@ class CollectiveMemberTest < ActiveSupport::TestCase
 
   test "latest_note_reads returns recent note reads" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
-
-    NoteHistoryEvent.create!(
-      tenant: @tenant,
-      collective: @collective,
-      note: note,
-      user: @user,
-      event_type: 'read_confirmation',
-      happened_at: Time.current,
-    )
 
     reads = @collective_member.latest_note_reads
     assert_equal 1, reads.count

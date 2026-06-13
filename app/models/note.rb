@@ -60,6 +60,8 @@ class Note < ApplicationRecord
       event_type: "create",
       happened_at: created_at
     )
+    confirm_read!(T.must(created_by))
+    commentable.confirm_read!(T.must(created_by)) if commentable.is_a?(Note)
   end
 
   after_update do
@@ -229,11 +231,6 @@ class Note < ApplicationRecord
     note_history_events
   end
 
-  sig { returns(Integer) }
-  def interaction_count
-    note_history_events.count - 1 # subtract the create event
-  end
-
   sig { params(user: User).returns(NoteHistoryEvent) }
   def confirm_read!(user)
     existing_confirmation = NoteHistoryEvent.find_by(
@@ -266,12 +263,6 @@ class Note < ApplicationRecord
   def user_has_read?(user)
     note_history_events.exists?(user: user,
                                 event_type: "read_confirmation")
-  end
-
-  sig { params(_user: User).returns(T::Boolean) }
-  def creator_can_skip_confirm?(_user)
-    # This is a reversed design choice to allow the creator to confirm their own note
-    false
   end
 
   sig { params(user: T.nilable(User)).returns(T::Boolean) }
