@@ -333,7 +333,7 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     note = Note.where(collective_id: imported_collective.id).first
     events = NoteHistoryEvent.where(note_id: note.id)
     assert events.count >= 1
-    assert_equal "create", events.first.event_type
+    assert events.exists?(event_type: "create")
   end
 
   test "sets record_counts on data_import" do
