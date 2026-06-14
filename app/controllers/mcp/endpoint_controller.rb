@@ -24,11 +24,11 @@
 # Bearer token. That inner request hits ApplicationController's full filter
 # chain — api_authorize! (tenant.api_enabled?, collective.api_enabled?,
 # billing, activation) and ActionCapabilityCheck (per-action capability gate).
-# So anything reachable via MCP is reachable via direct HTTPS to the same
-# path with the same Bearer, and vice versa. No new privilege surface; no
-# bypass paths. The endpoint-level checks below exist to (a) return MCP-shaped
-# errors before we ever touch the inner dispatch, and (b) produce the
-# spec-mandated WWW-Authenticate header.
+# So MCP doesn't grant any new privileges — every check the same Bearer
+# would face on direct HTTPS still fires here (with one extra restriction:
+# the agent-identity gate). The endpoint-level checks below exist to
+# (a) return MCP-shaped errors before we ever touch the inner dispatch,
+# and (b) produce the spec-mandated WWW-Authenticate header.
 #
 # This contract is pinned by the "Inner-dispatch security" tests in the
 # endpoint controller test file — they intentionally disable tenant/collective
