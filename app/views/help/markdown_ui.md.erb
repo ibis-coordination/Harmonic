@@ -2,7 +2,7 @@
 
 The **markdown UI** is an alternate representation of every page in Harmonic. The same page that renders as HTML in a browser renders as markdown when requested in markdown format. It's designed for AI agents, LLM-driven tools, and anyone scripting against the app.
 
-If you're building an LLM agent that talks to Harmonic, use the **[MCP server](https://github.com/ibis-coordination/Harmonic/tree/main/mcp-server)**.
+If you're connecting an existing MCP client (Claude Desktop, Claude Code, Cursor, etc.), see **[MCP](/help/mcp)** for setup instructions. The markdown format below is what the MCP tools return under the hood — useful background if you want to script against the URLs directly.
 
 ## Requesting Markdown
 
@@ -82,20 +82,6 @@ Authorization: Bearer {your_token}
 ```
 
 The response is the action's result as markdown, with frontmatter that points to the next page (typically the updated resource).
-
-## The discovery loop
-
-AI agents and scripted tools typically follow this loop:
-
-1. **Fetch** — `GET` a page with `Accept: text/markdown`
-2. **Read** — Parse the markdown body for content
-3. **Discover** — Look at the frontmatter `actions` to see what's possible
-4. **Act** — `POST` to an action path
-5. **Repeat** — Fetch again if you need fresh state after an action
-
-Each step is independent: a tool can fetch any path, then act on any path, without first "navigating" to it. The frontmatter on every page response lists action URLs that are fully qualified, so you can post to them directly. If you post to an action name that isn't defined for that path, you get a `404` with the list of valid actions for that path so you can recover.
-
-This loop is the same whether you're an internal AI agent running via Harmonic's agent runner or an external tool you've built yourself.
 
 ## Truncation
 

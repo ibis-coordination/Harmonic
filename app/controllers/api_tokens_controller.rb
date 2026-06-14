@@ -25,6 +25,7 @@ class ApiTokensController < ApplicationController
     return render status: :forbidden, plain: "403 Forbidden - Internal AI agents cannot have API tokens" if @showing_user.internal_ai_agent?
 
     @token = @showing_user.api_tokens.new(user: @showing_user)
+    @token.mcp_only = @showing_user.ai_agent?
     respond_to do |format|
       format.html
       format.md
@@ -53,7 +54,11 @@ class ApiTokensController < ApplicationController
       return redirect_to_stripe_for_token_creation
     end
 
-    @token = build_token(name: token_params[:name], read_write: token_params[:read_write])
+    @token = build_token(
+      name: token_params[:name],
+      read_write: token_params[:read_write],
+      mcp_only: extract_mcp_only_from_params,
+    )
     @token.save!
     sync_subscription_for_new_billable!
     flash.now[:notice] = "Token created successfully. Save the token value now - you will not be able to see it again."
@@ -89,7 +94,11 @@ class ApiTokensController < ApplicationController
     end
 
     session.delete(:pending_token_creation)
-    @token = build_token(name: pending["name"], read_write: pending["read_write"])
+    @token = build_token(
+      name: pending["name"],
+      read_write: pending["read_write"],
+      mcp_only: pending["mcp_only"].nil? ? @showing_user.ai_agent? : pending["mcp_only"],
+    )
     # Restore the stashed expiry (the form's duration params aren't in this request).
     expires_at = pending["expires_at"]
     @token.expires_at = Time.zone.parse(expires_at) if expires_at.present?
@@ -171,7 +180,15 @@ class ApiTokensController < ApplicationController
                                    error: "Set up billing first (an API token costs $3/month). Visit /billing in your browser to add a payment method, then retry.",
                                  })
     end
-    @token = build_token(name: params[:name], read_write: params[:read_write])
+    @token = build_token(
+      name: params[:name],
+      read_write: params[:read_write],
+      mcp_only: if params.key?(:mcp_only)
+                  [true, "true", "1"].include?(params[:mcp_only])
+                else
+                  @showing_user.ai_agent?
+                end,
+    )
     @token.save!
     sync_subscription_for_new_billable!
 
@@ -189,7 +206,7 @@ class ApiTokensController < ApplicationController
 
   def token_params
     # duration_param is defined in the ApplicationController
-    params.require(:api_token).permit(:name, :read_write).merge(user: @showing_user)
+    params.require(:api_token).permit(:name, :read_write, :mcp_only).merge(user: @showing_user)
   end
 
   # True when creating this token would make the user newly billable AND they
@@ -212,6 +229,7 @@ class ApiTokensController < ApplicationController
       "user_handle" => @showing_user.handle,
       "name" => token_params[:name],
       "read_write" => token_params[:read_write],
+      "mcp_only" => extract_mcp_only_from_params,
       "expires_at" => (Time.current + [duration_param, 1.year].min).iso8601,
     }
   end
@@ -233,13 +251,26 @@ class ApiTokensController < ApplicationController
     redirect_to checkout_url, allow_other_host: true
   end
 
-  def build_token(name:, read_write:)
+  def build_token(name:, read_write:, mcp_only:)
     token = @showing_user.api_tokens.new
     token.name = name
     token.scopes = ApiToken.read_scopes
     token.scopes += ApiToken.write_scopes if read_write == "write"
     token.expires_at = Time.current + [duration_param, 1.year].min
+    token.mcp_only = mcp_only
     token
+  end
+
+  # Resolve the form's `mcp_only` checkbox value (sent as "1"/"0") to a
+  # boolean. Falls back to the user-type-based default when the field is
+  # absent: agent tokens default true (the recommended secure mode), human
+  # tokens default false (the check ignores human tokens anyway).
+  def extract_mcp_only_from_params
+    if token_params.key?(:mcp_only)
+      ["1", "true", true].include?(token_params[:mcp_only])
+    else
+      @showing_user.ai_agent?
+    end
   end
 
   # After saving a new token, push the updated billable_quantity to Stripe so

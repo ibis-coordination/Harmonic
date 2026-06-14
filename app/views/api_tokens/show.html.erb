@@ -59,6 +59,18 @@
             <% end %>
           </td>
         </tr>
+        <% if @showing_user.ai_agent? %>
+          <tr>
+            <th>MCP-only</th>
+            <td>
+              <% if @token.mcp_only? %>
+                <span class="pulse-tag pulse-tag-success" title="This token can only be used through /mcp">Yes</span>
+              <% else %>
+                <span class="pulse-tag" title="This token can be used through /mcp or directly via REST/markdown">No</span>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
         <tr>
           <th>Created</th>
           <td><%= timeago(@token.created_at) %></td>

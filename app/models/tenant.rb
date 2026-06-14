@@ -179,6 +179,20 @@ class Tenant < ApplicationRecord
     settings["default_collective_settings"] || settings["default_studio_settings"] || {}
   end
 
+  # Operator-controlled override for the MCP per-tenant aggregate rate limit.
+  # Read by Mcp::EndpointController; nil → controller default. Useful when a
+  # public tenant has enough paying principals to outgrow the default cap.
+  #
+  # This is set via Rails console or app-admin tooling. Tenant admins should
+  # NOT be able to raise their own ceiling, because the cap is a constraint
+  # Harmonic places on the tenant — not a tenant preference. Tenant_admin's
+  # settings form already excludes this (it uses an explicit allowlist); if
+  # you add a write surface elsewhere, restrict it to app_admin / sys_admin.
+  sig { returns(T.nilable(Integer)) }
+  def mcp_aggregate_rate_limit_per_minute
+    settings["mcp_aggregate_rate_limit_per_minute"]
+  end
+
   sig { returns(T::Array[String]) }
   def auth_providers
     settings["auth_providers"] || ["github"]

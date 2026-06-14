@@ -41,6 +41,7 @@ class ApiToken < ApplicationRecord
   validate :validate_scopes
   validate :internal_tokens_require_allow_flag
   validate :context_matches_internal_flag
+  validate :mcp_only_requires_ai_agent_user
   validate :active_token_count_within_limit, on: :create
 
   before_validation :generate_token_hash
@@ -193,6 +194,9 @@ class ApiToken < ApplicationRecord
       name: "Internal Agent Token",
       expires_at: Time.current + expires_in,
       context: context,
+      # false because AgentRunnerDispatchService hands these tokens to a
+      # separate Node.js process that calls Rails directly, not via /mcp.
+      mcp_only: false,
     )
     # Set the allow flag to bypass the validation - only this method can create internal tokens
     token.allow_internal_token = true
@@ -303,6 +307,14 @@ class ApiToken < ApplicationRecord
     if internal? && !allow_internal_token
       errors.add(:internal, "cannot be set to true via external API")
     end
+  end
+
+  sig { void }
+  def mcp_only_requires_ai_agent_user
+    return unless mcp_only?
+    return if user&.ai_agent?
+
+    errors.add(:mcp_only, "can only be set on AI agent tokens")
   end
 
   # Internal tokens must have a context (AiAgentTaskRun or AutomationRuleRun)

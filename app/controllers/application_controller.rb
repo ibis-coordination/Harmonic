@@ -156,6 +156,19 @@ class ApplicationController < ActionController::Base
   end
 
   def api_authorize!
+    # Resolve the token early — it can render 401 inline (expired, non-Bearer).
+    current_token
+    return if performed?
+
+    # mcp_only tokens are restricted to /mcp; reject direct REST/markdown.
+    # Model validation pins mcp_only to ai_agent users.
+    if current_token&.mcp_only? && !request.env["harmonic.internal_dispatch"]
+      return render json: {
+        error: "mcp_only",
+        message: "This token is set to MCP-only mode. Use it through the /mcp endpoint. See /help/mcp for details.",
+      }, status: :forbidden
+    end
+
     # Internal tokens bypass API enabled checks - they are system-managed
     # and used for internal operations like agent runners
     unless current_token&.internal? || (current_collective.api_enabled? && current_tenant.api_enabled?)

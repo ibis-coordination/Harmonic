@@ -101,7 +101,7 @@
               <%= radio_button_tag :mode, "external", false, data: { action: "ai-agent-mode#updateVisibility" } %>
               <span>
                 <strong>External</strong>
-                <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Agent skill documents and MCP server are available.</small>
+                <small class="pulse-hint" style="display: block; margin-top: 2px;">Powered by your own infrastructure through the API. Connect a client via <a href="/help/mcp">MCP</a> or any other API path.</small>
               </span>
             </label>
           </div>
@@ -125,6 +125,16 @@
             Generate an API token for this AI Agent
           </label>
           <small class="pulse-hint">Required for the AI Agent to access the API.</small>
+
+          <label class="pulse-checkbox-label" style="display: flex; align-items: flex-start; gap: 8px; margin-top: 12px;">
+            <%= form.check_box :mcp_only, checked: true %>
+            <span>
+              <strong>MCP-only access (recommended)</strong>
+              <small class="pulse-hint" style="display: block; margin-top: 4px;">
+                When checked, the token can only be used through the <code>/mcp</code> endpoint and every action is logged for your review. Uncheck if you need a legacy direct REST or markdown client. See <a href="/help/mcp" class="pulse-link">/help/mcp</a>.
+              </small>
+            </span>
+          </label>
         </section>
       <% end %>
 
