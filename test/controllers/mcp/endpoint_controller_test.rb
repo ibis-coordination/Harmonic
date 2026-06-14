@@ -20,9 +20,16 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     @collective = @global_collective
     @collective.enable_api!
     @user = @global_user
+
+    # MCP tokens must belong to an AI agent identity, not a human. Create
+    # an external-mode agent (the mode that actually has API tokens).
+    @agent = create_ai_agent(parent: @user, name: "MCP Test Agent", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(@agent)
+    @collective.add_user!(@agent)
+
     @api_token = ApiToken.create!(
       tenant: @tenant,
-      user: @user,
+      user: @agent,
       scopes: ApiToken.valid_scopes
     )
     @plaintext_token = @api_token.plaintext_token
@@ -66,6 +73,32 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     )
 
     assert_response :unauthorized
+  end
+
+  test "POST /mcp with a human-user token returns 403 with a pointer to /help/mcp" do
+    # MCP is for AI agent identities only. A human-owned token is a valid
+    # token but isn't permitted via this endpoint — letting an LLM
+    # authenticate as a human would record activity under the human's name
+    # and break attribution.
+    human_token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      scopes: ApiToken.valid_scopes
+    )
+
+    post_jsonrpc(
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+      headers: auth_headers(token: human_token.plaintext_token)
+    )
+
+    assert_response :forbidden
+    body = response.parsed_body
+    msg = body["error"]["message"]
+    assert_match(/AI agent identity/, msg)
+    assert_match(%r{/help/mcp}, msg)
+    # The message names the actual user_type and handle so the operator can
+    # see exactly whose token tripped the gate.
+    assert_match(/human user @#{@user.handle}/, msg)
   end
 
   # ====================
@@ -412,7 +445,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_response :success
     body = response.parsed_body
     assert_not body["result"]["isError"], "should succeed"
-    assert Note.exists?(text: "Hello from MCP test", created_by: @user)
+    assert Note.exists?(text: "Hello from MCP test", created_by: @agent)
   end
 
   test "execute_action without path returns tool error" do
@@ -474,7 +507,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_response :success
     body = response.parsed_body
     assert_not body["result"]["isError"], "should succeed after stripping suffix"
-    assert Note.exists?(text: "Stripped suffix path", created_by: @user)
+    assert Note.exists?(text: "Stripped suffix path", created_by: @agent)
   end
 
   test "execute_action strips query string from path" do
@@ -494,7 +527,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_response :success
     body = response.parsed_body
     assert_not body["result"]["isError"], "should succeed after stripping query string"
-    assert Note.exists?(text: "Stripped query path", created_by: @user)
+    assert Note.exists?(text: "Stripped query path", created_by: @agent)
   end
 
   test "execute_action rejects absolute URL" do

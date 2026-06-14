@@ -5,7 +5,7 @@ class HelpController < ApplicationController
     "privacy", "collectives", "notes", "reminder_notes", "table_notes",
     "decisions", "executive_decisions", "lottery_decisions",
     "commitments", "calendar_events", "policies", "cycles", "search", "links", "lists",
-    "agents", "trio", "automations", "api", "rest_api", "markdown_ui", "notifications", "representation",
+    "agents", "trio", "automations", "api", "rest_api", "markdown_ui", "mcp", "notifications", "representation",
     "billing",
   ].freeze
 
@@ -14,6 +14,7 @@ class HelpController < ApplicationController
   FEATURE_GATED_TOPICS = {
     "api" => "api",
     "rest_api" => "api",
+    "mcp" => "api",
     "trio" => "trio",
     "billing" => "stripe_billing",
   }.freeze

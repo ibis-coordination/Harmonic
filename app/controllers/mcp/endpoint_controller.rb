@@ -5,7 +5,7 @@
 #
 # Speaks the JSON-RPC 2.0 envelope for the 2025-11-25 revision of the
 # Streamable HTTP transport. External MCP clients (Claude Desktop, Claude
-# Code, Cursor, etc.) POST JSON-RPC messages here authenticated by their
+# Code, Codex, Cursor, etc.) POST JSON-RPC messages here authenticated by their
 # Bearer token. Exposes four tools — fetch_page, execute_action, search,
 # get_help — and one resource, harmonic://context. Tool calls delegate to
 # the existing markdown-rendering controllers via internal dispatch
@@ -264,6 +264,12 @@ module Mcp
       token = ApiToken.authenticate(plaintext, tenant_id: current_tenant.id)
       return render_mcp_unauthorized unless token&.active?
 
+      # MCP connections must act as an AI agent identity, not as a human
+      # user. The MCP client is an LLM, and letting an LLM authenticate as a
+      # human would record its activity under the human's name — a social-
+      # agency violation. See /help/mcp for the full explanation.
+      return render_mcp_non_agent_forbidden(token.user) unless token.user.ai_agent?
+
       token.token_used!
       @current_token = token
       @plaintext_bearer = plaintext
@@ -275,6 +281,12 @@ module Mcp
         %(Bearer realm="Harmonic", resource_metadata="#{resource_metadata_url}")
       )
       render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Unauthorized"), status: :unauthorized
+    end
+
+    def render_mcp_non_agent_forbidden(user)
+      message = "MCP requires an AI agent identity. The token you supplied belongs to a #{user.user_type} user @#{user.handle}. " \
+                "Create an agent at /ai-agents/new and use its token instead. See /help/mcp for details."
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, message), status: :forbidden
     end
 
     def resource_metadata_url
