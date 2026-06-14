@@ -162,7 +162,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     body = response.parsed_body
     tool_names = body.dig("result", "tools").map { |t| t["name"] }
 
-    ["fetch_page", "execute_action", "search"].each do |name|
+    ["fetch_page", "execute_action", "search", "get_help"].each do |name|
       assert_includes tool_names, name, "tools/list missing #{name}"
       tool = body["result"]["tools"].find { |t| t["name"] == name }
       assert tool["description"].is_a?(String) && tool["description"].present?, "#{name} missing description"
@@ -178,6 +178,11 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
 
     search = body["result"]["tools"].find { |t| t["name"] == "search" }
     assert_includes search["inputSchema"]["required"], "query"
+
+    get_help = body["result"]["tools"].find { |t| t["name"] == "get_help" }
+    # get_help has no required arguments — no topic means "fetch the index".
+    assert_nil get_help["inputSchema"]["required"]
+    assert_includes get_help["inputSchema"]["properties"].keys, "topic"
   end
 
   # ====================
@@ -561,6 +566,85 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     # Whether anything matches isn't the point — the point is that the call
     # completes without an inner-dispatch error caused by mangled URL.
     assert_not body["result"]["isError"], "encoded special characters should not break the dispatch"
+  end
+
+  # ====================
+  # get_help
+  # ====================
+
+  test "get_help with a known topic returns the help markdown" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 80,
+                   method: "tools/call",
+                   params: { name: "get_help", arguments: { topic: "notes" } },
+                 })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"]
+    text = body["result"]["content"].first["text"]
+    # /help/notes renders a markdown doc with the heading "Notes". We just
+    # need to know the inner dispatch hit the right page.
+    assert_match(/Notes/i, text)
+  end
+
+  test "get_help with no topic returns the help index so the agent can discover topics" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 81,
+                   method: "tools/call",
+                   params: { name: "get_help", arguments: {} },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"]
+    text = body["result"]["content"].first["text"]
+    # The /help index page lists topics — verify a couple are present so we
+    # know we hit the right page, not some other Help-flavored response.
+    assert_match(%r{/help/notes}, text)
+    assert_match(%r{/help/decisions}, text)
+  end
+
+  test "get_help with non-String topic returns tool error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 82,
+                   method: "tools/call",
+                   params: { name: "get_help", arguments: { topic: [1, 2, 3] } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_match(/topic/, body["result"]["content"].first["text"])
+  end
+
+  test "get_help with unknown topic surfaces the inner-dispatch 404 to the agent" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 83,
+                   method: "tools/call",
+                   params: { name: "get_help", arguments: { topic: "does-not-exist-anywhere" } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
+  end
+
+  test "get_help URL-encodes the topic so path traversal is harmless" do
+    # An agent passing something like "../routes" must not be able to
+    # navigate above /help/. URL-encoding turns the / into %2F which the
+    # routes can't match — so the inner dispatch 404s and the agent gets
+    # a clean tool error rather than reaching some other page.
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 84,
+                   method: "tools/call",
+                   params: { name: "get_help", arguments: { topic: "../privacy" } },
+                 })
+    assert_response :success
+    body = response.parsed_body
+    assert body["result"]["isError"]
   end
 
   # ====================

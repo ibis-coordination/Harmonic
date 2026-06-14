@@ -110,7 +110,25 @@ module Mcp
       annotations: { readOnlyHint: true },
     }.freeze
 
-    TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL, SEARCH_TOOL].freeze
+    GET_HELP_TOOL = {
+      name: "get_help",
+      description:
+        "Read Harmonic documentation. Pass a topic name (e.g. 'notes', 'decisions', " \
+        "'reminder-notes') to read that topic, or call with no arguments to get the " \
+        "index of available topics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          topic: {
+            type: "string",
+            description: "Topic name (e.g. 'notes', 'reminder-notes', 'search'). Omit to get the index.",
+          },
+        },
+      },
+      annotations: { readOnlyHint: true },
+    }.freeze
+
+    TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL, SEARCH_TOOL, GET_HELP_TOOL].freeze
 
     # No browser session, no CSRF.
     skip_forgery_protection
@@ -291,6 +309,8 @@ module Mcp
         call_execute_action(id, args)
       when "search"
         call_search(id, args)
+      when "get_help"
+        call_get_help(id, args)
       else
         tool_error_result(id, "Unknown tool: #{name}")
       end
@@ -335,6 +355,27 @@ module Mcp
       return tool_error_result(id, "query must be a string") unless query.is_a?(String)
 
       path = "/search?q=#{CGI.escape(query)}"
+      service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
+      result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
+      surface_dispatch_result(id, result)
+    end
+
+    def call_get_help(id, args)
+      topic = args["topic"]
+      # A wrong-type topic is a tool error; a blank or absent topic falls
+      # through to the index so the agent can discover what topics exist.
+      return tool_error_result(id, "topic must be a string") if topic.present? && !topic.is_a?(String)
+
+      path = if topic.blank?
+               "/help"
+             else
+               # CGI.escape encodes "/" as %2F, so a pasted "../privacy" or
+               # "notes/something" gets neutralized — the encoded string
+               # can't match any /help/<topic> route and the inner dispatch
+               # 404s cleanly.
+               "/help/#{CGI.escape(topic)}"
+             end
+
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
       surface_dispatch_result(id, result)
