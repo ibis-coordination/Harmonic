@@ -4,7 +4,7 @@
 
 Collapse the AI-agent setup flow from "create agent → copy token → clone repo → npm install → npm build → edit JSON config with absolute path → restart client → hope" down to "create agent → click Connect Claude" (or, in an intermediate state, "paste server URL + token").
 
-The path to that collapse is **hosting the MCP server inside Harmonic** instead of shipping it as a local npm package. The current local server is a 145-line passthrough that translates MCP-over-stdio into HTTP-with-Bearer-auth ([mcp-server/src/handlers.ts](../../mcp-server/src/handlers.ts)). Every byte of real behavior — markdown rendering, action dispatch, search, help — already lives in Rails. Moving the protocol envelope into Rails removes the entire local install and keeps tools always in sync with the app.
+The path to that collapse is **hosting the MCP server inside Harmonic** instead of shipping it as a local npm package. The legacy local server (now deleted) was a thin passthrough that translated MCP-over-stdio into HTTP-with-Bearer-auth. Every byte of real behavior — markdown rendering, action dispatch, search, help — lives in Rails. Moving the protocol envelope into Rails removes the local install entirely and keeps tools always in sync with the app.
 
 ## Background: Spec we are targeting
 
@@ -39,8 +39,8 @@ Ship a working hosted MCP server that accepts existing API tokens. The user flow
 
 - New Rails route `POST /mcp` (and `GET /mcp` for SSE-from-server, optional in v1)
 - `Mcp::EndpointController` handles JSON-RPC envelope (`initialize`, `initialized`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `ping`)
-- Tool implementations port [mcp-server/src/handlers.ts](../../mcp-server/src/handlers.ts) into Ruby — `fetch_page`, `execute_action`, `search`, `get_help` — invoking a **shared service layer** (existing `MarkdownUiService` and equivalent for action dispatch; extract an action-dispatcher service if one doesn't exist yet) that the existing HTTP controllers already use. Both the existing `Accept: text/markdown` HTTP controllers and `Mcp::EndpointController` are thin shells around the same services. Auth (Bearer + tenancy scoping) happens at the controller layer in both. Capability checks live inside the service / action handlers and apply uniformly. **Do not** re-implement the markdown rendering or action dispatch logic inside the MCP controller.
-- `harmonic://context` resource ports [mcp-server/src/context.ts](../../mcp-server/src/context.ts)
+- Four tools — `fetch_page`, `execute_action`, `search`, `get_help` — implemented in Ruby, invoking a **shared service layer** (existing `MarkdownUiService` and equivalent for action dispatch; extract an action-dispatcher service if one doesn't exist yet) that the existing HTTP controllers already use. Both the existing `Accept: text/markdown` HTTP controllers and `Mcp::EndpointController` are thin shells around the same services. Auth (Bearer + tenancy scoping) happens at the controller layer in both. Capability checks live inside the service / action handlers and apply uniformly. **Do not** re-implement the markdown rendering or action dispatch logic inside the MCP controller.
+- `harmonic://context` resource serves the orientation document via `resources/list` + `resources/read`
 - Bearer auth: reuse `ApiToken` lookup, return `401 Unauthorized` with `WWW-Authenticate: Bearer resource_metadata="..."` (preps for Phase 2 discovery)
 - `Origin` header policy: **if present and not in the tenant host allowlist, 403; missing Origin is allowed.** Desktop MCP clients (Claude Desktop, Claude Code, Cursor) don't send Origin — the spec's check is DNS-rebinding protection that only meaningfully applies to browser-based callers. Reject bad Origin, allow absent Origin.
 - `MCP-Protocol-Version` header parsing + 400 on unsupported
@@ -48,7 +48,8 @@ Ship a working hosted MCP server that accepts existing API tokens. The user flow
 - Per-tenant routing via existing subdomain middleware — `https://acme.harmonic.team/mcp` already routes correctly. No unified `mcp.harmonic.team` endpoint in v1 (revisit if multi-tenant users ask).
 - Tenant + collective API-access checks unchanged; same 403 path as REST API
 - **Rate limits**: 60 req/min sustained per token, 10 req/sec burst, 1MB response body cap, per-tenant aggregate cap (e.g. 6000 req/min) to catch runaway loops. No metered overage billing in v1 — measure first, decide later.
-- **Audit logging**: every MCP tool call writes an audit-chain entry tagged with the agent identity (today's API-token user), same pattern as existing API request logging. Foundation for the `act` (parent human) accountability surface that lands in Phase 2.
+- **Audit logging**: every MCP tool call writes an `McpToolCallLog` entry tagged with the agent identity, tool name, redacted args, status, duration, and `request_id`. Foundation for the principal accountability surface that lands in Phase 2.
+- **`mcp_only` token mode** (see subsection below): a per-token boolean. When set, the token can only be used through `/mcp` — any direct REST or markdown call (read or write) returns 403. Default `true` for new agent tokens; existing tokens migrate as `false` so nothing breaks. Converts the audit guarantee from "every write is logged" to "every action is logged" for tokens that opt in.
 
 ### TDD test list (`test/controllers/mcp/endpoint_controller_test.rb`)
 
@@ -80,9 +81,84 @@ Ship a working hosted MCP server that accepts existing API tokens. The user flow
 
 ### Documentation deliverables (Phase 1)
 
-- Update [mcp-server/README.md](../../mcp-server/README.md): mark the local install as "advanced / sandboxed envs only"; lead with hosted URL config
+- Delete the legacy `mcp-server/` directory (now removed; the hosted endpoint is the only path)
 - Update [app/views/help/api.md.erb](../../app/views/help/api.md.erb) with a "Connect via MCP" section
 - New help page `app/views/help/connect-agent.md.erb` covering the end-to-end flow against the hosted endpoint
+
+### `mcp_only` token mode
+
+**Goal:** make "every action taken with this token is traceable to a specific MCP call" a structural property of opt-in tokens, not an honor-system invariant. The audit log on its own can be bypassed by an agent that authenticates the same Bearer token against direct REST or markdown endpoints — no `McpToolCallLog` row gets written. The `mcp_only` flag closes that back door for tokens that have it set: every action by that token must go through `/mcp`, which means every action lands in the audit log.
+
+The toggle is per-token rather than system-wide. Most users get the strong guarantee by default; advanced users with a legitimate need for direct REST or markdown access (legacy scripts, deterministic automation, etc.) can opt out at token creation or later in the agent settings UI.
+
+This subsection lands **after** the audit-logging work in [app/models/mcp_tool_call_log.rb](../../app/models/mcp_tool_call_log.rb) and **before** rate limits, because the audit log is the *enforcement substrate* for this restriction — without it the rule has no meaning, with it the rule completes the guarantee.
+
+#### Rule
+
+If `token.user.ai_agent? && token.mcp_only?`, the token may only be used when the request originates from MCP's inner dispatch through `MarkdownUiService`. Any direct external HTTPS request with that token — read or write, any HTTP method — returns `403` with an agent-readable error pointing at `/help/mcp`.
+
+Human tokens are unaffected (the check skips on user_type). Tokens with `mcp_only: false` are unaffected (the existing behavior persists).
+
+The rule is uniform across internal and external agent tokens. Internal agent tokens dispatch through `MarkdownUiService` already (via `Internal::BaseController`), so they satisfy the rule via the env flag without any agent-runner change required.
+
+#### Detection mechanism
+
+The "did this come through MCP's dispatch?" signal needs to be tamper-proof — clients must not be able to forge it by setting an HTTP header.
+
+`MarkdownUiService`, when dispatching an inner request through `ActionDispatch::Integration::Session`, passes `env: { "harmonic.internal_dispatch" => true }`. That env key is settable only by in-process code; external HTTP headers always arrive as `HTTP_*`-prefixed, so they cannot conjure the bare key.
+
+The check in `api_authorize!` reads `request.env["harmonic.internal_dispatch"]`. If the token is an `mcp_only` agent token and the flag is absent → 403.
+
+Flag named "internal dispatch" rather than "via MCP" because the agent-runner's internal-token path *also* dispatches through `MarkdownUiService` today, and we want internal agents to keep working under `mcp_only: true`. Once Phase 5 routes the runner through `/mcp` directly, the flag is still set there too. Either way the rule holds.
+
+#### Defaults
+
+- **New external agent tokens** (created via the agent settings form / API): `mcp_only: true`
+- **New internal agent tokens** (issued by the agent runner): `mcp_only: true`
+- **Migration backfill for existing tokens at column-add time**: `mcp_only: false` — no breaking change for anything in production today
+- **Human tokens**: column populated as `false`; the check ignores it anyway
+
+#### Implementation
+
+1. **Migration** — add `mcp_only: boolean, null: false, default: false` to `api_tokens`. Existing rows default false. The new default value is set in application code at token creation, not in the DB default, so the column default stays migration-safe.
+2. **`MarkdownUiService`** — set `env["harmonic.internal_dispatch"] = true` on every internal dispatch.
+3. **`ApplicationController#api_authorize!`** — after token resolution, if the token user is an AI agent, the token has `mcp_only: true`, and the env flag is absent, render a 403 JSON envelope:
+   ```
+   { "error": "This token is set to MCP-only mode. Use it through the /mcp endpoint, or disable MCP-only access in the agent settings. See /help/mcp." }
+   ```
+4. **Agent settings form** — add the toggle (default checked for new tokens). Editing an existing token's `mcp_only` flag is allowed by the human principal.
+5. **`/help/mcp` and `/help/agents`** — state the rule, explain the toggle, link the error message back.
+
+#### Coverage audit (before committing)
+
+`api_authorize!` is the centralized API gate, but a quick grep verifies nothing reads or writes outside it:
+
+- Attachment uploads — does `attachments_controller` go through `api_authorize!`?
+- `Internal::*` controllers reachable by external Bearer — any?
+- OAuth callback endpoints — POSTs but not Bearer-authed; irrelevant.
+- Action endpoints (`/collectives/.../n/.../actions/...`) — covered via the standard filter chain. Includes `confirm_read`, intentionally covered.
+- `Accept: text/markdown` direct reads — these go through normal controllers gated by `api_authorize!`. Covered.
+
+Any gap found gets handled case-by-case before this restriction commits.
+
+#### Tests
+
+- Agent token with `mcp_only: true` + direct `POST /collectives/.../actions/create_note` → 403, no `Note` created
+- Agent token with `mcp_only: true` + direct `GET /whoami` → 403
+- Agent token with `mcp_only: true` + read via `/mcp` (`fetch_page("/whoami")`) → allowed
+- Agent token with `mcp_only: true` + write via `/mcp` (`execute_action`) → allowed
+- Agent token with `mcp_only: false` + direct `GET` or `POST` → allowed (no restriction)
+- Internal agent token (default `true`) + write via agent runner → allowed (env flag set by `MarkdownUiService`)
+- Human token + direct anything → allowed (check doesn't fire)
+- Token-creation form defaults `mcp_only: true`
+- Existing tokens at migration backfill: `mcp_only: false`
+- Error response body is JSON-shaped and the message names `/help/mcp`
+
+#### Tradeoffs
+
+- **No breaking change for anything in production.** Existing tokens default false at backfill. New tokens default true. Users discover the restriction at token-creation time when they read the toggle description.
+- **The audit guarantee is per-token, not system-wide.** Honest framing: "every action by an `mcp_only` token is logged." The principal-review UI can show which tokens have the flag on so the principal knows the completeness of the audit trail.
+- **Log volume goes up for `mcp_only` tokens.** Reads are voluminous compared to writes. Retention policy needs a decision before this ships at scale. For Phase 1 the volume is bounded by Phase 1 traffic, so it's not urgent — but flag it as a Phase 2-era concern.
 
 ## Phase 2: OAuth 2.1 authorization server
 
@@ -144,12 +220,6 @@ Parallel to Phases 1–2. None of these require the hosted endpoint; they smooth
 - **`/connect` short URL** that redirects to whichever step the user is on (billing → create agent → connect client → done)
 
 These are small, high-leverage changes the user can ship independently of the MCP work.
-
-## Phase 4: Local MCP package deprecation
-
-- README, wizard, help pages all point at the hosted endpoint as the default
-- Keep the local stdio package published as a fallback for sandboxed envs (some enterprise users restrict outbound network from their Claude Desktop process)
-- Bump local package to point at the hosted URL by default if `HARMONIC_BASE_URL` looks like a Harmonic tenant — saves users who upgrade from the old config
 
 ## Phase 5: Agent-runner consolidation
 
@@ -272,14 +342,12 @@ Quick code checks before relying on these assumptions:
 ## Out of scope
 
 - ChatGPT custom GPTs — they use OpenAPI / actions, not MCP. Separate adapter, separate plan.
-- The dual-interface markdown protocol — `Accept: text/markdown` keeps working for users who prefer raw HTTP.
-- Removing the local MCP package — kept as advanced fallback.
+- The dual-interface markdown protocol — `Accept: text/markdown` keeps working for users who prefer raw HTTP (subject to the `mcp_only` rule for tokens that have it set).
 
 ## Rollout sequence
 
 1. Phase 3 polish (presets, capability descriptions, status indicator) — shippable now, no spec dependency
-2. Phase 1 (Bearer hosted MCP) — biggest single user-facing win after polish
-3. Phase 4 docs/READMEs updated to point at hosted endpoint
-4. Phase 5 (agent-runner consolidation) — internal-agent dogfooding of `/mcp` before OAuth complexity lands; can run in parallel with Phase 2 design work
-5. Phase 2 (OAuth 2.1) — large project, ship behind a feature flag, dogfood internally first
-6. After Phase 2: add a "Connect Claude" button to the agent-create flow (and `/connect`); retire the token-paste path from default UX, keeping it available for advanced users
+2. Phase 1 (Bearer hosted MCP, audit log, `mcp_only` mode, rate limits) — biggest single user-facing win after polish
+3. Phase 5 (agent-runner consolidation + AiAgentTaskRun logging unification) — internal-agent dogfooding of `/mcp` before OAuth complexity lands; can run in parallel with Phase 2 design work
+4. Phase 2 (OAuth 2.1) — large project, ship behind a feature flag, dogfood internally first
+5. After Phase 2: add a "Connect Claude" button to the agent-create flow (and `/connect`); retire the token-paste path from default UX, keeping it available for advanced users
