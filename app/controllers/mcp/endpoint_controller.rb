@@ -6,9 +6,10 @@
 # Speaks the JSON-RPC 2.0 envelope for the 2025-11-25 revision of the
 # Streamable HTTP transport. External MCP clients (Claude Desktop, Claude
 # Code, Cursor, etc.) POST JSON-RPC messages here authenticated by their
-# Bearer token, and call tools like fetch_page that delegate to the
-# existing markdown-rendering controllers via internal dispatch through
-# MarkdownUiService.
+# Bearer token. Exposes four tools — fetch_page, execute_action, search,
+# get_help — and one resource, harmonic://context. Tool calls delegate to
+# the existing markdown-rendering controllers via internal dispatch
+# through MarkdownUiService.
 #
 # Inherits from ActionController::Base (not ApplicationController) for the
 # same reason as Internal::BaseController: ApplicationController's filter
@@ -130,6 +131,50 @@ module Mcp
 
     TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL, SEARCH_TOOL, GET_HELP_TOOL].freeze
 
+    # ====================
+    # Resource descriptors
+    # ====================
+
+    CONTEXT_RESOURCE_URI = "harmonic://context"
+
+    CONTEXT_RESOURCE_TEXT = <<~MD
+      # Harmonic MCP Context
+
+      Harmonic is a social coordination platform for sharing notes,
+      making decisions together, and coordinating action.
+
+      ## Tools
+
+      - `fetch_page(path)` — Read a page. Returns markdown content with
+        YAML frontmatter listing the actions available at that path, each
+        with its param schema. Start at `/whoami` to see your identity
+        and what's available.
+      - `execute_action(path, action, params)` — Invoke an action. Use
+        action names from the page's frontmatter; the required params are
+        listed there.
+      - `search(query)` — Search across notes, decisions, commitments,
+        and people. Supports filter, sort, and group operators — fetch
+        `/help/search` for the operator reference.
+      - `get_help(topic)` — Read Harmonic documentation. Call with no
+        arguments to see the index of available topics.
+
+      ## Getting started
+
+      Start at `/whoami` to see your identity, your persistent memory
+      (scratchpad and private workspace), and the collectives you belong
+      to. From a collective's page you can see its notes, decisions, and
+      commitments — and the actions available to you.
+    MD
+
+    CONTEXT_RESOURCE_DESCRIPTOR = {
+      uri: CONTEXT_RESOURCE_URI,
+      name: "Harmonic context",
+      description: "Documentation and context for using Harmonic — what the tools do and how to get started.",
+      mimeType: "text/markdown",
+    }.freeze
+
+    RESOURCE_DESCRIPTORS = [CONTEXT_RESOURCE_DESCRIPTOR].freeze
+
     # No browser session, no CSRF.
     skip_forgery_protection
 
@@ -140,6 +185,7 @@ module Mcp
 
     before_action :resolve_mcp_tenant!
     before_action :reject_invalid_origin!
+    before_action :reject_invalid_accept!
     before_action :reject_unsupported_protocol_version!
     before_action :authenticate_mcp_bearer!
 
@@ -182,6 +228,20 @@ module Mcp
       return if allowed.include?(origin)
 
       render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Invalid Origin"), status: :forbidden
+    end
+
+    # The Streamable HTTP spec says clients MUST include both application/json
+    # and text/event-stream in their Accept header. We only ever respond with
+    # application/json (no SSE streams in this implementation), so we accept
+    # anything that doesn't explicitly exclude JSON — missing Accept (implicit
+    # */*) is fine, and so is application/json on its own.
+    def reject_invalid_accept!
+      accept = request.headers["Accept"].to_s
+      return if accept.empty?
+      return if accept.include?("application/json") || accept.include?("*/*")
+
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Accept header must include application/json"),
+             status: :not_acceptable
     end
 
     def reject_unsupported_protocol_version!
@@ -276,6 +336,10 @@ module Mcp
         jsonrpc_result(id, { tools: TOOL_DESCRIPTORS })
       when "tools/call"
         handle_tools_call(id, params)
+      when "resources/list"
+        jsonrpc_result(id, { resources: RESOURCE_DESCRIPTORS })
+      when "resources/read"
+        handle_resources_read(id, params)
       else
         jsonrpc_error_envelope(id, METHOD_NOT_FOUND, "Method not found: #{method}")
       end
@@ -289,6 +353,32 @@ module Mcp
                        # no prompts, logging, or sampling.
                        capabilities: { tools: {}, resources: {} },
                      })
+    end
+
+    # ====================
+    # Resources
+    # ====================
+
+    def handle_resources_read(id, params)
+      return jsonrpc_error_envelope(id, INVALID_PARAMS, "params must be an object") unless params.is_a?(Hash)
+
+      uri = params["uri"].to_s
+      return jsonrpc_error_envelope(id, INVALID_PARAMS, "Missing required argument: uri") if uri.empty?
+
+      case uri
+      when CONTEXT_RESOURCE_URI
+        jsonrpc_result(id, {
+                         contents: [
+                           {
+                             uri: CONTEXT_RESOURCE_URI,
+                             mimeType: "text/markdown",
+                             text: CONTEXT_RESOURCE_TEXT,
+                           },
+                         ],
+                       })
+      else
+        jsonrpc_error_envelope(id, INVALID_PARAMS, "Unknown resource: #{uri}")
+      end
     end
 
     # ====================
@@ -321,9 +411,7 @@ module Mcp
       return tool_error_result(id, "Missing required argument: path") if path.blank?
       return tool_error_result(id, invalid_path_message) unless valid_relative_path?(path)
 
-      service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
-      result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
-      surface_dispatch_result(id, result)
+      navigate_and_surface(id, path)
     end
 
     def call_execute_action(id, args)
@@ -354,10 +442,7 @@ module Mcp
       return tool_error_result(id, "Missing required argument: query") if query.blank?
       return tool_error_result(id, "query must be a string") unless query.is_a?(String)
 
-      path = "/search?q=#{CGI.escape(query)}"
-      service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
-      result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
-      surface_dispatch_result(id, result)
+      navigate_and_surface(id, "/search?q=#{CGI.escape(query)}")
     end
 
     def call_get_help(id, args)
@@ -376,6 +461,13 @@ module Mcp
                "/help/#{CGI.escape(topic)}"
              end
 
+      navigate_and_surface(id, path)
+    end
+
+    # Shared implementation for read-only tools that just navigate to a path
+    # and return the rendered markdown. execute_action doesn't use this
+    # because it needs set_path + execute_action rather than navigate.
+    def navigate_and_surface(id, path)
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
       surface_dispatch_result(id, result)

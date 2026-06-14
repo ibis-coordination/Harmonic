@@ -5,10 +5,13 @@ require "test_helper"
 # Covers the Streamable HTTP transport from spec revision 2025-11-25:
 # https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
 #
-# Exercises the JSON-RPC envelope (initialize, tools/list, tools/call,
-# notifications), Bearer auth, Origin header policy, MCP-Protocol-Version
-# header policy, and the fetch_page tool.
-class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:disable Style/ClassAndModuleChildren
+# Exercises the JSON-RPC envelope (initialize, ping, tools/list, tools/call,
+# resources/list, resources/read, notifications), Bearer auth, the Origin
+# / Accept / MCP-Protocol-Version header policies, the four tools
+# (fetch_page, execute_action, search, get_help), the harmonic://context
+# resource, the inner-dispatch security contract, and the rescue_from
+# fallback that turns unhandled exceptions into JSON-RPC envelopes.
+class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:disable Style/ClassAndModuleChildren,Metrics/ClassLength
   SUPPORTED_PROTOCOL_VERSION = "2025-11-25".freeze
 
   def setup
@@ -88,6 +91,60 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
       headers: auth_headers(origin: "https://evil.example.com")
     )
     assert_response :forbidden
+  end
+
+  # ====================
+  # Accept header policy
+  # ====================
+
+  test "POST /mcp without Accept header is allowed (implicit */*)" do
+    post "/mcp",
+         params: { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }.to_json,
+         headers: {
+           "Authorization" => "Bearer #{@plaintext_token}",
+           "Content-Type" => "application/json",
+           "MCP-Protocol-Version" => SUPPORTED_PROTOCOL_VERSION,
+         }
+    assert_response :success
+  end
+
+  test "POST /mcp with Accept: */* is allowed" do
+    post "/mcp",
+         params: { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }.to_json,
+         headers: {
+           "Authorization" => "Bearer #{@plaintext_token}",
+           "Content-Type" => "application/json",
+           "Accept" => "*/*",
+           "MCP-Protocol-Version" => SUPPORTED_PROTOCOL_VERSION,
+         }
+    assert_response :success
+  end
+
+  test "POST /mcp with Accept: application/json (no event-stream) is allowed since we never stream" do
+    # Strict reading of the Streamable HTTP spec says the client MUST list
+    # both. We're permissive because we never emit SSE — application/json
+    # alone is enough for the client to consume our responses.
+    post "/mcp",
+         params: { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }.to_json,
+         headers: {
+           "Authorization" => "Bearer #{@plaintext_token}",
+           "Content-Type" => "application/json",
+           "Accept" => "application/json",
+           "MCP-Protocol-Version" => SUPPORTED_PROTOCOL_VERSION,
+         }
+    assert_response :success
+  end
+
+  test "POST /mcp with Accept that excludes application/json returns 406" do
+    post "/mcp",
+         params: { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }.to_json,
+         headers: {
+           "Authorization" => "Bearer #{@plaintext_token}",
+           "Content-Type" => "application/json",
+           "Accept" => "text/plain",
+           "MCP-Protocol-Version" => SUPPORTED_PROTOCOL_VERSION,
+         }
+    assert_response :not_acceptable
   end
 
   # ====================
@@ -645,6 +702,77 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_response :success
     body = response.parsed_body
     assert body["result"]["isError"]
+  end
+
+  # ====================
+  # resources/list and resources/read
+  # ====================
+
+  test "resources/list returns the harmonic://context resource" do
+    post_jsonrpc({ jsonrpc: "2.0", id: 90, method: "resources/list" })
+
+    assert_response :success
+    body = response.parsed_body
+    resources = body.dig("result", "resources")
+    assert resources.is_a?(Array)
+
+    context = resources.find { |r| r["uri"] == "harmonic://context" }
+    assert context, "expected harmonic://context in resources/list"
+    assert context["name"].is_a?(String) && context["name"].present?
+    assert context["description"].is_a?(String) && context["description"].present?
+    assert_equal "text/markdown", context["mimeType"]
+  end
+
+  test "resources/read returns the harmonic://context content" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 91,
+                   method: "resources/read",
+                   params: { uri: "harmonic://context" },
+                 })
+
+    assert_response :success
+    body = response.parsed_body
+    contents = body.dig("result", "contents")
+    assert contents.is_a?(Array) && contents.any?
+
+    entry = contents.first
+    assert_equal "harmonic://context", entry["uri"]
+    assert_equal "text/markdown", entry["mimeType"]
+    assert entry["text"].is_a?(String) && entry["text"].present?
+    # The context should reference Harmonic and at least one of the tools so
+    # we know we got the right document, not an empty placeholder.
+    assert_match(/Harmonic/, entry["text"])
+    assert_match(/fetch_page/, entry["text"])
+  end
+
+  test "resources/read with unknown URI returns JSON-RPC invalid-params error" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 92,
+                   method: "resources/read",
+                   params: { uri: "harmonic://does-not-exist" },
+                 })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_equal(-32_602, body["error"]["code"])
+  end
+
+  test "resources/read without uri param returns JSON-RPC invalid-params error" do
+    post_jsonrpc({ jsonrpc: "2.0", id: 93, method: "resources/read", params: {} })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_equal(-32_602, body["error"]["code"])
+  end
+
+  test "resources/read with non-Hash params returns JSON-RPC invalid-params error" do
+    post_jsonrpc({ jsonrpc: "2.0", id: 94, method: "resources/read", params: [1, 2, 3] })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_equal(-32_602, body["error"]["code"])
   end
 
   # ====================
