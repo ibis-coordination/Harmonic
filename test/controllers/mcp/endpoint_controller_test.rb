@@ -1143,4 +1143,281 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     # just that it's persisted so logs are correlatable.
     assert log.request_id.present?, "expected request_id to be persisted"
   end
+
+  # ====================
+  # Rate limits + response body cap
+  # ====================
+
+  def with_rate_limit_override(burst: nil, sustained: nil, principal: nil, tenant: nil)
+    cls = Mcp::EndpointController
+    cls.stub(:burst_limit_per_token, burst || cls.burst_limit_per_token) do
+      cls.stub(:sustained_limit_per_token, sustained || cls.sustained_limit_per_token) do
+        cls.stub(:sustained_limit_per_principal, principal || cls.sustained_limit_per_principal) do
+          cls.stub(:aggregate_limit_per_tenant, tenant || cls.aggregate_limit_per_tenant) do
+            yield
+          end
+        end
+      end
+    end
+  end
+
+  # Scoped to specific keys so parallel tests don't reset each other's
+  # counters. The shared tenant counter would otherwise race between tests.
+  def clear_mcp_rate_limit_keys(token_ids: [], tenant_ids: [])
+    patterns = []
+    Array(token_ids).each do |tid|
+      patterns << "rate_limit:mcp/burst:#{tid}"
+      patterns << "rate_limit:mcp/sustained:#{tid}"
+    end
+    Array(tenant_ids).each { |t| patterns << "rate_limit:mcp/tenant:#{t}" }
+    return if patterns.empty?
+
+    Sidekiq.redis { |conn| patterns.each { |p| conn.del(p) } }
+  end
+
+  test "burst limit returns 429 with Retry-After when the per-token burst is exceeded" do
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    begin
+      with_rate_limit_override(burst: 3, sustained: 1_000, tenant: 1_000_000) do
+        3.times do |i|
+          post_jsonrpc({ jsonrpc: "2.0", id: 100 + i, method: "ping" })
+          assert_response :success, "request #{i + 1} within burst should pass"
+        end
+
+        post_jsonrpc({ jsonrpc: "2.0", id: 200, method: "ping" })
+        assert_response :too_many_requests
+        assert_equal "1", response.headers["Retry-After"]
+        body = response.parsed_body
+        assert_match(/rate limit/i, body["error"]["message"])
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    end
+  end
+
+  test "sustained limit returns 429 when the per-token per-minute limit is exceeded" do
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    begin
+      with_rate_limit_override(burst: 1_000, sustained: 3, tenant: 1_000_000) do
+        3.times do |i|
+          post_jsonrpc({ jsonrpc: "2.0", id: 300 + i, method: "ping" })
+          assert_response :success
+        end
+
+        post_jsonrpc({ jsonrpc: "2.0", id: 400, method: "ping" })
+        assert_response :too_many_requests
+        assert_equal "60", response.headers["Retry-After"]
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    end
+  end
+
+  test "per-principal limit returns 429 when one principal exceeds it across their agents" do
+    # Same human principal owns two agents; sum of their calls hits the
+    # principal limit even though no individual agent hits the per-token cap.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    second_agent = create_ai_agent(parent: @user, name: "Sibling Agent #{SecureRandom.hex(2)}",
+                                   agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(second_agent)
+    second_token = ApiToken.create!(tenant: @tenant, user: second_agent, scopes: ApiToken.valid_scopes)
+    Tenant.clear_thread_scope
+
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id, second_token.id])
+    # Also clear the principal key
+    Sidekiq.redis { |c| c.del("rate_limit:mcp/principal:#{@user.id}") }
+
+    begin
+      with_rate_limit_override(burst: 1_000, sustained: 1_000, principal: 3, tenant: 1_000_000) do
+        2.times do |i|
+          post_jsonrpc({ jsonrpc: "2.0", id: 900 + i, method: "ping" })
+          assert_response :success
+        end
+        post_jsonrpc({ jsonrpc: "2.0", id: 902, method: "ping" },
+                     headers: auth_headers(token: second_token.plaintext_token))
+        assert_response :success
+
+        # 4th call by either agent busts the principal limit
+        post_jsonrpc({ jsonrpc: "2.0", id: 903, method: "ping" })
+        assert_response :too_many_requests
+        assert_match(/mcp\/principal/, response.parsed_body["error"]["message"])
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [@api_token.id, second_token.id])
+      Sidekiq.redis { |c| c.del("rate_limit:mcp/principal:#{@user.id}") }
+    end
+  end
+
+  test "tenant-level limit honors per-tenant settings override" do
+    # A tenant with a custom mcp_aggregate_rate_limit_per_minute uses that
+    # value instead of the controller's default.
+    isolated_tenant = create_tenant(subdomain: "rl-override-#{SecureRandom.hex(4)}")
+    isolated_tenant.enable_api!
+    isolated_tenant.settings["mcp_aggregate_rate_limit_per_minute"] = 2
+    isolated_tenant.save!
+
+    isolated_user = create_user
+    isolated_tenant.add_user!(isolated_user)
+    Tenant.scope_thread_to_tenant(subdomain: isolated_tenant.subdomain)
+    isolated_collective = create_collective(tenant: isolated_tenant, created_by: isolated_user)
+    isolated_collective.enable_api!
+    isolated_collective.add_user!(isolated_user)
+    agent = create_ai_agent(parent: isolated_user, name: "Override Agent",
+                            agent_configuration: { "mode" => "external" })
+    isolated_tenant.add_user!(agent)
+    token = ApiToken.create!(tenant: isolated_tenant, user: agent, scopes: ApiToken.valid_scopes)
+    Tenant.clear_thread_scope
+
+    host! "#{isolated_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    begin
+      # Class default would be 6_000; override is 2. With per-token and
+      # per-principal high, the tenant override is what trips.
+      with_rate_limit_override(burst: 1_000, sustained: 1_000, principal: 1_000) do
+        2.times do |i|
+          post_jsonrpc({ jsonrpc: "2.0", id: 1000 + i, method: "ping" },
+                       headers: auth_headers(token: token.plaintext_token))
+          assert_response :success
+        end
+
+        post_jsonrpc({ jsonrpc: "2.0", id: 1002, method: "ping" },
+                     headers: auth_headers(token: token.plaintext_token))
+        assert_response :too_many_requests
+        assert_match(/mcp\/tenant/, response.parsed_body["error"]["message"])
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [token.id], tenant_ids: [isolated_tenant.id])
+      Sidekiq.redis { |c| c.del("rate_limit:mcp/principal:#{isolated_user.id}") }
+    end
+  end
+
+  test "per-tenant aggregate limit returns 429 when exceeded across multiple tokens" do
+    # Fresh tenant so this test's tenant counter isn't shared with the parallel
+    # /mcp tests using @global_tenant.
+    isolated_tenant = create_tenant(subdomain: "rl-tenant-#{SecureRandom.hex(4)}")
+    isolated_tenant.enable_api!
+    isolated_user = create_user
+    isolated_tenant.add_user!(isolated_user)
+    Tenant.scope_thread_to_tenant(subdomain: isolated_tenant.subdomain)
+    isolated_collective = create_collective(tenant: isolated_tenant, created_by: isolated_user)
+    isolated_collective.enable_api!
+    isolated_collective.add_user!(isolated_user)
+    agent_one = create_ai_agent(parent: isolated_user, name: "Agent One",
+                                agent_configuration: { "mode" => "external" })
+    agent_two = create_ai_agent(parent: isolated_user, name: "Agent Two",
+                                agent_configuration: { "mode" => "external" })
+    isolated_tenant.add_user!(agent_one)
+    isolated_tenant.add_user!(agent_two)
+    token_one = ApiToken.create!(tenant: isolated_tenant, user: agent_one, scopes: ApiToken.valid_scopes)
+    token_two = ApiToken.create!(tenant: isolated_tenant, user: agent_two, scopes: ApiToken.valid_scopes)
+    Tenant.clear_thread_scope
+
+    host! "#{isolated_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    begin
+      with_rate_limit_override(burst: 1_000, sustained: 1_000, tenant: 3) do
+        2.times do |i|
+          post_jsonrpc({ jsonrpc: "2.0", id: 500 + i, method: "ping" },
+                       headers: auth_headers(token: token_one.plaintext_token))
+          assert_response :success
+        end
+        post_jsonrpc({ jsonrpc: "2.0", id: 502, method: "ping" },
+                     headers: auth_headers(token: token_two.plaintext_token))
+        assert_response :success
+
+        post_jsonrpc({ jsonrpc: "2.0", id: 503, method: "ping" },
+                     headers: auth_headers(token: token_one.plaintext_token))
+        assert_response :too_many_requests
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [token_one.id, token_two.id],
+                                tenant_ids: [isolated_tenant.id])
+    end
+  end
+
+  test "rate-limited request writes to SecurityAuditLog with scope, token, tenant, user, ip" do
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    captured = []
+    SecurityAuditLog.stub(:log_mcp_rate_limited, ->(**kwargs) { captured << kwargs }) do
+      with_rate_limit_override(burst: 1, sustained: 1_000, tenant: 1_000_000) do
+        post_jsonrpc({ jsonrpc: "2.0", id: 700, method: "ping" })
+        assert_response :success
+        post_jsonrpc({ jsonrpc: "2.0", id: 701, method: "ping" })
+        assert_response :too_many_requests
+      end
+    end
+
+    assert_equal 1, captured.size
+    event = captured.first
+    assert_equal "mcp/burst", event[:scope]
+    assert_equal @tenant.id, event[:tenant_id]
+    assert_equal @api_token.id, event[:token_id]
+    assert_equal @agent.id, event[:user_id]
+    assert_equal @user.id, event[:principal_id], "principal_id should be the agent's parent user"
+    assert event[:request_id].present?
+  ensure
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+  end
+
+  test "rate-limited request response message names the breached scope" do
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    begin
+      with_rate_limit_override(burst: 1, sustained: 1_000, tenant: 1_000_000) do
+        post_jsonrpc({ jsonrpc: "2.0", id: 800, method: "ping" })
+        post_jsonrpc({ jsonrpc: "2.0", id: 801, method: "ping" })
+        assert_response :too_many_requests
+        assert_match(/mcp\/burst/, response.parsed_body["error"]["message"])
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    end
+  end
+
+  test "rate-limited request is not audited (mechanism kicks in before tool dispatch)" do
+    clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    begin
+      with_rate_limit_override(burst: 1, sustained: 1_000, tenant: 1_000_000) do
+        post_jsonrpc({
+                       jsonrpc: "2.0", id: 600, method: "tools/call",
+                       params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                     })
+        assert_response :success
+
+        assert_no_difference -> { McpToolCallLog.count } do
+          post_jsonrpc({
+                         jsonrpc: "2.0", id: 601, method: "tools/call",
+                         params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                       })
+          assert_response :too_many_requests
+        end
+      end
+    ensure
+      clear_mcp_rate_limit_keys(token_ids: [@api_token.id])
+    end
+  end
+
+  test "response body is capped at the configured max bytes and the truncation is visible" do
+    huge_body = "x" * (Mcp::EndpointController.max_response_bytes + 2_000)
+    fake_result = { content: huge_body, error: nil, path: "/whoami", actions: [] }
+
+    fake_session = Object.new
+    fake_session.define_singleton_method(:with_provided_token) { |_t, &blk| blk.call }
+    fake_session.define_singleton_method(:navigate) { |_path| fake_result }
+    fake_session.define_singleton_method(:set_path) { |_p| nil }
+    fake_session.define_singleton_method(:execute_action) { |_n, _p| fake_result }
+
+    MarkdownUiService.stub(:new, ->(**) { fake_session }) do
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 700, method: "tools/call",
+                     params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                   })
+    end
+
+    assert_response :success
+    body = response.parsed_body
+    text = body.dig("result", "content", 0, "text")
+    assert text.bytesize <= Mcp::EndpointController.max_response_bytes,
+           "response text should be capped (got #{text.bytesize} bytes)"
+    assert_match(/truncated/i, text, "truncation marker should be visible in the output")
+  end
 end

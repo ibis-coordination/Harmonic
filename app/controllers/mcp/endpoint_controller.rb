@@ -53,8 +53,17 @@ module Mcp
   # rubocop:disable Rails/ApplicationController
   class EndpointController < ActionController::Base
     # rubocop:enable Rails/ApplicationController
+    include RateLimits
+
     SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25"].freeze
     SERVER_VERSION = "0.1.0"
+
+    # Rate-limit thresholds. Class methods so tests can stub them down.
+    def self.burst_limit_per_token = 10            # per token / second
+    def self.sustained_limit_per_token = 60        # per token / minute
+    def self.sustained_limit_per_principal = 600   # per principal / minute (caps cumulative throughput across one human's agents)
+    def self.aggregate_limit_per_tenant = 6_000    # per tenant / minute (default; tunable via Tenant#mcp_aggregate_rate_limit_per_minute)
+    def self.max_response_bytes = 1_048_576        # 1 MiB
 
     # JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification#error_object)
     PARSE_ERROR = -32_700
@@ -211,6 +220,7 @@ module Mcp
     before_action :reject_invalid_accept!
     before_action :reject_unsupported_protocol_version!
     before_action :authenticate_mcp_bearer!
+    before_action :enforce_mcp_rate_limits!
 
     def handle
       raw = request.raw_post
@@ -296,6 +306,43 @@ module Mcp
       token.token_used!
       @current_token = token
       @plaintext_bearer = plaintext
+    end
+
+    # 429 with Retry-After when any of: per-token burst, per-token sustained,
+    # per-principal sustained, or per-tenant aggregate is exceeded. Logs to
+    # SecurityAuditLog so operators can detect abusive agents, principals,
+    # or tenants without parsing general request logs.
+    def enforce_mcp_rate_limits!
+      enforce_rate_limit!(scope: "mcp/burst", key: @current_token.id,
+                          limit: self.class.burst_limit_per_token, period: 1.second)
+      enforce_rate_limit!(scope: "mcp/sustained", key: @current_token.id,
+                          limit: self.class.sustained_limit_per_token, period: 1.minute)
+      enforce_rate_limit!(scope: "mcp/principal", key: @current_token.user.principal_id,
+                          limit: self.class.sustained_limit_per_principal, period: 1.minute)
+      enforce_rate_limit!(scope: "mcp/tenant", key: current_tenant.id,
+                          limit: tenant_aggregate_limit, period: 1.minute)
+    rescue RateLimits::Exceeded => e
+      SecurityAuditLog.log_mcp_rate_limited(
+        scope: e.scope,
+        tenant_id: current_tenant.id,
+        token_id: @current_token.id,
+        user_id: @current_token.user_id,
+        principal_id: @current_token.user.principal_id,
+        ip: request.remote_ip,
+        request_id: request.request_id,
+      )
+      retry_after = e.period.to_i
+      response.set_header("Retry-After", retry_after.to_s)
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST,
+                                          "Rate limit exceeded (#{e.scope}). Retry after #{retry_after}s."),
+             status: :too_many_requests
+    end
+
+    # Tenant override (set via Tenant#mcp_aggregate_rate_limit_per_minute) wins
+    # over the class default. Lets us raise the cap on a public tenant with
+    # enough paying principals to outgrow 6,000/min.
+    def tenant_aggregate_limit
+      current_tenant.mcp_aggregate_rate_limit_per_minute || self.class.aggregate_limit_per_tenant
     end
 
     def render_mcp_unauthorized
@@ -615,10 +662,24 @@ module Mcp
     def surface_dispatch_result(id, result)
       if result[:error]
         text = result[:content].presence || result[:error]
-        tool_error_result(id, text)
+        tool_error_result(id, cap_response_body(text))
       else
-        jsonrpc_result(id, { content: [{ type: "text", text: result[:content] }] })
+        jsonrpc_result(id, { content: [{ type: "text", text: cap_response_body(result[:content]) }] })
       end
+    end
+
+    # Truncate to max_response_bytes with a visible marker. byteslice + scrub
+    # ensures the cut doesn't leave invalid UTF-8.
+    def cap_response_body(text)
+      limit = self.class.max_response_bytes
+      return text if text.bytesize <= limit
+
+      original_size = text.bytesize
+      # Reserve a generous chunk for the marker so the final string still
+      # fits under the cap.
+      marker_room = 200
+      truncated = text.byteslice(0, limit - marker_room).to_s.force_encoding(Encoding::UTF_8).scrub
+      "#{truncated}\n\n[response truncated — original was #{original_size} bytes, capped at #{limit}]"
     end
 
     # ====================

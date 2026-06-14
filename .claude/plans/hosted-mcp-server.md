@@ -47,7 +47,13 @@ Ship a working hosted MCP server that accepts existing API tokens. The user flow
 - **No `MCP-Session-Id` in v1.** Every request is independently auth'd by Bearer; we don't issue session IDs and don't require them. (Spec is clear: if the server doesn't issue, the client doesn't send.) Defer sessions to a later phase if streaming or stateful flows need them.
 - Per-tenant routing via existing subdomain middleware — `https://acme.harmonic.team/mcp` already routes correctly. No unified `mcp.harmonic.team` endpoint in v1 (revisit if multi-tenant users ask).
 - Tenant + collective API-access checks unchanged; same 403 path as REST API
-- **Rate limits**: 60 req/min sustained per token, 10 req/sec burst, 1MB response body cap, per-tenant aggregate cap (e.g. 6000 req/min) to catch runaway loops. No metered overage billing in v1 — measure first, decide later.
+- **Rate limits** (shipped): four layered scopes —
+  - Per-token burst: 10 req/sec
+  - Per-token sustained: 60 req/min
+  - Per-principal sustained: 600 req/min — caps cumulative throughput across all of one human's agents (the principal is `user.parent_id || user.id`). Keeps one paying principal from starving the tenant for everyone else.
+  - Per-tenant aggregate: 6,000 req/min default; tunable per tenant via `Tenant#mcp_aggregate_rate_limit_per_minute` (a `settings` jsonb key) for public tenants that outgrow the default. **Operator-controlled** — tenant admins cannot raise their own ceiling (the tenant_admin settings form uses an explicit allowlist that excludes this key). Set via Rails console or future app-admin tooling.
+
+  Plus a 1 MiB response body cap. Counters live in Redis via the existing `RateLimits` concern; exceeding any one returns `429` with `Retry-After` and the breached scope name in the response message. Every rate-limit event is logged to `SecurityAuditLog` (`log/security_audit.log`) with `event=mcp_rate_limited` + scope, token, tenant, user, principal, ip, request_id — operators can grep / aggregate from there to detect abusive agents, principals, or tenants. No metered overage billing in v1 — measure first, decide later.
 - **Audit logging**: every MCP tool call writes an `McpToolCallLog` entry tagged with the agent identity, tool name, redacted args, status, duration, and `request_id`. Foundation for the principal accountability surface that lands in Phase 2.
 - **`mcp_only` token mode** (see subsection below): a per-token boolean. When set, the token can only be used through `/mcp` — any direct REST or markdown call (read or write) returns 403. Default `true` for new agent tokens; existing tokens migrate as `false` so nothing breaks. Converts the audit guarantee from "every write is logged" to "every action is logged" for tokens that opt in.
 
