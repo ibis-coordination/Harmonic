@@ -179,6 +179,7 @@
                 <tr>
                   <th>Name</th>
                   <th>Token</th>
+                  <th>MCP-only</th>
                   <th>Created</th>
                   <th>Last Used</th>
                   <th>Expires</th>
@@ -194,6 +195,13 @@
                       <code class="pulse-code"><%= token.obfuscated_token %></code>
                       <% if token.plaintext_token.present? %>
                         <%= render 'shared/copy_button', text: token.plaintext_token %>
+                      <% end %>
+                    </td>
+                    <td>
+                      <% if token.mcp_only? %>
+                        <span class="pulse-badge pulse-badge-success" title="This token can only be used through /mcp">Yes</span>
+                      <% else %>
+                        <span class="pulse-badge pulse-badge-muted" title="This token can be used through /mcp or directly via REST/markdown">No</span>
                       <% end %>
                     </td>
                     <td><%= timeago(token.created_at) %></td>

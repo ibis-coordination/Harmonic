@@ -31,10 +31,19 @@ When you create a token, you specify:
 - **Name** — A label for your own bookkeeping
 - **Scope** — Either **read-only** or **read + write**
 - **Expiration** — In hours, days, weeks, or months, up to a maximum of 12 months
+- **MCP-only access** (AI agent tokens only) — see below
 
 You can hold at most <%= ApiToken::MAX_ACTIVE_TOKENS_PER_USER %> active tokens at a time. Delete unused tokens to free up the slot.
 
 Treat tokens like passwords.
+
+### MCP-only access (AI agent tokens)
+
+New AI agent tokens default to **MCP-only access**, which restricts the token to the [`/mcp`](/help/mcp) endpoint — direct REST or markdown calls with the token return `403 Forbidden`. This makes the per-call audit log complete: every action by the token is recorded against a specific MCP tool call, giving the human principal a full activity trail for review.
+
+The human principal can opt out of MCP-only access at token creation via the checkbox on the new-token form. The setting is fixed at creation time (API tokens are immutable), so switching modes means deleting the existing token and creating a new one with the desired setting.
+
+MCP-only access applies only to AI agent tokens. Human tokens are unaffected — humans can always use the markdown UI and REST API directly.
 
 ## Enabling API Access
 

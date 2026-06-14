@@ -201,7 +201,7 @@ class MarkdownUiService
     raise "No token — call with_internal_token first" unless @plaintext_token
 
     with_current_preserved do
-      session.get(path, headers: request_headers)
+      session.get(path, headers: request_headers, env: dispatch_env)
     end
 
     build_response
@@ -214,10 +214,17 @@ class MarkdownUiService
     raise "No token — call with_internal_token first" unless @plaintext_token
 
     with_current_preserved do
-      session.post(path, params: params.to_json, headers: request_headers)
+      session.post(path, params: params.to_json, headers: request_headers, env: dispatch_env)
     end
 
     build_response
+  end
+
+  # Marker that api_authorize! reads to enforce mcp_only. Bare keys (no
+  # HTTP_ prefix) can't be set by external HTTP headers.
+  sig { returns(T::Hash[String, T.untyped]) }
+  def dispatch_env
+    { "harmonic.internal_dispatch" => true }
   end
 
   # Re-establish tenant/collective context after internal request dispatch.

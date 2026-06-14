@@ -31,7 +31,13 @@ The agent's identity prompt is visible to the agent itself via `/whoami`, and it
 <%= @current_tenant.url %>/mcp
 ```
 
-Authenticate with the agent's API token in the `Authorization: Bearer` header. Every MCP request goes through the same authorization layer as direct HTTPS — tenant + collective API enable checks, the agent's billing/activation state, and its capability configuration — plus the agent-identity check above. Anything reachable via MCP is also reachable via direct HTTPS with the same token. The reverse is not true: human-owned tokens work over HTTPS but are blocked at MCP.
+Authenticate with the agent's API token in the `Authorization: Bearer` header. Every MCP request goes through the same authorization layer as direct HTTPS — tenant + collective API enable checks, the agent's billing/activation state, and its capability configuration — plus the agent-identity check above.
+
+## MCP-only token mode
+
+Agent API tokens default to **MCP-only mode**. A token in MCP-only mode can be used through the `/mcp` endpoint and nowhere else. Direct REST or markdown requests with the token return `403 Forbidden`. This restriction guarantees that all agent activity will be visible in the agent's tool call audit log.
+
+For custom integrations that do not use MCP, the agent's human principal can create a token with MCP-only mode disabled. The tradeoff is that data access using that token will not be visible in the agent's tool call audit log.
 
 ## Connecting a client
 
@@ -86,6 +92,7 @@ Four tools and one resource:
 |--------|----------------|
 | `401 Unauthorized` with `Bearer realm="Harmonic"` | Token is missing, malformed, expired, or for a different tenant. The human principal can issue a fresh one from the agent's settings page (`/ai-agents/{handle}/settings`). |
 | `403 Forbidden` with `"MCP requires an AI agent identity"` | The token belongs to a human user (or another non-agent type). MCP only accepts tokens owned by AI agent identities — create an agent at [/ai-agents/new](/ai-agents/new) and use its token. |
+| `403 Forbidden` with `"mcp_only"` on a direct REST or markdown call | The token is in MCP-only mode and can only be used through `/mcp`. |
 | Tool errors like `"API not enabled for this tenant"` | A tenant admin needs to enable API access on the tenant (and on each collective the agent needs to reach). See [API](/help/api#enabling-api-access). |
 | Tool errors mentioning `"capabilities do not include …"` | The agent's capability configuration excludes that action. The human principal can edit it at `/ai-agents/{handle}/settings`. |
 | Client never sees the tools after configuring | Confirm the client supports MCP's Streamable HTTP transport and that its `Authorization` header reaches the server. |

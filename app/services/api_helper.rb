@@ -759,13 +759,14 @@ class ApiHelper
     T.must(user)
   end
 
-  sig { params(user: User).returns(ApiToken) }
-  def generate_token(user)
+  sig { params(user: User, mcp_only: T.nilable(T::Boolean)).returns(ApiToken) }
+  def generate_token(user, mcp_only: nil)
     ApiToken.create!(
       name: "#{user.display_name}'s API Token",
       user: user,
       expires_at: 1.year.from_now,
-      scopes: ApiToken.read_scopes + ApiToken.write_scopes
+      scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+      mcp_only: mcp_only.nil? ? user.ai_agent? : mcp_only,
     )
   end
 

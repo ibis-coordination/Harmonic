@@ -27,6 +27,7 @@ Create a new AI Agent. AI Agents are virtual identities that you manage. These i
 * **identity_prompt** (string, optional): A prompt shown to the agent on /whoami, providing context about their identity and purpose
 * **model** (string, optional): The LLM model for internal AI Agents to use (default: "default"). Available models: <%= available_llm_models.join(", ") %>
 * **generate_token** (boolean, optional): If true, automatically generate an API token for this AI Agent (default: false)
+* **mcp_only** (boolean, optional): When `generate_token` is true, restricts the new token to the `/mcp` endpoint (default: true). See [/help/api](/help/api) for what this means.
 <% if @current_tenant.feature_enabled?("stripe_billing") %>
 * **confirm_billing** (string, required): Must be "1" to confirm billing authorization
 <% end %>

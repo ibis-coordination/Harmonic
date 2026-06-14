@@ -99,7 +99,7 @@ If `token.user.ai_agent? && token.mcp_only?`, the token may only be used when th
 
 Human tokens are unaffected (the check skips on user_type). Tokens with `mcp_only: false` are unaffected (the existing behavior persists).
 
-The rule is uniform across internal and external agent tokens. Internal agent tokens dispatch through `MarkdownUiService` already (via `Internal::BaseController`), so they satisfy the rule via the env flag without any agent-runner change required.
+The rule applies the same way regardless of token shape, but defaults differ: external agent tokens default to `mcp_only: true`, internal agent tokens default to `mcp_only: false`. The constraining caller is `AgentRunnerDispatchService` — it hands the token to a separate Node.js process (the agent runner) that calls Rails directly over HTTPS, without going through `MarkdownUiService`. The runner can't set the `internal_dispatch` env flag from outside the Rails process, so an `mcp_only: true` internal token would 403 every agent-runner action. (Deterministic-rule automations via `AutomationInternalActionService` *do* dispatch through `MarkdownUiService` and would satisfy the flag, but `ApiToken.create_internal_token` can't distinguish callers at the point of issuance, so the safe minimum is `false` for all.) Phase 5 (agent-runner migration to `/mcp`) lets us flip the default.
 
 #### Detection mechanism
 
@@ -114,7 +114,7 @@ Flag named "internal dispatch" rather than "via MCP" because the agent-runner's 
 #### Defaults
 
 - **New external agent tokens** (created via the agent settings form / API): `mcp_only: true`
-- **New internal agent tokens** (issued by the agent runner): `mcp_only: true`
+- **New internal agent tokens** (issued by `AgentRunnerDispatchService` / `MarkdownUiService#with_internal_token`): `mcp_only: false` for now, because the agent runner makes direct HTTPS calls that can't set the env flag. Phase 5 flips this to true alongside the runner's migration to `/mcp`.
 - **Migration backfill for existing tokens at column-add time**: `mcp_only: false` — no breaking change for anything in production today
 - **Human tokens**: column populated as `false`; the check ignores it anyway
 
@@ -126,8 +126,8 @@ Flag named "internal dispatch" rather than "via MCP" because the agent-runner's 
    ```
    { "error": "This token is set to MCP-only mode. Use it through the /mcp endpoint, or disable MCP-only access in the agent settings. See /help/mcp." }
    ```
-4. **Agent settings form** — add the toggle (default checked for new tokens). Editing an existing token's `mcp_only` flag is allowed by the human principal.
-5. **`/help/mcp` and `/help/agents`** — state the rule, explain the toggle, link the error message back.
+4. **Token creation form** — add the toggle (default checked for new agent tokens). The flag is set at token creation only; API tokens are immutable, so changing modes means deleting the token and creating a new one.
+5. **`/help/mcp` and `/help/agents`** — state the rule, explain the toggle and the delete-and-recreate path, link the error message back.
 
 #### Coverage audit (before committing)
 

@@ -338,7 +338,9 @@ class AiAgentsController < ApplicationController
 
     @ai_agent = api_helper.create_ai_agent
     # Only generate token for external AI agents
-    @token = api_helper.generate_token(@ai_agent) if @ai_agent.external_ai_agent? && ["true", "1"].include?(params[:generate_token])
+    if @ai_agent.external_ai_agent? && ["true", "1"].include?(params[:generate_token])
+      @token = api_helper.generate_token(@ai_agent, mcp_only: extract_mcp_only_for_generated_token)
+    end
     flash.now[:notice] = "AI Agent #{@ai_agent.display_name} created successfully."
 
     # Redirect to new agent show page
@@ -460,7 +462,7 @@ class AiAgentsController < ApplicationController
     end
     # Only generate token for external AI agents (not for pending agents)
     if !@ai_agent.pending_billing_setup? && @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
-      @token = api_helper.generate_token(@ai_agent)
+      @token = api_helper.generate_token(@ai_agent, mcp_only: extract_mcp_only_for_generated_token)
     end
 
     notice = if @ai_agent.pending_billing_setup?
@@ -663,5 +665,12 @@ class AiAgentsController < ApplicationController
         }
       end,
     }
+  end
+
+  # Default true (MCP-only) unless the form explicitly passes "0"/false.
+  def extract_mcp_only_for_generated_token
+    return true unless params.key?(:mcp_only)
+
+    [true, "true", "1"].include?(params[:mcp_only])
   end
 end

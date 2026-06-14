@@ -172,6 +172,58 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # === MCP-only default for agent tokens ===
+
+  test "POST create for an agent defaults the new token to mcp_only=true" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent = create_ai_agent(parent: @user, name: "Default-MCP Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    Tenant.clear_thread_scope
+
+    sign_in_for_tokens
+    agent_handle = agent.tenant_users.first.handle
+
+    post "/u/#{agent_handle}/settings/tokens",
+         params: { api_token: { name: "Token", read_write: "read" } }
+
+    assert_response :success
+    token = ApiToken.unscoped.find_by(user: agent, name: "Token")
+    assert token, "token should be persisted"
+    assert token.mcp_only?, "agent token form must default mcp_only=true when the checkbox is omitted"
+  end
+
+  test "POST create for an agent with mcp_only=0 honors the override" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent = create_ai_agent(parent: @user, name: "Override-Off Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    Tenant.clear_thread_scope
+
+    sign_in_for_tokens
+    agent_handle = agent.tenant_users.first.handle
+
+    post "/u/#{agent_handle}/settings/tokens",
+         params: { api_token: { name: "Token", read_write: "read", mcp_only: "0" } }
+
+    assert_response :success
+    token = ApiToken.unscoped.find_by(user: agent, name: "Token")
+    assert token
+    refute token.mcp_only?, "principal explicitly unchecked the mcp_only box"
+  end
+
+  test "POST create for a human defaults mcp_only=false (the column default)" do
+    sign_in_for_tokens
+
+    post "/u/#{token_handle}/settings/tokens",
+         params: { api_token: { name: "Human Token", read_write: "read" } }
+
+    assert_response :success
+    token = ApiToken.unscoped.find_by(user: @user, name: "Human Token")
+    assert token
+    refute token.mcp_only?, "human tokens should not get mcp_only=true (validation would reject it anyway)"
+  end
+
   test "POST create creates the token directly when user already has an active subscription" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
