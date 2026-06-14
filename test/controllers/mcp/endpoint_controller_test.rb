@@ -1010,6 +1010,103 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_equal "String", log.arguments.dig("params", "type")
   end
 
+  test "fetch_page audit log strips undeclared extra fields from arguments" do
+    # The agent's `arguments` hash is whatever JSON they sent. fetch_page's
+    # schema only declares `path`, so any extra key — including one named
+    # `params` — is undeclared content and must not land in the log.
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 65,
+                     method: "tools/call",
+                     params: {
+                       name: "fetch_page",
+                       arguments: {
+                         path: "/whoami",
+                         params: "secret value the principal should never see",
+                         extra_random_field: "another secret",
+                       },
+                     },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal({ "path" => "/whoami" }, log.arguments)
+    assert_no_match(/secret/, log.arguments.to_json)
+  end
+
+  test "execute_action audit log strips undeclared extra fields from arguments" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 66,
+                     method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: note.path,
+                         action: "add_comment",
+                         params: { "body" => "redacted body content" },
+                         extra_secret: "should not be logged",
+                       },
+                     },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal note.path, log.arguments["path"]
+    assert_equal "add_comment", log.arguments["action"]
+    assert_equal({ "keys" => ["body"] }, log.arguments["params"])
+    assert_nil log.arguments["extra_secret"]
+    assert_no_match(/should not be logged/, log.arguments.to_json)
+  end
+
+  test "unknown tool audit log records empty arguments (no field leakage from hallucinated tools)" do
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 67,
+                     method: "tools/call",
+                     params: {
+                       name: "no_such_tool",
+                       arguments: { secret_field: "secret value" },
+                     },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "no_such_tool", log.tool_name
+    assert_equal "unknown_tool", log.status
+    assert_equal({}, log.arguments)
+  end
+
+  test "tools/call with missing name returns INVALID_PARAMS and writes no audit log" do
+    # Missing name is a protocol-layer error per the MCP spec; no tool was
+    # attempted, so no audit row.
+    assert_no_difference -> { McpToolCallLog.count } do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 68,
+                     method: "tools/call",
+                     params: { arguments: { path: "/whoami" } },
+                   })
+    end
+
+    body = response.parsed_body
+    assert_equal(-32_602, body["error"]["code"])
+  end
+
+  test "tools/call with non-Hash params writes no audit log" do
+    # Pinning behavior: a malformed tools/call (params is not an object)
+    # returns a JSON-RPC error envelope without ever reaching tool dispatch,
+    # so it does not generate an audit row.
+    assert_no_difference -> { McpToolCallLog.count } do
+      post_jsonrpc({ jsonrpc: "2.0", id: 69, method: "tools/call", params: [1, 2, 3] })
+    end
+  end
+
   test "non-tool methods do not write audit logs" do
     assert_no_difference -> { McpToolCallLog.count } do
       post_jsonrpc({ jsonrpc: "2.0", id: 70, method: "ping" })

@@ -36,6 +36,18 @@
 # If you find yourself moving auth logic out of the inner controllers into
 # this one, you are wrong; the test will catch it.
 #
+# Audit log durability
+# --------------------
+# The McpToolCallLog row is written AFTER the inner dispatch returns, so a
+# tool that succeeds and commits its side effect (a created note, a vote,
+# etc.) is durable in the system even if the subsequent audit-row write
+# fails. In that case the global rescue_from turns the failed log write
+# into a JSON-RPC INTERNAL_ERROR to the client, but the side effect
+# persists with no audit trail. DB write failures are rare; recovering
+# action history from the resulting records is possible. Atomic
+# action+audit semantics would require wrapping the inner dispatch's
+# transaction, which the current architecture doesn't support cleanly.
+#
 # Spec: https://modelcontextprotocol.io/specification/2025-11-25
 module Mcp
   # rubocop:disable Rails/ApplicationController
@@ -132,6 +144,15 @@ module Mcp
     TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL, SEARCH_TOOL, GET_HELP_TOOL].freeze
 
     KNOWN_TOOL_NAMES = TOOL_DESCRIPTORS.pluck(:name).freeze
+
+    # Per-tool allowlist of argument field names, derived from each
+    # descriptor's inputSchema. Used by the audit logger to strip undeclared
+    # fields the agent may have included in `arguments` — only fields the
+    # tool actually consumes can land in the log. Keeping this derived from
+    # TOOL_DESCRIPTORS ensures it stays in sync as schemas evolve.
+    TOOL_ARG_FIELDS = TOOL_DESCRIPTORS.to_h { |d|
+      [d[:name], d.dig(:inputSchema, :properties).keys.map(&:to_s)]
+    }.freeze
 
     # ====================
     # Resource descriptors
@@ -401,6 +422,7 @@ module Mcp
 
     def handle_tools_call(id, params)
       return jsonrpc_error_envelope(id, INVALID_PARAMS, "params must be an object") unless params.is_a?(Hash)
+      return jsonrpc_error_envelope(id, INVALID_PARAMS, "Missing required argument: name") if params["name"].blank?
 
       name = params["name"].to_s
       args = params["arguments"]
@@ -440,29 +462,40 @@ module Mcp
       )
     end
 
-    # Strip raw values from execute_action's `params` payload before writing
-    # to the audit log — those values can be note bodies, comment text, etc.
-    # The principal needs to see what their agent did, not the content of
-    # what was posted; the keys are enough to characterize the call. The
-    # written content is already retrievable via the resulting record.
+    # Build the redacted args payload to persist on an audit row.
     #
-    # Note: search's `query` argument is intentionally NOT redacted. Unlike
-    # execute_action, the query represents the agent's intent and is not
-    # stored anywhere else in the system; if we drop it here the audit log
-    # cannot answer "what was the agent looking for?".
+    # First, slice to the fields declared in the tool's inputSchema — any
+    # undeclared key the agent included in `arguments` is dropped. This
+    # prevents leakage from extras like `fetch_page` being called with a
+    # bogus `params: "<secret>"` field that the tool never consumes but a
+    # naive logger would persist. Unknown tools have no allowlist, so
+    # their args are reduced to `{}` — the principal still sees the tool
+    # name and status, but no agent-controlled payload lands in the log.
     #
-    # Always replaces `params` with a shape summary regardless of its type,
-    # so a malformed call (`params: "string"`, `params: [1,2,3]`, etc.)
-    # cannot leak raw content into the log.
+    # Second, for execute_action, replace the `params` value with a shape
+    # summary regardless of its type (`{keys: [...]}` for a Hash,
+    # `{type: "..."}` for malformed, `nil` for absent). execute_action is
+    # the only tool whose declared arg can carry free-form user content
+    # (note body, comment text, etc.); the principal can see WHICH fields
+    # the agent set without seeing the content, and the content itself is
+    # retrievable via the resulting record.
+    #
+    # Other tools' declared arguments are intent fields (paths, queries,
+    # topic names) and are logged verbatim — dropping them would defeat
+    # the purpose of the audit log.
     def redact_args_for_log(name, args)
-      return args unless name == "execute_action"
+      allowed = TOOL_ARG_FIELDS[name]
+      return {} if allowed.nil?
 
-      summary = case (raw = args["params"])
+      filtered = args.slice(*allowed)
+      return filtered unless name == "execute_action"
+
+      summary = case (raw = filtered["params"])
                 when Hash then { "keys" => raw.keys }
                 when nil then nil
                 else { "type" => raw.class.name }
                 end
-      args.merge("params" => summary)
+      filtered.merge("params" => summary)
     end
 
     def call_fetch_page(id, args)
