@@ -891,4 +891,159 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     # Don't leak the raw exception message to the client.
     assert_no_match(/boom/, body["error"]["message"])
   end
+
+  # ====================
+  # Audit logging
+  #
+  # Every tools/call writes an McpToolCallLog row tagged with the agent's
+  # user, the token, the tool name, redacted arguments, and the outcome
+  # (ok | tool_error | unknown_tool). This is the substrate for surfacing
+  # to a human principal "what their agent has been doing."
+  # ====================
+
+  test "tools/call success writes an audit log tagged with agent identity" do
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 60,
+                     method: "tools/call",
+                     params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal @agent, log.user
+    assert_equal @api_token, log.api_token
+    assert_equal @tenant, log.tenant
+    assert_equal "fetch_page", log.tool_name
+    assert_equal "ok", log.status
+    assert log.duration_ms >= 0
+    assert_equal({ "path" => "/whoami" }, log.arguments)
+  end
+
+  test "tools/call with unknown tool writes a log with status=unknown_tool" do
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 61,
+                     method: "tools/call",
+                     params: { name: "no_such_tool", arguments: { foo: "bar" } },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "no_such_tool", log.tool_name
+    assert_equal "unknown_tool", log.status
+  end
+
+  test "tools/call that surfaces a tool error writes a log with status=tool_error" do
+    # fetch_page with a non-existent path → MarkdownUiService returns an error
+    # surfaced as a tool error.
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 62,
+                     method: "tools/call",
+                     params: { name: "fetch_page", arguments: { path: "/totally/not/a/real/path" } },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "fetch_page", log.tool_name
+    assert_equal "tool_error", log.status
+  end
+
+  test "execute_action audit log redacts params to key names only" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 63,
+                     method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: note.path,
+                         action: "add_comment",
+                         params: { "body" => "secret note content the principal should not see verbatim" },
+                       },
+                     },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "execute_action", log.tool_name
+    assert_equal note.path, log.arguments["path"]
+    assert_equal "add_comment", log.arguments["action"]
+    # The action params value is replaced with a keys-only summary — the
+    # raw values never hit the log.
+    assert_equal({ "keys" => ["body"] }, log.arguments["params"])
+    assert_no_match(/secret note content/, log.arguments.to_json)
+  end
+
+  test "execute_action audit log redacts malformed params (string) to a shape summary, never the raw value" do
+    # Agent sends a bogus `params` value (not a Hash). The tool call returns a
+    # tool error, but the audit log must still record the call WITHOUT
+    # surfacing the raw string content.
+    assert_difference -> { McpToolCallLog.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0",
+                     id: 64,
+                     method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: "/whoami",
+                         action: "noop",
+                         params: "secret value that should never hit the log",
+                       },
+                     },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "execute_action", log.tool_name
+    assert_no_match(/secret value/, log.arguments.to_json)
+    # We do record the type so the principal can see "the agent sent
+    # something malformed" without revealing the content.
+    assert_equal "String", log.arguments.dig("params", "type")
+  end
+
+  test "non-tool methods do not write audit logs" do
+    assert_no_difference -> { McpToolCallLog.count } do
+      post_jsonrpc({ jsonrpc: "2.0", id: 70, method: "ping" })
+      post_jsonrpc({ jsonrpc: "2.0", id: 71, method: "tools/list" })
+      post_jsonrpc({ jsonrpc: "2.0", id: 72, method: "resources/list" })
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 73, method: "initialize",
+                     params: { protocolVersion: SUPPORTED_PROTOCOL_VERSION },
+                   })
+    end
+  end
+
+  test "unauthenticated tools/call does not write an audit log" do
+    assert_no_difference -> { McpToolCallLog.count } do
+      post "/mcp",
+           params: { jsonrpc: "2.0", id: 80, method: "tools/call",
+                     params: { name: "fetch_page", arguments: { path: "/whoami" } }, }.to_json,
+           headers: { "Content-Type" => "application/json",
+                      "Accept" => "application/json, text/event-stream",
+                      "MCP-Protocol-Version" => SUPPORTED_PROTOCOL_VERSION, }
+    end
+  end
+
+  test "tools/call request_id is recorded on the audit log" do
+    post_jsonrpc({
+                   jsonrpc: "2.0",
+                   id: 90,
+                   method: "tools/call",
+                   params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                 })
+
+    log = McpToolCallLog.order(:created_at).last
+    # Rails always assigns a request_id; we don't care about the exact value,
+    # just that it's persisted so logs are correlatable.
+    assert log.request_id.present?, "expected request_id to be persisted"
+  end
 end

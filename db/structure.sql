@@ -810,6 +810,25 @@ CREATE TABLE public.links (
 
 
 --
+-- Name: mcp_tool_call_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mcp_tool_call_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    api_token_id uuid NOT NULL,
+    tool_name character varying NOT NULL,
+    arguments jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status character varying NOT NULL,
+    duration_ms integer NOT NULL,
+    request_id character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: media_items; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2618,6 +2637,14 @@ ALTER TABLE ONLY public.links
 
 
 --
+-- Name: mcp_tool_call_logs mcp_tool_call_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_logs
+    ADD CONSTRAINT mcp_tool_call_logs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: media_items media_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4242,6 +4269,27 @@ CREATE INDEX index_links_on_tenant_id ON public.links USING btree (tenant_id);
 --
 
 CREATE INDEX index_links_on_to_linkable ON public.links USING btree (to_linkable_type, to_linkable_id);
+
+
+--
+-- Name: index_mcp_tool_call_logs_on_api_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mcp_tool_call_logs_on_api_token_id ON public.mcp_tool_call_logs USING btree (api_token_id);
+
+
+--
+-- Name: index_mcp_tool_call_logs_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mcp_tool_call_logs_on_tenant_id_and_created_at ON public.mcp_tool_call_logs USING btree (tenant_id, created_at);
+
+
+--
+-- Name: index_mcp_tool_call_logs_on_user_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mcp_tool_call_logs_on_user_id_and_created_at ON public.mcp_tool_call_logs USING btree (user_id, created_at);
 
 
 --
@@ -8964,6 +9012,14 @@ ALTER TABLE ONLY public.commitments
 
 
 --
+-- Name: mcp_tool_call_logs fk_rails_4d75d225ed; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_logs
+    ADD CONSTRAINT fk_rails_4d75d225ed FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: automation_rule_runs fk_rails_4e8a3745a1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9340,6 +9396,14 @@ ALTER TABLE ONLY public.media_items
 
 
 --
+-- Name: mcp_tool_call_logs fk_rails_9d724553a6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_logs
+    ADD CONSTRAINT fk_rails_9d724553a6 FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id);
+
+
+--
 -- Name: options fk_rails_9d942eefce; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9441,6 +9505,14 @@ ALTER TABLE ONLY public.user_list_members
 
 ALTER TABLE ONLY public.content_reports
     ADD CONSTRAINT fk_rails_b25d672583 FOREIGN KEY (reporter_id) REFERENCES public.users(id);
+
+
+--
+-- Name: mcp_tool_call_logs fk_rails_b48d4ac2a6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_logs
+    ADD CONSTRAINT fk_rails_b48d4ac2a6 FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -9866,6 +9938,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260614000000'),
 ('20260611200000'),
 ('20260611120000'),
 ('20260611000000'),

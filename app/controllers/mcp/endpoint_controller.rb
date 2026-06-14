@@ -131,6 +131,8 @@ module Mcp
 
     TOOL_DESCRIPTORS = [FETCH_PAGE_TOOL, EXECUTE_ACTION_TOOL, SEARCH_TOOL, GET_HELP_TOOL].freeze
 
+    KNOWN_TOOL_NAMES = TOOL_DESCRIPTORS.pluck(:name).freeze
+
     # ====================
     # Resource descriptors
     # ====================
@@ -404,18 +406,63 @@ module Mcp
       args = params["arguments"]
       args = {} unless args.is_a?(Hash)
 
-      case name
-      when "fetch_page"
-        call_fetch_page(id, args)
-      when "execute_action"
-        call_execute_action(id, args)
-      when "search"
-        call_search(id, args)
-      when "get_help"
-        call_get_help(id, args)
-      else
-        tool_error_result(id, "Unknown tool: #{name}")
-      end
+      start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      envelope = case name
+                 when "fetch_page" then call_fetch_page(id, args)
+                 when "execute_action" then call_execute_action(id, args)
+                 when "search" then call_search(id, args)
+                 when "get_help" then call_get_help(id, args)
+                 else tool_error_result(id, "Unknown tool: #{name}")
+                 end
+      duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start) * 1000).round
+      record_tool_call_log!(name: name, args: args, envelope: envelope, duration_ms: duration_ms)
+      envelope
+    end
+
+    def record_tool_call_log!(name:, args:, envelope:, duration_ms:)
+      status = if KNOWN_TOOL_NAMES.exclude?(name)
+                 "unknown_tool"
+               elsif envelope.dig(:result, :isError)
+                 "tool_error"
+               else
+                 "ok"
+               end
+
+      McpToolCallLog.create!(
+        tenant: current_tenant,
+        user: @current_token.user,
+        api_token: @current_token,
+        tool_name: name,
+        arguments: redact_args_for_log(name, args),
+        status: status,
+        duration_ms: duration_ms,
+        request_id: request.request_id
+      )
+    end
+
+    # Strip raw values from execute_action's `params` payload before writing
+    # to the audit log — those values can be note bodies, comment text, etc.
+    # The principal needs to see what their agent did, not the content of
+    # what was posted; the keys are enough to characterize the call. The
+    # written content is already retrievable via the resulting record.
+    #
+    # Note: search's `query` argument is intentionally NOT redacted. Unlike
+    # execute_action, the query represents the agent's intent and is not
+    # stored anywhere else in the system; if we drop it here the audit log
+    # cannot answer "what was the agent looking for?".
+    #
+    # Always replaces `params` with a shape summary regardless of its type,
+    # so a malformed call (`params: "string"`, `params: [1,2,3]`, etc.)
+    # cannot leak raw content into the log.
+    def redact_args_for_log(name, args)
+      return args unless name == "execute_action"
+
+      summary = case (raw = args["params"])
+                when Hash then { "keys" => raw.keys }
+                when nil then nil
+                else { "type" => raw.class.name }
+                end
+      args.merge("params" => summary)
     end
 
     def call_fetch_page(id, args)
