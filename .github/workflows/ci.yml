@@ -82,13 +82,6 @@ jobs:
       - name: Build JavaScript assets
         run: npm run build
 
-      - name: Build and test MCP server
-        run: |
-          cd mcp-server
-          npm install
-          npm run build
-          npm test
-
       - name: Build and test agent-runner
         run: |
           cd agent-runner

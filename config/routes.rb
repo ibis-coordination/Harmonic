@@ -3,6 +3,10 @@ Rails.application.routes.draw do
   get 'metrics' => 'metrics#show'
   get 'robots.txt' => 'robots#show', as: :robots, defaults: { format: :txt }
 
+  # MCP (Model Context Protocol) Streamable HTTP endpoint.
+  # See https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
+  post 'mcp' => 'mcp/endpoint#handle', as: :mcp_endpoint
+
   # Internal API for agent-runner service (IP-restricted + HMAC-signed)
   scope "internal/agent-runner", module: "internal", as: "internal_agent_runner" do
     post 'tasks/:id/claim' => 'agent_runner#claim'
@@ -198,7 +202,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui notifications representation billing].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui mcp notifications representation billing].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'contact' => 'home#contact'

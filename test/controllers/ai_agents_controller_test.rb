@@ -1065,6 +1065,41 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       "refresh after reveal must not re-show the plaintext token")
   end
 
+  test "external-only: generate_token defaults the new token to mcp_only=true" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "MCP-only Default Agent",
+      mode: "external",
+      generate_token: "1",
+      confirm_billing: "1",
+    }
+
+    new_agent = @user.ai_agents.find_by(name: "MCP-only Default Agent")
+    assert new_agent
+    token = ApiToken.unscoped.where(user_id: new_agent.id).first
+    assert token, "token should be persisted"
+    assert token.mcp_only?, "auto-generated agent token must default to mcp_only=true"
+  end
+
+  test "external-only: generate_token with mcp_only=0 honors the override" do
+    @tenant.disable_feature_flag!("internal_ai_agents")
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/new/actions/create_ai_agent", params: {
+      name: "Direct-REST Agent",
+      mode: "external",
+      generate_token: "1",
+      mcp_only: "0",
+      confirm_billing: "1",
+    }
+
+    new_agent = @user.ai_agents.find_by(name: "Direct-REST Agent")
+    assert new_agent
+    token = ApiToken.unscoped.where(user_id: new_agent.id).first
+    assert token
+    refute token.mcp_only?, "principal explicitly opted out of mcp_only mode"
+  end
+
   test "external-only: external agent creation without generate_token redirects (no token rendered)" do
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_as(@user, tenant: @tenant)

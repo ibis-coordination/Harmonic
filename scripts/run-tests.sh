@@ -22,7 +22,3 @@ docker compose exec web bundle exec rails test
 echo ""
 echo "Running frontend tests..."
 docker compose exec js npm test
-
-echo ""
-echo "Running MCP server tests..."
-cd mcp-server && npm test

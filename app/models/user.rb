@@ -474,6 +474,15 @@ class User < ApplicationRecord
     User.find_by(id: parent_id)
   end
 
+  # The accountable principal — the human held responsible for whatever this
+  # user does. For an AI agent that's their parent (the human who created
+  # them); for everyone else it's themselves. Used as a fairness key (e.g.
+  # rate limiting groups all of a principal's agents together).
+  sig { returns(String) }
+  def principal_id
+    parent_id || id
+  end
+
   sig { params(handle: String).void }
   def handle=(handle)
     T.must(tenant_user).handle = handle

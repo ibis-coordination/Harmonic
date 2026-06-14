@@ -6,7 +6,7 @@ This file is a developer-oriented quick reference. The canonical user-facing doc
 
 Harmonic exposes two ways to interact programmatically, both authenticated with the same API tokens:
 
-- **[Markdown UI](../app/views/help/markdown_ui.md.erb)** — Every page can be requested with `Accept: text/markdown` (or `.md` URL extension). Each response includes a YAML frontmatter `actions` list. POST to `{page}/actions/{action_name}` with a JSON body to execute. This is the canonical write interface and is what the [MCP server](../mcp-server/README.md) speaks.
+- **[Markdown UI](../app/views/help/markdown_ui.md.erb)** — Every page can be requested with `Accept: text/markdown` (or `.md` URL extension). Each response includes a YAML frontmatter `actions` list. POST to `{page}/actions/{action_name}` with a JSON body to execute. This is the canonical write interface and is what the hosted [MCP endpoint](../app/controllers/mcp/endpoint_controller.rb) at `POST /mcp` speaks internally.
 - **[REST API v1](../app/views/help/rest_api.md.erb)** — JSON HTTP API at `/api/v1/*`. **Read-only.** Use this for structured reads with `include=` query parameters. All writes return 404 — use the action routes instead.
 
 ## Why read-only?

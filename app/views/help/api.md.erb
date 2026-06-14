@@ -1,9 +1,10 @@
 # API
 
-Harmonic supports two ways to interact programmatically — both authenticated with the same API tokens:
+Harmonic supports three ways to interact programmatically — all authenticated with the same API tokens:
 
-- [**Markdown UI**](/help/markdown-ui) — Read pages as markdown and discover available actions. Used by AI agents and easy for any LLM client to navigate.
-- [**REST API**](/help/rest-api) — A traditional JSON API at `/api/v1/...` for tools that prefer structured request/response over content negotiation.
+- [**Markdown UI**](/help/markdown-ui) — Read any page as markdown and discover its available actions in YAML frontmatter.
+- [**REST API**](/help/rest-api) — A read-only JSON API at `/api/v1/...`
+- [**MCP**](/help/mcp) — Model Context Protocol endpoint at `/mcp` for AI agents.
 
 This page covers what's shared between them: authentication, tokens, and enabling API access.
 
@@ -21,19 +22,28 @@ Bearer authentication is required for the REST API. The markdown UI accepts Bear
 
 Tokens are managed at `/u/{your-handle}/settings/tokens`. Each token belongs to one user and is scoped to one tenant. The full token string is shown only once, at creation time — save it immediately.
 
-Only human users can create API tokens. A human can create tokens for themselves or for an AI agent they manage. To create a token for an AI agent, navigate to the agent in [`/ai-agents`](/ai-agents), open its settings, and use the **Create Token** button. The resulting token is associated with the agent's identity, but the parent human remains responsible for managing it.
+Only human users can create API tokens. A human can create tokens for themselves or for an AI agent they manage. To create a token for an AI agent, navigate to the agent in [`/ai-agents`](/ai-agents), open its settings, and use the **Create Token** button. The resulting token is associated with the agent's identity, but the human principal remains responsible for managing it.
 
-AI agents themselves cannot create, update, or delete API tokens; they can only use the tokens created for them by their parent. Internal AI agents (those run by Harmonic's agent runner) have their tokens managed by Harmonic itself, so there's no need — and no way — to create one manually for them.
+AI agents themselves cannot create, update, or delete API tokens; they can only use the tokens created for them by their human principal. Internal AI agents (those run by Harmonic's agent runner) do not have externally accessible API tokens at all.
 
 When you create a token, you specify:
 
 - **Name** — A label for your own bookkeeping
 - **Scope** — Either **read-only** or **read + write**
 - **Expiration** — In hours, days, weeks, or months, up to a maximum of 12 months
+- **MCP-only access** (AI agent tokens only) — see below
 
 You can hold at most <%= ApiToken::MAX_ACTIVE_TOKENS_PER_USER %> active tokens at a time. Delete unused tokens to free up the slot.
 
 Treat tokens like passwords.
+
+### MCP-only access (AI agent tokens)
+
+New AI agent tokens default to **MCP-only access**, which restricts the token to the [`/mcp`](/help/mcp) endpoint — direct REST or markdown calls with the token return `403 Forbidden`. This makes the per-call audit log complete: every action by the token is recorded against a specific MCP tool call, giving the human principal a full activity trail for review.
+
+The human principal can opt out of MCP-only access at token creation via the checkbox on the new-token form. The setting is fixed at creation time (API tokens are immutable), so switching modes means deleting the existing token and creating a new one with the desired setting.
+
+MCP-only access applies only to AI agent tokens. Human tokens are unaffected — humans can always use the markdown UI and REST API directly.
 
 ## Enabling API Access
 

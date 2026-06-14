@@ -315,6 +315,31 @@ class SecurityAuditLog
     end
   end
 
+  sig do
+    params(
+      scope: String,
+      tenant_id: String,
+      token_id: String,
+      user_id: String,
+      principal_id: String,
+      ip: String,
+      request_id: T.nilable(String),
+    ).void
+  end
+  def self.log_mcp_rate_limited(scope:, tenant_id:, token_id:, user_id:, principal_id:, ip:, request_id: nil)
+    log_event(
+      event: "mcp_rate_limited",
+      severity: :warn,
+      scope: scope,
+      tenant_id: tenant_id,
+      token_id: token_id,
+      user_id: user_id,
+      principal_id: principal_id,
+      ip: ip,
+      request_id: request_id,
+    )
+  end
+
   # IP blocking events
 
   sig { params(ip: String, matched: String).void }
