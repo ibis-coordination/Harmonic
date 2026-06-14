@@ -178,6 +178,44 @@ Ordering: after Phase 1 ships and is stable in production. Not blocked by Phase 
 - **Tool semantic drift**: if a tool's behavior differs subtly under MCP vs the runner's old wrapper, internal agents may regress. Pin the parity check to the test suite — run the existing internal-agent test scenarios against the new MCP-based runner before flipping the default.
 - **Streaming / progress**: if any internal-agent tool benefits from streamed progress today, that capability needs to translate to MCP's response model. Most current tools are short-lived enough not to matter.
 
+### Logging-system consolidation (agent-runner side only)
+
+When the agent-runner moves to `/mcp`, every internal-agent action becomes an MCP tool call. Without consolidation, we'd double-record: an `AiAgentTaskRunResource` row *and* an `McpToolCallLog` row for the same action.
+
+This affects only the **agent-runner / AiAgentTaskRun** side of the existing logging systems. `AutomationRuleRun` + `AutomationRuleRunResource` and `RepresentationSession` + `RepresentationSessionEvent` are independent flows that don't go through `/mcp` and stay exactly as they are.
+
+**Endgame shape for the agent-runner side** — three grains:
+
+```
+AiAgentTaskRun (parent context for internal agent runs)
+  lifecycle, token usage, cost, started_at/completed_at, error
+        │
+        ▼
+McpToolCallLog (per call — always present once internal agents route through /mcp)
+  user_id, tool_name, args, status, duration_ms, request_id
+  ai_agent_task_run_id?  (FK — set for internal-agent calls, nil for external clients)
+        │
+        ▼
+McpToolCallResource (per resource touched — mirrors the existing pattern)
+  mcp_tool_call_log_id, resource (polymorphic), action_type,
+  resource_collective_id, display_path
+```
+
+`AiAgentTaskRun` keeps its lifecycle role (token budget, completion status). What changes: `AiAgentTaskRunResource` is replaced by `McpToolCallResource`, which hangs off the per-call grain instead of the per-task-run grain.
+
+A task run that issues 12 tool calls produces 12 `McpToolCallLog` rows sharing the same `ai_agent_task_run_id`; resources hang off the calls. "What did this task run create?" is `task_run → calls → resources`. "What did this specific call create?" is one join.
+
+**Migration path:**
+
+1. Add nullable `ai_agent_task_run_id` to `McpToolCallLog`. Additive migration.
+2. Migrate the agent-runner to `/mcp` (the rest of Phase 5). Threadlocal context surfaces the active `AiAgentTaskRun` to the MCP controller, which stamps the FK.
+3. Add `McpToolCallResource`. Have `track_task_run_resource` in `api_helper` write to *both* `AiAgentTaskRunResource` *and* `McpToolCallResource` during the transition.
+4. Once dual-write is stable, deprecate `AiAgentTaskRunResource`. Backfill historical attribution via the FK chain. Remove the table.
+
+**What Phase 1 must avoid** to keep this path open: don't add shapes to `McpToolCallLog` that assume external-MCP-only context (e.g., a non-nullable `external_client_origin`, coupling to the Bearer-auth code path, or anything that would break for internal-token callers). The current schema is already orthogonal — adding `ai_agent_task_run_id` later is purely additive.
+
+**What Phase 1 deliberately skipped:** the `McpToolCallResource` table. Designing it now without the Phase 5 constraints in view would mean guessing at the resource-tracking integration. Existing `track_task_run_resource` works for internal agents today; we extend the model to MCP-driven actions when Phase 5 actually starts.
+
 ### Out of scope for Phase 5
 
 - Changing how the agent-runner picks up tasks from Redis
