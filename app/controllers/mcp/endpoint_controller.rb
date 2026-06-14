@@ -63,7 +63,8 @@ module Mcp
     def self.sustained_limit_per_token = 60        # per token / minute
     def self.sustained_limit_per_principal = 600   # per principal / minute (caps cumulative throughput across one human's agents)
     def self.aggregate_limit_per_tenant = 6_000    # per tenant / minute (default; tunable via Tenant#mcp_aggregate_rate_limit_per_minute)
-    def self.max_response_bytes = 1_048_576        # 1 MiB
+    def self.max_request_bytes = 262_144           # 256 KiB cap on /mcp request body
+    def self.max_response_bytes = 1_048_576        # 1 MiB cap on tool-result text
 
     # JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification#error_object)
     PARSE_ERROR = -32_700
@@ -224,6 +225,8 @@ module Mcp
 
     def handle
       raw = request.raw_post
+      return render_payload_too_large if raw.bytesize > self.class.max_request_bytes
+
       body = parse_body(raw)
 
       return render_parse_error if body.nil?
@@ -378,6 +381,12 @@ module Mcp
 
     def render_parse_error
       render json: jsonrpc_error_envelope(nil, PARSE_ERROR, "Parse error")
+    end
+
+    def render_payload_too_large
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST,
+                                          "Request body exceeds #{self.class.max_request_bytes} bytes"),
+             status: :payload_too_large
     end
 
     def render_batch_unsupported

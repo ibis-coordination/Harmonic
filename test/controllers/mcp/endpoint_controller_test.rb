@@ -1396,6 +1396,18 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     end
   end
 
+  test "request body over max_request_bytes returns 413 with a clean error" do
+    huge_arg = "x" * (Mcp::EndpointController.max_request_bytes + 1_000)
+    post_jsonrpc({
+                   jsonrpc: "2.0", id: 1100, method: "tools/call",
+                   params: { name: "search", arguments: { query: huge_arg } },
+                 })
+
+    assert_response :payload_too_large
+    body = response.parsed_body
+    assert_match(/exceeds/i, body["error"]["message"])
+  end
+
   test "response body is capped at the configured max bytes and the truncation is visible" do
     huge_body = "x" * (Mcp::EndpointController.max_response_bytes + 2_000)
     fake_result = { content: huge_body, error: nil, path: "/whoami", actions: [] }
