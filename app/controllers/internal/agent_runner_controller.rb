@@ -44,6 +44,12 @@ module Internal
       steps.each do |s|
         step_type = s[:type]
         timestamp = s[:timestamp].present? ? Time.parse(s[:timestamp]) : Time.current
+        mcp_tool_call_log_id = s[:mcp_tool_call_log_id]
+
+        if mcp_tool_call_log_id.present? && !mcp_log_belongs_to_task_run?(mcp_tool_call_log_id, task_run)
+          render json: { error: "mcp_tool_call_log_id does not belong to this task run" }, status: :unprocessable_entity
+          return
+        end
 
         # Message steps are stored as ChatMessage records, not AgentSessionSteps
         if step_type == "message"
@@ -68,6 +74,7 @@ module Internal
             detail: s[:detail] || {},
             created_at: timestamp,
             sender_id: s[:sender_id],
+            mcp_tool_call_log_id: mcp_tool_call_log_id,
           )
           step_offset += 1
 
@@ -314,6 +321,15 @@ module Internal
       task_run = AiAgentTaskRun.find_by(id: params[:id])
       raise TaskRunNotFound unless task_run
       task_run
+    end
+
+    # Validate that the McpToolCallLog the runner is claiming this step
+    # corresponds to actually belongs to the current task run. Defense in
+    # depth: prevents a misbehaving runner from cross-linking steps to
+    # unrelated log rows.
+    sig { params(log_id: T.untyped, task_run: AiAgentTaskRun).returns(T::Boolean) }
+    def mcp_log_belongs_to_task_run?(log_id, task_run)
+      McpToolCallLog.where(id: log_id, ai_agent_task_run_id: task_run.id).exists?
     end
 
     sig { params(_exception: StandardError).void }

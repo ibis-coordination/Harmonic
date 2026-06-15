@@ -10,6 +10,10 @@ class AgentSessionStep < ApplicationRecord
   belongs_to :tenant
   belongs_to :ai_agent_task_run
   belongs_to :sender, class_name: "User", optional: true
+  # Set for tool-call step types (fetch_page, execute_action; legacy:
+  # navigate, execute) when the runner is calling /mcp. Null for loop-internal
+  # step types and for pre-runner-migration rows.
+  belongs_to :mcp_tool_call_log, optional: true
 
   validates :position, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validates :step_type, presence: true, inclusion: { in: STEP_TYPES }

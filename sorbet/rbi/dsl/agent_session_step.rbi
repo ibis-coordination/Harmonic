@@ -181,6 +181,7 @@ class AgentSessionStep
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::AgentSessionStep).void
       ).void
@@ -191,10 +192,11 @@ class AgentSessionStep
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::AgentSessionStep])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -202,6 +204,7 @@ class AgentSessionStep
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::AgentSessionStep]).void
       ).void
@@ -212,10 +215,11 @@ class AgentSessionStep
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::AgentSessionStep]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -297,6 +301,7 @@ class AgentSessionStep
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -309,11 +314,12 @@ class AgentSessionStep
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -425,6 +431,9 @@ class AgentSessionStep
     sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
     def build_ai_agent_task_run(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::McpToolCallLog) }
+    def build_mcp_tool_call_log(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_sender(*args, &blk); end
 
@@ -436,6 +445,12 @@ class AgentSessionStep
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
     def create_ai_agent_task_run!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::McpToolCallLog) }
+    def create_mcp_tool_call_log(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::McpToolCallLog) }
+    def create_mcp_tool_call_log!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_sender(*args, &blk); end
@@ -449,8 +464,23 @@ class AgentSessionStep
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant!(*args, &blk); end
 
+    sig { returns(T.nilable(::McpToolCallLog)) }
+    def mcp_tool_call_log; end
+
+    sig { params(value: T.nilable(::McpToolCallLog)).void }
+    def mcp_tool_call_log=(value); end
+
+    sig { returns(T::Boolean) }
+    def mcp_tool_call_log_changed?; end
+
+    sig { returns(T::Boolean) }
+    def mcp_tool_call_log_previously_changed?; end
+
     sig { returns(T.nilable(::AiAgentTaskRun)) }
     def reload_ai_agent_task_run; end
+
+    sig { returns(T.nilable(::McpToolCallLog)) }
+    def reload_mcp_tool_call_log; end
 
     sig { returns(T.nilable(::User)) }
     def reload_sender; end
@@ -460,6 +490,9 @@ class AgentSessionStep
 
     sig { void }
     def reset_ai_agent_task_run; end
+
+    sig { void }
+    def reset_mcp_tool_call_log; end
 
     sig { void }
     def reset_sender; end
@@ -564,9 +597,6 @@ class AgentSessionStep
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def merge(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
-    def messages(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def none(*args, &blk); end
@@ -873,6 +903,51 @@ class AgentSessionStep
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def mcp_tool_call_log_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def mcp_tool_call_log_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def mcp_tool_call_log_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def mcp_tool_call_log_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def mcp_tool_call_log_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def mcp_tool_call_log_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def mcp_tool_call_log_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def mcp_tool_call_log_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def mcp_tool_call_log_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def mcp_tool_call_log_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def mcp_tool_call_log_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def mcp_tool_call_log_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def mcp_tool_call_log_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def mcp_tool_call_log_id_was; end
+
+    sig { void }
+    def mcp_tool_call_log_id_will_change!; end
+
     sig { returns(::Integer) }
     def position; end
 
@@ -934,6 +1009,9 @@ class AgentSessionStep
     def restore_id_value!; end
 
     sig { void }
+    def restore_mcp_tool_call_log_id!; end
+
+    sig { void }
     def restore_position!; end
 
     sig { void }
@@ -974,6 +1052,12 @@ class AgentSessionStep
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_mcp_tool_call_log_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_mcp_tool_call_log_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_position; end
@@ -1150,6 +1234,9 @@ class AgentSessionStep
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_mcp_tool_call_log_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_position?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1234,9 +1321,6 @@ class AgentSessionStep
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def merge(*args, &blk); end
-
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
-    def messages(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def none(*args, &blk); end
