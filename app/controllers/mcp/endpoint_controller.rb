@@ -527,8 +527,8 @@ module Mcp
     end
 
     # Surface the log row id on the JSON-RPC response via _meta so the
-    # agent-runner (Step E of the migration) can plumb it into AgentSessionStep
-    # rows for a deep-link from the steps timeline to the raw call record.
+    # agent-runner can plumb it into AgentSessionStep rows, enabling a
+    # deep-link from the steps timeline to the raw call record.
     #
     # Only stamps on `result` envelopes. JSON-RPC's error object spec (and the
     # MCP spec) define _meta on results but not on errors; the controller's

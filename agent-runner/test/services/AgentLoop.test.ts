@@ -4,6 +4,7 @@ import { runTask } from "../../src/services/AgentLoop.js";
 import { LLMClient } from "../../src/services/LLMClient.js";
 import type { LLMResponse } from "../../src/services/LLMClient.js";
 import { HarmonicClient } from "../../src/services/HarmonicClient.js";
+import { McpClient } from "../../src/services/McpClient.js";
 import { TaskReporter } from "../../src/services/TaskReporter.js";
 import { Config } from "../../src/config/Config.js";
 import { LLMError, HarmonicApiError } from "../../src/errors/Errors.js";
@@ -163,22 +164,34 @@ function buildTestLayers(
 
   const navErrors = options?.navigateErrors ?? {};
   const defaultNavigate = { content: WHOAMI_CONTENT, availableActions: ["update_scratchpad"] as readonly string[] };
-  const HarmonicClientTest = Layer.succeed(HarmonicClient, {
-    navigate: (path: string) => {
+  // fetchPage/executeAction live on McpClient. HarmonicClient retains only
+  // fetchChatHistory, which the runner uses to build the LLM prompt and
+  // stays on the HMAC /internal/... path.
+  const McpClientTest = Layer.succeed(McpClient, {
+    fetchPage: (path: string) => {
       state.navigatePaths.push(path);
       if (navErrors[path] !== undefined) {
         return Effect.fail(new HarmonicApiError({ message: navErrors[path], path }));
       }
       const result = (options?.navigateResults ?? navigateResults)?.[path] ?? defaultNavigate;
       const resolvedPath: string = (result as { resolvedPath?: string }).resolvedPath ?? path;
-      return Effect.succeed({ content: result.content, availableActions: result.availableActions, resolvedPath });
+      return Effect.succeed({
+        content: result.content,
+        availableActions: result.availableActions,
+        resolvedPath,
+        mcpToolCallLogId: null,
+      });
     },
     executeAction: (path: string, action: string, _params: Record<string, unknown> | undefined) => {
       state.executeActions.push(action);
       state.executeActionPaths.push(path);
       const result = (options?.executeResults ?? executeResults)?.[action] ?? { content: "Action completed", success: true };
-      return Effect.succeed(result);
+      return Effect.succeed({ content: result.content, success: result.success, mcpToolCallLogId: null });
     },
+  });
+  const HarmonicClientTest = Layer.succeed(HarmonicClient, {
+    navigate: () => Effect.fail(new HarmonicApiError({ message: "HarmonicClient.navigate is deprecated; use McpClient.fetchPage", path: "" })),
+    executeAction: () => Effect.fail(new HarmonicApiError({ message: "HarmonicClient.executeAction is deprecated; use McpClient.executeAction", path: "" })),
     fetchChatHistory: () => {
       const messages = (options?.chatHistory ?? []).map((m) => ({
         role: m.role,
@@ -221,7 +234,7 @@ function buildTestLayers(
     },
   });
 
-  return Layer.mergeAll(ConfigTest, LLMClientTest, HarmonicClientTest, TaskReporterTest);
+  return Layer.mergeAll(ConfigTest, LLMClientTest, HarmonicClientTest, McpClientTest, TaskReporterTest);
 }
 
 function runWithMocks(
