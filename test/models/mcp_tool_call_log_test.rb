@@ -59,7 +59,7 @@ class McpToolCallLogTest < ActiveSupport::TestCase
   end
 
   test "accepts each known status" do
-    ["ok", "tool_error", "unknown_tool"].each do |s|
+    ["pending", "ok", "tool_error", "unknown_tool"].each do |s|
       log = McpToolCallLog.new(
         tenant: @tenant, user: @agent, api_token: @token,
         tool_name: "search", status: s, duration_ms: 1, arguments: {}

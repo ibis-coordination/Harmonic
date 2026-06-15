@@ -21,6 +21,13 @@ class Current < ActiveSupport::CurrentAttributes
   # Automation context
   attribute :automation_rule_run_id, :automation_chain
 
+  # Current MCP tool call (when an MCP dispatch is in flight). Set by
+  # Mcp::EndpointController before dispatching the inner request; read by
+  # track_task_run_resource to attribute touched resources to the call.
+  # mcp_action_name is the action name as invoked via the execute_action
+  # MCP tool (`create_note`, `confirm_read`, etc.); nil for other tools.
+  attribute :mcp_tool_call_log_id, :mcp_action_name
+
   # Data import flag — when true, model concerns (Tracked, Searchable, etc.)
   # skip side effects like Event creation and search indexing
   attribute :importing_data

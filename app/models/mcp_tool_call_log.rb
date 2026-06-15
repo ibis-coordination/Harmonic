@@ -11,11 +11,18 @@ class McpToolCallLog < ApplicationRecord
   # usually points to a client/server version mismatch or model
   # hallucination, which calls for a different response than a real tool
   # failure.
-  STATUSES = ["ok", "tool_error", "unknown_tool"].freeze
+  #
+  # `pending` is the in-flight state — rows are created with this status at
+  # the start of `tools/call` handling (so resource attribution rows can FK
+  # against the id) and updated to a terminal status post-dispatch. A row
+  # that stays `pending` indicates a process killed mid-dispatch.
+  STATUSES = ["pending", "ok", "tool_error", "unknown_tool"].freeze
 
   belongs_to :tenant
   belongs_to :user
   belongs_to :api_token
+
+  has_many :mcp_tool_call_resources, dependent: :destroy
 
   validates :tool_name, presence: true
   validates :status, presence: true, inclusion: { in: STATUSES }

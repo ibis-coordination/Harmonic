@@ -830,6 +830,24 @@ CREATE TABLE public.mcp_tool_call_logs (
 
 
 --
+-- Name: mcp_tool_call_resources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mcp_tool_call_resources (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    mcp_tool_call_log_id uuid NOT NULL,
+    resource_type character varying NOT NULL,
+    resource_id uuid NOT NULL,
+    resource_collective_id uuid NOT NULL,
+    action_name character varying NOT NULL,
+    display_path character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: media_items; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2646,6 +2664,14 @@ ALTER TABLE ONLY public.mcp_tool_call_logs
 
 
 --
+-- Name: mcp_tool_call_resources mcp_tool_call_resources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_resources
+    ADD CONSTRAINT mcp_tool_call_resources_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: media_items media_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3132,6 +3158,20 @@ CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit
 
 
 --
+-- Name: idx_mcp_tool_call_resources_on_resource; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mcp_tool_call_resources_on_resource ON public.mcp_tool_call_resources USING btree (resource_type, resource_id);
+
+
+--
+-- Name: idx_mcp_tool_call_resources_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_mcp_tool_call_resources_unique ON public.mcp_tool_call_resources USING btree (mcp_tool_call_log_id, resource_id, resource_type);
+
+
+--
 -- Name: idx_members_collective_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3143,6 +3183,13 @@ CREATE INDEX idx_members_collective_id ON public.collective_members USING btree 
 --
 
 CREATE UNIQUE INDEX idx_members_tenant_collective_user ON public.collective_members USING btree (tenant_id, collective_id, user_id);
+
+
+--
+-- Name: idx_on_mcp_tool_call_log_id_created_at_1e02440f92; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_mcp_tool_call_log_id_created_at_1e02440f92 ON public.mcp_tool_call_resources USING btree (mcp_tool_call_log_id, created_at);
 
 
 --
@@ -4291,6 +4338,20 @@ CREATE INDEX index_mcp_tool_call_logs_on_tenant_id_and_created_at ON public.mcp_
 --
 
 CREATE INDEX index_mcp_tool_call_logs_on_user_id_and_created_at ON public.mcp_tool_call_logs USING btree (user_id, created_at);
+
+
+--
+-- Name: index_mcp_tool_call_resources_on_resource_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mcp_tool_call_resources_on_resource_collective_id ON public.mcp_tool_call_resources USING btree (resource_collective_id);
+
+
+--
+-- Name: index_mcp_tool_call_resources_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_mcp_tool_call_resources_on_tenant_id_and_created_at ON public.mcp_tool_call_resources USING btree (tenant_id, created_at);
 
 
 --
@@ -8781,6 +8842,14 @@ ALTER TABLE ONLY public.ai_agent_task_run_resources
 
 
 --
+-- Name: mcp_tool_call_resources fk_rails_16bddc4aa9; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_resources
+    ADD CONSTRAINT fk_rails_16bddc4aa9 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: omni_auth_identities fk_rails_17235d7b06; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9181,6 +9250,14 @@ ALTER TABLE ONLY public.user_lists
 
 
 --
+-- Name: mcp_tool_call_resources fk_rails_6af7010e2b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_resources
+    ADD CONSTRAINT fk_rails_6af7010e2b FOREIGN KEY (mcp_tool_call_log_id) REFERENCES public.mcp_tool_call_logs(id);
+
+
+--
 -- Name: decision_audit_entries fk_rails_6b2eb0532e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9434,6 +9511,14 @@ ALTER TABLE ONLY public.votes
 
 ALTER TABLE ONLY public.attachments
     ADD CONSTRAINT fk_rails_a7d5052ac1 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: mcp_tool_call_resources fk_rails_a7f847a602; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_resources
+    ADD CONSTRAINT fk_rails_a7f847a602 FOREIGN KEY (resource_collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -9939,6 +10024,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260615000000'),
 ('20260614120000'),
 ('20260614000000'),
 ('20260611200000'),

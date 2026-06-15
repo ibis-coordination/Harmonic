@@ -1264,11 +1264,16 @@ class ApiHelper
     )
   end
 
-  # Track resources created during an AiAgentTaskRun or AutomationRuleRun for traceability.
+  # Track resources created during an AiAgentTaskRun, AutomationRuleRun, or
+  # MCP tool call for traceability.
   #
-  # Context is resolved from the token's polymorphic `context` association (for
-  # requests from the agent-runner or MarkdownUiService) or from thread-local
-  # Current attributes (for in-process execution).
+  # Task run / automation context is resolved from the token's polymorphic
+  # `context` association (for requests from the agent-runner or
+  # MarkdownUiService) or from Current attributes (for in-process execution).
+  # MCP context is resolved from Current.mcp_tool_call_log_id and
+  # Current.mcp_action_name — set by ApplicationController's
+  # restore_mcp_dispatch_context! from env keys forwarded by
+  # MarkdownUiService#dispatch_env.
   sig { params(resource: T.untyped, action_type: String).void }
   def track_task_run_resource(resource, action_type:)
     return unless resource.respond_to?(:collective_id) && resource.collective_id.present?
@@ -1306,6 +1311,21 @@ class ApiHelper
         resource: resource,
         resource_collective_id: resource.collective_id,
         action_type: action_type,
+        display_path: display_path
+      )
+    end
+
+    # Track for MCP tool calls — fires for any request dispatched through
+    # Mcp::EndpointController (external Claude Desktop / Code / etc., and
+    # eventually internal agents once they migrate to /mcp).
+    mcp_log_id = Current.mcp_tool_call_log_id
+    mcp_action_name = Current.mcp_action_name
+    if mcp_log_id.present? && mcp_action_name.present?
+      McpToolCallResource.create!(
+        mcp_tool_call_log_id: mcp_log_id,
+        resource: resource,
+        resource_collective_id: resource.collective_id,
+        action_name: mcp_action_name,
         display_path: display_path
       )
     end

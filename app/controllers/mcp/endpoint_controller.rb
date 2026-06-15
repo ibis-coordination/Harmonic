@@ -36,17 +36,17 @@
 # If you find yourself moving auth logic out of the inner controllers into
 # this one, you are wrong; the test will catch it.
 #
-# Audit log durability
-# --------------------
-# The McpToolCallLog row is written AFTER the inner dispatch returns, so a
-# tool that succeeds and commits its side effect (a created note, a vote,
-# etc.) is durable in the system even if the subsequent audit-row write
-# fails. In that case the global rescue_from turns the failed log write
-# into a JSON-RPC INTERNAL_ERROR to the client, but the side effect
-# persists with no audit trail. DB write failures are rare; recovering
-# action history from the resulting records is possible. Atomic
-# action+audit semantics would require wrapping the inner dispatch's
-# transaction, which the current architecture doesn't support cleanly.
+# Audit log lifecycle
+# -------------------
+# The McpToolCallLog row is created BEFORE the inner dispatch (with
+# status: "pending") so its id is available via Current.mcp_tool_call_log_id
+# to deeper code that needs to FK against the call — primarily
+# track_task_run_resource for per-call resource attribution. After
+# dispatch returns, the row is updated to its final status (ok, tool_error,
+# or unknown_tool) plus duration_ms. If the dispatch raises, the row
+# stays "pending" forever — an operator signal that the process was
+# killed mid-dispatch. Current.mcp_tool_call_log_id resets automatically
+# between requests via ActionDispatch::Executor.
 #
 # Spec: https://modelcontextprotocol.io/specification/2025-11-25
 module Mcp
@@ -160,9 +160,9 @@ module Mcp
     # fields the agent may have included in `arguments` — only fields the
     # tool actually consumes can land in the log. Keeping this derived from
     # TOOL_DESCRIPTORS ensures it stays in sync as schemas evolve.
-    TOOL_ARG_FIELDS = TOOL_DESCRIPTORS.to_h { |d|
+    TOOL_ARG_FIELDS = TOOL_DESCRIPTORS.to_h do |d|
       [d[:name], d.dig(:inputSchema, :properties).keys.map(&:to_s)]
-    }.freeze
+    end.freeze
 
     # ====================
     # Resource descriptors
@@ -332,7 +332,7 @@ module Mcp
         user_id: @current_token.user_id,
         principal_id: @current_token.user.principal_id,
         ip: request.remote_ip,
-        request_id: request.request_id,
+        request_id: request.request_id
       )
       retry_after = e.period.to_i
       response.set_header("Retry-After", retry_after.to_s)
@@ -484,6 +484,25 @@ module Mcp
       args = params["arguments"]
       args = {} unless args.is_a?(Hash)
 
+      # Create the log row before dispatch so its id is available via
+      # Current.mcp_tool_call_log_id to deeper code that needs to FK
+      # against the call (notably track_task_run_resource for resource
+      # attribution). Row stays `pending` and Current stays set if the
+      # dispatch raises — operators can detect orphaned `pending` rows
+      # as a "process killed mid-dispatch" signal; Current resets when
+      # Rails clears request-scoped state.
+      log = McpToolCallLog.create!(
+        tenant: current_tenant,
+        user: @current_token.user,
+        api_token: @current_token,
+        tool_name: name,
+        arguments: redact_args_for_log(name, args),
+        status: "pending",
+        duration_ms: 0,
+        request_id: request.request_id
+      )
+      Current.mcp_tool_call_log_id = log.id
+
       start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       envelope = case name
                  when "fetch_page" then call_fetch_page(id, args)
@@ -493,29 +512,18 @@ module Mcp
                  else tool_error_result(id, "Unknown tool: #{name}")
                  end
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start) * 1000).round
-      record_tool_call_log!(name: name, args: args, envelope: envelope, duration_ms: duration_ms)
+      log.update!(status: tool_call_status(name, envelope), duration_ms: duration_ms)
       envelope
     end
 
-    def record_tool_call_log!(name:, args:, envelope:, duration_ms:)
-      status = if KNOWN_TOOL_NAMES.exclude?(name)
-                 "unknown_tool"
-               elsif envelope.dig(:result, :isError)
-                 "tool_error"
-               else
-                 "ok"
-               end
-
-      McpToolCallLog.create!(
-        tenant: current_tenant,
-        user: @current_token.user,
-        api_token: @current_token,
-        tool_name: name,
-        arguments: redact_args_for_log(name, args),
-        status: status,
-        duration_ms: duration_ms,
-        request_id: request.request_id
-      )
+    def tool_call_status(name, envelope)
+      if KNOWN_TOOL_NAMES.exclude?(name)
+        "unknown_tool"
+      elsif envelope.dig(:result, :isError)
+        "tool_error"
+      else
+        "ok"
+      end
     end
 
     # Build the redacted args payload to persist on an audit row.
@@ -576,6 +584,11 @@ module Mcp
 
       normalized = normalize_action_path(path)
       return tool_error_result(id, invalid_path_message) if normalized.empty?
+
+      # Stash the action name on Current so track_task_run_resource (which fires
+      # deep inside the dispatched action controller) can attribute touched
+      # resources to this specific MCP call with the correct action_name.
+      Current.mcp_action_name = action_name
 
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) do

@@ -220,11 +220,26 @@ class MarkdownUiService
     build_response
   end
 
-  # Marker that api_authorize! reads to enforce mcp_only. Bare keys (no
-  # HTTP_ prefix) can't be set by external HTTP headers.
+  # Env forwarded into the inner Integration::Session request. Bare keys
+  # (no HTTP_ prefix) can't be set by external HTTP headers, so they're a
+  # safe channel for the outer controller to communicate trusted context
+  # into the inner request.
+  #
+  # `harmonic.internal_dispatch` is read by api_authorize! to enforce
+  # mcp_only. `mcp_tool_call_log_id` / `mcp_action_name` are read by
+  # ApplicationController's restore_mcp_dispatch_context! to re-establish
+  # Current after the Executor middleware resets it between requests, so
+  # track_task_run_resource can attribute touched resources.
   sig { returns(T::Hash[String, T.untyped]) }
   def dispatch_env
-    { "harmonic.internal_dispatch" => true }
+    env = { "harmonic.internal_dispatch" => true }
+    if Current.mcp_tool_call_log_id.present?
+      env["harmonic.mcp_tool_call_log_id"] = Current.mcp_tool_call_log_id
+    end
+    if Current.mcp_action_name.present?
+      env["harmonic.mcp_action_name"] = Current.mcp_action_name
+    end
+    env
   end
 
   # Re-establish tenant/collective context after internal request dispatch.
