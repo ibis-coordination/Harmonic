@@ -499,7 +499,8 @@ module Mcp
         arguments: redact_args_for_log(name, args),
         status: "pending",
         duration_ms: 0,
-        request_id: request.request_id
+        request_id: request.request_id,
+        ai_agent_task_run_id: task_run_context_id,
       )
       Current.mcp_tool_call_log_id = log.id
 
@@ -513,6 +514,36 @@ module Mcp
                  end
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start) * 1000).round
       log.update!(status: tool_call_status(name, envelope), duration_ms: duration_ms)
+      stamp_log_meta(envelope, log)
+    end
+
+    # Returns the current token's context_id when context is an AiAgentTaskRun
+    # (set when AgentRunnerDispatchService issued the ephemeral token); nil
+    # otherwise (external clients, internal tokens not bound to a task run).
+    def task_run_context_id
+      return nil unless @current_token&.context_type == "AiAgentTaskRun"
+
+      @current_token.context_id
+    end
+
+    # Surface the log row id on the JSON-RPC response via _meta so the
+    # agent-runner (Step E of the migration) can plumb it into AgentSessionStep
+    # rows for a deep-link from the steps timeline to the raw call record.
+    #
+    # Only stamps on `result` envelopes. JSON-RPC's error object spec (and the
+    # MCP spec) define _meta on results but not on errors; the controller's
+    # error paths (INVALID_PARAMS, METHOD_NOT_FOUND, etc.) early-return before
+    # the log row is created and never flow through here, so result-only is
+    # both correct and sufficient.
+    def stamp_log_meta(envelope, log)
+      return envelope unless envelope.is_a?(Hash)
+
+      result = envelope[:result]
+      return envelope unless result.is_a?(Hash)
+
+      meta = (result[:_meta] ||= {})
+      harmonic = (meta[:harmonic] ||= {})
+      harmonic[:tool_call_log_id] = log.id
       envelope
     end
 

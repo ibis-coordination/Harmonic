@@ -825,7 +825,8 @@ CREATE TABLE public.mcp_tool_call_logs (
     duration_ms integer NOT NULL,
     request_id character varying,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    ai_agent_task_run_id uuid
 );
 
 
@@ -3155,6 +3156,13 @@ CREATE INDEX idx_audit_entries_decision ON public.decision_audit_entries USING b
 --
 
 CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit_entries USING btree (decision_id, sequence_number);
+
+
+--
+-- Name: idx_mcp_logs_on_task_run_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mcp_logs_on_task_run_and_created_at ON public.mcp_tool_call_logs USING btree (ai_agent_task_run_id, created_at) WHERE (ai_agent_task_run_id IS NOT NULL);
 
 
 --
@@ -9170,6 +9178,14 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
+-- Name: mcp_tool_call_logs fk_rails_60cc7f713b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_logs
+    ADD CONSTRAINT fk_rails_60cc7f713b FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id) ON DELETE SET NULL;
+
+
+--
 -- Name: chat_messages fk_rails_6223514182; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10024,6 +10040,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260615120000'),
 ('20260615000000'),
 ('20260614120000'),
 ('20260614000000'),

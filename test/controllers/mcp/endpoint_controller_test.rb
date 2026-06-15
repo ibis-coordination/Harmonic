@@ -1554,4 +1554,64 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                    })
     end
   end
+
+  # ====================
+  # Task-run linkage and _meta exposure (Step B)
+  #
+  # When the calling token has a polymorphic context of AiAgentTaskRun
+  # (i.e. it's an internal agent-runner ephemeral token), the log row gets
+  # ai_agent_task_run_id stamped. Every tools/call response also carries
+  # _meta.harmonic.tool_call_log_id so the agent-runner can plumb it into
+  # AgentSessionStep rows for deep-linking.
+  # ====================
+
+  test "tools/call response includes _meta.harmonic.tool_call_log_id on success" do
+    post_jsonrpc({
+                   jsonrpc: "2.0", id: 900, method: "tools/call",
+                   params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                 })
+
+    body = response.parsed_body
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal log.id, body.dig("result", "_meta", "harmonic", "tool_call_log_id")
+  end
+
+  test "tools/call response includes _meta.harmonic.tool_call_log_id on unknown tool" do
+    post_jsonrpc({
+                   jsonrpc: "2.0", id: 901, method: "tools/call",
+                   params: { name: "no_such_tool", arguments: {} },
+                 })
+
+    body = response.parsed_body
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "unknown_tool", log.status
+    assert_equal log.id, body.dig("result", "_meta", "harmonic", "tool_call_log_id")
+  end
+
+  test "log row stamps ai_agent_task_run_id when token context is an AiAgentTaskRun" do
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @agent, initiated_by: @user,
+      task: "test", max_steps: 5, status: "running"
+    )
+    @api_token.update!(context: task_run)
+
+    post_jsonrpc({
+                   jsonrpc: "2.0", id: 902, method: "tools/call",
+                   params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                 })
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal task_run.id, log.ai_agent_task_run_id
+  end
+
+  test "log row leaves ai_agent_task_run_id null when token has no task-run context" do
+    # @api_token from setup has no context — represents an external client.
+    post_jsonrpc({
+                   jsonrpc: "2.0", id: 903, method: "tools/call",
+                   params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                 })
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_nil log.ai_agent_task_run_id
+  end
 end
