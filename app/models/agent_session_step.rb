@@ -3,9 +3,14 @@
 class AgentSessionStep < ApplicationRecord
   extend T::Sig
 
-  STEP_TYPES = [
-    "navigate", "think", "execute", "done", "error", "security_warning", "scratchpad_update", "scratchpad_update_failed",
-  ].freeze
+  # "fetch_page" and "execute_action" are the current step types for tool
+  # calls; "navigate" and "execute" are retained so legacy rows (written
+  # before the agent-runner switched to /mcp) still validate on read.
+  TOOL_CALL_STEP_TYPES = ["fetch_page", "execute_action", "navigate", "execute"].freeze
+
+  STEP_TYPES = (TOOL_CALL_STEP_TYPES + [
+    "think", "done", "error", "security_warning", "scratchpad_update", "scratchpad_update_failed",
+  ]).freeze
 
   belongs_to :tenant
   belongs_to :ai_agent_task_run

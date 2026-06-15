@@ -274,7 +274,7 @@ describe("AgentLoop", () => {
     const state = createMockState();
     await runWithMocks(makeTask(), state, [makeLLMResponse()]);
 
-    const navStep = state.stepsCalled.find((s) => s.type === "navigate");
+    const navStep = state.stepsCalled.find((s) => s.type === "fetch_page");
     expect(navStep).toBeDefined();
     expect(navStep?.detail["path"]).toBe("/whoami");
     expect(navStep?.detail["available_actions"]).toEqual(["update_scratchpad"]);
@@ -322,7 +322,7 @@ describe("AgentLoop", () => {
     );
 
     expect(state.navigatePaths).toContain("/notifications");
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     expect(navSteps.length).toBe(2); // /whoami + /notifications
   });
 
@@ -348,7 +348,7 @@ describe("AgentLoop", () => {
     );
 
     expect(state.executeActions).toContain("create_note");
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps.length).toBe(1);
     expect(execSteps[0]?.detail["success"]).toBe(true);
   });
@@ -378,7 +378,7 @@ describe("AgentLoop", () => {
 
     // The action IS sent to Rails — no client-side gate.
     expect(state.executeActions).toContain("delete_everything");
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps.length).toBe(1);
     expect(execSteps[0]?.detail["success"]).toBe(false);
   });
@@ -403,7 +403,7 @@ describe("AgentLoop", () => {
 
     expect(state.executeActions).toContain("create_note");
     expect(state.executeActionPaths).toContain("/collectives/team/note");
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps[0]?.detail["success"]).toBe(true);
   });
 
@@ -644,9 +644,9 @@ describe("AgentLoop", () => {
 
     const stepTypes = state.stepsCalled.map((s) => s.type);
     // Expected order: navigate(/whoami), think, execute, think, done, scratchpad_update
-    expect(stepTypes[0]).toBe("navigate");   // /whoami
+    expect(stepTypes[0]).toBe("fetch_page");   // /whoami
     expect(stepTypes[1]).toBe("think");      // first LLM call
-    expect(stepTypes[2]).toBe("execute");    // create_note
+    expect(stepTypes[2]).toBe("execute_action");    // create_note
     expect(stepTypes[3]).toBe("think");      // second LLM call
     expect(stepTypes[4]).toBe("done");       // task done
     expect(stepTypes[5]).toBe("scratchpad_update"); // scratchpad
@@ -699,9 +699,9 @@ describe("AgentLoop", () => {
 
     expect(state.navigatePaths).toContain("/notifications");
     expect(state.executeActions).toContain("mark_read");
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     expect(navSteps.length).toBe(2); // /whoami + /notifications
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps.length).toBe(1);
   });
 
@@ -761,9 +761,9 @@ describe("AgentLoop", () => {
     // Steps are reported incrementally via the step endpoint
     expect(state.stepsCalled.length).toBeGreaterThanOrEqual(4); // navigate, think, execute, think, done, scratchpad
     const stepTypes = state.stepsCalled.map((s) => s.type);
-    expect(stepTypes).toContain("navigate");
+    expect(stepTypes).toContain("fetch_page");
     expect(stepTypes).toContain("think");
-    expect(stepTypes).toContain("execute");
+    expect(stepTypes).toContain("execute_action");
     expect(stepTypes).toContain("done");
   });
 
@@ -834,7 +834,7 @@ describe("AgentLoop", () => {
     expect(state.failCalled).toBe(false);
     expect(state.completeCalled).toBe(true);
     // A navigate step should have been recorded with the error
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     const brokenNav = navSteps.find((s) => s.detail["path"] === "/broken-page");
     expect(brokenNav).toBeDefined();
     expect(brokenNav?.detail["error"]).toContain("Connection refused");
@@ -908,7 +908,7 @@ describe("AgentLoop", () => {
     // resolved path from the page frontmatter and supplies it explicitly.
     // What still matters: the navigate step records the resolved path so
     // the LLM can see it.
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     const workspaceNav = navSteps.find((s) => s.detail["path"] === "/workspace");
     expect(workspaceNav).toBeDefined();
     expect(workspaceNav!.detail["resolved_path"]).toBe("/workspace/abc123");

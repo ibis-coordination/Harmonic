@@ -32,8 +32,8 @@ import { parseToolCalls } from "../core/ActionParser.js";
 import { RESPOND_TO_HUMAN_TOOL, buildChatSystemPrompt } from "../core/AgentContext.js";
 import { extractCanary, checkLeakage } from "../core/LeakageDetector.js";
 import {
-  navigateStep,
-  executeStep,
+  fetchPageStep,
+  executeActionStep,
   thinkStep,
   doneStep,
   errorStep,
@@ -144,6 +144,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               content: "",
               availableActions: [] as readonly string[],
               resolvedPath: path,
+              mcpToolCallLogId: null,
               _error: err.message,
             }),
           ),
@@ -156,12 +157,13 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           ? `Error fetching ${path}: ${navError}`
           : result.content;
 
-        yield* addStep(navigateStep({
+        yield* addStep(fetchPageStep({
           path,
           resolvedPath: result.resolvedPath,
           contentPreview: result.content,
           availableActions: [...result.availableActions],
           error: navError,
+          mcp_tool_call_log_id: result.mcpToolCallLogId,
         }, new Date()));
 
         return result;
@@ -182,7 +184,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           retryBudget,
         ).pipe(
           Effect.catchAll((err) =>
-            Effect.succeed({ content: "", success: false, _error: err.message }),
+            Effect.succeed({ content: "", success: false, mcpToolCallLogId: null, _error: err.message }),
           ),
         );
 
@@ -190,12 +192,13 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           ? (result as { _error: string })._error
           : (result.success ? null : result.content);
 
-        yield* addStep(executeStep({
+        yield* addStep(executeActionStep({
           action: actionName,
           params,
           success: result.success,
           contentPreview: result.content,
           error: execError,
+          mcp_tool_call_log_id: result.mcpToolCallLogId,
         }, new Date()));
 
         if (result.success) {

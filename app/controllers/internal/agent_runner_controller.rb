@@ -78,7 +78,7 @@ module Internal
           )
           step_offset += 1
 
-          if step_type == "navigate" || step_type == "execute"
+          if AgentSessionStep::TOOL_CALL_STEP_TYPES.include?(step_type)
             broadcast_chat_activity(task_run, step_record)
           end
         end
@@ -155,9 +155,9 @@ module Internal
       msg_scope = msg_scope.where("created_at >= ?", cutoff_timestamp) if cutoff_timestamp
       chat_msgs = msg_scope.to_a
 
-      # Load action steps (navigate/execute from AgentSessionStep) for interleaving
+      # Load tool-call steps for interleaving.
       action_scope = AgentSessionStep
-        .where(ai_agent_task_run_id: task_run_ids, step_type: %w[navigate execute])
+        .where(ai_agent_task_run_id: task_run_ids, step_type: AgentSessionStep::TOOL_CALL_STEP_TYPES)
         .order(:created_at, :position)
       action_scope = action_scope.where("created_at >= ?", cutoff_timestamp) if cutoff_timestamp
       action_steps = action_scope.to_a
@@ -190,10 +190,10 @@ module Internal
           }
         when :action
           case item.step_type
-          when "navigate"
+          when "fetch_page", "navigate"
             path = item.detail&.dig("path")
             action_buffer << "navigated to #{path}" if path.present?
-          when "execute"
+          when "execute_action", "execute"
             action_name = item.detail&.dig("action")
             success = item.detail&.dig("success")
             action_buffer << "#{action_name} (#{success ? "success" : "failed"})" if action_name.present?
@@ -408,10 +408,10 @@ module Internal
       return unless task_run.agent_session_steps.where(step_type: "think").exists?
 
       text = case step_record.step_type
-      when "navigate"
+      when "fetch_page", "navigate"
         path = step_record.detail&.dig("path")
         "Navigating to #{path}" if path.present?
-      when "execute"
+      when "execute_action", "execute"
         action = step_record.detail&.dig("action")
         "Executing #{action}" if action.present?
       end

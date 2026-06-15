@@ -8,21 +8,24 @@ export interface StepRecord {
   readonly type: string;
   readonly detail: Record<string, unknown>;
   readonly timestamp: string;
+  /** McpToolCallLog id from _meta.harmonic.tool_call_log_id on the MCP response. Null for loop-internal step types. */
+  readonly mcp_tool_call_log_id?: string | null;
 }
 
 /**
- * Build a navigate step record.
- * Matches Ruby: add_step("navigate", { path:, resolved_path:, content_preview:, available_actions:, error: })
+ * Build a fetch_page step record (formerly "navigate" before the agent-runner
+ * migrated to /mcp; the underlying behavior is the same — read a page).
  */
-export function navigateStep(detail: {
+export function fetchPageStep(detail: {
   readonly path: string;
   readonly resolvedPath: string;
   readonly contentPreview: string;
   readonly availableActions: readonly string[];
   readonly error: string | null;
+  readonly mcp_tool_call_log_id: string | null;
 }, timestamp: Date): StepRecord {
   return {
-    type: "navigate",
+    type: "fetch_page",
     detail: {
       path: detail.path,
       resolved_path: detail.resolvedPath,
@@ -31,22 +34,24 @@ export function navigateStep(detail: {
       error: detail.error,
     },
     timestamp: timestamp.toISOString(),
+    mcp_tool_call_log_id: detail.mcp_tool_call_log_id,
   };
 }
 
 /**
- * Build an execute step record.
- * Matches Ruby: add_step("execute", { action:, params:, success:, content_preview:, error: })
+ * Build an execute_action step record (formerly "execute" before the
+ * agent-runner migrated to /mcp; same behavior — invoke a Harmonic action).
  */
-export function executeStep(detail: {
+export function executeActionStep(detail: {
   readonly action: string;
   readonly params: Record<string, unknown>;
   readonly success: boolean;
   readonly contentPreview: string | null;
   readonly error: string | null;
+  readonly mcp_tool_call_log_id: string | null;
 }, timestamp: Date): StepRecord {
   return {
-    type: "execute",
+    type: "execute_action",
     detail: {
       action: detail.action,
       params: detail.params,
@@ -55,6 +60,7 @@ export function executeStep(detail: {
       error: detail.error,
     },
     timestamp: timestamp.toISOString(),
+    mcp_tool_call_log_id: detail.mcp_tool_call_log_id,
   };
 }
 

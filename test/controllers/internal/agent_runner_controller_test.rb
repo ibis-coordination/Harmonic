@@ -129,6 +129,21 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_equal({ "path" => "/notifications" }, step_row.detail)
   end
 
+  test "step accepts new tool-call step types (fetch_page, execute_action)" do
+    @task_run.update!(status: "running", started_at: Time.current)
+    body = {
+      steps: [
+        { type: "fetch_page", detail: { path: "/whoami" }, timestamp: Time.current.iso8601 },
+        { type: "execute_action", detail: { action: "create_note", success: true }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
+    assert_equal 2, @task_run.agent_session_steps.count
+    types = @task_run.agent_session_steps.pluck(:step_type).sort
+    assert_equal ["execute_action", "fetch_page"], types
+  end
+
   test "step populates mcp_tool_call_log_id when provided in payload" do
     @ai_agent.update!(agent_configuration: { "mode" => "internal" })
     @task_run.update!(status: "running", started_at: Time.current)
@@ -141,7 +156,7 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
 
     body = {
       steps: [
-        { type: "navigate", detail: { path: "/whoami" }, timestamp: Time.current.iso8601, mcp_tool_call_log_id: log.id },
+        { type: "fetch_page", detail: { path: "/whoami" }, timestamp: Time.current.iso8601, mcp_tool_call_log_id: log.id },
       ],
     }.to_json
 
