@@ -3,7 +3,6 @@ import { Effect, Layer, Exit } from "effect";
 import {
   McpClient,
   McpClientLive,
-  parseResolvedPath,
   type FetchPageResult,
   type ExecuteActionResult,
 } from "../../src/services/McpClient.js";
@@ -215,14 +214,3 @@ describe("McpClient.executeAction", () => {
   });
 });
 
-describe("parseResolvedPath", () => {
-  it("extracts path from frontmatter", () => {
-    expect(parseResolvedPath("---\npath: /foo/bar\n---\n# Body")).toBe("/foo/bar");
-  });
-  it("returns null when content has no frontmatter", () => {
-    expect(parseResolvedPath("# Plain markdown")).toBeNull();
-  });
-  it("returns null when frontmatter has no path line", () => {
-    expect(parseResolvedPath("---\napp: Harmonic\n---\n# Body")).toBeNull();
-  });
-});

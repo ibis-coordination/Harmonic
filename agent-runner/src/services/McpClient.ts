@@ -26,7 +26,7 @@ import { Context, Effect, Layer } from "effect";
 import { HarmonicApiError } from "../errors/Errors.js";
 import { RailsHttp, type RailsResponse } from "./RailsHttp.js";
 import { withRetryAfter, type RetryBudget } from "./Retry.js";
-import { parseAvailableActions } from "./HarmonicClient.js";
+import { parseAvailableActions, parseResolvedPath } from "../core/MarkdownFrontmatter.js";
 
 const MCP_PROTOCOL_VERSION = "2025-11-25";
 
@@ -71,22 +71,6 @@ interface JsonRpcResponse {
     readonly _meta?: { readonly harmonic?: { readonly tool_call_log_id?: string } };
   };
   readonly error?: { readonly code: number; readonly message: string; readonly data?: unknown };
-}
-
-/**
- * Extract a `path: …` value from a Rails markdown response's YAML
- * frontmatter. Used to resolve the path the server actually landed on
- * (the server follows redirects internally; we don't see hop-by-hop).
- *
- * Returns null if there's no frontmatter or no `path:` line in it.
- */
-export function parseResolvedPath(content: string): string | null {
-  if (!content.startsWith("---\n")) return null;
-  const endIndex = content.indexOf("\n---\n", 4);
-  if (endIndex === -1) return null;
-  const frontmatter = content.slice(4, endIndex);
-  const match = /^path:\s*(.+)$/m.exec(frontmatter);
-  return match?.[1]?.trim() ?? null;
 }
 
 export const McpClientLive = Layer.effect(
@@ -161,9 +145,13 @@ export const McpClientLive = Layer.effect(
           }
           const content = extractResultText(rpc);
           const isError = rpc.result?.isError ?? false;
+          // fetchPage throws on tool error (executeAction returns success: false
+          // instead) because fetchPage's downstream contract includes
+          // `availableActions` and `resolvedPath` parsed from the markdown
+          // frontmatter — those fields don't exist on a 4xx body. Throwing keeps
+          // the loop on the error-recording path rather than handing back a
+          // structurally-incomplete result.
           if (isError) {
-            // The tool result wrapped an error; surface as a HarmonicApiError so
-            // the loop records it on a step and continues.
             throw new Error(`fetch_page tool error: ${content.slice(0, 500)}`);
           }
           return {

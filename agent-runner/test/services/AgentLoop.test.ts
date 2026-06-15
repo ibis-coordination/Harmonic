@@ -190,8 +190,6 @@ function buildTestLayers(
     },
   });
   const HarmonicClientTest = Layer.succeed(HarmonicClient, {
-    navigate: () => Effect.fail(new HarmonicApiError({ message: "HarmonicClient.navigate is deprecated; use McpClient.fetchPage", path: "" })),
-    executeAction: () => Effect.fail(new HarmonicApiError({ message: "HarmonicClient.executeAction is deprecated; use McpClient.executeAction", path: "" })),
     fetchChatHistory: () => {
       const messages = (options?.chatHistory ?? []).map((m) => ({
         role: m.role,
