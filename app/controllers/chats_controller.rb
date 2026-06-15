@@ -314,10 +314,10 @@ class ChatsController < ApplicationController
 
   def format_activity_text(step)
     case step.step_type
-    when "navigate"
+    when "fetch_page", "navigate"
       path = step.detail&.dig("path")
       "Navigating to #{path}" if path.present?
-    when "execute"
+    when "execute_action", "execute"
       action = step.detail&.dig("action")
       "Executing #{action}" if action.present?
     end
@@ -380,7 +380,7 @@ class ChatsController < ApplicationController
       first_think_position = latest_turn.agent_session_steps.where(step_type: "think").minimum(:position)
       if first_think_position
         latest_activity_step = latest_turn.agent_session_steps
-          .where(step_type: ["navigate", "execute"])
+          .where(step_type: AgentSessionStep::TOOL_CALL_STEP_TYPES)
           .where("position > ?", first_think_position)
           .order(position: :desc)
           .first

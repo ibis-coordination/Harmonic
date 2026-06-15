@@ -129,6 +129,87 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_equal({ "path" => "/notifications" }, step_row.detail)
   end
 
+  test "step accepts new tool-call step types (fetch_page, execute_action)" do
+    @task_run.update!(status: "running", started_at: Time.current)
+    body = {
+      steps: [
+        { type: "fetch_page", detail: { path: "/whoami" }, timestamp: Time.current.iso8601 },
+        { type: "execute_action", detail: { action: "create_note", success: true }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
+    assert_equal 2, @task_run.agent_session_steps.count
+    types = @task_run.agent_session_steps.pluck(:step_type).sort
+    assert_equal ["execute_action", "fetch_page"], types
+  end
+
+  test "step populates mcp_tool_call_log_id when provided in payload" do
+    @ai_agent.update!(agent_configuration: { "mode" => "internal" })
+    @task_run.update!(status: "running", started_at: Time.current)
+    api_token = ApiToken.create_internal_token(user: @ai_agent, tenant: @tenant, context: @task_run)
+    log = McpToolCallLog.create!(
+      tenant: @tenant, user: @ai_agent, api_token: api_token,
+      tool_name: "fetch_page", arguments: {}, status: "ok", duration_ms: 5,
+      ai_agent_task_run: @task_run,
+    )
+
+    body = {
+      steps: [
+        { type: "fetch_page", detail: { path: "/whoami" }, timestamp: Time.current.iso8601, mcp_tool_call_log_id: log.id },
+      ],
+    }.to_json
+
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    step_row = @task_run.agent_session_steps.first
+    assert_equal log.id, step_row.mcp_tool_call_log_id
+  end
+
+  test "step leaves mcp_tool_call_log_id null when omitted (loop-internal types like think)" do
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    body = {
+      steps: [
+        { type: "think", detail: { thought: "considering" }, timestamp: Time.current.iso8601 },
+      ],
+    }.to_json
+
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :success
+
+    step_row = @task_run.agent_session_steps.first
+    assert_nil step_row.mcp_tool_call_log_id
+  end
+
+  test "step rejects mcp_tool_call_log_id from a different task run" do
+    @ai_agent.update!(agent_configuration: { "mode" => "internal" })
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    # Log row belonging to a different task run in the same tenant.
+    other_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "other", max_steps: 5, status: "running"
+    )
+    other_token = ApiToken.create_internal_token(user: @ai_agent, tenant: @tenant, context: other_run)
+    foreign_log = McpToolCallLog.create!(
+      tenant: @tenant, user: @ai_agent, api_token: other_token,
+      tool_name: "fetch_page", arguments: {}, status: "ok", duration_ms: 5,
+      ai_agent_task_run: other_run,
+    )
+
+    body = {
+      steps: [
+        { type: "navigate", detail: { path: "/whoami" }, timestamp: Time.current.iso8601, mcp_tool_call_log_id: foreign_log.id },
+      ],
+    }.to_json
+
+    post step_url, params: body, headers: signed_headers(body)
+    assert_response :unprocessable_entity
+    assert_equal 0, @task_run.agent_session_steps.count
+  end
+
   test "step assigns sequential positions across multiple calls" do
     @task_run.update!(status: "running", started_at: Time.current)
 

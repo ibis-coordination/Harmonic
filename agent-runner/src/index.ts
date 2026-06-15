@@ -7,6 +7,7 @@ import { Effect, Layer, pipe } from "effect";
 import { Config, ConfigLive } from "./config/Config.js";
 import { LLMClientLive } from "./services/LLMClient.js";
 import { HarmonicClientLive } from "./services/HarmonicClient.js";
+import { McpClientLive } from "./services/McpClient.js";
 import { TaskReporterLive } from "./services/TaskReporter.js";
 import { TaskQueueLive } from "./services/TaskQueue.js";
 import { AgentLockLive } from "./services/AgentLock.js";
@@ -292,6 +293,7 @@ const RailsHttpProvided = RailsHttpLive.pipe(Layer.provide(ConfigLive));
 const ServiceLayer = Layer.mergeAll(
   LLMClientLive,
   HarmonicClientLive,
+  McpClientLive,
   TaskReporterLive,
   TaskQueueLive,
   AgentLockLive,

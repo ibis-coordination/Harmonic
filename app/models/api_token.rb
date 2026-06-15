@@ -183,9 +183,17 @@ class ApiToken < ApplicationRecord
       tenant: Tenant,
       context: T.any(AiAgentTaskRun, AutomationRuleRun),
       expires_in: ActiveSupport::Duration,
+      mcp_only: T::Boolean,
     ).returns(ApiToken)
   end
-  def self.create_internal_token(user:, tenant:, context:, expires_in: 1.hour)
+  # `mcp_only:` is an explicit opt-in by the caller. AgentRunnerDispatchService
+  # passes true because all agent-acting calls go through /mcp via the
+  # agent-runner's McpClient (locking the token to /mcp closes the audit-bypass
+  # hole where a leaked token could be used directly without producing an
+  # McpToolCallLog row). AutomationInternalActionService leaves it false
+  # because automations dispatch via MarkdownUiService against the direct
+  # action endpoints, not /mcp.
+  def self.create_internal_token(user:, tenant:, context:, expires_in: 1.hour, mcp_only: false)
     token = new(
       user: user,
       tenant: tenant,
@@ -194,9 +202,7 @@ class ApiToken < ApplicationRecord
       name: "Internal Agent Token",
       expires_at: Time.current + expires_in,
       context: context,
-      # false because AgentRunnerDispatchService hands these tokens to a
-      # separate Node.js process that calls Rails directly, not via /mcp.
-      mcp_only: false,
+      mcp_only: mcp_only,
     )
     # Set the allow flag to bypass the validation - only this method can create internal tokens
     token.allow_internal_token = true

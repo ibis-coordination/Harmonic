@@ -6,8 +6,9 @@
 # McpToolCallLog row representing the call that touched it. Companion
 # to McpToolCallLog at the per-resource grain.
 #
-# Coexists with AiAgentTaskRunResource during the agent-runner migration
-# dual-write window. See .claude/plans/mcp-resource-attribution.md.
+# Coexists with AiAgentTaskRunResource during the dual-write window —
+# external MCP callers only populate this table; requests with an
+# AiAgentTaskRun context populate both.
 class McpToolCallResource < ApplicationRecord
   extend T::Sig
 

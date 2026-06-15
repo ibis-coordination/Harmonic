@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  navigateStep,
-  executeStep,
+  fetchPageStep,
+  executeActionStep,
   thinkStep,
   errorStep,
   securityWarningStep,
@@ -13,17 +13,18 @@ import {
 describe("StepBuilder", () => {
   const timestamp = new Date("2026-04-13T10:00:00Z");
 
-  describe("navigateStep", () => {
-    it("builds navigate step with rich detail matching Ruby", () => {
-      const step = navigateStep({
+  describe("fetchPageStep", () => {
+    it("builds fetch_page step with rich detail and surfaces mcp_tool_call_log_id", () => {
+      const step = fetchPageStep({
         path: "/notifications",
         resolvedPath: "/notifications",
         contentPreview: "# Notifications\n\nYou have 3 unread.",
         availableActions: ["mark_read", "dismiss"],
         error: null,
+        mcp_tool_call_log_id: "log-uuid-1",
       }, timestamp);
 
-      expect(step.type).toBe("navigate");
+      expect(step.type).toBe("fetch_page");
       expect(step.detail).toEqual({
         path: "/notifications",
         resolved_path: "/notifications",
@@ -32,32 +33,36 @@ describe("StepBuilder", () => {
         error: null,
       });
       expect(step.timestamp).toBe("2026-04-13T10:00:00.000Z");
+      expect(step.mcp_tool_call_log_id).toBe("log-uuid-1");
     });
 
-    it("includes error when navigation fails", () => {
-      const step = navigateStep({
+    it("includes error when fetch fails and leaves mcp_tool_call_log_id null", () => {
+      const step = fetchPageStep({
         path: "/bad-path",
         resolvedPath: "/bad-path",
         contentPreview: "",
         availableActions: [],
         error: "Not found",
+        mcp_tool_call_log_id: null,
       }, timestamp);
 
       expect(step.detail["error"]).toBe("Not found");
+      expect(step.mcp_tool_call_log_id).toBeNull();
     });
   });
 
-  describe("executeStep", () => {
-    it("builds execute step with rich detail matching Ruby", () => {
-      const step = executeStep({
+  describe("executeActionStep", () => {
+    it("builds execute_action step with rich detail and surfaces mcp_tool_call_log_id", () => {
+      const step = executeActionStep({
         action: "create_note",
         params: { body: "Hello" },
         success: true,
         contentPreview: "Note created successfully",
         error: null,
+        mcp_tool_call_log_id: "log-uuid-2",
       }, timestamp);
 
-      expect(step.type).toBe("execute");
+      expect(step.type).toBe("execute_action");
       expect(step.detail).toEqual({
         action: "create_note",
         params: { body: "Hello" },
@@ -65,20 +70,23 @@ describe("StepBuilder", () => {
         content_preview: "Note created successfully",
         error: null,
       });
+      expect(step.mcp_tool_call_log_id).toBe("log-uuid-2");
     });
 
-    it("builds failed execute step", () => {
-      const step = executeStep({
+    it("builds failed execute_action step", () => {
+      const step = executeActionStep({
         action: "delete_note",
         params: {},
         success: false,
         contentPreview: null,
         error: "Invalid action 'delete_note'. Available actions: create_note, vote",
+        mcp_tool_call_log_id: null,
       }, timestamp);
 
       expect(step.detail["success"]).toBe(false);
       expect(step.detail["content_preview"]).toBeNull();
       expect(step.detail["error"]).toContain("Invalid action");
+      expect(step.mcp_tool_call_log_id).toBeNull();
     });
   });
 

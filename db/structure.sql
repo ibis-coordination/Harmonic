@@ -153,7 +153,8 @@ CREATE TABLE public.agent_session_steps (
     sender_id uuid,
     detail jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp without time zone NOT NULL,
-    tenant_id uuid NOT NULL
+    tenant_id uuid NOT NULL,
+    mcp_tool_call_log_id uuid
 );
 
 
@@ -825,7 +826,8 @@ CREATE TABLE public.mcp_tool_call_logs (
     duration_ms integer NOT NULL,
     request_id character varying,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    ai_agent_task_run_id uuid
 );
 
 
@@ -3158,6 +3160,13 @@ CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit
 
 
 --
+-- Name: idx_mcp_logs_on_task_run_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mcp_logs_on_task_run_and_created_at ON public.mcp_tool_call_logs USING btree (ai_agent_task_run_id, created_at) WHERE (ai_agent_task_run_id IS NOT NULL);
+
+
+--
 -- Name: idx_mcp_tool_call_resources_on_resource; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3309,6 +3318,13 @@ CREATE INDEX idx_search_index_type ON ONLY public.search_index USING btree (tena
 --
 
 CREATE UNIQUE INDEX idx_search_index_unique_item ON ONLY public.search_index USING btree (tenant_id, item_type, item_id);
+
+
+--
+-- Name: idx_session_steps_on_mcp_log; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_session_steps_on_mcp_log ON public.agent_session_steps USING btree (mcp_tool_call_log_id) WHERE (mcp_tool_call_log_id IS NOT NULL);
 
 
 --
@@ -9170,6 +9186,14 @@ ALTER TABLE ONLY public.note_history_events
 
 
 --
+-- Name: mcp_tool_call_logs fk_rails_60cc7f713b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mcp_tool_call_logs
+    ADD CONSTRAINT fk_rails_60cc7f713b FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id) ON DELETE SET NULL;
+
+
+--
 -- Name: chat_messages fk_rails_6223514182; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9431,6 +9455,14 @@ ALTER TABLE ONLY public.automation_rule_run_resources
 
 ALTER TABLE ONLY public.automation_rules
     ADD CONSTRAINT fk_rails_923f8bbd47 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: agent_session_steps fk_rails_92776c0c45; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_session_steps
+    ADD CONSTRAINT fk_rails_92776c0c45 FOREIGN KEY (mcp_tool_call_log_id) REFERENCES public.mcp_tool_call_logs(id) ON DELETE SET NULL;
 
 
 --
@@ -10024,6 +10056,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260615130000'),
+('20260615120000'),
 ('20260615000000'),
 ('20260614120000'),
 ('20260614000000'),

@@ -13,7 +13,9 @@
 import { Effect, pipe } from "effect";
 import { LLMClient } from "./LLMClient.js";
 import { HarmonicClient } from "./HarmonicClient.js";
+import { McpClient } from "./McpClient.js";
 import { TaskReporter } from "./TaskReporter.js";
+import { createRetryBudget } from "./Retry.js";
 import { Config } from "../config/Config.js";
 import { log } from "./Logger.js";
 import { decryptToken } from "./TokenCrypto.js";
@@ -30,8 +32,8 @@ import { parseToolCalls } from "../core/ActionParser.js";
 import { RESPOND_TO_HUMAN_TOOL, buildChatSystemPrompt } from "../core/AgentContext.js";
 import { extractCanary, checkLeakage } from "../core/LeakageDetector.js";
 import {
-  navigateStep,
-  executeStep,
+  fetchPageStep,
+  executeActionStep,
   thinkStep,
   doneStep,
   errorStep,
@@ -68,10 +70,11 @@ export type TaskOutcome = { readonly outcome: "completed" | "failed" | "cancelle
  * Run a single agent task to completion.
  * Returns the outcome so the caller can track stats.
  */
-export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LLMClient | HarmonicClient | TaskReporter | Config> =>
+export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LLMClient | HarmonicClient | McpClient | TaskReporter | Config> =>
   Effect.gen(function* () {
     const llm = yield* LLMClient;
     const harmonic = yield* HarmonicClient;
+    const mcp = yield* McpClient;
     const reporter = yield* TaskReporter;
     const config = yield* Config;
     const subdomain = task.tenantSubdomain;
@@ -109,6 +112,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     let lastActionResult: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    // Per-task budget for cumulative Retry-After backoff. Shared across all
+    // navigate/executeAction calls in this run; a sustained-throttle scenario
+    // can't blow past the budget into the task's wall-clock limit.
+    const retryBudget = createRetryBudget();
     const isChatTurn = task.mode === "chat_turn";
     const tools = isChatTurn
       ? [...getToolDefinitions(), RESPOND_TO_HUMAN_TOOL]
@@ -126,17 +133,18 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         );
       });
 
-    // Helper: fetch a page. HarmonicClient.navigate catches HTTP errors and
-    // surfaces them as HarmonicApiError; we catch that and record the error
-    // on a step so the loop can continue.
+    // Helper: fetch a page. McpClient.fetchPage catches transport and
+    // tool-level errors and surfaces them as HarmonicApiError; we catch that
+    // and record the error on a step so the loop can continue.
     const fetchPage = (path: string) =>
       Effect.gen(function* () {
-        const result = yield* harmonic.navigate(path, token, subdomain).pipe(
+        const result = yield* mcp.fetchPage(path, token, subdomain, retryBudget).pipe(
           Effect.catchAll((err) =>
             Effect.succeed({
               content: "",
               availableActions: [] as readonly string[],
               resolvedPath: path,
+              mcpToolCallLogId: null,
               _error: err.message,
             }),
           ),
@@ -149,12 +157,13 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           ? `Error fetching ${path}: ${navError}`
           : result.content;
 
-        yield* addStep(navigateStep({
+        yield* addStep(fetchPageStep({
           path,
           resolvedPath: result.resolvedPath,
           contentPreview: result.content,
           availableActions: [...result.availableActions],
           error: navError,
+          mcp_tool_call_log_id: result.mcpToolCallLogId,
         }, new Date()));
 
         return result;
@@ -166,15 +175,16 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     // guesses wrong. That body is surfaced verbatim in the tool result.
     const executeAction = (path: string, actionName: string, params: Record<string, unknown>) =>
       Effect.gen(function* () {
-        const result = yield* harmonic.executeAction(
+        const result = yield* mcp.executeAction(
           path,
           actionName,
           params,
           token,
           subdomain,
+          retryBudget,
         ).pipe(
           Effect.catchAll((err) =>
-            Effect.succeed({ content: "", success: false, _error: err.message }),
+            Effect.succeed({ content: "", success: false, mcpToolCallLogId: null, _error: err.message }),
           ),
         );
 
@@ -182,12 +192,13 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           ? (result as { _error: string })._error
           : (result.success ? null : result.content);
 
-        yield* addStep(executeStep({
+        yield* addStep(executeActionStep({
           action: actionName,
           params,
           success: result.success,
           contentPreview: result.content,
           error: execError,
+          mcp_tool_call_log_id: result.mcpToolCallLogId,
         }, new Date()));
 
         if (result.success) {

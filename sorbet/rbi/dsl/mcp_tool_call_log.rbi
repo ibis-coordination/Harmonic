@@ -416,6 +416,18 @@ class McpToolCallLog
   end
 
   module GeneratedAssociationMethods
+    sig { returns(T.nilable(::AiAgentTaskRun)) }
+    def ai_agent_task_run; end
+
+    sig { params(value: T.nilable(::AiAgentTaskRun)).void }
+    def ai_agent_task_run=(value); end
+
+    sig { returns(T::Boolean) }
+    def ai_agent_task_run_changed?; end
+
+    sig { returns(T::Boolean) }
+    def ai_agent_task_run_previously_changed?; end
+
     sig { returns(T.nilable(::ApiToken)) }
     def api_token; end
 
@@ -428,6 +440,9 @@ class McpToolCallLog
     sig { returns(T::Boolean) }
     def api_token_previously_changed?; end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
+    def build_ai_agent_task_run(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
     def build_api_token(*args, &blk); end
 
@@ -436,6 +451,12 @@ class McpToolCallLog
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_user(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
+    def create_ai_agent_task_run(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
+    def create_ai_agent_task_run!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
     def create_api_token(*args, &blk); end
@@ -469,6 +490,9 @@ class McpToolCallLog
     sig { params(value: T::Enumerable[::McpToolCallResource]).void }
     def mcp_tool_call_resources=(value); end
 
+    sig { returns(T.nilable(::AiAgentTaskRun)) }
+    def reload_ai_agent_task_run; end
+
     sig { returns(T.nilable(::ApiToken)) }
     def reload_api_token; end
 
@@ -477,6 +501,9 @@ class McpToolCallLog
 
     sig { returns(T.nilable(::User)) }
     def reload_user; end
+
+    sig { void }
+    def reset_ai_agent_task_run; end
 
     sig { void }
     def reset_api_token; end
@@ -662,6 +689,51 @@ class McpToolCallLog
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.nilable(::String)) }
+    def ai_agent_task_run_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def ai_agent_task_run_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def ai_agent_task_run_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def ai_agent_task_run_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def ai_agent_task_run_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def ai_agent_task_run_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def ai_agent_task_run_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def ai_agent_task_run_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def ai_agent_task_run_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def ai_agent_task_run_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def ai_agent_task_run_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def ai_agent_task_run_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def ai_agent_task_run_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def ai_agent_task_run_id_was; end
+
+    sig { void }
+    def ai_agent_task_run_id_will_change!; end
+
     sig { returns(::String) }
     def api_token_id; end
 
@@ -978,6 +1050,9 @@ class McpToolCallLog
     def request_id_will_change!; end
 
     sig { void }
+    def restore_ai_agent_task_run_id!; end
+
+    sig { void }
     def restore_api_token_id!; end
 
     sig { void }
@@ -1012,6 +1087,12 @@ class McpToolCallLog
 
     sig { void }
     def restore_user_id!; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_ai_agent_task_run_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_ai_agent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_api_token_id; end
@@ -1309,6 +1390,9 @@ class McpToolCallLog
 
     sig { void }
     def user_id_will_change!; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_ai_agent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_api_token_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

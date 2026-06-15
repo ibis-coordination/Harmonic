@@ -21,6 +21,11 @@ class McpToolCallLog < ApplicationRecord
   belongs_to :tenant
   belongs_to :user
   belongs_to :api_token
+  # Set when the token's polymorphic context is an AiAgentTaskRun — i.e. the
+  # call came from an internal agent runner ephemeral token (or, post-runner-
+  # migration, from any internal agent routing through /mcp). Null for
+  # external MCP clients (Claude Desktop / Code / Cursor / etc.).
+  belongs_to :ai_agent_task_run, optional: true
 
   has_many :mcp_tool_call_resources, dependent: :destroy
 

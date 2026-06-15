@@ -4,6 +4,7 @@ import { runTask } from "../../src/services/AgentLoop.js";
 import { LLMClient } from "../../src/services/LLMClient.js";
 import type { LLMResponse } from "../../src/services/LLMClient.js";
 import { HarmonicClient } from "../../src/services/HarmonicClient.js";
+import { McpClient } from "../../src/services/McpClient.js";
 import { TaskReporter } from "../../src/services/TaskReporter.js";
 import { Config } from "../../src/config/Config.js";
 import { LLMError, HarmonicApiError } from "../../src/errors/Errors.js";
@@ -163,22 +164,32 @@ function buildTestLayers(
 
   const navErrors = options?.navigateErrors ?? {};
   const defaultNavigate = { content: WHOAMI_CONTENT, availableActions: ["update_scratchpad"] as readonly string[] };
-  const HarmonicClientTest = Layer.succeed(HarmonicClient, {
-    navigate: (path: string) => {
+  // fetchPage/executeAction live on McpClient. HarmonicClient retains only
+  // fetchChatHistory, which the runner uses to build the LLM prompt and
+  // stays on the HMAC /internal/... path.
+  const McpClientTest = Layer.succeed(McpClient, {
+    fetchPage: (path: string) => {
       state.navigatePaths.push(path);
       if (navErrors[path] !== undefined) {
         return Effect.fail(new HarmonicApiError({ message: navErrors[path], path }));
       }
       const result = (options?.navigateResults ?? navigateResults)?.[path] ?? defaultNavigate;
       const resolvedPath: string = (result as { resolvedPath?: string }).resolvedPath ?? path;
-      return Effect.succeed({ content: result.content, availableActions: result.availableActions, resolvedPath });
+      return Effect.succeed({
+        content: result.content,
+        availableActions: result.availableActions,
+        resolvedPath,
+        mcpToolCallLogId: null,
+      });
     },
     executeAction: (path: string, action: string, _params: Record<string, unknown> | undefined) => {
       state.executeActions.push(action);
       state.executeActionPaths.push(path);
       const result = (options?.executeResults ?? executeResults)?.[action] ?? { content: "Action completed", success: true };
-      return Effect.succeed(result);
+      return Effect.succeed({ content: result.content, success: result.success, mcpToolCallLogId: null });
     },
+  });
+  const HarmonicClientTest = Layer.succeed(HarmonicClient, {
     fetchChatHistory: () => {
       const messages = (options?.chatHistory ?? []).map((m) => ({
         role: m.role,
@@ -221,7 +232,7 @@ function buildTestLayers(
     },
   });
 
-  return Layer.mergeAll(ConfigTest, LLMClientTest, HarmonicClientTest, TaskReporterTest);
+  return Layer.mergeAll(ConfigTest, LLMClientTest, HarmonicClientTest, McpClientTest, TaskReporterTest);
 }
 
 function runWithMocks(
@@ -261,7 +272,7 @@ describe("AgentLoop", () => {
     const state = createMockState();
     await runWithMocks(makeTask(), state, [makeLLMResponse()]);
 
-    const navStep = state.stepsCalled.find((s) => s.type === "navigate");
+    const navStep = state.stepsCalled.find((s) => s.type === "fetch_page");
     expect(navStep).toBeDefined();
     expect(navStep?.detail["path"]).toBe("/whoami");
     expect(navStep?.detail["available_actions"]).toEqual(["update_scratchpad"]);
@@ -309,7 +320,7 @@ describe("AgentLoop", () => {
     );
 
     expect(state.navigatePaths).toContain("/notifications");
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     expect(navSteps.length).toBe(2); // /whoami + /notifications
   });
 
@@ -335,7 +346,7 @@ describe("AgentLoop", () => {
     );
 
     expect(state.executeActions).toContain("create_note");
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps.length).toBe(1);
     expect(execSteps[0]?.detail["success"]).toBe(true);
   });
@@ -365,7 +376,7 @@ describe("AgentLoop", () => {
 
     // The action IS sent to Rails — no client-side gate.
     expect(state.executeActions).toContain("delete_everything");
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps.length).toBe(1);
     expect(execSteps[0]?.detail["success"]).toBe(false);
   });
@@ -390,7 +401,7 @@ describe("AgentLoop", () => {
 
     expect(state.executeActions).toContain("create_note");
     expect(state.executeActionPaths).toContain("/collectives/team/note");
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps[0]?.detail["success"]).toBe(true);
   });
 
@@ -631,9 +642,9 @@ describe("AgentLoop", () => {
 
     const stepTypes = state.stepsCalled.map((s) => s.type);
     // Expected order: navigate(/whoami), think, execute, think, done, scratchpad_update
-    expect(stepTypes[0]).toBe("navigate");   // /whoami
+    expect(stepTypes[0]).toBe("fetch_page");   // /whoami
     expect(stepTypes[1]).toBe("think");      // first LLM call
-    expect(stepTypes[2]).toBe("execute");    // create_note
+    expect(stepTypes[2]).toBe("execute_action");    // create_note
     expect(stepTypes[3]).toBe("think");      // second LLM call
     expect(stepTypes[4]).toBe("done");       // task done
     expect(stepTypes[5]).toBe("scratchpad_update"); // scratchpad
@@ -686,9 +697,9 @@ describe("AgentLoop", () => {
 
     expect(state.navigatePaths).toContain("/notifications");
     expect(state.executeActions).toContain("mark_read");
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     expect(navSteps.length).toBe(2); // /whoami + /notifications
-    const execSteps = state.stepsCalled.filter((s) => s.type === "execute");
+    const execSteps = state.stepsCalled.filter((s) => s.type === "execute_action");
     expect(execSteps.length).toBe(1);
   });
 
@@ -748,9 +759,9 @@ describe("AgentLoop", () => {
     // Steps are reported incrementally via the step endpoint
     expect(state.stepsCalled.length).toBeGreaterThanOrEqual(4); // navigate, think, execute, think, done, scratchpad
     const stepTypes = state.stepsCalled.map((s) => s.type);
-    expect(stepTypes).toContain("navigate");
+    expect(stepTypes).toContain("fetch_page");
     expect(stepTypes).toContain("think");
-    expect(stepTypes).toContain("execute");
+    expect(stepTypes).toContain("execute_action");
     expect(stepTypes).toContain("done");
   });
 
@@ -821,7 +832,7 @@ describe("AgentLoop", () => {
     expect(state.failCalled).toBe(false);
     expect(state.completeCalled).toBe(true);
     // A navigate step should have been recorded with the error
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     const brokenNav = navSteps.find((s) => s.detail["path"] === "/broken-page");
     expect(brokenNav).toBeDefined();
     expect(brokenNav?.detail["error"]).toContain("Connection refused");
@@ -895,7 +906,7 @@ describe("AgentLoop", () => {
     // resolved path from the page frontmatter and supplies it explicitly.
     // What still matters: the navigate step records the resolved path so
     // the LLM can see it.
-    const navSteps = state.stepsCalled.filter((s) => s.type === "navigate");
+    const navSteps = state.stepsCalled.filter((s) => s.type === "fetch_page");
     const workspaceNav = navSteps.find((s) => s.detail["path"] === "/workspace");
     expect(workspaceNav).toBeDefined();
     expect(workspaceNav!.detail["resolved_path"]).toBe("/workspace/abc123");

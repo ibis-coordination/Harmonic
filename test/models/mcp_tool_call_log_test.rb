@@ -100,4 +100,26 @@ class McpToolCallLogTest < ActiveSupport::TestCase
     assert_equal 1, McpToolCallLog.count
     assert_equal @tenant.id, McpToolCallLog.first.tenant_id
   end
+
+  test "ai_agent_task_run_id is optional and nil by default" do
+    log = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "fetch_page", arguments: {}, status: "ok", duration_ms: 1
+    )
+    assert_nil log.ai_agent_task_run_id
+    assert_nil log.ai_agent_task_run
+  end
+
+  test "ai_agent_task_run can be associated" do
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @agent, initiated_by: @user,
+      task: "test", max_steps: 5, status: "running"
+    )
+    log = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "fetch_page", arguments: {}, status: "ok", duration_ms: 1,
+      ai_agent_task_run: task_run
+    )
+    assert_equal task_run, log.ai_agent_task_run
+  end
 end

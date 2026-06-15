@@ -9,9 +9,9 @@
       <div class="pulse-feed-item-header">
         <div class="pulse-feed-item-type">
           <% case step[:type] %>
-          <% when "navigate" %>
+          <% when "fetch_page", "navigate" %>
             <%= octicon 'arrow-right', height: 14 %>
-          <% when "execute" %>
+          <% when "execute_action", "execute" %>
             <%= octicon 'play', height: 14 %>
           <% when "think" %>
             <%= octicon 'light-bulb', height: 14 %>
@@ -30,7 +30,7 @@
           <% else %>
             <%= octicon 'dot', height: 14 %>
           <% end %>
-          <%= step[:type].upcase %>
+          <%= step[:type].upcase.tr("_", " ") %>
         </div>
         <div class="pulse-feed-item-meta">
           <span>Step <%= index + 1 %></span>
@@ -42,9 +42,9 @@
       <div class="pulse-feed-item-body">
         <% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} %>
         <% case step[:type] %>
-        <% when "navigate" %>
+        <% when "fetch_page", "navigate" %>
           <div class="pulse-feed-item-title">
-            Navigated to: <code class="pulse-code"><%= detail[:path] %></code>
+            Viewed page: <code class="pulse-code"><%= detail[:path] %></code>
           </div>
           <% if detail[:available_actions]&.any? %>
             <p class="pulse-muted" style="margin: 8px 0 0 0;">
@@ -63,7 +63,7 @@
             </details>
           <% end %>
 
-        <% when "execute" %>
+        <% when "execute_action", "execute" %>
           <div class="pulse-feed-item-title">
             Executed: <code class="pulse-code"><%= detail[:action] %></code>
             <% if detail[:success] %>

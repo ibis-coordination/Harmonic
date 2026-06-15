@@ -44,6 +44,12 @@ module Internal
       steps.each do |s|
         step_type = s[:type]
         timestamp = s[:timestamp].present? ? Time.parse(s[:timestamp]) : Time.current
+        mcp_tool_call_log_id = s[:mcp_tool_call_log_id]
+
+        if mcp_tool_call_log_id.present? && !mcp_log_belongs_to_task_run?(mcp_tool_call_log_id, task_run)
+          render json: { error: "mcp_tool_call_log_id does not belong to this task run" }, status: :unprocessable_entity
+          return
+        end
 
         # Message steps are stored as ChatMessage records, not AgentSessionSteps
         if step_type == "message"
@@ -68,10 +74,11 @@ module Internal
             detail: s[:detail] || {},
             created_at: timestamp,
             sender_id: s[:sender_id],
+            mcp_tool_call_log_id: mcp_tool_call_log_id,
           )
           step_offset += 1
 
-          if step_type == "navigate" || step_type == "execute"
+          if AgentSessionStep::TOOL_CALL_STEP_TYPES.include?(step_type)
             broadcast_chat_activity(task_run, step_record)
           end
         end
@@ -148,9 +155,9 @@ module Internal
       msg_scope = msg_scope.where("created_at >= ?", cutoff_timestamp) if cutoff_timestamp
       chat_msgs = msg_scope.to_a
 
-      # Load action steps (navigate/execute from AgentSessionStep) for interleaving
+      # Load tool-call steps for interleaving.
       action_scope = AgentSessionStep
-        .where(ai_agent_task_run_id: task_run_ids, step_type: %w[navigate execute])
+        .where(ai_agent_task_run_id: task_run_ids, step_type: AgentSessionStep::TOOL_CALL_STEP_TYPES)
         .order(:created_at, :position)
       action_scope = action_scope.where("created_at >= ?", cutoff_timestamp) if cutoff_timestamp
       action_steps = action_scope.to_a
@@ -183,10 +190,10 @@ module Internal
           }
         when :action
           case item.step_type
-          when "navigate"
+          when "fetch_page", "navigate"
             path = item.detail&.dig("path")
             action_buffer << "navigated to #{path}" if path.present?
-          when "execute"
+          when "execute_action", "execute"
             action_name = item.detail&.dig("action")
             success = item.detail&.dig("success")
             action_buffer << "#{action_name} (#{success ? "success" : "failed"})" if action_name.present?
@@ -316,6 +323,15 @@ module Internal
       task_run
     end
 
+    # Validate that the McpToolCallLog the runner is claiming this step
+    # corresponds to actually belongs to the current task run. Defense in
+    # depth: prevents a misbehaving runner from cross-linking steps to
+    # unrelated log rows.
+    sig { params(log_id: T.untyped, task_run: AiAgentTaskRun).returns(T::Boolean) }
+    def mcp_log_belongs_to_task_run?(log_id, task_run)
+      McpToolCallLog.where(id: log_id, ai_agent_task_run_id: task_run.id).exists?
+    end
+
     sig { params(_exception: StandardError).void }
     def render_task_run_not_found(_exception)
       render json: { error: "Task run not found" }, status: :not_found
@@ -392,10 +408,10 @@ module Internal
       return unless task_run.agent_session_steps.where(step_type: "think").exists?
 
       text = case step_record.step_type
-      when "navigate"
+      when "fetch_page", "navigate"
         path = step_record.detail&.dig("path")
         "Navigating to #{path}" if path.present?
-      when "execute"
+      when "execute_action", "execute"
         action = step_record.detail&.dig("action")
         "Executing #{action}" if action.present?
       end
