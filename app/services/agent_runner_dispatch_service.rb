@@ -81,11 +81,16 @@ class AgentRunnerDispatchService
     # Create ephemeral token linked to task run.
     # Extended TTL (4 hours) because the token is created at dispatch time,
     # not execution time — the task may sit in the queue before agent-runner picks it up.
+    # mcp_only: true locks the token to /mcp. All agent-acting calls from the
+    # runner go through McpClient → /mcp, so this closes the audit-bypass hole
+    # where a leaked token could be used against direct REST/markdown
+    # endpoints without producing an McpToolCallLog row.
     token = ApiToken.create_internal_token(
       user: ai_agent,
       tenant: tenant,
       context: @task_run,
       expires_in: 4.hours,
+      mcp_only: true,
     )
 
     # Publish to Redis Stream with encrypted token

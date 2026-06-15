@@ -131,7 +131,11 @@ class ApiTokenMcpOnlyTest < ActionDispatch::IntegrationTest
   # ====================
 
   test "ApiToken.create_internal_token defaults mcp_only=false" do
-    # Agent runner uses these tokens for direct HTTPS calls, not via /mcp.
+    # The default is conservative; the security boundary is enforced at the
+    # call site. AgentRunnerDispatchService passes mcp_only: true explicitly
+    # because its tokens flow through /mcp via the runner's McpClient;
+    # AutomationInternalActionService omits the kwarg because automations
+    # dispatch via MarkdownUiService against direct action endpoints.
     task_run = AiAgentTaskRun.create!(
       tenant: @tenant,
       ai_agent: @ai_agent,
@@ -140,6 +144,19 @@ class ApiTokenMcpOnlyTest < ActionDispatch::IntegrationTest
     )
     token = ApiToken.create_internal_token(user: @ai_agent, tenant: @tenant, context: task_run)
     refute token.mcp_only?
+  end
+
+  test "ApiToken.create_internal_token accepts mcp_only: true opt-in" do
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @parent,
+      task: "test",
+    )
+    token = ApiToken.create_internal_token(
+      user: @ai_agent, tenant: @tenant, context: task_run, mcp_only: true,
+    )
+    assert token.mcp_only?
   end
 
   test "human tokens default mcp_only=false" do
