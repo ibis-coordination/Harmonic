@@ -14,6 +14,7 @@ import { Effect, pipe } from "effect";
 import { LLMClient } from "./LLMClient.js";
 import { HarmonicClient } from "./HarmonicClient.js";
 import { TaskReporter } from "./TaskReporter.js";
+import { createRetryBudget } from "./Retry.js";
 import { Config } from "../config/Config.js";
 import { log } from "./Logger.js";
 import { decryptToken } from "./TokenCrypto.js";
@@ -109,6 +110,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     let lastActionResult: string | null = null;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    // Per-task budget for cumulative Retry-After backoff. Shared across all
+    // navigate/executeAction calls in this run; a sustained-throttle scenario
+    // can't blow past the budget into the task's wall-clock limit.
+    const retryBudget = createRetryBudget();
     const isChatTurn = task.mode === "chat_turn";
     const tools = isChatTurn
       ? [...getToolDefinitions(), RESPOND_TO_HUMAN_TOOL]
@@ -131,7 +136,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     // on a step so the loop can continue.
     const fetchPage = (path: string) =>
       Effect.gen(function* () {
-        const result = yield* harmonic.navigate(path, token, subdomain).pipe(
+        const result = yield* harmonic.navigate(path, token, subdomain, retryBudget).pipe(
           Effect.catchAll((err) =>
             Effect.succeed({
               content: "",
@@ -172,6 +177,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           params,
           token,
           subdomain,
+          retryBudget,
         ).pipe(
           Effect.catchAll((err) =>
             Effect.succeed({ content: "", success: false, _error: err.message }),

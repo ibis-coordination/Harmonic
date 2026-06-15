@@ -4,6 +4,7 @@ import { HarmonicClient, HarmonicClientLive, parseAvailableActions, type Navigat
 import { RailsHttp } from "../../src/services/RailsHttp.js";
 import type { RailsRequestOptions, RailsResponse } from "../../src/services/RailsHttp.js";
 import { Config } from "../../src/config/Config.js";
+import { createRetryBudget } from "../../src/services/Retry.js";
 import type { HarmonicApiError } from "../../src/errors/Errors.js";
 
 // --- Test helpers for navigate ---
@@ -46,7 +47,7 @@ function runNavigate(
   const layer = buildTestLayer(requestHandler);
   const program = Effect.gen(function* () {
     const client = yield* HarmonicClient;
-    return yield* client.navigate(path, "test-token", "app");
+    return yield* client.navigate(path, "test-token", "app", createRetryBudget());
   });
   return Effect.runPromiseExit(program.pipe(Effect.provide(layer)));
 }
@@ -60,7 +61,7 @@ function runExecuteAction(
   const layer = buildTestLayer(requestHandler);
   const program = Effect.gen(function* () {
     const client = yield* HarmonicClient;
-    return yield* client.executeAction(path, action, params, "test-token", "app");
+    return yield* client.executeAction(path, action, params, "test-token", "app", createRetryBudget());
   });
   return Effect.runPromiseExit(program.pipe(Effect.provide(layer)));
 }
@@ -292,5 +293,53 @@ Some content
 More content after rule
 `;
     expect(parseAvailableActions(content)).toEqual([]);
+  });
+});
+
+describe("navigate Retry-After backoff", () => {
+  it("retries once on 429 with Retry-After and surfaces the eventual 200", async () => {
+    const calls: number[] = [];
+    let i = 0;
+    const RailsHttpTest = Layer.succeed(RailsHttp, {
+      request: async (opts: RailsRequestOptions) => {
+        calls.push(opts.method === "GET" ? 1 : 0);
+        if (i++ === 0) {
+          return { statusCode: 429, headers: { "retry-after": "0" }, text: async () => "" };
+        }
+        return makeResponse(200, "# Hello");
+      },
+    });
+    const ConfigTest = Layer.succeed(Config, TEST_CONFIG);
+    const layer = HarmonicClientLive.pipe(Layer.provide(Layer.merge(RailsHttpTest, ConfigTest)));
+
+    const program = Effect.gen(function* () {
+      const client = yield* HarmonicClient;
+      return yield* client.navigate("/whoami", "tok", "app", createRetryBudget());
+    });
+    const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(layer)));
+
+    expect(Exit.isSuccess(exit)).toBe(true);
+    if (Exit.isSuccess(exit)) {
+      expect(exit.value.content).toContain("# Hello");
+    }
+    expect(calls.length).toBe(2);
+  });
+
+  it("surfaces a HarmonicApiError when 429 retry also 429s", async () => {
+    const RailsHttpTest = Layer.succeed(RailsHttp, {
+      request: async (_opts: RailsRequestOptions) => {
+        return { statusCode: 429, headers: { "retry-after": "0" }, text: async () => "rate limited" };
+      },
+    });
+    const ConfigTest = Layer.succeed(Config, TEST_CONFIG);
+    const layer = HarmonicClientLive.pipe(Layer.provide(Layer.merge(RailsHttpTest, ConfigTest)));
+
+    const program = Effect.gen(function* () {
+      const client = yield* HarmonicClient;
+      return yield* client.navigate("/whoami", "tok", "app", createRetryBudget());
+    });
+    const exit = await Effect.runPromiseExit(program.pipe(Effect.provide(layer)));
+
+    expect(Exit.isFailure(exit)).toBe(true);
   });
 });

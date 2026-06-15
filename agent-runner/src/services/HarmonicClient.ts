@@ -21,6 +21,7 @@ import { HarmonicApiError } from "../errors/Errors.js";
 import { Config } from "../config/Config.js";
 import { buildHeaders } from "./HmacSigner.js";
 import { RailsHttp } from "./RailsHttp.js";
+import { withRetryAfter, type RetryBudget } from "./Retry.js";
 
 export interface NavigateResult {
   readonly content: string;
@@ -49,13 +50,14 @@ export interface ChatHistoryResponse {
 }
 
 export interface HarmonicClientService {
-  readonly navigate: (path: string, token: string, subdomain: string) => Effect.Effect<NavigateResult, HarmonicApiError>;
+  readonly navigate: (path: string, token: string, subdomain: string, retryBudget: RetryBudget) => Effect.Effect<NavigateResult, HarmonicApiError>;
   readonly executeAction: (
     path: string,
     action: string,
     params: Record<string, unknown> | undefined,
     token: string,
     subdomain: string,
+    retryBudget: RetryBudget,
   ) => Effect.Effect<ActionResult, HarmonicApiError>;
   readonly fetchChatHistory: (chatSessionId: string, subdomain: string) => Effect.Effect<ChatHistoryResponse, HarmonicApiError>;
 }
@@ -115,14 +117,14 @@ export const HarmonicClientLive = Layer.effect(
     const railsHttp = yield* RailsHttp;
     const config = yield* Config;
 
-    const navigate: HarmonicClientService["navigate"] = (path, token, subdomain) =>
+    const navigate: HarmonicClientService["navigate"] = (path, token, subdomain, retryBudget) =>
       Effect.tryPromise({
         try: async () => {
           let currentPath = path;
           const maxRedirects = 5;
 
           for (let i = 0; i <= maxRedirects; i++) {
-            const response = await railsHttp.request({
+            const response = await withRetryAfter(retryBudget, () => railsHttp.request({
               method: "GET",
               subdomain,
               path: currentPath,
@@ -132,7 +134,7 @@ export const HarmonicClientLive = Layer.effect(
                 "Authorization": `Bearer ${token}`,
               },
               timeoutMs: 30_000,
-            });
+            }));
 
             // Follow redirects (3xx with Location header)
             if (response.statusCode >= 300 && response.statusCode < 400) {
@@ -166,7 +168,7 @@ export const HarmonicClientLive = Layer.effect(
           }),
       });
 
-    const executeAction: HarmonicClientService["executeAction"] = (path, action, params, token, subdomain) =>
+    const executeAction: HarmonicClientService["executeAction"] = (path, action, params, token, subdomain, retryBudget) =>
       Effect.tryPromise({
         try: async () => {
           // Strip the query string before appending `/actions/<name>` —
@@ -174,7 +176,7 @@ export const HarmonicClientLive = Layer.effect(
           // action URLs are on the bare resource path.
           const basePath = path.split("?")[0] ?? path;
           const actionPath = `${basePath}/actions/${action}`;
-          const response = await railsHttp.request({
+          const response = await withRetryAfter(retryBudget, () => railsHttp.request({
             method: "POST",
             subdomain,
             path: actionPath,
@@ -186,7 +188,7 @@ export const HarmonicClientLive = Layer.effect(
             },
             body: params !== undefined ? JSON.stringify(params) : "{}",
             timeoutMs: 30_000,
-          });
+          }));
 
           const content = await response.text();
           return {
