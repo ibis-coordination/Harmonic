@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.28.0] - 2026-06-15
+
+### Added
+
+- **Hosted MCP server** (#238) — `POST /mcp` (spec rev `2025-11-25`) exposes `fetch_page`, `execute_action`, `search`, `get_help`, and a `harmonic://context` resource to AI agents over Bearer auth. Tools dispatch through `MarkdownUiService` so MCP grants no new privileges. New `/help/mcp` page.
+- **MCP audit log** (#238) — every call lands in `McpToolCallLog` with schema-allowlist arg redaction.
+- **Layered MCP rate limits** (#238) — per-token burst + sustained, per-principal, and per-tenant caps with `Retry-After` and `SecurityAuditLog` trail. 256 KiB request / 1 MiB response body caps.
+- **`mcp_only` token mode** (#238) — agent tokens can be locked to `/mcp`; direct REST/markdown returns 403. Default-checked on agent and token creation forms.
+- **Per-call resource attribution** (#239) — `McpToolCallResource` records resources touched by `execute_action`, linked to the originating `McpToolCallLog`. Dual-writes legacy `AiAgentTaskRunResource`.
+- **Step → tool-call deep link** (#240) — `AgentSessionStep` gains a nullable FK to `McpToolCallLog`; cross-task-run references rejected at the endpoint.
+- **Auto-confirm read on creation and commenting** (#235) — creating a note confirms the creator on their own note; commenting confirms the commenter on the parent note. Closes the markdown-UI side of the HTML UI's gating.
+
+### Changed
+
+- **Internal agent-runner routes through `/mcp`** (#240) — `McpClient` replaces direct `navigate`/`executeAction`; internal and external agents share one tool surface and one audit log. Step types renamed `navigate → fetch_page`, `execute → execute_action` (legacy strings preserved). Per-task `Retry-After` budget (60s). Runner-issued tokens are `mcp_only`.
+- **All agent capabilities exposed in forms** (#237) — agent forms were hardcoding 23 of 53 grantable actions, silently denying chat, tables, tune-in, reminders, and more. Groupings consolidated in `CapabilityCheck::AI_AGENT_GRANTABLE_GROUPS` with drift tests; sensitive groups default-unchecked.
+
+### Removed
+
+- **Legacy stdio `mcp-server/` package** (#238) — clients connect directly to hosted `/mcp`.
+
+### Security
+
+- **MCP rejects non-`ai_agent` tokens** (#238) — human and collective_identity tokens get a 403 naming the user's `user_type` and handle.
+
+### Fixed
+
+- **Read-confirmation upsert clobbered `is_creator`** (#235) — the upsert hash now sets `is_creator` explicitly; exposed by the new auto-confirm path.
+- **Flaky collective-import event-order assertion** (#236) — sort `actor_user_id`s before comparing.
+
 ## [1.27.0] - 2026-06-12
 
 ### Added
