@@ -21,6 +21,45 @@ class McpToolCallResourceTest < ActiveSupport::TestCase
     Collective.clear_thread_scope
   end
 
+  test "rejects cross-tenant log_id (tenant_id must match log's tenant)" do
+    # Build a log row in a different tenant.
+    other_tenant = create_tenant(subdomain: "xtenant-#{SecureRandom.hex(4)}")
+    other_user = create_user
+    other_tenant.add_user!(other_user)
+    Tenant.scope_thread_to_tenant(subdomain: other_tenant.subdomain)
+    other_collective = create_collective(tenant: other_tenant, created_by: other_user, handle: "xtenant-coll")
+    Collective.scope_thread_to_collective(subdomain: other_tenant.subdomain, handle: other_collective.handle)
+    other_agent = create_ai_agent(parent: other_user, name: "Other Agent", agent_configuration: { "mode" => "external" })
+    other_tenant.add_user!(other_agent)
+    other_collective.add_user!(other_agent)
+    other_token = ApiToken.create!(tenant: other_tenant, user: other_agent, scopes: ApiToken.valid_scopes)
+    other_log = McpToolCallLog.create!(
+      tenant: other_tenant, user: other_agent, api_token: other_token,
+      tool_name: "execute_action", arguments: {}, status: "ok", duration_ms: 1
+    )
+
+    # Switch back to current tenant and attempt to attribute a current-tenant
+    # resource to the other-tenant log row.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @agent)
+    row = McpToolCallResource.new(
+      tenant: @tenant,
+      mcp_tool_call_log_id: other_log.id,
+      resource: note,
+      resource_collective: @collective,
+      action_name: "create_note"
+    )
+
+    # Cross-tenant references are blocked by McpToolCallLog's tenant-scoped
+    # default scope: belongs_to :mcp_tool_call_log tries to load the log,
+    # tenant scoping filters it out, the load returns nil, and Rails marks
+    # the record invalid with "Mcp tool call log must exist". This regression
+    # test locks that defense in place.
+    assert_not row.valid?, "expected tenant-mismatched attribution row to be invalid"
+    assert_includes row.errors[:mcp_tool_call_log], "must exist"
+  end
+
   test "creates a resource attribution row with required fields" do
     note = create_note(tenant: @tenant, collective: @collective, created_by: @agent)
     row = McpToolCallResource.create!(
