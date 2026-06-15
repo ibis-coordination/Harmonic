@@ -27,13 +27,13 @@
 <% @task_run.agent_session_steps.each_with_index do |step_record, index| -%>
 <% step = step_record.to_step_hash.with_indifferent_access -%>
 <% detail = step[:detail].is_a?(Hash) ? step[:detail].with_indifferent_access : {} -%>
-### Step <%= index + 1 %>: <%= step[:type].upcase %>
+### Step <%= index + 1 %>: <%= step[:type].upcase.tr("_", " ") %>
 
 *<%= Time.parse(step[:timestamp]).strftime("%H:%M:%S") %>*
 
 <% case step[:type] -%>
-<% when "navigate" -%>
-Navigated to: `<%= detail[:path] %>`
+<% when "fetch_page", "navigate" -%>
+Viewed page: `<%= detail[:path] %>`
 <% if detail[:available_actions]&.any? -%>
 
 Available actions: <%= detail[:available_actions].join(", ") %>
@@ -50,7 +50,7 @@ Available actions: <%= detail[:available_actions].join(", ") %>
 </details>
 <% end -%>
 
-<% when "execute" -%>
+<% when "execute_action", "execute" -%>
 Executed: `<%= detail[:action] %>` - <%= detail[:success] ? 'Success' : 'Failed' %>
 <% if detail[:params].present? && detail[:params].any? -%>
 
