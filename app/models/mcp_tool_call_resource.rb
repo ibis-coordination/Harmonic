@@ -20,12 +20,6 @@ class McpToolCallResource < ApplicationRecord
   validates :action_name, presence: true
   validate :resource_collective_matches_resource
 
-  # Override default scope - this model is NOT scoped by collective_id since
-  # resources may belong to different collectives than where the call originated.
-  def self.default_scope
-    where(tenant_id: Tenant.current_id)
-  end
-
   # Return the stored value of the `display_path` column.
   # ApplicationRecord defines `display_path` as a fallback that returns `path`,
   # which assumes the model has a `collective` and `path_prefix`. This model

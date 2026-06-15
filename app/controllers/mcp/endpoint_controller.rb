@@ -585,6 +585,11 @@ module Mcp
       normalized = normalize_action_path(path)
       return tool_error_result(id, invalid_path_message) if normalized.empty?
 
+      # Stash the action name on Current so track_task_run_resource (which fires
+      # deep inside the dispatched action controller) can attribute touched
+      # resources to this specific MCP call with the correct action_name.
+      Current.mcp_action_name = action_name
+
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) do
         service.set_path(normalized)

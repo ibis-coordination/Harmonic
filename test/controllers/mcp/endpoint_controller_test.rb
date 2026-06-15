@@ -1432,4 +1432,126 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
            "response text should be capped (got #{text.bytesize} bytes)"
     assert_match(/truncated/i, text, "truncation marker should be visible in the output")
   end
+
+  # ====================
+  # Resource attribution
+  #
+  # Every MCP execute_action call that creates or touches a resource writes an
+  # McpToolCallResource row tied to the parent McpToolCallLog. action_name is
+  # the literal action invoked (create_note, etc.). Behavior is gated on
+  # Current.mcp_tool_call_log_id being set by the endpoint controller, which
+  # the create-then-update lifecycle in handle_tools_call guarantees.
+  # ====================
+
+  test "execute_action create_note writes an McpToolCallResource linked to the log row" do
+    assert_difference -> { McpToolCallResource.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 800, method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: "/collectives/#{@collective.handle}/note",
+                         action: "create_note",
+                         params: { text: "attribution test note" },
+                       },
+                     },
+                   })
+    end
+
+    log = McpToolCallLog.order(:created_at).last
+    row = McpToolCallResource.order(:created_at).last
+    assert_equal log, row.mcp_tool_call_log
+    assert_equal "create_note", row.action_name
+    assert_kind_of Note, row.resource
+    assert_equal "attribution test note", row.resource.text
+    assert_equal @collective, row.resource_collective
+  end
+
+  test "execute_action that touches a resource (confirm_read) writes attribution" do
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @user)
+
+    assert_difference -> { McpToolCallResource.count }, 1 do
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 801, method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
+                         action: "confirm_read",
+                         params: {},
+                       },
+                     },
+                   })
+    end
+
+    row = McpToolCallResource.order(:created_at).last
+    assert_equal "confirm_read", row.action_name
+    assert_kind_of NoteHistoryEvent, row.resource
+  end
+
+  test "fetch_page does not write McpToolCallResource (no resource touched)" do
+    assert_no_difference -> { McpToolCallResource.count } do
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 802, method: "tools/call",
+                     params: { name: "fetch_page", arguments: { path: "/whoami" } },
+                   })
+    end
+  end
+
+  test "execute_action with no task-run context writes McpToolCallResource only (not AiAgentTaskRunResource)" do
+    assert_difference -> { McpToolCallResource.count }, 1 do
+      assert_no_difference -> { AiAgentTaskRunResource.count } do
+        post_jsonrpc({
+                       jsonrpc: "2.0", id: 803, method: "tools/call",
+                       params: {
+                         name: "execute_action",
+                         arguments: {
+                           path: "/collectives/#{@collective.handle}/note",
+                           action: "create_note",
+                           params: { text: "external-only attribution" },
+                         },
+                       },
+                     })
+      end
+    end
+  end
+
+  test "rapid-fire execute_action across calls writes one McpToolCallResource per call sharing the right log_id" do
+    3.times do |i|
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 810 + i, method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: "/collectives/#{@collective.handle}/note",
+                         action: "create_note",
+                         params: { text: "rapid note #{i}" },
+                       },
+                     },
+                   })
+    end
+
+    logs = McpToolCallLog.order(:created_at).last(3)
+    assert_equal 3, logs.size
+    logs.each do |log|
+      rows = McpToolCallResource.where(mcp_tool_call_log_id: log.id).to_a
+      assert_equal 1, rows.size, "expected one row per log, got #{rows.size} for #{log.id}"
+    end
+  end
+
+  test "tool_error execute_action does not write McpToolCallResource (no resource created)" do
+    assert_no_difference -> { McpToolCallResource.count } do
+      post_jsonrpc({
+                     jsonrpc: "2.0", id: 820, method: "tools/call",
+                     params: {
+                       name: "execute_action",
+                       arguments: {
+                         path: "/collectives/#{@collective.handle}/note",
+                         action: "create_note",
+                         params: {}, # missing required text → action fails
+                       },
+                     },
+                   })
+    end
+  end
 end

@@ -8,6 +8,7 @@ class ApplicationController < ActionController::Base
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 
+  before_action :restore_mcp_dispatch_context!
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_collective,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
@@ -135,6 +136,19 @@ class ApplicationController < ActionController::Base
 
   def api_token_present?
     request.headers["Authorization"].present?
+  end
+
+  # Restore Current.mcp_tool_call_log_id + mcp_action_name from env when the
+  # request is an MCP internal dispatch. The Executor middleware resets
+  # CurrentAttributes between requests, so values the outer Mcp::EndpointController
+  # set on Current would be invisible here without this step. Env keys are
+  # written by MarkdownUiService#dispatch_env and can't be forged via HTTP_*
+  # headers from external clients.
+  def restore_mcp_dispatch_context!
+    log_id = request.env["harmonic.mcp_tool_call_log_id"]
+    action_name = request.env["harmonic.mcp_action_name"]
+    Current.mcp_tool_call_log_id = log_id if log_id.present?
+    Current.mcp_action_name = action_name if action_name.present?
   end
 
   def current_token
