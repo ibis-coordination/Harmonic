@@ -17,6 +17,8 @@ class McpToolCallLog < ApplicationRecord
   belongs_to :user
   belongs_to :api_token
 
+  has_many :mcp_tool_call_resources, dependent: :destroy
+
   validates :tool_name, presence: true
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :duration_ms, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
