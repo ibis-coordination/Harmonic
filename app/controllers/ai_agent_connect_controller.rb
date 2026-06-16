@@ -47,6 +47,13 @@ class AiAgentConnectController < ApplicationController
       return redirect_to settings_path
     end
 
+    @mcp_url = "#{request.protocol}#{request.host_with_port}/mcp"
+    @install_action = Mcp::Connect::InstallAction.new(
+      harness_key: @harness_key,
+      mcp_url: @mcp_url,
+      token: T.must(@token.plaintext_token),
+    ).to_h
+
     render "show"
   end
 

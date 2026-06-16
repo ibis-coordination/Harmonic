@@ -1,0 +1,18 @@
+<%# Claude Code, Codex CLI — one or more labeled command blocks. %>
+<section class="pulse-settings-section">
+  <h3>Install via the terminal</h3>
+  <% payload[:blocks].each_with_index do |block, i| %>
+    <div style="margin-top: <%= i.zero? ? '0' : '16px' %>;">
+      <p class="pulse-hint" style="margin-bottom:6px;">
+        <strong>Step <%= i + 1 %>.</strong> <%= block[:label] %>
+      </p>
+      <pre><code><%= block[:code] %></code></pre>
+      <%= render 'shared/copy_button', text: block[:code] %>
+      <% if block[:hint].present? %>
+        <p class="pulse-hint" style="margin-top:4px; font-style: italic;">
+          <%= block[:hint] %>
+        </p>
+      <% end %>
+    </div>
+  <% end %>
+</section>
