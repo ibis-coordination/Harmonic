@@ -735,6 +735,34 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "settings page shows client_name as the token label for Connect-flow tokens" do
+    ApiToken.create!(
+      tenant: @tenant,
+      user: @ai_agent,
+      name: "Cursor connection",
+      client_name: "Cursor",
+      scopes: ["read:all"],
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Client"
+    assert_includes response.body, "Cursor"
+  end
+
+  test "settings page falls back to token name when client_name is blank" do
+    ApiToken.create!(
+      tenant: @tenant,
+      user: @ai_agent,
+      name: "Hand-rolled paste token",
+      scopes: ["read:all"],
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Hand-rolled paste token"
+  end
+
   test "settings is reachable when only internal_ai_agents is enabled" do
     @tenant.disable_feature_flag!("external_ai_agents")
     sign_in_as(@user, tenant: @tenant)

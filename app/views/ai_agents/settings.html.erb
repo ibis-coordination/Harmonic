@@ -195,7 +195,7 @@
             <table class="pulse-table">
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Client</th>
                   <th>Token</th>
                   <th>MCP-only</th>
                   <th>Created</th>
@@ -208,7 +208,7 @@
               <tbody>
                 <% @ai_agent.api_tokens.external.each do |token| %>
                   <tr>
-                    <td><%= token.name || 'Unnamed' %></td>
+                    <td><%= token.client_label.presence || 'Unnamed' %></td>
                     <td>
                       <code class="pulse-code"><%= token.obfuscated_token %></code>
                       <% if token.plaintext_token.present? %>
