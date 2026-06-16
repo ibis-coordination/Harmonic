@@ -210,6 +210,7 @@ Rails.application.routes.draw do
   %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui mcp notifications representation billing].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
+  get 'help/mcp/connect/:harness' => 'help#mcp_connect', as: 'help_mcp_connect'
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
 

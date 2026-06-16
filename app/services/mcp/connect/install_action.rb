@@ -46,14 +46,16 @@ module Mcp
       sig { returns(T::Hash[Symbol, T.untyped]) }
       def to_h
         case @harness_key
-        when "cursor"        then cursor
-        when "claude-code"   then claude_code
-        when "codex-cli"     then codex_cli
-        when "cline"         then cline
-        when "continue"      then continue
-        when "goose"         then goose
-        when "hermes-agent" then credentials_block("/help/mcp/connect/hermes-agent")
-        when "openclaw"      then credentials_block("/help/mcp/connect/openclaw")
+        when "cursor"         then cursor
+        when "claude-code"    then claude_code
+        when "claude-desktop" then claude_desktop
+        when "codex"          then codex
+        when "codex-cloud"    then credentials_block("/help/mcp/connect/codex-cloud")
+        when "cline"          then cline
+        when "continue"       then continue
+        when "goose"          then goose
+        when "hermes-agent"   then credentials_block("/help/mcp/connect/hermes-agent")
+        when "openclaw"       then credentials_block("/help/mcp/connect/openclaw")
         else
           raise ArgumentError, "Unknown harness: #{@harness_key.inspect}"
         end
@@ -90,6 +92,33 @@ module Mcp
       end
 
       sig { returns(T::Hash[Symbol, T.untyped]) }
+      def claude_desktop
+        # Claude Desktop's `type` field for streamable HTTP is "http"
+        # (different from Cline's camelCase "streamableHttp"). The native
+        # Custom Connector UI requires OAuth, so the config-file path is
+        # the supported workaround for static Bearer tokens.
+        config = JSON.pretty_generate({
+          mcpServers: {
+            server_name => {
+              type: "http",
+              url: @mcp_url,
+              headers: { "Authorization" => "Bearer #{@token}" },
+            },
+          },
+        })
+        {
+          kind: :snippet,
+          payload: {
+            format: "json",
+            code: config,
+            paste_into: "Edit ~/Library/Application Support/Claude/claude_desktop_config.json (macOS) " \
+                        "or %APPDATA%\\Claude\\claude_desktop_config.json (Windows). Merge the " \
+                        "#{server_name} entry into the existing mcpServers object, then restart Claude Desktop.",
+          },
+        }
+      end
+
+      sig { returns(T::Hash[Symbol, T.untyped]) }
       def claude_code
         cmd = %{claude mcp add --transport http #{server_name} #{@mcp_url} --header "Authorization: Bearer #{@token}"}
         {
@@ -102,8 +131,12 @@ module Mcp
         }
       end
 
+      # Codex covers the CLI, Desktop app, and IDE extension — they all
+      # share `~/.codex/config.toml`, so a single `codex mcp add` is enough
+      # to wire all three. (Codex Cloud at chatgpt.com/codex is a separate
+      # UI-based connector flow, handled by the credentials shape.)
       sig { returns(T::Hash[Symbol, T.untyped]) }
-      def codex_cli
+      def codex
         {
           kind: :cli_command,
           payload: {
@@ -116,12 +149,7 @@ module Mcp
               {
                 label: "Add the MCP server:",
                 code: "codex mcp add #{server_name} --url #{@mcp_url} --bearer-token-env-var #{env_var_name}",
-                hint: nil,
-              },
-              {
-                label: "Enable HTTP transport in ~/.codex/config.toml:",
-                code: "experimental_use_rmcp_client = true",
-                hint: "This goes at the top of the file, not inside [mcp_servers.*].",
+                hint: "Wires up the CLI, Desktop app, and IDE extension at once — they share the same config.",
               },
             ],
           },

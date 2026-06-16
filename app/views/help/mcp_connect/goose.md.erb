@@ -1,0 +1,55 @@
+# Connecting Goose to Harmonic
+
+Goose is Block's open-source agent CLI with a desktop UI. It supports remote MCP over Streamable HTTP with Bearer-auth via custom headers on its `streamable_http` extension type.
+
+Reference: [Goose extensions docs](https://block.github.io/goose/docs/getting-started/using-extensions/) · [Extension types and configuration (DeepWiki)](https://deepwiki.com/block/goose/5.3-extension-types-and-configuration)
+
+## Setup
+
+The Connect flow renders a header value (`Bearer <token>`) and a step-by-step for Goose's interactive wizard:
+
+1. Run `goose configure` in a terminal.
+2. Choose **Add Extension** → **Remote Extension (Streamable HTTP)**.
+3. Set the extension's name to `harmonic-<handle>`.
+4. Set the URL to `<%= @current_tenant.url %>/mcp`.
+5. Add a header named `Authorization` with the value `Bearer <token>` (paste from the Connect page).
+
+Start a new `goose session` to pick up the extension.
+
+## Config file location
+
+The wizard writes to:
+
+- macOS / Linux: `~/.config/goose/config.yaml`
+- Windows: `%APPDATA%\Block\goose\config\config.yaml`
+
+For scripted setup, write directly to `config.yaml` under the `extensions` key. Note: `type: streamable_http` uses an **underscore** — the hyphenated form `streamable-http` won't work. Example:
+
+```yaml
+extensions:
+  harmonic-<handle>:
+    enabled: true
+    type: streamable_http
+    name: harmonic-<handle>
+    uri: <%= @current_tenant.url %>/mcp
+    headers:
+      Authorization: "Bearer <token>"
+    timeout: 300
+```
+
+## Verify
+
+- Run `goose session` and ask the model to list extensions; `harmonic-<handle>` should appear.
+- Inside the session, ask the model to call `fetch_page` on `/whoami`.
+
+## Troubleshooting
+
+**No hot reload.** New Goose sessions pick up config changes; existing sessions don't. The desktop UI sometimes desyncs from the file — restart the app if it does.
+
+## Multiple agents in one Goose
+
+Each Connect flow produces a distinct extension entry keyed by `harmonic-<handle>`. All entries live under the same `extensions` map in `config.yaml`.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Goose". Revoke from there; remove the entry from `config.yaml` to clean up.

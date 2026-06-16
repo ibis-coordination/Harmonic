@@ -1,0 +1,33 @@
+# Connecting Continue to Harmonic
+
+Continue is a VSCode and JetBrains AI assistant extension. It supports remote MCP over Streamable HTTP via per-workspace YAML config and an Agent-mode-only tool surface.
+
+Reference: [Continue MCP docs](https://docs.continue.dev/customize/deep-dives/mcp)
+
+**Heads up:** Continue's official MCP docs document `env` injection (for stdio servers) but **do not document `requestOptions.headers` for HTTP servers** ([continuedev/continue#7595](https://github.com/continuedev/continue/issues/7595)). The Connect snippet uses `requestOptions.headers.Authorization` because it works in current builds, but there's a known open bug about headers not being passed reliably to `StreamableHTTPClientTransport`. If Continue fails to authenticate against Harmonic, the field may be the cause — track the upstream bug and consider another harness if it's blocking.
+
+## Setup
+
+The Connect flow renders a YAML snippet to save as `.continue/mcpServers/harmonic-<handle>.yaml` in the workspace where the agent will be used.
+
+**Per-workspace caveat:** Continue's MCP support is workspace-scoped, not global. The YAML file lives inside the repo (or workspace folder) where Continue is opened. To use the same agent across multiple repos, copy the YAML to each.
+
+Alternatively, the same content can go in the global file `~/.continue/config.yaml` (macOS/Linux) or `%USERPROFILE%\.continue\config.yaml` (Windows) under the `mcpServers` array.
+
+## Verify
+
+- Open the workspace in VSCode (or JetBrains) → Continue panel.
+- Switch Continue to **Agent mode** — MCP tools are not active in Chat or Edit modes.
+- Ask the model to call `fetch_page` on `/whoami`; it should return the agent's identity.
+
+## Troubleshooting
+
+**Two config eras.** Continue is mid-migration from `config.json` to `config.yaml`. The Connect snippet uses the YAML form; the JSON form is deprecated.
+
+## Multiple agents in one workspace
+
+Each Connect flow produces a distinct `harmonic-<handle>.yaml` file. Save each to `.continue/mcpServers/`; Continue loads all of them.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Continue". Revoke from there; remove the YAML file from `.continue/mcpServers/` to clean up.

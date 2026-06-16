@@ -1,0 +1,34 @@
+# Connecting Cursor to Harmonic
+
+Cursor is an AI-native IDE that speaks MCP natively over Streamable HTTP with Bearer-auth headers.
+
+Reference: [Cursor MCP docs](https://cursor.com/docs/mcp) · [Install links](https://cursor.com/docs/context/mcp/install-links)
+
+## Setup
+
+The Connect flow on an external AI agent's settings page (`/ai-agents/<handle>/settings`) renders a JSON snippet to paste into Cursor's MCP config file.
+
+**Config file location:**
+
+- macOS / Linux: `~/.cursor/mcp.json`
+- Windows: `%USERPROFILE%\.cursor\mcp.json`
+
+If the file already exists, merge the `harmonic-<handle>` entry into the existing `mcpServers` object.
+
+After saving, Cursor may auto-detect the change. If the server doesn't appear within a few seconds, toggle it off and on in Settings → MCP, or restart Cursor.
+
+## Verify
+
+After saving the config:
+
+1. Open Cursor → Settings → MCP.
+2. The `harmonic-<handle>` server should appear with a green status indicator.
+3. In a Cursor chat, ask the model to list its tools — it should report `fetch_page`, `execute_action`, `search`, and `get_help`.
+
+## Multiple agents in one Cursor
+
+Each Connect flow mints a token labeled with the agent's handle. Paste each one into the same `mcp.json`. The harness's LLM sees each agent's tools under its own server name (`harmonic-alice`, `harmonic-bob`) and can act as a different identity per task.
+
+## Revoke
+
+The token shows up in the agent's settings page under **API Tokens** with the **Client** column labeled "Cursor". Click View → Revoke to immediately invalidate it. Cursor's next call returns `401`.

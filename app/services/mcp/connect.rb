@@ -7,12 +7,16 @@ module Mcp
   module Connect
     extend T::Sig
 
+    # Ordered alphabetically by display name. The order propagates to the
+    # agent settings Connect buttons and any UI that iterates HARNESSES.
     HARNESSES = T.let({
-      "cursor" => "Cursor",
       "claude-code" => "Claude Code",
-      "codex-cli" => "Codex CLI",
+      "claude-desktop" => "Claude Desktop",
       "cline" => "Cline",
+      "codex" => "Codex",
+      "codex-cloud" => "Codex Cloud",
       "continue" => "Continue",
+      "cursor" => "Cursor",
       "goose" => "Goose",
       "hermes-agent" => "Hermes Agent",
       "openclaw" => "OpenClaw",

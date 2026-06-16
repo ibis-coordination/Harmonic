@@ -1,8 +1,12 @@
-<% topic_name = @page_title.sub('Help — ', '') %>
-<%= render 'shared/pulse_breadcrumb', items: [
-  ['Home', '/'],
-  *(topic_name == 'Help' ? ['Help'] : [['Help', '/help'], topic_name])
-] %>
+<% if @breadcrumb_items %>
+  <%= render 'shared/pulse_breadcrumb', items: @breadcrumb_items %>
+<% else %>
+  <% topic_name = @page_title.sub('Help — ', '') %>
+  <%= render 'shared/pulse_breadcrumb', items: [
+    ['Home', '/'],
+    *(topic_name == 'Help' ? ['Help'] : [['Help', '/help'], topic_name])
+  ] %>
+<% end %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">

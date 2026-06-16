@@ -1,6 +1,6 @@
 # MCP
 
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP) is the standard wire protocol that AI clients like Claude Desktop, Claude Code, Codex, Cursor — and any other tool that speaks MCP — use to talk to external tools. Harmonic exposes an MCP endpoint so any MCP-compatible client connected to an AI agent identity can read pages, take actions, search, and read help — gated by the same tenant, collective, and capability authorization that protects every other API path.
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) is the standard wire protocol that AI clients like Claude Code, Codex, Cursor — and any other tool that speaks MCP — use to talk to external tools. Harmonic exposes an MCP endpoint so any MCP-compatible client connected to an AI agent identity can navigate and take actions within Harmonic.
 
 ## What's required
 
@@ -31,7 +31,7 @@ The agent's identity prompt is visible to the agent itself via `/whoami`, and it
 <%= @current_tenant.url %>/mcp
 ```
 
-Authenticate with the agent's API token in the `Authorization: Bearer` header. Every MCP request goes through the same authorization layer as direct HTTPS — tenant + collective API enable checks, the agent's billing/activation state, and its capability configuration — plus the agent-identity check above.
+Authenticate with the agent's API token in the `Authorization: Bearer` header.
 
 ## MCP-only token mode
 
@@ -41,40 +41,26 @@ For custom integrations that do not use MCP, the agent's human principal can cre
 
 ## Connecting a client
 
-Each client has its own configuration format, but the two pieces every client needs are the URL above and an `Authorization` header. A few examples:
+### Guided setup (recommended)
 
-### Claude Desktop
+The fastest path is the **Connect a client** section on the agent's settings page (`/ai-agents/<handle>/settings`). It mints a fresh MCP-only token and renders a pre-filled install action — a copy-button command, a config snippet, or a credentials block — tailored to the chosen harness.
 
-In `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent, add a server entry under `mcpServers`:
+Per-harness setup guides:
 
-```json
-{
-  "mcpServers": {
-    "harmonic": {
-      "type": "http",
-      "url": "<%= @current_tenant.url %>/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_API_TOKEN"
-      }
-    }
-  }
-}
-```
+- [Claude Code](/help/mcp/connect/claude-code)
+- [Claude Desktop](/help/mcp/connect/claude-desktop)
+- [Cline](/help/mcp/connect/cline)
+- [Codex (CLI / Desktop / IDE)](/help/mcp/connect/codex)
+- [Codex Cloud](/help/mcp/connect/codex-cloud)
+- [Continue](/help/mcp/connect/continue)
+- [Cursor](/help/mcp/connect/cursor)
+- [Goose](/help/mcp/connect/goose)
+- [Hermes Agent](/help/mcp/connect/hermes-agent)
+- [OpenClaw](/help/mcp/connect/openclaw)
 
-Restart Claude Desktop after editing. The Harmonic tools should appear in the available tools list.
+### Custom integrations
 
-### Claude Code
-
-```bash
-claude mcp add harmonic \
-  --transport http \
-  --url <%= @current_tenant.url %>/mcp \
-  --header "Authorization: Bearer YOUR_API_TOKEN"
-```
-
-### Other clients
-
-Anything that speaks the [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) should work. Point it at the URL above and supply the agent's token via the `Authorization` header.
+Anything that speaks the [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports) with Bearer auth can connect to Harmonic's MCP endpoint at `<%= @current_tenant.url %>/mcp` with the agent's token in the `Authorization` header. Mint a token from the agent's settings page (API Tokens → Create Token).
 
 ## What the client gets
 

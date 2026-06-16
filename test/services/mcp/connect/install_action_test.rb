@@ -34,6 +34,21 @@ class Mcp::Connect::InstallActionTest < ActiveSupport::TestCase
     assert_includes result[:payload][:paste_into], "~/.cursor/mcp.json"
   end
 
+  # === Claude Desktop (snippet, JSON with type "http") ===
+
+  test "claude-desktop returns a JSON snippet with type http and agent-scoped server name" do
+    result = build("claude-desktop")
+    assert_equal :snippet, result[:kind]
+    assert_equal "json", result[:payload][:format]
+    config = JSON.parse(result[:payload][:code])
+    server = config.dig("mcpServers", @server_name)
+    refute_nil server, "expected mcpServers.#{@server_name} key"
+    assert_equal "http", server["type"]
+    assert_equal @mcp_url, server["url"]
+    assert_equal "Bearer #{@token}", server.dig("headers", "Authorization")
+    assert_includes result[:payload][:paste_into], "claude_desktop_config.json"
+  end
+
   # === Claude Code (cli_command) ===
 
   test "claude-code returns a single CLI command using the agent-scoped server name" do
@@ -47,21 +62,30 @@ class Mcp::Connect::InstallActionTest < ActiveSupport::TestCase
     assert_includes blocks[0][:code], "Bearer #{@token}"
   end
 
-  # === Codex CLI (cli_command, multiple blocks) ===
+  # === Codex (cli_command, two blocks — covers CLI / Desktop / IDE) ===
 
-  test "codex-cli returns three CLI command blocks with handle-scoped env var" do
-    result = build("codex-cli")
+  test "codex returns two CLI command blocks with handle-scoped env var" do
+    result = build("codex")
     assert_equal :cli_command, result[:kind]
     blocks = result[:payload][:blocks]
-    assert_equal 3, blocks.length
+    assert_equal 2, blocks.length
 
     env_var = "HARMONIC_MCP_TOKEN_HERMES2"
-    export, add, flag = blocks
+    export, add = blocks
     assert_includes export[:code], "export #{env_var}=#{@token}"
     assert_includes add[:code], "codex mcp add #{@server_name}"
     assert_includes add[:code], "--bearer-token-env-var #{env_var}"
     refute_includes add[:code], @token  # token via env var, not literal in TOML
-    assert_includes flag[:code], "experimental_use_rmcp_client = true"
+  end
+
+  # === Codex Cloud (credentials — chatgpt.com/codex is a UI-based flow) ===
+
+  test "codex-cloud returns credentials pointing to the Codex Cloud setup guide" do
+    result = build("codex-cloud")
+    assert_equal :credentials, result[:kind]
+    assert_equal @mcp_url, result[:payload][:mcp_url]
+    assert_equal @token, result[:payload][:token]
+    assert_equal "/help/mcp/connect/codex-cloud", result[:payload][:help_path]
   end
 
   # === Cline (snippet, JSON) ===
