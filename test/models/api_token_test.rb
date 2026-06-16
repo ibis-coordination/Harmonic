@@ -638,4 +638,49 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert internal.persisted?
     assert internal.internal?
   end
+
+  # === client_name + client_label ===
+
+  test "client_name defaults to nil" do
+    token = ApiToken.create!(tenant: @tenant, user: @user, name: "My token", scopes: ["read:all"])
+    assert_nil token.client_name
+  end
+
+  test "client_name can be set on creation" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "My token",
+      scopes: ["read:all"],
+      client_name: "Cursor",
+    )
+    assert_equal "Cursor", token.client_name
+  end
+
+  test "client_label returns client_name when present" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Backing name",
+      scopes: ["read:all"],
+      client_name: "Claude Code",
+    )
+    assert_equal "Claude Code", token.client_label
+  end
+
+  test "client_label falls back to name when client_name is nil" do
+    token = ApiToken.create!(tenant: @tenant, user: @user, name: "Legacy token", scopes: ["read:all"])
+    assert_equal "Legacy token", token.client_label
+  end
+
+  test "client_label falls back to name when client_name is blank" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "Legacy token",
+      scopes: ["read:all"],
+      client_name: "",
+    )
+    assert_equal "Legacy token", token.client_label
+  end
 end

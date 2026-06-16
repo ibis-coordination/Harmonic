@@ -84,6 +84,11 @@ Rails.application.routes.draw do
   post 'ai-agents/:handle/automations/:automation_id/actions/toggle_automation_rule' => 'agent_automations#execute_toggle'
   get 'ai-agents/:handle/automations/:automation_id/edit/actions' => 'agent_automations#actions_index_edit'
 
+  # MCP Connect flow — mints a fresh ApiToken labeled with the chosen harness
+  # and renders the per-harness install action (deeplink / CLI command /
+  # config snippet / credentials block).
+  post 'ai-agents/:handle/connect/:harness' => 'ai_agent_connect#create', as: 'ai_agent_connect'
+
   # Notification webhook (singular — one per user/agent).
   # GET /webhook is the canonical refreshable show page; PATCH/POST also
   # render :show so the URL is stable across mutations (mirrors the API

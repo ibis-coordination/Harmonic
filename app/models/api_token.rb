@@ -168,6 +168,11 @@ class ApiToken < ApplicationRecord
     internal == true
   end
 
+  sig { returns(String) }
+  def client_label
+    client_name.presence || name.to_s
+  end
+
   # Create a new ephemeral internal token.
   # Token should be deleted when the run completes.
   # The plaintext is available via token.plaintext_token immediately after creation.

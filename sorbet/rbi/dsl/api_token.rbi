@@ -632,6 +632,51 @@ class ApiToken
     def app_admin_will_change!; end
 
     sig { returns(T.nilable(::String)) }
+    def client_name; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def client_name=(value); end
+
+    sig { returns(T::Boolean) }
+    def client_name?; end
+
+    sig { returns(T.nilable(::String)) }
+    def client_name_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def client_name_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def client_name_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def client_name_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def client_name_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def client_name_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def client_name_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def client_name_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def client_name_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def client_name_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def client_name_was; end
+
+    sig { void }
+    def client_name_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
     def context_id; end
 
     sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
@@ -1130,6 +1175,9 @@ class ApiToken
     def restore_app_admin!; end
 
     sig { void }
+    def restore_client_name!; end
+
+    sig { void }
     def restore_context_id!; end
 
     sig { void }
@@ -1191,6 +1239,12 @@ class ApiToken
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_client_name; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_client_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_context_id; end
@@ -1668,6 +1722,9 @@ class ApiToken
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_app_admin?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_client_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_context_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

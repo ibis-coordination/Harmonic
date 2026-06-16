@@ -1,0 +1,24 @@
+<% content_for(:title, "Connect #{@harness_name} — #{@ai_agent.display_name}") %>
+
+<div class="content-narrow">
+  <h1>Connect <%= @harness_name %></h1>
+  <p class="text-muted">
+    A fresh token for <strong><%= @ai_agent.display_name %></strong> has been minted.
+    Use the install action below to wire up <%= @harness_name %>.
+  </p>
+
+  <%# Step 3 will replace this stub with a per-harness renderer.
+      For now we show the raw credentials so the controller flow is testable. %>
+  <section class="card">
+    <h2>MCP server URL</h2>
+    <pre><code><%= "#{request.protocol}#{request.host_with_port}/mcp" %></code></pre>
+
+    <h2>Bearer token</h2>
+    <p class="text-muted">This token is shown once. Copy it now — you can revoke it from your tokens settings.</p>
+    <pre><code><%= @token.plaintext_token %></code></pre>
+  </section>
+
+  <p>
+    <%= link_to "Back to agent settings", "/ai-agents/#{@ai_agent.handle}/settings" %>
+  </p>
+</div>
