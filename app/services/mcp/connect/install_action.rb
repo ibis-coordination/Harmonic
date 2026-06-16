@@ -19,11 +19,28 @@ module Mcp
     class InstallAction
       extend T::Sig
 
-      sig { params(harness_key: String, mcp_url: String, token: String).void }
-      def initialize(harness_key:, mcp_url:, token:)
+      sig { params(harness_key: String, mcp_url: String, token: String, agent_handle: String).void }
+      def initialize(harness_key:, mcp_url:, token:, agent_handle:)
         @harness_key = harness_key
         @mcp_url = mcp_url
         @token = token
+        @agent_handle = agent_handle
+      end
+
+      # Server name as it appears in the harness's config. Scoped by agent
+      # handle so a human principal can connect multiple agents to the same
+      # harness without their configs colliding on a shared "harmonic" key.
+      sig { returns(String) }
+      def server_name
+        "harmonic-#{@agent_handle}"
+      end
+
+      # Env-var-safe rendering of the server name (for Codex's
+      # bearer_token_env_var). Handles are [a-zA-Z0-9_-], so we just upcase
+      # and convert dashes to underscores.
+      sig { returns(String) }
+      def env_var_name
+        "HARMONIC_MCP_TOKEN_#{@agent_handle.upcase.tr('-', '_')}"
       end
 
       sig { returns(T::Hash[Symbol, T.untyped]) }
@@ -52,7 +69,7 @@ module Mcp
         # path keeps the token on the user's machine.
         config = JSON.pretty_generate({
           mcpServers: {
-            harmonic: {
+            server_name => {
               url: @mcp_url,
               headers: { "Authorization" => "Bearer #{@token}" },
             },
@@ -65,7 +82,7 @@ module Mcp
             code: config,
             paste_into: "Save this as ~/.cursor/mcp.json (macOS/Linux) or " \
                         "%USERPROFILE%\\.cursor\\mcp.json (Windows). If the file " \
-                        "already exists, merge the harmonic entry into the existing " \
+                        "already exists, merge the #{server_name} entry into the existing " \
                         "mcpServers object. Cursor picks up changes within a second " \
                         "or two — no restart usually needed.",
           },
@@ -74,7 +91,7 @@ module Mcp
 
       sig { returns(T::Hash[Symbol, T.untyped]) }
       def claude_code
-        cmd = %{claude mcp add --transport http harmonic #{@mcp_url} --header "Authorization: Bearer #{@token}"}
+        cmd = %{claude mcp add --transport http #{server_name} #{@mcp_url} --header "Authorization: Bearer #{@token}"}
         {
           kind: :cli_command,
           payload: {
@@ -93,12 +110,12 @@ module Mcp
             blocks: [
               {
                 label: "Set the token in your shell:",
-                code: "export HARMONIC_MCP_TOKEN=#{@token}",
+                code: "export #{env_var_name}=#{@token}",
                 hint: "Add this to your shell rc (~/.zshrc, ~/.bashrc) so it survives restarts.",
               },
               {
                 label: "Add the MCP server:",
-                code: "codex mcp add harmonic --url #{@mcp_url} --bearer-token-env-var HARMONIC_MCP_TOKEN",
+                code: "codex mcp add #{server_name} --url #{@mcp_url} --bearer-token-env-var #{env_var_name}",
                 hint: nil,
               },
               {
@@ -115,7 +132,7 @@ module Mcp
       def cline
         config = JSON.pretty_generate({
           mcpServers: {
-            harmonic: {
+            server_name => {
               url: @mcp_url,
               type: "streamableHttp",
               headers: { "Authorization" => "Bearer #{@token}" },
@@ -129,7 +146,7 @@ module Mcp
           payload: {
             format: "json",
             code: config,
-            paste_into: "Open Cline in VSCode → MCP Servers panel → Configure MCP Servers (JSON) and merge this into cline_mcp_settings.json.",
+            paste_into: "Open Cline in VSCode → MCP Servers panel → Configure MCP Servers (JSON) and merge the #{server_name} entry into cline_mcp_settings.json.",
           },
         }
       end
@@ -137,11 +154,11 @@ module Mcp
       sig { returns(T::Hash[Symbol, T.untyped]) }
       def continue
         yaml = <<~YAML
-          name: Harmonic MCP
+          name: Harmonic MCP (#{@agent_handle})
           version: 0.0.1
           schema: v1
           mcpServers:
-            - name: Harmonic
+            - name: #{server_name}
               type: streamable-http
               url: #{@mcp_url}
               requestOptions:
@@ -153,7 +170,7 @@ module Mcp
           payload: {
             format: "yaml",
             code: yaml,
-            paste_into: "Save this as .continue/mcpServers/harmonic.yaml in your workspace (Continue's MCP support is per-workspace).",
+            paste_into: "Save this as .continue/mcpServers/#{server_name}.yaml in your workspace (Continue's MCP support is per-workspace).",
           },
         }
       end
@@ -166,7 +183,7 @@ module Mcp
             format: "text",
             code: "Bearer #{@token}",
             paste_into: "Run `goose configure` → Add Extension → Remote Extension (Streamable HTTP). " \
-                        "Use URL #{@mcp_url} and add a header named Authorization with the value above.",
+                        "Name it #{server_name}, use URL #{@mcp_url}, and add a header named Authorization with the value above.",
           },
         }
       end

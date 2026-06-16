@@ -52,6 +52,7 @@ class AiAgentConnectController < ApplicationController
       harness_key: @harness_key,
       mcp_url: @mcp_url,
       token: T.must(@token.plaintext_token),
+      agent_handle: T.must(@ai_agent.handle),
     ).to_h
 
     render "show"
