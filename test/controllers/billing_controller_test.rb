@@ -783,7 +783,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     @user.update!(billing_exempt: true)
     Collective.where(created_by_id: @user.id).where.not(id: @tenant.main_collective_id).update_all(billing_exempt: true)
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user, tenant: @tenant)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
@@ -921,7 +921,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_syncfail")
       .to_return(status: 500, body: { error: { message: "Internal error" } }.to_json)
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user, tenant: @tenant)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
@@ -956,7 +956,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     stub_request(:post, "https://api.stripe.com/v1/invoices/in_cancel/pay")
       .to_return(status: 200, body: { id: "in_cancel", object: "invoice", status: "paid" }.to_json, headers: { "Content-Type" => "application/json" })
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user, tenant: @tenant)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Created During Cancel",
       confirm_billing: "1",

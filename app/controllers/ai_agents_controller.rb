@@ -16,11 +16,12 @@ class AiAgentsController < ApplicationController
   before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
   before_action :require_billing_for_creation, only: [:new]
   before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
-  # Creating an agent provisions a new identity with its own credentials. Gate
-  # the form (GET /ai-agents/new) and the create endpoint that the form POSTs to
-  # (execute_create_ai_agent — also the markdown-API path) so a hijacked session
-  # can't silently spawn agents under the principal.
-  before_action -> { require_reverification(scope: "ai_agents") },
+  # Token creation is the sensitive action gated here: execute_create_ai_agent
+  # can mint a token inline via generate_token=1, and AiAgentConnectController
+  # mints one from the agent settings page. Use the same "api_tokens" scope
+  # ApiTokensController and AiAgentConnectController use, so a single
+  # reverification covers the whole create-and-mint flow.
+  before_action -> { require_reverification(scope: "api_tokens") },
                 only: [:new, :create, :execute_create_ai_agent]
   before_action :set_ai_agent,
                 only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate,

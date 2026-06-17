@@ -408,6 +408,21 @@ class ActionDispatch::IntegrationTest
     sign_in_with_reverification(user, tenant: tenant, path: admin_path)
   end
 
+  # Sign in and complete reverification for the agent-creation flow by POSTing
+  # to the gated agent-create endpoint and completing the OTP challenge. The
+  # scope is "api_tokens" — same as ApiTokensController and the Connect
+  # endpoint — because execute_create_ai_agent can mint a token inline. After
+  # this returns, the user is signed in and reverified for "api_tokens";
+  # subsequent requests to any "api_tokens"-gated action go through.
+  def sign_in_with_ai_agents_reverify(user, tenant: nil)
+    sign_in_with_reverification(
+      user,
+      tenant: tenant,
+      path: "/ai-agents/new/actions/create_ai_agent",
+      method: :post,
+    )
+  end
+
   # General-purpose: sign in and complete reverification for any protected path.
   # For GET-protected paths, pass the path directly.
   # For POST-protected paths, pass the POST path — it will trigger the redirect.

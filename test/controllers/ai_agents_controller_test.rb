@@ -1197,19 +1197,6 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   private
 
-  def sign_in_with_ai_agents_reverify(user, tenant: @tenant)
-    # Pre-completes step-up reverification for the "ai_agents" scope by POSTing
-    # to a reverify-gated endpoint and completing the OTP challenge. After this,
-    # the user is signed in and reverified — subsequent requests to
-    # reverify-gated actions go through without redirecting to /reverify.
-    sign_in_with_reverification(
-      user,
-      tenant: tenant,
-      path: "/ai-agents/new/actions/create_ai_agent",
-      method: :post
-    )
-  end
-
   def enable_stripe_billing_flag!(tenant)
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
