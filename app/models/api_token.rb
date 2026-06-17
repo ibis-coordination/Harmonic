@@ -38,6 +38,7 @@ class ApiToken < ApplicationRecord
 
   validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
+  validates :client_name, length: { maximum: 64 }, allow_blank: true
   validate :validate_scopes
   validate :internal_tokens_require_allow_flag
   validate :context_matches_internal_flag
@@ -48,7 +49,7 @@ class ApiToken < ApplicationRecord
 
   sig { returns(T::Array[String]) }
   def self.valid_actions
-    ['create', 'read', 'update', 'delete']
+    ["create", "read", "update", "delete"]
   end
 
   sig { returns(T::Array[String]) }
@@ -58,10 +59,10 @@ class ApiToken < ApplicationRecord
 
   sig { returns(T::Array[String]) }
   def self.valid_resources
-    ['all', 'notes', 'confirmations',
-     'decisions', 'options', 'votes', 'decision_participants',
-     'commitments', 'commitment_participants',
-     'cycles', 'users', 'api_tokens']
+    ["all", "notes", "confirmations",
+     "decisions", "options", "votes", "decision_participants",
+     "commitments", "commitment_participants",
+     "cycles", "users", "api_tokens",]
   end
 
   sig { returns(T::Array[String]) }
@@ -69,7 +70,7 @@ class ApiToken < ApplicationRecord
     self.class.valid_resources
   end
 
-  # TODO - remove the invalid scopes, e.g. 'create:cycles', 'update:results', etc.
+  # TODO: - remove the invalid scopes, e.g. 'create:cycles', 'update:results', etc.
   sig { returns(T::Array[String]) }
   def self.valid_scopes
     valid_actions.product(valid_resources).map { |a, r| "#{a}:#{r}" }
@@ -83,18 +84,18 @@ class ApiToken < ApplicationRecord
   sig { returns(T::Array[String]) }
   def self.read_scopes
     # valid_scopes.select { |scope| scope.start_with?('read') }
-    ['read:all']
+    ["read:all"]
   end
 
   sig { returns(T::Array[String]) }
   def self.write_scopes
     # valid_scopes.select { |scope| scope.start_with?('create', 'update', 'delete') }
-    ['create:all', 'update:all', 'delete:all']
+    ["create:all", "update:all", "delete:all"]
   end
 
   sig { params(scope: String).returns(T::Boolean) }
   def self.valid_scope?(scope)
-    action, resource = scope.split(':')
+    action, resource = scope.split(":")
     valid_actions.include?(action) && valid_resources.include?(resource)
   end
 
@@ -188,7 +189,7 @@ class ApiToken < ApplicationRecord
       tenant: Tenant,
       context: T.any(AiAgentTaskRun, AutomationRuleRun),
       expires_in: ActiveSupport::Duration,
-      mcp_only: T::Boolean,
+      mcp_only: T::Boolean
     ).returns(ApiToken)
   end
   # `mcp_only:` is an explicit opt-in by the caller. AgentRunnerDispatchService
@@ -207,7 +208,7 @@ class ApiToken < ApplicationRecord
       name: "Internal Agent Token",
       expires_at: Time.current + expires_in,
       context: context,
-      mcp_only: mcp_only,
+      mcp_only: mcp_only
     )
     # Set the allow flag to bypass the validation - only this method can create internal tokens
     token.allow_internal_token = true
@@ -229,41 +230,37 @@ class ApiToken < ApplicationRecord
   sig { params(action: String, resource_model: T.nilable(T::Class[T.anything])).returns(T::Boolean) }
   def can?(action, resource_model)
     action = {
-      'POST' => 'create', 'GET' => 'read', 'PUT' => 'update', 'PATCH' => 'update', 'DELETE' => 'delete'
+      "POST" => "create", "GET" => "read", "PUT" => "update", "PATCH" => "update", "DELETE" => "delete",
     }[action] || action
-    unless valid_actions.include?(action)
-      raise "Invalid action: #{action}"
-    end
-    return true if T.must(scopes).include?('all') || T.must(scopes).include?("#{action}:all")
+    raise "Invalid action: #{action}" unless valid_actions.include?(action)
+    return true if T.must(scopes).include?("all") || T.must(scopes).include?("#{action}:all")
     return false if resource_model.nil?
+
     resource_name = resource_model.to_s.underscore.pluralize
-    unless valid_resources.include?(resource_name)
-      raise "Invalid resource: #{resource_name}"
-    end
-    unless resource_model.method_defined?(:api_json)
-      raise "Resource model #{resource_model} does not respond to api_json"
-    end
+    raise "Invalid resource: #{resource_name}" unless valid_resources.include?(resource_name)
+    raise "Resource model #{resource_model} does not respond to api_json" unless resource_model.method_defined?(:api_json)
+
     T.must(scopes).include?("#{action}:#{resource_name}")
   end
 
   sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_create?(resource_model)
-    can?('create', resource_model)
+    can?("create", resource_model)
   end
 
   sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_read?(resource_model)
-    can?('read', resource_model)
+    can?("read", resource_model)
   end
 
   sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_update?(resource_model)
-    can?('update', resource_model)
+    can?("update", resource_model)
   end
 
   sig { params(resource_model: T::Class[T.anything]).returns(T::Boolean) }
   def can_delete?(resource_model)
-    can?('delete', resource_model)
+    can?("delete", resource_model)
   end
 
   # Authenticate by hashing the provided token and looking up the hash.
@@ -301,10 +298,8 @@ class ApiToken < ApplicationRecord
   sig { void }
   def validate_scopes
     T.must(scopes).each do |scope|
-      action, resource = scope.split(':')
-      unless ApiToken.valid_scope?(scope)
-        errors.add(:scopes, "Invalid scope: #{scope}")
-      end
+      scope.split(":")
+      errors.add(:scopes, "Invalid scope: #{scope}") unless ApiToken.valid_scope?(scope)
     end
   end
 
@@ -315,9 +310,9 @@ class ApiToken < ApplicationRecord
   def internal_tokens_require_allow_flag
     return unless new_record? # Only check on create, not update
 
-    if internal? && !allow_internal_token
-      errors.add(:internal, "cannot be set to true via external API")
-    end
+    return unless internal? && !allow_internal_token
+
+    errors.add(:internal, "cannot be set to true via external API")
   end
 
   sig { void }
@@ -353,8 +348,8 @@ class ApiToken < ApplicationRecord
       .where("expires_at IS NULL OR expires_at > ?", Time.current)
       .count
 
-    if active_count >= MAX_ACTIVE_TOKENS_PER_USER
-      errors.add(:base, "Maximum of #{MAX_ACTIVE_TOKENS_PER_USER} active API tokens reached. Delete an existing token before creating a new one.")
-    end
+    return unless active_count >= MAX_ACTIVE_TOKENS_PER_USER
+
+    errors.add(:base, "Maximum of #{MAX_ACTIVE_TOKENS_PER_USER} active API tokens reached. Delete an existing token before creating a new one.")
   end
 end

@@ -13,10 +13,10 @@ class ApiTokenTest < ActiveSupport::TestCase
         trigger_type: "manual",
         trigger_config: {},
         actions: [],
-        created_by: @user,
+        created_by: @user
       ),
       trigger_source: "manual",
-      status: "pending",
+      status: "pending"
     )
   end
 
@@ -32,9 +32,9 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert_nil token.token_hash
     token.save!
     assert_not_nil token.token_hash
-    assert_equal 64, token.token_hash.length  # SHA256 hex = 64 chars
-    assert_equal 40, token.plaintext_token.length  # hex(20) = 40 chars
-    assert_equal 4, token.token_prefix.length  # First 4 chars
+    assert_equal 64, token.token_hash.length # SHA256 hex = 64 chars
+    assert_equal 40, token.plaintext_token.length # hex(20) = 40 chars
+    assert_equal 4, token.token_prefix.length # First 4 chars
   end
 
   test "each token hash is unique" do
@@ -74,14 +74,14 @@ class ApiTokenTest < ActiveSupport::TestCase
   test "read_scopes class method returns read-only scopes" do
     scopes = ApiToken.read_scopes
     assert_includes scopes, "read:all"
-    assert_not scopes.any? { |s| s.start_with?("create") }
+    assert_not(scopes.any? { |s| s.start_with?("create") })
   end
 
   test "write_scopes class method returns write scopes" do
     scopes = ApiToken.write_scopes
-    assert scopes.any? { |s| s.start_with?("create") }
-    assert scopes.any? { |s| s.start_with?("update") }
-    assert scopes.any? { |s| s.start_with?("delete") }
+    assert(scopes.any? { |s| s.start_with?("create") })
+    assert(scopes.any? { |s| s.start_with?("update") })
+    assert(scopes.any? { |s| s.start_with?("delete") })
   end
 
   test "valid_scopes includes all action/resource combinations" do
@@ -416,7 +416,7 @@ class ApiTokenTest < ActiveSupport::TestCase
     expected_hash = Digest::SHA256.hexdigest(token_string)
 
     assert_equal expected_hash, ApiToken.hash_token(token_string)
-    assert_equal expected_hash, ApiToken.hash_token(token_string)  # Consistent
+    assert_equal expected_hash, ApiToken.hash_token(token_string) # Consistent
   end
 
   # === Internal Token Tests ===
@@ -562,7 +562,7 @@ class ApiTokenTest < ActiveSupport::TestCase
       internal: true,
       scopes: ApiToken.valid_scopes,
       name: "Internal Token",
-      expires_at: 1.hour.from_now,
+      expires_at: 1.hour.from_now
     )
     token.allow_internal_token = true
 
@@ -578,7 +578,7 @@ class ApiTokenTest < ActiveSupport::TestCase
       scopes: ApiToken.read_scopes,
       name: "External Token",
       expires_at: 1.year.from_now,
-      context: @context,
+      context: @context
     )
 
     assert_not token.valid?
@@ -623,7 +623,7 @@ class ApiTokenTest < ActiveSupport::TestCase
         user: @user,
         name: "Filler #{i}",
         scopes: ["read:all"],
-        expires_at: 1.day.ago,
+        expires_at: 1.day.ago
       )
     end
     assert ApiToken.create!(tenant: @tenant, user: @user, name: "Fresh", scopes: ["read:all"]).persisted?
@@ -652,7 +652,7 @@ class ApiTokenTest < ActiveSupport::TestCase
       user: @user,
       name: "My token",
       scopes: ["read:all"],
-      client_name: "Cursor",
+      client_name: "Cursor"
     )
     assert_equal "Cursor", token.client_name
   end
@@ -663,7 +663,7 @@ class ApiTokenTest < ActiveSupport::TestCase
       user: @user,
       name: "Backing name",
       scopes: ["read:all"],
-      client_name: "Claude Code",
+      client_name: "Claude Code"
     )
     assert_equal "Claude Code", token.client_label
   end
@@ -679,8 +679,32 @@ class ApiTokenTest < ActiveSupport::TestCase
       user: @user,
       name: "Legacy token",
       scopes: ["read:all"],
-      client_name: "",
+      client_name: ""
     )
     assert_equal "Legacy token", token.client_label
+  end
+
+  test "client_name longer than 64 chars is rejected with a friendly validation error" do
+    token = ApiToken.new(
+      tenant: @tenant,
+      user: @user,
+      name: "My token",
+      scopes: ["read:all"],
+      client_name: "x" * 65
+    )
+    assert_not token.valid?
+    assert token.errors[:client_name].any? { |m| m.match?(/too long|maximum/i) }, "expected a length error, got #{token.errors[:client_name].inspect}"
+  end
+
+  test "client_name at the 64-char limit is accepted" do
+    token = ApiToken.create!(
+      tenant: @tenant,
+      user: @user,
+      name: "My token",
+      scopes: ["read:all"],
+      client_name: "x" * 64
+    )
+    assert token.persisted?
+    assert_equal 64, token.client_name.length
   end
 end

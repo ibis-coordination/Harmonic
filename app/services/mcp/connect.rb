@@ -22,16 +22,28 @@ module Mcp
       "openclaw" => "OpenClaw",
     }.freeze, T::Hash[String, String])
 
+    # Frozen map from harness key to its setup-guide template path. Derived
+    # from HARNESSES so we can't drift, and the lookup keeps user input out
+    # of render(template:) — Brakeman flags the interpolated form even when
+    # an allowlist guard precedes it, so callers should treat a nil return
+    # as "unknown harness" and 404.
+    HELP_TEMPLATES = T.let(
+      HARNESSES.keys.index_with { |k| "help/mcp_connect/#{k.tr("-", "_")}" }.freeze,
+      T::Hash[String, String]
+    )
+
     sig { params(key: T.nilable(String)).returns(T.nilable(String)) }
     def self.display_name(key)
       return nil if key.nil?
+
       HARNESSES[key]
     end
 
-    sig { params(key: T.nilable(String)).returns(T::Boolean) }
-    def self.supported?(key)
-      return false if key.nil?
-      HARNESSES.key?(key)
+    sig { params(key: T.nilable(String)).returns(T.nilable(String)) }
+    def self.help_template(key)
+      return nil if key.nil?
+
+      HELP_TEMPLATES[key]
     end
   end
 end

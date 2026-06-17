@@ -1,6 +1,8 @@
 # typed: false
 
 class AiAgentsController < ApplicationController
+  include RequiresReverification
+
   TASK_RUNS_PER_MINUTE = 5
 
   before_action :set_sidebar_mode,
@@ -14,6 +16,12 @@ class AiAgentsController < ApplicationController
   before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
   before_action :require_billing_for_creation, only: [:new]
   before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
+  # Creating an agent provisions a new identity with its own credentials. Gate
+  # the form (GET /ai-agents/new) and the create endpoint that the form POSTs to
+  # (execute_create_ai_agent — also the markdown-API path) so a hijacked session
+  # can't silently spawn agents under the principal.
+  before_action -> { require_reverification(scope: "ai_agents") },
+                only: [:new, :create, :execute_create_ai_agent]
   before_action :set_ai_agent,
                 only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate,
                        :reactivate,]
@@ -89,14 +97,14 @@ class AiAgentsController < ApplicationController
     # view's `@token.plaintext_token` / `@token.expires_at` paths work
     # without branching. Refreshing the page clears the flash → secret can
     # only be revealed once. no_store prevents bfcache replay.
-    if flash[:reveal_token].present?
-      @token = Struct.new(:plaintext_token, :expires_at).new(
-        flash[:reveal_token],
-        Time.iso8601(flash[:reveal_token_expires_at])
-      )
-      response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
-      response.headers["Pragma"] = "no-cache"
-    end
+    return unless flash[:reveal_token].present?
+
+    @token = Struct.new(:plaintext_token, :expires_at).new(
+      flash[:reveal_token],
+      Time.iso8601(flash[:reveal_token_expires_at])
+    )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
   end
 
   # POST /ai-agents/:handle/deactivate

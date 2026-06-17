@@ -2,12 +2,22 @@
 
 class AiAgentConnectController < ApplicationController
   extend T::Sig
+  include RequiresReverification
 
   before_action :require_signed_in_human
+  # This endpoint mints an API token, same as ApiTokensController#create.
+  # That controller gates token creation behind step-up reverification; mirror
+  # it here so a hijacked session can't silently mint tokens without a fresh TOTP.
+  before_action :require_api_token_reverification
 
   def create
     @ai_agent = find_ai_agent_by_handle
     return render status: :not_found, plain: "404 not found" if @ai_agent.nil?
+
+    # Mirrors ApiTokensController#create: internal AI agents cannot have API tokens.
+    # The settings UI hides the Connect buttons via external_ai_agent?, but the
+    # controller is the security boundary.
+    return render status: :forbidden, plain: "403 Forbidden - Internal AI agents cannot have API tokens" if @ai_agent.internal_ai_agent?
 
     settings_path = "/ai-agents/#{@ai_agent.handle}/settings"
 
@@ -27,9 +37,7 @@ class AiAgentConnectController < ApplicationController
 
     @harness_key = params[:harness]
     @harness_name = Mcp::Connect.display_name(@harness_key)
-    if @harness_name.nil?
-      return render status: :unprocessable_entity, plain: "Unknown harness"
-    end
+    return render status: :unprocessable_entity, plain: "Unknown harness" if @harness_name.nil?
 
     @token = @ai_agent.api_tokens.new(
       tenant: current_tenant,
@@ -37,7 +45,7 @@ class AiAgentConnectController < ApplicationController
       client_name: @harness_name,
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
-      mcp_only: true,
+      mcp_only: true
     )
 
     begin
@@ -52,13 +60,18 @@ class AiAgentConnectController < ApplicationController
       harness_key: @harness_key,
       mcp_url: @mcp_url,
       token: T.must(@token.plaintext_token),
-      agent_handle: T.must(@ai_agent.handle),
+      agent_handle: T.must(@ai_agent.handle)
     ).to_h
 
     render "show"
   end
 
   private
+
+  sig { void }
+  def require_api_token_reverification
+    require_reverification(scope: "api_tokens")
+  end
 
   sig { void }
   def require_signed_in_human

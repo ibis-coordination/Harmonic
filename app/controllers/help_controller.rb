@@ -48,6 +48,7 @@ class HelpController < ApplicationController
   TOPICS.each do |topic|
     define_method(topic) do
       return render("shared/404", status: :not_found) unless help_topic_available?(topic)
+
       @page_title = "Help — #{TOPIC_DISPLAY_NAMES[topic] || topic.titleize}"
       respond_to do |format|
         format.html { render_help_html(topic) }
@@ -58,12 +59,12 @@ class HelpController < ApplicationController
 
   # Per-harness MCP Connect setup guide. URL: /help/mcp/connect/:harness.
   def mcp_connect
-    harness_key = params[:harness].to_s
-    return render("shared/404", status: :not_found) unless Mcp::Connect.supported?(harness_key)
+    template = Mcp::Connect.help_template(params[:harness].to_s)
+    return render("shared/404", status: :not_found) if template.nil?
     return render("shared/404", status: :not_found) unless help_topic_available?("mcp")
 
-    @harness_key = harness_key
-    @harness_name = Mcp::Connect.display_name(harness_key)
+    @harness_key = params[:harness].to_s
+    @harness_name = Mcp::Connect.display_name(@harness_key)
     @page_title = "Help — Connect #{@harness_name}"
     @breadcrumb_items = [
       ["Home", "/"],
@@ -71,7 +72,6 @@ class HelpController < ApplicationController
       ["MCP", "/help/mcp"],
       "Connect #{@harness_name}",
     ]
-    template = "help/mcp_connect/#{harness_key.tr('-', '_')}"
     respond_to do |format|
       format.html do
         markdown_content = render_to_string(template: template, formats: [:md], layout: false)
