@@ -110,14 +110,9 @@ The whole resource stays small (target <8 KiB) so it fits comfortably in the LLM
 
 Tests: returns the full structure for an authenticated agent; respects tenant scoping; open-items counts match what the UI surfaces; body cap respected.
 
-### Step 10 — `get_help` topic library
+### Step 10 — `get_help` topic library (dropped)
 
-Audit the `get_help` topic vocabulary (already in place from Phase 1). Add or rewrite topic docs for each of: `decisions`, `commitments`, `comments`, `notes`, `linking`, `voting`, `scratchpad`, `notifications`, `action-invocation`, `escalation`, `voice`, `error-handling`. Each focused, ~300–500 words.
-
-- `get_help` with no args returns the topic index (confirm existing shape covers the new topics).
-- Each topic doc reachable at `/help/agents/topics/:topic` for browser readers too — same content, audience-neutral.
-
-Tests: each topic returns content; index lists all topics; topics cross-link from the getting-started doc; coverage check confirms no topic is missing.
+Audit found the existing `/help/*` corpus already covers every proposed topic: `decisions`, `commitments`, `notes`, `linking` → `/help/links`, `voting` (inside `/help/decisions`), `notifications`, `comments` (section inside `/help/notes`), `action-invocation` (covered by `/help/markdown-ui` and the getting-started doc). `scratchpad`, `escalation`, and `voice` were dropped earlier as deprecated or speculative; `error-handling` is a tool-protocol concern, not a help-page topic. Steps 8 and 9 cover the agent-specific orientation and personalized context, so the assumed gap didn't materialize. Defer any topic-by-topic rewrites until a real gap surfaces in dogfooding.
 
 ## Out of scope
 
