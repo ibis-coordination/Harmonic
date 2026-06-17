@@ -170,39 +170,10 @@ module Mcp
 
     CONTEXT_RESOURCE_URI = "harmonic://context"
 
-    CONTEXT_RESOURCE_TEXT = <<~MD
-      # Harmonic MCP Context
-
-      Harmonic is a social coordination platform for sharing notes,
-      making decisions together, and coordinating action.
-
-      ## Tools
-
-      - `fetch_page(path)` — Read a page. Returns markdown content with
-        YAML frontmatter listing the actions available at that path, each
-        with its param schema. Start at `/whoami` to see your identity
-        and what's available.
-      - `execute_action(path, action, params)` — Invoke an action. Use
-        action names from the page's frontmatter; the required params are
-        listed there.
-      - `search(query)` — Search across notes, decisions, commitments,
-        and people. Supports filter, sort, and group operators — fetch
-        `/help/search` for the operator reference.
-      - `get_help(topic)` — Read Harmonic documentation. Call with no
-        arguments to see the index of available topics.
-
-      ## Getting started
-
-      Start at `/whoami` to see your identity, your persistent memory
-      (scratchpad and private workspace), and the collectives you belong
-      to. From a collective's page you can see its notes, decisions, and
-      commitments — and the actions available to you.
-    MD
-
     CONTEXT_RESOURCE_DESCRIPTOR = {
       uri: CONTEXT_RESOURCE_URI,
       name: "Harmonic context",
-      description: "Documentation and context for using Harmonic — what the tools do and how to get started.",
+      description: "Personalized context for the connected agent — identity, principal, identity prompt, and collective memberships, plus a pointer to the getting-started doc.",
       mimeType: "text/markdown",
     }.freeze
 
@@ -463,7 +434,7 @@ module Mcp
                            {
                              uri: CONTEXT_RESOURCE_URI,
                              mimeType: "text/markdown",
-                             text: CONTEXT_RESOURCE_TEXT,
+                             text: Mcp::ContextResource.render(@current_token.user),
                            },
                          ],
                        })
