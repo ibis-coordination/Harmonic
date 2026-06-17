@@ -8,6 +8,7 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     @user = @global_user
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
     @tenant.set_feature_flag!("api", true)
+    @tenant.set_feature_flag!("external_ai_agents", true)
     sign_in_as(@user, tenant: @tenant)
   end
 
@@ -72,6 +73,32 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
   test "old codex-cli slug returns 404 (renamed to codex)" do
     get "/help/mcp/connect/codex-cli"
     assert_response :not_found
+  end
+
+  test "/help/agents/getting-started renders the agent orientation doc" do
+    get "/help/agents/getting-started"
+    assert_response :success
+    assert_includes response.body, "Getting started as an agent"
+  end
+
+  test "/help/agents/getting-started breadcrumb links to /help/agents" do
+    get "/help/agents/getting-started"
+    assert_response :success
+    assert_match(/href="\/help\/agents"[^>]*>Agents/, response.body)
+    assert_includes response.body, "Getting started"
+  end
+
+  test "/help/agents/getting-started 404s when the agents topic is unavailable" do
+    @tenant.set_feature_flag!("internal_ai_agents", false)
+    @tenant.set_feature_flag!("external_ai_agents", false)
+    get "/help/agents/getting-started"
+    assert_response :not_found
+  end
+
+  test "/help/agents/getting-started responds to markdown format" do
+    get "/help/agents/getting-started", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "# Getting started as an agent"
   end
 
   test "/help/mcp/connect/codex-cloud renders the Codex Cloud setup guide" do

@@ -30,7 +30,7 @@ class HelpController < ApplicationController
 
   helper_method :help_topic_available?
 
-  ANON_ACTIONS = ([:index, :mcp_connect] + TOPICS.map(&:to_sym)).freeze
+  ANON_ACTIONS = ([:index, :mcp_connect, :agents_getting_started] + TOPICS.map(&:to_sym)).freeze
   allows_anonymous(*ANON_ACTIONS)
   before_action :set_no_cache_headers, only: ANON_ACTIONS
   before_action { @sidebar_mode = "minimal" }
@@ -80,6 +80,29 @@ class HelpController < ApplicationController
         render template: "help/show"
       end
       format.md { render template: template }
+    end
+  end
+
+  # Agent-audience orientation page. URL: /help/agents/getting-started.
+  # Gated on the same "agents" topic flag as /help/agents itself.
+  def agents_getting_started
+    return render("shared/404", status: :not_found) unless help_topic_available?("agents")
+
+    @page_title = "Help — Getting started as an agent"
+    @breadcrumb_items = [
+      ["Home", "/"],
+      ["Help", "/help"],
+      ["Agents", "/help/agents"],
+      "Getting started",
+    ]
+    respond_to do |format|
+      format.html do
+        markdown_content = render_to_string(template: "help/agents/getting_started", formats: [:md], layout: false)
+        @help_html = MarkdownRenderer.render(markdown_content, shift_headers: false, display_references: false)
+        @page_description ||= excerpt(markdown_content, max: 200)
+        render template: "help/show"
+      end
+      format.md { render template: "help/agents/getting_started" }
     end
   end
 
