@@ -231,7 +231,8 @@ CREATE TABLE public.api_tokens (
     internal boolean DEFAULT false NOT NULL,
     context_type character varying,
     context_id uuid,
-    mcp_only boolean DEFAULT false NOT NULL
+    mcp_only boolean DEFAULT false NOT NULL,
+    client_name character varying(64)
 );
 
 
@@ -10056,6 +10057,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260615150000'),
 ('20260615130000'),
 ('20260615120000'),
 ('20260615000000'),

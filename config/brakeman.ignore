@@ -79,8 +79,16 @@
       "file": "app/jobs/backfill_search_index_job.rb",
       "line": 53,
       "note": "Pre-existing warning, tracked for future remediation"
+    },
+    {
+      "fingerprint": "183eeb0260180cc6f8a1fe181e3b8e1bdba2ea32207be3629bc4f07b4c27b578",
+      "code": "MarkdownRenderer.render(render_to_string(:template => Mcp::Connect.help_template(params[:harness].to_s), :formats => ([:md]), :layout => false), :shift_headers => false, :display_references => false)",
+      "message": "Unescaped parameter value",
+      "file": "app/views/help/show.html.erb",
+      "line": 22,
+      "note": "Brakeman traces params[:harness] into Mcp::Connect.help_template, but cannot see that the method returns nil or a value from the frozen HELP_TEMPLATES hash (whose values are all literal template paths derived from the static HARNESSES hash). HelpController#mcp_connect 404s when the lookup returns nil, so params[:harness] never reaches render_to_string; only fixed template paths do. Pinned in help_controller_test.rb (mcp_connect 404 cases)."
     }
   ],
-  "updated": "2026-06-10",
+  "updated": "2026-06-17",
   "brakeman_version": "8.0.4"
 }

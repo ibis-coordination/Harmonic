@@ -75,6 +75,56 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert html.include?("Jump to section")
   end
 
+  test "absolute http(s) links to external hosts open in a new tab with the external-link class and octicon" do
+    html = MarkdownRenderer.render("[Cursor docs](https://cursor.com/docs/mcp)")
+    assert_includes html, 'target="_blank"'
+    assert_match(/class="[^"]*external-link[^"]*"/, html)
+    assert_match(/octicon-link-external/, html)
+  end
+
+  test "absolute links to the current tenant host are treated as internal" do
+    html = MarkdownRenderer.render("[Settings](https://#{@tenant.domain}/u/handle/settings)", display_references: false)
+    refute_includes html, 'target="_blank"'
+    refute_match(/external-link/, html)
+  end
+
+  test "absolute links to other Harmonic subdomains are treated as internal" do
+    other_host = "ideas.#{ENV['HOSTNAME']}"
+    html = MarkdownRenderer.render("[Ideas](https://#{other_host}/help)", display_references: false)
+    refute_includes html, 'target="_blank"'
+    refute_match(/external-link/, html)
+  end
+
+  test "absolute links to the bare hostname are treated as internal" do
+    html = MarkdownRenderer.render("[Root](https://#{ENV['HOSTNAME']}/help)", display_references: false)
+    refute_includes html, 'target="_blank"'
+    refute_match(/external-link/, html)
+  end
+
+  test "absolute links to hostnames that look-alike but aren't subdomains are external" do
+    # evilharmonic.local should NOT be treated as harmonic.local
+    html = MarkdownRenderer.render("[Lookalike](https://evil#{ENV['HOSTNAME']}/page)")
+    assert_includes html, 'target="_blank"'
+    assert_match(/external-link/, html)
+  end
+
+  test "relative links do not get target=_blank or external-link class" do
+    html = MarkdownRenderer.render("[Settings](/settings)", display_references: false)
+    refute_includes html, 'target="_blank"'
+    refute_match(/external-link/, html)
+  end
+
+  test "anchor links do not get target=_blank or external-link class" do
+    html = MarkdownRenderer.render("[Jump](#section)", display_references: false)
+    refute_includes html, 'target="_blank"'
+    refute_match(/external-link/, html)
+  end
+
+  test "mailto links do not get target=_blank" do
+    html = MarkdownRenderer.render("[Email](mailto:foo@example.com)")
+    refute_includes html, 'target="_blank"'
+  end
+
   test "render converts unordered lists" do
     markdown = "- Item 1\n- Item 2\n- Item 3"
     html = MarkdownRenderer.render(markdown)

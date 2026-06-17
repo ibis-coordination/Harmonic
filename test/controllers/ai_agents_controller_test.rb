@@ -7,7 +7,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @collective = @global_collective
     @user = @global_user
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
 
     # Enable AI agents for this tenant
     @tenant.set_feature_flag!("internal_ai_agents", true)
@@ -58,13 +58,13 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "index handles AI agents with task runs" do
     # Create a task run for the AI agent
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    task_run = AiAgentTaskRun.create!(
+    AiAgentTaskRun.create!(
       tenant: @tenant,
       ai_agent: @ai_agent,
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "completed",
+      status: "completed"
     )
     Tenant.clear_thread_scope
 
@@ -83,7 +83,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
         initiated_by: @user,
         task: "Test task #{i}",
         max_steps: 10,
-        status: "completed",
+        status: "completed"
       )
     end
     Tenant.clear_thread_scope
@@ -156,8 +156,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       end
 
       post "/ai-agents/#{@ai_agent_handle}/run",
-        params: { task: "Over limit" },
-        headers: { "Accept" => "application/json" }
+           params: { task: "Over limit" },
+           headers: { "Accept" => "application/json" }
       assert_response :too_many_requests
     ensure
       Sidekiq.redis do |conn|
@@ -212,7 +212,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "completed",
+      status: "completed"
     )
     Tenant.clear_thread_scope
 
@@ -235,7 +235,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "completed",
+      status: "completed"
     )
     Tenant.clear_thread_scope
 
@@ -256,7 +256,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "queued",
+      status: "queued"
     )
     Tenant.clear_thread_scope
 
@@ -276,7 +276,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "running",
+      status: "running"
     )
     Tenant.clear_thread_scope
 
@@ -295,7 +295,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "completed",
+      status: "completed"
     )
     Tenant.clear_thread_scope
 
@@ -315,7 +315,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "queued",
+      status: "queued"
     )
     Tenant.clear_thread_scope
 
@@ -365,7 +365,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "completed",
+      status: "completed"
     )
     Tenant.clear_thread_scope
 
@@ -386,7 +386,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       initiated_by: @user,
       task: "Test task",
       max_steps: 10,
-      status: "queued",
+      status: "queued"
     )
     Tenant.clear_thread_scope
 
@@ -417,7 +417,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   # === New AI Agent Tests ===
 
   test "authenticated human user can access new AI agent form" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     get "/ai-agents/new"
     assert_response :success
   end
@@ -433,7 +433,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "new page redirects to billing when stripe_billing enabled and billing not set up" do
     enable_stripe_billing_flag!(@tenant)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     get "/ai-agents/new"
 
@@ -444,7 +444,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "new page renders form when billing is set up" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     get "/ai-agents/new"
 
@@ -453,7 +453,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create redirects to billing when stripe_billing enabled and billing not set up" do
     enable_stripe_billing_flag!(@tenant)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
       post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
@@ -465,7 +465,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create works normally when stripe_billing disabled" do
     # stripe_billing NOT enabled — should create agent as usual
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
@@ -477,7 +477,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "create works normally when billing is set up" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal", confirm_billing: "1" }
@@ -489,7 +489,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "create assigns current user's stripe customer to new agent" do
     enable_stripe_billing_flag!(@tenant)
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     post "/ai-agents/new/actions/create_ai_agent", params: { name: "Billing Agent", mode: "internal", confirm_billing: "1" }
 
@@ -499,12 +499,12 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "execute_create_ai_agent redirects to billing when not set up via markdown" do
     enable_stripe_billing_flag!(@tenant)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
       post "/ai-agents/new/actions/create_ai_agent",
-        params: { name: "New Agent", mode: "internal" },
-        headers: { "Accept" => "text/markdown" }
+           params: { name: "New Agent", mode: "internal" },
+           headers: { "Accept" => "text/markdown" }
     end
 
     # Application-level billing gate redirects to /billing before controller action runs
@@ -514,12 +514,12 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create blocks agent creation for any request format when billing not set up" do
     enable_stripe_billing_flag!(@tenant)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
       post "/ai-agents/new/actions/create_ai_agent",
-        params: { name: "New Agent", mode: "internal" },
-        headers: { "Accept" => "application/json" }
+           params: { name: "New Agent", mode: "internal" },
+           headers: { "Accept" => "application/json" }
     end
 
     # Should not return 200/success — billing gate must block all formats
@@ -550,7 +550,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "new redirects to billing when billing not set up" do
     enable_stripe_billing_flag!(@tenant)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     get "/ai-agents/new"
 
@@ -562,7 +562,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "new shows creation form when billing is set up" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     get "/ai-agents/new"
 
@@ -572,7 +572,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "new shows creation form when stripe_billing flag is disabled" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     get "/ai-agents/new"
 
@@ -643,7 +643,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "create rejects agent without billing confirmation when stripe_billing enabled" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
       post "/ai-agents/new/actions/create_ai_agent", params: { name: "No Confirm Agent", mode: "internal" }
@@ -656,7 +656,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   test "create does NOT require billing confirmation for app_admin (billing-exempt)" do
     enable_stripe_billing_flag!(@tenant)
     @user.update!(app_admin: true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     # No confirm_billing param — admin should still be allowed through because
     # the billing UI is hidden from them and no Stripe charges apply.
@@ -675,11 +675,11 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # params must not.
     @tenant.set_feature_flag!("internal_ai_agents", true)
     @tenant.set_feature_flag!("external_ai_agents", true)
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
 
     assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
       post "/ai-agents/new/actions/create_ai_agent",
-        params: { name: "Sneaky Agent", mode: "external", system_role: "trio" }
+           params: { name: "Sneaky Agent", mode: "external", system_role: "trio" }
     end
 
     created = User.where(user_type: "ai_agent").order(created_at: :desc).first
@@ -735,6 +735,34 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "settings page shows client_name as the token label for Connect-flow tokens" do
+    ApiToken.create!(
+      tenant: @tenant,
+      user: @ai_agent,
+      name: "Cursor connection",
+      client_name: "Cursor",
+      scopes: ["read:all"]
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Client"
+    assert_includes response.body, "Cursor"
+  end
+
+  test "settings page falls back to token name when client_name is blank" do
+    ApiToken.create!(
+      tenant: @tenant,
+      user: @ai_agent,
+      name: "Hand-rolled paste token",
+      scopes: ["read:all"]
+    )
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+    assert_response :success
+    assert_includes response.body, "Hand-rolled paste token"
+  end
+
   test "settings is reachable when only internal_ai_agents is enabled" do
     @tenant.disable_feature_flag!("external_ai_agents")
     sign_in_as(@user, tenant: @tenant)
@@ -752,7 +780,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create with mode=internal is blocked when internal_ai_agents is disabled" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Blocked Internal Agent",
       mode: "internal",
@@ -763,7 +791,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create with mode=external is blocked when external_ai_agents is disabled" do
     @tenant.disable_feature_flag!("external_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Blocked External Agent",
       mode: "external",
@@ -774,7 +802,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create with missing mode defaults to external and is blocked when external_ai_agents is disabled" do
     @tenant.disable_feature_flag!("external_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Blocked Default-mode Agent",
       confirm_billing: "1",
@@ -789,13 +817,13 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       name: "Self-Read Token",
       scopes: ApiToken.read_scopes,
-      expires_at: 1.year.from_now,
+      expires_at: 1.year.from_now
     )
     get "/ai-agents/#{@ai_agent_handle}/settings",
-      headers: {
-        "Authorization" => "Bearer #{token.plaintext_token}",
-        "Accept" => "text/markdown",
-      }
+        headers: {
+          "Authorization" => "Bearer #{token.plaintext_token}",
+          "Accept" => "text/markdown",
+        }
     assert_response :success
   end
 
@@ -813,14 +841,14 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       name: "Self-Write Token",
       scopes: ApiToken.write_scopes + ApiToken.read_scopes,
-      expires_at: 1.year.from_now,
+      expires_at: 1.year.from_now
     )
     post "/ai-agents/#{@ai_agent_handle}/settings",
-      params: { name: "Self-renamed" },
-      headers: {
-        "Authorization" => "Bearer #{token.plaintext_token}",
-        "Accept" => "text/markdown",
-      }
+         params: { name: "Self-renamed" },
+         headers: {
+           "Authorization" => "Bearer #{token.plaintext_token}",
+           "Accept" => "text/markdown",
+         }
     assert_response :forbidden
   end
 
@@ -857,11 +885,11 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents"
     assert_response :success
-    refute_includes response.body, "Run Task"
+    assert_not_includes response.body, "Run Task"
     assert_includes response.body, "Settings"
     # External agents manage their notification webhook on settings — no
     # automations surface, no Automations button in the agent list.
-    refute_includes response.body, "Automations"
+    assert_not_includes response.body, "Automations"
   end
 
   test "external-only: show page is reachable and hides Run Task button" do
@@ -870,23 +898,23 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}"
     assert_response :success
-    refute_includes response.body, ">Run Task"
+    assert_not_includes response.body, ">Run Task"
   end
 
   test "external-only: new agent form is reachable" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     get "/ai-agents/new"
     assert_response :success
   end
 
   test "external-only: new agent form hides Mode radio and sends hidden mode=external" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     get "/ai-agents/new"
     assert_response :success
-    refute_match(/radio_button.*mode/, response.body)
-    refute_match(/<label[^>]*>\s*<input[^>]*type="radio"[^>]*name="mode"/, response.body)
+    assert_no_match(/radio_button.*mode/, response.body)
+    assert_no_match(/<label[^>]*>\s*<input[^>]*type="radio"[^>]*name="mode"/, response.body)
     assert_match(/<input[^>]*type="hidden"[^>]*name="mode"[^>]*value="external"/, response.body)
   end
 
@@ -894,7 +922,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # Name and handle are independent. A generic name like "Claude" whose
     # derived handle is already taken must not error — leaving the handle
     # field blank auto-generates a distinct one, like human signup does.
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     existing = create_ai_agent(parent: @user, name: "Collision Target")
     existing_handle = @tenant.add_user!(existing).handle
     before_ids = User.where(user_type: "ai_agent").pluck(:id)
@@ -915,7 +943,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create with an explicitly-typed handle that is taken surfaces a friendly error, not a 500" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     existing = create_ai_agent(parent: @user, name: "Existing Agent")
     existing_handle = @tenant.add_user!(existing).handle
 
@@ -930,14 +958,14 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect, "should redirect back to the form, not 500"
     assert_match(/handle|already|taken|in use|different/i, flash[:alert] || flash[:error] || flash[:notice] || "",
-      "flash must explain why creation failed so the user can pick a different handle")
+                 "flash must explain why creation failed so the user can pick a different handle")
     follow_redirect!
     assert_match(/handle|already|taken|in use|different/i, response.body,
-      "flash should be visible in the rendered form so the user knows why it failed")
+                 "flash should be visible in the rendered form so the user knows why it failed")
   end
 
   test "create with an explicit handle uses that handle, independent of the name" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     chosen = "helper-#{SecureRandom.hex(3)}"
     before_ids = User.where(user_type: "ai_agent").pluck(:id)
 
@@ -956,7 +984,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create via the markdown action with a taken handle returns an action error, not a 500" do
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     existing = create_ai_agent(parent: @user, name: "Existing Md Agent")
     existing_handle = @tenant.add_user!(existing).handle
 
@@ -991,7 +1019,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # Pre-existing inactive stripe_customer (e.g. subscription was canceled or never activated)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_admin_test", active: false)
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Admin External Agent",
       mode: "external",
@@ -1001,8 +1029,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     new_agent = @user.ai_agents.find_by(name: "Admin External Agent")
     assert new_agent
-    refute new_agent.pending_billing_setup?,
-      "admin-created agents should NOT be marked pending_billing_setup just because the admin's stripe_customer happens to be inactive — admins are billing-exempt"
+    assert_not new_agent.pending_billing_setup?,
+               "admin-created agents should NOT be marked pending_billing_setup just because the admin's stripe_customer happens to be inactive — admins are billing-exempt"
   end
 
   test "external-only: regular user with inactive stripe_customer creating an agent DOES get pending_billing_setup" do
@@ -1015,7 +1043,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @user.ai_agents.find_each { |a| destroy_user!(a) }
     StripeCustomer.create!(billable: @user, stripe_id: "cus_regular_test", active: false)
 
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Regular User External Agent",
       mode: "external",
@@ -1026,12 +1054,12 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     new_agent = @user.ai_agents.find_by(name: "Regular User External Agent")
     assert new_agent
     assert new_agent.pending_billing_setup?,
-      "non-admin user without an active subscription must have the new agent marked pending so the runner blocks it until billing is set up"
+           "non-admin user without an active subscription must have the new agent marked pending so the runner blocks it until billing is set up"
   end
 
   test "external-only: external agent creation with generate_token reveals plaintext token in response" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "External Agent With Token",
       mode: "external",
@@ -1054,20 +1082,20 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # ApiToken — hashed in the DB and never retrievable. After follow_redirect!,
     # the show page must have revealed it AND warned the user it's one-time.
     assert_match(/\b[a-f0-9]{40}\b/, response.body,
-      "plaintext token (40-char hex) must appear in the response — it is hashed at rest and never retrievable")
+                 "plaintext token (40-char hex) must appear in the response — it is hashed at rest and never retrievable")
     assert_match(/won't be able to see|will not be able to see/i, response.body,
-      "must warn the user this is the only chance to copy the token")
+                 "must warn the user this is the only chance to copy the token")
 
     # Refreshing the show page (re-GET without the flash) must NOT re-reveal
     # the secret — flash is single-use, so a refresh-replay attack fails.
     get "/ai-agents/#{new_agent_handle}"
     assert_no_match(/\b[a-f0-9]{40}\b/, response.body,
-      "refresh after reveal must not re-show the plaintext token")
+                    "refresh after reveal must not re-show the plaintext token")
   end
 
   test "external-only: generate_token defaults the new token to mcp_only=true" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "MCP-only Default Agent",
       mode: "external",
@@ -1084,7 +1112,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: generate_token with mcp_only=0 honors the override" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Direct-REST Agent",
       mode: "external",
@@ -1097,12 +1125,12 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert new_agent
     token = ApiToken.unscoped.where(user_id: new_agent.id).first
     assert token
-    refute token.mcp_only?, "principal explicitly opted out of mcp_only mode"
+    assert_not token.mcp_only?, "principal explicitly opted out of mcp_only mode"
   end
 
   test "external-only: external agent creation without generate_token redirects (no token rendered)" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "External Agent No Token",
       mode: "external",
@@ -1116,7 +1144,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: external agent creation succeeds via markdown action" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     assert_difference -> { @user.ai_agents.where(tenant_users: { tenant_id: @tenant.id }).joins(:tenant_users).count }, 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
         name: "External Only Agent",
@@ -1131,7 +1159,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "external-only: create with no mode param succeeds (defaults to external)" do
     @tenant.disable_feature_flag!("internal_ai_agents")
-    sign_in_as(@user, tenant: @tenant)
+    sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
       name: "Default Mode Agent",
       confirm_billing: "1",

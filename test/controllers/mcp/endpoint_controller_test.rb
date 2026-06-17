@@ -773,10 +773,10 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_equal "harmonic://context", entry["uri"]
     assert_equal "text/markdown", entry["mimeType"]
     assert entry["text"].is_a?(String) && entry["text"].present?
-    # The context should reference Harmonic and at least one of the tools so
-    # we know we got the right document, not an empty placeholder.
-    assert_match(/Harmonic/, entry["text"])
-    assert_match(/fetch_page/, entry["text"])
+    # The personalized resource should name the agent and link to the
+    # getting-started doc — confirms we got the right document, not a stub.
+    assert_match(/Harmonic context for @#{Regexp.escape(@agent.handle)}/, entry["text"])
+    assert_match(%r{/help/agents/getting-started}, entry["text"])
   end
 
   test "resources/read with unknown URI returns JSON-RPC invalid-params error" do

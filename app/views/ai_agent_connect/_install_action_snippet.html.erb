@@ -1,0 +1,9 @@
+<%# Cline, Continue, Goose — config snippet to paste. %>
+<section class="pulse-settings-section">
+  <h3>Install via config snippet</h3>
+  <p class="pulse-hint">
+    <%= payload[:paste_into] %>
+  </p>
+  <pre style="margin-top:12px;"><code><%= payload[:code] %></code></pre>
+  <%= render 'shared/copy_button', text: payload[:code] %>
+</section>

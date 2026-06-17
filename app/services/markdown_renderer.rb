@@ -8,6 +8,7 @@
 # to enable lazy loading of images for performance and partial DoS protection.
 class MarkdownRenderer
   extend T::Sig
+  extend OcticonsHelper
   @@markdown = Redcarpet::Markdown.new(
     Redcarpet::Render::HTML.new(
       hard_wrap: true,
@@ -72,6 +73,18 @@ class MarkdownRenderer
           a.remove
         else
           a['rel'] = 'noopener noreferrer'
+          # Absolute http(s) URLs whose host isn't a Harmonic host are
+          # treated as external — open in a new tab and mark with
+          # .external-link so CSS can append an icon. Relative links, anchor
+          # links, mailto:, and links to the current Harmonic deployment
+          # (any subdomain of ENV['HOSTNAME']) stay in-tab.
+          if uri && ["http", "https"].include?(uri.scheme) && !internal_host?(uri.host)
+            a['target'] = '_blank'
+            existing_classes = a['class'].to_s.split(/\s+/)
+            a['class'] = (existing_classes + ['external-link']).uniq.join(' ')
+            icon_html = octicon('link-external', height: 12, class: 'external-link-icon')
+            a.add_child(Nokogiri::HTML.fragment(" #{icon_html}"))
+          end
         end
       end
     end
@@ -90,6 +103,19 @@ class MarkdownRenderer
     end
 
     doc.to_html
+  end
+
+  # True when host is the Harmonic deployment's root domain or any subdomain
+  # of it (e.g. tenant subdomains, the auth subdomain, the public subdomain).
+  # Matches exact equality and dot-prefixed suffix so `evilharmonic.local`
+  # does NOT count as internal to `harmonic.local`.
+  sig { params(host: T.nilable(String)).returns(T::Boolean) }
+  def self.internal_host?(host)
+    return false if host.nil?
+    hostname = ENV["HOSTNAME"].to_s.downcase
+    return false if hostname.empty?
+    h = host.downcase
+    h == hostname || h.end_with?(".#{hostname}")
   end
 
   sig { params(html: String, shift_by: Integer).returns(String) }

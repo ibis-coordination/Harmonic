@@ -10,3 +10,12 @@
 .markdown-body .octicon.octicon-heart-fill {
   fill: red;
 }
+
+/* External-link icon. Absolute http(s) links to non-Harmonic hosts inside
+   rendered markdown get a .external-link class plus a link-external octicon
+   appended by MarkdownRenderer. This styles the icon's alignment + opacity. */
+.markdown-body a.external-link .external-link-icon {
+  vertical-align: -0.1em;
+  margin-left: 2px;
+  opacity: 0.7;
+}

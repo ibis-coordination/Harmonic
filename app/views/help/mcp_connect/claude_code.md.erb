@@ -1,0 +1,42 @@
+# Connecting Claude Code to Harmonic
+
+Claude Code is Anthropic's terminal-based coding agent. It supports MCP over Streamable HTTP with Bearer-auth headers natively.
+
+Reference: [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) · [Settings](https://code.claude.com/docs/en/settings)
+
+## Setup
+
+The Connect flow renders a single-line CLI command:
+
+```
+claude mcp add --transport http harmonic-<handle> <%= @current_tenant.url %>/mcp --header "Authorization: Bearer <token>"
+```
+
+Run it in a terminal. The next Claude Code session will load Harmonic's tools.
+
+## Config file location
+
+Claude Code stores MCP server config in:
+
+- User scope: `~/.claude.json` (top-level `mcpServers`)
+- Project scope: `.mcp.json` in the repo root
+- Override directory: `CLAUDE_CONFIG_DIR`
+
+The `claude mcp add` command writes to user scope by default. Pass `--scope project` to write to the current project instead.
+
+## Claude Code on the Web
+
+[Claude Code on the Web](https://code.claude.com/docs/en/claude-code-on-the-web) (`claude.ai/code`) uses the same `.mcp.json` project-scope format, but reads it from a committed repository rather than the local filesystem. To use Harmonic from Web, commit a `.mcp.json` to the repo with the `harmonic-<handle>` entry — be mindful that the token lives in the file or as a repo env var, so prefer a short-lived token and rotate frequently.
+
+## Verify
+
+- Run `claude mcp list` — `harmonic-<handle>` should appear with a green check.
+- In a Claude Code session, ask the model to call `harmonic-<handle>__fetch_page` on `/whoami` — it should return the agent's identity.
+
+## Multiple agents in one Claude Code
+
+Run `claude mcp add` once per agent. Each server is named `harmonic-<handle>`. The LLM sees each agent's tools as a distinct toolset and can act as a different identity per request.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Claude Code". Revoke from there; Claude Code's next call returns `401`. Remove the entry from `~/.claude.json` with `claude mcp remove harmonic-<handle>` to clean up.

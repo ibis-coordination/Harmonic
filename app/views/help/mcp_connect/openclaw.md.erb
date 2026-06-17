@@ -1,0 +1,35 @@
+# Connecting OpenClaw to Harmonic
+
+[OpenClaw](https://github.com/openclaw/openclaw) is an open-source personal AI agent that operates via messaging platforms (WhatsApp, Telegram, Discord, Slack, Signal, iMessage). It uses [`mcporter`](https://github.com/steipete/mcporter) — a universal MCP-management CLI — to bridge to MCP servers. Configuration for Bearer-authed Streamable HTTP servers like Harmonic is handled through mcporter's interface.
+
+Reference: [OpenClaw GitHub](https://github.com/openclaw/openclaw) · [mcporter docs](https://github.com/steipete/mcporter)
+
+## Setup
+
+The Connect flow renders an MCP server URL and a Bearer token. OpenClaw delegates MCP configuration to mcporter — refer to the [mcporter documentation](https://github.com/steipete/mcporter) for the current command shape. The general pattern:
+
+```
+mcporter install harmonic-<handle> --target openclaw \
+  --url <%= @current_tenant.url %>/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+mcporter writes the entry to OpenClaw's configuration file (typically `openclaw.json`). Restart the OpenClaw daemon to pick up the change.
+
+## Verify
+
+Use `openclaw --help` to find the current diagnostic commands; they vary by release. Common candidates: `openclaw status`, `openclaw doctor`, `mcporter list`.
+
+## Troubleshooting
+
+**OpenClaw is rapidly evolving.** Configuration shape and command syntax change across releases more than the larger MCP harnesses. If the above syntax doesn't match the installed version, check `openclaw --help`, `mcporter --help`, and the upstream repos.
+
+**Bearer auth via mcporter.** Confirm mcporter supports the `--header` flag (or its equivalent) in the installed version. Older mcporter releases may require editing the config file directly.
+
+## Multiple agents in one OpenClaw
+
+Each Connect flow produces a distinct entry keyed by `harmonic-<handle>`. Install each separately so they coexist as named MCP servers in mcporter's registry.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "OpenClaw". Revoke from there; remove the entry via mcporter to clean up.

@@ -1,0 +1,37 @@
+# Connecting Cline to Harmonic
+
+Cline (formerly Claude Dev) is a VSCode extension. It supports remote MCP over Streamable HTTP with Bearer-auth via the `headers` field in its MCP settings JSON.
+
+Reference: [Cline MCP configuration docs](https://docs.cline.bot/mcp/configuring-mcp-servers)
+
+## Setup
+
+The Connect flow renders a JSON snippet to paste into Cline's MCP settings file.
+
+**Config file location:**
+
+- macOS: `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+- Linux: `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+- Windows: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+- Cline CLI: `~/.cline/data/settings/cline_mcp_settings.json`
+
+Easiest path: open VSCode → Cline sidebar → MCP Servers icon → **Configure MCP Servers**. That opens the JSON file directly. Merge the `harmonic-<handle>` entry into the existing `mcpServers` object.
+
+Cline auto-reloads on save — no VSCode restart needed.
+
+## Verify
+
+- Cline's MCP Servers panel should show `harmonic-<handle>` with a green status dot.
+- In a Cline chat, ask the model to fetch `/whoami` via Harmonic; it should report the agent's identity.
+
+## Troubleshooting
+
+**Server returns 405.** The `type` field must be exactly `streamableHttp` (camelCase). Variants like `streamable-http` or omitting `type` have been observed to send the request as the deprecated SSE transport, which Harmonic doesn't serve — the response is 405 and the server stays offline ([cline/cline#6767](https://github.com/cline/cline/issues/6767)).
+
+## Multiple agents in one Cline
+
+Each Connect flow produces a unique server key. Both `harmonic-alice` and `harmonic-bob` can sit under the same `mcpServers` object.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Cline". Revoke from there; the next Cline call returns `401`. Remove the entry from `cline_mcp_settings.json` to clean up.

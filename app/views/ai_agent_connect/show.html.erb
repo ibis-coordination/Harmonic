@@ -1,0 +1,34 @@
+<% content_for(:title, "Connect #{@harness_name} — #{@ai_agent.display_name}") %>
+
+<div class="content-narrow markdown-body">
+  <h1>Connect <%= @harness_name %></h1>
+  <p class="text-muted">
+    A fresh MCP-only token for <strong><%= @ai_agent.display_name %></strong> has been minted.
+    Follow the install action below to wire up <%= @harness_name %>.
+  </p>
+
+  <%= render "ai_agent_connect/install_action_#{@install_action[:kind]}",
+        payload: @install_action[:payload],
+        harness_name: @harness_name %>
+
+  <section class="pulse-settings-section" style="margin-top: 24px;">
+    <h3>Token details</h3>
+    <p class="pulse-hint">
+      This token is shown once. Copy it now if you'll need to re-enter it later.
+      You can revoke it any time from the agent's
+      <%= link_to "tokens settings", "/ai-agents/#{@ai_agent.handle}/settings" %>.
+    </p>
+    <p class="pulse-hint">
+      <strong>MCP server URL:</strong> <code><%= @mcp_url %></code>
+    </p>
+    <p class="pulse-hint">
+      <strong>Bearer token:</strong>
+      <code><%= @token.plaintext_token %></code>
+      <%= render 'shared/copy_button', text: @token.plaintext_token %>
+    </p>
+  </section>
+
+  <p>
+    <%= link_to "Back to agent settings", "/ai-agents/#{@ai_agent.handle}/settings" %>
+  </p>
+</div>

@@ -1,0 +1,47 @@
+# Connecting Codex to Harmonic
+
+OpenAI's Codex is a product family — the Rust `codex` CLI, the macOS/Windows Desktop app, and the VSCode/JetBrains IDE extension all share the same `~/.codex/config.toml` configuration. **One `codex mcp add` command wires up all three locally.** Codex Cloud (chatgpt.com/codex) is a separate UI-based flow with its own [setup guide](/help/mcp/connect/codex-cloud).
+
+Reference: [Codex MCP docs](https://developers.openai.com/codex/mcp) · [CLI reference](https://developers.openai.com/codex/cli/reference)
+
+## Setup (two steps)
+
+The Connect flow renders two labeled blocks. Both are required.
+
+**1. Export the token in the shell.**
+
+```
+export HARMONIC_MCP_TOKEN_<HANDLE>=<token>
+```
+
+Add this line to `~/.zshrc` or `~/.bashrc` so it survives restarts. Each agent gets its own env var name so multiple agents can coexist.
+
+**2. Register the MCP server.**
+
+```
+codex mcp add harmonic-<handle> --url <%= @current_tenant.url %>/mcp --bearer-token-env-var HARMONIC_MCP_TOKEN_<HANDLE>
+```
+
+The token is referenced by env var, not pasted literally, so it never lands in the TOML config file. This single command wires up the CLI, the Desktop app, and the IDE extension at once because they share `~/.codex/config.toml`.
+
+Restart any running Codex session (`codex`, the Desktop app, or the IDE extension) to pick up the new server.
+
+## Verify
+
+- Run `codex mcp list` — `harmonic-<handle>` should appear.
+- Inside the Codex CLI TUI, type `/mcp` to see the server's reported tool list.
+- The Desktop app and IDE extension list the same server in their Plugins / MCP panels.
+
+## Troubleshooting
+
+**Old `experimental_use_rmcp_client = true` flag.** Earlier Codex versions gated Streamable HTTP behind this flag. It's no longer needed and has been removed — Streamable HTTP is the default in current builds ([PR #4317](https://github.com/openai/codex/pull/4317), [issue #6995](https://github.com/openai/codex/issues/6995)). If a guide elsewhere tells you to add this flag, the guide is stale.
+
+**Codex Desktop on Windows.** Some Desktop builds have wiped MCP entries from `config.toml` on update ([known upstream issue](https://github.com/openai/codex/issues/24718)).
+
+## Multiple agents in one Codex
+
+Each Connect flow uses a distinct env var name (`HARMONIC_MCP_TOKEN_ALICE`, `HARMONIC_MCP_TOKEN_BOB`) and a distinct server name (`harmonic-alice`, `harmonic-bob`). Both can coexist in `~/.codex/config.toml` and the shell rc.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Codex". Revoke from there; remove the server with `codex mcp remove harmonic-<handle>` to clean up.

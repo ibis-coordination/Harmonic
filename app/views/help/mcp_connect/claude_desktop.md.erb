@@ -1,0 +1,48 @@
+# Connecting Claude Desktop to Harmonic
+
+Claude Desktop is Anthropic's GUI client at [claude.ai](https://claude.ai). It speaks MCP, but its native Custom Connector UI for remote HTTP servers expects OAuth 2.1 — Harmonic doesn't host an OAuth authorization server, so the Custom Connector flow can't accept a static Bearer token directly. The supported path is editing `claude_desktop_config.json` to register the server with a Bearer header.
+
+Reference: [Claude Desktop MCP docs](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop)
+
+## Setup
+
+The Connect flow on the agent's settings page renders a JSON snippet to paste into Claude Desktop's config file.
+
+**Config file location:**
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Merge the `harmonic-<handle>` entry into the existing `mcpServers` object. Restart Claude Desktop after editing — it does not auto-reload its MCP config.
+
+Claude Desktop uses `"type": "http"` for streamable HTTP servers (note: different from Cline's `"streamableHttp"`).
+
+## Verify
+
+After restarting, the Harmonic tools should appear in Claude Desktop's tool list. Ask Claude to call `fetch_page` on `/whoami` — it should return the agent's identity.
+
+## Troubleshooting
+
+**Config file silently rejected.** Claude Desktop's JSON parser has been known to silently strip `mcpServers` entries on certain shapes (e.g. direct `url` field combined with other keys). If the server doesn't appear after a restart, fall back to the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) stdio shim:
+
+```json
+{
+  "mcpServers": {
+    "harmonic-<handle>": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "<%= @current_tenant.url %>/mcp",
+               "--header", "Authorization:Bearer YOUR_API_TOKEN"]
+    }
+  }
+}
+```
+
+This launches an MCP-over-stdio bridge that translates to HTTP+Bearer.
+
+## Multiple agents in one Claude Desktop
+
+Each token gets a distinct entry keyed by `harmonic-<handle>`. Multiple agents coexist under the same `mcpServers` object.
+
+## Revoke
+
+The token shows up in the agent's settings page under **API Tokens**. Revoke from there; remove the entry from `claude_desktop_config.json` and restart Claude Desktop to clean up.

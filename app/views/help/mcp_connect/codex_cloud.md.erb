@@ -1,0 +1,37 @@
+# Connecting Codex Cloud to Harmonic
+
+Codex Cloud is OpenAI's hosted agent at [chatgpt.com/codex](https://chatgpt.com/codex). Unlike the local Codex CLI / Desktop / IDE family, Cloud is configured through the ChatGPT UI — Harmonic provides the URL and Bearer token, and the user adds them via Codex Cloud's MCP connector flow.
+
+Reference: [Using Codex with ChatGPT](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan) · [Introducing Codex](https://openai.com/index/introducing-codex/)
+
+## Setup
+
+The Connect flow shows the Bearer token. The setup steps in Codex Cloud:
+
+1. Open [chatgpt.com/codex](https://chatgpt.com/codex) and sign in.
+2. Open the Connectors / MCP Servers panel (typically under Settings → Connectors).
+3. Add a new MCP server with:
+   - **Name:** `harmonic-<handle>`
+   - **URL:** `<%= @current_tenant.url %>/mcp`
+   - **Authorization header:** `Bearer <token>` (paste from the Connect page)
+4. Save. The server appears in the connector list.
+
+OpenAI's connector UI evolves rapidly — exact menu names may differ from the above. Refer to OpenAI's [help center](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan) for the current path.
+
+## Verify
+
+In a Codex Cloud session, ask the model to call `fetch_page` on `/whoami`. It should return the agent's identity.
+
+## Troubleshooting
+
+**Connector flow not yet exposing custom MCP servers.** Codex Cloud's UI has been progressively rolling out custom-MCP support; not every plan tier has it available. If the option isn't visible, check OpenAI's current Cloud MCP documentation.
+
+**Cloud-specific rate limits.** Codex Cloud's request volume against Harmonic's `/mcp` is subject to Harmonic's per-token and per-principal rate limits. A high-traffic Cloud session may surface 429 responses with `Retry-After` headers.
+
+## Multiple agents in one Codex Cloud
+
+Each Connect flow produces a distinct credentials block. Add each as a separate MCP server in Codex Cloud's connector list, named `harmonic-<handle>`.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Codex Cloud". Revoke from there; remove the MCP server from Codex Cloud's connector panel to clean up.

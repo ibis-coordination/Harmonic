@@ -170,6 +170,24 @@
         </section>
       <% end %>
 
+      <% if @ai_agent.external_ai_agent? %>
+        <section class="pulse-settings-section">
+          <h3>Connect a client</h3>
+          <p class="pulse-hint">
+            Pick the harness you want to connect to this agent. We'll mint a fresh MCP-only token and walk you through setup.
+          </p>
+          <div class="pulse-form-actions" style="margin-top:12px; flex-wrap: wrap; gap: 8px;">
+            <% Mcp::Connect::HARNESSES.each do |slug, display_name| %>
+              <%= button_to display_name,
+                    "/ai-agents/#{@ai_agent.handle}/connect/#{slug}",
+                    method: :post,
+                    class: "pulse-action-btn-small",
+                    data: { turbo: false } %>
+            <% end %>
+          </div>
+        </section>
+      <% end %>
+
       <section class="pulse-settings-section">
         <h3>API Tokens</h3>
         <% if @ai_agent.api_tokens.external.any? %>
@@ -177,7 +195,7 @@
             <table class="pulse-table">
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Client</th>
                   <th>Token</th>
                   <th>MCP-only</th>
                   <th>Created</th>
@@ -190,7 +208,7 @@
               <tbody>
                 <% @ai_agent.api_tokens.external.each do |token| %>
                   <tr>
-                    <td><%= token.name || 'Unnamed' %></td>
+                    <td><%= token.client_label.presence || 'Unnamed' %></td>
                     <td>
                       <code class="pulse-code"><%= token.obfuscated_token %></code>
                       <% if token.plaintext_token.present? %>

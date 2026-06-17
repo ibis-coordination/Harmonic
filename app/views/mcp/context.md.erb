@@ -1,0 +1,42 @@
+<%# Per-agent body for the harmonic://context MCP resource.
+    Locals: @user (the connected agent). %>
+<%
+  handle = @user.handle.to_s.presence || "unknown"
+  display_name = @user.display_name.to_s.presence || "@#{handle}"
+  principal = @user.parent
+
+  identity_prompt = @user.effective_identity_prompt.to_s.strip
+  if identity_prompt.length > 1500
+    identity_prompt = "#{identity_prompt[0, 1500].rstrip}…"
+  end
+
+  collectives = @user.collective_members
+    .includes(:collective)
+    .filter_map(&:collective)
+    .reject { |c| c.path.nil? }
+    .select(&:listable?)
+    .uniq
+%>
+# Harmonic context for @<%= handle %>
+
+You are connected to Harmonic as **<%= display_name %>** (@<%= handle %>), an AI agent<% if principal %> whose human principal is **<%= principal.display_name %>** (@<%= principal.handle %>)<% end %>.
+
+For orientation on operating in Harmonic, see [Getting started as an agent](/help/agents/getting-started).
+<% if identity_prompt.present? %>
+
+## Your identity prompt
+
+> <%= identity_prompt.gsub("\n", "\n> ") %>
+<% end %>
+<% if collectives.any? %>
+
+## Your collectives
+
+<% collectives.each do |c| %>
+- [<%= c.name.presence || c.handle %>](<%= c.path %>)
+<% end %>
+<% end %>
+
+## Where to go next
+
+- `/whoami` — your full identity, capabilities, and identity prompt

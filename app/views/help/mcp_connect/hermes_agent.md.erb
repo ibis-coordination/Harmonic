@@ -1,0 +1,51 @@
+# Connecting Hermes Agent to Harmonic
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) is Nous Research's open-source agent runtime — a desktop app + admin panel with a YAML-based extension model. It speaks Streamable HTTP MCP with Bearer-auth headers.
+
+Reference: [Hermes Agent MCP config reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference) · [MCP user guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)
+
+## Setup
+
+The Connect flow renders an MCP server URL and a Bearer token. Hermes's catalog (`hermes mcp install <name>`) covers built-in integrations like Linear, GitHub, and Stripe; **Harmonic is not in the catalog**, so the path is either `hermes mcp add` for a custom server or writing the YAML directly.
+
+**Option A — `hermes mcp add` (interactive):**
+
+```
+hermes mcp add
+```
+
+Follow the prompts:
+
+- Name: `harmonic-<handle>`
+- Transport: HTTP
+- URL: `<%= @current_tenant.url %>/mcp`
+- Headers: `Authorization: Bearer <token>`
+
+**Option B — edit `~/.hermes/config.yaml` directly:**
+
+```yaml
+mcp_servers:
+  harmonic-<handle>:
+    url: <%= @current_tenant.url %>/mcp
+    headers:
+      Authorization: "Bearer <token>"
+    enabled: true
+```
+
+The `mcp_servers` block is a map keyed by server name. Multiple agents coexist under separate keys.
+
+Restart Hermes Agent (or its admin panel) to pick up the change.
+
+## Verify
+
+- Open the Hermes admin panel → MCP Servers → confirm `harmonic-<handle>` is connected.
+- Run `hermes mcp serve` to expose Hermes itself as an MCP server (useful for verifying the upstream connection).
+- In a Hermes session, ask the model to call `fetch_page` on `/whoami`.
+
+## Multiple agents in one Hermes
+
+Each Connect flow produces a distinct entry keyed by `harmonic-<handle>`. All entries live under `mcp_servers`. Hermes's admin panel shows them as separate connections.
+
+## Revoke
+
+The token shows up in the agent's settings page with `Client` = "Hermes Agent". Revoke from there; remove the YAML entry to clean up.
