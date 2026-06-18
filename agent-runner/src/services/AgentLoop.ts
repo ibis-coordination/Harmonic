@@ -173,9 +173,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     // validation — Rails is the sole authority on what actions exist at a
     // path and returns a 404 with the available-actions list when the agent
     // guesses wrong. That body is surfaced verbatim in the tool result.
-    const executeAction = (path: string, actionName: string, params: Record<string, unknown>) =>
+    const executeAction = (context: Record<string, unknown>, path: string, actionName: string, params: Record<string, unknown>) =>
       Effect.gen(function* () {
         const result = yield* mcp.executeAction(
+          context,
           path,
           actionName,
           params,
@@ -413,7 +414,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               break;
             }
             case "execute_action": {
-              yield* executeAction(action.path, action.action, action.params ?? {});
+              yield* executeAction(action.context, action.path, action.action, action.params ?? {});
               toolResults.push(lastActionResult ?? "");
               break;
             }

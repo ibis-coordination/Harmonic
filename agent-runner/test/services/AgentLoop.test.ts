@@ -72,11 +72,20 @@ function makeNavigateToolCall(path: string, id = "call_1") {
   };
 }
 
+const TEST_CONTEXT: Record<string, unknown> = {
+  identity: { actor: "@test-agent" },
+  visibility: "shared",
+  intention: "run a test",
+};
+
 function makeExecuteToolCall(action: string, params: Record<string, unknown> = {}, id = "call_1", path = "/") {
   return {
     id,
     type: "function" as const,
-    function: { name: "execute_action", arguments: JSON.stringify({ path, action, params }) },
+    function: {
+      name: "execute_action",
+      arguments: JSON.stringify({ context: TEST_CONTEXT, path, action, params }),
+    },
   };
 }
 
@@ -182,7 +191,7 @@ function buildTestLayers(
         mcpToolCallLogId: null,
       });
     },
-    executeAction: (path: string, action: string, _params: Record<string, unknown> | undefined) => {
+    executeAction: (_context: Record<string, unknown>, path: string, action: string, _params: Record<string, unknown> | undefined) => {
       state.executeActions.push(action);
       state.executeActionPaths.push(path);
       const result = (options?.executeResults ?? executeResults)?.[action] ?? { content: "Action completed", success: true };

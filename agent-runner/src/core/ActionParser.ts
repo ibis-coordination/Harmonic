@@ -6,7 +6,13 @@ import type { ToolCall } from "./PromptBuilder.js";
 
 export type AgentAction =
   | { readonly type: "fetch_page"; readonly path: string }
-  | { readonly type: "execute_action"; readonly path: string; readonly action: string; readonly params: Record<string, unknown> | undefined }
+  | {
+      readonly type: "execute_action";
+      readonly context: Record<string, unknown>;
+      readonly path: string;
+      readonly action: string;
+      readonly params: Record<string, unknown> | undefined;
+    }
   | { readonly type: "search"; readonly query: string }
   | { readonly type: "get_help"; readonly topic: string }
   | { readonly type: "respond_to_human"; readonly message: string }
@@ -47,6 +53,10 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
       return { type: "fetch_page", path };
     }
     case "execute_action": {
+      const context = args["context"];
+      if (typeof context !== "object" || context === null || Array.isArray(context)) {
+        return { type: "error", message: "execute_action requires a 'context' object (identity, visibility, intention)" };
+      }
       const path = args["path"];
       if (typeof path !== "string" || path === "") {
         return { type: "error", message: "execute_action requires a non-empty 'path' string" };
@@ -58,7 +68,7 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
       const params = typeof args["params"] === "object" && args["params"] !== null
         ? args["params"] as Record<string, unknown>
         : undefined;
-      return { type: "execute_action", path, action, params };
+      return { type: "execute_action", context: context as Record<string, unknown>, path, action, params };
     }
     case "search": {
       const query = args["query"];

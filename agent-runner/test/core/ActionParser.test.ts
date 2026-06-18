@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { parseToolCalls } from "../../src/core/ActionParser.js";
 
+const CTX = {
+  identity: { actor: "@test-agent" },
+  visibility: "shared",
+  intention: "run a test",
+};
+const CTX_JSON = JSON.stringify(CTX);
+
 describe("parseToolCalls", () => {
   it("returns done when no tool calls", () => {
     const result = parseToolCalls(undefined, "I'm done now");
@@ -27,20 +34,21 @@ describe("parseToolCalls", () => {
     expect(result).toEqual([{ type: "fetch_page", path: "/notifications" }]);
   });
 
-  it("parses execute_action tool call with path", () => {
+  it("parses execute_action tool call with context, path, action, and params", () => {
     const result = parseToolCalls(
       [{
         id: "call_2",
         type: "function",
         function: {
           name: "execute_action",
-          arguments: '{"path": "/collectives/team/note", "action": "create_note", "params": {"body": "Hello"}}',
+          arguments: `{"context": ${CTX_JSON}, "path": "/collectives/team/note", "action": "create_note", "params": {"body": "Hello"}}`,
         },
       }],
       undefined,
     );
     expect(result).toEqual([{
       type: "execute_action",
+      context: CTX,
       path: "/collectives/team/note",
       action: "create_note",
       params: { body: "Hello" },
@@ -54,13 +62,14 @@ describe("parseToolCalls", () => {
         type: "function",
         function: {
           name: "execute_action",
-          arguments: '{"path": "/n/abc", "action": "confirm_read"}',
+          arguments: `{"context": ${CTX_JSON}, "path": "/n/abc", "action": "confirm_read"}`,
         },
       }],
       undefined,
     );
     expect(result).toEqual([{
       type: "execute_action",
+      context: CTX,
       path: "/n/abc",
       action: "confirm_read",
       params: undefined,
@@ -74,7 +83,7 @@ describe("parseToolCalls", () => {
         type: "function",
         function: {
           name: "execute_action",
-          arguments: '{"action": "create_note"}',
+          arguments: `{"context": ${CTX_JSON}, "action": "create_note"}`,
         },
       }],
       undefined,
@@ -92,7 +101,73 @@ describe("parseToolCalls", () => {
         type: "function",
         function: {
           name: "execute_action",
-          arguments: '{"path": "", "action": "create_note"}',
+          arguments: `{"context": ${CTX_JSON}, "path": "", "action": "create_note"}`,
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+  });
+
+  it("returns error for execute_action without context", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_no_ctx",
+        type: "function",
+        function: {
+          name: "execute_action",
+          arguments: '{"path": "/n/abc", "action": "confirm_read"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+    if (result[0]?.type === "error") {
+      expect(result[0].message).toContain("context");
+    }
+  });
+
+  it("returns error for execute_action with non-object context", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_bad_ctx",
+        type: "function",
+        function: {
+          name: "execute_action",
+          arguments: '{"context": "not-an-object", "path": "/n/abc", "action": "confirm_read"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+    if (result[0]?.type === "error") {
+      expect(result[0].message).toContain("context");
+    }
+  });
+
+  it("returns error for execute_action with null context", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_null_ctx",
+        type: "function",
+        function: {
+          name: "execute_action",
+          arguments: '{"context": null, "path": "/n/abc", "action": "confirm_read"}',
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
+  });
+
+  it("returns error for execute_action with array context", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_arr_ctx",
+        type: "function",
+        function: {
+          name: "execute_action",
+          arguments: '{"context": [], "path": "/n/abc", "action": "confirm_read"}',
         },
       }],
       undefined,

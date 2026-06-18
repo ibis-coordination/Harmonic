@@ -43,10 +43,37 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
     function: {
       name: "execute_action",
       description:
-        "Invoke an action at a Harmonic page. Pass the page's path, an action name from that page's frontmatter, and any params the action requires. An action name not defined for the path returns a 404 with the list of valid actions for it.",
+        "Invoke an action at a Harmonic page. Start with a `context` block declaring who you are, who will see this write, and what you're doing. Then pass the page's path, an action name from that page's frontmatter, and any params the action requires. An action name not defined for the path returns a 404 with the list of valid actions for it. A mismatch between your declared context and the actual destination returns 422 naming the expected value.",
       parameters: {
         type: "object",
         properties: {
+          context: {
+            type: "object",
+            required: ["identity", "visibility", "intention"],
+            properties: {
+              identity: {
+                type: "object",
+                required: ["actor"],
+                properties: {
+                  actor: {
+                    type: "string",
+                    description: "Your own @handle — the agent calling this tool. You can see your handle on /whoami.",
+                  },
+                },
+              },
+              visibility: {
+                type: "string",
+                enum: ["public", "private", "shared"],
+                description:
+                  "Who will see this write: 'public' = visible to anyone. 'private' = only you (your private workspace, your own notifications). 'shared' = a specific group — members of a collective, participants in a chat, etc. Declare the tier that matches where the action actually lands; mismatches are rejected.",
+              },
+              intention: {
+                type: "string",
+                description: "A short imperative phrase (think git commit subject) describing what you're doing and why. Will be visible to your principal in audit logs.",
+              },
+            },
+            description: "Required — declare who you are, who will see this write, and what you're doing.",
+          },
           path: {
             type: "string",
             description: "Path of the page the action operates on (e.g., '/collectives/team/n/abc123')",
@@ -60,7 +87,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
             description: "Parameters for the action (see action's parameter list)",
           },
         },
-        required: ["path", "action"],
+        required: ["context", "path", "action"],
       },
     },
   },
@@ -163,14 +190,30 @@ const NAVIGATION = `## Navigation
 
 **Discovery strategy:** Start at \`/whoami\` to learn your context, then read the relevant collective's page. If you're unsure how a feature works, read its \`/help\` page first — one step on the docs beats guessing wrong.`;
 
+const EXECUTE_ACTION_CONTEXT_DOC = `Every \`execute_action\` call requires a \`context\` block declaring who you are, who will see this write, and what you're doing:
+
+\`\`\`json
+{
+  "identity": { "actor": "@your-handle" },
+  "visibility": "public | private | shared",
+  "intention": "short imperative phrase (think git commit subject)"
+}
+\`\`\`
+
+- \`identity.actor\` — your own @handle (visible on /whoami).
+- \`visibility\` — \`public\` if everyone can see it, \`private\` if only you can, \`shared\` for a specific group (a collective, a chat, etc.). Must match the action's destination; mismatches reject.
+- \`intention\` — a short imperative phrase describing what you're doing and why.`;
+
 const TASK_TOOLS = `## Tools
 
 You have four tools: \`fetch_page\`, \`execute_action\`, \`search\`, and \`get_help\`.
 
 \`fetch_page(path)\` reads any page. The response includes markdown content and the actions available at that path.
-\`execute_action(path, action, params)\` invokes one of those actions. Use action names from the page's frontmatter; if you pass one that isn't defined there, you get a 404 with the list of valid actions for that path.
+\`execute_action(context, path, action, params)\` invokes one of those actions. Use action names from the page's frontmatter; if you pass one that isn't defined there, you get a 404 with the list of valid actions for that path.
 \`search\` finds notes, decisions, commitments, and people across your collectives.
 \`get_help\` reads documentation about any Harmonic concept.
+
+${EXECUTE_ACTION_CONTEXT_DOC}
 
 After each action, check the result. If your task is complete, stop calling tools.`;
 
@@ -179,10 +222,12 @@ const CHAT_TOOLS = `## Tools
 You have five tools: \`fetch_page\`, \`execute_action\`, \`search\`, \`get_help\`, and \`respond_to_human\`.
 
 \`fetch_page(path)\` reads any page. The response includes markdown content and the actions available at that path.
-\`execute_action(path, action, params)\` invokes one of those actions. Use action names from the page's frontmatter; if you pass one that isn't defined there, you get a 404 with the list of valid actions for that path.
+\`execute_action(context, path, action, params)\` invokes one of those actions. Use action names from the page's frontmatter; if you pass one that isn't defined there, you get a 404 with the list of valid actions for that path.
 \`search\` finds notes, decisions, commitments, and people across your collectives.
 \`get_help\` reads documentation about any Harmonic concept.
 \`respond_to_human\` sends a message to the human and ends your turn — the human will see your message and can reply.
+
+${EXECUTE_ACTION_CONTEXT_DOC}
 
 You can chain reads and actions before responding. When you're done or need input, call \`respond_to_human\`.`;
 
