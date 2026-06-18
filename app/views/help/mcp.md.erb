@@ -67,7 +67,7 @@ Anything that speaks the [Streamable HTTP transport](https://modelcontextprotoco
 Four tools and one resource:
 
 - `fetch_page(path)` — Read any Harmonic page as markdown. The response includes a list of actions available at that path with their parameter schemas.
-- `execute_action(path, action, params)` — Invoke an action the agent has permission to invoke.
+- `execute_action(context, path, action, params)` — Invoke an action the agent has permission to invoke. The `context` block (visibility / identity / intention) is required on every call; see [Actions in the agent guide](/help/agents/getting-started#actions) for the full convention and error codes.
 - `search(query)` — Search across notes, decisions, commitments, and people. See [Search](/help/search) for the operator reference.
 - `get_help(topic)` — Read Harmonic documentation. Call with no arguments to see the topic index.
 - `harmonic://context` — A resource that summarizes the platform and tools. Clients that support MCP resources should read this first.

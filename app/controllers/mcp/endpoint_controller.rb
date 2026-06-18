@@ -98,12 +98,50 @@ module Mcp
       name: "execute_action",
       description:
         "Execute an action at a given Harmonic page. " \
-        "Pass the path of the page (e.g. '/collectives/team/n/abc123'), the action name " \
-        "(from the page's action list, e.g. 'add_comment'), and any params the action requires.",
+        "Start with a `context` block declaring who you are, who will see this write, and what you're doing. " \
+        "Then pass the page path (e.g. '/collectives/team/n/abc123'), the action name " \
+        "(from the page's action list, e.g. 'add_comment'), and any params the action requires. " \
+        "If `identity.actor` or `visibility` don't match your handle and the actual space, " \
+        "the response names the expected value so you can correct.",
       inputSchema: {
         type: "object",
-        required: ["path", "action"],
+        required: ["context", "path", "action"],
         properties: {
+          context: {
+            type: "object",
+            required: ["identity", "visibility", "intention"],
+            properties: {
+              identity: {
+                type: "object",
+                required: ["actor"],
+                properties: {
+                  actor: {
+                    type: "string",
+                    description: "Your own @handle — the agent calling this tool. You can see your handle on /whoami.",
+                  },
+                },
+                additionalProperties: true,
+              },
+              visibility: {
+                type: "string",
+                enum: ["public", "private", "shared"],
+                description:
+                  "Who will see this write: " \
+                  "'public' = visible to anyone. " \
+                  "'private' = only you (your private workspace, your own notifications). " \
+                  "'shared' = a specific group — members of a collective, participants in a chat, etc. " \
+                  "Declare the tier that matches where the action actually lands; mismatches are rejected.",
+              },
+              intention: {
+                type: "string",
+                description:
+                  "A short imperative phrase (think git commit subject) describing what you're doing and why. " \
+                  "Will be visible to your principal in audit logs.",
+              },
+            },
+            additionalProperties: true,
+            description: "Required — declare who you are, who will see this write, and what you're doing.",
+          },
           path: { type: "string", description: "Path of the page the action operates on (e.g., '/collectives/team/n/abc123')." },
           action: { type: "string", description: "Action name (from the action list on the page)." },
           params: {
@@ -468,6 +506,11 @@ module Mcp
         api_token: @current_token,
         tool_name: name,
         arguments: redact_args_for_log(name, args),
+        # Recorded even on rejection so the audit trail captures what the
+        # agent declared. Non-Hash inputs (which fail context_missing) record
+        # as nil — operator forensics on malformed context blocks isn't a
+        # current need.
+        context: args["context"].is_a?(Hash) ? args["context"] : nil,
         status: "pending",
         duration_ms: 0,
         request_id: request.request_id,
@@ -549,6 +592,9 @@ module Mcp
     # Other tools' declared arguments are intent fields (paths, queries,
     # topic names) and are logged verbatim — dropping them would defeat
     # the purpose of the audit log.
+    #
+    # execute_action's `context` is stripped here because it lives in its
+    # own column (recorded verbatim, no shape-summary).
     def redact_args_for_log(name, args)
       allowed = TOOL_ARG_FIELDS[name]
       return {} if allowed.nil?
@@ -561,7 +607,7 @@ module Mcp
                 when nil then nil
                 else { "type" => raw.class.name }
                 end
-      filtered.merge("params" => summary)
+      filtered.merge("params" => summary).except("context")
     end
 
     def call_fetch_page(id, args)
@@ -587,10 +633,17 @@ module Mcp
       normalized = normalize_action_path(path)
       return tool_error_result(id, invalid_path_message) if normalized.empty?
 
+      # Outer half of the context gate; visibility runs in ActionContextValidation
+      # against the inner-resolved audience.
+      identity_error = ActionContext.new(args["context"])
+                                    .validate_identity_and_intention(caller_handle: @current_token.user.handle)
+      return tool_error_result(id, identity_error.to_response_hash.to_json) if identity_error
+
       # Stash the action name on Current so track_task_run_resource (which fires
       # deep inside the dispatched action controller) can attribute touched
       # resources to this specific MCP call with the correct action_name.
       Current.mcp_action_name = action_name
+      Current.mcp_action_context = args["context"]
 
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) do

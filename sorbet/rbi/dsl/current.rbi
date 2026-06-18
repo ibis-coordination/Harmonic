@@ -52,6 +52,12 @@ class Current
     def main_collective_id=(value); end
 
     sig { returns(T.untyped) }
+    def mcp_action_context; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def mcp_action_context=(value); end
+
+    sig { returns(T.untyped) }
     def mcp_action_name; end
 
     sig { params(value: T.untyped).returns(T.untyped) }
@@ -118,6 +124,12 @@ class Current
 
     sig { params(value: T.untyped).returns(T.untyped) }
     def main_collective_id=(value); end
+
+    sig { returns(T.untyped) }
+    def mcp_action_context; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def mcp_action_context=(value); end
 
     sig { returns(T.untyped) }
     def mcp_action_name; end

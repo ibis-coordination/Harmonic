@@ -52,6 +52,12 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     post "/mcp", params: body.to_json, headers: headers
   end
 
+  # Default `shared` matches @collective (non-main); override visibility for
+  # tests against the main collective or a private surface.
+  def valid_context(actor: @agent.handle, visibility: "shared", intention: "run a test")
+    { identity: { actor: "@#{actor}" }, visibility: visibility, intention: intention }
+  end
+
   # ====================
   # Auth
   # ====================
@@ -438,6 +444,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                        path: "/collectives/#{@collective.handle}/note",
                        action: "create_note",
                        params: { text: "Hello from MCP test" },
+                       context: valid_context(intention: "post hello note"),
                      },
                    },
                  })
@@ -501,6 +508,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                        path: "/collectives/#{@collective.handle}/note/actions/create_note",
                        action: "create_note",
                        params: { text: "Stripped suffix path" },
+                       context: valid_context(intention: "post note"),
                      },
                    },
                  })
@@ -521,6 +529,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                        path: "/collectives/#{@collective.handle}/note?some=garbage",
                        action: "create_note",
                        params: { text: "Stripped query path" },
+                       context: valid_context(intention: "post note"),
                      },
                    },
                  })
@@ -576,6 +585,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
             path: "/collectives/#{@collective.handle}/note",
             action: "create_note",
             params: { text: "should not exist" },
+            context: valid_context(actor: ai_agent.handle, intention: "post note"),
           },
         },
       },
@@ -590,6 +600,108 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     text = body["result"]["content"].first["text"]
     assert_match(/create_note/, text, "expected the action name in the error body so the agent knows what's blocked")
     assert_not Note.exists?(text: "should not exist")
+  end
+
+  # ====================
+  # execute_action context validation
+  # ====================
+
+  def context_error_body(jsonrpc_body)
+    JSON.parse(jsonrpc_body["result"]["content"].first["text"])
+  end
+
+  def execute_action_with_context(context, id: 700, params: { text: "ctx test" })
+    args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: params,
+    }
+    args[:context] = context unless context.nil?
+    post_jsonrpc({ jsonrpc: "2.0", id: id, method: "tools/call",
+                   params: { name: "execute_action", arguments: args } })
+  end
+
+  test "execute_action without a context returns context_missing and creates no note" do
+    assert_no_difference -> { Note.count } do
+      execute_action_with_context(nil, id: 710)
+    end
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_equal "context_missing", context_error_body(body)["error"]
+  end
+
+  test "execute_action with a non-Hash context returns context_missing" do
+    execute_action_with_context("not-a-hash", id: 711)
+    assert_equal "context_missing", context_error_body(response.parsed_body)["error"]
+  end
+
+  test "execute_action without identity returns identity_missing" do
+    execute_action_with_context(
+      { visibility: "shared", intention: "post note" },
+      id: 712,
+    )
+    assert_equal "identity_missing", context_error_body(response.parsed_body)["error"]
+  end
+
+  test "execute_action with mismatched identity actor returns identity_mismatch with expected/got" do
+    execute_action_with_context(
+      valid_context.merge(identity: { actor: "@someone-else" }),
+      id: 713,
+    )
+    body = context_error_body(response.parsed_body)
+    assert_equal "identity_mismatch", body["error"]
+    assert_equal "@#{@agent.handle}", body["expected"]
+    assert_equal "@someone-else", body["got"]
+  end
+
+  test "execute_action without intention returns intention_missing" do
+    ctx = valid_context
+    ctx.delete(:intention)
+    execute_action_with_context(ctx, id: 714)
+    assert_equal "intention_missing", context_error_body(response.parsed_body)["error"]
+  end
+
+  test "execute_action with declared visibility mismatched against resolved audience returns visibility_mismatch" do
+    # @collective is non-main → resolves to "shared"; declaring "public" mismatches.
+    assert_no_difference -> { Note.count } do
+      execute_action_with_context(valid_context(visibility: "public"), id: 715)
+    end
+    body = context_error_body(response.parsed_body)
+    assert_equal "visibility_mismatch", body["error"]
+    assert_equal "shared", body["expected"]
+    assert_equal "public", body["got"]
+  end
+
+  test "execute_action with identity+intention present but blank visibility returns visibility_missing" do
+    # The outer endpoint passes context lacking visibility (it only enforces
+    # identity/intention); the inner concern surfaces visibility_missing.
+    ctx = valid_context
+    ctx.delete(:visibility)
+    assert_no_difference -> { Note.count } do
+      execute_action_with_context(ctx, id: 718)
+    end
+    assert_equal "visibility_missing", context_error_body(response.parsed_body)["error"]
+  end
+
+  test "execute_action records the declared context verbatim on McpToolCallLog" do
+    declared = valid_context(intention: "verify verbatim recording")
+    execute_action_with_context(declared, id: 716)
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "execute_action", log.tool_name
+    assert_equal declared[:visibility], log.context["visibility"]
+    assert_equal "@#{@agent.handle}", log.context.dig("identity", "actor")
+    assert_equal declared[:intention], log.context["intention"]
+    refute log.arguments.key?("context"), "context must not duplicate into arguments"
+  end
+
+  test "execute_action records context verbatim even on context-validation rejection" do
+    bad = valid_context.merge(identity: { actor: "@someone-else" })
+    execute_action_with_context(bad, id: 717)
+
+    log = McpToolCallLog.order(:created_at).last
+    assert_equal "execute_action", log.tool_name
+    assert_equal "@someone-else", log.context.dig("identity", "actor")
   end
 
   # ====================
@@ -967,6 +1079,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                          path: note.path,
                          action: "add_comment",
                          params: { "body" => "secret note content the principal should not see verbatim" },
+                         context: valid_context(intention: "add comment"),
                        },
                      },
                    })
@@ -1049,6 +1162,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                          path: note.path,
                          action: "add_comment",
                          params: { "body" => "redacted body content" },
+                         context: valid_context(intention: "add comment"),
                          extra_secret: "should not be logged",
                        },
                      },
@@ -1453,6 +1567,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                          path: "/collectives/#{@collective.handle}/note",
                          action: "create_note",
                          params: { text: "attribution test note" },
+                         context: valid_context(intention: "create attribution-test note"),
                        },
                      },
                    })
@@ -1479,6 +1594,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                          path: "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
                          action: "confirm_read",
                          params: {},
+                         context: valid_context(intention: "confirm read on this note"),
                        },
                      },
                    })
@@ -1509,6 +1625,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                            path: "/collectives/#{@collective.handle}/note",
                            action: "create_note",
                            params: { text: "external-only attribution" },
+                           context: valid_context(intention: "run attribution test"),
                          },
                        },
                      })
@@ -1526,6 +1643,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                          path: "/collectives/#{@collective.handle}/note",
                          action: "create_note",
                          params: { text: "rapid note #{i}" },
+                         context: valid_context(intention: "post rapid-fire note #{i}"),
                        },
                      },
                    })
@@ -1549,6 +1667,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                          path: "/collectives/#{@collective.handle}/note",
                          action: "create_note",
                          params: {}, # missing required text → action fails
+                         context: valid_context(intention: "post note"),
                        },
                      },
                    })

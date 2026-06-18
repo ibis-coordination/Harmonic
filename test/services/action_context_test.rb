@@ -2,15 +2,7 @@
 
 require "test_helper"
 
-# Unit tests for ActionContext — the value object that parses and validates the
-# `context` block an agent must declare on every execute_action call.
-#
-# Validation is pure: it compares the agent's *declared* context against ground
-# truth supplied by the caller (the calling agent's handle and the action's
-# resolved audience tier). Mismatches return a structured error with a code and,
-# where meaningful, expected/got values. `intention` is presence-only.
 class ActionContextTest < ActiveSupport::TestCase
-  # A well-formed self-acting context for "@agent-bob" writing to a public space.
   def valid_raw(overrides = {})
     {
       "visibility" => "public",
@@ -19,8 +11,11 @@ class ActionContextTest < ActiveSupport::TestCase
     }.merge(overrides)
   end
 
+  # Mirrors the production two-stage flow: outer gate then inner gate.
   def validate(raw, caller_handle: "agent-bob", audience: "public")
-    ActionContext.new(raw).validate(caller_handle: caller_handle, audience: audience)
+    ctx = ActionContext.new(raw)
+    ctx.validate_identity_and_intention(caller_handle: caller_handle) ||
+      ctx.validate_visibility(audience: audience)
   end
 
   test "valid self-acting context passes" do
@@ -86,6 +81,41 @@ class ActionContextTest < ActiveSupport::TestCase
   test "validation order: context presence before field checks" do
     # An entirely absent context reports context_missing, not a field error.
     assert_equal "context_missing", validate(nil).code
+  end
+
+  test "validate_identity_and_intention covers context/identity/intention checks but not visibility" do
+    ctx = ActionContext.new(nil)
+    assert_equal "context_missing", ctx.validate_identity_and_intention(caller_handle: "agent-bob").code
+
+    ctx = ActionContext.new(valid_raw("identity" => nil))
+    assert_equal "identity_missing", ctx.validate_identity_and_intention(caller_handle: "agent-bob").code
+
+    ctx = ActionContext.new(valid_raw("identity" => { "actor" => "@someone-else" }))
+    err = ctx.validate_identity_and_intention(caller_handle: "agent-bob")
+    assert_equal "identity_mismatch", err.code
+    assert_equal "@agent-bob", err.expected
+    assert_equal "@someone-else", err.got
+
+    ctx = ActionContext.new(valid_raw("intention" => nil))
+    assert_equal "intention_missing", ctx.validate_identity_and_intention(caller_handle: "agent-bob").code
+
+    # Visibility is the next stage's concern, not this one's.
+    ctx = ActionContext.new(valid_raw("visibility" => nil))
+    assert_nil ctx.validate_identity_and_intention(caller_handle: "agent-bob")
+  end
+
+  test "validate_visibility covers only visibility checks" do
+    ctx = ActionContext.new(valid_raw("visibility" => nil))
+    assert_equal "visibility_missing", ctx.validate_visibility(audience: "public").code
+
+    ctx = ActionContext.new(valid_raw("visibility" => "private"))
+    err = ctx.validate_visibility(audience: "public")
+    assert_equal "visibility_mismatch", err.code
+    assert_equal "public", err.expected
+    assert_equal "private", err.got
+
+    ctx = ActionContext.new(valid_raw)
+    assert_nil ctx.validate_visibility(audience: "public")
   end
 
   test "later-stage and unknown fields are ignored, not rejected" do

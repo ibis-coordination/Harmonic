@@ -828,7 +828,8 @@ CREATE TABLE public.mcp_tool_call_logs (
     request_id character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    ai_agent_task_run_id uuid
+    ai_agent_task_run_id uuid,
+    context jsonb
 );
 
 
@@ -10057,6 +10058,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260617000000'),
 ('20260615150000'),
 ('20260615130000'),
 ('20260615120000'),

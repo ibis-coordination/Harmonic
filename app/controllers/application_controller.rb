@@ -30,6 +30,10 @@ class ApplicationController < ActionController::Base
   # append_before_action puts check_capability_for_action at the END of the chain,
   # after current_user is set
   include ActionCapabilityCheck
+  # ActionContextValidation must follow ActionCapabilityCheck: it relies on
+  # current_user being set, and capability denial should short-circuit before
+  # context validation even runs (a 403'd write shouldn't get a 422 chaser).
+  include ActionContextValidation
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -138,17 +142,19 @@ class ApplicationController < ActionController::Base
     request.headers["Authorization"].present?
   end
 
-  # Restore Current.mcp_tool_call_log_id + mcp_action_name from env when the
-  # request is an MCP internal dispatch. The Executor middleware resets
-  # CurrentAttributes between requests, so values the outer Mcp::EndpointController
-  # set on Current would be invisible here without this step. Env keys are
-  # written by MarkdownUiService#dispatch_env and can't be forged via HTTP_*
-  # headers from external clients.
+  # Restore Current.mcp_tool_call_log_id + mcp_action_name + mcp_action_context
+  # from env when the request is an MCP internal dispatch. The Executor
+  # middleware resets CurrentAttributes between requests, so values the outer
+  # Mcp::EndpointController set on Current would be invisible here without this
+  # step. Env keys are written by MarkdownUiService#dispatch_env and can't be
+  # forged via HTTP_* headers from external clients.
   def restore_mcp_dispatch_context!
     log_id = request.env["harmonic.mcp_tool_call_log_id"]
     action_name = request.env["harmonic.mcp_action_name"]
+    action_context = request.env["harmonic.mcp_action_context"]
     Current.mcp_tool_call_log_id = log_id if log_id.present?
     Current.mcp_action_name = action_name if action_name.present?
+    Current.mcp_action_context = action_context if action_context.present?
   end
 
   def current_token
