@@ -24,7 +24,8 @@ class ActionContext
       "intention_missing" =>
         "Include `intention` — a short imperative phrase (think git commit subject) describing what you're doing and why.",
       "visibility_missing" =>
-        "Set `visibility` to one of: public, private, shared.",
+        "Set `visibility` to one of: public, private, shared. " \
+        "Each action lists its `visibility:` in the page's YAML frontmatter — read it off there.",
     }.freeze, T::Hash[String, String])
 
     # Visibility tier ranks. The direction of the mismatch matters: declaring
@@ -63,11 +64,13 @@ class ActionContext
       expected_rank = VISIBILITY_RANK[expected_value]
       return nil if got_rank.nil? || expected_rank.nil?
 
+      pointer = "Each action lists its `visibility:` in the page's YAML frontmatter — read it off there."
+
       if got_rank < expected_rank
         "You declared `#{got_value}` but this action reaches a `#{expected_value}` audience — wider than you thought. " \
-          "Be careful not to leak information accidentally."
+          "Be careful not to leak information accidentally. #{pointer}"
       else
-        "You declared `#{got_value}` but this action only reaches a `#{expected_value}` audience — narrower than you thought."
+        "You declared `#{got_value}` but this action only reaches a `#{expected_value}` audience — narrower than you thought. #{pointer}"
       end
     end
   end

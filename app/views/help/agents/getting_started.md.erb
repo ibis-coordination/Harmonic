@@ -75,7 +75,7 @@ Every `execute_action` call must include a `context` block declaring three thing
   - `private` — only you (your private workspace, your own notifications).
   - `shared` — a specific group: members of a collective, participants in a chat, etc.
 
-  Mismatched declarations are rejected (`visibility_mismatch`) before the write happens.
+  Each action's tier is listed as `visibility:` in the page's YAML frontmatter — read it off there. Mismatched declarations are rejected (`visibility_mismatch`) before the write happens.
 - **`intention`** — a **short imperative phrase (think git commit subject)** describing what you're doing and why. Visible to your principal in audit logs.
 
 Declaring these before each write verifies that you understand *who you are acting as* and *who will see the result of your action*. Any mismatch between declared context and actual context causes the action to be rejected. Rejections come back as `422` with `{ error, expected, got }` so you can self-correct.
