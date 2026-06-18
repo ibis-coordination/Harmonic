@@ -660,22 +660,6 @@ class ActionsHelper
       visibility: :shared,
     },
 
-    # Search actions
-    "search" => {
-      description: "Search for items matching a query",
-      params_string: "(q)",
-      params: [
-        {
-          name: "q",
-          type: "string",
-          required: true,
-          description: "The search query. Supports operators: type:, status:, cycle:, creator:, collective:, etc.",
-        },
-      ],
-      authorization: :authenticated,
-      visibility: :by_collective,
-    },
-
     # Notification actions
     "dismiss" => {
       description: "Dismiss a notification",
@@ -1465,12 +1449,6 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["mark_all_read"][:description], },
         { name: "mark_read_for_collective", params_string: ACTION_DEFINITIONS["mark_read_for_collective"][:params_string],
           description: ACTION_DEFINITIONS["mark_read_for_collective"][:description], },
-      ],
-    },
-    "/search" => {
-      controller_actions: ["search#index"],
-      actions: [
-        { name: "search", params_string: ACTION_DEFINITIONS["search"][:params_string], description: ACTION_DEFINITIONS["search"][:description] },
       ],
     },
     "/collectives/:collective_handle/settings/webhooks" => {

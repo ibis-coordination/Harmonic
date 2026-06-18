@@ -174,7 +174,6 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "add_comment" => :by_collective,
     "add_attachment" => :by_collective,
     "remove_attachment" => :by_collective,
-    "search" => :by_collective,
     "create_webhook" => :by_collective,
     "update_webhook" => :by_collective,
     "delete_webhook" => :by_collective,

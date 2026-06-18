@@ -176,7 +176,6 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
 
   # Test: Authenticated actions are visible to logged-in users
   test "authenticated actions are visible to logged-in users" do
-    assert ActionAuthorization.authorized?("search", @user, {})
     assert ActionAuthorization.authorized?("create_collective", @user, {})
     assert ActionAuthorization.authorized?("dismiss", @user, {})
   end
