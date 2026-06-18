@@ -36,7 +36,7 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
 
       [@main_collective, @other_collective].each do |coll|
         tier = Mcp::AudienceResolver.resolve(capability_action: name, collective: coll)
-        assert_includes %w[public private shared], tier,
+        assert_includes ["public", "private", "shared"], tier,
                         "#{name}: visibility #{defn[:visibility].inspect} produced invalid tier #{tier.inspect}"
       end
     end
@@ -131,6 +131,17 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "revoke_trustee_grant" => :shared,
     "start_representation" => :shared,
     "end_representation" => :shared,
+    # Webhooks and automation rules: static :shared, not :by_collective.
+    # See the comment in ACTION_DEFINITIONS for the rationale (main-collective
+    # fallback on user/agent routes would mis-tier these as :public).
+    "create_webhook" => :shared,
+    "update_webhook" => :shared,
+    "delete_webhook" => :shared,
+    "test_webhook" => :shared,
+    "create_automation_rule" => :shared,
+    "update_automation_rule" => :shared,
+    "delete_automation_rule" => :shared,
+    "toggle_automation_rule" => :shared,
 
     # :by_collective — tier follows the collective (public/shared/private workspace)
     "update_collective_settings" => :by_collective,
@@ -174,14 +185,6 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "add_comment" => :by_collective,
     "add_attachment" => :by_collective,
     "remove_attachment" => :by_collective,
-    "create_webhook" => :by_collective,
-    "update_webhook" => :by_collective,
-    "delete_webhook" => :by_collective,
-    "test_webhook" => :by_collective,
-    "create_automation_rule" => :by_collective,
-    "update_automation_rule" => :by_collective,
-    "delete_automation_rule" => :by_collective,
-    "toggle_automation_rule" => :by_collective,
   }.freeze
 
   test "every action's declared :visibility matches the expected lock-in mapping" do
@@ -198,7 +201,8 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     # notification actions used to inherit the wrong tier when added without
     # updating a parallel allowlist. Locking these in keeps that drift from
     # returning.
-    %w[dismiss dismiss_all dismiss_for_collective dismiss_for_chat mark_read mark_all_read mark_read_for_collective].each do |action|
+    ["dismiss", "dismiss_all", "dismiss_for_collective", "dismiss_for_chat", "mark_read", "mark_all_read",
+     "mark_read_for_collective",].each do |action|
       assert_equal "private", Mcp::AudienceResolver.resolve(capability_action: action, collective: nil),
                    "expected #{action} to be private"
     end

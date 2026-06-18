@@ -3,6 +3,13 @@
 # Inner-layer half of the agent context gate: validates declared visibility
 # against the action's resolved audience. The outer MCP endpoint catches
 # context_missing / identity_* / intention_missing before dispatching.
+#
+# Scope is MCP-only by design. Agent API tokens default to `mcp_only: true`,
+# which `ApplicationController#api_authorize!` enforces — a token in that
+# mode hitting a direct REST/markdown action returns 403 before any action
+# body runs, so direct-POST writes from agent identities can't bypass the
+# context gate. A principal can opt a token out of mcp_only, but that's a
+# deliberate choice surfaced on the token creation form, not a default.
 module ActionContextValidation
   extend ActiveSupport::Concern
 

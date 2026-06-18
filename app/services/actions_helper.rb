@@ -724,6 +724,15 @@ class ActionsHelper
     # Webhook actions
     # Webhooks can be created for collectives (requires collective_admin) or users (requires self/representative).
     # Authorization is context-aware: checks collective context first, then falls back to user context.
+    #
+    # Visibility for webhook (and automation rule) actions: static `:shared`,
+    # not `:by_collective`. These actions can land on either a collective
+    # route or a user/agent route, and `current_collective` falls back to the
+    # main collective when no `:collective_handle` is in the path — so
+    # `:by_collective` would resolve to `:public` on user/agent routes, which
+    # is wrong (webhook/automation configs hold URLs and secrets and are
+    # never visible to the broader audience, only to collective admins or to
+    # the owner). `:shared` is the safe floor across both contexts.
     "create_webhook" => {
       description: "Create a new webhook",
       params_string: "(name, url, events, enabled)",
@@ -734,7 +743,7 @@ class ActionsHelper
         { name: "enabled", type: "boolean", description: "Whether the webhook is active (default: true)" },
       ],
       authorization: WEBHOOK_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
     "update_webhook" => {
       description: "Update a webhook",
@@ -746,21 +755,21 @@ class ActionsHelper
         { name: "enabled", type: "boolean", description: "Whether the webhook is active" },
       ],
       authorization: WEBHOOK_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
     "delete_webhook" => {
       description: "Delete a webhook",
       params_string: "()",
       params: [],
       authorization: WEBHOOK_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
     "test_webhook" => {
       description: "Send a test webhook",
       params_string: "()",
       params: [],
       authorization: WEBHOOK_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
 
     # Automation Rule actions
@@ -771,7 +780,7 @@ class ActionsHelper
         { name: "yaml_source", type: "string", required: true, description: "The YAML configuration for the automation rule" },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
     "update_automation_rule" => {
       description: "Update an automation rule's YAML configuration",
@@ -780,21 +789,21 @@ class ActionsHelper
         { name: "yaml_source", type: "string", required: true, description: "The updated YAML configuration for the automation rule" },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
     "delete_automation_rule" => {
       description: "Delete an automation rule",
       params_string: "()",
       params: [],
       authorization: HUMAN_ONLY_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
     "toggle_automation_rule" => {
       description: "Enable or disable an automation rule",
       params_string: "()",
       params: [],
       authorization: HUMAN_ONLY_AUTHORIZATION,
-      visibility: :by_collective,
+      visibility: :shared,
     },
 
     # Trustee Grant actions
@@ -855,8 +864,9 @@ class ActionsHelper
       description: "Tune in to this user.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         target = context[:target_user]
         target.nil? || target.id != user.id
       },
@@ -866,8 +876,9 @@ class ActionsHelper
       description: "Tune out from this user.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         target = context[:target_user]
         target.nil? || target.id != user.id
       },
@@ -904,8 +915,9 @@ class ActionsHelper
         { name: "add_policy",  type: "string", required: false,
           description: 'One of "owner_only", "self_add", "members_add", or "anyone_add"', },
       ],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         resource.is_a?(UserList) ? resource.owner_id == user.id : true
       },
@@ -915,10 +927,12 @@ class ActionsHelper
       description: "Delete this list.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         return true unless resource.is_a?(UserList)
+
         resource.owner_id == user.id && !resource.is_primary
       },
       visibility: :public, # TODO: follow the list's own visibility setting
@@ -929,13 +943,15 @@ class ActionsHelper
       params: [
         { name: "user_handle", type: "string", required: true, description: "The handle of the user to add (without the leading @)" },
       ],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         return true unless resource.is_a?(UserList)
         # Owner always sees it; can_add?(self, self) covers self_add and anyone_add.
         # members_add additionally lets list members see it (they can add others).
         next true if resource.can_add?(actor: user, target: user)
+
         resource.add_policy == "members_add" &&
           resource.user_list_members.exists?(user_id: user.id)
       },
@@ -945,14 +961,16 @@ class ActionsHelper
       description: "Join this list (add yourself as a member). No params — the actor is always the new member.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         return false unless resource.is_a?(UserList)
         # You can join if the policy lets you self-add AND you aren't on the list yet.
         # Owners of self_add/anyone_add lists technically qualify too, but `add_member_to_list`
         # is the more general affordance for them and stays visible.
         next false if resource.user_list_members.exists?(user_id: user.id)
+
         resource.can_add?(actor: user, target: user)
       },
       visibility: :public, # TODO: follow the list's own visibility setting
@@ -1323,6 +1341,7 @@ class ActionsHelper
             viewer = context[:user]
             target = context[:showing_user]
             next false if viewer.nil? || target.nil? || viewer.id == target.id
+
             !UserBlock.between?(viewer, target)
           },
         },
@@ -1332,6 +1351,7 @@ class ActionsHelper
             viewer = context[:user]
             target = context[:showing_user]
             next false if viewer.nil? || target.nil? || viewer.id == target.id
+
             !UserBlock.between?(viewer, target)
           },
         },
