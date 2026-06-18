@@ -118,6 +118,59 @@ class ActionContextTest < ActiveSupport::TestCase
     assert_nil ctx.validate_visibility(audience: "public")
   end
 
+  test "Error#to_response_hash includes a static hint for non-mismatch codes" do
+    ActionContext::Error::STATIC_HINTS.each do |code, expected_hint|
+      err = ActionContext::Error.new(code: code)
+      body = err.to_response_hash
+      assert_equal code, body[:error]
+      assert_equal expected_hint, body[:hint], "missing hint for #{code}"
+    end
+  end
+
+  test "visibility_mismatch hint warns about leak risk when declared tier is narrower than actual" do
+    # Declared a narrower audience than reality → potential leak. The hint
+    # surfaces the leak risk so the agent doesn't mechanically flip `visibility`
+    # and proceed past a model error.
+    err = ActionContext::Error.new(code: "visibility_mismatch", expected: "public", got: "private")
+    hint = err.to_response_hash[:hint]
+    assert_match(/wider than you thought/, hint)
+    assert_match(/leak/i, hint)
+  end
+
+  test "visibility_mismatch hint names the misalignment when declared tier is wider than actual" do
+    # Declared a wider audience than reality → lower-stakes; the hint just
+    # names the misalignment and lets the agent decide what to do.
+    err = ActionContext::Error.new(code: "visibility_mismatch", expected: "private", got: "public")
+    hint = err.to_response_hash[:hint]
+    assert_match(/narrower than you thought/, hint)
+  end
+
+  test "visibility_mismatch hint distinguishes all six (got, expected) pairs by direction" do
+    leak_risk_pairs = [["private", "shared"], ["private", "public"], ["shared", "public"]]
+    over_cautious_pairs = [["shared", "private"], ["public", "private"], ["public", "shared"]]
+
+    leak_risk_pairs.each do |got, expected|
+      hint = ActionContext::Error.new(code: "visibility_mismatch", expected: expected, got: got).to_response_hash[:hint]
+      assert_match(/wider/, hint, "expected wider-than-declared phrasing for got=#{got} expected=#{expected}")
+    end
+
+    over_cautious_pairs.each do |got, expected|
+      hint = ActionContext::Error.new(code: "visibility_mismatch", expected: expected, got: got).to_response_hash[:hint]
+      assert_match(/narrower/, hint, "expected narrower-than-declared phrasing for got=#{got} expected=#{expected}")
+    end
+  end
+
+  test "visibility_mismatch hint is omitted when got or expected is missing or unknown" do
+    assert_not ActionContext::Error.new(code: "visibility_mismatch").to_response_hash.key?(:hint)
+    assert_not ActionContext::Error.new(code: "visibility_mismatch", got: "private").to_response_hash.key?(:hint)
+    assert_not ActionContext::Error.new(code: "visibility_mismatch", got: "bogus", expected: "public").to_response_hash.key?(:hint)
+  end
+
+  test "Error#to_response_hash omits hint when no hint is registered for the code" do
+    err = ActionContext::Error.new(code: "unregistered_code")
+    assert_not err.to_response_hash.key?(:hint)
+  end
+
   test "later-stage and unknown fields are ignored, not rejected" do
     # Forward-compat contract: a valid Stage 1 context still passes even when it
     # carries fields this stage doesn't enforce (representation/session) or

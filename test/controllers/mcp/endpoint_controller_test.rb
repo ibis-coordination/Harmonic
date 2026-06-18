@@ -627,7 +627,11 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     end
     body = response.parsed_body
     assert body["result"]["isError"]
-    assert_equal "context_missing", context_error_body(body)["error"]
+    error = context_error_body(body)
+    assert_equal "context_missing", error["error"]
+    # Hints are bundled with every rejection so the agent can self-correct
+    # without re-reading the schema.
+    assert_match(/`context`/, error["hint"])
   end
 
   test "execute_action with a non-Hash context returns context_missing" do
