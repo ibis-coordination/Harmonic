@@ -64,10 +64,14 @@ function buildLayer(handler: (opts: RailsRequestOptions) => RailsResponse) {
   return McpClientLive.pipe(Layer.provide(Layer.merge(RailsHttpTest, ConfigTest)));
 }
 
-function runFetchPage(handler: (opts: RailsRequestOptions) => RailsResponse, path: string): Promise<Exit.Exit<FetchPageResult, HarmonicApiError>> {
+function runFetchPage(
+  handler: (opts: RailsRequestOptions) => RailsResponse,
+  path: string,
+  context?: Record<string, unknown>,
+): Promise<Exit.Exit<FetchPageResult, HarmonicApiError>> {
   const program = Effect.gen(function* () {
     const client = yield* McpClient;
-    return yield* client.fetchPage(path, "tok", "app", createRetryBudget());
+    return yield* client.fetchPage(path, context, "tok", "app", createRetryBudget());
   });
   return Effect.runPromiseExit(program.pipe(Effect.provide(buildLayer(handler))));
 }
@@ -114,6 +118,8 @@ describe("McpClient.fetchPage", () => {
       expect(payload.method).toBe("tools/call");
       expect(payload.params.name).toBe("fetch_page");
       expect(payload.params.arguments.path).toBe("/whoami");
+      // No context declared → no context field on the wire.
+      expect(payload.params.arguments.context).toBeUndefined();
       return makeResponse(200, makeMcpEnvelope({
         content: MARKDOWN_PAGE,
         toolCallLogId: "log-abc",
@@ -127,6 +133,22 @@ describe("McpClient.fetchPage", () => {
       expect(exit.value.resolvedPath).toBe("/whoami");
       expect(exit.value.mcpToolCallLogId).toBe("log-abc");
     }
+  });
+
+  it("threads the optional context block on the wire when representing", async () => {
+    const ctx = {
+      identity: { viewer: "@agent-bob", viewing_as: "@alice" },
+      representation_session_id: "abc12345",
+    };
+    let observedContext: unknown;
+    const handler = (opts: RailsRequestOptions) => {
+      const payload = JSON.parse(opts.body ?? "{}");
+      observedContext = payload.params.arguments.context;
+      return makeResponse(200, makeMcpEnvelope({ content: MARKDOWN_PAGE }));
+    };
+    const exit = await runFetchPage(handler, "/whoami", ctx);
+    expect(Exit.isSuccess(exit)).toBe(true);
+    expect(observedContext).toEqual(ctx);
   });
 
   it("falls back to the requested path when frontmatter has no path: line", async () => {

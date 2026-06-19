@@ -31,7 +31,41 @@ describe("parseToolCalls", () => {
       }],
       undefined,
     );
-    expect(result).toEqual([{ type: "fetch_page", path: "/notifications" }]);
+    expect(result).toEqual([{ type: "fetch_page", path: "/notifications", context: undefined }]);
+  });
+
+  it("parses fetch_page tool call with optional context block for representation", () => {
+    const ctx = {
+      identity: { viewer: "@agent-bob", viewing_as: "@alice" },
+      representation_session_id: "abc12345",
+    };
+    const result = parseToolCalls(
+      [{
+        id: "call_1",
+        type: "function",
+        function: {
+          name: "fetch_page",
+          arguments: JSON.stringify({ path: "/collectives/team", context: ctx }),
+        },
+      }],
+      undefined,
+    );
+    expect(result).toEqual([{ type: "fetch_page", path: "/collectives/team", context: ctx }]);
+  });
+
+  it("rejects fetch_page with non-object context", () => {
+    const result = parseToolCalls(
+      [{
+        id: "call_1",
+        type: "function",
+        function: {
+          name: "fetch_page",
+          arguments: JSON.stringify({ path: "/whoami", context: "not-an-object" }),
+        },
+      }],
+      undefined,
+    );
+    expect(result[0]?.type).toBe("error");
   });
 
   it("parses execute_action tool call with context, path, action, and params", () => {
