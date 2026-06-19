@@ -1074,6 +1074,82 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert body["result"]["isError"], "unknown session should cause a tool error"
   end
 
+  test "execute_action rejects a rep session id from a different tenant" do
+    # The existing rep validator scopes the session lookup by tenant_id
+    # (application_controller.rb), so a session id valid in tenant A is
+    # not visible in tenant B. Pin that at the MCP layer so a future
+    # refactor that loses tenant scoping fails this test.
+    other_tenant = create_tenant(subdomain: "other-#{SecureRandom.hex(4)}")
+    other_user = create_user(email: "other-#{SecureRandom.hex(4)}@example.com")
+    other_tenant.add_user!(other_user)
+    foreign_session = nil
+    Tenant.scope_thread_to_tenant(subdomain: other_tenant.subdomain)
+    begin
+      other_agent = create_ai_agent(parent: other_user, name: "Other Tenant Agent",
+                                    agent_configuration: { "mode" => "external" })
+      other_tenant.add_user!(other_agent)
+      other_grant = TrusteeGrant.create!(
+        tenant: other_tenant,
+        granting_user: other_user,
+        trustee_user: other_agent,
+        collective_scope: { "mode" => "all" },
+      )
+      other_grant.accept!
+      foreign_session = RepresentationSession.create!(
+        tenant: other_tenant,
+        collective: nil,
+        representative_user: other_agent,
+        trustee_grant: other_grant,
+        confirmed_understanding: true,
+        began_at: Time.current,
+      )
+    ensure
+      Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    end
+
+    args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: { text: "should not land — cross-tenant session id" },
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: "@#{@user.handle}" },
+        visibility: "shared",
+        intention: "test cross-tenant session lookup",
+        representation_session_id: foreign_session.id,
+      },
+    }
+    assert_no_difference -> { Note.count } do
+      post_jsonrpc({ jsonrpc: "2.0", id: 905, method: "tools/call",
+                     params: { name: "execute_action", arguments: args } })
+    end
+    assert response.parsed_body["result"]["isError"],
+           "cross-tenant session id must not be accepted"
+  end
+
+  test "fetch_page rejects viewer set to the represented user's handle (must be the caller's)" do
+    # An LLM under rep might mistakenly think "I'm viewing as alice, so
+    # viewer should be alice." Pin that the server still requires viewer
+    # to match the calling agent — /whoami under rep returns the swapped
+    # identity so it's not a reliable source for the agent's own handle.
+    session_id = setup_active_representation
+
+    fetch_page_with_context(
+      {
+        identity: {
+          viewer: "@#{@user.handle}",
+          viewing_as: "@#{@user.handle}",
+        },
+        representation_session_id: session_id,
+      },
+      id: 906,
+    )
+
+    body = context_error_body(response.parsed_body)
+    assert_equal "viewer_mismatch", body["error"]
+    assert_equal "@#{@agent.handle}", body["expected"]
+    assert_equal "@#{@user.handle}", body["got"]
+  end
+
   # ====================
   # search
   # ====================
