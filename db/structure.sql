@@ -820,7 +820,7 @@ CREATE TABLE public.mcp_tool_call_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     user_id uuid NOT NULL,
-    api_token_id uuid NOT NULL,
+    api_token_id uuid,
     tool_name character varying NOT NULL,
     arguments jsonb DEFAULT '{}'::jsonb NOT NULL,
     status character varying NOT NULL,
@@ -9512,7 +9512,7 @@ ALTER TABLE ONLY public.media_items
 --
 
 ALTER TABLE ONLY public.mcp_tool_call_logs
-    ADD CONSTRAINT fk_rails_9d724553a6 FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id);
+    ADD CONSTRAINT fk_rails_9d724553a6 FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id) ON DELETE SET NULL;
 
 
 --
@@ -10058,6 +10058,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260618000000'),
 ('20260617000000'),
 ('20260615150000'),
 ('20260615130000'),
