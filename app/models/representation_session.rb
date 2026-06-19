@@ -89,9 +89,14 @@ class RepresentationSession < ApplicationRecord
     ended_at.present?
   end
 
+  sig { returns(ActiveSupport::TimeWithZone) }
+  def expires_at
+    T.must(began_at) + 24.hours
+  end
+
   sig { returns(T::Boolean) }
   def expired?
-    ended? || Time.current > T.must(began_at) + 24.hours
+    ended? || Time.current > expires_at
   end
 
   # Returns true if this is a collective representation session (no trustee_grant)

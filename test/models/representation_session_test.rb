@@ -191,6 +191,17 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.expired?
   end
 
+  test "expires_at returns began_at + 24 hours" do
+    began = 2.hours.ago
+    session = create_representation_session(
+      tenant: @tenant,
+      collective: @collective,
+      representative: @user,
+      began_at: began,
+    )
+    assert_in_delta began + 24.hours, session.expires_at, 1.second
+  end
+
   # === elapsed_time Tests ===
 
   test "elapsed_time returns seconds since began_at for active session" do
