@@ -914,6 +914,146 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_equal "private", inner["got"]
   end
 
+  test "full representation lifecycle via MCP: start, read, write, end" do
+    # Exercise the complete entry path an agent uses: invoke
+    # `start_representation` as itself, capture the session id from the
+    # response, thread it through `fetch_page` and `execute_action` with
+    # rep context, then `end_representation`. Pins both tools as
+    # representation-aware and confirms post-end_ rejects later writes
+    # that declare the now-stale session id.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @user,
+      trustee_user: @agent,
+      permissions: nil,
+      collective_scope: { "mode" => "all" },
+    )
+    grant.accept!
+
+    # A collective @user belongs to but @agent does not. Fetching its page
+    # proves the rep flow actually expands the agent's view (rather than
+    # just swapping the rendered identity on a universally-readable page).
+    exclusive = create_collective(tenant: @tenant, created_by: @user,
+                                  handle: "exclusive-#{SecureRandom.hex(2)}")
+    exclusive.add_user!(@user)
+    exclusive.enable_api!
+    private_note = nil
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: exclusive.handle)
+    begin
+      private_note = create_note(collective: exclusive,
+                                 text: "content only members of the exclusive collective can see")
+    ensure
+      Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    end
+
+    # Step 1: agent calls start_representation as itself (no rep context yet).
+    start_args = {
+      path: "/u/#{@agent.handle}/settings/trustee-grants/#{grant.truncated_id}",
+      action: "start_representation",
+      params: {},
+      context: {
+        identity: { actor: "@#{@agent.handle}" },
+        visibility: "shared",
+        intention: "start representing the granting user",
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 920, method: "tools/call",
+                   params: { name: "execute_action", arguments: start_args } })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "start_representation should succeed: #{body.inspect}"
+
+    text = body["result"]["content"].first["text"]
+    session_match = text.match(/Session ID: `([a-f0-9-]+)`/)
+    assert session_match, "response should carry the new session id: #{text}"
+    session_id = session_match[1]
+
+    # Step 2a: baseline — agent fetches the exclusive note WITHOUT rep. The
+    # agent isn't a member of the exclusive collective, so the fetch fails.
+    post_jsonrpc({ jsonrpc: "2.0", id: 921, method: "tools/call",
+                   params: { name: "fetch_page", arguments: { path: private_note.path } } })
+    baseline = response.parsed_body
+    assert baseline["result"]["isError"],
+           "fetch without rep should fail — agent isn't a member of the exclusive collective"
+
+    # Step 2b: same fetch WITH rep context — the inner request swaps
+    # current_user to @user, who IS a member, so the page renders.
+    fetch_args = {
+      path: private_note.path,
+      context: {
+        identity: { viewer: "@#{@agent.handle}", viewing_as: "@#{@user.handle}" },
+        representation_session_id: session_id,
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 922, method: "tools/call",
+                   params: { name: "fetch_page", arguments: fetch_args } })
+    fetch_body = response.parsed_body
+    assert_not fetch_body["result"]["isError"], "fetch under rep should succeed: #{fetch_body.inspect}"
+    fetch_text = fetch_body["result"]["content"].first["text"]
+    assert_match private_note.text, fetch_text,
+                 "fetch under rep must return the exclusive content — proves rep expanded access"
+
+    # Step 3: agent writes a note under rep — attribution must flow to @user.
+    write_args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: { text: "first post under freshly-started representation" },
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: "@#{@user.handle}" },
+        visibility: "shared",
+        intention: "post a note under the new rep session",
+        representation_session_id: session_id,
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 923, method: "tools/call",
+                   params: { name: "execute_action", arguments: write_args } })
+    assert_not response.parsed_body["result"]["isError"], "write under rep should succeed"
+    note = Note.where(text: "first post under freshly-started representation").last
+    assert note
+    assert_equal @user.id, note.created_by_id
+
+    # The note must be linked back to the session via a RepresentationSessionEvent
+    # — that's how the activity log surfaces "what was done during this session."
+    rep_session = RepresentationSession.find(session_id)
+    note_event = rep_session.representation_session_events.find_by(
+      resource_type: "Note",
+      resource_id: note.id,
+    )
+    assert note_event, "expected a RepresentationSessionEvent linking the note to the session"
+    assert_equal "create_note", note_event.action_name
+
+    # Step 4: agent ends the session. End is called under rep context too —
+    # the controller's caller_user fallback reads @api_token_user (the agent)
+    # rather than @current_user (which has been swapped to @user).
+    end_args = {
+      path: "/u/#{@agent.handle}/settings/trustee-grants/#{grant.truncated_id}",
+      action: "end_representation",
+      params: {},
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: "@#{@user.handle}" },
+        visibility: "shared",
+        intention: "close the rep session",
+        representation_session_id: session_id,
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 924, method: "tools/call",
+                   params: { name: "execute_action", arguments: end_args } })
+    assert_not response.parsed_body["result"]["isError"], "end_representation should succeed: #{response.parsed_body.inspect}"
+
+    rep_session = RepresentationSession.find(session_id)
+    assert rep_session.ended?, "session should be marked ended"
+
+    # Step 5: a subsequent write declaring the now-ended session id is rejected.
+    stale_args = write_args.deep_dup
+    stale_args[:params][:text] = "should not land — session ended"
+    assert_no_difference -> { Note.count } do
+      post_jsonrpc({ jsonrpc: "2.0", id: 925, method: "tools/call",
+                     params: { name: "execute_action", arguments: stale_args } })
+    end
+    assert response.parsed_body["result"]["isError"], "write after end should fail"
+  end
+
   test "execute_action with rep context but unknown session id surfaces the rep flow's 403" do
     args = {
       path: "/collectives/#{@collective.handle}/note",
