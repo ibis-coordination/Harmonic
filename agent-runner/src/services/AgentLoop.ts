@@ -173,9 +173,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     // validation — Rails is the sole authority on what actions exist at a
     // path and returns a 404 with the available-actions list when the agent
     // guesses wrong. That body is surfaced verbatim in the tool result.
-    const executeAction = (path: string, actionName: string, params: Record<string, unknown>) =>
+    const executeAction = (context: Record<string, unknown>, path: string, actionName: string, params: Record<string, unknown>) =>
       Effect.gen(function* () {
         const result = yield* mcp.executeAction(
+          context,
           path,
           actionName,
           params,
@@ -305,6 +306,13 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     let finalMessage: string | undefined;
     let taskOutcome: string | undefined;
     let wasCancelled = false;
+    // Set when ActionParser rejects a tool call (missing required field,
+    // unknown tool, bad JSON). Recoverable in-turn, but if the loop then
+    // exits via implicit `done` (agent stopped emitting tool calls), we
+    // demote the outcome so a bail-after-error doesn't get recorded as a
+    // clean success. `respond_to_human` still counts as success — the
+    // agent explicitly recovered and addressed the human.
+    let parserErrorOccurred = false;
 
     // The main loop is wrapped in an Effect so we can catch unhandled errors
     // (matches Ruby rescue StandardError around run_with_token)
@@ -384,15 +392,21 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
 
         // If no tool calls (done), handle it
         if (actions.length === 1 && actions[0]?.type === "done") {
-          finalMessage = actions[0].content;
+          const doneContent = actions[0].content;
           // In chat mode, report the response as a message step so it gets broadcast
-          if (isChatTurn && finalMessage !== "") {
-            yield* reportChatMessage(finalMessage);
+          if (isChatTurn && doneContent !== "") {
+            yield* reportChatMessage(doneContent);
             yield* addStep(doneStep({ message: "Chat turn complete" }, new Date()));
           } else {
-            yield* addStep(doneStep({ message: finalMessage }, new Date()));
+            yield* addStep(doneStep({ message: doneContent }, new Date()));
           }
-          taskOutcome = "completed";
+          if (parserErrorOccurred) {
+            finalMessage = `Agent stopped after a tool-call error: ${doneContent}`;
+            taskOutcome = "completed_with_parser_errors";
+          } else {
+            finalMessage = doneContent;
+            taskOutcome = "completed";
+          }
           break;
         }
 
@@ -413,7 +427,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               break;
             }
             case "execute_action": {
-              yield* executeAction(action.path, action.action, action.params ?? {});
+              yield* executeAction(action.context, action.path, action.action, action.params ?? {});
               toolResults.push(lastActionResult ?? "");
               break;
             }
@@ -428,11 +442,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               break;
             }
             case "error": {
+              // Non-terminal: terminating here would leave the human with no response on a recoverable schema mistake.
+              parserErrorOccurred = true;
               yield* addStep(errorStep({ message: action.message }, new Date()));
-              finalMessage = action.message;
-              taskOutcome = "error";
               toolResults.push(`Error: ${action.message}`);
-              taskDone = true;
               break;
             }
             case "respond_to_human": {
@@ -445,9 +458,14 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
               break;
             }
             case "done": {
-              finalMessage = action.content;
               yield* addStep(doneStep({ message: action.content }, new Date()));
-              taskOutcome = "completed";
+              if (parserErrorOccurred) {
+                finalMessage = `Agent stopped after a tool-call error: ${action.content}`;
+                taskOutcome = "completed_with_parser_errors";
+              } else {
+                finalMessage = action.content;
+                taskOutcome = "completed";
+              }
               toolResults.push("Session ended.");
               taskDone = true;
               break;

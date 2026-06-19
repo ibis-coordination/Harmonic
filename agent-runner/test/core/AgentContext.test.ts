@@ -147,14 +147,27 @@ describe("AGENT_TOOLS", () => {
     expect(properties["path"]).toBeDefined();
   });
 
-  it("execute_action has path, action, and params parameters; path and action required", () => {
+  it("execute_action has context, path, action, and params parameters; context, path, action required", () => {
     const exec = AGENT_TOOLS[1];
     const props = exec?.function.parameters as Record<string, unknown>;
     const properties = props["properties"] as Record<string, unknown>;
+    expect(properties["context"]).toBeDefined();
     expect(properties["path"]).toBeDefined();
     expect(properties["action"]).toBeDefined();
     expect(properties["params"]).toBeDefined();
-    expect(props["required"]).toEqual(["path", "action"]);
+    expect(props["required"]).toEqual(["context", "path", "action"]);
+  });
+
+  it("execute_action's context requires identity, visibility, and intention", () => {
+    const exec = AGENT_TOOLS[1];
+    const props = exec?.function.parameters as Record<string, unknown>;
+    const properties = props["properties"] as Record<string, unknown>;
+    const context = properties["context"] as Record<string, unknown>;
+    expect(context["required"]).toEqual(["identity", "visibility", "intention"]);
+    const contextProps = context["properties"] as Record<string, unknown>;
+    expect(contextProps["identity"]).toBeDefined();
+    expect(contextProps["visibility"]).toBeDefined();
+    expect(contextProps["intention"]).toBeDefined();
   });
 
   it("search has query parameter", () => {

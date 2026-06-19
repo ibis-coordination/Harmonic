@@ -104,6 +104,8 @@ class ActionsHelper
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (optional)" },
       ],
       authorization: :authenticated,
+      # The new collective is publicly visible once created.
+      visibility: :public,
     },
     "join_collective" => {
       description: "Join the collective",
@@ -112,6 +114,9 @@ class ActionsHelper
         { name: "code", type: "string", required: false, description: "Invite code" },
       ],
       authorization: :authenticated,
+      # Always shared — joining is only meaningful for invite-only collectives;
+      # the public main space is joined automatically, not manually.
+      visibility: :shared,
     },
     "update_collective_settings" => {
       description: "Update collective settings",
@@ -128,6 +133,7 @@ class ActionsHelper
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
       ],
       authorization: :collective_admin,
+      visibility: :by_collective,
     },
     "add_ai_agent_to_collective" => {
       description: "Add one of your AI agents to this collective",
@@ -136,6 +142,7 @@ class ActionsHelper
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to add" },
       ],
       authorization: :collective_admin,
+      visibility: :by_collective,
     },
     "remove_ai_agent_from_collective" => {
       description: "Remove an AI agent from this collective",
@@ -144,12 +151,14 @@ class ActionsHelper
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to remove" },
       ],
       authorization: :collective_admin,
+      visibility: :by_collective,
     },
     "send_heartbeat" => {
       description: "Send a heartbeat to confirm your presence in the collective for this cycle",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
 
     # Note actions
@@ -160,6 +169,7 @@ class ActionsHelper
         { name: "text", type: "string", description: "The text of the note" },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "update_note" => {
       description: "Update this note",
@@ -170,12 +180,14 @@ class ActionsHelper
         { name: "deadline", type: "datetime", description: "The updated deadline of the note" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "confirm_read" => {
       description: "Confirm that you have read this note",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "create_reminder_note" => {
       description: "Create a reminder note that resurfaces in the feed at a scheduled time",
@@ -187,18 +199,21 @@ class ActionsHelper
         { name: "title", type: "string", required: false, description: "Optional title for the reminder note" },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "cancel_reminder" => {
       description: "Cancel a pending reminder on this note",
       params_string: "()",
       params: [],
       authorization: :owner,
+      visibility: :by_collective,
     },
     "acknowledge_reminder" => {
       description: "Acknowledge that you have seen this reminder",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "create_table_note" => {
       description: "Create a new table note with columns defined upfront",
@@ -213,6 +228,7 @@ class ActionsHelper
         { name: "edit_access", type: "string", required: false, description: "Who can edit rows: 'owner' (default) or 'members'" },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     # Table note actions
     "add_row" => {
@@ -222,6 +238,7 @@ class ActionsHelper
         { name: "values", type: "object", description: "Column name/value pairs, e.g. { \"Status\": \"done\", \"Due\": \"2026-05-01\" }" },
       ],
       authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+      visibility: :by_collective,
     },
     "update_row" => {
       description: "Update a row in this table",
@@ -231,6 +248,7 @@ class ActionsHelper
         { name: "values", type: "object", description: "Column name/value pairs to update (partial update)" },
       ],
       authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+      visibility: :by_collective,
     },
     "delete_row" => {
       description: "Delete a row from this table",
@@ -239,6 +257,7 @@ class ActionsHelper
         { name: "row_id", type: "string", description: "The _id of the row to delete" },
       ],
       authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+      visibility: :by_collective,
     },
     "add_table_column" => {
       description: "Add a column to this table",
@@ -248,6 +267,7 @@ class ActionsHelper
         { name: "type", type: "string", description: "Column type: text, number, boolean, or date" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "remove_table_column" => {
       description: "Remove a column from this table (deletes all values in that column)",
@@ -256,6 +276,7 @@ class ActionsHelper
         { name: "name", type: "string", description: "Name of the column to remove" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "query_rows" => {
       description: "Query rows in this table with optional filtering, sorting, and pagination",
@@ -268,6 +289,7 @@ class ActionsHelper
         { name: "offset", type: "integer", required: false, description: "Number of rows to skip (default: 0)" },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "summarize" => {
       description: "Compute an aggregate over rows in this table",
@@ -278,6 +300,7 @@ class ActionsHelper
         { name: "where", type: "object", required: false, description: "Filter by column values before aggregating" },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "update_table_description" => {
       description: "Update the description of this table",
@@ -286,6 +309,7 @@ class ActionsHelper
         { name: "description", type: "string", description: "New description text" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "batch_table_update" => {
       description: "Perform multiple table operations in a single request (one save, one event)",
@@ -295,24 +319,28 @@ class ActionsHelper
           description: 'Array of operations, e.g. [{ "action": "add_row", "values": { "Status": "done" } }, { "action": "delete_row", "row_id": "abc123" }]. Valid actions: add_row, update_row, delete_row, add_table_column, remove_table_column, update_table_description', },
       ],
       authorization: TABLE_CONTENT_EDIT_AUTHORIZATION,
+      visibility: :by_collective,
     },
     "pin_note" => {
       description: "Pin this note to the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "unpin_note" => {
       description: "Unpin this note from the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "delete_note" => {
       description: "Delete this note. Comments from others will be preserved.",
       params_string: "()",
       params: [],
       authorization: [:resource_owner, :collective_admin, :app_admin],
+      visibility: :by_collective,
     },
     "report_content" => {
       description: "Report this content for moderator review",
@@ -323,6 +351,7 @@ class ActionsHelper
         { name: "also_block", type: "string", description: 'Set to "1" to also block the author (optional)' },
       ],
       authorization: :authenticated,
+      visibility: :shared,
     },
 
     # Decision actions
@@ -339,6 +368,7 @@ class ActionsHelper
           description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)", },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "update_decision_settings" => {
       description: "Update the decision settings",
@@ -350,6 +380,7 @@ class ActionsHelper
         { name: "deadline", type: "datetime", description: "When the decision closes" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "add_options" => {
       description: "Add one or more options to the decision",
@@ -358,6 +389,7 @@ class ActionsHelper
         { name: "titles", type: "array[string]", description: "Array of option title strings" },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "vote" => {
       description: "Vote on one or more options",
@@ -367,18 +399,21 @@ class ActionsHelper
           description: "Array of vote objects, each with: option_title (string), accept (boolean), prefer (boolean)", },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "pin_decision" => {
       description: "Pin this decision to the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "unpin_decision" => {
       description: "Unpin this decision from the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "close_decision" => {
       description: "Close this decision immediately, ending voting. Optionally include a final statement explaining the outcome. For executive decisions, include selections to indicate which options were selected.",
@@ -388,6 +423,7 @@ class ActionsHelper
         { name: "selections", type: "array", required: false, description: "For executive decisions: array of option titles to mark as selected" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "add_statement" => {
       description: "Add or update the final statement on this decision. Only available after the decision is closed.",
@@ -396,12 +432,14 @@ class ActionsHelper
         { name: "text", type: "string", description: "The statement text" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "delete_decision" => {
       description: "Delete this decision. Votes and comments from others will be preserved.",
       params_string: "()",
       params: [],
       authorization: [:resource_owner, :collective_admin, :app_admin],
+      visibility: :by_collective,
     },
 
     # Commitment actions
@@ -425,6 +463,7 @@ class ActionsHelper
           description: "Optional location string for calendar events", },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "update_commitment_settings" => {
       description: "Update the commitment settings (all params optional; only supplied fields are changed)",
@@ -445,30 +484,35 @@ class ActionsHelper
           description: "Location (calendar events only)", },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "join_commitment" => {
       description: "Join the commitment (Sign for policies, RSVP for calendar events)",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "pin_commitment" => {
       description: "Pin this commitment to the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "unpin_commitment" => {
       description: "Unpin this commitment from the collective homepage",
       params_string: "()",
       params: [],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
     "delete_commitment" => {
       description: "Delete this commitment. Participant records and comments from others will be preserved.",
       params_string: "()",
       params: [],
       authorization: [:resource_owner, :collective_admin, :app_admin],
+      visibility: :by_collective,
     },
 
     # Comment action (shared across notes, decisions, commitments)
@@ -481,6 +525,7 @@ class ActionsHelper
           description: "Optional for comment threads", },
       ],
       authorization: :collective_member,
+      visibility: :by_collective,
     },
 
     # Attachment actions
@@ -491,12 +536,14 @@ class ActionsHelper
         { name: "file", type: "object", description: "The file to attach (base64 encoded data with content_type and filename)" },
       ],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
     "remove_attachment" => {
       description: "Remove this attachment",
       params_string: "()",
       params: [],
       authorization: :resource_owner,
+      visibility: :by_collective,
     },
 
     # User settings actions
@@ -508,6 +555,7 @@ class ActionsHelper
         { name: "new_handle", type: "string", description: "Your handle (used in URLs)" },
       ],
       authorization: [:self, :representative],
+      visibility: :public,
     },
     "update_scratchpad" => {
       description: "Update your scratchpad with notes for your future self",
@@ -516,6 +564,7 @@ class ActionsHelper
         { name: "content", type: "string", description: "The new scratchpad content (max 10000 chars). Replaces existing content." },
       ],
       authorization: :self_ai_agent,
+      visibility: :private,
     },
     "send_message" => {
       description: "Send a message in this chat conversation",
@@ -524,6 +573,7 @@ class ActionsHelper
         { name: "message", type: "string", description: "The message text to send (max 10000 chars)" },
       ],
       authorization: :authenticated,
+      visibility: :shared,
     },
     "create_api_token" => {
       description: "Create a new API token",
@@ -535,6 +585,7 @@ class ActionsHelper
         { name: "duration_unit", type: "string", description: 'Unit for duration: "days", "weeks", "months", or "years"' },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :private,
     },
     "create_ai_agent" => {
       description: "Create a new AI agent",
@@ -549,6 +600,7 @@ class ActionsHelper
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :public,
     },
 
     # Admin actions
@@ -565,6 +617,7 @@ class ActionsHelper
           description: "Categories of attachment content types that may be uploaded. Valid values: images, pdfs, text. Send the full desired set; values not in the list are dropped.", },
       ],
       authorization: :tenant_admin,
+      visibility: :public,
     },
     "create_tenant" => {
       description: "Create a new tenant",
@@ -574,12 +627,14 @@ class ActionsHelper
         { name: "name", type: "string", description: "The name of the new tenant" },
       ],
       authorization: :app_admin,
+      visibility: :public,
     },
     "retry_sidekiq_job" => {
       description: "Retry this Sidekiq job",
       params_string: "()",
       params: [],
       authorization: :system_admin,
+      visibility: :private,
     },
     "suspend_user" => {
       description: "Suspend this user's account, preventing them from logging in",
@@ -588,33 +643,21 @@ class ActionsHelper
         { name: "reason", type: "string", required: true, description: "The reason for suspension (will be shown to the user)" },
       ],
       authorization: :app_admin,
+      visibility: :shared,
     },
     "unsuspend_user" => {
       description: "Unsuspend this user's account, restoring their access",
       params_string: "()",
       params: [],
       authorization: :app_admin,
+      visibility: :shared,
     },
     "toggle_billing_exempt" => {
       description: "Toggle billing exemption — exempt resources don't count toward the owner's subscription quantity",
       params_string: "()",
       params: [],
       authorization: :app_admin,
-    },
-
-    # Search actions
-    "search" => {
-      description: "Search for items matching a query",
-      params_string: "(q)",
-      params: [
-        {
-          name: "q",
-          type: "string",
-          required: true,
-          description: "The search query. Supports operators: type:, status:, cycle:, creator:, collective:, etc.",
-        },
-      ],
-      authorization: :authenticated,
+      visibility: :shared,
     },
 
     # Notification actions
@@ -625,12 +668,14 @@ class ActionsHelper
         { name: "id", type: "string", description: "The ID of the notification recipient to dismiss" },
       ],
       authorization: :authenticated,
+      visibility: :private,
     },
     "dismiss_all" => {
       description: "Dismiss all notifications",
       params_string: "()",
       params: [],
       authorization: :authenticated,
+      visibility: :private,
     },
     "dismiss_for_collective" => {
       description: "Dismiss all notifications for a specific collective",
@@ -639,6 +684,7 @@ class ActionsHelper
         { name: "collective_id", type: "string", description: "The ID of the collective, or 'reminders' to dismiss due reminders" },
       ],
       authorization: :authenticated,
+      visibility: :private,
     },
     "dismiss_for_chat" => {
       description: "Dismiss chat notifications from a specific chat partner",
@@ -647,6 +693,7 @@ class ActionsHelper
         { name: "handle", type: "string", description: "The handle of the chat partner whose notifications to dismiss" },
       ],
       authorization: :authenticated,
+      visibility: :private,
     },
     "mark_read" => {
       description: "Mark a notification as read without dismissing it",
@@ -655,12 +702,14 @@ class ActionsHelper
         { name: "id", type: "string", description: "The ID of the notification recipient to mark read" },
       ],
       authorization: :authenticated,
+      visibility: :private,
     },
     "mark_all_read" => {
       description: "Mark all notifications as read without dismissing them",
       params_string: "()",
       params: [],
       authorization: :authenticated,
+      visibility: :private,
     },
     "mark_read_for_collective" => {
       description: "Mark all notifications for a specific collective as read",
@@ -669,11 +718,21 @@ class ActionsHelper
         { name: "collective_id", type: "string", description: "The ID of the collective, or 'reminders' to mark due reminders read" },
       ],
       authorization: :authenticated,
+      visibility: :private,
     },
 
     # Webhook actions
     # Webhooks can be created for collectives (requires collective_admin) or users (requires self/representative).
     # Authorization is context-aware: checks collective context first, then falls back to user context.
+    #
+    # Visibility for webhook (and automation rule) actions: static `:shared`,
+    # not `:by_collective`. These actions can land on either a collective
+    # route or a user/agent route, and `current_collective` falls back to the
+    # main collective when no `:collective_handle` is in the path — so
+    # `:by_collective` would resolve to `:public` on user/agent routes, which
+    # is wrong (webhook/automation configs hold URLs and secrets and are
+    # never visible to the broader audience, only to collective admins or to
+    # the owner). `:shared` is the safe floor across both contexts.
     "create_webhook" => {
       description: "Create a new webhook",
       params_string: "(name, url, events, enabled)",
@@ -684,6 +743,7 @@ class ActionsHelper
         { name: "enabled", type: "boolean", description: "Whether the webhook is active (default: true)" },
       ],
       authorization: WEBHOOK_AUTHORIZATION,
+      visibility: :shared,
     },
     "update_webhook" => {
       description: "Update a webhook",
@@ -695,18 +755,21 @@ class ActionsHelper
         { name: "enabled", type: "boolean", description: "Whether the webhook is active" },
       ],
       authorization: WEBHOOK_AUTHORIZATION,
+      visibility: :shared,
     },
     "delete_webhook" => {
       description: "Delete a webhook",
       params_string: "()",
       params: [],
       authorization: WEBHOOK_AUTHORIZATION,
+      visibility: :shared,
     },
     "test_webhook" => {
       description: "Send a test webhook",
       params_string: "()",
       params: [],
       authorization: WEBHOOK_AUTHORIZATION,
+      visibility: :shared,
     },
 
     # Automation Rule actions
@@ -717,6 +780,7 @@ class ActionsHelper
         { name: "yaml_source", type: "string", required: true, description: "The YAML configuration for the automation rule" },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :shared,
     },
     "update_automation_rule" => {
       description: "Update an automation rule's YAML configuration",
@@ -725,18 +789,21 @@ class ActionsHelper
         { name: "yaml_source", type: "string", required: true, description: "The updated YAML configuration for the automation rule" },
       ],
       authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :shared,
     },
     "delete_automation_rule" => {
       description: "Delete an automation rule",
       params_string: "()",
       params: [],
       authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :shared,
     },
     "toggle_automation_rule" => {
       description: "Enable or disable an automation rule",
       params_string: "()",
       params: [],
       authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :shared,
     },
 
     # Trustee Grant actions
@@ -751,36 +818,42 @@ class ActionsHelper
         { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
       ],
       authorization: :self,
+      visibility: :shared,
     },
     "accept_trustee_grant" => {
       description: "Accept a trustee grant request",
       params_string: "()",
       params: [],
       authorization: :self,
+      visibility: :shared,
     },
     "decline_trustee_grant" => {
       description: "Decline a trustee grant request",
       params_string: "()",
       params: [],
       authorization: :self,
+      visibility: :shared,
     },
     "revoke_trustee_grant" => {
       description: "Revoke a trustee grant you previously created",
       params_string: "()",
       params: [],
       authorization: :self,
+      visibility: :shared,
     },
     "start_representation" => {
       description: "Start a representation session to act on behalf of the granting user",
       params_string: "()",
       params: [],
       authorization: :self,
+      visibility: :shared,
     },
     "end_representation" => {
       description: "End an active representation session for this grant",
       params_string: "()",
       params: [],
       authorization: :self,
+      visibility: :shared,
     },
 
     # UserList — "tune in" gesture (adds the target to the actor's primary list).
@@ -791,21 +864,25 @@ class ActionsHelper
       description: "Tune in to this user.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         target = context[:target_user]
         target.nil? || target.id != user.id
       },
+      visibility: :public,
     },
     "tune_out" => {
       description: "Tune out from this user.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         target = context[:target_user]
         target.nil? || target.id != user.id
       },
+      visibility: :public,
     },
 
     # UserList — custom list CRUD.
@@ -823,6 +900,10 @@ class ActionsHelper
           description: 'One of "owner_only" (default), "self_add", "members_add", or "anyone_add"', },
       ],
       authorization: :authenticated,
+      # TODO: per-list visibility — UserList carries its own public/private
+      # setting (the `visibility` param). The action's audience tier should
+      # follow that, not be a hardcoded value. Punting to :public for now.
+      visibility: :public,
     },
     "update_user_list" => {
       description: "Update this list.",
@@ -834,22 +915,27 @@ class ActionsHelper
         { name: "add_policy",  type: "string", required: false,
           description: 'One of "owner_only", "self_add", "members_add", or "anyone_add"', },
       ],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         resource.is_a?(UserList) ? resource.owner_id == user.id : true
       },
+      visibility: :public, # TODO: follow the list's own visibility setting
     },
     "delete_user_list" => {
       description: "Delete this list.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         return true unless resource.is_a?(UserList)
+
         resource.owner_id == user.id && !resource.is_primary
       },
+      visibility: :public, # TODO: follow the list's own visibility setting
     },
     "add_member_to_list" => {
       description: "Add a user to this list.",
@@ -857,31 +943,37 @@ class ActionsHelper
       params: [
         { name: "user_handle", type: "string", required: true, description: "The handle of the user to add (without the leading @)" },
       ],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         return true unless resource.is_a?(UserList)
         # Owner always sees it; can_add?(self, self) covers self_add and anyone_add.
         # members_add additionally lets list members see it (they can add others).
         next true if resource.can_add?(actor: user, target: user)
+
         resource.add_policy == "members_add" &&
           resource.user_list_members.exists?(user_id: user.id)
       },
+      visibility: :public, # TODO: follow the list's own visibility setting
     },
     "join_list" => {
       description: "Join this list (add yourself as a member). No params — the actor is always the new member.",
       params_string: "()",
       params: [],
-      authorization: ->(user, context) {
+      authorization: lambda { |user, context|
         return false unless user
+
         resource = context[:resource]
         return false unless resource.is_a?(UserList)
         # You can join if the policy lets you self-add AND you aren't on the list yet.
         # Owners of self_add/anyone_add lists technically qualify too, but `add_member_to_list`
         # is the more general affordance for them and stays visible.
         next false if resource.user_list_members.exists?(user_id: user.id)
+
         resource.can_add?(actor: user, target: user)
       },
+      visibility: :public, # TODO: follow the list's own visibility setting
     },
     "remove_member_from_list" => {
       description: "Remove a user from this list. Anyone can remove themselves; only the owner can remove others.",
@@ -890,6 +982,7 @@ class ActionsHelper
         { name: "user_handle", type: "string", required: true, description: "The handle of the user to remove (without the leading @)" },
       ],
       authorization: ->(user, _context) { user.present? },
+      visibility: :public, # TODO: follow the list's own visibility setting
     },
   }.freeze
 
@@ -1248,6 +1341,7 @@ class ActionsHelper
             viewer = context[:user]
             target = context[:showing_user]
             next false if viewer.nil? || target.nil? || viewer.id == target.id
+
             !UserBlock.between?(viewer, target)
           },
         },
@@ -1257,6 +1351,7 @@ class ActionsHelper
             viewer = context[:user]
             target = context[:showing_user]
             next false if viewer.nil? || target.nil? || viewer.id == target.id
+
             !UserBlock.between?(viewer, target)
           },
         },
@@ -1374,12 +1469,6 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["mark_all_read"][:description], },
         { name: "mark_read_for_collective", params_string: ACTION_DEFINITIONS["mark_read_for_collective"][:params_string],
           description: ACTION_DEFINITIONS["mark_read_for_collective"][:description], },
-      ],
-    },
-    "/search" => {
-      controller_actions: ["search#index"],
-      actions: [
-        { name: "search", params_string: ACTION_DEFINITIONS["search"][:params_string], description: ACTION_DEFINITIONS["search"][:description] },
       ],
     },
     "/collectives/:collective_handle/settings/webhooks" => {

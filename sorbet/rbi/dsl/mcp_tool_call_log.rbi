@@ -734,10 +734,10 @@ class McpToolCallLog
     sig { void }
     def ai_agent_task_run_id_will_change!; end
 
-    sig { returns(::String) }
+    sig { returns(T.nilable(::String)) }
     def api_token_id; end
 
-    sig { params(value: ::String).returns(::String) }
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
     def api_token_id=(value); end
 
     sig { returns(T::Boolean) }
@@ -752,10 +752,10 @@ class McpToolCallLog
     sig { returns(T::Boolean) }
     def api_token_id_came_from_user?; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def api_token_id_change; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def api_token_id_change_to_be_saved; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -764,7 +764,7 @@ class McpToolCallLog
     sig { returns(T.nilable(::String)) }
     def api_token_id_in_database; end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def api_token_id_previous_change; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -823,6 +823,51 @@ class McpToolCallLog
 
     sig { void }
     def arguments_will_change!; end
+
+    sig { returns(T.untyped) }
+    def context; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def context=(value); end
+
+    sig { returns(T::Boolean) }
+    def context?; end
+
+    sig { returns(T.untyped) }
+    def context_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def context_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def context_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def context_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def context_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def context_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def context_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def context_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def context_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def context_previously_was; end
+
+    sig { returns(T.untyped) }
+    def context_was; end
+
+    sig { void }
+    def context_will_change!; end
 
     sig { returns(::ActiveSupport::TimeWithZone) }
     def created_at; end
@@ -1059,6 +1104,9 @@ class McpToolCallLog
     def restore_arguments!; end
 
     sig { void }
+    def restore_context!; end
+
+    sig { void }
     def restore_created_at!; end
 
     sig { void }
@@ -1094,7 +1142,7 @@ class McpToolCallLog
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_ai_agent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T.nilable([::String, ::String])) }
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_api_token_id; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1105,6 +1153,12 @@ class McpToolCallLog
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_arguments?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_context; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_context?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_created_at; end
@@ -1399,6 +1453,9 @@ class McpToolCallLog
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_arguments?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_context?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end

@@ -72,15 +72,22 @@ function runFetchPage(handler: (opts: RailsRequestOptions) => RailsResponse, pat
   return Effect.runPromiseExit(program.pipe(Effect.provide(buildLayer(handler))));
 }
 
+const TEST_CONTEXT: Record<string, unknown> = {
+  identity: { actor: "@test-agent" },
+  visibility: "shared",
+  intention: "run a test",
+};
+
 function runExecuteAction(
   handler: (opts: RailsRequestOptions) => RailsResponse,
   path: string,
   action: string,
   params: Record<string, unknown> = {},
+  context: Record<string, unknown> = TEST_CONTEXT,
 ): Promise<Exit.Exit<ExecuteActionResult, HarmonicApiError>> {
   const program = Effect.gen(function* () {
     const client = yield* McpClient;
-    return yield* client.executeAction(path, action, params, "tok", "app", createRetryBudget());
+    return yield* client.executeAction(context, path, action, params, "tok", "app", createRetryBudget());
   });
   return Effect.runPromiseExit(program.pipe(Effect.provide(buildLayer(handler))));
 }
@@ -159,11 +166,16 @@ describe("McpClient.fetchPage", () => {
 });
 
 describe("McpClient.executeAction", () => {
-  it("forwards path/action/params and returns markdown body with success=true", async () => {
+  it("forwards context/path/action/params and returns markdown body with success=true", async () => {
     const handler = (opts: RailsRequestOptions) => {
       const payload = JSON.parse(opts.body ?? "{}");
       expect(payload.params.name).toBe("execute_action");
-      expect(payload.params.arguments).toEqual({ path: "/c/foo/note", action: "create_note", params: { text: "hello" } });
+      expect(payload.params.arguments).toEqual({
+        context: TEST_CONTEXT,
+        path: "/c/foo/note",
+        action: "create_note",
+        params: { text: "hello" },
+      });
       return makeResponse(200, makeMcpEnvelope({
         content: "## Action Success",
         toolCallLogId: "log-xyz",
@@ -198,7 +210,7 @@ describe("McpClient.executeAction", () => {
       return makeResponse(200, makeMcpEnvelope({ content: "ok" }));
     };
     await runExecuteAction(handler, "/x", "noop");
-    expect(captured).toEqual({ path: "/x", action: "noop", params: {} });
+    expect(captured).toEqual({ context: TEST_CONTEXT, path: "/x", action: "noop", params: {} });
   });
 
   it("surfaces 429 after exhausted retry as HarmonicApiError", async () => {

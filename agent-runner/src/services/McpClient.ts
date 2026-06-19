@@ -51,6 +51,7 @@ export interface McpClientService {
     retryBudget: RetryBudget,
   ) => Effect.Effect<FetchPageResult, HarmonicApiError>;
   readonly executeAction: (
+    context: Record<string, unknown>,
     path: string,
     action: string,
     params: Record<string, unknown> | undefined,
@@ -168,10 +169,10 @@ export const McpClientLive = Layer.effect(
           }),
       });
 
-    const executeAction: McpClientService["executeAction"] = (path, action, params, token, subdomain, retryBudget) =>
+    const executeAction: McpClientService["executeAction"] = (context, path, action, params, token, subdomain, retryBudget) =>
       Effect.tryPromise({
         try: async () => {
-          const args = { path, action, ...(params !== undefined ? { params } : {}) };
+          const args = { context, path, action, ...(params !== undefined ? { params } : {}) };
           const rpc = await callTool("execute_action", args, token, subdomain, retryBudget);
           if (rpc.error !== undefined) {
             throw new Error(`execute_action JSON-RPC error: ${rpc.error.message}`);

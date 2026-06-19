@@ -122,4 +122,22 @@ class McpToolCallLogTest < ActiveSupport::TestCase
     )
     assert_equal task_run, log.ai_agent_task_run
   end
+
+  test "destroying the api_token nullifies the log's api_token_id (audit row survives)" do
+    # Task-scoped internal tokens are destroyed on task completion. Logs
+    # written during the task must survive that destroy — the audit trail
+    # is the load-bearing thing, the token reference is incidental.
+    log = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "execute_action", arguments: { "path" => "/x", "action" => "y" },
+      status: "ok", duration_ms: 5
+    )
+
+    @token.destroy!
+
+    log.reload
+    assert_nil log.api_token_id
+    assert log.persisted?
+    assert_equal @agent, log.user
+  end
 end

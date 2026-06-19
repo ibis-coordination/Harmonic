@@ -142,30 +142,6 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  # Action tests
-
-  test "GET search/actions returns list of actions" do
-    get "/search/actions", headers: @headers.merge("Accept" => "text/markdown")
-    assert_response :success
-    assert_match "search(q)", response.body
-  end
-
-  test "GET search/actions/search describes the search action" do
-    get "/search/actions/search", headers: @headers.merge("Accept" => "text/markdown")
-    assert_response :success
-    assert_match "Action: `search`", response.body
-    assert_match "Parameters", response.body
-  end
-
-  test "POST search/actions/search redirects to GET with query" do
-    post "/search/actions/search",
-      params: { q: "type:note budget" },
-      headers: @headers.merge("Accept" => "text/markdown", "Content-Type" => "application/x-www-form-urlencoded")
-    assert_response :redirect
-    assert_match "/search?q=", response.location
-    assert_match "type%3Anote", response.location
-  end
-
   test "GET search markdown returns valid response" do
     get search_path, headers: @headers.merge("Accept" => "text/markdown")
     assert_response :success

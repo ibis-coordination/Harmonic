@@ -72,11 +72,20 @@ function makeNavigateToolCall(path: string, id = "call_1") {
   };
 }
 
+const TEST_CONTEXT: Record<string, unknown> = {
+  identity: { actor: "@test-agent" },
+  visibility: "shared",
+  intention: "run a test",
+};
+
 function makeExecuteToolCall(action: string, params: Record<string, unknown> = {}, id = "call_1", path = "/") {
   return {
     id,
     type: "function" as const,
-    function: { name: "execute_action", arguments: JSON.stringify({ path, action, params }) },
+    function: {
+      name: "execute_action",
+      arguments: JSON.stringify({ context: TEST_CONTEXT, path, action, params }),
+    },
   };
 }
 
@@ -182,7 +191,7 @@ function buildTestLayers(
         mcpToolCallLogId: null,
       });
     },
-    executeAction: (path: string, action: string, _params: Record<string, unknown> | undefined) => {
+    executeAction: (_context: Record<string, unknown>, path: string, action: string, _params: Record<string, unknown> | undefined) => {
       state.executeActions.push(action);
       state.executeActionPaths.push(path);
       const result = (options?.executeResults ?? executeResults)?.[action] ?? { content: "Action completed", success: true };
@@ -553,13 +562,17 @@ describe("AgentLoop", () => {
     expect(state.completeResult?.success).toBe(true);
   });
 
-  it("handles error action type with failure outcome and scratchpad", async () => {
+  it("parser-level tool errors are recoverable in-turn: error step recorded, loop continues", async () => {
+    // A malformed tool call (unknown tool, missing required arg) is a normal
+    // schema mistake the agent should be able to correct in the same turn.
+    // The turn must NOT terminate silently — the error message goes back as
+    // a tool result so the agent can retry or stop with a real message.
     const state = createMockState();
     await runWithMocks(
       makeTask(),
       state,
       [
-        // LLM returns a tool call that parses to an error
+        // LLM returns an unknown tool — parser produces an error action.
         makeLLMResponse({
           content: null,
           toolCalls: [{
@@ -569,7 +582,7 @@ describe("AgentLoop", () => {
           }],
           finishReason: "tool_calls",
         }),
-        // After error, LLM should not be called again in main loop — but done next iteration
+        // Loop continues; agent gets the error feedback and chooses to stop.
         makeLLMResponse({ content: "Stopping", toolCalls: [], finishReason: "stop" }),
         // Scratchpad
         makeLLMResponse({ content: '{"scratchpad": "Had an error"}', toolCalls: [], finishReason: "stop" }),
@@ -579,6 +592,75 @@ describe("AgentLoop", () => {
     const errorSteps = state.stepsCalled.filter((s) => s.type === "error");
     expect(errorSteps.length).toBe(1);
     expect(errorSteps[0]?.detail["message"]).toContain("Unknown tool");
+  });
+
+  it("parser error then implicit done demotes to failure (non-chat: bail-after-error must not count as success)", async () => {
+    // Non-chat task runs are read by downstream automations via task_run.status.
+    // If an agent makes a parser error and then bails by emitting text instead
+    // of more tool calls, the parser produces a `done` action. Without demote,
+    // that path would mark the task `success: true` even though the agent
+    // gave up after the error. Pin the demote so automations don't see
+    // "succeeded" when the agent stumbled out.
+    const state = createMockState();
+    await runWithMocks(
+      makeTask(),
+      state,
+      [
+        makeLLMResponse({
+          content: null,
+          toolCalls: [{
+            id: "call_1",
+            type: "function",
+            function: { name: "unknown_tool", arguments: "{}" },
+          }],
+          finishReason: "tool_calls",
+        }),
+        // Agent bails by text — parser produces `done` with no tool calls.
+        makeLLMResponse({ content: "giving up", toolCalls: [], finishReason: "stop" }),
+        makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+      ],
+    );
+
+    expect(state.completeResult?.success).toBe(false);
+    expect(state.completeResult?.error).toContain("tool-call error");
+  });
+
+  it("parser error then respond_to_human keeps success (chat recovery is a real completion)", async () => {
+    // If the agent recovers in chat by explicitly messaging the human via
+    // respond_to_human, that's a successful turn — the human got a response.
+    // Don't demote just because an earlier tool call had a schema mistake.
+    const state = createMockState();
+    await runWithMocks(
+      makeTask({ chatSessionId: "chat-1" }),
+      state,
+      [
+        makeLLMResponse({
+          content: null,
+          toolCalls: [{
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "execute_action",
+              arguments: JSON.stringify({ path: "/notifications", action: "mark_all_read" }),
+            },
+          }],
+          finishReason: "tool_calls",
+        }),
+        // Agent recovers by responding to the human directly.
+        makeLLMResponse({
+          content: null,
+          toolCalls: [{
+            id: "call_2",
+            type: "function",
+            function: { name: "respond_to_human", arguments: JSON.stringify({ message: "I had trouble there but here's what I know" }) },
+          }],
+          finishReason: "tool_calls",
+        }),
+        makeLLMResponse({ content: '{"scratchpad": null}', toolCalls: [], finishReason: "stop" }),
+      ],
+    );
+
+    expect(state.completeResult?.success).toBe(true);
   });
 
   it("accumulates token counts across multiple LLM calls", async () => {

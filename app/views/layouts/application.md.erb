@@ -21,8 +21,8 @@ timestamp: <%= Time.now.utc %>
 actions:
 <% actions.each do |action| -%>
   - name: <%= action[:name] %>
+    visibility: <%= action[:visibility] %>
     description: <%= yaml_escape(action[:description]) %>
-    path: <%= action[:path] %>
 <% if action[:params]&.any? -%>
     params:
 <% action[:params].each do |param| -%>

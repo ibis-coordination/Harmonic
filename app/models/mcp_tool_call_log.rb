@@ -20,7 +20,10 @@ class McpToolCallLog < ApplicationRecord
 
   belongs_to :tenant
   belongs_to :user
-  belongs_to :api_token
+  # Optional because task-scoped internal tokens are destroyed on task
+  # completion; the audit row survives with api_token_id nulled via the
+  # FK's ON DELETE SET NULL.
+  belongs_to :api_token, optional: true
   # Set when the token's polymorphic context is an AiAgentTaskRun — i.e. the
   # call came from an internal agent runner ephemeral token (or, post-runner-
   # migration, from any internal agent routing through /mcp). Null for

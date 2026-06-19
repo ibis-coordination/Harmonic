@@ -226,10 +226,9 @@ class MarkdownUiService
   # into the inner request.
   #
   # `harmonic.internal_dispatch` is read by api_authorize! to enforce
-  # mcp_only. `mcp_tool_call_log_id` / `mcp_action_name` are read by
-  # ApplicationController's restore_mcp_dispatch_context! to re-establish
-  # Current after the Executor middleware resets it between requests, so
-  # track_task_run_resource can attribute touched resources.
+  # mcp_only. The mcp_* keys are restored into Current by
+  # ApplicationController#restore_mcp_dispatch_context! and consumed by
+  # track_task_run_resource and ActionContextValidation.
   sig { returns(T::Hash[String, T.untyped]) }
   def dispatch_env
     env = { "harmonic.internal_dispatch" => true }
@@ -238,6 +237,9 @@ class MarkdownUiService
     end
     if Current.mcp_action_name.present?
       env["harmonic.mcp_action_name"] = Current.mcp_action_name
+    end
+    if Current.mcp_action_context.present?
+      env["harmonic.mcp_action_context"] = Current.mcp_action_context
     end
     env
   end

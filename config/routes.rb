@@ -267,11 +267,10 @@ Rails.application.routes.draw do
   post 'whoami/actions/update_scratchpad' => 'whoami#execute_update_scratchpad'
   get 'motto' => 'motto#index'
 
-  # Global search (tenant-level, searches across all accessible collectives)
+  # Global search (tenant-level, searches across all accessible collectives).
+  # Agents reach search via the MCP `search` tool (a separate dispatch),
+  # not via execute_action — so no /search/actions/* routes.
   get 'search' => 'search#show'
-  get 'search/actions' => 'search#actions_index'
-  get 'search/actions/search' => 'search#describe_search'
-  post 'search/actions/search' => 'search#execute_search'
 
   # ============================================================
   # ADMIN ROUTES

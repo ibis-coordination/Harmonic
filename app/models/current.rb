@@ -26,7 +26,9 @@ class Current < ActiveSupport::CurrentAttributes
   # track_task_run_resource to attribute touched resources to the call.
   # mcp_action_name is the action name as invoked via the execute_action
   # MCP tool (`create_note`, `confirm_read`, etc.); nil for other tools.
-  attribute :mcp_tool_call_log_id, :mcp_action_name
+  # mcp_action_context holds the agent-declared `context` block (read by
+  # ActionContextValidation).
+  attribute :mcp_tool_call_log_id, :mcp_action_name, :mcp_action_context
 
   # Data import flag — when true, model concerns (Tracked, Searchable, etc.)
   # skip side effects like Event creation and search indexing

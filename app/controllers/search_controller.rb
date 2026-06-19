@@ -31,28 +31,6 @@ class SearchController < ApplicationController
     end
   end
 
-  def actions_index
-    @page_title = "Search Actions"
-    @sidebar_mode = "minimal"
-    render_actions_index(ActionsHelper.actions_for_route("/search"))
-  end
-
-  def describe_search
-    @page_title = "Search Action"
-    @sidebar_mode = "minimal"
-    render_action_description(ActionsHelper.action_description("search", resource: nil))
-  end
-
-  def execute_search
-    query = params[:q].to_s
-
-    respond_to do |format|
-      format.html { redirect_to "/search?q=#{ERB::Util.url_encode(query)}" }
-      format.md { redirect_to "/search?q=#{ERB::Util.url_encode(query)}" }
-      format.json { redirect_to "/search.json?q=#{ERB::Util.url_encode(query)}" }
-    end
-  end
-
   private
 
   def search_params

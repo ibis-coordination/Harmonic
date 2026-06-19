@@ -439,6 +439,49 @@ class Internal::AgentRunnerControllerTest < ActionDispatch::IntegrationTest
     assert_nil ApiToken.unscope(where: :internal).find_by(id: token.id)
   end
 
+  test "complete succeeds when McpToolCallLog rows reference the task-scoped token" do
+    # Cross-system regression: MCP execute_action writes an McpToolCallLog
+    # row that FKs the api_token. On task completion, destroy_task_token
+    # destroys that token. The FK lifecycle (api_token_id → nullify) must
+    # let the destroy through while keeping the audit row.
+    #
+    # Originally landed with FK RESTRICT + NOT NULL, which 500'd here and
+    # left the chat-turn caller without a final message. Pin both halves
+    # of that fix at the controller-integration level.
+    @task_run.update!(status: "running", started_at: Time.current)
+
+    token = ApiToken.create_internal_token(
+      user: @ai_agent,
+      tenant: @tenant,
+      context: @task_run,
+    )
+
+    log = McpToolCallLog.create!(
+      tenant: @tenant,
+      user: @ai_agent,
+      api_token: token,
+      ai_agent_task_run: @task_run,
+      tool_name: "execute_action",
+      arguments: { "path" => "/whoami", "action" => "update_scratchpad" },
+      status: "ok",
+      duration_ms: 12,
+    )
+
+    body = { success: true, final_message: "Done", input_tokens: 1, output_tokens: 1, total_tokens: 2 }.to_json
+    post complete_url, params: body, headers: signed_headers(body)
+
+    assert_response :success
+    @task_run.reload
+    assert_equal "completed", @task_run.status
+
+    # Token destroyed, audit row survives with the api_token_id nulled.
+    assert_nil ApiToken.unscope(where: :internal).find_by(id: token.id)
+    log.reload
+    assert log.persisted?
+    assert_nil log.api_token_id
+    assert_equal @task_run.id, log.ai_agent_task_run_id
+  end
+
   # --- Fail ---
 
   test "fail marks task as failed" do

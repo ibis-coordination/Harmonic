@@ -26,7 +26,6 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "mark_read",
     "mark_all_read",
     "mark_read_for_collective",
-    "search",
     "update_scratchpad",
   ].freeze
 

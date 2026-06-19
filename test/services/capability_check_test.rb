@@ -151,9 +151,6 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     # Disallowed capability (vote is grantable but not in config)
     assert_not ActionAuthorization.authorized?("vote", @ai_agent, { collective: @collective })
 
-    # Infrastructure action (always allowed)
-    assert ActionAuthorization.authorized?("search", @ai_agent, {})
-
     # Blocked action (never allowed for ai_agents)
     assert_not ActionAuthorization.authorized?("create_collective", @ai_agent, {})
   end
