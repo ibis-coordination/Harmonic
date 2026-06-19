@@ -182,7 +182,7 @@ class ActionContextTest < ActiveSupport::TestCase
     assert_nil validate(forward)
   end
 
-  # --- Representation (acting on behalf of a principal/collective) ---
+  # --- Representation (acting as another user or collective) ---
 
   test "declaring both representation_session_id and identity.acting_as passes the structural check" do
     # All-or-nothing structural check: both fields present satisfies the rule.
@@ -191,7 +191,7 @@ class ActionContextTest < ActiveSupport::TestCase
     # the controller layer, not here in the pure value object.)
     raw = valid_raw(
       "representation_session_id" => "def456",
-      "identity" => { "actor" => "@agent-bob", "acting_as" => "@principal-alice" }
+      "identity" => { "actor" => "@agent-bob", "acting_as" => "@alice" }
     )
     assert_nil validate(raw)
   end
@@ -208,7 +208,7 @@ class ActionContextTest < ActiveSupport::TestCase
   end
 
   test "declaring acting_as without representation_session_id returns representation_incomplete" do
-    raw = valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@principal-alice" })
+    raw = valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@alice" })
     err = validate(raw)
     assert_equal "representation_incomplete", err.code
   end
@@ -234,8 +234,8 @@ class ActionContextTest < ActiveSupport::TestCase
   end
 
   test "identity_acting_as accessor returns the declared value" do
-    ctx = ActionContext.new(valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@principal-alice" }))
-    assert_equal "@principal-alice", ctx.identity_acting_as
+    ctx = ActionContext.new(valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@alice" }))
+    assert_equal "@alice", ctx.identity_acting_as
   end
 
   test "representation_incomplete carries a corrective hint" do
@@ -245,5 +245,101 @@ class ActionContextTest < ActiveSupport::TestCase
     assert body[:hint].present?
     assert_match(/representation_session_id/, body[:hint])
     assert_match(/acting_as/, body[:hint])
+  end
+
+  # --- Fetch (read) context ---
+
+  # validate_fetch_context: a separate validation path for fetch_page, which
+  # uses `viewer` instead of `actor` and `viewing_as` instead of `acting_as`.
+  # The context block is optional on reads; when present, viewer is required
+  # and the representation fields must be declared together or not at all.
+  def validate_fetch(raw, caller_handle: "agent-bob")
+    ActionContext.new(raw).validate_fetch_context(caller_handle: caller_handle)
+  end
+
+  test "fetch with no context (acting as self) passes" do
+    assert_nil validate_fetch(nil)
+  end
+
+  test "fetch with viewer matching caller passes" do
+    assert_nil validate_fetch({ "identity" => { "viewer" => "@agent-bob" } })
+  end
+
+  test "fetch with viewer case/prefix variations matches the caller" do
+    assert_nil validate_fetch({ "identity" => { "viewer" => "agent-bob" } })
+    assert_nil validate_fetch({ "identity" => { "viewer" => "@Agent-Bob" } })
+  end
+
+  test "fetch with context present but no viewer is viewer_missing" do
+    err = validate_fetch({ "identity" => {} })
+    assert_equal "viewer_missing", err.code
+  end
+
+  test "fetch with non-string viewer reads as viewer_missing" do
+    assert_equal "viewer_missing", validate_fetch({ "identity" => { "viewer" => 42 } }).code
+    assert_equal "viewer_missing", validate_fetch({ "identity" => { "viewer" => "   " } }).code
+  end
+
+  test "fetch with identity present but no viewer key is viewer_missing" do
+    # Distinguishes "I tried to declare context" from "I didn't include one at all" —
+    # an empty identity block is a declaration mistake, not self-acting.
+    err = validate_fetch({ "identity" => { "viewing_as" => "@alice" } })
+    # Two errors are possible here: viewer_missing (always wrong) or
+    # representation_incomplete (only viewing_as, no session id). viewer_missing
+    # is the earlier failure — we surface that first so the agent fixes the
+    # more fundamental mistake.
+    assert_equal "viewer_missing", err.code
+  end
+
+  test "fetch with viewer not matching the caller is viewer_mismatch with expected/got" do
+    err = validate_fetch({ "identity" => { "viewer" => "@someone-else" } })
+    assert_equal "viewer_mismatch", err.code
+    assert_equal "@agent-bob", err.expected
+    assert_equal "@someone-else", err.got
+  end
+
+  test "fetch with viewer + viewing_as + representation_session_id passes the structural check" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@alice" },
+      "representation_session_id" => "abc12345",
+    }
+    assert_nil validate_fetch(raw)
+  end
+
+  test "fetch with viewing_as but no representation_session_id is representation_incomplete" do
+    raw = { "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@alice" } }
+    assert_equal "representation_incomplete", validate_fetch(raw).code
+  end
+
+  test "fetch with representation_session_id but no viewing_as is representation_incomplete" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob" },
+      "representation_session_id" => "abc12345",
+    }
+    assert_equal "representation_incomplete", validate_fetch(raw).code
+  end
+
+  test "fetch with blank viewing_as / representation_session_id reads as absent" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => "  " },
+      "representation_session_id" => "  ",
+    }
+    assert_nil validate_fetch(raw)
+  end
+
+  test "identity_viewer and identity_viewing_as accessors return declared values" do
+    ctx = ActionContext.new({ "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@alice" } })
+    assert_equal "@agent-bob", ctx.identity_viewer
+    assert_equal "@alice", ctx.identity_viewing_as
+  end
+
+  test "viewer_missing and viewer_mismatch carry corrective hints" do
+    body_missing = ActionContext::Error.new(code: "viewer_missing").to_response_hash
+    assert body_missing[:hint].present?
+    assert_match(/viewer/, body_missing[:hint])
+
+    body_mismatch = ActionContext::Error.new(code: "viewer_mismatch", expected: "@agent-bob", got: "@someone-else").to_response_hash
+    assert body_mismatch[:hint].present?
+    assert_match(/viewer/, body_mismatch[:hint])
   end
 end

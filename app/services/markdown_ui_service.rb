@@ -57,6 +57,8 @@ class MarkdownUiService
     @token = T.let(nil, T.nilable(ApiToken))
     @plaintext_token = T.let(nil, T.nilable(String))
     @session = T.let(nil, T.nilable(ActionDispatch::Integration::Session))
+    @representation_session_id = T.let(nil, T.nilable(String))
+    @represented_handle = T.let(nil, T.nilable(String))
   end
 
   # Execute a block with an ephemeral internal token.
@@ -104,6 +106,42 @@ class MarkdownUiService
     blk.call
   ensure
     @plaintext_token = nil
+  end
+
+  # Execute a block with API representation headers attached to every
+  # internal dispatch inside it. Mirrors the `X-Representation-Session-ID` +
+  # `X-Representing-User`/`X-Representing-Collective` header trio that an
+  # external API caller would set; the existing rep flow in
+  # ApplicationController#resolve_api_representation handles validation and
+  # the effective_user swap.
+  #
+  # `represented_handle` is the handle of whoever the agent is representing
+  # (any user or collective, not necessarily the agent's own human principal).
+  # We strip a leading `@` and parameterize so an agent declaration like
+  # "@Alice" reaches the validator as "alice" — the stored handle form.
+  # Without this, the existing rep validator (direct string equality at
+  # ApplicationController#validate_representing_headers) would 403 case
+  # variants. Stage 1's `normalize_handle` does the same thing for the
+  # outer identity.actor check.
+  #
+  # Both X-Representing-* headers are set to the value — the session's
+  # type determines which one the validator checks; the other is ignored.
+  sig do
+    type_parameters(:T)
+      .params(
+        session_id: String,
+        represented_handle: String,
+        blk: T.proc.returns(T.type_parameter(:T))
+      )
+      .returns(T.type_parameter(:T))
+  end
+  def with_representation(session_id, represented_handle, &blk)
+    @representation_session_id = session_id
+    @represented_handle = represented_handle.to_s.delete_prefix("@").parameterize
+    blk.call
+  ensure
+    @representation_session_id = nil
+    @represented_handle = nil
   end
 
   # Navigate to a path and render the markdown view.
@@ -289,6 +327,12 @@ class MarkdownUiService
     }
 
     headers["Authorization"] = "Bearer #{@plaintext_token}" if @plaintext_token.present?
+
+    if @representation_session_id.present? && @represented_handle.present?
+      headers["X-Representation-Session-ID"] = T.must(@representation_session_id)
+      headers["X-Representing-User"] = T.must(@represented_handle)
+      headers["X-Representing-Collective"] = T.must(@represented_handle)
+    end
 
     headers
   end

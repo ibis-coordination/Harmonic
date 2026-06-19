@@ -714,6 +714,227 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
   end
 
   # ====================
+  # fetch_page context validation (optional context block for representation reads)
+  # ====================
+
+  def fetch_page_with_context(context, id: 800, path: "/whoami")
+    args = { path: path }
+    args[:context] = context unless context.nil?
+    post_jsonrpc({ jsonrpc: "2.0", id: id, method: "tools/call",
+                   params: { name: "fetch_page", arguments: args } })
+  end
+
+  test "fetch_page without context succeeds (self-acting read, no ceremony required)" do
+    fetch_page_with_context(nil, id: 800)
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "fetch_page should succeed without context"
+  end
+
+  test "fetch_page with context present but no viewer returns viewer_missing" do
+    fetch_page_with_context({ identity: {} }, id: 801)
+    body = response.parsed_body
+    assert body["result"]["isError"]
+    assert_equal "viewer_missing", context_error_body(body)["error"]
+  end
+
+  test "fetch_page with viewer not matching the caller returns viewer_mismatch with expected/got" do
+    fetch_page_with_context({ identity: { viewer: "@someone-else" } }, id: 802)
+    body = context_error_body(response.parsed_body)
+    assert_equal "viewer_mismatch", body["error"]
+    assert_equal "@#{@agent.handle}", body["expected"]
+    assert_equal "@someone-else", body["got"]
+  end
+
+  test "fetch_page with viewing_as but no representation_session_id returns representation_incomplete" do
+    fetch_page_with_context(
+      { identity: { viewer: "@#{@agent.handle}", viewing_as: "@alice" } },
+      id: 803,
+    )
+    body = context_error_body(response.parsed_body)
+    assert_equal "representation_incomplete", body["error"]
+  end
+
+  test "fetch_page with representation_session_id but no viewing_as returns representation_incomplete" do
+    fetch_page_with_context(
+      { identity: { viewer: "@#{@agent.handle}" }, representation_session_id: "abc12345" },
+      id: 804,
+    )
+    body = context_error_body(response.parsed_body)
+    assert_equal "representation_incomplete", body["error"]
+  end
+
+  test "fetch_page with viewer matching caller (no rep) passes validation and dispatches" do
+    fetch_page_with_context({ identity: { viewer: "@#{@agent.handle}" } }, id: 805)
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "valid self-acting fetch with context should succeed"
+  end
+
+  # ====================
+  # Representation end-to-end: context fields translate to API rep headers
+  # ====================
+
+  # Build an accepted user→agent trustee grant + an active rep session where
+  # @agent represents @user. Returns the session id (full UUID).
+  def setup_active_representation
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @user,
+      trustee_user: @agent,
+      permissions: nil,                       # nil = all actions permitted
+      collective_scope: { "mode" => "all" },
+    )
+    grant.accept!
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      collective: nil,
+      representative_user: @agent,
+      trustee_grant: grant,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+    session.id
+  end
+
+  test "execute_action with rep context attributes the write to the represented user" do
+    session_id = setup_active_representation
+
+    args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: { text: "post under representation" },
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: "@#{@user.handle}" },
+        visibility: "shared",
+        intention: "post as the represented user",
+        representation_session_id: session_id,
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 900, method: "tools/call",
+                   params: { name: "execute_action", arguments: args } })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "write under rep should succeed: #{body.inspect}"
+
+    note = Note.where(text: "post under representation").last
+    assert note, "note should have been created"
+    assert_equal @user.id, note.created_by_id,
+                 "write must be attributed to the represented user (effective_user), not the agent"
+  end
+
+  test "fetch_page with rep context reads through the represented user's identity" do
+    session_id = setup_active_representation
+
+    # /whoami under rep reports the represented user as the current identity.
+    args = {
+      path: "/whoami",
+      context: {
+        identity: { viewer: "@#{@agent.handle}", viewing_as: "@#{@user.handle}" },
+        representation_session_id: session_id,
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 901, method: "tools/call",
+                   params: { name: "fetch_page", arguments: args } })
+
+    assert_response :success
+    body = response.parsed_body
+    text = body["result"]["content"].first["text"]
+    assert_not body["result"]["isError"], "fetch_page under rep failed: #{text}"
+    # The rep flow swaps current_user; the rendered identity reflects the
+    # represented user, not the agent.
+    assert_match @user.handle, text,
+                 "/whoami under rep should surface the represented user's handle"
+  end
+
+  test "execute_action with rep context accepts case-variant handles (parameterized at the wire boundary)" do
+    # Stored handles are parameterized (lowercased slugs). Agents may declare
+    # the handle with mixed case or a leading @; the rep flow validator does
+    # direct string equality, so the MCP→headers translation must normalize
+    # to match the stored form. Stage 1 already does this for the outer
+    # identity.actor check via `normalize_handle`; this pins the same for
+    # the wire-level X-Representing-User header.
+    session_id = setup_active_representation
+    capitalized = "@#{@user.handle.upcase}"
+
+    args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: { text: "post via capitalized handle declaration" },
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: capitalized },
+        visibility: "shared",
+        intention: "verify case-normalization at wire boundary",
+        representation_session_id: session_id,
+      },
+    }
+    post_jsonrpc({ jsonrpc: "2.0", id: 903, method: "tools/call",
+                   params: { name: "execute_action", arguments: args } })
+
+    assert_response :success
+    body = response.parsed_body
+    assert_not body["result"]["isError"], "case-variant handle should not break rep: #{body.inspect}"
+    note = Note.where(text: "post via capitalized handle declaration").last
+    assert note, "note should have landed via case-normalized rep"
+    assert_equal @user.id, note.created_by_id
+  end
+
+  test "execute_action with rep context still enforces declared visibility against the action's audience" do
+    # The ActionContextValidation concern must continue to fire under
+    # representation. Without care, the rep flow swaps current_user to the
+    # represented user (a human, not a restricted user), and the concern
+    # short-circuits — letting an agent declare any visibility tier under
+    # rep without rejection. Pin the agent-not-current_user check by
+    # asserting a mismatched visibility still gets visibility_mismatch under
+    # rep.
+    session_id = setup_active_representation
+
+    args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: { text: "should not land — wrong visibility" },
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: "@#{@user.handle}" },
+        visibility: "private", # actual audience for this collective is shared
+        intention: "test visibility validation under rep",
+        representation_session_id: session_id,
+      },
+    }
+    assert_no_difference -> { Note.count } do
+      post_jsonrpc({ jsonrpc: "2.0", id: 904, method: "tools/call",
+                     params: { name: "execute_action", arguments: args } })
+    end
+
+    body = response.parsed_body
+    assert body["result"]["isError"], "wrong visibility under rep should reject"
+    inner = JSON.parse(body["result"]["content"].first["text"])
+    assert_equal "visibility_mismatch", inner["error"]
+    assert_equal "shared", inner["expected"]
+    assert_equal "private", inner["got"]
+  end
+
+  test "execute_action with rep context but unknown session id surfaces the rep flow's 403" do
+    args = {
+      path: "/collectives/#{@collective.handle}/note",
+      action: "create_note",
+      params: { text: "should not land" },
+      context: {
+        identity: { actor: "@#{@agent.handle}", acting_as: "@#{@user.handle}" },
+        visibility: "shared",
+        intention: "test bad session",
+        representation_session_id: "00000000-0000-0000-0000-000000000000",
+      },
+    }
+    assert_no_difference -> { Note.count } do
+      post_jsonrpc({ jsonrpc: "2.0", id: 902, method: "tools/call",
+                     params: { name: "execute_action", arguments: args } })
+    end
+    body = response.parsed_body
+    assert body["result"]["isError"], "unknown session should cause a tool error"
+  end
+
+  # ====================
   # search
   # ====================
 

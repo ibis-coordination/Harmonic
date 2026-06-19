@@ -28,7 +28,12 @@ class ActionContext
         "Each action lists its `visibility:` in the page's YAML frontmatter — read it off there.",
       "representation_incomplete" =>
         "Declare both `representation_session_id` (top-level) and `identity.acting_as` (under identity), or neither. " \
-        "To act as yourself, omit both. To act as a principal, include both.",
+        "Omit both to act as yourself. Declare both to act as the user or collective you're representing.",
+      "viewer_missing" =>
+        "Include `identity.viewer` set to your own @handle (visible on /whoami). " \
+        "Or omit the `context` block entirely to read as yourself.",
+      "viewer_mismatch" =>
+        "Set `identity.viewer` to your own @handle (the one in `expected`). You can see it on /whoami.",
     }.freeze, T::Hash[String, String])
 
     # Visibility tier ranks. The direction of the mismatch matters: declaring
@@ -119,6 +124,34 @@ class ActionContext
     value.is_a?(String) ? value.presence : nil
   end
 
+  sig { returns(T.nilable(String)) }
+  def identity_viewer
+    identity = @raw&.[]("identity")
+    return nil unless identity.is_a?(Hash)
+
+    value = identity["viewer"]
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  sig { returns(T.nilable(String)) }
+  def identity_viewing_as
+    identity = @raw&.[]("identity")
+    return nil unless identity.is_a?(Hash)
+
+    value = identity["viewing_as"]
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  # The handle of the entity being represented, whichever field name the
+  # current tool uses (`acting_as` on writes, `viewing_as` on reads). The
+  # represented entity can be any user or collective the agent has a valid
+  # grant for, not necessarily the agent's own human principal. Returns nil
+  # when no representation is declared.
+  sig { returns(T.nilable(String)) }
+  def represented_handle
+    identity_acting_as || identity_viewing_as
+  end
+
   # Stage runnable from the outer MCP endpoint (needs only caller_handle).
   sig { params(caller_handle: T.nilable(String)).returns(T.nilable(Error)) }
   def validate_identity_and_intention(caller_handle:)
@@ -139,6 +172,35 @@ class ActionContext
     # Exactly one is a structural mistake — fail loud so the agent doesn't
     # silently fall through to acting-as-self when it meant to represent.
     if representation_session_id.nil? != identity_acting_as.nil?
+      return Error.new(code: "representation_incomplete")
+    end
+
+    nil
+  end
+
+  # Read-context validation for fetch_page. Distinct from
+  # validate_identity_and_intention because reads use different field names
+  # (`viewer` / `viewing_as` instead of `actor` / `acting_as`) and have no
+  # visibility or intention to declare.
+  #
+  # The context block itself is OPTIONAL on reads — self-acting reads need
+  # no ceremony, so a fetch_page call with no context (nil here) passes.
+  # When ANY context is present, `viewer` is required and must match the
+  # caller, and the representation fields must be declared together or
+  # not at all.
+  sig { params(caller_handle: T.nilable(String)).returns(T.nilable(Error)) }
+  def validate_fetch_context(caller_handle:)
+    return nil if @raw.nil?
+
+    viewer = identity_viewer
+    return Error.new(code: "viewer_missing") if viewer.nil?
+
+    expected = "@#{caller_handle}"
+    unless normalize_handle(viewer) == normalize_handle(expected)
+      return Error.new(code: "viewer_mismatch", expected: expected, got: viewer)
+    end
+
+    if representation_session_id.nil? != identity_viewing_as.nil?
       return Error.new(code: "representation_incomplete")
     end
 
