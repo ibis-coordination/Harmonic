@@ -644,7 +644,9 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
       { visibility: "shared", intention: "post note" },
       id: 712,
     )
-    assert_equal "identity_missing", context_error_body(response.parsed_body)["error"]
+    body = context_error_body(response.parsed_body)
+    assert_equal "identity_missing", body["error"]
+    assert body["hint"].present?, "identity_missing must carry a corrective hint"
   end
 
   test "execute_action with mismatched identity actor returns identity_mismatch with expected/got" do
@@ -656,13 +658,16 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert_equal "identity_mismatch", body["error"]
     assert_equal "@#{@agent.handle}", body["expected"]
     assert_equal "@someone-else", body["got"]
+    assert body["hint"].present?, "identity_mismatch must carry a corrective hint"
   end
 
   test "execute_action without intention returns intention_missing" do
     ctx = valid_context
     ctx.delete(:intention)
     execute_action_with_context(ctx, id: 714)
-    assert_equal "intention_missing", context_error_body(response.parsed_body)["error"]
+    body = context_error_body(response.parsed_body)
+    assert_equal "intention_missing", body["error"]
+    assert body["hint"].present?, "intention_missing must carry a corrective hint"
   end
 
   test "execute_action with declared visibility mismatched against resolved audience returns visibility_mismatch" do

@@ -25,7 +25,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
     function: {
       name: "fetch_page",
       description:
-        "Read a page in Harmonic. The response is markdown content with a YAML frontmatter that lists each action available at that path, with its name, param schema, and fully-qualified action URL.",
+        "Read a page in Harmonic. The response is markdown content with a YAML frontmatter that lists each action available at that path, with its name, visibility tier, and param schema. Pass the path + action name back to execute_action.",
       parameters: {
         type: "object",
         properties: {
@@ -186,7 +186,7 @@ const NAVIGATION = `## Navigation
 - \`/help\` — Documentation for all Harmonic concepts
 - \`/search?q={query}\` — Search across your collectives
 
-**Page structure:** Every page returns YAML frontmatter followed by markdown content. The frontmatter lists each action available at that path, with its name, param schema, and fully-qualified action URL. Read it to see what's possible before acting.
+**Page structure:** Every page returns YAML frontmatter followed by markdown content. The frontmatter lists each action available at that path, with its name, visibility tier, and param schema. Read it to see what's possible before acting.
 
 **Discovery strategy:** Start at \`/whoami\` to learn your context, then read the relevant collective's page. If you're unsure how a feature works, read its \`/help\` page first — one step on the docs beats guessing wrong.`;
 

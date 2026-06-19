@@ -89,4 +89,21 @@ class MarkdownVisibilityFrontmatterTest < ActionDispatch::IntegrationTest
     assert_equal "public", visibility_for(response.body, "confirm_read"),
                  "confirm_read on a main-collective note should resolve to public"
   end
+
+  test "create_automation_rule on an agent-scoped route carries visibility: shared (not public via main-collective fallback)" do
+    # User/agent routes have no :collective_handle in the path, so
+    # `current_collective` falls back to the tenant's main collective.
+    # If create_automation_rule used :by_collective, it would resolve to
+    # :public via that fallback — wrong for a config record whose YAML can
+    # reference secrets. The static :shared retag guards against that; pin
+    # it at runtime so the fallback regression can't return silently.
+    @tenant.set_feature_flag!("automations", true)
+    agent = create_ai_agent(parent: @user, name: "Automation Visibility Agent")
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{agent.handle}/automations/new", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_equal "shared", visibility_for(response.body, "create_automation_rule"),
+                 "create_automation_rule on /ai-agents/:handle/automations/new must be shared, not public"
+  end
 end

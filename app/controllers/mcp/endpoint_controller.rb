@@ -81,8 +81,8 @@ module Mcp
       name: "fetch_page",
       description:
         "Fetch the markdown representation of a Harmonic page at the given path. " \
-        "The response includes content plus a list of actions available at that path, " \
-        "each with a fully-qualified action URL you can pass back to execute_action. " \
+        "The response includes content plus the YAML frontmatter listing each action available at that path, " \
+        "with its name, visibility tier, and param schema. " \
         "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
       inputSchema: {
         type: "object",

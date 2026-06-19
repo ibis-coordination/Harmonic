@@ -57,6 +57,55 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_equal "mcp_only", body["error"]
   end
 
+  test "AI agent under MCP execute_action with declared-vs-resolved visibility mismatch gets 422 (positive case)" do
+    # The bypass tests above pin paths that should NOT trigger the concern.
+    # This one pins the path that SHOULD trigger it: an AI agent dispatching
+    # via /mcp with a declared visibility that doesn't match the resolved
+    # audience. Without this, removing `restricted_user?` or `write_request?`
+    # would leave all three bypass tests green — the file would falsely claim
+    # to "pin the guards" while the inner gate could be unwired entirely.
+    agent = create_ai_agent(parent: @user, name: "MCP Mismatch Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    # @collective is non-main → resolves to "shared"; declaring "public" mismatches.
+    body = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "execute_action",
+        arguments: {
+          path: "/collectives/#{@collective.handle}/note",
+          action: "create_note",
+          params: { text: "should be blocked" },
+          context: {
+            identity: { actor: "@#{agent.handle}" },
+            visibility: "public",
+            intention: "write a note",
+          },
+        },
+      },
+    }.to_json
+
+    assert_no_difference -> { Note.count } do
+      post "/mcp", params: body, headers: {
+        "Content-Type" => "application/json",
+        "Accept" => "application/json",
+        "Authorization" => "Bearer #{token.plaintext_token}",
+      }
+    end
+
+    assert_response :success # JSON-RPC envelopes the 422 in a tool error
+    inner = response.parsed_body.dig("result", "content", 0, "text")
+    parsed_inner = JSON.parse(inner.to_s)
+    assert_equal "visibility_mismatch", parsed_inner["error"]
+    assert_equal "shared", parsed_inner["expected"]
+    assert_equal "public", parsed_inner["got"]
+  end
+
   test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do
     # A human-owned API token (which CAN'T be mcp_only — model validation
     # pins mcp_only to ai_agent users). A direct REST write goes through
