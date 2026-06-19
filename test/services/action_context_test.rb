@@ -228,6 +228,36 @@ class ActionContextTest < ActiveSupport::TestCase
     assert_nil validate(raw)
   end
 
+  test "non-string acting_as returns acting_as_invalid (not representation_incomplete)" do
+    # Pre-fix this trips representation_incomplete because the accessor
+    # collapses non-string to nil, but the agent did declare both fields —
+    # the misleading error puts them in a fix loop.
+    raw = valid_raw(
+      "representation_session_id" => "valid-session-id",
+      "identity" => { "actor" => "@agent-bob", "acting_as" => 123 }
+    )
+    err = validate(raw)
+    assert_equal "acting_as_invalid", err.code
+  end
+
+  test "acting_as that parameterizes to empty returns acting_as_invalid" do
+    # A non-blank string that produces an empty parameterized handle (e.g.
+    # "@!!!") would silently fail header translation downstream; reject it
+    # at the boundary so the agent gets a useful error.
+    raw = valid_raw(
+      "representation_session_id" => "valid-session-id",
+      "identity" => { "actor" => "@agent-bob", "acting_as" => "@!!!" }
+    )
+    err = validate(raw)
+    assert_equal "acting_as_invalid", err.code
+  end
+
+  test "acting_as_invalid carries a corrective hint" do
+    body = ActionContext::Error.new(code: "acting_as_invalid").to_response_hash
+    assert body[:hint].present?
+    assert_match(/acting_as/, body[:hint])
+  end
+
   test "representation_session_id accessor returns the declared value" do
     ctx = ActionContext.new(valid_raw("representation_session_id" => "def456"))
     assert_equal "def456", ctx.representation_session_id
@@ -325,6 +355,28 @@ class ActionContextTest < ActiveSupport::TestCase
       "representation_session_id" => "  ",
     }
     assert_nil validate_fetch(raw)
+  end
+
+  test "fetch with non-string viewing_as returns viewing_as_invalid" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => 123 },
+      "representation_session_id" => "valid-session-id",
+    }
+    assert_equal "viewing_as_invalid", validate_fetch(raw).code
+  end
+
+  test "fetch with viewing_as that parameterizes to empty returns viewing_as_invalid" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@!!!" },
+      "representation_session_id" => "valid-session-id",
+    }
+    assert_equal "viewing_as_invalid", validate_fetch(raw).code
+  end
+
+  test "viewing_as_invalid carries a corrective hint" do
+    body = ActionContext::Error.new(code: "viewing_as_invalid").to_response_hash
+    assert body[:hint].present?
+    assert_match(/viewing_as/, body[:hint])
   end
 
   test "identity_viewer and identity_viewing_as accessors return declared values" do

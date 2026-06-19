@@ -34,6 +34,12 @@ class ActionContext
         "Or omit the `context` block entirely to read as yourself.",
       "viewer_mismatch" =>
         "Set `identity.viewer` to your own @handle (the one in `expected`). You can see it on /whoami.",
+      "acting_as_invalid" =>
+        "Set `identity.acting_as` to a real @handle string (e.g. `@alice`). " \
+        "Non-string values and handles that reduce to nothing after parameterization are rejected.",
+      "viewing_as_invalid" =>
+        "Set `identity.viewing_as` to a real @handle string (e.g. `@alice`). " \
+        "Non-string values and handles that reduce to nothing after parameterization are rejected.",
     }.freeze, T::Hash[String, String])
 
     # Visibility tier ranks. The direction of the mismatch matters: declaring
@@ -167,6 +173,12 @@ class ActionContext
 
     return Error.new(code: "intention_missing") if intention.nil?
 
+    # Catch malformed acting_as before the all-or-nothing check — otherwise
+    # a non-string or parameterize-empty value reads as "field absent" and
+    # the agent gets representation_incomplete asking them to declare a
+    # field they already declared.
+    return Error.new(code: "acting_as_invalid") if handle_field_invalid?("identity", "acting_as")
+
     # All-or-nothing rule for representation: the agent either acts as itself
     # (both fields absent) or on behalf of someone (both fields present).
     # Exactly one is a structural mistake — fail loud so the agent doesn't
@@ -200,6 +212,11 @@ class ActionContext
       return Error.new(code: "viewer_mismatch", expected: expected, got: viewer)
     end
 
+    # Catch malformed viewing_as before the all-or-nothing check — otherwise
+    # a non-string or parameterize-empty value reads as "field absent" and
+    # produces a misleading representation_incomplete.
+    return Error.new(code: "viewing_as_invalid") if handle_field_invalid?("identity", "viewing_as")
+
     if representation_session_id.nil? != identity_viewing_as.nil?
       return Error.new(code: "representation_incomplete")
     end
@@ -224,5 +241,22 @@ class ActionContext
   sig { params(value: String).returns(String) }
   def normalize_handle(value)
     value.delete_prefix("@").parameterize
+  end
+
+  # True when a handle-shaped field (`acting_as`, `viewing_as`) is present in
+  # the JSON with a value the wire layer cannot use: a non-string, or a
+  # string that parameterizes to empty (e.g. `"@!!!"`). Nil and blank
+  # strings count as "absent" — those collapse to the all-or-nothing rule.
+  sig { params(parent: String, field: String).returns(T::Boolean) }
+  def handle_field_invalid?(parent, field)
+    hash = parent == "identity" ? @raw&.[]("identity") : @raw
+    return false unless hash.is_a?(Hash) && hash.key?(field)
+
+    value = hash[field]
+    return false if value.nil?
+    return false if value.is_a?(String) && value.strip.empty?
+    return true unless value.is_a?(String)
+
+    normalize_handle(value).empty?
   end
 end
