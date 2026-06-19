@@ -642,4 +642,25 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     get @collective.path, headers: headers_with_representation
     assert_response :forbidden, "Ended session should be rejected"
   end
+
+  test "GET /representing renders markdown for API/MCP callers under an active session" do
+    # The /representing page is the documented recovery surface for agents
+    # who lose track of their active rep state. Without a markdown template,
+    # an MCP client requesting it crashes with ActionController::UnknownFormat.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @alice, trustee_user: @bob,
+      permissions: nil, collective_scope: { "mode" => "all" },
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+
+    get "/representing", headers: @headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-User" => @alice.handle,
+    )
+
+    assert_response :success
+    assert_equal "text/markdown; charset=utf-8", response.headers["Content-Type"]
+    assert_match(/Representing|representation/i, response.body)
+  end
 end

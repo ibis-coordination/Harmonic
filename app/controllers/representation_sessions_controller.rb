@@ -131,12 +131,23 @@ class RepresentationSessionsController < ApplicationController
     @page_title = "Representing"
     @sidebar_mode = "none"
     @representation_session = current_representation_session
-    return redirect_to root_path unless @representation_session
+
+    unless @representation_session
+      return respond_to do |format|
+        format.html { redirect_to root_path }
+        format.md { render plain: "# Not representing\n\nYou have no active representation session.", status: :ok }
+      end
+    end
 
     @collective = @representation_session.collective
     # For user representation, use the represented user's (granting_user/ai_agent) collectives, not the parent's
     collectives_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
     @other_collectives = collectives_user.collectives.listable.where.not(id: @current_tenant.main_collective_id)
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def stop_representing
