@@ -26,6 +26,9 @@ class ActionContext
       "visibility_missing" =>
         "Set `visibility` to one of: public, private, shared. " \
         "Each action lists its `visibility:` in the page's YAML frontmatter — read it off there.",
+      "representation_incomplete" =>
+        "Declare both `representation_session_id` (top-level) and `identity.acting_as` (under identity), or neither. " \
+        "To act as yourself, omit both. To act as a principal, include both.",
     }.freeze, T::Hash[String, String])
 
     # Visibility tier ranks. The direction of the mismatch matters: declaring
@@ -101,6 +104,21 @@ class ActionContext
     value.is_a?(String) ? value.presence : nil
   end
 
+  sig { returns(T.nilable(String)) }
+  def representation_session_id
+    value = @raw&.[]("representation_session_id")
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  sig { returns(T.nilable(String)) }
+  def identity_acting_as
+    identity = @raw&.[]("identity")
+    return nil unless identity.is_a?(Hash)
+
+    value = identity["acting_as"]
+    value.is_a?(String) ? value.presence : nil
+  end
+
   # Stage runnable from the outer MCP endpoint (needs only caller_handle).
   sig { params(caller_handle: T.nilable(String)).returns(T.nilable(Error)) }
   def validate_identity_and_intention(caller_handle:)
@@ -115,6 +133,14 @@ class ActionContext
     end
 
     return Error.new(code: "intention_missing") if intention.nil?
+
+    # All-or-nothing rule for representation: the agent either acts as itself
+    # (both fields absent) or on behalf of someone (both fields present).
+    # Exactly one is a structural mistake — fail loud so the agent doesn't
+    # silently fall through to acting-as-self when it meant to represent.
+    if representation_session_id.nil? != identity_acting_as.nil?
+      return Error.new(code: "representation_incomplete")
+    end
 
     nil
   end

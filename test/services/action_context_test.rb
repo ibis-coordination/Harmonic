@@ -171,16 +171,79 @@ class ActionContextTest < ActiveSupport::TestCase
     assert_not err.to_response_hash.key?(:hint)
   end
 
-  test "later-stage and unknown fields are ignored, not rejected" do
-    # Forward-compat contract: a valid Stage 1 context still passes even when it
-    # carries fields this stage doesn't enforce (representation/session) or
-    # unknown keys. Stage 2/3 will give these meaning.
+  test "unknown and not-yet-meaningful fields are ignored, not rejected" do
+    # Forward-compat contract: a valid context still passes even when it carries
+    # fields with no current meaning. Today that's `agent_session_id` (the next
+    # stage) and arbitrary unknown keys.
     forward = valid_raw(
-      "representation_session_id" => "def456",
       "agent_session_id" => "abc123",
-      "identity" => { "actor" => "@agent-bob", "on_behalf_of" => "@principal-alice" },
       "future_field" => "whatever"
     )
     assert_nil validate(forward)
+  end
+
+  # --- Representation (acting on behalf of a principal/collective) ---
+
+  test "declaring both representation_session_id and identity.acting_as passes the structural check" do
+    # All-or-nothing structural check: both fields present satisfies the rule.
+    # (The semantic check — that the session exists, is owned by the agent, and
+    # that acting_as matches the session's effective_user — is performed in
+    # the controller layer, not here in the pure value object.)
+    raw = valid_raw(
+      "representation_session_id" => "def456",
+      "identity" => { "actor" => "@agent-bob", "acting_as" => "@principal-alice" }
+    )
+    assert_nil validate(raw)
+  end
+
+  test "declaring neither representation field is acting-as-self and passes" do
+    # No representation declared = Stage 1 behavior, unchanged.
+    assert_nil validate(valid_raw)
+  end
+
+  test "declaring representation_session_id without acting_as returns representation_incomplete" do
+    raw = valid_raw("representation_session_id" => "def456")
+    err = validate(raw)
+    assert_equal "representation_incomplete", err.code
+  end
+
+  test "declaring acting_as without representation_session_id returns representation_incomplete" do
+    raw = valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@principal-alice" })
+    err = validate(raw)
+    assert_equal "representation_incomplete", err.code
+  end
+
+  test "blank-string representation_session_id reads as absent (no field)" do
+    # Treat empty/whitespace identically to "field omitted" so a sloppy LLM
+    # emitting an empty string doesn't trigger representation_incomplete.
+    raw = valid_raw(
+      "representation_session_id" => "  ",
+      "identity" => { "actor" => "@agent-bob" }
+    )
+    assert_nil validate(raw)
+  end
+
+  test "blank-string acting_as reads as absent (no field)" do
+    raw = valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "  " })
+    assert_nil validate(raw)
+  end
+
+  test "representation_session_id accessor returns the declared value" do
+    ctx = ActionContext.new(valid_raw("representation_session_id" => "def456"))
+    assert_equal "def456", ctx.representation_session_id
+  end
+
+  test "identity_acting_as accessor returns the declared value" do
+    ctx = ActionContext.new(valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@principal-alice" }))
+    assert_equal "@principal-alice", ctx.identity_acting_as
+  end
+
+  test "representation_incomplete carries a corrective hint" do
+    err = ActionContext::Error.new(code: "representation_incomplete")
+    body = err.to_response_hash
+    assert_equal "representation_incomplete", body[:error]
+    assert body[:hint].present?
+    assert_match(/representation_session_id/, body[:hint])
+    assert_match(/acting_as/, body[:hint])
   end
 end
