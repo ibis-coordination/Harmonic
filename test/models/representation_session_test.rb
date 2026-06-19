@@ -191,6 +191,38 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.expired?
   end
 
+  test "expires_at returns began_at + 24 hours" do
+    began = 2.hours.ago
+    session = create_representation_session(
+      tenant: @tenant,
+      collective: @collective,
+      representative: @user,
+      began_at: began,
+    )
+    assert_in_delta began + 24.hours, session.expires_at, 1.second
+  end
+
+  test "expired? at the exact 24-hour boundary returns false (still valid)" do
+    # `expired?` uses strict-greater-than against expires_at. At the exact
+    # boundary the session counts as still valid (by a microsecond). Pin
+    # that behavior so a future refactor doesn't flip the inequality.
+    began = 24.hours.ago
+    session = create_representation_session(
+      tenant: @tenant,
+      collective: @collective,
+      representative: @user,
+      began_at: began,
+    )
+    # Freeze Time.current to exactly began_at + 24.hours.
+    travel_to began + 24.hours do
+      assert_not session.expired?, "session at the boundary should still be valid"
+    end
+    # And one second past the boundary it's expired.
+    travel_to began + 24.hours + 1.second do
+      assert session.expired?, "session past the boundary should be expired"
+    end
+  end
+
   # === elapsed_time Tests ===
 
   test "elapsed_time returns seconds since began_at for active session" do

@@ -82,13 +82,29 @@ module Mcp
       description:
         "Fetch the markdown representation of a Harmonic page at the given path. " \
         "The response includes content plus the YAML frontmatter listing each action available at that path, " \
-        "with its name, visibility tier, and param schema. " \
-        "Examples: '/collectives/team', '/collectives/team/d/abc123', '/collectives/team/cycles/today'",
+        "with its name, visibility tier, and param schema.",
       inputSchema: {
         type: "object",
         required: ["path"],
         properties: {
-          path: { type: "string", description: "Relative path (e.g., '/collectives/team/n/abc123')" },
+          path: { type: "string", description: "Relative path (e.g., '/collectives/team/n/abc123')." },
+          context: {
+            type: "object",
+            description: "Only needed during a representation session — see /help/agents/representation.",
+            properties: {
+              identity: {
+                type: "object",
+                required: ["viewer"],
+                properties: {
+                  viewer: { type: "string", description: "Your own @handle." },
+                  viewing_as: { type: "string", description: "The @handle being represented." },
+                },
+                additionalProperties: true,
+              },
+              representation_session_id: { type: "string", description: "Active session id." },
+            },
+            additionalProperties: true,
+          },
         },
       },
       annotations: { readOnlyHint: true },
@@ -615,7 +631,14 @@ module Mcp
       return tool_error_result(id, "Missing required argument: path") if path.blank?
       return tool_error_result(id, invalid_path_message) unless valid_relative_path?(path)
 
-      navigate_and_surface(id, path)
+      # Optional context block — only present when reading under an active
+      # representation session. Self-acting reads with no context block pass
+      # through unchanged.
+      ctx = ActionContext.new(args["context"])
+      context_error = ctx.validate_fetch_context(caller_handle: @current_token.user.handle)
+      return tool_error_result(id, context_error.to_response_hash.to_json) if context_error
+
+      navigate_and_surface(id, path, representation: representation_pair(ctx))
     end
 
     def call_execute_action(id, args)
@@ -635,8 +658,8 @@ module Mcp
 
       # Outer half of the context gate; visibility runs in ActionContextValidation
       # against the inner-resolved audience.
-      identity_error = ActionContext.new(args["context"])
-                                    .validate_identity_and_intention(caller_handle: @current_token.user.handle)
+      ctx = ActionContext.new(args["context"])
+      identity_error = ctx.validate_identity_and_intention(caller_handle: @current_token.user.handle)
       return tool_error_result(id, identity_error.to_response_hash.to_json) if identity_error
 
       # Stash the action name on Current so track_task_run_resource (which fires
@@ -645,10 +668,14 @@ module Mcp
       Current.mcp_action_name = action_name
       Current.mcp_action_context = args["context"]
 
+      rep = representation_pair(ctx)
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
       result = service.with_provided_token(@plaintext_bearer) do
-        service.set_path(normalized)
-        service.execute_action(action_name, action_params)
+        dispatch = -> {
+          service.set_path(normalized)
+          service.execute_action(action_name, action_params)
+        }
+        rep ? service.with_representation(rep[:session_id], rep[:represented_handle], &dispatch) : dispatch.call
       end
       surface_dispatch_result(id, result)
     end
@@ -683,10 +710,34 @@ module Mcp
     # Shared implementation for read-only tools that just navigate to a path
     # and return the rendered markdown. execute_action doesn't use this
     # because it needs set_path + execute_action rather than navigate.
-    def navigate_and_surface(id, path)
+    #
+    # `representation` (optional) is a `{session_id:, represented_handle:}`
+    # Hash. When present, the dispatch attaches the existing API
+    # representation headers so the inner request swaps current_user to
+    # effective_user.
+    def navigate_and_surface(id, path, representation: nil)
       service = MarkdownUiService.new(tenant: current_tenant, user: @current_token.user)
-      result = service.with_provided_token(@plaintext_bearer) { service.navigate(path) }
+      result = service.with_provided_token(@plaintext_bearer) do
+        navigate = -> { service.navigate(path) }
+        if representation
+          service.with_representation(representation[:session_id], representation[:represented_handle], &navigate)
+        else
+          navigate.call
+        end
+      end
       surface_dispatch_result(id, result)
+    end
+
+    # Extract the `{session_id, represented_handle}` pair from an ActionContext
+    # if both representation fields are declared. Returns nil for self-acting
+    # calls. validate_* methods already enforced that both fields are present
+    # together, so the nil check below is a quick guard, not the gate.
+    def representation_pair(action_context)
+      session_id = action_context.representation_session_id
+      represented_handle = action_context.represented_handle
+      return nil if session_id.nil? || represented_handle.nil?
+
+      { session_id: session_id, represented_handle: represented_handle }
     end
 
     # Reject anything that isn't a relative path under this host. Protocol-

@@ -212,6 +212,7 @@ Rails.application.routes.draw do
   end
   get 'help/mcp/connect/:harness' => 'help#mcp_connect', as: 'help_mcp_connect'
   get 'help/agents/getting-started' => 'help#agents_getting_started', as: 'help_agents_getting_started'
+  get 'help/agents/representation' => 'help#agents_representation', as: 'help_agents_representation'
   get 'contact' => 'home#contact'
   get 'subdomains' => 'home#subdomains'
 

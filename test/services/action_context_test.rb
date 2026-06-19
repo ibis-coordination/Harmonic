@@ -171,16 +171,227 @@ class ActionContextTest < ActiveSupport::TestCase
     assert_not err.to_response_hash.key?(:hint)
   end
 
-  test "later-stage and unknown fields are ignored, not rejected" do
-    # Forward-compat contract: a valid Stage 1 context still passes even when it
-    # carries fields this stage doesn't enforce (representation/session) or
-    # unknown keys. Stage 2/3 will give these meaning.
+  test "unknown and not-yet-meaningful fields are ignored, not rejected" do
+    # Forward-compat contract: a valid context still passes even when it carries
+    # fields with no current meaning. Today that's `agent_session_id` (the next
+    # stage) and arbitrary unknown keys.
     forward = valid_raw(
-      "representation_session_id" => "def456",
       "agent_session_id" => "abc123",
-      "identity" => { "actor" => "@agent-bob", "on_behalf_of" => "@principal-alice" },
       "future_field" => "whatever"
     )
     assert_nil validate(forward)
+  end
+
+  # --- Representation (acting as another user or collective) ---
+
+  test "declaring both representation_session_id and identity.acting_as passes the structural check" do
+    # All-or-nothing structural check: both fields present satisfies the rule.
+    # (The semantic check — that the session exists, is owned by the agent, and
+    # that acting_as matches the session's effective_user — is performed in
+    # the controller layer, not here in the pure value object.)
+    raw = valid_raw(
+      "representation_session_id" => "def456",
+      "identity" => { "actor" => "@agent-bob", "acting_as" => "@alice" }
+    )
+    assert_nil validate(raw)
+  end
+
+  test "declaring neither representation field is acting-as-self and passes" do
+    # No representation declared = Stage 1 behavior, unchanged.
+    assert_nil validate(valid_raw)
+  end
+
+  test "declaring representation_session_id without acting_as returns representation_incomplete" do
+    raw = valid_raw("representation_session_id" => "def456")
+    err = validate(raw)
+    assert_equal "representation_incomplete", err.code
+  end
+
+  test "declaring acting_as without representation_session_id returns representation_incomplete" do
+    raw = valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@alice" })
+    err = validate(raw)
+    assert_equal "representation_incomplete", err.code
+  end
+
+  test "blank-string representation_session_id reads as absent (no field)" do
+    # Treat empty/whitespace identically to "field omitted" so a sloppy LLM
+    # emitting an empty string doesn't trigger representation_incomplete.
+    raw = valid_raw(
+      "representation_session_id" => "  ",
+      "identity" => { "actor" => "@agent-bob" }
+    )
+    assert_nil validate(raw)
+  end
+
+  test "blank-string acting_as reads as absent (no field)" do
+    raw = valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "  " })
+    assert_nil validate(raw)
+  end
+
+  test "non-string acting_as returns acting_as_invalid (not representation_incomplete)" do
+    # Pre-fix this trips representation_incomplete because the accessor
+    # collapses non-string to nil, but the agent did declare both fields —
+    # the misleading error puts them in a fix loop.
+    raw = valid_raw(
+      "representation_session_id" => "valid-session-id",
+      "identity" => { "actor" => "@agent-bob", "acting_as" => 123 }
+    )
+    err = validate(raw)
+    assert_equal "acting_as_invalid", err.code
+  end
+
+  test "acting_as that parameterizes to empty returns acting_as_invalid" do
+    # A non-blank string that produces an empty parameterized handle (e.g.
+    # "@!!!") would silently fail header translation downstream; reject it
+    # at the boundary so the agent gets a useful error.
+    raw = valid_raw(
+      "representation_session_id" => "valid-session-id",
+      "identity" => { "actor" => "@agent-bob", "acting_as" => "@!!!" }
+    )
+    err = validate(raw)
+    assert_equal "acting_as_invalid", err.code
+  end
+
+  test "acting_as_invalid carries a corrective hint" do
+    body = ActionContext::Error.new(code: "acting_as_invalid").to_response_hash
+    assert body[:hint].present?
+    assert_match(/acting_as/, body[:hint])
+  end
+
+  test "representation_session_id accessor returns the declared value" do
+    ctx = ActionContext.new(valid_raw("representation_session_id" => "def456"))
+    assert_equal "def456", ctx.representation_session_id
+  end
+
+  test "identity_acting_as accessor returns the declared value" do
+    ctx = ActionContext.new(valid_raw("identity" => { "actor" => "@agent-bob", "acting_as" => "@alice" }))
+    assert_equal "@alice", ctx.identity_acting_as
+  end
+
+  test "representation_incomplete carries a corrective hint" do
+    err = ActionContext::Error.new(code: "representation_incomplete")
+    body = err.to_response_hash
+    assert_equal "representation_incomplete", body[:error]
+    assert body[:hint].present?
+    assert_match(/representation_session_id/, body[:hint])
+    assert_match(/acting_as/, body[:hint])
+  end
+
+  # --- Fetch (read) context ---
+
+  # validate_fetch_context: a separate validation path for fetch_page, which
+  # uses `viewer` instead of `actor` and `viewing_as` instead of `acting_as`.
+  # The context block is optional on reads; when present, viewer is required
+  # and the representation fields must be declared together or not at all.
+  def validate_fetch(raw, caller_handle: "agent-bob")
+    ActionContext.new(raw).validate_fetch_context(caller_handle: caller_handle)
+  end
+
+  test "fetch with no context (acting as self) passes" do
+    assert_nil validate_fetch(nil)
+  end
+
+  test "fetch with viewer matching caller passes" do
+    assert_nil validate_fetch({ "identity" => { "viewer" => "@agent-bob" } })
+  end
+
+  test "fetch with viewer case/prefix variations matches the caller" do
+    assert_nil validate_fetch({ "identity" => { "viewer" => "agent-bob" } })
+    assert_nil validate_fetch({ "identity" => { "viewer" => "@Agent-Bob" } })
+  end
+
+  test "fetch with context present but no viewer is viewer_missing" do
+    err = validate_fetch({ "identity" => {} })
+    assert_equal "viewer_missing", err.code
+  end
+
+  test "fetch with non-string viewer reads as viewer_missing" do
+    assert_equal "viewer_missing", validate_fetch({ "identity" => { "viewer" => 42 } }).code
+    assert_equal "viewer_missing", validate_fetch({ "identity" => { "viewer" => "   " } }).code
+  end
+
+  test "fetch with identity present but no viewer key is viewer_missing" do
+    # Distinguishes "I tried to declare context" from "I didn't include one at all" —
+    # an empty identity block is a declaration mistake, not self-acting.
+    err = validate_fetch({ "identity" => { "viewing_as" => "@alice" } })
+    # Two errors are possible here: viewer_missing (always wrong) or
+    # representation_incomplete (only viewing_as, no session id). viewer_missing
+    # is the earlier failure — we surface that first so the agent fixes the
+    # more fundamental mistake.
+    assert_equal "viewer_missing", err.code
+  end
+
+  test "fetch with viewer not matching the caller is viewer_mismatch with expected/got" do
+    err = validate_fetch({ "identity" => { "viewer" => "@someone-else" } })
+    assert_equal "viewer_mismatch", err.code
+    assert_equal "@agent-bob", err.expected
+    assert_equal "@someone-else", err.got
+  end
+
+  test "fetch with viewer + viewing_as + representation_session_id passes the structural check" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@alice" },
+      "representation_session_id" => "abc12345",
+    }
+    assert_nil validate_fetch(raw)
+  end
+
+  test "fetch with viewing_as but no representation_session_id is representation_incomplete" do
+    raw = { "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@alice" } }
+    assert_equal "representation_incomplete", validate_fetch(raw).code
+  end
+
+  test "fetch with representation_session_id but no viewing_as is representation_incomplete" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob" },
+      "representation_session_id" => "abc12345",
+    }
+    assert_equal "representation_incomplete", validate_fetch(raw).code
+  end
+
+  test "fetch with blank viewing_as / representation_session_id reads as absent" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => "  " },
+      "representation_session_id" => "  ",
+    }
+    assert_nil validate_fetch(raw)
+  end
+
+  test "fetch with non-string viewing_as returns viewing_as_invalid" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => 123 },
+      "representation_session_id" => "valid-session-id",
+    }
+    assert_equal "viewing_as_invalid", validate_fetch(raw).code
+  end
+
+  test "fetch with viewing_as that parameterizes to empty returns viewing_as_invalid" do
+    raw = {
+      "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@!!!" },
+      "representation_session_id" => "valid-session-id",
+    }
+    assert_equal "viewing_as_invalid", validate_fetch(raw).code
+  end
+
+  test "viewing_as_invalid carries a corrective hint" do
+    body = ActionContext::Error.new(code: "viewing_as_invalid").to_response_hash
+    assert body[:hint].present?
+    assert_match(/viewing_as/, body[:hint])
+  end
+
+  test "identity_viewer and identity_viewing_as accessors return declared values" do
+    ctx = ActionContext.new({ "identity" => { "viewer" => "@agent-bob", "viewing_as" => "@alice" } })
+    assert_equal "@agent-bob", ctx.identity_viewer
+    assert_equal "@alice", ctx.identity_viewing_as
+  end
+
+  test "viewer_missing and viewer_mismatch carry corrective hints" do
+    body_missing = ActionContext::Error.new(code: "viewer_missing").to_response_hash
+    assert body_missing[:hint].present?
+    assert_match(/viewer/, body_missing[:hint])
+
+    body_mismatch = ActionContext::Error.new(code: "viewer_mismatch", expected: "@agent-bob", got: "@someone-else").to_response_hash
+    assert body_mismatch[:hint].present?
+    assert_match(/viewer/, body_mismatch[:hint])
   end
 end

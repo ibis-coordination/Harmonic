@@ -5,7 +5,11 @@
 import type { ToolCall } from "./PromptBuilder.js";
 
 export type AgentAction =
-  | { readonly type: "fetch_page"; readonly path: string }
+  | {
+      readonly type: "fetch_page";
+      readonly path: string;
+      readonly context: Record<string, unknown> | undefined;
+    }
   | {
       readonly type: "execute_action";
       readonly context: Record<string, unknown>;
@@ -50,7 +54,19 @@ function parseToolCall(toolCall: ToolCall): AgentAction {
       if (typeof path !== "string" || path === "") {
         return { type: "error", message: "fetch_page requires a non-empty 'path' string" };
       }
-      return { type: "fetch_page", path };
+      // Optional `context` block — only needed for representation reads.
+      // When present it must be a plain object; primitives / arrays are
+      // rejected at the parser layer so a structural mistake doesn't reach
+      // the wire as a silently-dropped field.
+      const rawContext = args["context"];
+      let context: Record<string, unknown> | undefined;
+      if (rawContext !== undefined && rawContext !== null) {
+        if (typeof rawContext !== "object" || Array.isArray(rawContext)) {
+          return { type: "error", message: "fetch_page `context` must be an object when present" };
+        }
+        context = rawContext as Record<string, unknown>;
+      }
+      return { type: "fetch_page", path, context };
     }
     case "execute_action": {
       const context = args["context"];

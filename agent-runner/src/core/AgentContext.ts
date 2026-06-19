@@ -33,6 +33,21 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
             type: "string",
             description: "Relative path (e.g., '/collectives/team/n/abc123', '/notifications')",
           },
+          context: {
+            type: "object",
+            description: "Only needed during a representation session — see /help/agents/representation.",
+            properties: {
+              identity: {
+                type: "object",
+                required: ["viewer"],
+                properties: {
+                  viewer: { type: "string", description: "Your own @handle." },
+                  viewing_as: { type: "string", description: "The @handle being represented." },
+                },
+              },
+              representation_session_id: { type: "string", description: "Active session id." },
+            },
+          },
         },
         required: ["path"],
       },
@@ -59,6 +74,10 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
                     type: "string",
                     description: "Your own @handle — the agent calling this tool. You can see your handle on /whoami.",
                   },
+                  acting_as: {
+                    type: "string",
+                    description: "Only during representation: the @handle you're representing. Pair with `representation_session_id`. See /help/agents/representation.",
+                  },
                 },
               },
               visibility: {
@@ -70,6 +89,10 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
               intention: {
                 type: "string",
                 description: "A short imperative phrase (think git commit subject) describing what you're doing and why. Will be visible to your principal in audit logs.",
+              },
+              representation_session_id: {
+                type: "string",
+                description: "Only during representation: your active session id, paired with `identity.acting_as`. See /help/agents/representation.",
               },
             },
             description: "Required — declare who you are, who will see this write, and what you're doing.",

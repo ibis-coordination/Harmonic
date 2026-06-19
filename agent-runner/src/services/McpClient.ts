@@ -46,6 +46,7 @@ export interface ExecuteActionResult {
 export interface McpClientService {
   readonly fetchPage: (
     path: string,
+    context: Record<string, unknown> | undefined,
     token: string,
     subdomain: string,
     retryBudget: RetryBudget,
@@ -137,10 +138,12 @@ export const McpClientLive = Layer.effect(
     const extractLogId = (rpc: JsonRpcResponse): string | null =>
       rpc.result?._meta?.harmonic?.tool_call_log_id ?? null;
 
-    const fetchPage: McpClientService["fetchPage"] = (path, token, subdomain, retryBudget) =>
+    const fetchPage: McpClientService["fetchPage"] = (path, context, token, subdomain, retryBudget) =>
       Effect.tryPromise({
         try: async () => {
-          const rpc = await callTool("fetch_page", { path }, token, subdomain, retryBudget);
+          const args: Record<string, unknown> = { path };
+          if (context !== undefined) args["context"] = context;
+          const rpc = await callTool("fetch_page", args, token, subdomain, retryBudget);
           if (rpc.error !== undefined) {
             throw new Error(`fetch_page JSON-RPC error: ${rpc.error.message}`);
           }

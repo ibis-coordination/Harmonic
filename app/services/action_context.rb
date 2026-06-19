@@ -26,6 +26,20 @@ class ActionContext
       "visibility_missing" =>
         "Set `visibility` to one of: public, private, shared. " \
         "Each action lists its `visibility:` in the page's YAML frontmatter — read it off there.",
+      "representation_incomplete" =>
+        "Declare both `representation_session_id` (top-level) and `identity.acting_as` (under identity), or neither. " \
+        "Omit both to act as yourself. Declare both to act as the user or collective you're representing.",
+      "viewer_missing" =>
+        "Include `identity.viewer` set to your own @handle (visible on /whoami). " \
+        "Or omit the `context` block entirely to read as yourself.",
+      "viewer_mismatch" =>
+        "Set `identity.viewer` to your own @handle (the one in `expected`). You can see it on /whoami.",
+      "acting_as_invalid" =>
+        "Set `identity.acting_as` to a real @handle string (e.g. `@alice`). " \
+        "Non-string values and handles that reduce to nothing after parameterization are rejected.",
+      "viewing_as_invalid" =>
+        "Set `identity.viewing_as` to a real @handle string (e.g. `@alice`). " \
+        "Non-string values and handles that reduce to nothing after parameterization are rejected.",
     }.freeze, T::Hash[String, String])
 
     # Visibility tier ranks. The direction of the mismatch matters: declaring
@@ -101,6 +115,49 @@ class ActionContext
     value.is_a?(String) ? value.presence : nil
   end
 
+  sig { returns(T.nilable(String)) }
+  def representation_session_id
+    value = @raw&.[]("representation_session_id")
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  sig { returns(T.nilable(String)) }
+  def identity_acting_as
+    identity = @raw&.[]("identity")
+    return nil unless identity.is_a?(Hash)
+
+    value = identity["acting_as"]
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  sig { returns(T.nilable(String)) }
+  def identity_viewer
+    identity = @raw&.[]("identity")
+    return nil unless identity.is_a?(Hash)
+
+    value = identity["viewer"]
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  sig { returns(T.nilable(String)) }
+  def identity_viewing_as
+    identity = @raw&.[]("identity")
+    return nil unless identity.is_a?(Hash)
+
+    value = identity["viewing_as"]
+    value.is_a?(String) ? value.presence : nil
+  end
+
+  # The handle of the entity being represented, whichever field name the
+  # current tool uses (`acting_as` on writes, `viewing_as` on reads). The
+  # represented entity can be any user or collective the agent has a valid
+  # grant for, not necessarily the agent's own human principal. Returns nil
+  # when no representation is declared.
+  sig { returns(T.nilable(String)) }
+  def represented_handle
+    identity_acting_as || identity_viewing_as
+  end
+
   # Stage runnable from the outer MCP endpoint (needs only caller_handle).
   sig { params(caller_handle: T.nilable(String)).returns(T.nilable(Error)) }
   def validate_identity_and_intention(caller_handle:)
@@ -115,6 +172,54 @@ class ActionContext
     end
 
     return Error.new(code: "intention_missing") if intention.nil?
+
+    # Catch malformed acting_as before the all-or-nothing check — otherwise
+    # a non-string or parameterize-empty value reads as "field absent" and
+    # the agent gets representation_incomplete asking them to declare a
+    # field they already declared.
+    return Error.new(code: "acting_as_invalid") if handle_field_invalid?("identity", "acting_as")
+
+    # All-or-nothing rule for representation: the agent either acts as itself
+    # (both fields absent) or on behalf of someone (both fields present).
+    # Exactly one is a structural mistake — fail loud so the agent doesn't
+    # silently fall through to acting-as-self when it meant to represent.
+    if representation_session_id.nil? != identity_acting_as.nil?
+      return Error.new(code: "representation_incomplete")
+    end
+
+    nil
+  end
+
+  # Read-context validation for fetch_page. Distinct from
+  # validate_identity_and_intention because reads use different field names
+  # (`viewer` / `viewing_as` instead of `actor` / `acting_as`) and have no
+  # visibility or intention to declare.
+  #
+  # The context block itself is OPTIONAL on reads — self-acting reads need
+  # no ceremony, so a fetch_page call with no context (nil here) passes.
+  # When ANY context is present, `viewer` is required and must match the
+  # caller, and the representation fields must be declared together or
+  # not at all.
+  sig { params(caller_handle: T.nilable(String)).returns(T.nilable(Error)) }
+  def validate_fetch_context(caller_handle:)
+    return nil if @raw.nil?
+
+    viewer = identity_viewer
+    return Error.new(code: "viewer_missing") if viewer.nil?
+
+    expected = "@#{caller_handle}"
+    unless normalize_handle(viewer) == normalize_handle(expected)
+      return Error.new(code: "viewer_mismatch", expected: expected, got: viewer)
+    end
+
+    # Catch malformed viewing_as before the all-or-nothing check — otherwise
+    # a non-string or parameterize-empty value reads as "field absent" and
+    # produces a misleading representation_incomplete.
+    return Error.new(code: "viewing_as_invalid") if handle_field_invalid?("identity", "viewing_as")
+
+    if representation_session_id.nil? != identity_viewing_as.nil?
+      return Error.new(code: "representation_incomplete")
+    end
 
     nil
   end
@@ -136,5 +241,22 @@ class ActionContext
   sig { params(value: String).returns(String) }
   def normalize_handle(value)
     value.delete_prefix("@").parameterize
+  end
+
+  # True when a handle-shaped field (`acting_as`, `viewing_as`) is present in
+  # the JSON with a value the wire layer cannot use: a non-string, or a
+  # string that parameterizes to empty (e.g. `"@!!!"`). Nil and blank
+  # strings count as "absent" — those collapse to the all-or-nothing rule.
+  sig { params(parent: String, field: String).returns(T::Boolean) }
+  def handle_field_invalid?(parent, field)
+    hash = parent == "identity" ? @raw&.[]("identity") : @raw
+    return false unless hash.is_a?(Hash) && hash.key?(field)
+
+    value = hash[field]
+    return false if value.nil?
+    return false if value.is_a?(String) && value.strip.empty?
+    return true unless value.is_a?(String)
+
+    normalize_handle(value).empty?
   end
 end

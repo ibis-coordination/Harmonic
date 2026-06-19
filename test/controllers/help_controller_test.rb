@@ -106,4 +106,25 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Connecting Codex Cloud to Harmonic"
   end
+
+  test "/help/agents/representation renders the agent representation doc" do
+    get "/help/agents/representation"
+    assert_response :success
+    assert_includes response.body, "Representation as an agent"
+  end
+
+  test "/help/agents/representation 404s when the agents topic is unavailable" do
+    @tenant.set_feature_flag!("internal_ai_agents", false)
+    @tenant.set_feature_flag!("external_ai_agents", false)
+    get "/help/agents/representation"
+    assert_response :not_found
+  end
+
+  test "/help/agents/representation responds to markdown format" do
+    get "/help/agents/representation", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "# Representation as an agent"
+    assert_includes response.body, "representation_session_id"
+    assert_includes response.body, "acting_as"
+  end
 end

@@ -22,8 +22,15 @@ module ActionContextValidation
   def validate_action_context!
     return unless under_mcp_execute_action?
     return unless write_request? # from ActionCapabilityCheck
-    return if @current_user.blank?
-    return unless CapabilityCheck.restricted_user?(@current_user)
+
+    # Under representation, `@current_user` is the represented user (a human,
+    # not restricted), while the actual API caller is the agent recorded as
+    # `@api_token_user`. Gate on the agent so this check fires the same way
+    # whether or not rep is active — an agent declaring the wrong visibility
+    # tier should be rejected even when acting on someone else's behalf.
+    caller = @api_token_user || @current_user
+    return if caller.blank?
+    return unless CapabilityCheck.restricted_user?(caller)
 
     audience = Mcp::AudienceResolver.resolve(
       capability_action: determine_capability_action,

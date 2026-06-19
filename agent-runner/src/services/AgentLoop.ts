@@ -136,9 +136,9 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
     // Helper: fetch a page. McpClient.fetchPage catches transport and
     // tool-level errors and surfaces them as HarmonicApiError; we catch that
     // and record the error on a step so the loop can continue.
-    const fetchPage = (path: string) =>
+    const fetchPage = (path: string, context?: Record<string, unknown>) =>
       Effect.gen(function* () {
-        const result = yield* mcp.fetchPage(path, token, subdomain, retryBudget).pipe(
+        const result = yield* mcp.fetchPage(path, context, token, subdomain, retryBudget).pipe(
           Effect.catchAll((err) =>
             Effect.succeed({
               content: "",
@@ -422,7 +422,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
 
           switch (action.type) {
             case "fetch_page": {
-              yield* fetchPage(action.path);
+              yield* fetchPage(action.path, action.context);
               toolResults.push(truncateContent(currentContent ?? ""));
               break;
             }
