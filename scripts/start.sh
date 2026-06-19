@@ -22,12 +22,13 @@ rm -f tmp/pids/server.pid
 # Load HOST_MODE from .env
 HOST_MODE=$(grep -E "^HOST_MODE=" .env | cut -d'=' -f2 | cut -d'#' -f1 | tr -d ' ')
 
-# Add profile for reverse proxy based on HOST_MODE
-PROFILES=""
+# Always enable the llm profile (agent-runner + sidecars).
+# Add profile for reverse proxy based on HOST_MODE.
+PROFILES="--profile llm"
 if [ "$HOST_MODE" = "caddy" ]; then
-    PROFILES="--profile caddy"
+    PROFILES="$PROFILES --profile caddy"
 elif [ "$HOST_MODE" = "ngrok" ]; then
-    PROFILES="--profile ngrok"
+    PROFILES="$PROFILES --profile ngrok"
 fi
 
 docker compose $PROFILES up -d
