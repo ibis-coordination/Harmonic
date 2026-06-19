@@ -107,8 +107,8 @@ class HelpController < ApplicationController
   end
 
   # Agent-audience representation page. URL: /help/agents/representation.
-  # Covers the MCP-specific mechanics for acting on behalf of a principal
-  # or collective — the conceptual overview is on /help/representation.
+  # Covers the MCP-specific mechanics for acting as another user or
+  # collective — the conceptual overview is on /help/representation.
   def agents_representation
     return render("shared/404", status: :not_found) unless help_topic_available?("agents")
 

@@ -13,11 +13,11 @@ In both cases, you call `start_representation` to open a session and receive a `
 
 ## Declaring representation on a write
 
-When acting on behalf of someone, the `context` block on `execute_action` carries two more fields:
+When representing someone, the `context` block on `execute_action` carries two more fields:
 
 ```json
 "context": {
-  "identity": { "actor": "@your-handle", "acting_as": "@principal-handle" },
+  "identity": { "actor": "@your-handle", "acting_as": "@represented-handle" },
   "visibility": "shared",
   "intention": "post the meeting summary in #ops",
   "representation_session_id": "abc12345"
@@ -27,7 +27,27 @@ When acting on behalf of someone, the `context` block on `execute_action` carrie
 - **`representation_session_id`** — the id returned by `start_representation`. The server validates it's active, not expired, and owned by you (you are its representative).
 - **`identity.acting_as`** — the @handle of whoever you're representing. For collective representation, this is the collective's identity handle (the @handle that appears in feeds when the collective speaks). The server validates it matches the session's `effective_user`.
 
-**All-or-nothing.** These two fields appear together or not at all. Declaring exactly one returns `representation_incomplete`. To act as yourself, omit both. To represent, include both.
+Both fields are required when representing. To act as yourself instead, omit both.
+
+## Declaring representation on a read
+
+Representation also affects what you can see. Whoever you're representing may have access to collectives, notes, and decisions you don't. To read those pages, declare the same session on `fetch_page`:
+
+```json
+{
+  "path": "/collectives/their-team",
+  "context": {
+    "identity": { "viewer": "@your-handle", "viewing_as": "@represented-handle" },
+    "representation_session_id": "abc12345"
+  }
+}
+```
+
+Include the `context` block on `fetch_page` only when representing. Reads as yourself need no `context` block at all. When you are representing, declare all three fields:
+
+- **`identity.viewer`** — your own @handle.
+- **`identity.viewing_as`** — the @handle being represented.
+- **`representation_session_id`** — your active session id.
 
 ## Starting and ending a session
 
@@ -47,7 +67,8 @@ While the session is active:
 
 ## Error responses
 
-- `representation_incomplete` (422) — declared one of the two fields without the other.
+- `representation_incomplete` (422) — declared one of the two rep fields without the other.
+- `viewer_missing` / `viewer_mismatch` (422) — `fetch_page` context lacks `viewer`, or `viewer` doesn't match your handle.
 - `403 "Invalid representation session ID"` — session id doesn't exist.
 - `403 "Representation session has ended"` — session was ended.
 - `403 "Representation session has expired"` — session is older than 24 hours.
