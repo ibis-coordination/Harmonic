@@ -71,6 +71,68 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "## Not Logged In"
   end
 
+  test "markdown whoami without an active rep session shows no representation block" do
+    # The rep block is gated by `if @current_representation_session`, so a
+    # self-acting caller should never see "currently representing" or any
+    # empty parenthetical from the rep template.
+    sign_in_as(@user, tenant: @tenant)
+    get "/whoami", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_not_includes response.body, "currently representing"
+    assert_not_includes response.body, "You ()"
+    assert_not_includes response.body, "## Representation Session"
+  end
+
+  test "markdown whoami via API token without rep headers shows no representation block" do
+    # Same as above but via API/MCP auth path. Stage 2 surfaced that the
+    # rep block previously rendered "()" for API callers; verify the
+    # block doesn't render at all when no rep is declared.
+    @tenant.enable_api!
+    @collective.enable_api!
+    token = ApiToken.create!(tenant: @tenant, user: @user, scopes: ApiToken.valid_scopes)
+
+    get "/whoami", headers: {
+      "Authorization" => "Bearer #{token.plaintext_token}",
+      "Accept" => "text/markdown",
+    }
+    assert_response :success
+    assert_not_includes response.body, "currently representing"
+    assert_not_includes response.body, "You ()"
+    assert_not_includes response.body, "## Representation Session"
+  end
+
+  test "markdown whoami names the representative when an API caller is under rep" do
+    # The "You (X) are currently representing Y" line in the rep banner
+    # must surface the *representative's* display name (the agent/trustee
+    # who is acting), not @current_human_user (which is only set on the
+    # browser-session auth path and is nil for API/MCP callers under rep).
+    @tenant.enable_api!
+    @collective.enable_api!
+    other_user = create_user(email: "rep-target-#{SecureRandom.hex(4)}@example.com", name: "Represented Target")
+    @tenant.add_user!(other_user)
+    mark_activated!(other_user)
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: other_user, trustee_user: @user,
+      permissions: nil, collective_scope: { "mode" => "all" },
+    )
+    grant.accept!
+    rep_session = RepresentationSession.create!(
+      tenant: @tenant, representative_user: @user, trustee_grant: grant,
+      confirmed_understanding: true, began_at: Time.current,
+    )
+    token = ApiToken.create!(tenant: @tenant, user: @user, scopes: ApiToken.valid_scopes)
+
+    get "/whoami", headers: {
+      "Authorization" => "Bearer #{token.plaintext_token}",
+      "Accept" => "text/markdown",
+      "X-Representation-Session-ID" => rep_session.id,
+      "X-Representing-User" => other_user.handle,
+    }
+    assert_response :success
+    assert_includes response.body, "You (#{@user.display_name}) are currently representing"
+    assert_not_includes response.body, "You ()"
+  end
+
   # === AiAgent User Tests ===
 
   test "whoami shows ai_agent parent info" do
