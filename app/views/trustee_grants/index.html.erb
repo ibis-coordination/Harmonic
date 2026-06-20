@@ -22,7 +22,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
 
   <div class="pulse-resource-body">
     <p class="pulse-text-muted">
-      Trustee grants allow you to grant other users authority to act on your behalf.
+      Trustee grants give specific users authority to act on another user's behalf.
     </p>
 
     <p class="pulse-action-row">
@@ -33,8 +33,8 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
 
     <% if @pending_requests.any? %>
       <section class="pulse-section">
-        <h2 class="pulse-section-title">Pending Requests</h2>
-        <p class="pulse-text-muted">These users are requesting authority to act on your behalf.</p>
+        <h2 class="pulse-section-title">Pending Trustee Grants Granted to You</h2>
+        <p class="pulse-text-muted">These users are granting you authority to act on their behalf. Accept to gain the ability to start representation sessions on their behalf, or decline to reject the grant.</p>
 
         <table class="pulse-table">
           <thead>
@@ -67,7 +67,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     <% end %>
 
     <section class="pulse-section">
-      <h2 class="pulse-section-title">Trustee Grants I've Created</h2>
+      <h2 class="pulse-section-title">Trustee Grants You've Granted to Others</h2>
       <p class="pulse-text-muted">These users can act on your behalf.</p>
 
       <% granted_active = @granted.select(&:active?) %>
@@ -145,7 +145,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     </section>
 
     <section class="pulse-section">
-      <h2 class="pulse-section-title">Trustee Grants I've Received</h2>
+      <h2 class="pulse-section-title">Trustee Grants You've Accepted from Others</h2>
       <p class="pulse-text-muted">You can act on behalf of these users.</p>
 
       <% received_active = @received.select(&:active?) %>

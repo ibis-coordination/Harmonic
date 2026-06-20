@@ -69,6 +69,24 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, @other_user.display_name || @other_user.name
   end
 
+  test "pending grants offered to the trustee are described as offers, not requests" do
+    # The "Pending Requests" header + "These users are requesting authority to
+    # act on your behalf" copy inverts the relationship: the listed users are
+    # the granting party, OFFERING the trustee authority to act on their
+    # behalf. Pin the corrected wording so the inversion can't return.
+    TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @other_user,
+      trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+
+    get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
+    assert_response :success
+    assert_not_includes response.body, "requesting authority to act on your behalf"
+    assert_match(/granting you authority to act on their behalf/i, response.body)
+  end
+
   # === New Page Tests ===
 
   test "user can view new trustee grant page" do
