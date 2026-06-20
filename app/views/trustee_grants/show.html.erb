@@ -1,5 +1,5 @@
 <%
-base_path = "/u/#{@target_user.handle}/settings/trustee-grants/#{@grant.truncated_id}"
+base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations/#{@grant.truncated_id}"
 is_granting = @grant.granting_user == @target_user
 is_trustee = @grant.trustee_user == @target_user
 %>
@@ -8,7 +8,7 @@ is_trustee = @grant.trustee_user == @target_user
   ['Home', '/'],
   [@target_user.display_name, "/u/#{@target_user.handle}"],
   ['Settings', "/u/#{@target_user.handle}/settings"],
-  ['Trustee Authorizations', "/u/#{@target_user.handle}/settings/trustee-grants"],
+  ['Trustee Authorizations', "/u/#{@target_user.handle}/settings/trustee-authorizations"],
   @grant.display_name
 ] %>
 

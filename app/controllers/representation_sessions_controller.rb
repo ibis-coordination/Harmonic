@@ -211,7 +211,7 @@ class RepresentationSessionsController < ApplicationController
         format.html do
           flash[:notice] = "Your representation session has ended."
           if grant && @current_human_user
-            redirect_to "/u/#{@current_human_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
+            redirect_to "/u/#{@current_human_user.handle}/settings/trustee-authorizations/#{grant.truncated_id}"
           else
             redirect_to root_path
           end

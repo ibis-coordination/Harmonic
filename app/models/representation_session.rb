@@ -204,7 +204,7 @@ class RepresentationSession < ApplicationRecord
       grant = trustee_grant
       raise "Invalid state: RepresentationSession #{id} has no collective and no trustee_grant" unless grant
 
-      "/u/#{T.must(grant.granting_user).handle}/settings/trustee-grants/#{grant.truncated_id}"
+      "/u/#{T.must(grant.granting_user).handle}/settings/trustee-authorizations/#{grant.truncated_id}"
 
     end
   end

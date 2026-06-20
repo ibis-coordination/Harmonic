@@ -1513,18 +1513,18 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["test_webhook"][:description], },
       ],
     },
-    "/u/:handle/settings/trustee-grants" => {
+    "/u/:handle/settings/trustee-authorizations" => {
       controller_actions: ["trustee_grants#index"],
       actions: [],
     },
-    "/u/:handle/settings/trustee-grants/new" => {
+    "/u/:handle/settings/trustee-authorizations/new" => {
       controller_actions: ["trustee_grants#new"],
       actions: [
         { name: "create_trustee_grant", params_string: ACTION_DEFINITIONS["create_trustee_grant"][:params_string],
           description: ACTION_DEFINITIONS["create_trustee_grant"][:description], },
       ],
     },
-    "/u/:handle/settings/trustee-grants/:grant_id" => {
+    "/u/:handle/settings/trustee-authorizations/:grant_id" => {
       controller_actions: ["trustee_grants#show"],
       actions: [
         { name: "accept_trustee_grant", params_string: ACTION_DEFINITIONS["accept_trustee_grant"][:params_string],

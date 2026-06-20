@@ -948,7 +948,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
 
     # Step 1: agent calls start_representation as itself (no rep context yet).
     start_args = {
-      path: "/u/#{@agent.handle}/settings/trustee-grants/#{grant.truncated_id}",
+      path: "/u/#{@agent.handle}/settings/trustee-authorizations/#{grant.truncated_id}",
       action: "start_representation",
       params: {},
       context: {
@@ -1027,7 +1027,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     # the controller's caller_user fallback reads @api_token_user (the agent)
     # rather than @current_user (which has been swapped to @user).
     end_args = {
-      path: "/u/#{@agent.handle}/settings/trustee-grants/#{grant.truncated_id}",
+      path: "/u/#{@agent.handle}/settings/trustee-authorizations/#{grant.truncated_id}",
       action: "end_representation",
       params: {},
       context: {

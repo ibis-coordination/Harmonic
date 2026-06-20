@@ -34,7 +34,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   # === Index Tests ===
 
   test "user can view their own trustee grants" do
-    get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Trustee Authorizations for"
@@ -48,7 +48,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations", headers: @headers
     assert_response :success
     # Check for display name or handle since the other_user's handle varies
     assert_includes response.body, @other_user.display_name || @other_user.name
@@ -63,10 +63,30 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     )
     permission.accept!
 
-    get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations", headers: @headers
     assert_response :success
     # Check for display name or handle since the other_user's handle varies
     assert_includes response.body, @other_user.display_name || @other_user.name
+  end
+
+  test "old /trustee-grants URLs 308-redirect to /trustee-authorizations" do
+    # The UI vocabulary moved from "trustee grant" to "trustee authorization,"
+    # and the URL slug moved with it. Old paths must continue to resolve so
+    # bookmarks, saved agent code, and the inbound link surface keep working.
+    # 308 (Permanent Redirect, method-preserving) ensures POSTs from external
+    # callers that hardcoded the old path still land at the same controller.
+    get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
+    assert_response :permanent_redirect
+    assert_equal "/u/#{@user.handle}/settings/trustee-authorizations", URI.parse(response.headers["Location"]).path
+
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+    get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers
+    assert_response :permanent_redirect
+    assert_equal "/u/#{@user.handle}/settings/trustee-authorizations/#{grant.truncated_id}",
+                 URI.parse(response.headers["Location"]).path
   end
 
   test "pending grants offered to the trustee are described as offers, not requests" do
@@ -81,7 +101,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations", headers: @headers
     assert_response :success
     assert_not_includes response.body, "requesting authority to act on your behalf"
     assert_match(/granting you authority to act on their behalf/i, response.body)
@@ -90,20 +110,20 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   # === New Page Tests ===
 
   test "user can view new trustee grant page" do
-    get "/u/#{@user.handle}/settings/trustee-grants/new", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/new", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Create New Trustee Authorization"
   end
 
   test "new page lists available users" do
-    get "/u/#{@user.handle}/settings/trustee-grants/new", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/new", headers: @headers
     assert_response :success
     assert_includes response.body, @other_user.handle
   end
 
   test "new page lists available capabilities" do
-    get "/u/#{@user.handle}/settings/trustee-grants/new", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/new", headers: @headers
     assert_response :success
     assert_includes response.body, "create_note"
     assert_includes response.body, "vote"
@@ -113,7 +133,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
   test "user can create a trustee grant" do
     assert_difference "TrusteeGrant.unscoped.count" do
-      post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
+      post "/u/#{@user.handle}/settings/trustee-authorizations/new/actions/create_trustee_grant",
         params: {
           trustee_user_id: @other_user.id,
           permissions: ["create_note", "vote"],
@@ -135,7 +155,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create_trustee_grant requires trustee_user_id" do
-    post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/new/actions/create_trustee_grant",
       params: { permissions: ["create_note"] }.to_json,
       headers: @headers
 
@@ -145,7 +165,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
   test "create_trustee_grant can set expiration" do
     expires = 1.week.from_now.iso8601
-    post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/new/actions/create_trustee_grant",
       params: {
         trustee_user_id: @other_user.id,
         permissions: ["create_note"],
@@ -159,7 +179,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create_trustee_grant can set collective scope" do
-    post "/u/#{@user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/new/actions/create_trustee_grant",
       params: {
         trustee_user_id: @other_user.id,
         permissions: ["create_note"],
@@ -184,7 +204,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}", headers: @headers
     assert_response :success
     assert is_markdown?
     assert_includes response.body, "Trustee Authorization:"
@@ -198,7 +218,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}", headers: @headers
     assert_response :success
     assert is_markdown?
   end
@@ -223,7 +243,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       ended_at: 30.minutes.ago,
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{grant.truncated_id}", headers: @headers
     assert_response :success
     assert_includes response.body, "Session History"
     assert_includes response.body, session.truncated_id
@@ -237,7 +257,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{grant.truncated_id}", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{grant.truncated_id}", headers: @headers
     assert_response :success
     assert_includes response.body, "Session History"
     assert_includes response.body, "No representation sessions"
@@ -255,7 +275,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
     assert permission.pending?
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/accept_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/accept_trustee_grant",
       headers: @headers
 
     assert_response :success
@@ -273,7 +293,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/accept_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/accept_trustee_grant",
       headers: @headers
 
     assert_response :forbidden
@@ -292,7 +312,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     )
     permission.accept!
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/accept_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/accept_trustee_grant",
       headers: @headers
 
     assert_response :conflict
@@ -309,7 +329,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/decline_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/decline_trustee_grant",
       headers: @headers
 
     assert_response :success
@@ -327,7 +347,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/decline_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/decline_trustee_grant",
       headers: @headers
 
     assert_response :forbidden
@@ -348,7 +368,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     )
     permission.accept!
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/revoke_trustee_grant",
       headers: @headers
 
     assert_response :success
@@ -366,7 +386,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/revoke_trustee_grant",
       headers: @headers
 
     assert_response :success
@@ -385,7 +405,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     )
     permission.accept!
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/revoke_trustee_grant",
       headers: @headers
 
     assert_response :forbidden
@@ -405,7 +425,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     permission.accept!
     permission.revoke!
 
-    post "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions/revoke_trustee_grant",
+    post "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions/revoke_trustee_grant",
       headers: @headers
 
     assert_response :conflict
@@ -415,7 +435,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
   # === Authorization Tests ===
 
   test "user cannot view trustee grants for other user" do
-    get "/u/#{@other_user.handle}/settings/trustee-grants", headers: @headers
+    get "/u/#{@other_user.handle}/settings/trustee-authorizations", headers: @headers
     assert_response :forbidden
     assert_includes response.body, "You don't have permission"
   end
@@ -425,7 +445,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(third_user)
 
     assert_no_difference "TrusteeGrant.unscoped.count" do
-      post "/u/#{@other_user.handle}/settings/trustee-grants/new/actions/create_trustee_grant",
+      post "/u/#{@other_user.handle}/settings/trustee-authorizations/new/actions/create_trustee_grant",
         params: {
           trustee_user_id: third_user.id,
           permissions: ["create_note"],
@@ -446,7 +466,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions", headers: @headers
     assert_response :success
     assert_includes response.body, "accept_trustee_grant"
     assert_includes response.body, "decline_trustee_grant"
@@ -461,7 +481,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       permissions: { "create_note" => true },
     )
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions", headers: @headers
     assert_response :success
     assert_includes response.body, "revoke_trustee_grant"
     assert_not_includes response.body, "accept_trustee_grant"
@@ -477,7 +497,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     )
     permission.revoke!
 
-    get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}/actions", headers: @headers
+    get "/u/#{@user.handle}/settings/trustee-authorizations/#{permission.truncated_id}/actions", headers: @headers
     assert_response :success
     assert_not_includes response.body, "accept_trustee_grant"
     assert_not_includes response.body, "decline_trustee_grant"

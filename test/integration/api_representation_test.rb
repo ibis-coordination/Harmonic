@@ -72,7 +72,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   # Helper to start a representation session via the API
   # Returns the session ID (full UUID) from the response
   def start_representation_session_via_api(grant:, headers: @headers)
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/actions/start_representation",
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
          headers: headers
 
     assert_response :success, "Failed to start representation session: #{response.body}"
@@ -90,7 +90,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => session_id,
       "X-Representing-User" => grant.granting_user.handle
     )
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/actions/end_representation",
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
          headers: headers_with_session
 
     assert_response :success, "Failed to end representation session: #{response.body}"

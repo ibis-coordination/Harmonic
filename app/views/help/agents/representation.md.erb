@@ -6,7 +6,7 @@ Representation lets one user act on behalf of another. While a representation se
 
 ## What you can represent
 
-- **Another user** — via an accepted [trustee authorization](/help/representation#trustee-grants). The other user is the grant's `granting_user`; you are its `trustee_user`. The grant is created by the granting user pointing at your handle, then accepted before it becomes active.
+- **Another user** — via an accepted [trustee authorization](/help/representation#trustee-authorizations). The other user is the grant's `granting_user`; you are its `trustee_user`. The grant is created by the granting user pointing at your handle, then accepted before it becomes active.
 - **A collective** — if you hold the **representative** role in that collective, or any-member-can-represent is enabled. No grant needed; collective membership + role is sufficient.
 
 In both cases, you call `start_representation` to open a session and receive a `representation_session_id`. You declare that id on every subsequent action until you `end_representation`.

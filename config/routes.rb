@@ -391,26 +391,39 @@ Rails.application.routes.draw do
     get  'settings/data-export'              => 'user_data_exports#index',    on: :member
     post 'settings/data-export'              => 'user_data_exports#create',   on: :member
     get  'settings/data-export/:export_id'   => 'user_data_exports#download', on: :member, as: :user_data_export_download
-    # Trustee grant management (TrusteeGrants)
-    get 'settings/trustee-grants' => 'trustee_grants#index', on: :member
-    get 'settings/trustee-grants/actions' => 'trustee_grants#actions_index', on: :member
-    get 'settings/trustee-grants/new' => 'trustee_grants#new', on: :member
-    get 'settings/trustee-grants/new/actions' => 'trustee_grants#actions_index_new', on: :member
-    get 'settings/trustee-grants/new/actions/create_trustee_grant' => 'trustee_grants#describe_create', on: :member
-    post 'settings/trustee-grants/new/actions/create_trustee_grant' => 'trustee_grants#execute_create', on: :member
-    get 'settings/trustee-grants/:grant_id' => 'trustee_grants#show', on: :member
-    get 'settings/trustee-grants/:grant_id/actions' => 'trustee_grants#actions_index_show', on: :member
-    get 'settings/trustee-grants/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#describe_accept', on: :member
-    post 'settings/trustee-grants/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#execute_accept', on: :member
-    get 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#describe_decline', on: :member
-    post 'settings/trustee-grants/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#execute_decline', on: :member
-    get 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#describe_revoke', on: :member
-    post 'settings/trustee-grants/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#execute_revoke', on: :member
-    get 'settings/trustee-grants/:grant_id/actions/start_representation' => 'trustee_grants#describe_start_representation', on: :member
-    post 'settings/trustee-grants/:grant_id/actions/start_representation' => 'trustee_grants#execute_start_representation', on: :member
-    get 'settings/trustee-grants/:grant_id/actions/end_representation' => 'trustee_grants#describe_end_representation', on: :member
-    post 'settings/trustee-grants/:grant_id/actions/end_representation' => 'trustee_grants#execute_end_representation', on: :member
-    post 'settings/trustee-grants/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
+    # Trustee authorization management (TrusteeGrant model; user-facing
+    # vocabulary is "trustee authorization"). Action names remain
+    # accept_trustee_grant / decline_trustee_grant / etc. — a separate
+    # follow-up renames those.
+    get 'settings/trustee-authorizations' => 'trustee_grants#index', on: :member
+    get 'settings/trustee-authorizations/actions' => 'trustee_grants#actions_index', on: :member
+    get 'settings/trustee-authorizations/new' => 'trustee_grants#new', on: :member
+    get 'settings/trustee-authorizations/new/actions' => 'trustee_grants#actions_index_new', on: :member
+    get 'settings/trustee-authorizations/new/actions/create_trustee_grant' => 'trustee_grants#describe_create', on: :member
+    post 'settings/trustee-authorizations/new/actions/create_trustee_grant' => 'trustee_grants#execute_create', on: :member
+    get 'settings/trustee-authorizations/:grant_id' => 'trustee_grants#show', on: :member
+    get 'settings/trustee-authorizations/:grant_id/actions' => 'trustee_grants#actions_index_show', on: :member
+    get 'settings/trustee-authorizations/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#describe_accept', on: :member
+    post 'settings/trustee-authorizations/:grant_id/actions/accept_trustee_grant' => 'trustee_grants#execute_accept', on: :member
+    get 'settings/trustee-authorizations/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#describe_decline', on: :member
+    post 'settings/trustee-authorizations/:grant_id/actions/decline_trustee_grant' => 'trustee_grants#execute_decline', on: :member
+    get 'settings/trustee-authorizations/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#describe_revoke', on: :member
+    post 'settings/trustee-authorizations/:grant_id/actions/revoke_trustee_grant' => 'trustee_grants#execute_revoke', on: :member
+    get 'settings/trustee-authorizations/:grant_id/actions/start_representation' => 'trustee_grants#describe_start_representation', on: :member
+    post 'settings/trustee-authorizations/:grant_id/actions/start_representation' => 'trustee_grants#execute_start_representation', on: :member
+    get 'settings/trustee-authorizations/:grant_id/actions/end_representation' => 'trustee_grants#describe_end_representation', on: :member
+    post 'settings/trustee-authorizations/:grant_id/actions/end_representation' => 'trustee_grants#execute_end_representation', on: :member
+    post 'settings/trustee-authorizations/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
+
+    # 308 redirects from the old trustee-grants URL path. Preserves method
+    # (POSTs stay POSTs) so external integrations that haven't picked up
+    # the rename keep working. Query string preserved.
+    match 'settings/trustee-grants(/*rest)' => redirect(status: 308) { |params, req|
+      rest = params[:rest]
+      base = "/u/#{params[:handle]}/settings/trustee-authorizations"
+      target = rest.present? ? "#{base}/#{rest}" : base
+      req.query_string.present? ? "#{target}?#{req.query_string}" : target
+    }, via: :all, on: :member
   end
 
   # Representation session routes (not scoped to a specific collective)

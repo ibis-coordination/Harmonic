@@ -129,7 +129,7 @@ return grant.present?
 
 ### Starting a User Representation Session
 
-**Route:** `POST /u/:handle/settings/trustee-grants/:grant_id/represent`
+**Route:** `POST /u/:handle/settings/trustee-authorizations/:grant_id/represent`
 
 **Requirements:**
 - TrusteeGrant must be active (accepted, not expired, not revoked)
@@ -277,7 +277,7 @@ Each collective representation session has a permanent record at:
 
 User representation sessions are viewed via the trustee grant:
 ```
-/u/{granting_user_handle}/settings/trustee-grants/{grant_truncated_id}
+/u/{granting_user_handle}/settings/trustee-authorizations/{grant_truncated_id}
 ```
 
 ### Activity Log Format

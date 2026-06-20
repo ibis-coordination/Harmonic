@@ -7,7 +7,7 @@
 # - granting_user: The user who grants authority (the "principal")
 # - trustee_user: The user who receives authority (the "trustee" - authorized to act on behalf)
 #
-# Routes are under /u/:handle/settings/trustee-grants
+# Routes are under /u/:handle/settings/trustee-authorizations
 class TrusteeGrantsController < ApplicationController
   before_action :require_login
   before_action :set_target_user
@@ -28,7 +28,7 @@ class TrusteeGrantsController < ApplicationController
     @grant
   end
 
-  # GET /u/:handle/settings/trustee-grants
+  # GET /u/:handle/settings/trustee-authorizations
   def index
     @page_title = "Trustee Authorizations for #{@target_user.display_name || @target_user.handle}"
 
@@ -46,14 +46,14 @@ class TrusteeGrantsController < ApplicationController
     @pending_requests = @received.pending
   end
 
-  # GET /u/:handle/settings/trustee-grants/:grant_id
+  # GET /u/:handle/settings/trustee-authorizations/:grant_id
   def show
     @page_title = "Trustee Authorization: #{@grant.display_name}"
     # Load representation sessions for this grant
     @sessions = @grant.representation_sessions.order(began_at: :desc)
   end
 
-  # GET /u/:handle/settings/trustee-grants/new
+  # GET /u/:handle/settings/trustee-authorizations/new
   def new
     @page_title = "Create Trustee Authorization"
     @grant = TrusteeGrant.new
@@ -67,16 +67,16 @@ class TrusteeGrantsController < ApplicationController
   # =========================================================================
 
   def actions_index
-    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants"))
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations"))
   end
 
   def actions_index_new
-    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/new"))
+    render_actions_index(ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/new"))
   end
 
   def actions_index_show
     # Get all possible actions from ActionsHelper, then filter based on grant state
-    all_actions = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/:grant_id")[:actions]
+    all_actions = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/:grant_id")[:actions]
     actions = all_actions.select { |action| action_available_for_grant?(action[:name]) }
     render_actions_index({ actions: actions })
   end
@@ -465,11 +465,11 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def trustee_grants_index_path
-    "/u/#{@target_user.handle}/settings/trustee-grants"
+    "/u/#{@target_user.handle}/settings/trustee-authorizations"
   end
 
   def trustee_grant_show_path(grant)
-    "/u/#{@target_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
+    "/u/#{@target_user.handle}/settings/trustee-authorizations/#{grant.truncated_id}"
   end
 
   def available_users_for_grant
