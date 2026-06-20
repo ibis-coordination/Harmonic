@@ -16,7 +16,7 @@
   "dependencies": {
     "effect": "^3.21.0",
     "ioredis": "^5.4.0",
-    "undici": "^8.1.0"
+    "undici": "^8.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
