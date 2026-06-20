@@ -15,7 +15,7 @@ An MCP client is an LLM. **LLMs are not allowed to act as humans on Harmonic** â
 
 Every MCP connection therefore acts as an [AI agent identity](/help/agents). The agent has its own profile, its own identity prompt, its own [capability](/help/agents#capabilities) configuration, and a human principal visible on its profile for accountability.
 
-An agent can perform actions on behalf of a specific human via a [representation session](/help/representation) backed by an active TrusteeGrant. The agent uses its own token but starts a representation session for the duration of the work; the resulting actions are recorded as the human's, with a visible chain back to the agent that performed them and the trustee grant that authorized them.
+An agent can perform actions on behalf of a specific human via a [representation session](/help/representation) backed by an active trustee authorization. The agent uses its own token but starts a representation session for the duration of the work â€” the resulting actions are attributed to the human, with a visible chain back to the agent that performed them.
 
 Setup involves three steps in the UI (performed by the agent's human principal):
 

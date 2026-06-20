@@ -1,6 +1,6 @@
 # typed: false
 
-# TrusteeGrantsController manages user-to-user trustee grants.
+# TrusteeGrantsController manages user-to-user trustee authorizations.
 # This allows users to grant other users (or agents) authority to act on their behalf.
 #
 # Key concepts:
@@ -30,7 +30,7 @@ class TrusteeGrantsController < ApplicationController
 
   # GET /u/:handle/settings/trustee-grants
   def index
-    @page_title = "Trustee Grants for #{@target_user.display_name || @target_user.handle}"
+    @page_title = "Trustee Authorizations for #{@target_user.display_name || @target_user.handle}"
 
     # Grants I've given to others (I am granting_user)
     @granted = TrusteeGrant.tenant_scoped_only
@@ -48,14 +48,14 @@ class TrusteeGrantsController < ApplicationController
 
   # GET /u/:handle/settings/trustee-grants/:grant_id
   def show
-    @page_title = "Trustee Grant: #{@grant.display_name}"
+    @page_title = "Trustee Authorization: #{@grant.display_name}"
     # Load representation sessions for this grant
     @sessions = @grant.representation_sessions.order(began_at: :desc)
   end
 
   # GET /u/:handle/settings/trustee-grants/new
   def new
-    @page_title = "Create Trustee Grant"
+    @page_title = "Create Trustee Authorization"
     @grant = TrusteeGrant.new
     @available_users = available_users_for_grant
     @available_collectives = @target_user.collectives.listable
@@ -95,7 +95,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "create_trustee_grant",
                                    resource: nil,
-                                   error: "You can only create trustee grants for yourself",
+                                   error: "You can only create trustee authorizations for yourself",
                                    status: :forbidden,
                                  })
     end
@@ -133,7 +133,7 @@ class TrusteeGrantsController < ApplicationController
       render_action_success({
                               action_name: "create_trustee_grant",
                               resource: grant,
-                              result: "Trustee grant request sent to #{trustee.display_name || trustee.handle}",
+                              result: "Trustee authorization request sent to #{trustee.display_name || trustee.handle}",
                               redirect_to: trustee_grant_show_path(grant),
                             })
     else
@@ -158,7 +158,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "accept_trustee_grant",
                                    resource: @grant,
-                                   error: "You can only accept trustee grants granted to you",
+                                   error: "You can only accept trustee authorizations granted to you",
                                    status: :forbidden,
                                  })
     end
@@ -167,7 +167,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "accept_trustee_grant",
                                    resource: @grant,
-                                   error: "This trustee grant is not pending",
+                                   error: "This trustee authorization is not pending",
                                    status: :conflict,
                                  })
     end
@@ -177,7 +177,7 @@ class TrusteeGrantsController < ApplicationController
     render_action_success({
                             action_name: "accept_trustee_grant",
                             resource: @grant,
-                            result: "Trustee grant accepted",
+                            result: "Trustee authorization accepted",
                             redirect_to: trustee_grant_show_path(@grant),
                           })
   end
@@ -195,7 +195,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "decline_trustee_grant",
                                    resource: @grant,
-                                   error: "You can only decline trustee grants granted to you",
+                                   error: "You can only decline trustee authorizations granted to you",
                                    status: :forbidden,
                                  })
     end
@@ -204,7 +204,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "decline_trustee_grant",
                                    resource: @grant,
-                                   error: "This trustee grant is not pending",
+                                   error: "This trustee authorization is not pending",
                                    status: :conflict,
                                  })
     end
@@ -214,7 +214,7 @@ class TrusteeGrantsController < ApplicationController
     render_action_success({
                             action_name: "decline_trustee_grant",
                             resource: @grant,
-                            result: "Trustee grant declined",
+                            result: "Trustee authorization declined",
                             redirect_to: trustee_grants_index_path,
                           })
   end
@@ -232,7 +232,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "revoke_trustee_grant",
                                    resource: @grant,
-                                   error: "You can only revoke trustee grants you created",
+                                   error: "You can only revoke trustee authorizations you created",
                                    status: :forbidden,
                                  })
     end
@@ -241,7 +241,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "revoke_trustee_grant",
                                    resource: @grant,
-                                   error: "This trustee grant is already revoked or declined",
+                                   error: "This trustee authorization is already revoked or declined",
                                    status: :conflict,
                                  })
     end
@@ -251,7 +251,7 @@ class TrusteeGrantsController < ApplicationController
     render_action_success({
                             action_name: "revoke_trustee_grant",
                             resource: @grant,
-                            result: "Trustee grant revoked",
+                            result: "Trustee authorization revoked",
                             redirect_to: trustee_grant_show_path(@grant),
                           })
   end
@@ -301,7 +301,7 @@ class TrusteeGrantsController < ApplicationController
       return render_action_error({
                                    action_name: "start_representation",
                                    resource: @grant,
-                                   error: "This trustee grant is not active",
+                                   error: "This trustee authorization is not active",
                                    status: :conflict,
                                  })
     end
@@ -419,7 +419,7 @@ class TrusteeGrantsController < ApplicationController
     respond_to do |format|
       format.html { redirect_to "/login" }
       format.json { render json: { error: "Unauthorized" }, status: :unauthorized }
-      format.md { render plain: "# Error\n\nYou must be logged in to manage trustee grants.", status: :unauthorized }
+      format.md { render plain: "# Error\n\nYou must be logged in to manage trustee authorizations.", status: :unauthorized }
     end
   end
 
@@ -433,7 +433,7 @@ class TrusteeGrantsController < ApplicationController
       @target_user = @current_user
     end
 
-    # Verify user can manage trustee grants for this target
+    # Verify user can manage trustee authorizations for this target
     authorize_grant_management
   end
 
@@ -448,19 +448,19 @@ class TrusteeGrantsController < ApplicationController
     # Verify target user is involved in this grant
     return if @grant.granting_user == @target_user || @grant.trustee_user == @target_user
 
-    raise ActiveRecord::RecordNotFound, "Trustee grant not found"
+    raise ActiveRecord::RecordNotFound, "Trustee authorization not found"
   end
 
   def authorize_grant_management
-    # User can manage their own trustee grants
+    # User can manage their own trustee authorizations
     # For API requests with representation, also check the original token user
     return if @target_user == @current_user
     return if @api_token_user && @target_user == @api_token_user
 
     respond_to do |format|
-      format.html { redirect_to "/", alert: "You don't have permission to manage trustee grants for this user" }
+      format.html { redirect_to "/", alert: "You don't have permission to manage trustee authorizations for this user" }
       format.json { render json: { error: "Forbidden" }, status: :forbidden }
-      format.md { render plain: "# Error\n\nYou don't have permission to manage trustee grants for this user.", status: :forbidden }
+      format.md { render plain: "# Error\n\nYou don't have permission to manage trustee authorizations for this user.", status: :forbidden }
     end
   end
 

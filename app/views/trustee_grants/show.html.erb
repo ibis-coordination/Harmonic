@@ -8,7 +8,7 @@ is_trustee = @grant.trustee_user == @target_user
   ['Home', '/'],
   [@target_user.display_name, "/u/#{@target_user.handle}"],
   ['Settings', "/u/#{@target_user.handle}/settings"],
-  ['Trustee Grants', "/u/#{@target_user.handle}/settings/trustee-grants"],
+  ['Trustee Authorizations', "/u/#{@target_user.handle}/settings/trustee-grants"],
   @grant.display_name
 ] %>
 
@@ -17,7 +17,7 @@ is_trustee = @grant.trustee_user == @target_user
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
         <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
-        Trustee Grant
+        Trustee Authorization
       </span>
       <% if @grant.active? %>
         <span class="pulse-tag pulse-tag-success">Active</span>
@@ -149,9 +149,9 @@ is_trustee = @grant.trustee_user == @target_user
         <h2 class="pulse-section-title">Manage</h2>
         <div class="pulse-action-row">
           <%= form_tag "#{base_path}/actions/revoke_trustee_grant", method: :post, style: "display:inline;",
-                       data: { turbo_confirm: "Are you sure you want to revoke this trustee grant?" } do %>
+                       data: { turbo_confirm: "Are you sure you want to revoke this trustee authorization?" } do %>
             <button type="submit" class="pulse-action-btn pulse-action-btn-danger">
-              <%= octicon "x-circle" %> Revoke Trustee Grant
+              <%= octicon "x-circle" %> Revoke Trustee Authorization
             </button>
           <% end %>
         </div>
@@ -169,7 +169,7 @@ is_trustee = @grant.trustee_user == @target_user
         <% else %>
           <p>
             You can act on behalf of <strong><%= @grant.granting_user.display_name || @grant.granting_user.handle %></strong>
-            using this trustee grant.
+            using this trustee authorization.
           </p>
           <div class="pulse-action-row">
             <%= form_tag "#{base_path}/represent", method: :post, style: "display:inline;" do %>

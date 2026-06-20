@@ -53,4 +53,4 @@ You can act <%= is_user_representation ? "on behalf of #{represented_user&.displ
 
 ## Ending the session
 
-To end this session, call `execute_action` with `end_representation` on the originating <%= is_user_representation ? "trustee grant" : "collective representation" %>, or send `DELETE /representing` with `X-Representation-Session-ID: <%= @representation_session.id %>`.
+To end this session, call `execute_action` with `end_representation` on the originating <%= is_user_representation ? "trustee authorization" : "collective representation" %>, or send `DELETE /representing` with `X-Representation-Session-ID: <%= @representation_session.id %>`.

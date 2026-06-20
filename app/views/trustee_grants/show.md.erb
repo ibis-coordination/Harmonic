@@ -4,7 +4,7 @@ is_granting = @grant.granting_user == @target_user
 is_trustee = @grant.trustee_user == @target_user
 scope = @grant.collective_scope || { "mode" => "all" }
 -%>
-# Trustee Grant: <%= @grant.display_name %>
+# Trustee Authorization: <%= @grant.display_name %>
 
 **Status:** <%= @grant.active? ? "Active" : @grant.pending? ? "Pending" : @grant.declined? ? "Declined" : @grant.revoked? ? "Revoked" : @grant.expired? ? "Expired" : "Unknown" %>
 
@@ -45,7 +45,7 @@ Sessions where **<%= @grant.trustee_user.display_name || @grant.trustee_user.han
 
 ## Navigation
 
-* [All Trustee Grants](/u/<%= @target_user.handle %>/settings/trustee-grants)
+* [All Trustee Authorizations](/u/<%= @target_user.handle %>/settings/trustee-grants)
 <% if @target_user == @current_user -%>
 * [Settings](/settings)
 <% else -%>

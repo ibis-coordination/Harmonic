@@ -37,7 +37,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     get "/u/#{@user.handle}/settings/trustee-grants", headers: @headers
     assert_response :success
     assert is_markdown?
-    assert_includes response.body, "Trustee Grants for"
+    assert_includes response.body, "Trustee Authorizations for"
   end
 
   test "granted trustee grants are listed in index" do
@@ -93,7 +93,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     get "/u/#{@user.handle}/settings/trustee-grants/new", headers: @headers
     assert_response :success
     assert is_markdown?
-    assert_includes response.body, "Create New Trustee Grant"
+    assert_includes response.body, "Create New Trustee Authorization"
   end
 
   test "new page lists available users" do
@@ -124,7 +124,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert is_markdown?
-    assert_includes response.body, "Trustee grant request sent"
+    assert_includes response.body, "Trustee authorization request sent"
 
     permission = TrusteeGrant.unscoped.order(created_at: :desc).first
     assert_equal @user, permission.granting_user
@@ -187,7 +187,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     get "/u/#{@user.handle}/settings/trustee-grants/#{permission.truncated_id}", headers: @headers
     assert_response :success
     assert is_markdown?
-    assert_includes response.body, "Trustee Grant:"
+    assert_includes response.body, "Trustee Authorization:"
   end
 
   test "user can view a trustee grant they received" do
@@ -259,7 +259,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :success
-    assert_includes response.body, "Trustee grant accepted"
+    assert_includes response.body, "Trustee authorization accepted"
 
     permission.reload
     assert permission.active?
@@ -277,7 +277,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :forbidden
-    assert_includes response.body, "You can only accept trustee grants granted to you"
+    assert_includes response.body, "You can only accept trustee authorizations granted to you"
 
     permission.reload
     assert permission.pending?
@@ -313,7 +313,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :success
-    assert_includes response.body, "Trustee grant declined"
+    assert_includes response.body, "Trustee authorization declined"
 
     permission.reload
     assert permission.declined?
@@ -331,7 +331,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :forbidden
-    assert_includes response.body, "You can only decline trustee grants granted to you"
+    assert_includes response.body, "You can only decline trustee authorizations granted to you"
 
     permission.reload
     assert permission.pending?
@@ -352,7 +352,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :success
-    assert_includes response.body, "Trustee grant revoked"
+    assert_includes response.body, "Trustee authorization revoked"
 
     permission.reload
     assert permission.revoked?
@@ -370,7 +370,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :success
-    assert_includes response.body, "Trustee grant revoked"
+    assert_includes response.body, "Trustee authorization revoked"
 
     permission.reload
     assert permission.revoked?
@@ -389,7 +389,7 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
       headers: @headers
 
     assert_response :forbidden
-    assert_includes response.body, "You can only revoke trustee grants you created"
+    assert_includes response.body, "You can only revoke trustee authorizations you created"
 
     permission.reload
     assert permission.active?

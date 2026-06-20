@@ -1,9 +1,9 @@
 <%
 base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
 -%>
-# Create New Trustee Grant
+# Create New Trustee Authorization
 
-Grant another user authority to act on your behalf. They will need to accept the trustee grant before they can use it.
+Grant another user authority to act on your behalf. They will need to accept the trustee authorization before they can use it.
 
 ## Parameters
 
@@ -13,7 +13,7 @@ Grant another user authority to act on your behalf. They will need to accept the
 | permissions | array | yes | Array of action names to grant |
 | collective_scope_mode | string | no | Collective scope: "all" (default), "include", or "exclude" |
 | collective_ids | array | no | Array of collective IDs for include/exclude modes |
-| expires_at | datetime | no | When the trustee grant expires |
+| expires_at | datetime | no | When the trustee authorization expires |
 
 ## Grantable Actions
 
@@ -31,7 +31,7 @@ Grant another user authority to act on your behalf. They will need to accept the
 | `<%= user.id %>` | <%= user.display_name || user.name %> | <%= user.handle %> | <%= user.user_type %> |
 <% end -%>
 <% else -%>
-*No users available for trustee grants.*
+*No users available for trustee authorizations.*
 <% end -%>
 
 ## Collective Scope Modes
@@ -56,7 +56,7 @@ Grant another user authority to act on your behalf. They will need to accept the
 
 ## Navigation
 
-* [All Trustee Grants](<%= base_path %>)
+* [All Trustee Authorizations](<%= base_path %>)
 <% if @target_user == @current_user -%>
 * [Settings](/settings)
 <% else -%>

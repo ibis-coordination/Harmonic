@@ -806,7 +806,7 @@ class ActionsHelper
       visibility: :shared,
     },
 
-    # Trustee Grant actions
+    # Trustee Authorization actions
     "create_trustee_grant" => {
       description: "Grant another user authority to act on your behalf",
       params_string: "(trustee_user_id, permissions, collective_scope_mode, collective_ids, expires_at)",
@@ -815,27 +815,27 @@ class ActionsHelper
         { name: "permissions", type: "array", required: true, description: "Array of capability names to grant (e.g., create_notes, vote, commit)" },
         { name: "collective_scope_mode", type: "string", description: 'Collective scope mode: "all" (default), "include", or "exclude"' },
         { name: "collective_ids", type: "array", description: "Array of collective IDs for include/exclude modes" },
-        { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
+        { name: "expires_at", type: "datetime", description: "When the trustee authorization expires (optional)" },
       ],
       authorization: :self,
       visibility: :shared,
     },
     "accept_trustee_grant" => {
-      description: "Accept a trustee grant request",
+      description: "Accept a trustee authorization request",
       params_string: "()",
       params: [],
       authorization: :self,
       visibility: :shared,
     },
     "decline_trustee_grant" => {
-      description: "Decline a trustee grant request",
+      description: "Decline a trustee authorization request",
       params_string: "()",
       params: [],
       authorization: :self,
       visibility: :shared,
     },
     "revoke_trustee_grant" => {
-      description: "Revoke a trustee grant you previously created",
+      description: "Revoke a trustee authorization you previously created",
       params_string: "()",
       params: [],
       authorization: :self,

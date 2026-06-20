@@ -228,12 +228,12 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
       default_unchecked: true,
     },
     {
-      name: "Trustee grant responses",
+      name: "Trustee authorization responses",
       description: "Accept or decline trustee grants offered to this agent.",
       actions: ["accept_trustee_grant", "decline_trustee_grant"],
     },
     {
-      name: "Trustee grant admin",
+      name: "Trustee authorization admin",
       description: "Grant trustee authority to others, and revoke grants.",
       actions: ["create_trustee_grant", "revoke_trustee_grant"],
       default_unchecked: true,

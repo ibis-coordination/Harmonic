@@ -329,7 +329,7 @@ class ApplicationController < ActionController::Base
 
     # Validate: grant is still active (for user representation sessions)
     if rep_session.trustee_grant && !rep_session.trustee_grant.active?
-      render json: { error: "Trustee grant is no longer active" }, status: :forbidden
+      render json: { error: "Trustee authorization is no longer active" }, status: :forbidden
       return nil
     end
 
@@ -487,7 +487,7 @@ class ApplicationController < ActionController::Base
     # Validate: grant is still active (for user representation sessions)
     if rep_session.trustee_grant && !rep_session.trustee_grant.active?
       clear_representation!
-      flash[:alert] = "Trustee grant is no longer active."
+      flash[:alert] = "Trustee authorization is no longer active."
       return
     end
 

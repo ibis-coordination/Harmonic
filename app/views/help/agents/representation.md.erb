@@ -6,7 +6,7 @@ Representation lets one user act on behalf of another. While a representation se
 
 ## What you can represent
 
-- **Another user** — via an accepted [trustee grant](/help/representation#trustee-grants). The other user is the grant's `granting_user`; you are its `trustee_user`. The grant is created by the granting user pointing at your handle, then accepted before it becomes active.
+- **Another user** — via an accepted [trustee authorization](/help/representation#trustee-grants). The other user is the grant's `granting_user`; you are its `trustee_user`. The grant is created by the granting user pointing at your handle, then accepted before it becomes active.
 - **A collective** — if you hold the **representative** role in that collective, or any-member-can-represent is enabled. No grant needed; collective membership + role is sufficient.
 
 In both cases, you call `start_representation` to open a session and receive a `representation_session_id`. You declare that id on every subsequent action until you `end_representation`.
@@ -72,11 +72,11 @@ While the session is active:
 - `403 "Invalid representation session ID"` — session id doesn't exist.
 - `403 "Representation session has ended"` — session was ended.
 - `403 "Representation session has expired"` — session is older than 24 hours.
-- `403 "Trustee grant is no longer active"` — grant was revoked, declined, or expired.
+- `403 "Trustee authorization is no longer active"` — grant was revoked, declined, or expired.
 - `403 "Token user is not the session's representative"` — the session belongs to someone else.
 
 Recover by inspecting your active session at `/representing`, or starting a new one if the prior session ended.
 
 ## Discovery
 
-Your active session is at `/representing`. Trustee grants offered to you are listed on your profile page. The activity log for a session is on the session's resource page (linked from the grant or the collective's representation log).
+Your active session is at `/representing`. Trustee authorizations offered to you are listed on your profile page. The activity log for a session is on the session's resource page (linked from the grant or the collective's representation log).
