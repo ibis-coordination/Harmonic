@@ -123,6 +123,105 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
                  URI.parse(response.headers["Location"]).path
   end
 
+  # === Grant-show action listing (state-aware) ===
+
+  # The actions listed in the markdown frontmatter for /u/:handle/settings/
+  # trustee-authorizations/:grant_id must reflect what's actually applicable
+  # given the grant's state and the viewer's role. Today the show-page
+  # frontmatter advertises all five rep-lifecycle actions unconditionally;
+  # only the actions_index_show endpoint applies the state-aware filter.
+  def get_show_as(viewer_handle, grant)
+    get "/u/#{viewer_handle}/settings/trustee-authorizations/#{grant.truncated_id}", headers: @headers
+    assert_response :success
+    response.body
+  end
+
+  test "show frontmatter on a pending grant offers accept and decline to the trustee, nothing else" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: accept_trustee_authorization\b/, body)
+    assert_match(/name: decline_trustee_authorization\b/, body)
+    refute_match(/name: revoke_trustee_authorization\b/, body,
+                 "Trustee cannot revoke — only granting user can")
+    refute_match(/name: start_representation\b/, body,
+                 "Start_representation should not be offered on a pending grant")
+    refute_match(/name: end_representation\b/, body)
+  end
+
+  test "show frontmatter on an active grant offers start_representation to the trustee" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: start_representation\b/, body)
+    refute_match(/name: end_representation\b/, body,
+                 "No active session yet — end_representation shouldn't appear")
+    refute_match(/name: accept_trustee_authorization\b/, body)
+    refute_match(/name: decline_trustee_authorization\b/, body)
+    refute_match(/name: revoke_trustee_authorization\b/, body,
+                 "Trustee cannot revoke")
+  end
+
+  test "show frontmatter offers end_representation when an active session exists for this grant" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+    RepresentationSession.tenant_scoped_only(@tenant.id).create!(
+      tenant: @tenant,
+      representative_user: @user,
+      trustee_grant: grant,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: end_representation\b/, body)
+    refute_match(/name: start_representation\b/, body,
+                 "Cannot start a second session while one is active")
+  end
+
+  test "show frontmatter offers revoke to the granting user only" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: revoke_trustee_authorization\b/, body,
+                 "Granting user can revoke an active grant")
+    refute_match(/name: start_representation\b/, body,
+                 "Start_representation belongs to the trustee, not the grantor")
+    refute_match(/name: accept_trustee_authorization\b/, body)
+    refute_match(/name: decline_trustee_authorization\b/, body)
+  end
+
+  test "show frontmatter on a revoked grant offers no lifecycle actions" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+    grant.revoke!
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/name: accept_trustee_authorization\b/, body)
+    refute_match(/name: decline_trustee_authorization\b/, body)
+    refute_match(/name: revoke_trustee_authorization\b/, body,
+                 "Already revoked — revoke is a no-op")
+    refute_match(/name: start_representation\b/, body)
+    refute_match(/name: end_representation\b/, body)
+  end
+
   test "pending grants offered to the trustee are described as offers, not requests" do
     # The "Pending Requests" header + "These users are requesting authority to
     # act on your behalf" copy inverts the relationship: the listed users are

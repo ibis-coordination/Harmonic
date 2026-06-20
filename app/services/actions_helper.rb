@@ -1526,17 +1526,53 @@ class ActionsHelper
     },
     "/u/:handle/settings/trustee-authorizations/:grant_id" => {
       controller_actions: ["trustee_grants#show"],
-      actions: [
-        { name: "accept_trustee_authorization", params_string: ACTION_DEFINITIONS["accept_trustee_authorization"][:params_string],
-          description: ACTION_DEFINITIONS["accept_trustee_authorization"][:description], },
-        { name: "decline_trustee_authorization", params_string: ACTION_DEFINITIONS["decline_trustee_authorization"][:params_string],
-          description: ACTION_DEFINITIONS["decline_trustee_authorization"][:description], },
-        { name: "revoke_trustee_authorization", params_string: ACTION_DEFINITIONS["revoke_trustee_authorization"][:params_string],
-          description: ACTION_DEFINITIONS["revoke_trustee_authorization"][:description], },
-        { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string],
-          description: ACTION_DEFINITIONS["start_representation"][:description], },
-        { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string],
-          description: ACTION_DEFINITIONS["end_representation"][:description], },
+      actions: [],
+      # Lifecycle actions depend on grant state and viewer role. The lambdas
+      # below are the single source of truth; both the markdown layout
+      # frontmatter (via MarkdownHelper) and the actions_index_show endpoint
+      # (via TrusteeGrantsController) evaluate them in the same way.
+      conditional_actions: [
+        {
+          name: "accept_trustee_authorization",
+          condition: lambda { |context|
+            grant = context[:grant]
+            grant && grant.pending? && grant.trustee_user == context[:target_user]
+          },
+        },
+        {
+          name: "decline_trustee_authorization",
+          condition: lambda { |context|
+            grant = context[:grant]
+            grant && grant.pending? && grant.trustee_user == context[:target_user]
+          },
+        },
+        {
+          name: "revoke_trustee_authorization",
+          condition: lambda { |context|
+            grant = context[:grant]
+            grant && grant.granting_user == context[:target_user] && !grant.revoked? && !grant.declined?
+          },
+        },
+        {
+          name: "start_representation",
+          condition: lambda { |context|
+            grant = context[:grant]
+            user = context[:user]
+            next false unless grant && user
+            next false unless grant.active? && grant.trustee_user == user
+            !RepresentationSession.exists?(trustee_grant: grant, ended_at: nil)
+          },
+        },
+        {
+          name: "end_representation",
+          condition: lambda { |context|
+            grant = context[:grant]
+            user = context[:user]
+            next false unless grant && user
+            next false unless grant.active? && grant.trustee_user == user
+            RepresentationSession.exists?(trustee_grant: grant, ended_at: nil)
+          },
+        },
       ],
     },
     "/ai-agents/:handle/automations" => {
