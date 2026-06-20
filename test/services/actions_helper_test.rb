@@ -258,10 +258,10 @@ class ActionsHelperTest < ActiveSupport::TestCase
 
   test "trustee grant actions are defined in ACTION_DEFINITIONS" do
     trustee_actions = %w[
-      create_trustee_grant
-      accept_trustee_grant
-      decline_trustee_grant
-      revoke_trustee_grant
+      create_trustee_authorization
+      accept_trustee_authorization
+      decline_trustee_authorization
+      revoke_trustee_authorization
       start_representation
     ]
 
@@ -278,9 +278,9 @@ class ActionsHelperTest < ActiveSupport::TestCase
     action_names = config[:actions].map { |a| a[:name] }
 
     expected_actions = %w[
-      accept_trustee_grant
-      decline_trustee_grant
-      revoke_trustee_grant
+      accept_trustee_authorization
+      decline_trustee_authorization
+      revoke_trustee_authorization
       start_representation
     ]
 
@@ -295,7 +295,7 @@ class ActionsHelperTest < ActiveSupport::TestCase
     assert_not_nil config
 
     action_names = config[:actions].map { |a| a[:name] }
-    assert_includes action_names, "create_trustee_grant"
+    assert_includes action_names, "create_trustee_authorization"
   end
 
   # ==========================================================================

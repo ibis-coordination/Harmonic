@@ -103,10 +103,10 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "update_table_description",
     "batch_table_update",
     # Trustee grant actions
-    "accept_trustee_grant",
-    "decline_trustee_grant",
-    "create_trustee_grant",
-    "revoke_trustee_grant",
+    "accept_trustee_authorization",
+    "decline_trustee_authorization",
+    "create_trustee_authorization",
+    "revoke_trustee_authorization",
     # Representation sessions — agents can represent a user or a collective
     # on whose behalf they hold a trustee grant. Grantable (not always-allowed)
     # so the agent's owner can opt in per agent.
@@ -230,12 +230,12 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     {
       name: "Trustee authorization responses",
       description: "Accept or decline trustee grants offered to this agent.",
-      actions: ["accept_trustee_grant", "decline_trustee_grant"],
+      actions: ["accept_trustee_authorization", "decline_trustee_authorization"],
     },
     {
       name: "Trustee authorization admin",
       description: "Grant trustee authority to others, and revoke grants.",
-      actions: ["create_trustee_grant", "revoke_trustee_grant"],
+      actions: ["create_trustee_authorization", "revoke_trustee_authorization"],
       default_unchecked: true,
     },
     {

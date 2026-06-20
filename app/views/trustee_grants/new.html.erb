@@ -24,7 +24,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
   <div class="pulse-resource-body">
     <p>Grant another user authority to act on your behalf. They will need to accept the trustee authorization before they can use it.</p>
 
-    <%= form_tag "#{base_path}/new/actions/create_trustee_grant", method: :post, class: "pulse-form" do %>
+    <%= form_tag "#{base_path}/new/actions/create_trustee_authorization", method: :post, class: "pulse-form" do %>
       <section class="pulse-settings-section">
         <label for="trustee_user_id" class="pulse-label">Who should receive this trustee authorization? *</label>
         <select name="trustee_user_id" id="trustee_user_id" class="pulse-form-input" required>

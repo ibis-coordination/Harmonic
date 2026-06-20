@@ -56,8 +56,8 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
                 <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
                 <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
                 <td>
-                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/accept_trustee_grant" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">Accept</a>
-                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/decline_trustee_grant" class="pulse-action-btn pulse-action-btn-small">Decline</a>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/accept_trustee_authorization" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">Accept</a>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/decline_trustee_authorization" class="pulse-action-btn pulse-action-btn-small">Decline</a>
                 </td>
               </tr>
             <% end %>

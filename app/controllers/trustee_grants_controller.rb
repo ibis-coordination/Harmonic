@@ -86,14 +86,14 @@ class TrusteeGrantsController < ApplicationController
   # =========================================================================
 
   def describe_create
-    render_action_description(ActionsHelper.action_description("create_trustee_grant", resource: nil))
+    render_action_description(ActionsHelper.action_description("create_trustee_authorization", resource: nil))
   end
 
   def execute_create
     # Only the target user can create their own grants
     unless @target_user == @current_user
       return render_action_error({
-                                   action_name: "create_trustee_grant",
+                                   action_name: "create_trustee_authorization",
                                    resource: nil,
                                    error: "You can only create trustee authorizations for yourself",
                                    status: :forbidden,
@@ -103,7 +103,7 @@ class TrusteeGrantsController < ApplicationController
     trustee = find_trustee_user(params[:trustee_user_id])
     unless trustee
       return render_action_error({
-                                   action_name: "create_trustee_grant",
+                                   action_name: "create_trustee_authorization",
                                    resource: nil,
                                    error: "Trustee user not found",
                                    status: :not_found,
@@ -131,14 +131,14 @@ class TrusteeGrantsController < ApplicationController
     if grant.save
       # TODO: Send notification to trustee_user
       render_action_success({
-                              action_name: "create_trustee_grant",
+                              action_name: "create_trustee_authorization",
                               resource: grant,
                               result: "Trustee authorization request sent to #{trustee.display_name || trustee.handle}",
                               redirect_to: trustee_grant_show_path(grant),
                             })
     else
       render_action_error({
-                            action_name: "create_trustee_grant",
+                            action_name: "create_trustee_authorization",
                             resource: nil,
                             error: grant.errors.full_messages.join(", "),
                           })
@@ -150,13 +150,13 @@ class TrusteeGrantsController < ApplicationController
   # =========================================================================
 
   def describe_accept
-    render_action_description(ActionsHelper.action_description("accept_trustee_grant", resource: @grant))
+    render_action_description(ActionsHelper.action_description("accept_trustee_authorization", resource: @grant))
   end
 
   def execute_accept
     unless @grant.trustee_user == @target_user
       return render_action_error({
-                                   action_name: "accept_trustee_grant",
+                                   action_name: "accept_trustee_authorization",
                                    resource: @grant,
                                    error: "You can only accept trustee authorizations granted to you",
                                    status: :forbidden,
@@ -165,7 +165,7 @@ class TrusteeGrantsController < ApplicationController
 
     unless @grant.pending?
       return render_action_error({
-                                   action_name: "accept_trustee_grant",
+                                   action_name: "accept_trustee_authorization",
                                    resource: @grant,
                                    error: "This trustee authorization is not pending",
                                    status: :conflict,
@@ -175,7 +175,7 @@ class TrusteeGrantsController < ApplicationController
     @grant.accept!
 
     render_action_success({
-                            action_name: "accept_trustee_grant",
+                            action_name: "accept_trustee_authorization",
                             resource: @grant,
                             result: "Trustee authorization accepted",
                             redirect_to: trustee_grant_show_path(@grant),
@@ -187,13 +187,13 @@ class TrusteeGrantsController < ApplicationController
   # =========================================================================
 
   def describe_decline
-    render_action_description(ActionsHelper.action_description("decline_trustee_grant", resource: @grant))
+    render_action_description(ActionsHelper.action_description("decline_trustee_authorization", resource: @grant))
   end
 
   def execute_decline
     unless @grant.trustee_user == @target_user
       return render_action_error({
-                                   action_name: "decline_trustee_grant",
+                                   action_name: "decline_trustee_authorization",
                                    resource: @grant,
                                    error: "You can only decline trustee authorizations granted to you",
                                    status: :forbidden,
@@ -202,7 +202,7 @@ class TrusteeGrantsController < ApplicationController
 
     unless @grant.pending?
       return render_action_error({
-                                   action_name: "decline_trustee_grant",
+                                   action_name: "decline_trustee_authorization",
                                    resource: @grant,
                                    error: "This trustee authorization is not pending",
                                    status: :conflict,
@@ -212,7 +212,7 @@ class TrusteeGrantsController < ApplicationController
     @grant.decline!
 
     render_action_success({
-                            action_name: "decline_trustee_grant",
+                            action_name: "decline_trustee_authorization",
                             resource: @grant,
                             result: "Trustee authorization declined",
                             redirect_to: trustee_grants_index_path,
@@ -224,13 +224,13 @@ class TrusteeGrantsController < ApplicationController
   # =========================================================================
 
   def describe_revoke
-    render_action_description(ActionsHelper.action_description("revoke_trustee_grant", resource: @grant))
+    render_action_description(ActionsHelper.action_description("revoke_trustee_authorization", resource: @grant))
   end
 
   def execute_revoke
     unless @grant.granting_user == @target_user
       return render_action_error({
-                                   action_name: "revoke_trustee_grant",
+                                   action_name: "revoke_trustee_authorization",
                                    resource: @grant,
                                    error: "You can only revoke trustee authorizations you created",
                                    status: :forbidden,
@@ -239,7 +239,7 @@ class TrusteeGrantsController < ApplicationController
 
     if @grant.revoked? || @grant.declined?
       return render_action_error({
-                                   action_name: "revoke_trustee_grant",
+                                   action_name: "revoke_trustee_authorization",
                                    resource: @grant,
                                    error: "This trustee authorization is already revoked or declined",
                                    status: :conflict,
@@ -249,7 +249,7 @@ class TrusteeGrantsController < ApplicationController
     @grant.revoke!
 
     render_action_success({
-                            action_name: "revoke_trustee_grant",
+                            action_name: "revoke_trustee_authorization",
                             resource: @grant,
                             result: "Trustee authorization revoked",
                             redirect_to: trustee_grant_show_path(@grant),
@@ -387,9 +387,9 @@ class TrusteeGrantsController < ApplicationController
   # Used by actions_index_show to filter the canonical action list from ActionsHelper.
   def action_available_for_grant?(action_name)
     case action_name
-    when "accept_trustee_grant", "decline_trustee_grant"
+    when "accept_trustee_authorization", "decline_trustee_authorization"
       @grant.pending? && @grant.trustee_user == @target_user
-    when "revoke_trustee_grant"
+    when "revoke_trustee_authorization"
       @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
     when "start_representation"
       @grant.active? && @grant.trustee_user == @current_user && !has_active_session_for_grant?

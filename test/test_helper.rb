@@ -281,7 +281,7 @@ class ActiveSupport::TestCase
 
   # Creates a trustee permission allowing trustee_user to act on behalf of granting_user
   # Note: This feature is scaffolded but not actively used in production
-  def create_trustee_grant(
+  def create_trustee_authorization(
     tenant: nil,
     granting_user:,
     trustee_user:,
@@ -305,7 +305,7 @@ class ActiveSupport::TestCase
   # Creates a representation session for a user acting via a trustee grant
   # (as opposed to a collective trustee). User representation sessions do NOT have
   # a collective - only collective representation sessions have collective.
-  def create_trustee_grant_representation_session(
+  def create_trustee_authorization_representation_session(
     tenant:,
     trustee_grant:,
     confirmed_understanding: true,

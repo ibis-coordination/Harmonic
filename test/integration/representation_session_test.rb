@@ -255,13 +255,13 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     ai_agent = create_user(email: "ai_agent_#{SecureRandom.hex(4)}@example.com", name: "AiAgent User")
     @tenant.add_user!(ai_agent)
     @collective.add_user!(ai_agent)
-    grant = create_trustee_grant(
+    grant = create_trustee_authorization(
       tenant: @tenant,
       granting_user: ai_agent,
       trustee_user: @user,
       accepted: true,
     )
-    user_session = create_trustee_grant_representation_session(
+    user_session = create_trustee_authorization_representation_session(
       tenant: @tenant,
       trustee_grant: grant,
     )
