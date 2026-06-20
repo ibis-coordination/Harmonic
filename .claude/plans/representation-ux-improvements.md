@@ -2,13 +2,11 @@
 
 Problem inventory for the representation surface, scoped to items not yet shipped and not covered by other plans. Not a prescriptive plan — feeds the next UX pass.
 
-> **Already shipped on `representation-ux-bug-fixes` (merged into main):** `/representing` markdown crash, `/whoami` empty parenthetical, "Pending Requests" inverted wording, terminology sweep ("trustee grant" → "trustee authorization" across UI, URL paths, action names), drop of the active-session gate (self-acting reads now succeed), markdown-layout warning surfacing unattached open sessions, 1-hour session lifetime (was 24h), singleton-active-session enforcement at session start.
+> **Already shipped on `representation-ux-bug-fixes` (merged):** `/representing` markdown crash, `/whoami` empty parenthetical, "Pending Requests" inverted wording, terminology sweep ("trustee grant" → "trustee authorization" across UI, URL paths, action names), drop of the active-session gate (self-acting reads now succeed), markdown-layout warning surfacing unattached open sessions, 1-hour session lifetime (was 24h), singleton-active-session enforcement at session start.
+>
+> **Also shipped (`representation-leftover-bug-fixes`):** grant show-page state-aware action listing, note history line attribution preserves the representative, auto-read-confirmation under rep attributes to the representative rather than the represented user, capability-dependency warning on the grant show page when the trustee is an AI agent missing rep-lifecycle capabilities.
 >
 > **Folded into [`representation-routes-refactor.md`](representation-routes-refactor.md):** session show page + activity log inspection, "current reps" dashboard for granting users, session-history link target, per-session notification to the represented user, `/representing` verb-route refactor.
-
-## Bugs
-
-🟠 **Grant page exposes irrelevant actions for the current state.** With status "Active", the page's frontmatter still advertises `accept_trustee_authorization` and `decline_trustee_authorization` as available actions — both only make sense in "Pending." And `revoke_trustee_authorization` is offered to the trustee on the trustee's own view, but only the granting user should revoke. A state-aware filter exists at `trustee_grants_controller.rb` (`action_available_for_grant?`) and is wired into `actions_index_show`, but the show-page frontmatter renders independently and bypasses it.
 
 ## Agent-side friction
 
@@ -20,10 +18,6 @@ Problem inventory for the representation surface, scoped to items not yet shippe
 
 ⚪ **`start_representation` response embeds the session id in human-prose markdown.** The agent has to parse `"Session ID: \`<uuid>\`"` from a markdown blob. A structured `result` field in the response frontmatter, or a dedicated `_meta.session_id`, would let agents grab the id reliably.
 
-## Information loss on attribution
-
-🟠 **Note history line drops the representative.** The metadata block on `/collectives/{handle}/n/{id}` says `created_by | Claude Code Primary on behalf of Dan` — both halves present. The History section right below reads `Dan created this note at {time}` — the representative is gone. Same data, two surfaces, inconsistent shape. Agents reading the history lose the audit-trail half.
-
 ## Human-side friction
 
 ### Discoverability gaps
@@ -33,8 +27,6 @@ Problem inventory for the representation surface, scoped to items not yet shippe
 ### Grant-creation flow gaps
 
 ⚪ **Capabilities on authorization creation are an all-or-nothing checklist.** From the show page there can be 17+ capabilities granted. UX for narrowing the set is unclear — does the principal pick individually, or is there a default set? If individually, this is tedious; if default, hard to inspect what was actually selected.
-
-🟠 **The action-capabilities list on the new authorization view is incomplete.** Two distinct surfaces are conflated here (the per-grant `TrusteeGrant::GRANTABLE_ACTIONS` for in-session permissions vs. the agent's overall `CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS` configuration). A principal can create an authorization for an agent and then watch the agent fail to engage with it because the agent's overall capabilities don't include the rep lifecycle actions. The creation flow should surface this dependency, ideally by allowing the principal to also enable the required agent-side capabilities from the same flow.
 
 ⚪ **Collective Scope is shown as "All collectives" with no UI evidence that scoping is possible.** The model supports `{mode: "include", collective_ids: [...]}` and `{mode: "exclude", ...}`. Unclear how the creator narrows scope, and unclear from the authorization page that the scope is even configurable.
 

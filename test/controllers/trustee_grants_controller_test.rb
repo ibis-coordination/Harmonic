@@ -123,6 +123,87 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
                  URI.parse(response.headers["Location"]).path
   end
 
+  # === Capability-dependency warning ===
+
+  # When the trustee is an AI agent that lacks the rep-lifecycle capabilities
+  # in its overall agent configuration, the grant show page should warn the
+  # viewer — otherwise the agent silently fails on "your capabilities do not
+  # include 'accept_trustee_authorization'" when it tries to engage with the
+  # grant. The two grantable surfaces are independent (per-grant
+  # TrusteeGrant::GRANTABLE_ACTIONS vs. the agent's overall
+  # CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS), and the principal has no
+  # visibility into the agent's capability set from the grant flow.
+
+  test "show page warns when the trustee is an agent missing rep-lifecycle capabilities" do
+    agent = create_ai_agent(parent: @user, name: "Capability-poor agent",
+                            agent_configuration: { "mode" => "internal", "capabilities" => ["create_note"] })
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: agent,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/missing.*capabilit|capabilit.*missing|not enabled/i, body,
+                 "Show page should warn the principal about the missing capabilities")
+    assert_includes body, "accept_trustee_authorization",
+                    "Warning should name the missing accept capability"
+    assert_includes body, "start_representation",
+                    "Warning should name the missing start capability"
+    assert_includes body, "end_representation",
+                    "Warning should name the missing end capability"
+    assert_includes body, "/ai-agents/#{agent.handle}/settings",
+                    "Warning should link to the agent's settings page where the parent can enable them"
+  end
+
+  test "show page does not warn when the agent has all rep-lifecycle capabilities" do
+    agent = create_ai_agent(parent: @user, name: "Capability-complete agent",
+                            agent_configuration: {
+                              "mode" => "internal",
+                              "capabilities" => [
+                                "create_note",
+                                "accept_trustee_authorization",
+                                "start_representation",
+                                "end_representation",
+                              ],
+                            })
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: agent,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/missing.*capabilit|capabilit.*missing/i, body,
+                 "No warning when all required rep-lifecycle capabilities are enabled")
+  end
+
+  test "show page does not warn when the agent has no capability restrictions" do
+    # capabilities: nil means "all grantable actions allowed" — the
+    # rep-lifecycle ones are implicitly granted.
+    agent = create_ai_agent(parent: @user, name: "Unrestricted agent",
+                            agent_configuration: { "mode" => "internal" })
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: agent,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/missing.*capabilit|capabilit.*missing/i, body,
+                 "No warning when the agent has no capability restrictions")
+  end
+
+  test "show page does not warn when the trustee is a human" do
+    # The agent capability surface only applies to AI agents. Don't warn
+    # when the trustee is a human even if the grant was just created.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/missing.*capabilit|capabilit.*missing/i, body,
+                 "No warning when the trustee is a human user")
+  end
+
   # === Grant-show action listing (state-aware) ===
 
   # The actions listed in the markdown frontmatter for /u/:handle/settings/

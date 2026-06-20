@@ -28,6 +28,13 @@ scope = @grant.collective_scope || { "mode" => "all" }
 <% end -%>
 | Expires | <%= @grant.expires_at ? @grant.expires_at.strftime("%Y-%m-%d %H:%M") + (@grant.expired? ? " (Expired)" : "") : "Never" %> |
 
+<% missing_caps = CapabilityCheck.missing_rep_lifecycle_capabilities(@grant.trustee_user) -%>
+<% if missing_caps.any? -%>
+> ⚠️ **The trustee is an AI agent with rep-lifecycle capabilities missing from its configuration**, so it cannot engage with this authorization until they are enabled. Missing: <%= missing_caps.map { |c| "`#{c}`" }.join(", ") %>.
+>
+> The agent's owner can enable these at [/ai-agents/<%= @grant.trustee_user.handle %>/settings](/ai-agents/<%= @grant.trustee_user.handle %>/settings).
+
+<% end -%>
 ## Session History
 
 <% if @sessions.empty? -%>
