@@ -89,6 +89,40 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
                  URI.parse(response.headers["Location"]).path
   end
 
+  test "old action-name URLs 308-redirect to the renamed actions" do
+    # accept_trustee_grant / decline_trustee_grant / revoke_trustee_grant /
+    # create_trustee_grant were renamed in the terminology sweep. Agents and
+    # external callers that have the old action names hardcoded should land
+    # at the new ones via method-preserving redirect.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+
+    {
+      "accept_trustee_grant" => "accept_trustee_authorization",
+      "decline_trustee_grant" => "decline_trustee_authorization",
+      "revoke_trustee_grant" => "revoke_trustee_authorization",
+    }.each do |old_action, new_action|
+      get "/u/#{@user.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/#{old_action}",
+          headers: @headers
+      assert_response :permanent_redirect, "GET #{old_action} should 308"
+      assert_equal "/u/#{@user.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/#{new_action}",
+                   URI.parse(response.headers["Location"]).path
+
+      post "/u/#{@user.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/#{old_action}",
+           headers: @headers
+      assert_response :permanent_redirect, "POST #{old_action} should 308 (method-preserving)"
+    end
+
+    # create_trustee_grant lives at /new/actions/create_trustee_grant.
+    get "/u/#{@user.handle}/settings/trustee-authorizations/new/actions/create_trustee_grant",
+        headers: @headers
+    assert_response :permanent_redirect
+    assert_equal "/u/#{@user.handle}/settings/trustee-authorizations/new/actions/create_trustee_authorization",
+                 URI.parse(response.headers["Location"]).path
+  end
+
   test "pending grants offered to the trustee are described as offers, not requests" do
     # The "Pending Requests" header + "These users are requesting authority to
     # act on your behalf" copy inverts the relationship: the listed users are
