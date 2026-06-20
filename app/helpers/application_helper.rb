@@ -154,6 +154,21 @@ module ApplicationHelper
     end
   end
 
+  # Markdown attribution for a single history event. For a create event on
+  # a resource that was authored under representation, render the same
+  # "Representative on behalf of Author" shape resource_author_md uses on
+  # the metadata block — same data, consistent shape across both surfaces.
+  # Other event types fall back to the single event.user link.
+  def history_event_actor_md(event)
+    resource = event.respond_to?(:note) ? event.note : nil
+    if event.respond_to?(:event_type) && event.event_type == "create" &&
+       resource.respond_to?(:created_via_representation?) && resource.created_via_representation?
+      resource_author_md(resource)
+    else
+      user_link_md(event.user)
+    end
+  end
+
   # Markdown attribution for a resource's author. Handles representation
   # ("acted on behalf of") — the visible actor is the representative, with
   # the granting user shown as the principal.

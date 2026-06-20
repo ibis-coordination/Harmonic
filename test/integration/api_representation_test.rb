@@ -561,6 +561,65 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert session.reload.ended?, "session should be ended after calling the warning's prescribed end path"
   end
 
+  test "note history shows the representative for a note created under representation" do
+    # Metadata block at the top of the note already renders "Bob on behalf of
+    # Alice" via resource_author_md. The History section below dropped the
+    # representative and showed only "Alice created this note" — same data,
+    # two surfaces, inconsistent shape. Pin the corrected attribution.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_note" => true },
+      collective_scope: { "mode" => "all" }
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
+         params: { title: "Rep'd note", text: "Posted under rep" },
+         headers: @headers.merge(
+           "X-Representation-Session-ID" => session_id,
+           "X-Representing-User" => @alice.handle,
+         )
+    assert_response :success
+    note = Note.where(title: "Rep'd note").last
+    assert note, "note should have been created"
+    assert note.created_via_representation?, "note should be flagged as rep-created"
+
+    get note.path, headers: @headers
+    assert_response :success
+    body = response.body
+
+    history_section = body.split("## History").last
+    assert history_section, "show page should have a History section"
+    create_line = history_section.lines.find { |l| l.include?("created this note") }
+    assert create_line, "History section should have a 'created this note' line"
+    assert_includes create_line, @bob.handle,
+                    "Create line should name the representative (#{@bob.handle})"
+    assert_includes create_line, "on behalf of",
+                    "Create line should use the 'on behalf of' shape from resource_author_md"
+    assert_includes create_line, @alice.handle,
+                    "Create line should name the represented user (#{@alice.handle})"
+  end
+
+  test "note history shows a single user for a note created without representation" do
+    # Regression guard: the rep-aware attribution must not change the shape
+    # of the history line when no representation was involved.
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @bob, title: "Plain note", text: "Self-acting")
+
+    get note.path, headers: @headers
+    assert_response :success
+    body = response.body
+
+    history_section = body.split("## History").last
+    create_line = history_section.lines.find { |l| l.include?("created this note") }
+    assert create_line, "History section should have a 'created this note' line"
+    refute_includes create_line, "on behalf of",
+                    "Plain note's create line should not include rep attribution"
+    assert_includes create_line, @bob.handle
+  end
+
   # =========================================================================
   # REPRESENTATION SESSION ACTIVITY LOGGING
   # =========================================================================
