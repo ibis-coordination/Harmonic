@@ -1,14 +1,14 @@
 <%
-base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
 -%>
-# Trustee Grants for <%= @target_user.display_name || @target_user.handle %>
+# Trustee Authorizations for <%= @target_user.display_name || @target_user.handle %>
 
-Trustee grants allow you to grant other users authority to act on your behalf.
+Trustee authorizations give specific users authority to act on another user's behalf.
 
 <% if @pending_requests.any? -%>
-## Pending Requests
+## Pending Trustee Authorizations Granted to You
 
-These users are requesting authority to act on your behalf.
+These users are granting you authority to act on their behalf. Accept to gain the ability to start representation sessions on their behalf, or decline to reject the grant.
 
 | From | Capabilities | Expires |
 |------|-------------|---------|
@@ -17,7 +17,7 @@ These users are requesting authority to act on your behalf.
 <% end -%>
 
 <% end -%>
-## Trustee Grants I've Created
+## Trustee Authorizations You've Granted to Others
 
 <% granted_active = @granted.select(&:active?) -%>
 <% granted_pending = @granted.select(&:pending?) -%>
@@ -28,10 +28,10 @@ These users are requesting authority to act on your behalf.
 | [<%= grant.trustee_user.display_name || grant.trustee_user.handle %>](<%= base_path %>/<%= grant.truncated_id %>) | <%= grant.permissions&.keys&.join(", ") || "None" %> | <%= grant.active? ? "Active" : "Pending" %> | <%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %> |
 <% end -%>
 <% else -%>
-*You haven't created any trustee grants yet.*
+*You haven't created any trustee authorizations yet.*
 <% end -%>
 
-## Trustee Grants I've Received
+## Trustee Authorizations You've Accepted from Others
 
 <% received_active = @received.select(&:active?) -%>
 <% if received_active.any? -%>
@@ -46,7 +46,7 @@ These users are requesting authority to act on your behalf.
 
 ## Navigation
 
-* [Create New Trustee Grant](<%= base_path %>/new)
+* [Create New Trustee Authorization](<%= base_path %>/new)
 <% if @target_user == @current_user -%>
 * [Settings](/settings)
 <% else -%>

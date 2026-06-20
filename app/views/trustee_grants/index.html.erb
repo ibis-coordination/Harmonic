@@ -1,12 +1,12 @@
 <%
-base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
 %>
 
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
   [@target_user.display_name, "/u/#{@target_user.handle}"],
   ['Settings', "/u/#{@target_user.handle}/settings"],
-  'Trustee Grants'
+  'Trustee Authorizations'
 ] %>
 
 <article class="pulse-resource-detail">
@@ -14,27 +14,27 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
         <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
-        Trustee Grants
+        Trustee Authorizations
       </span>
     </div>
-    <h1 class="pulse-resource-title">Trustee Grants for <%= @target_user.display_name || @target_user.handle %></h1>
+    <h1 class="pulse-resource-title">Trustee Authorizations for <%= @target_user.display_name || @target_user.handle %></h1>
   </header>
 
   <div class="pulse-resource-body">
     <p class="pulse-text-muted">
-      Trustee grants allow you to grant other users authority to act on your behalf.
+      Trustee authorizations give specific users authority to act on another user's behalf.
     </p>
 
     <p class="pulse-action-row">
       <a href="<%= base_path %>/new" class="pulse-action-btn pulse-action-btn-primary">
-        <%= octicon "plus" %> Create New Trustee Grant
+        <%= octicon "plus" %> Create New Trustee Authorization
       </a>
     </p>
 
     <% if @pending_requests.any? %>
       <section class="pulse-section">
-        <h2 class="pulse-section-title">Pending Requests</h2>
-        <p class="pulse-text-muted">These users are requesting authority to act on your behalf.</p>
+        <h2 class="pulse-section-title">Pending Trustee Authorizations Granted to You</h2>
+        <p class="pulse-text-muted">These users are granting you authority to act on their behalf. Accept to gain the ability to start representation sessions on their behalf, or decline to reject the grant.</p>
 
         <table class="pulse-table">
           <thead>
@@ -56,8 +56,8 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
                 <td><%= grant.permissions&.keys&.join(", ") || "None" %></td>
                 <td><%= grant.expires_at&.strftime("%Y-%m-%d") || "Never" %></td>
                 <td>
-                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/accept_trustee_grant" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">Accept</a>
-                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/decline_trustee_grant" class="pulse-action-btn pulse-action-btn-small">Decline</a>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/accept_trustee_authorization" class="pulse-action-btn pulse-action-btn-small pulse-action-btn-primary">Accept</a>
+                  <a href="<%= base_path %>/<%= grant.truncated_id %>/actions/decline_trustee_authorization" class="pulse-action-btn pulse-action-btn-small">Decline</a>
                 </td>
               </tr>
             <% end %>
@@ -67,7 +67,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     <% end %>
 
     <section class="pulse-section">
-      <h2 class="pulse-section-title">Trustee Grants I've Created</h2>
+      <h2 class="pulse-section-title">Trustee Authorizations You've Granted to Others</h2>
       <p class="pulse-text-muted">These users can act on your behalf.</p>
 
       <% granted_active = @granted.select(&:active?) %>
@@ -106,12 +106,12 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
           </tbody>
         </table>
       <% else %>
-        <p class="pulse-empty-content"><em>You haven't created any trustee grants yet.</em></p>
+        <p class="pulse-empty-content"><em>You haven't created any trustee authorizations yet.</em></p>
       <% end %>
 
       <% if granted_inactive.any? %>
         <details class="pulse-details">
-          <summary>Show inactive trustee grants (<%= granted_inactive.count %>)</summary>
+          <summary>Show inactive trustee authorizations (<%= granted_inactive.count %>)</summary>
           <table class="pulse-table">
             <thead>
               <tr>
@@ -145,7 +145,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     </section>
 
     <section class="pulse-section">
-      <h2 class="pulse-section-title">Trustee Grants I've Received</h2>
+      <h2 class="pulse-section-title">Trustee Authorizations You've Accepted from Others</h2>
       <p class="pulse-text-muted">You can act on behalf of these users.</p>
 
       <% received_active = @received.select(&:active?) %>

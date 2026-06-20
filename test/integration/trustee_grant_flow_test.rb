@@ -319,7 +319,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     active_sessions = RepresentationSession.where(
       representative_user: @bob,
       ended_at: nil
-    ).where("began_at > ?", 24.hours.ago)
+    ).where("began_at > ?", 1.hour.ago)
 
     assert_equal 1, active_sessions.count
     assert_equal session1, active_sessions.first
@@ -388,7 +388,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Bob starts a representation session via the controller endpoint
     # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
 
     # Verify representation session started (should redirect to /representing)
     assert_redirected_to "/representing"
@@ -433,7 +433,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Bob starts a representation session via the controller endpoint
     # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
 
     # Verify representation session started
     assert_redirected_to "/representing"
@@ -468,7 +468,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Bob starts a representation session via the controller endpoint
     # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/represent"
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
 
     # Verify representation session started
     assert_redirected_to "/representing"

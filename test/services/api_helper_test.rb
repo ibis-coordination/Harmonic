@@ -90,6 +90,35 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert_equal @user, decision.created_by
   end
 
+  test "resolve_user normalizes handle case and @-prefix" do
+    # Stored handles are parameterized (lowercase, slug). Agent-supplied
+    # values can arrive as `@Alice`, `Alice`, or `alice` — all must resolve
+    # to the same user, not 404. This works via `delete_prefix("@")` here +
+    # `TenantUser#normalizes :handle` on the model. Pin the end-to-end
+    # contract so a future model-side change doesn't silently break agents.
+    handle = @user.handle
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: nil,
+      current_resource: nil,
+      params: {},
+      request: {}
+    )
+
+    # Sanity: stored handle works
+    assert_equal @user, api_helper.send(:resolve_user, handle)
+    # @-prefix stripped
+    assert_equal @user, api_helper.send(:resolve_user, "@#{handle}")
+    # Case-insensitive (parameterize lowercases)
+    assert_equal @user, api_helper.send(:resolve_user, handle.upcase)
+    assert_equal @user, api_helper.send(:resolve_user, "@#{handle.upcase}")
+    # Whitespace tolerated by existing .strip
+    assert_equal @user, api_helper.send(:resolve_user, "  @#{handle.upcase}  ")
+  end
+
   test "ApiHelper.confirm_read raises error for invalid resource model" do
     api_helper = ApiHelper.new(
       current_user: @user,

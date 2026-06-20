@@ -211,11 +211,11 @@ class ActionsHelperTest < ActiveSupport::TestCase
   end
 
   test "route_pattern_for maps trustee_grants controller actions" do
-    assert_equal "/u/:handle/settings/trustee-grants",
+    assert_equal "/u/:handle/settings/trustee-authorizations",
       ActionsHelper.route_pattern_for("trustee_grants#index")
-    assert_equal "/u/:handle/settings/trustee-grants/new",
+    assert_equal "/u/:handle/settings/trustee-authorizations/new",
       ActionsHelper.route_pattern_for("trustee_grants#new")
-    assert_equal "/u/:handle/settings/trustee-grants/:grant_id",
+    assert_equal "/u/:handle/settings/trustee-authorizations/:grant_id",
       ActionsHelper.route_pattern_for("trustee_grants#show")
   end
 
@@ -258,10 +258,10 @@ class ActionsHelperTest < ActiveSupport::TestCase
 
   test "trustee grant actions are defined in ACTION_DEFINITIONS" do
     trustee_actions = %w[
-      create_trustee_grant
-      accept_trustee_grant
-      decline_trustee_grant
-      revoke_trustee_grant
+      create_trustee_authorization
+      accept_trustee_authorization
+      decline_trustee_authorization
+      revoke_trustee_authorization
       start_representation
     ]
 
@@ -272,15 +272,15 @@ class ActionsHelperTest < ActiveSupport::TestCase
   end
 
   test "trustee grant show route includes all trustee actions" do
-    config = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/:grant_id")
+    config = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/:grant_id")
     assert_not_nil config, "Trustee grant show route must exist"
 
     action_names = config[:actions].map { |a| a[:name] }
 
     expected_actions = %w[
-      accept_trustee_grant
-      decline_trustee_grant
-      revoke_trustee_grant
+      accept_trustee_authorization
+      decline_trustee_authorization
+      revoke_trustee_authorization
       start_representation
     ]
 
@@ -291,11 +291,11 @@ class ActionsHelperTest < ActiveSupport::TestCase
   end
 
   test "trustee grant new route includes create action" do
-    config = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-grants/new")
+    config = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/new")
     assert_not_nil config
 
     action_names = config[:actions].map { |a| a[:name] }
-    assert_includes action_names, "create_trustee_grant"
+    assert_includes action_names, "create_trustee_authorization"
   end
 
   # ==========================================================================

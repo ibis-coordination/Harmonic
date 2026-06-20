@@ -255,13 +255,13 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     ai_agent = create_user(email: "ai_agent_#{SecureRandom.hex(4)}@example.com", name: "AiAgent User")
     @tenant.add_user!(ai_agent)
     @collective.add_user!(ai_agent)
-    grant = create_trustee_grant(
+    grant = create_trustee_authorization(
       tenant: @tenant,
       granting_user: ai_agent,
       trustee_user: @user,
       accepted: true,
     )
-    user_session = create_trustee_grant_representation_session(
+    user_session = create_trustee_authorization_representation_session(
       tenant: @tenant,
       trustee_grant: grant,
     )
@@ -305,18 +305,17 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
     # Session should have been cleared since user can no longer represent
   end
 
-  test "representation session expires after 24 hours" do
+  test "representation session expires after 1 hour" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
       representative: @user,
-      began_at: 25.hours.ago,
+      began_at: 65.minutes.ago,
     )
 
     assert session.expired?
-    # Note: active? only checks ended_at, not expired?
-    # But expired? does check if the session has exceeded 24 hours
+    # active? only checks ended_at; expired? additionally checks the time bound.
   end
 
   test "non-member is redirected to join page" do

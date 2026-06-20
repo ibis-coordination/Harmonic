@@ -948,7 +948,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
 
     # Step 1: agent calls start_representation as itself (no rep context yet).
     start_args = {
-      path: "/u/#{@agent.handle}/settings/trustee-grants/#{grant.truncated_id}",
+      path: "/u/#{@agent.handle}/settings/trustee-authorizations/#{grant.truncated_id}",
       action: "start_representation",
       params: {},
       context: {
@@ -969,13 +969,19 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     assert session_match, "response should carry the new session id: #{text}"
     session_id = session_match[1]
 
-    # Step 2a: baseline — agent fetches the exclusive note WITHOUT rep. The
-    # agent isn't a member of the exclusive collective, so the fetch fails.
+    # Step 2a: baseline — agent fetches as itself (no rep context). The call
+    # succeeds, but the markdown layout surfaces the unattached-session
+    # warning so the agent knows it has an open session it isn't using.
     post_jsonrpc({ jsonrpc: "2.0", id: 921, method: "tools/call",
                    params: { name: "fetch_page", arguments: { path: private_note.path } } })
     baseline = response.parsed_body
-    assert baseline["result"]["isError"],
-           "fetch without rep should fail — agent isn't a member of the exclusive collective"
+    assert_not baseline["result"]["isError"],
+               "self-acting fetch should succeed even with an open session: #{baseline.inspect}"
+    baseline_text = baseline["result"]["content"].first["text"]
+    assert_match(/active representation session/i, baseline_text,
+                 "self-acting fetch under an open session should surface the unattached-session warning")
+    assert_includes baseline_text, session_id,
+                    "warning should name the open session id so the agent can attach or end it"
 
     # Step 2b: same fetch WITH rep context — the inner request swaps
     # current_user to @user, who IS a member, so the page renders.
@@ -1027,7 +1033,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     # the controller's caller_user fallback reads @api_token_user (the agent)
     # rather than @current_user (which has been swapped to @user).
     end_args = {
-      path: "/u/#{@agent.handle}/settings/trustee-grants/#{grant.truncated_id}",
+      path: "/u/#{@agent.handle}/settings/trustee-authorizations/#{grant.truncated_id}",
       action: "end_representation",
       params: {},
       context: {

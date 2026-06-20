@@ -207,6 +207,50 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes search.results.pluck(:item_id), other_note.id
   end
 
+  test "creator: handle lookup is case-insensitive" do
+    # Agents may construct a search from a @Mention they saw rendered in
+    # mixed case. The end-to-end contract is: parser downcases operator
+    # values + TenantUser model normalizes handle on query. Pin both layers
+    # via this regression test.
+    my_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "My note")
+    SearchIndexer.reindex(my_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "creator:@#{@user.handle.upcase} cycle:all"
+    )
+    assert_includes search.results.pluck(:item_id), my_note.id,
+                    "creator:@HANDLE (uppercase) should match the same user as the stored lowercase handle"
+  end
+
+  test "collective: handle lookup is case-insensitive when collective context is unset" do
+    # `collective:HANDLE` only runs the find_by path when the search has no
+    # collective context (the early-return guard otherwise). Collective has
+    # no `normalizes :handle`, so this works only because the parser
+    # downcases operator values. Pin by putting notes in TWO collectives and
+    # confirming the upcased operator narrows to the named one only.
+    other_collective = create_collective(
+      tenant: @tenant,
+      created_by: @user,
+      handle: "case-insens-other-#{SecureRandom.hex(2)}"
+    )
+    other_collective.add_user!(@user)
+    in_target = create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "in target")
+    in_other = create_note(tenant: @tenant, collective: other_collective, created_by: @user, title: "in other")
+    SearchIndexer.reindex(in_target)
+    SearchIndexer.reindex(in_other)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: nil, current_user: @user,
+      raw_query: "collective:#{@collective.handle.upcase} cycle:all"
+    )
+    ids = search.results.pluck(:item_id)
+    assert_includes ids, in_target.id,
+                    "collective:HANDLE (uppercase) should resolve to the target collective"
+    refute_includes ids, in_other.id,
+                    "collective:HANDLE must narrow — note in other collective should not leak in"
+  end
+
   test "not_mine filter excludes items created by current user" do
     other_user = create_user(email: "other_not_mine@example.com", name: "Other Not Mine User")
     @tenant.add_user!(other_user)

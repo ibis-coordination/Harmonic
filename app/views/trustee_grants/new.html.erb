@@ -1,12 +1,12 @@
 <%
-base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
+base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
 %>
 
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
   [@target_user.display_name, "/u/#{@target_user.handle}"],
   ['Settings', "/u/#{@target_user.handle}/settings"],
-  ['Trustee Grants', base_path],
+  ['Trustee Authorizations', base_path],
   'New'
 ] %>
 
@@ -15,18 +15,18 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
     <div class="pulse-resource-header-top">
       <span class="pulse-resource-type-label">
         <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
-        New Trustee Grant
+        New Trustee Authorization
       </span>
     </div>
-    <h1 class="pulse-resource-title">Create New Trustee Grant</h1>
+    <h1 class="pulse-resource-title">Create New Trustee Authorization</h1>
   </header>
 
   <div class="pulse-resource-body">
-    <p>Grant another user authority to act on your behalf. They will need to accept the trustee grant before they can use it.</p>
+    <p>Grant another user authority to act on your behalf. They will need to accept the trustee authorization before they can use it.</p>
 
-    <%= form_tag "#{base_path}/new/actions/create_trustee_grant", method: :post, class: "pulse-form" do %>
+    <%= form_tag "#{base_path}/new/actions/create_trustee_authorization", method: :post, class: "pulse-form" do %>
       <section class="pulse-settings-section">
-        <label for="trustee_user_id" class="pulse-label">Who should receive this trustee grant? *</label>
+        <label for="trustee_user_id" class="pulse-label">Who should receive this trustee authorization? *</label>
         <select name="trustee_user_id" id="trustee_user_id" class="pulse-form-input" required>
           <option value="">Select a user...</option>
           <% @available_users.each do |user| %>
@@ -57,7 +57,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
                data-controller="radio-toggle"
                data-radio-toggle-hide-on-value="all">
         <label class="pulse-label">Which collectives?</label>
-        <p class="pulse-text-muted">Choose which collectives this trustee grant applies to.</p>
+        <p class="pulse-text-muted">Choose which collectives this trustee authorization applies to.</p>
 
         <div class="pulse-radio-group">
           <label class="pulse-radio-label">
@@ -95,7 +95,7 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-grants"
       </section>
 
       <section class="pulse-settings-section pulse-action-row">
-        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create Trustee Grant</button>
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Create Trustee Authorization</button>
         <a href="<%= base_path %>" class="pulse-action-btn">Cancel</a>
       </section>
     <% end %>

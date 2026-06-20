@@ -164,7 +164,7 @@ class TrusteeGrant < ApplicationRecord
     handle = granting_user&.tenant_users&.first&.handle
     return nil unless handle
 
-    "/u/#{handle}/settings/trustee-grants/#{truncated_id}"
+    "/u/#{handle}/settings/trustee-authorizations/#{truncated_id}"
   end
 
   sig { void }

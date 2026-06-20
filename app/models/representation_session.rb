@@ -9,6 +9,8 @@ class RepresentationSession < ApplicationRecord
   include MightNotBelongToCollective
   include Statementable
 
+  SESSION_LIFETIME = T.let(1.hour, ActiveSupport::Duration)
+
   belongs_to :tenant
   belongs_to :collective, optional: true
   belongs_to :representative_user, class_name: "User"
@@ -56,10 +58,8 @@ class RepresentationSession < ApplicationRecord
 
   sig { void }
   def begin!
-    # TODO: - add a check for active representation session
     raise "Must confirm understanding" unless confirmed_understanding
 
-    # TODO: - add more validations
     self.began_at = T.cast(Time.current, ActiveSupport::TimeWithZone) if began_at.nil?
     save!
   end
@@ -91,7 +91,7 @@ class RepresentationSession < ApplicationRecord
 
   sig { returns(ActiveSupport::TimeWithZone) }
   def expires_at
-    T.must(began_at) + 24.hours
+    T.must(began_at) + SESSION_LIFETIME
   end
 
   sig { returns(T::Boolean) }
@@ -204,7 +204,7 @@ class RepresentationSession < ApplicationRecord
       grant = trustee_grant
       raise "Invalid state: RepresentationSession #{id} has no collective and no trustee_grant" unless grant
 
-      "/u/#{T.must(grant.granting_user).handle}/settings/trustee-grants/#{grant.truncated_id}"
+      "/u/#{T.must(grant.granting_user).handle}/settings/trustee-authorizations/#{grant.truncated_id}"
 
     end
   end

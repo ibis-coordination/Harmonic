@@ -38,7 +38,7 @@ class RepresentationSessionsController < ApplicationController
 
   def represent
     # Collective representation page - only shows option to represent the collective itself.
-    # User representation is initiated from the trustee grants settings page instead.
+    # User representation is initiated from the trustee authorizations settings page instead.
     @can_represent_collective = @current_user.collective_member&.can_represent?
 
     if @can_represent_collective
@@ -83,7 +83,7 @@ class RepresentationSessionsController < ApplicationController
     redirect_to "/representing"
   end
 
-  # Start a user representation session via trustee grant
+  # Start a user representation session via trustee authorization
   def start_representing_user
     # Block nested representation sessions - a user can only represent one entity at a time
     if current_representation_session
@@ -91,20 +91,20 @@ class RepresentationSessionsController < ApplicationController
       return redirect_to "/representing"
     end
 
-    # Find the trustee grant
+    # Find the trustee authorization
     grant_id = params[:trustee_grant_id]
     return render status: :bad_request, plain: "400 Bad Request - trustee_grant_id required" unless grant_id
 
     # Find grant where current user is the trustee (they can act on behalf of the granting user)
     grant = TrusteeGrant.find_by(id: grant_id, trustee_user: current_user)
     unless grant&.active?
-      flash[:alert] = "Trustee grant not found or not active."
+      flash[:alert] = "Trustee authorization not found or not active."
       return redirect_to request.referer || root_path
     end
 
     # Verify the grant allows the current collective context
     unless grant.allows_collective?(current_collective)
-      flash[:alert] = "This trustee grant does not include this collective."
+      flash[:alert] = "This trustee authorization does not include this collective."
       return redirect_to request.referer || root_path
     end
 
@@ -131,12 +131,23 @@ class RepresentationSessionsController < ApplicationController
     @page_title = "Representing"
     @sidebar_mode = "none"
     @representation_session = current_representation_session
-    return redirect_to root_path unless @representation_session
+
+    unless @representation_session
+      return respond_to do |format|
+        format.html { redirect_to root_path }
+        format.md { render plain: "# Not representing\n\nYou have no active representation session.", status: :ok }
+      end
+    end
 
     @collective = @representation_session.collective
     # For user representation, use the represented user's (granting_user/ai_agent) collectives, not the parent's
     collectives_user = @representation_session.user_representation? ? @representation_session.represented_user : current_user
     @other_collectives = collectives_user.collectives.listable.where.not(id: @current_tenant.main_collective_id)
+
+    respond_to do |format|
+      format.html
+      format.md
+    end
   end
 
   def stop_representing
@@ -200,7 +211,7 @@ class RepresentationSessionsController < ApplicationController
         format.html do
           flash[:notice] = "Your representation session has ended."
           if grant && @current_human_user
-            redirect_to "/u/#{@current_human_user.handle}/settings/trustee-grants/#{grant.truncated_id}"
+            redirect_to "/u/#{@current_human_user.handle}/settings/trustee-authorizations/#{grant.truncated_id}"
           else
             redirect_to root_path
           end

@@ -4,7 +4,7 @@
 <% if is_user_representation %>
   <%= render 'shared/pulse_breadcrumb', items: [
     ['Home', '/'],
-    ['Trustee Grants', "/u/#{@current_human_user.handle}/settings/trustee-grants"],
+    ['Trustee Authorizations', "/u/#{@current_human_user.handle}/settings/trustee-authorizations"],
     'Active Session'
   ] %>
 <% else %>
@@ -77,7 +77,7 @@
         <% scoped_collectives = @other_collectives.select { |s| grant.allows_collective?(s) } %>
         <% if scoped_collectives.empty? %>
           <p class="pulse-muted">
-            No collectives are currently available within the scope of this trustee grant.
+            No collectives are currently available within the scope of this trustee authorization.
           </p>
         <% else %>
           <p>

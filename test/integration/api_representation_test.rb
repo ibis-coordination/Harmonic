@@ -72,7 +72,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   # Helper to start a representation session via the API
   # Returns the session ID (full UUID) from the response
   def start_representation_session_via_api(grant:, headers: @headers)
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/actions/start_representation",
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
          headers: headers
 
     assert_response :success, "Failed to start representation session: #{response.body}"
@@ -90,7 +90,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => session_id,
       "X-Representing-User" => grant.granting_user.handle
     )
-    post "/u/#{@bob.handle}/settings/trustee-grants/#{grant.truncated_id}/actions/end_representation",
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
          headers: headers_with_session
 
     assert_response :success, "Failed to end representation session: #{response.body}"
@@ -289,13 +289,14 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   end
 
   # =========================================================================
-  # ACTIVE SESSION WITHOUT HEADER - SHOULD ERROR
+  # ACTIVE SESSION WITHOUT HEADER - SELF-ACTING WITH WARNING
   # When a user has an active representation session but makes an API call
-  # without the X-Representation-Session-ID header, the API should return
-  # an error to prevent accidental actions as the wrong identity.
+  # without the X-Representation-Session-ID header, the call succeeds as
+  # self-acting and the markdown layout includes a warning surfacing the
+  # unattached session and how to either attach it or end it.
   # =========================================================================
 
-  test "API rejects request when user has active session but header is missing" do
+  test "self-acting markdown call succeeds when user has an unattached active rep session" do
     grant = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
@@ -304,23 +305,260 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     )
     grant.accept!
 
-    # Bob starts a representation session via API
-    session_id = start_representation_session_via_api(grant: grant)
+    start_representation_session_via_api(grant: grant)
 
-    # Bob makes an API call WITHOUT the X-Representation-Session-ID header
-    # Even though the session exists, we're not passing it
     get @collective.path, headers: @headers
 
-    # Should return 409 Conflict with info about active session
-    # This forces the API caller to be explicit about their intent
-    assert_response :conflict,
-                    "API should reject request when user has active representation session " \
-                    "but X-Representation-Session-ID header is missing. Got #{response.status}"
+    assert_response :success,
+                    "Self-acting markdown call should succeed when an active rep session exists but is not attached. " \
+                    "Got #{response.status}: #{response.body[0..200]}"
+  end
 
-    # The error response should include the active session ID so caller can fix their request
+  test "markdown layout surfaces a warning when an unattached rep session is active" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant.accept!
+
+    session_id = start_representation_session_via_api(grant: grant)
+
+    get @collective.path, headers: @headers
+    assert_response :success
+
     body = response.body
+    assert_includes body, "active representation session",
+                    "Warning should announce the unattached active session"
     assert_includes body, session_id,
-                    "Error response should include the active session ID"
+                    "Warning should include the session id so the agent can attach it"
+    assert_includes body, @alice.handle,
+                    "Warning should name the represented user"
+    assert_includes body, "end_representation",
+                    "Warning should tell the agent how to end the session"
+    assert_includes body, "representation_session_id",
+                    "Warning should reference the MCP context field name agents actually set"
+    assert_includes body, "identity.acting_as",
+                    "Warning should reference identity.acting_as (the write-side rep handle field)"
+    assert_includes body, "identity.viewing_as",
+                    "Warning should reference identity.viewing_as (the read-side rep handle field)"
+  end
+
+  test "no warning is rendered when the rep session is attached to the request" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true },
+      collective_scope: { "mode" => "all" }
+    )
+    grant.accept!
+
+    session_id = start_representation_session_via_api(grant: grant)
+
+    get @collective.path, headers: @headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-User" => @alice.handle,
+    )
+    assert_response :success
+    refute_includes response.body, "active representation session",
+                    "No unattached-session warning when the session is attached to the request"
+  end
+
+  test "no warning is rendered when the user has no active rep session" do
+    get @collective.path, headers: @headers
+    assert_response :success
+    refute_includes response.body, "active representation session",
+                    "No warning when there is no active rep session at all"
+  end
+
+  test "warning end path uses the actor handle even when a rep session is attached" do
+    # Defensive: if an actor has session A attached AND session B unattached
+    # (rare under singleton enforcement but possible across mixed browser/API
+    # flows), the warning for B must point the agent at THEIR own /u/<handle>
+    # path — not the represented user's path, which they can't self-act under.
+    grant_a = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true },
+      collective_scope: { "mode" => "all" }
+    )
+    grant_a.accept!
+    session_a_id = start_representation_session_via_api(grant: grant_a)
+
+    # Construct an additional unattached session for the same trustee, bypassing
+    # the singleton check (which only fires on the user-rep start path).
+    other_grantor = create_user(email: "other_g_#{SecureRandom.hex(4)}@example.com", name: "Other Grantor")
+    @tenant.add_user!(other_grantor)
+    mark_activated!(other_grantor)
+    @collective.add_user!(other_grantor)
+    grant_b = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_grantor,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant_b.accept!
+    session_b = RepresentationSession.tenant_scoped_only(@tenant.id).create!(
+      tenant: @tenant,
+      representative_user: @bob,
+      trustee_grant: grant_b,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+
+    get @collective.path, headers: @headers.merge(
+      "X-Representation-Session-ID" => session_a_id,
+      "X-Representing-User" => @alice.handle,
+    )
+    assert_response :success
+    body = response.body
+    assert_includes body, session_b.id,
+                    "Warning should call out the unattached session B"
+    refute_includes body, session_a_id,
+                    "Warning must not list session A (the attached one)"
+    assert_includes body, "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}",
+                    "End path must use the trustee's own handle so they can self-act on it"
+    refute_includes body, "/u/#{other_grantor.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}",
+                    "End path must NOT point at the grantor's URL — the trustee can't self-act there"
+  end
+
+  test "starting a new rep session while one is already active raises with the end recipe" do
+    # Pin that the singleton-active-session property is enforced at session
+    # creation time (post-gate-drop). The error names the existing session id
+    # and the end path so the agent can recover.
+    grant_a = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant_a.accept!
+
+    other_grantor = create_user(email: "other_grantor_#{SecureRandom.hex(4)}@example.com", name: "Other Grantor")
+    @tenant.add_user!(other_grantor)
+    mark_activated!(other_grantor)
+    @collective.add_user!(other_grantor)
+    grant_b = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_grantor,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant_b.accept!
+
+    session_a_id = start_representation_session_via_api(grant: grant_a)
+
+    # Bob tries to start a second session (on a different grant) without
+    # attaching session A. With the gate dropped this used to silently
+    # create a second session — now it must error.
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}/actions/start_representation",
+         headers: @headers
+    refute_equal 200, response.status,
+                 "Starting a second concurrent session should fail, got 200 with body: #{response.body[0..300]}"
+
+    body = response.body
+    assert_includes body, session_a_id,
+                    "Error must name the existing session id so the agent can identify it"
+    assert_includes body, "end_representation",
+                    "Error must reference the end mechanism"
+    assert_includes body, grant_a.truncated_id,
+                    "Error's end path must reference the existing session's grant"
+
+    # Only one session was created — the second start did not slip through.
+    active_sessions = RepresentationSession.tenant_scoped_only(@tenant.id).where(
+      representative_user_id: @bob.id,
+      ended_at: nil,
+    )
+    assert_equal 1, active_sessions.count,
+                 "Exactly one active session should exist; the second start must not have created one"
+    assert_equal session_a_id, active_sessions.first.id
+  end
+
+  test "starting a rep session on the same grant while one is active raises" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant.accept!
+
+    session_a_id = start_representation_session_via_api(grant: grant)
+
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
+         headers: @headers
+    refute_equal 200, response.status,
+                 "Re-starting on the same grant while a session is active should fail"
+
+    active_count = RepresentationSession.tenant_scoped_only(@tenant.id).where(
+      representative_user_id: @bob.id,
+      ended_at: nil,
+    ).count
+    assert_equal 1, active_count
+
+    assert_equal session_a_id, RepresentationSession.tenant_scoped_only(@tenant.id).where(
+      representative_user_id: @bob.id,
+      ended_at: nil,
+    ).first.id
+  end
+
+  test "starting a rep session after the prior one ended succeeds" do
+    grant_a = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant_a.accept!
+
+    session_a_id = start_representation_session_via_api(grant: grant_a)
+    RepresentationSession.find(session_a_id).end!
+
+    # Now starting another session should work
+    other_grantor = create_user(email: "post_end_grantor_#{SecureRandom.hex(4)}@example.com", name: "Post-end Grantor")
+    @tenant.add_user!(other_grantor)
+    mark_activated!(other_grantor)
+    @collective.add_user!(other_grantor)
+    grant_b = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: other_grantor,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant_b.accept!
+
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}/actions/start_representation",
+         headers: @headers
+    assert_response :success, "Starting a new session after the prior one ended should succeed: #{response.body[0..300]}"
+  end
+
+  test "warning's prescribed end path actually ends the session when the agent self-acts" do
+    # Pin that the end path surfaced in the markdown warning is accessible to
+    # the trustee under self-acting auth and actually ends the session. The
+    # warning points the trustee at their own /u/<handle>/settings/trustee-
+    # authorizations/<grant_id> view (not the grantor's view returned by
+    # RepresentationSession#path, which the trustee cannot reach self-acting).
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_notes" => true }
+    )
+    grant.accept!
+
+    session_id = start_representation_session_via_api(grant: grant)
+    session = RepresentationSession.find(session_id)
+    assert session.active?, "session should be active before end"
+
+    end_path = "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation"
+
+    post end_path, headers: @headers
+    assert_response :success, "end_representation at the warning's path should succeed: #{response.body[0..300]}"
+
+    assert session.reload.ended?, "session should be ended after calling the warning's prescribed end path"
   end
 
   # =========================================================================
@@ -641,5 +879,26 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     # Step 4: Verify session ID no longer works
     get @collective.path, headers: headers_with_representation
     assert_response :forbidden, "Ended session should be rejected"
+  end
+
+  test "GET /representing renders markdown for API/MCP callers under an active session" do
+    # The /representing page is the documented recovery surface for agents
+    # who lose track of their active rep state. Without a markdown template,
+    # an MCP client requesting it crashes with ActionController::UnknownFormat.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @alice, trustee_user: @bob,
+      permissions: nil, collective_scope: { "mode" => "all" },
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+
+    get "/representing", headers: @headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-User" => @alice.handle,
+    )
+
+    assert_response :success
+    assert_equal "text/markdown; charset=utf-8", response.headers["Content-Type"]
+    assert_match(/Representing|representation/i, response.body)
   end
 end

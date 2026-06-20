@@ -1,0 +1,56 @@
+<%
+  is_user_representation = @representation_session.user_representation?
+  represented_user = @representation_session.represented_user
+  grant = @representation_session.trustee_grant
+  scoped_collectives = if grant
+    @other_collectives.select { |s| grant.allows_collective?(s) }
+  else
+    @other_collectives
+  end
+-%>
+# Active representation session
+
+<% if is_user_representation -%>
+You are acting on behalf of **<%= represented_user&.display_name || represented_user&.handle %>** (@<%= represented_user&.handle %>).
+<% else -%>
+You are representing **<%= @collective.name %>** ([<%= @collective.path %>](<%= @collective.path %>)).
+<% end -%>
+
+Every action you take in this session is attributed to the represented entity and recorded in the session log.
+
+| Field | Value |
+|-------|-------|
+| Session ID | `<%= @representation_session.id %>` |
+| Short ID | `<%= @representation_session.truncated_id %>` |
+| Started | <%= @representation_session.began_at.utc.strftime("%Y-%m-%d %H:%M UTC") %> |
+| Expires | <%= @representation_session.expires_at.utc.strftime("%Y-%m-%d %H:%M UTC") %> |
+| Type | <%= is_user_representation ? "User representation" : "Collective representation" %> |
+
+<% if is_user_representation -%>
+## Granted capabilities
+
+<% if grant&.permissions.present? -%>
+<% grant.permissions.each do |capability, enabled| -%>
+<% next unless enabled -%>
+- `<%= capability %>`
+<% end -%>
+<% else -%>
+No specific capabilities granted.
+<% end -%>
+
+<% end -%>
+## Available collectives
+
+<% if scoped_collectives.empty? -%>
+No other collectives are currently available within this session's scope.
+<% else -%>
+You can act <%= is_user_representation ? "on behalf of #{represented_user&.display_name}" : "as #{@collective.name}" %> in:
+
+<% scoped_collectives.each do |c| -%>
+- [<%= c.name %>](<%= c.path %>)
+<% end -%>
+<% end -%>
+
+## Ending the session
+
+To end this session, call `execute_action` with `end_representation` on the originating <%= is_user_representation ? "trustee authorization" : "collective representation" %>, or send `DELETE /representing` with `X-Representation-Session-ID: <%= @representation_session.id %>`.

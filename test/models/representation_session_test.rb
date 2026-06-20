@@ -161,22 +161,22 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.ended?
   end
 
-  test "expired? returns true after 24 hours" do
+  test "expired? returns true after 1 hour" do
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
       representative: @user,
-      began_at: 25.hours.ago,
+      began_at: 65.minutes.ago,
     )
     assert session.expired?
   end
 
-  test "expired? returns false within 24 hours" do
+  test "expired? returns false within 1 hour" do
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
       representative: @user,
-      began_at: 23.hours.ago,
+      began_at: 55.minutes.ago,
     )
     assert_not session.expired?
   end
@@ -191,34 +191,34 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     assert session.expired?
   end
 
-  test "expires_at returns began_at + 24 hours" do
-    began = 2.hours.ago
+  test "expires_at returns began_at + 1 hour" do
+    began = 10.minutes.ago
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
       representative: @user,
       began_at: began,
     )
-    assert_in_delta began + 24.hours, session.expires_at, 1.second
+    assert_in_delta began + 1.hour, session.expires_at, 1.second
   end
 
-  test "expired? at the exact 24-hour boundary returns false (still valid)" do
+  test "expired? at the exact 1-hour boundary returns false (still valid)" do
     # `expired?` uses strict-greater-than against expires_at. At the exact
     # boundary the session counts as still valid (by a microsecond). Pin
     # that behavior so a future refactor doesn't flip the inequality.
-    began = 24.hours.ago
+    began = 1.hour.ago
     session = create_representation_session(
       tenant: @tenant,
       collective: @collective,
       representative: @user,
       began_at: began,
     )
-    # Freeze Time.current to exactly began_at + 24.hours.
-    travel_to began + 24.hours do
+    # Freeze Time.current to exactly began_at + 1.hour.
+    travel_to began + 1.hour do
       assert_not session.expired?, "session at the boundary should still be valid"
     end
     # And one second past the boundary it's expired.
-    travel_to began + 24.hours + 1.second do
+    travel_to began + 1.hour + 1.second do
       assert session.expired?, "session past the boundary should be expired"
     end
   end
@@ -532,7 +532,7 @@ class RepresentationSessionTest < ActiveSupport::TestCase
     existing_active_session = RepresentationSession.where(
       representative_user: @user,
       ended_at: nil,
-    ).where("began_at > ?", 24.hours.ago).first
+    ).where("began_at > ?", 1.hour.ago).first
 
     assert existing_active_session.present?, "Should find existing active session"
     assert_equal first_session, existing_active_session

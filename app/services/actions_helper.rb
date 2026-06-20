@@ -806,8 +806,8 @@ class ActionsHelper
       visibility: :shared,
     },
 
-    # Trustee Grant actions
-    "create_trustee_grant" => {
+    # Trustee Authorization actions
+    "create_trustee_authorization" => {
       description: "Grant another user authority to act on your behalf",
       params_string: "(trustee_user_id, permissions, collective_scope_mode, collective_ids, expires_at)",
       params: [
@@ -815,27 +815,27 @@ class ActionsHelper
         { name: "permissions", type: "array", required: true, description: "Array of capability names to grant (e.g., create_notes, vote, commit)" },
         { name: "collective_scope_mode", type: "string", description: 'Collective scope mode: "all" (default), "include", or "exclude"' },
         { name: "collective_ids", type: "array", description: "Array of collective IDs for include/exclude modes" },
-        { name: "expires_at", type: "datetime", description: "When the trustee grant expires (optional)" },
+        { name: "expires_at", type: "datetime", description: "When the trustee authorization expires (optional)" },
       ],
       authorization: :self,
       visibility: :shared,
     },
-    "accept_trustee_grant" => {
-      description: "Accept a trustee grant request",
+    "accept_trustee_authorization" => {
+      description: "Accept a trustee authorization request",
       params_string: "()",
       params: [],
       authorization: :self,
       visibility: :shared,
     },
-    "decline_trustee_grant" => {
-      description: "Decline a trustee grant request",
+    "decline_trustee_authorization" => {
+      description: "Decline a trustee authorization request",
       params_string: "()",
       params: [],
       authorization: :self,
       visibility: :shared,
     },
-    "revoke_trustee_grant" => {
-      description: "Revoke a trustee grant you previously created",
+    "revoke_trustee_authorization" => {
+      description: "Revoke a trustee authorization you previously created",
       params_string: "()",
       params: [],
       authorization: :self,
@@ -1513,26 +1513,26 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["test_webhook"][:description], },
       ],
     },
-    "/u/:handle/settings/trustee-grants" => {
+    "/u/:handle/settings/trustee-authorizations" => {
       controller_actions: ["trustee_grants#index"],
       actions: [],
     },
-    "/u/:handle/settings/trustee-grants/new" => {
+    "/u/:handle/settings/trustee-authorizations/new" => {
       controller_actions: ["trustee_grants#new"],
       actions: [
-        { name: "create_trustee_grant", params_string: ACTION_DEFINITIONS["create_trustee_grant"][:params_string],
-          description: ACTION_DEFINITIONS["create_trustee_grant"][:description], },
+        { name: "create_trustee_authorization", params_string: ACTION_DEFINITIONS["create_trustee_authorization"][:params_string],
+          description: ACTION_DEFINITIONS["create_trustee_authorization"][:description], },
       ],
     },
-    "/u/:handle/settings/trustee-grants/:grant_id" => {
+    "/u/:handle/settings/trustee-authorizations/:grant_id" => {
       controller_actions: ["trustee_grants#show"],
       actions: [
-        { name: "accept_trustee_grant", params_string: ACTION_DEFINITIONS["accept_trustee_grant"][:params_string],
-          description: ACTION_DEFINITIONS["accept_trustee_grant"][:description], },
-        { name: "decline_trustee_grant", params_string: ACTION_DEFINITIONS["decline_trustee_grant"][:params_string],
-          description: ACTION_DEFINITIONS["decline_trustee_grant"][:description], },
-        { name: "revoke_trustee_grant", params_string: ACTION_DEFINITIONS["revoke_trustee_grant"][:params_string],
-          description: ACTION_DEFINITIONS["revoke_trustee_grant"][:description], },
+        { name: "accept_trustee_authorization", params_string: ACTION_DEFINITIONS["accept_trustee_authorization"][:params_string],
+          description: ACTION_DEFINITIONS["accept_trustee_authorization"][:description], },
+        { name: "decline_trustee_authorization", params_string: ACTION_DEFINITIONS["decline_trustee_authorization"][:params_string],
+          description: ACTION_DEFINITIONS["decline_trustee_authorization"][:description], },
+        { name: "revoke_trustee_authorization", params_string: ACTION_DEFINITIONS["revoke_trustee_authorization"][:params_string],
+          description: ACTION_DEFINITIONS["revoke_trustee_authorization"][:description], },
         { name: "start_representation", params_string: ACTION_DEFINITIONS["start_representation"][:params_string],
           description: ACTION_DEFINITIONS["start_representation"][:description], },
         { name: "end_representation", params_string: ACTION_DEFINITIONS["end_representation"][:params_string],
