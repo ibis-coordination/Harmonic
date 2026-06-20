@@ -33,4 +33,14 @@ class Current < ActiveSupport::CurrentAttributes
   # Data import flag — when true, model concerns (Tracked, Searchable, etc.)
   # skip side effects like Event creation and search indexing
   attribute :importing_data
+
+  # The representative when an action is being taken under a representation
+  # session. Set by ApplicationController during request resolution alongside
+  # `@current_representation_session` (request-entry-scoped, like
+  # `tenant_id` — every request has at most one rep state). Read via
+  # `RepresentationContext.current_representative_user` by model hooks that
+  # need to attribute auto-generated side effects (e.g. read confirmations)
+  # to the user who actually performed the action rather than the
+  # represented user.
+  attribute :acting_representative_user
 end

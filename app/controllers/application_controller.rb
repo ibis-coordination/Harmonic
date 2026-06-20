@@ -344,6 +344,7 @@ class ApplicationController < ActionController::Base
 
     # All validations passed - apply representation
     @current_representation_session = rep_session
+    RepresentationContext.set!(rep_session.representative_user)
     @current_user = rep_session.effective_user
     rep_session.effective_user
   end
@@ -480,6 +481,7 @@ class ApplicationController < ActionController::Base
 
     # All validations passed - apply representation
     @current_representation_session = rep_session
+    RepresentationContext.set!(rep_session.representative_user)
     @current_user = rep_session.effective_user
   end
 
@@ -693,6 +695,7 @@ class ApplicationController < ActionController::Base
     @current_user = @current_human_user
     @current_representation_session&.end!
     @current_representation_session = nil
+    RepresentationContext.clear!
   end
 
   attr_reader :current_human_user

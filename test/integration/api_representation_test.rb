@@ -603,6 +603,77 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
                     "Create line should name the represented user (#{@alice.handle})"
   end
 
+  test "creating a note under rep auto-confirms the representative, not the represented user" do
+    # The Note `after_create` hook records a `read_confirmation` for the
+    # author. Under rep, `created_by` is the represented user — who did NOT
+    # actually see the note — so the read-confirmation was inflating reader
+    # counts with a falsehood. Pin that the representative gets the auto-
+    # confirmation, and the represented user does not.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_note" => true },
+      collective_scope: { "mode" => "all" }
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
+         params: { title: "Rep'd note", text: "Posted under rep" },
+         headers: @headers.merge(
+           "X-Representation-Session-ID" => session_id,
+           "X-Representing-User" => @alice.handle,
+         )
+    assert_response :success
+    note = Note.where(title: "Rep'd note").last
+    assert note, "note should have been created"
+
+    confirmations = NoteHistoryEvent.where(note: note, event_type: "read_confirmation")
+    assert_equal [@bob.id], confirmations.pluck(:user_id),
+                 "Only the representative should have an auto-read-confirmation; the represented user must not be implicitly marked as having read the note"
+  end
+
+  test "creating a comment under rep auto-confirms the representative on parent and comment" do
+    # The Note `after_create` hook also auto-confirms the parent (commentable)
+    # when the new note is a comment — same falsehood under rep. The
+    # representative read the parent (they had to in order to reply); the
+    # represented user did not.
+    parent_collective_member = create_user(email: "parent_author_#{SecureRandom.hex(4)}@example.com", name: "Parent Author")
+    @tenant.add_user!(parent_collective_member)
+    mark_activated!(parent_collective_member)
+    @collective.add_user!(parent_collective_member)
+    parent_note = create_note(tenant: @tenant, collective: @collective, created_by: parent_collective_member, title: "Parent")
+
+    grant = TrusteeGrant.create!(
+      tenant: @tenant,
+      granting_user: @alice,
+      trustee_user: @bob,
+      permissions: { "create_note" => true, "add_comment" => true },
+      collective_scope: { "mode" => "all" }
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+
+    post "#{parent_note.path}/actions/add_comment",
+         params: { text: "Reply under rep" },
+         headers: @headers.merge(
+           "X-Representation-Session-ID" => session_id,
+           "X-Representing-User" => @alice.handle,
+         )
+    assert_response :success
+    comment = Note.where(text: "Reply under rep").last
+    assert comment, "comment should have been created"
+
+    comment_confirmations = NoteHistoryEvent.where(note: comment, event_type: "read_confirmation").pluck(:user_id)
+    assert_includes comment_confirmations, @bob.id, "Representative should be auto-confirmed on the comment"
+    refute_includes comment_confirmations, @alice.id, "Represented user must not be auto-confirmed on the comment"
+
+    parent_confirmations = NoteHistoryEvent.where(note: parent_note, event_type: "read_confirmation").pluck(:user_id)
+    assert_includes parent_confirmations, @bob.id, "Representative should be auto-confirmed on the parent (they read it in order to reply)"
+    refute_includes parent_confirmations, @alice.id, "Represented user must not be auto-confirmed on the parent"
+  end
+
   test "note history shows a single user for a note created without representation" do
     # Regression guard: the rep-aware attribution must not change the shape
     # of the history line when no representation was involved.
