@@ -287,7 +287,7 @@ class ApplicationController < ActionController::Base
     if session_id.present?
       resolve_api_representation(user, session_id)
     else
-      check_for_active_representation_session(user)
+      user
     end
   end
 
@@ -401,31 +401,6 @@ class ApplicationController < ActionController::Base
     request.path == "/representing" ||
       request.path.match?(%r{^/collectives/[^/]+/represent$}) ||
       request.path.match?(%r{^/collectives/[^/]+/r/[^/]+$})
-  end
-
-  # Checks if the user has any active representation sessions when no header is provided.
-  # Returns 409 Conflict if active session exists, forcing explicit intent.
-  #
-  # @param user [User] The token's user
-  # @return [User] The user if no active sessions, or renders error and returns nil
-  def check_for_active_representation_session(user)
-    # Check for active representation sessions where this user is the representative
-    # Uses tenant_scoped_only to bypass collective scope but keep tenant scope
-    active_session = RepresentationSession.tenant_scoped_only(current_tenant.id).where(
-      representative_user_id: user.id,
-      ended_at: nil
-    ).where("began_at > ?", 24.hours.ago).first
-
-    if active_session
-      render json: {
-        error: "Active representation session exists. Include X-Representation-Session-ID header to act as trustee, or end the session first.",
-        active_session_id: active_session.id,
-      }, status: :conflict
-      return nil
-    end
-
-    # No active session - proceed as the token's user
-    user
   end
 
   # Resolves user identity for browser session-authenticated requests.
@@ -779,6 +754,36 @@ class ApplicationController < ActionController::Base
                               end
   end
   helper_method :block_related_user_ids
+
+  # The user who initiated this request — token owner for API/MCP, logged-in
+  # human for browser. Under representation, `current_user` returns the
+  # represented user, but the actor (representative) is the one who can end
+  # a rep session and is the relevant identity for the markdown warning.
+  def current_actor
+    return @current_actor if defined?(@current_actor)
+
+    @current_actor = @current_token&.user || @current_human_user
+  end
+  helper_method :current_actor
+
+  # Active representation sessions owned by this caller that are not attached
+  # to the current request. The markdown layout surfaces these as a warning
+  # so the agent can attach or end them.
+  def unattached_rep_sessions
+    return @unattached_rep_sessions if defined?(@unattached_rep_sessions)
+
+    actor = current_actor
+    return (@unattached_rep_sessions = []) if actor.nil?
+
+    query = RepresentationSession.tenant_scoped_only(current_tenant.id).where(
+      representative_user_id: actor.id,
+      ended_at: nil
+    ).where("began_at > ?", RepresentationSession::SESSION_LIFETIME.ago)
+    query = query.where.not(id: @current_representation_session.id) if @current_representation_session
+
+    @unattached_rep_sessions = query.to_a
+  end
+  helper_method :unattached_rep_sessions
 
   # True only for anon viewer + public main collective tenant + allows_anonymous
   # action + HTML format. Single source of truth for both the X-Robots-Tag

@@ -319,7 +319,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
     active_sessions = RepresentationSession.where(
       representative_user: @bob,
       ended_at: nil
-    ).where("began_at > ?", 24.hours.ago)
+    ).where("began_at > ?", 1.hour.ago)
 
     assert_equal 1, active_sessions.count
     assert_equal session1, active_sessions.first

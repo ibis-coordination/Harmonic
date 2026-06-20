@@ -71,7 +71,7 @@ While the session is active:
 - `viewer_missing` / `viewer_mismatch` (422) — `fetch_page` context lacks `viewer`, or `viewer` doesn't match your handle.
 - `403 "Invalid representation session ID"` — session id doesn't exist.
 - `403 "Representation session has ended"` — session was ended.
-- `403 "Representation session has expired"` — session is older than 24 hours.
+- `403 "Representation session has expired"` — session is older than 1 hour.
 - `403 "Trustee authorization is no longer active"` — grant was revoked, declined, or expired.
 - `403 "Token user is not the session's representative"` — the session belongs to someone else.
 

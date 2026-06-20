@@ -890,6 +890,23 @@ class ApiHelper
     raise ArgumentError, "Grant must be active" unless grant.active?
     raise ArgumentError, "Current user must be the trustee" unless grant.trustee_user == current_user
 
+    # At most one active session per trustee.
+    existing = RepresentationSession.tenant_scoped_only(current_tenant.id)
+      .where(representative_user_id: current_user.id, ended_at: nil)
+      .where("began_at > ?", RepresentationSession::SESSION_LIFETIME.ago)
+      .first
+    if existing
+      end_hint = if existing.user_representation?
+                   "End it at `/u/#{current_user.handle}/settings/trustee-authorizations/" \
+                     "#{T.must(existing.trustee_grant).truncated_id}` (action `end_representation`)"
+                 else
+                   "End it via `DELETE #{existing.path}`"
+                 end
+      raise ArgumentError,
+            "You already have an active representation session (`#{existing.id}`). " \
+              "#{end_hint} before starting a new one."
+    end
+
     # Both the trustee and the represented user must be fully activated for the
     # current tenant before a session can be created. The trustee (current_user)
     # is implicitly activated — they had to pass the activation gate to reach

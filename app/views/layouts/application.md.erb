@@ -38,6 +38,20 @@ actions:
 <% end -%>
 ---
 nav: | [Home](/) <% if @current_collective && @current_collective != @current_tenant.main_collective -%>| <%= @current_collective.private_workspace? ? "Workspace" : "Collective" %>: [<%= @current_collective.name %>](<%= @current_collective.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%><% if @current_representation_session -%> | acting on behalf of <%= @current_representation_session.representation_label %><% end -%> | [🔍](/search) | [<%= @unread_notification_count %>](/notifications) |
+<% if unattached_rep_sessions.any? -%>
+
+> ⚠️ **You have an active representation session that is not attached to this request.** You are acting as yourself.
+<% unattached_rep_sessions.each do |s| -%>
+<% represented_handle = s.user_representation? ? s.represented_user&.handle : s.collective&.handle -%>
+> - Session `<%= s.id %>` representing <%= s.user_representation? ? "**@#{represented_handle}**" : "the collective **#{represented_handle}**" %>, started <%= time_ago_in_words(s.began_at) %> ago, expires at <%= s.expires_at.iso8601 %>.
+>   - To act under it, set `representation_session_id: "<%= s.id %>"` at the top level of `context` plus `identity.acting_as: "@<%= represented_handle %>"` (writes) or `identity.viewing_as: "@<%= represented_handle %>"` (reads).
+<% if s.user_representation? -%>
+>   - To end it, call `execute_action` with action `end_representation` at `/u/<%= current_actor.handle %>/settings/trustee-authorizations/<%= s.trustee_grant.truncated_id %>`.
+<% else -%>
+>   - To end it, send `DELETE <%= s.path %>` (or fetch [/representing](/representing) under the session for the lifecycle controls).
+<% end -%>
+<% end -%>
+<% end -%>
 
 <%= yield %>
 

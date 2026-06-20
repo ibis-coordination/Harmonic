@@ -95,7 +95,7 @@ return grant.present?
               │     │             │     │
               │     └─────────────┘     │
               │                         │
-              │ end!                    │ 24 hours elapsed
+              │ end!                    │ 1 hour elapsed
               ▼                         ▼
        ┌─────────────┐           ┌─────────────┐
        │    ENDED    │           │   EXPIRED   │
@@ -110,7 +110,7 @@ return grant.present?
 | Created | false | false | Session exists but hasn't begun |
 | Active | true | false | User is actively representing |
 | Ended | false | true | User explicitly stopped representing |
-| Expired | false | true | 24 hours elapsed without ending |
+| Expired | false | true | 1 hour elapsed without ending |
 
 ### Starting a Collective Representation Session
 
@@ -306,7 +306,7 @@ This shows:
 
 ### Session Expiration
 
-Sessions automatically expire after 24 hours even if not explicitly ended. Expired sessions:
+Sessions automatically expire after 1 hour even if not explicitly ended. Expired sessions:
 - Cannot record new activity
 - Show as expired in the UI
 - Still have their activity log preserved
