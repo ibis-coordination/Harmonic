@@ -127,7 +127,7 @@ is_trustee = @grant.trustee_user == @target_user
         <h2 class="pulse-section-title">⚠️ Missing capabilities</h2>
         <p>
           The trustee is an AI agent with rep-lifecycle capabilities missing from its configuration, so it cannot engage with this authorization until they are enabled. Missing:
-          <%= missing_caps.map { |c| content_tag(:code, c) }.join(", ").html_safe %>.
+          <%= safe_join(missing_caps.map { |c| content_tag(:code, c) }, ", ") %>.
         </p>
         <p>
           The agent's owner can enable these at
