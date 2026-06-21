@@ -275,7 +275,12 @@ class ActionsHelperTest < ActiveSupport::TestCase
     config = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/:grant_id")
     assert_not_nil config, "Trustee grant show route must exist"
 
-    action_names = config[:actions].map { |a| a[:name] }
+    # Lifecycle actions on this route are gated by state + viewer-role
+    # conditions (see actions_helper.rb), so they live in conditional_actions
+    # rather than the always-on `actions` list. The route is required to
+    # carry them across the two buckets together.
+    action_names = (config[:actions] || []).map { |a| a[:name] } +
+                   (config[:conditional_actions] || []).map { |a| a[:name] }
 
     expected_actions = %w[
       accept_trustee_authorization
