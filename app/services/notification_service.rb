@@ -62,11 +62,13 @@ class NotificationService
       .where(notifications: { notification_type: "chat_message", url: url })
       .first
 
-    if existing
-      # Already have an unread notification from this sender — nothing to do.
-      # The notification stays at its original position in the inbox.
+    notification = if existing
+      # In-app inbox dedups: keep the existing notification so the recipient
+      # sees one consolidated row, not a pile of unread chat pings. The join
+      # on :notification above guarantees `existing.notification` is non-nil.
+      T.must(existing.notification)
     else
-      notification = Notification.create!(
+      n = Notification.create!(
         tenant: tenant,
         notification_type: "chat_message",
         title: "New message from #{sender.display_name}",
@@ -74,7 +76,7 @@ class NotificationService
       )
 
       NotificationRecipient.create!(
-        notification: notification,
+        notification: n,
         user: recipient,
         tenant: tenant,
         channel: "in_app",
@@ -82,16 +84,22 @@ class NotificationService
         delivered_at: Time.current
       )
 
-      # Chat-message notifications have no triggering Event, so the renderer's
-      # `notification.event.actor` path returns nil. Pass the sender id through
-      # metadata so the webhook payload still resolves an `actor`.
-      fire_notifications_delivered_event(
-        notification: notification,
-        recipient: recipient,
-        channels: ["in_app"],
-        extra_metadata: { "original_actor_id" => sender.id }
-      )
+      n
     end
+
+    # Always fire the event — every chat message is independently meaningful
+    # to notification-webhook subscribers (external agents, integrations).
+    # In-app dedup is a UX concern; webhook delivery is a transport concern.
+    #
+    # Chat-message notifications have no triggering Event, so the renderer's
+    # `notification.event.actor` path returns nil. Pass the sender id through
+    # metadata so the webhook payload still resolves an `actor`.
+    fire_notifications_delivered_event(
+      notification: notification,
+      recipient: recipient,
+      channels: ["in_app"],
+      extra_metadata: { "original_actor_id" => sender.id }
+    )
   end
 
   # Dismiss chat notifications from a specific sender for a user.
