@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.29.0] - 2026-06-21
+
+### Added
+
+- **MCP Connect flow** (#243) — one-click "Connect a client" on the agent settings page mints an MCP-only token and renders a paste-ready install action for 10 harnesses (Claude Code, Claude Desktop, Cline, Codex, Codex Cloud, Continue, Cursor, Goose, Hermes Agent, OpenClaw). Per-harness setup guides under `/help/mcp/connect/`. MCP server name scoped by agent handle so multiple agents coexist in one config. Tokens carry a `client_name` label in the agent settings tokens table. `harmonic://context` is now per-agent (identity, principal, identity prompt, listable collectives), and `/help/agents/getting-started` covers orientation.
+- **Required action-context block on agent `execute_action`** (#244) — MCP calls must declare `context: { identity, visibility, intention }`. The server validates each field against ground truth before dispatch and returns direction-aware corrective hints on mismatch. Each action carries an `:visibility` tier (`:public | :private | :shared | :by_collective`); `EXPECTED_VISIBILITY` lock-in pins all 85 action tiers against drift. MCP-only; humans on REST/markdown unaffected.
+- **Representation via MCP context** (#245) — agents declare `representation_session_id` + `identity.acting_as` (writes) or `identity.viewing_as` (reads) on `execute_action`/`fetch_page`. The endpoint translates to the existing rep header chain; all-or-nothing rule rejects partial declarations. No model changes. New `/help/agents/representation` covers the mechanics.
+- **Unattached-session warning** (#246) — when an open rep session isn't attached to the current request, the markdown layout names the session id, represented handle, expiry, the context fields to attach it, and a working end path.
+- **Capability-dependency warning on the grant show page** (#249) — when the trustee is an AI agent missing any of `accept_trustee_authorization`/`start_representation`/`end_representation`, the page links to the agent's settings. Closes the silent-fail path where the agent would 403 on its first `accept_trustee_authorization`.
+
+### Changed
+
+- **Step-up reverification on agent creation + Connect-token mint** (#243) — `AiAgents#new`/`#execute_create_ai_agent`/`AiAgentConnect#create` gated under the `ai_agents`/`api_tokens` scopes, matching the existing token mint gate. Connect controller also rejects internal AI agents (was UI-only).
+- **Self-acting API calls succeed under an open rep session** (#246) — dropped the request-entry gate that 409'd any unattached request. One-directional and blocked legitimate self-acting reads; the header is now the sole switch to trustee identity. Open sessions surface via the unattached-session warning.
+- **Rep session lifetime 24h → 1h** (#246), consolidated as `RepresentationSession::SESSION_LIFETIME`.
+- **Singleton-active-session enforced at start** (#246) — `ApiHelper#start_user_representation_session` is the single user-rep funnel; rejecting there covers all start paths. Error names the existing session id and the end recipe.
+- **"trustee grant" → "trustee authorization"** (#246) — user-facing copy, URL paths (`/settings/trustee-grants/*` → `/settings/trustee-authorizations/*`), and action names (`accept_trustee_grant` → `accept_trustee_authorization`, same for `decline`/`revoke`/`create`). Old URLs and action paths 308-redirect. Internal symbols unchanged.
+- **Grant show-page action listing is state-aware** (#249) — `accept`/`decline`/`revoke`/`start_representation`/`end_representation` only appear when applicable to the grant's state and viewer's role. Lifecycle actions moved from `actions:` to `conditional_actions:`; `actions_index_show` rewired so both surfaces stay in sync.
+- **Note history line preserves the representative under rep** (#249) — History reads "Claude on behalf of Dan created this note", matching the metadata block above. Was "Dan created this note".
+- **Auto-read-confirmation under rep records the representative** (#249) — via `RepresentationContext` set by `ApplicationController` alongside `@current_representation_session`. The represented user is no longer pre-marked as having read notes the agent created on their behalf.
+
+### Removed
+
+- **Redundant `search` action from `ACTION_DEFINITIONS`** (#244) — the MCP `search` tool is a separate dispatch path.
+
+### Fixed
+
+- **`/representing` markdown crash** (#246) — `UnknownFormat` on MCP fetches; the documented agent discovery path was unreachable.
+- **`/whoami` empty parenthetical under rep** (#246) — template referenced `@current_human_user` (browser-only).
+- **"Pending Requests" wording inverted the trustee relationship** (#246) — the listing read as if the trustee was asking; the granting user offers authority.
+- **`McpToolCallLog#api_token_id` nullified on token destroy** (#244) — was leaving dangling FKs.
+
+### Infrastructure
+
+- **Dependency bumps** — vite 8.0.5 → 8.0.16 (#241), form-data 4.0.5 → 4.0.6 (#242), undici 8.1.0 → 8.5.0 in `/agent-runner` (#247), bundler group (#248).
+
 ## [1.28.0] - 2026-06-15
 
 ### Added
