@@ -60,8 +60,13 @@ class Note < ApplicationRecord
       event_type: "create",
       happened_at: created_at
     )
-    confirm_read!(T.must(created_by))
-    commentable.confirm_read!(T.must(created_by)) if commentable.is_a?(Note)
+    # Under representation, the represented user did not actually read the
+    # note — the representative did. Attribute the auto-read-confirmation
+    # to whoever performed the creation. Self-acting falls through to
+    # `created_by` as before.
+    reader = RepresentationContext.current_representative_user || T.must(created_by)
+    confirm_read!(reader)
+    commentable.confirm_read!(reader) if commentable.is_a?(Note)
   end
 
   after_update do

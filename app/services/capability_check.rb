@@ -60,6 +60,31 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "toggle_automation_rule",
   ].freeze
 
+  # Capabilities an AI agent needs in its overall configuration before it
+  # can engage with a trustee authorization at all — accept it, start a
+  # rep session under it, end the session. Independent of the per-grant
+  # `TrusteeGrant::GRANTABLE_ACTIONS` checklist, since these are
+  # rep-lifecycle actions not in-session permissions.
+  REP_LIFECYCLE_ACTIONS = [
+    "accept_trustee_authorization",
+    "start_representation",
+    "end_representation",
+  ].freeze
+
+  # Returns the rep-lifecycle actions that the given user is missing from
+  # their agent capability configuration. Always empty for non-agents, and
+  # empty when `agent_configuration["capabilities"]` is nil (the "all
+  # grantable" default).
+  sig { params(user: User).returns(T::Array[String]) }
+  def self.missing_rep_lifecycle_capabilities(user)
+    return [] unless user.ai_agent?
+
+    capabilities = user.agent_configuration&.dig("capabilities")
+    return [] if capabilities.nil?
+
+    REP_LIFECYCLE_ACTIONS - capabilities
+  end
+
   # Actions that can be granted/denied via configuration
   # The owner can allow or deny these actions for their AI agent
   AI_AGENT_GRANTABLE_ACTIONS = [

@@ -121,6 +121,23 @@ is_trustee = @grant.trustee_user == @target_user
       </table>
     </section>
 
+    <% missing_caps = CapabilityCheck.missing_rep_lifecycle_capabilities(@grant.trustee_user) %>
+    <% if missing_caps.any? %>
+      <section class="pulse-settings-section pulse-alert pulse-alert-warning">
+        <h2 class="pulse-section-title">⚠️ Missing capabilities</h2>
+        <p>
+          The trustee is an AI agent with rep-lifecycle capabilities missing from its configuration, so it cannot engage with this authorization until they are enabled. Missing:
+          <%= safe_join(missing_caps.map { |c| content_tag(:code, c) }, ", ") %>.
+        </p>
+        <p>
+          The agent's owner can enable these at
+          <%= link_to "/ai-agents/#{@grant.trustee_user.handle}/settings",
+                      "/ai-agents/#{@grant.trustee_user.handle}/settings",
+                      class: "pulse-link" %>.
+        </p>
+      </section>
+    <% end %>
+
     <% if @grant.pending? && is_trustee %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Respond to Request</h2>

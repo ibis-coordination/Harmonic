@@ -40,7 +40,7 @@ Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
 ## History
 
 <% @note.history_events.includes(:user).order(happened_at: :desc).each do |event| -%>
-* <% if event.user %><%= user_link_md(event.user) %> <% end %><%= event.description %> at <%= event.happened_at %>
+* <% if event.user %><%= history_event_actor_md(event) %> <% end %><%= event.description %> at <%= event.happened_at %>
 <% end -%>
 
 <% if @note.media_items.any? -%>

@@ -10,6 +10,12 @@ class Current
 
   class << self
     sig { returns(T.untyped) }
+    def acting_representative_user; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def acting_representative_user=(value); end
+
+    sig { returns(T.untyped) }
     def ai_agent_task_run_id; end
 
     sig { params(value: T.untyped).returns(T.untyped) }
@@ -83,6 +89,12 @@ class Current
   end
 
   module GeneratedAttributeMethods
+    sig { returns(T.untyped) }
+    def acting_representative_user; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def acting_representative_user=(value); end
+
     sig { returns(T.untyped) }
     def ai_agent_task_run_id; end
 

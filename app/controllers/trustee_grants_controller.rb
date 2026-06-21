@@ -75,10 +75,15 @@ class TrusteeGrantsController < ApplicationController
   end
 
   def actions_index_show
-    # Get all possible actions from ActionsHelper, then filter based on grant state
-    all_actions = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/:grant_id")[:actions]
-    actions = all_actions.select { |action| action_available_for_grant?(action[:name]) }
-    render_actions_index({ actions: actions })
+    route_info = ActionsHelper.actions_for_route("/u/:handle/settings/trustee-authorizations/:grant_id")
+    static = (route_info && route_info[:actions]) || []
+    context = { grant: @grant, target_user: @target_user, user: @current_user }
+    conditional = (route_info && route_info[:conditional_actions] || []).select do |action|
+      action[:condition].call(context)
+    rescue StandardError
+      false
+    end
+    render_actions_index({ actions: static + conditional })
   end
 
   # =========================================================================
@@ -382,32 +387,6 @@ class TrusteeGrantsController < ApplicationController
   end
 
   private
-
-  # Determines which actions are available based on grant state and user role.
-  # Used by actions_index_show to filter the canonical action list from ActionsHelper.
-  def action_available_for_grant?(action_name)
-    case action_name
-    when "accept_trustee_authorization", "decline_trustee_authorization"
-      @grant.pending? && @grant.trustee_user == @target_user
-    when "revoke_trustee_authorization"
-      @grant.granting_user == @target_user && !@grant.revoked? && !@grant.declined?
-    when "start_representation"
-      @grant.active? && @grant.trustee_user == @current_user && !has_active_session_for_grant?
-    when "end_representation"
-      @grant.active? && @grant.trustee_user == @current_user && has_active_session_for_grant?
-    else
-      false
-    end
-  end
-
-  def has_active_session_for_grant?
-    return false unless @grant
-
-    RepresentationSession.exists?(
-      trustee_grant: @grant,
-      ended_at: nil
-    )
-  end
 
   def set_sidebar_mode
     @sidebar_mode = "minimal"

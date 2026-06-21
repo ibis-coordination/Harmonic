@@ -126,6 +126,8 @@ module MarkdownHelper
                 instance_variable_get(:@decision) ||
                 instance_variable_get(:@commitment),
       showing_user: instance_variable_get(:@showing_user),
+      grant: instance_variable_get(:@grant),
+      target_user: instance_variable_get(:@target_user),
     }
   end
 end

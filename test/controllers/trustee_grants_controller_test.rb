@@ -123,6 +123,186 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
                  URI.parse(response.headers["Location"]).path
   end
 
+  # === Capability-dependency warning ===
+
+  # When the trustee is an AI agent that lacks the rep-lifecycle capabilities
+  # in its overall agent configuration, the grant show page should warn the
+  # viewer — otherwise the agent silently fails on "your capabilities do not
+  # include 'accept_trustee_authorization'" when it tries to engage with the
+  # grant. The two grantable surfaces are independent (per-grant
+  # TrusteeGrant::GRANTABLE_ACTIONS vs. the agent's overall
+  # CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS), and the principal has no
+  # visibility into the agent's capability set from the grant flow.
+
+  test "show page warns when the trustee is an agent missing rep-lifecycle capabilities" do
+    agent = create_ai_agent(parent: @user, name: "Capability-poor agent",
+                            agent_configuration: { "mode" => "internal", "capabilities" => ["create_note"] })
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: agent,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/missing.*capabilit|capabilit.*missing|not enabled/i, body,
+                 "Show page should warn the principal about the missing capabilities")
+    assert_includes body, "accept_trustee_authorization",
+                    "Warning should name the missing accept capability"
+    assert_includes body, "start_representation",
+                    "Warning should name the missing start capability"
+    assert_includes body, "end_representation",
+                    "Warning should name the missing end capability"
+    assert_includes body, "/ai-agents/#{agent.handle}/settings",
+                    "Warning should link to the agent's settings page where the parent can enable them"
+  end
+
+  test "show page does not warn when the agent has all rep-lifecycle capabilities" do
+    agent = create_ai_agent(parent: @user, name: "Capability-complete agent",
+                            agent_configuration: {
+                              "mode" => "internal",
+                              "capabilities" => [
+                                "create_note",
+                                "accept_trustee_authorization",
+                                "start_representation",
+                                "end_representation",
+                              ],
+                            })
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: agent,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/missing.*capabilit|capabilit.*missing/i, body,
+                 "No warning when all required rep-lifecycle capabilities are enabled")
+  end
+
+  test "show page does not warn when the agent has no capability restrictions" do
+    # capabilities: nil means "all grantable actions allowed" — the
+    # rep-lifecycle ones are implicitly granted.
+    agent = create_ai_agent(parent: @user, name: "Unrestricted agent",
+                            agent_configuration: { "mode" => "internal" })
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: agent,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/missing.*capabilit|capabilit.*missing/i, body,
+                 "No warning when the agent has no capability restrictions")
+  end
+
+  test "show page does not warn when the trustee is a human" do
+    # The agent capability surface only applies to AI agents. Don't warn
+    # when the trustee is a human even if the grant was just created.
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/missing.*capabilit|capabilit.*missing/i, body,
+                 "No warning when the trustee is a human user")
+  end
+
+  # === Grant-show action listing (state-aware) ===
+
+  # The actions listed in the markdown frontmatter for /u/:handle/settings/
+  # trustee-authorizations/:grant_id must reflect what's actually applicable
+  # given the grant's state and the viewer's role. Today the show-page
+  # frontmatter advertises all five rep-lifecycle actions unconditionally;
+  # only the actions_index_show endpoint applies the state-aware filter.
+  def get_show_as(viewer_handle, grant)
+    get "/u/#{viewer_handle}/settings/trustee-authorizations/#{grant.truncated_id}", headers: @headers
+    assert_response :success
+    response.body
+  end
+
+  test "show frontmatter on a pending grant offers accept and decline to the trustee, nothing else" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: accept_trustee_authorization\b/, body)
+    assert_match(/name: decline_trustee_authorization\b/, body)
+    refute_match(/name: revoke_trustee_authorization\b/, body,
+                 "Trustee cannot revoke — only granting user can")
+    refute_match(/name: start_representation\b/, body,
+                 "Start_representation should not be offered on a pending grant")
+    refute_match(/name: end_representation\b/, body)
+  end
+
+  test "show frontmatter on an active grant offers start_representation to the trustee" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: start_representation\b/, body)
+    refute_match(/name: end_representation\b/, body,
+                 "No active session yet — end_representation shouldn't appear")
+    refute_match(/name: accept_trustee_authorization\b/, body)
+    refute_match(/name: decline_trustee_authorization\b/, body)
+    refute_match(/name: revoke_trustee_authorization\b/, body,
+                 "Trustee cannot revoke")
+  end
+
+  test "show frontmatter offers end_representation when an active session exists for this grant" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @other_user, trustee_user: @user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+    RepresentationSession.tenant_scoped_only(@tenant.id).create!(
+      tenant: @tenant,
+      representative_user: @user,
+      trustee_grant: grant,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: end_representation\b/, body)
+    refute_match(/name: start_representation\b/, body,
+                 "Cannot start a second session while one is active")
+  end
+
+  test "show frontmatter offers revoke to the granting user only" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+
+    body = get_show_as(@user.handle, grant)
+    assert_match(/name: revoke_trustee_authorization\b/, body,
+                 "Granting user can revoke an active grant")
+    refute_match(/name: start_representation\b/, body,
+                 "Start_representation belongs to the trustee, not the grantor")
+    refute_match(/name: accept_trustee_authorization\b/, body)
+    refute_match(/name: decline_trustee_authorization\b/, body)
+  end
+
+  test "show frontmatter on a revoked grant offers no lifecycle actions" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @user, trustee_user: @other_user,
+      permissions: { "create_note" => true },
+    )
+    grant.accept!
+    grant.revoke!
+
+    body = get_show_as(@user.handle, grant)
+    refute_match(/name: accept_trustee_authorization\b/, body)
+    refute_match(/name: decline_trustee_authorization\b/, body)
+    refute_match(/name: revoke_trustee_authorization\b/, body,
+                 "Already revoked — revoke is a no-op")
+    refute_match(/name: start_representation\b/, body)
+    refute_match(/name: end_representation\b/, body)
+  end
+
   test "pending grants offered to the trustee are described as offers, not requests" do
     # The "Pending Requests" header + "These users are requesting authority to
     # act on your behalf" copy inverts the relationship: the listed users are
