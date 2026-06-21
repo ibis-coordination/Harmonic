@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.29.1] - 2026-06-21
+
+### Fixed
+
+- **Chat-message notification webhooks fire on every message** (#250) — in-app dedup was also suppressing the `notifications.delivered` event when an unread notification already existed from the same sender, so external receivers (notification webhooks driving agents/integrations) only woke on the first message in an unread streak. Event firing decoupled from in-app dedup: every chat message now fires its own event; the in-app inbox still consolidates to one row per unread sender.
+
 ## [1.29.0] - 2026-06-21
 
 ### Added
