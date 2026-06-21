@@ -1,6 +1,8 @@
 require "test_helper"
 
 class NotificationServiceTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   test "create_and_deliver! creates notification and recipient" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
@@ -116,25 +118,67 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal "chat_message", delivered.metadata["notification_type"]
   end
 
-  test "notify_chat_message! does NOT fire event when upserting an existing undismissed notification" do
-    tenant, collective, sender = create_tenant_collective_user
+  test "notify_chat_message! dispatches the AI agent recipient's notification webhook" do
+    tenant, _collective, sender = create_tenant_collective_user
+    agent = create_ai_agent(parent: sender, name: "Agent", agent_configuration: { "mode" => "external" })
+    tenant.add_user!(agent)
+
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    webhook_rule = AutomationRule.create!(
+      tenant: tenant,
+      ai_agent: agent,
+      created_by: sender,
+      name: "Agent notification webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+      actions: { "webhook_url" => "https://example.test/hook", "payload_template" => {} },
+      webhook_secret: "whsec_#{SecureRandom.hex(32)}",
+      enabled: true,
+    )
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: agent, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    initial_runs = AutomationRuleRun.where(automation_rule: webhook_rule).count
+    initial_deliveries = WebhookDelivery.count
+
+    perform_enqueued_jobs(only: AutomationRuleExecutionJob) do
+      NotificationService.notify_chat_message!(
+        sender: sender, recipient: agent, tenant: tenant, url: "/chat/#{sender.id}",
+      )
+    end
+
+    assert_equal initial_runs + 1, AutomationRuleRun.where(automation_rule: webhook_rule).count
+    assert_equal initial_deliveries + 1, WebhookDelivery.count
+  end
+
+  test "notify_chat_message! fires notifications.delivered per message but dedups the in-app notification" do
+    # In-app inbox dedup is a UX concern — show one consolidated row per unread
+    # sender. Event firing is a transport concern — external receivers
+    # (notification webhooks driving agents/integrations) need to wake on every
+    # message, not just the first one in an unread streak.
+    tenant, _collective, sender = create_tenant_collective_user
     recipient = create_user(name: "Recipient")
     tenant.add_user!(recipient)
 
     chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
 
-    NotificationService.notify_chat_message!(
-      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
-    )
-    initial = Event.where(event_type: "notifications.delivered").count
+    initial_events = Event.where(event_type: "notifications.delivered").count
+    initial_chat_notifications = Notification.where(notification_type: "chat_message").count
 
-    # Second call within an undismissed window should be a no-op for events.
-    NotificationService.notify_chat_message!(
-      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
-    )
+    2.times do
+      NotificationService.notify_chat_message!(
+        sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+      )
+    end
 
-    assert_equal initial, Event.where(event_type: "notifications.delivered").count
+    assert_equal initial_events + 2,
+                 Event.where(event_type: "notifications.delivered").count,
+                 "every chat message should fire its own notifications.delivered event"
+    assert_equal initial_chat_notifications + 1,
+                 Notification.where(notification_type: "chat_message").count,
+                 "in-app inbox should still dedup — one consolidated Notification when the first is unread"
   end
 
   test "create_and_deliver! creates recipients for multiple channels" do
