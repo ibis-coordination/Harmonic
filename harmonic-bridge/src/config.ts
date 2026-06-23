@@ -6,10 +6,14 @@
 // follow-up commit) so these stay easy to test and reuse from CLI commands
 // that hold YAML in memory.
 
+import type { Step } from "./steps.js";
+
 export interface DaemonConfig {
   readonly listen: { readonly host: string; readonly port: number };
   readonly logDir: string;
   readonly secretResolvers: Readonly<Record<string, string>>;
+  /** Default after-add steps applied to every agent unless the agent overrides. */
+  readonly afterAdd: readonly Step[];
 }
 
 export interface AgentConfig {
@@ -21,6 +25,11 @@ export interface AgentConfig {
   readonly events?: readonly string[];
   readonly timeoutSeconds?: number;
   readonly env?: Readonly<Record<string, string>>;
+  /**
+   * Override for the daemon's default after-add steps. `undefined` means
+   * inherit; an explicit empty list overrides to no steps.
+   */
+  readonly afterAdd?: readonly Step[];
 }
 
 export class ConfigError extends Error {
@@ -42,8 +51,9 @@ export function parseDaemonConfig(raw: unknown): DaemonConfig {
   const listen = parseListen(raw["listen"]);
   const logDir = expectString(raw, "log_dir");
   const secretResolvers = parseSecretResolvers(raw["secret_resolvers"]);
+  const afterAdd = "after_add" in raw ? parseStepList(raw["after_add"], "after_add") : Object.freeze([]);
 
-  return Object.freeze({ listen, logDir, secretResolvers });
+  return Object.freeze({ listen, logDir, secretResolvers, afterAdd });
 }
 
 export function parseAgentConfig(raw: unknown): AgentConfig {
@@ -64,6 +74,9 @@ export function parseAgentConfig(raw: unknown): AgentConfig {
     ? parsePositiveNumber(raw["timeout_seconds"], "timeout_seconds")
     : undefined;
   const env = "env" in raw ? parseStringMap(raw["env"], "env") : undefined;
+  // `undefined` (field absent) means inherit daemon defaults; `[]` (explicit
+  // empty list) means override to no steps.
+  const afterAdd = "after_add" in raw ? parseStepList(raw["after_add"], "after_add") : undefined;
 
   return Object.freeze({
     harmonicMcpEndpoint,
@@ -74,6 +87,7 @@ export function parseAgentConfig(raw: unknown): AgentConfig {
     events,
     timeoutSeconds,
     env,
+    afterAdd,
   });
 }
 
@@ -165,4 +179,38 @@ function validateUrl(s: string, name: string): void {
   } catch {
     throw new ConfigError(`${name} must be a valid URL, got "${s}"`);
   }
+}
+
+function parseStepList(v: unknown, name: string): readonly Step[] {
+  if (v === undefined || v === null) return Object.freeze([]);
+  if (!Array.isArray(v)) {
+    throw new ConfigError(`${name} must be a list of step objects`);
+  }
+  return Object.freeze(v.map((item, i) => parseStep(item, name, i)));
+}
+
+function parseStep(raw: unknown, listName: string, index: number): Step {
+  if (!isRecord(raw)) {
+    throw new ConfigError(`${listName}[${index}] must be a YAML object`);
+  }
+  const hasBuiltIn = "built_in" in raw;
+  const hasCommand = "command" in raw;
+  if (hasBuiltIn && hasCommand) {
+    throw new ConfigError(`${listName}[${index}] must specify exactly one of built_in or command, not both`);
+  }
+  if (hasBuiltIn) {
+    const name = raw["built_in"];
+    if (typeof name !== "string" || name.length === 0) {
+      throw new ConfigError(`${listName}[${index}].built_in must be a non-empty string`);
+    }
+    return { kind: "built_in", name };
+  }
+  if (hasCommand) {
+    const command = raw["command"];
+    if (typeof command !== "string" || command.length === 0) {
+      throw new ConfigError(`${listName}[${index}].command must be a non-empty string`);
+    }
+    return { kind: "command", command };
+  }
+  throw new ConfigError(`${listName}[${index}] must specify either built_in or command`);
 }

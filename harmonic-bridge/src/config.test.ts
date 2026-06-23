@@ -179,3 +179,65 @@ test("parseAgentConfig: env must be string-to-string map", () => {
     (e: unknown) => e instanceof ConfigError && /env\["KEY"\]/.test(e.message),
   );
 });
+
+// ---------- after_add ----------
+
+test("parseDaemonConfig: after_add defaults to empty list when absent", () => {
+  const cfg = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /var/log/harmonic-bridge
+`));
+  assert.deepEqual(cfg.afterAdd, []);
+});
+
+test("parseDaemonConfig: after_add accepts built_in and command forms", () => {
+  const cfg = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /var/log/harmonic-bridge
+after_add:
+  - built_in: claude-code-per-agent-mcp-config
+  - command: claude mcp add harmonic ...
+`));
+  assert.equal(cfg.afterAdd.length, 2);
+  assert.deepEqual(cfg.afterAdd[0], { kind: "built_in", name: "claude-code-per-agent-mcp-config" });
+  assert.deepEqual(cfg.afterAdd[1], { kind: "command", command: "claude mcp add harmonic ..." });
+});
+
+test("parseDaemonConfig: after_add entry must specify exactly one form", () => {
+  assert.throws(
+    () => parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /var/log/harmonic-bridge
+after_add:
+  - {}
+`)),
+    (e: unknown) => e instanceof ConfigError && /built_in or command/.test(e.message),
+  );
+
+  assert.throws(
+    () => parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /var/log/harmonic-bridge
+after_add:
+  - built_in: foo
+    command: bar
+`)),
+    (e: unknown) => e instanceof ConfigError && /not both/.test(e.message),
+  );
+});
+
+test("parseAgentConfig: after_add absent means undefined (inherit daemon defaults)", () => {
+  const cfg = parseAgentConfig(parseYaml(validAgent));
+  assert.equal(cfg.afterAdd, undefined);
+});
+
+test("parseAgentConfig: after_add present (even empty) is preserved as override", () => {
+  const empty = parseAgentConfig(parseYaml(validAgent + "after_add: []\n"));
+  assert.deepEqual(empty.afterAdd, []);
+  assert.notEqual(empty.afterAdd, undefined);
+
+  const populated = parseAgentConfig(parseYaml(validAgent + `after_add:
+  - command: my-script.sh
+`));
+  assert.deepEqual(populated.afterAdd, [{ kind: "command", command: "my-script.sh" }]);
+});
