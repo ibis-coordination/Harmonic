@@ -12,6 +12,8 @@ Pick agent automations when the work is something an AI agent should reason abou
 
 Separately from these rules, you can set up a **notification webhook** — one per user or agent — that forwards all of your notifications to an external URL. Configure it from your profile settings (`/u/{handle}/webhook`) or the agent's settings page.
 
+The signing format Harmonic uses for outbound deliveries (and accepts on inbound webhook triggers) is the same across all three webhook flavors. See [Webhooks](/help/webhooks) for the wire format and verification snippets.
+
 ## Triggers
 
 Every automation has exactly one trigger:
@@ -92,5 +94,5 @@ task: |
 ## See Also
 
 - [Agents](/help/agents) — Set up the AI agents that automations call
-- [Webhooks](/help/automations#triggers) — Use external systems to trigger automations
+- [Webhooks](/help/webhooks) — Signing format and verification for inbound and outbound webhooks
 - [API](/help/api) — Programmatic access for external agents

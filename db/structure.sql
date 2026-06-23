@@ -762,6 +762,27 @@ CREATE TABLE public.events (
 
 
 --
+-- Name: harmonic_bridge_setups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.harmonic_bridge_setups (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    ai_agent_user_id uuid NOT NULL,
+    created_by_user_id uuid NOT NULL,
+    api_token_id uuid,
+    automation_rule_id uuid,
+    public_id character varying NOT NULL,
+    expires_at timestamp(6) without time zone NOT NULL,
+    redeemed_at timestamp(6) without time zone,
+    webhook_registered_at timestamp(6) without time zone,
+    events_recommended jsonb DEFAULT '[]'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: heartbeats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2644,6 +2665,14 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: harmonic_bridge_setups harmonic_bridge_setups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT harmonic_bridge_setups_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: heartbeats heartbeats_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4237,6 +4266,41 @@ CREATE INDEX index_events_on_subject_type_and_subject_id ON public.events USING 
 --
 
 CREATE INDEX index_events_on_tenant_id ON public.events USING btree (tenant_id);
+
+
+--
+-- Name: index_harmonic_bridge_setups_on_api_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_harmonic_bridge_setups_on_api_token_id ON public.harmonic_bridge_setups USING btree (api_token_id);
+
+
+--
+-- Name: index_harmonic_bridge_setups_on_automation_rule_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_harmonic_bridge_setups_on_automation_rule_id ON public.harmonic_bridge_setups USING btree (automation_rule_id);
+
+
+--
+-- Name: index_harmonic_bridge_setups_on_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_harmonic_bridge_setups_on_expires_at ON public.harmonic_bridge_setups USING btree (expires_at);
+
+
+--
+-- Name: index_harmonic_bridge_setups_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_harmonic_bridge_setups_on_tenant_id ON public.harmonic_bridge_setups USING btree (tenant_id);
+
+
+--
+-- Name: index_harmonic_bridge_setups_on_tenant_id_and_public_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_harmonic_bridge_setups_on_tenant_id_and_public_id ON public.harmonic_bridge_setups USING btree (tenant_id, public_id);
 
 
 --
@@ -9004,6 +9068,14 @@ ALTER TABLE ONLY public.representation_sessions
 
 
 --
+-- Name: harmonic_bridge_setups fk_rails_35e2d720f0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT fk_rails_35e2d720f0 FOREIGN KEY (automation_rule_id) REFERENCES public.automation_rules(id);
+
+
+--
 -- Name: user_list_members fk_rails_35f0c951e0; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9265,6 +9337,14 @@ ALTER TABLE ONLY public.links
 
 ALTER TABLE ONLY public.collective_members
     ADD CONSTRAINT fk_rails_6922fe428a FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
+-- Name: harmonic_bridge_setups fk_rails_695201c4c6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT fk_rails_695201c4c6 FOREIGN KEY (created_by_user_id) REFERENCES public.users(id);
 
 
 --
@@ -9748,6 +9828,14 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: harmonic_bridge_setups fk_rails_cbd332ee84; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT fk_rails_cbd332ee84 FOREIGN KEY (ai_agent_user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: chat_messages fk_rails_cca2776a12; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9793,6 +9881,14 @@ ALTER TABLE ONLY public.automation_rules
 
 ALTER TABLE ONLY public.user_blocks
     ADD CONSTRAINT fk_rails_d1bf232861 FOREIGN KEY (blocker_id) REFERENCES public.users(id);
+
+
+--
+-- Name: harmonic_bridge_setups fk_rails_d5dcbd03db; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT fk_rails_d5dcbd03db FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -9921,6 +10017,14 @@ ALTER TABLE ONLY public.data_imports
 
 ALTER TABLE ONLY public.heartbeats
     ADD CONSTRAINT fk_rails_ef017bd5f0 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
+-- Name: harmonic_bridge_setups fk_rails_ef145b89b2; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT fk_rails_ef145b89b2 FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id);
 
 
 --
@@ -10058,6 +10162,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260622000000'),
 ('20260618000000'),
 ('20260617000000'),
 ('20260615150000'),

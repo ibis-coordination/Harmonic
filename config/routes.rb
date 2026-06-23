@@ -89,6 +89,12 @@ Rails.application.routes.draw do
   # config snippet / credentials block).
   post 'ai-agents/:handle/connect/:harness' => 'ai_agent_connect#create', as: 'ai_agent_connect'
 
+  # Public, one-time-use harmonic-bridge setup endpoints. Possession of
+  # :public_id is the credential — the URL is unguessable, short-lived, and
+  # single-use per action. Backs `harmonic-bridge add --from <url>`.
+  get  'bridge-setups/:public_id'         => 'harmonic_bridge_setups#show',             as: 'harmonic_bridge_setup'
+  post 'bridge-setups/:public_id/webhook' => 'harmonic_bridge_setups#register_webhook', as: 'harmonic_bridge_setup_webhook'
+
   # Notification webhook (singular — one per user/agent).
   # GET /webhook is the canonical refreshable show page; PATCH/POST also
   # render :show so the URL is stable across mutations (mirrors the API
@@ -207,7 +213,7 @@ Rails.application.routes.draw do
 
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents trio automations api rest-api markdown-ui mcp notifications representation billing].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents self-hosting-agents trio automations webhooks api rest-api markdown-ui mcp notifications representation billing].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'help/mcp/connect/:harness' => 'help#mcp_connect', as: 'help_mcp_connect'
