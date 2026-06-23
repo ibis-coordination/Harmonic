@@ -19,6 +19,49 @@ log_dir: /var/log/harmonic-bridge
   assert.equal(cfg.listen.port, 8080);
   assert.equal(cfg.logDir, "/var/log/harmonic-bridge");
   assert.deepEqual({ ...cfg.secretResolvers }, { ...BUILTIN_RESOLVERS });
+  assert.equal(cfg.publicUrl, undefined, "public_url is optional");
+  assert.equal(cfg.secrets.backend, "file");
+  assert.equal(cfg.secrets.baseDir, "~/.harmonic-bridge/secrets", "default location when secrets block omitted");
+});
+
+test("parseDaemonConfig: public_url parses when present, undefined when blank", () => {
+  const set = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+public_url: https://bridge.example.com
+`));
+  assert.equal(set.publicUrl, "https://bridge.example.com");
+
+  const blank = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+public_url: ""
+`));
+  assert.equal(blank.publicUrl, undefined, "empty string normalizes to undefined");
+});
+
+test("parseDaemonConfig: secrets block parses custom base_dir", () => {
+  const cfg = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+secrets:
+  backend: file
+  base_dir: /var/lib/harmonic-bridge/secrets
+`));
+  assert.equal(cfg.secrets.backend, "file");
+  assert.equal(cfg.secrets.baseDir, "/var/lib/harmonic-bridge/secrets");
+});
+
+test("parseDaemonConfig: secrets.backend other than 'file' is rejected in v0.1", () => {
+  assert.throws(
+    () => parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+secrets:
+  backend: vault
+`)),
+    (e: unknown) => e instanceof ConfigError && /not supported/.test(e.message),
+  );
 });
 
 test("parseDaemonConfig: built-ins applied even when secret_resolvers omitted", () => {

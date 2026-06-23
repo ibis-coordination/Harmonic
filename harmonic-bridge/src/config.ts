@@ -10,10 +10,26 @@ import type { Step } from "./steps.js";
 
 export interface DaemonConfig {
   readonly listen: { readonly host: string; readonly port: number };
+  /**
+   * Publicly reachable HTTPS URL of this bridge host. Used by `add` to
+   * tell Harmonic where to send webhook deliveries
+   * (${public_url}/webhook/<agent-handle>). Optional in the schema so the
+   * daemon can run without it; `add` enforces presence at call time.
+   */
+  readonly publicUrl?: string;
   readonly logDir: string;
   readonly secretResolvers: Readonly<Record<string, string>>;
+  /** Where `add` writes minted credentials. */
+  readonly secrets: SecretsConfig;
   /** Default after-add steps applied to every agent unless the agent overrides. */
   readonly afterAdd: readonly Step[];
+}
+
+export interface SecretsConfig {
+  /** v0.1: only "file". Future versions add backends like "1password", "vault", etc. */
+  readonly backend: "file";
+  /** Where the file backend writes secrets. Defaults to ~/.harmonic-bridge/secrets. */
+  readonly baseDir: string;
 }
 
 export interface AgentConfig {
@@ -51,9 +67,11 @@ export function parseDaemonConfig(raw: unknown): DaemonConfig {
   const listen = parseListen(raw["listen"]);
   const logDir = expectString(raw, "log_dir");
   const secretResolvers = parseSecretResolvers(raw["secret_resolvers"]);
+  const secrets = parseSecrets(raw["secrets"]);
   const afterAdd = "after_add" in raw ? parseStepList(raw["after_add"], "after_add") : Object.freeze([]);
+  const publicUrl = "public_url" in raw ? parsePublicUrl(raw["public_url"]) : undefined;
 
-  return Object.freeze({ listen, logDir, secretResolvers, afterAdd });
+  return Object.freeze({ listen, publicUrl, logDir, secretResolvers, secrets, afterAdd });
 }
 
 export function parseAgentConfig(raw: unknown): AgentConfig {
@@ -179,6 +197,33 @@ function validateUrl(s: string, name: string): void {
   } catch {
     throw new ConfigError(`${name} must be a valid URL, got "${s}"`);
   }
+}
+
+function parseSecrets(v: unknown): SecretsConfig {
+  if (v === undefined || v === null) {
+    return Object.freeze({ backend: "file", baseDir: "~/.harmonic-bridge/secrets" });
+  }
+  if (!isRecord(v)) {
+    throw new ConfigError("secrets must be a YAML object");
+  }
+  const backend = v["backend"] ?? "file";
+  if (backend !== "file") {
+    throw new ConfigError(`secrets.backend "${backend}" is not supported in v0.1 (only "file" is supported)`);
+  }
+  const baseDirRaw = v["base_dir"];
+  const baseDir = baseDirRaw === undefined ? "~/.harmonic-bridge/secrets" : baseDirRaw;
+  if (typeof baseDir !== "string" || baseDir.length === 0) {
+    throw new ConfigError("secrets.base_dir must be a non-empty string");
+  }
+  return Object.freeze({ backend, baseDir });
+}
+
+function parsePublicUrl(v: unknown): string | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  if (typeof v !== "string") {
+    throw new ConfigError("public_url must be a string");
+  }
+  return v;
 }
 
 function parseStepList(v: unknown, name: string): readonly Step[] {

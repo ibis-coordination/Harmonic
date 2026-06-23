@@ -32,6 +32,10 @@ export async function loadDaemonConfig(filePath: string): Promise<DaemonConfig> 
   return Object.freeze({
     ...parsed,
     logDir: expandTilde(parsed.logDir),
+    secrets: Object.freeze({
+      ...parsed.secrets,
+      baseDir: expandTilde(parsed.secrets.baseDir),
+    }),
   });
 }
 

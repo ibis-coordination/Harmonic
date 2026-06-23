@@ -6,6 +6,7 @@ import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import type { Writable } from "node:stream";
+import { runAdd } from "./add.js";
 import { initConfig } from "./init.js";
 import { startDaemon } from "./daemon.js";
 
@@ -50,6 +51,10 @@ export async function runCommand(args: readonly string[], opts: CliOpts = {}): P
 
   if (command === "reload") {
     return await runReload(configDir, stdout, stderr);
+  }
+
+  if (command === "add") {
+    return await runAdd(args.slice(1), { configDir, stdout, stderr });
   }
 
   if (STUB_COMMANDS.has(command)) {
@@ -140,10 +145,12 @@ Without a command, starts the daemon (reads ~/.harmonic-bridge/config.yml and
 ~/.harmonic-bridge/agents/*/harmonic-bridge.yml). Stays running until SIGTERM/SIGINT.
 
 Commands:
-  init            Write ~/.harmonic-bridge/config.yml and a systemd unit template.
-  reload          Re-read per-agent configs without dropping in-flight wakes.
-                  (Daemon-level config changes still require a restart.)
-  help            Show this help.
+  init                  Write ~/.harmonic-bridge/config.yml and a systemd unit template.
+  add --from <URL>      Redeem a setup URL from Harmonic, write per-agent config,
+                        register the webhook, and run any after_add steps.
+  reload                Re-read per-agent configs without dropping in-flight wakes.
+                        (Daemon-level config changes still require a restart.)
+  help                  Show this help.
 
 Planned (not in v0.1):
   status          Show daemon + per-agent state.

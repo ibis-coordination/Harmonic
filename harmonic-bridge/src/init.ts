@@ -15,7 +15,20 @@ export interface InitResult {
 
 const CONFIG_YAML_SKELETON = `# harmonic-bridge daemon config — see https://github.com/ibis-coordination/Harmonic/tree/main/harmonic-bridge
 listen: 127.0.0.1:8080
+
+# Publicly reachable HTTPS URL of this host — required by 'harmonic-bridge add'.
+# Each agent's webhook URL is constructed as \${public_url}/webhook/<agent-handle>.
+# Front the daemon with a reverse proxy (Caddy, nginx) or a tunnel (cloudflared,
+# ngrok) that terminates TLS and forwards to the listen port above.
+public_url: ""   # SET ME before running 'harmonic-bridge add'
+
 log_dir: ~/.harmonic-bridge/logs
+
+# Where 'harmonic-bridge add' stores minted credentials. v0.1 ships only the
+# 'file' backend; future versions add 1Password, Vault, etc.
+secrets:
+  backend: file
+  base_dir: ~/.harmonic-bridge/secrets
 
 # Optional. Built-in resolvers (file://, env://) are always present.
 # Add a line per scheme you want to use. The "{name}" / "{path}" / "{ref}"
@@ -24,6 +37,14 @@ log_dir: ~/.harmonic-bridge/logs
 # secret_resolvers:
 #   op:    "op read {ref}"
 #   awssm: "aws secretsmanager get-secret-value --secret-id {ref} --query SecretString --output text"
+
+# Optional. Steps that run once per agent after 'harmonic-bridge add' succeeds.
+# Lets you opt into harness-specific local setup (writing a Claude Code MCP
+# config, running 'codex mcp add', etc.). Empty by default.
+#
+# after_add:
+#   - built_in: claude-code-per-agent-mcp-config
+#   - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
 `;
 
 const SYSTEMD_UNIT_SKELETON = `[Unit]
