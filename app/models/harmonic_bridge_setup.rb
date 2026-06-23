@@ -9,16 +9,18 @@
 #   * `HarmonicBridgeSetup.create!(...)` — initiated by a human clicking
 #     "Connect harmonic-bridge" on an agent's settings page. No credentials
 #     minted yet.
-#   * `#mark_redeemed!` — called by `GET /bridge-setups/:public_id`. Marks
-#     the setup as redeemed and returns metadata only (no credentials).
-#     An abandoned redemption leaks nothing.
+#   * `#redeem!` — called by `GET /bridge-setups/:public_id`. Mints the
+#     MCP token, creates the AutomationRule (with no URL, disabled), and
+#     returns both the token plaintext and the rule's webhook_secret. The
+#     rule has to exist before POST so the bridge daemon can load the
+#     secret from disk before Harmonic's verification POST arrives.
 #   * `#complete!(webhook_url:, events:)` — called by
-#     `POST /bridge-setups/:public_id/webhook`. Atomically mints the MCP
-#     token, creates the AutomationRule notification-webhook subscription,
-#     and returns both credentials together.
-#   * `#revert_completion!` — controller calls this if the post-completion
-#     verification delivery fails. Destroys the token and the AutomationRule
-#     and returns the setup to retryable state.
+#     `POST /bridge-setups/:public_id/webhook`. Updates the AutomationRule
+#     with the URL, enables it. Caller then runs the verification test
+#     delivery; on failure, caller invokes `revert_completion!`.
+#   * `#revert_completion!` — destroys both the token and the
+#     AutomationRule so a failed verification leaves no half-finished
+#     state for the user to clean up.
 class HarmonicBridgeSetup < ApplicationRecord
   extend T::Sig
 
@@ -55,6 +57,7 @@ class HarmonicBridgeSetup < ApplicationRecord
 
   validates :public_id, presence: true, uniqueness: { scope: :tenant_id }
   validates :expires_at, presence: true
+  validate :no_existing_notification_webhook_for_agent, on: :create
 
   before_validation :assign_public_id, on: :create
   before_validation :assign_expires_at, on: :create
@@ -72,41 +75,23 @@ class HarmonicBridgeSetup < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def webhook_registerable?
-    redeemed_at.present? && webhook_registered_at.nil? && !expired?
+    redeemed_at.present? && webhook_registered_at.nil? && !expired? && automation_rule.present?
   end
 
-  # Marks the setup as redeemed. No credentials are minted at this stage;
-  # the GET response only carries metadata so an abandoned redemption
-  # leaves nothing to clean up. `with_lock` + post-lock re-check makes
-  # this safe against two concurrent GETs.
-  sig { void }
-  def mark_redeemed!
-    with_lock do
-      raise Expired if expired?
-      raise Redeemed unless redeemed_at.nil?
-
-      update!(redeemed_at: Time.current)
-    end
-  end
-
-  # Atomic completion: mints the ApiToken, creates the AutomationRule
-  # notification-webhook subscription, and marks the setup completed —
-  # all in one transaction. Returns the plaintext token + signing secret;
-  # both are revealed exactly once. Caller is responsible for putting
-  # them into the HTTP response.
+  # Mints the MCP token and creates the AutomationRule (disabled, no URL),
+  # marks the setup redeemed, and returns the token plaintext + the rule's
+  # auto-generated webhook_secret. The rule has to exist by now (not
+  # created lazily on POST) so the bridge daemon can load the secret from
+  # disk before Harmonic's verification POST arrives.
   #
-  # Verification of the webhook URL happens AFTER this returns; if that
-  # fails, the caller invokes `revert_completion!` to undo everything.
-  sig do
-    params(webhook_url: String, events: T::Array[String])
-      .returns({ harmonic_token: String, signing_secret: String })
-  end
-  def complete!(webhook_url:, events:)
+  # `with_lock` + post-lock re-check makes this safe against two concurrent
+  # GETs both passing redeemable? before either commits.
+  sig { returns({ harmonic_token: String, signing_secret: String }) }
+  def redeem!
     result = T.let(nil, T.nilable({ harmonic_token: String, signing_secret: String }))
     with_lock do
       raise Expired if expired?
-      raise NotYetRedeemed if redeemed_at.nil?
-      raise WebhookAlreadyRegistered unless webhook_registered_at.nil?
+      raise Redeemed unless redeemed_at.nil?
 
       token = T.must(ai_agent_user).api_tokens.new(
         tenant: tenant,
@@ -118,33 +103,57 @@ class HarmonicBridgeSetup < ApplicationRecord
       )
       token.save!
 
-      secret = generate_signing_secret
+      # AutomationRule's before_validation :generate_webhook_secret populates
+      # rule.webhook_secret. The rule starts disabled and with no URL — POST
+      # fills both in and enables it.
       rule = AutomationRule.create!(
         tenant: tenant,
         ai_agent: ai_agent_user,
         created_by: created_by_user,
-        name: webhook_name_for(webhook_url),
+        name: "harmonic-bridge (pending setup)",
         trigger_type: "event",
-        trigger_config: { "event_types" => events },
-        actions: {
-          "webhook_url" => webhook_url,
-          "payload_template" => PAYLOAD_TEMPLATE,
-        },
-        webhook_secret: secret,
-        enabled: true
+        trigger_config: { "event_types" => events_recommended },
+        actions: { "payload_template" => PAYLOAD_TEMPLATE },
+        enabled: false
       )
 
-      update!(api_token: token, automation_rule: rule, webhook_registered_at: Time.current)
-      result = { harmonic_token: T.must(token.plaintext_token), signing_secret: secret }
+      update!(api_token: token, automation_rule: rule, redeemed_at: Time.current)
+      result = { harmonic_token: T.must(token.plaintext_token), signing_secret: T.must(rule.webhook_secret) }
     end
     T.must(result)
   end
 
-  # Tears down a completed setup as a single atomic step. Used by the
+  # Finalizes the AutomationRule with the caller-supplied webhook URL and
+  # event list, then enables it. Verification of the URL happens AFTER this
+  # returns (the caller runs the test delivery against the secret it got
+  # from the GET response); on failure, the caller invokes
+  # `revert_completion!` to undo everything.
+  sig { params(webhook_url: String, events: T::Array[String]).void }
+  def complete!(webhook_url:, events:)
+    with_lock do
+      raise Expired if expired?
+      raise NotYetRedeemed if redeemed_at.nil?
+      raise WebhookAlreadyRegistered unless webhook_registered_at.nil?
+
+      rule = T.must(automation_rule)
+      rule.update!(
+        name: webhook_name_for(webhook_url),
+        trigger_config: { "event_types" => events },
+        actions: { "webhook_url" => webhook_url, "payload_template" => PAYLOAD_TEMPLATE },
+        enabled: true
+      )
+
+      update!(webhook_registered_at: Time.current)
+    end
+  end
+
+  # Tears down a failed setup as a single atomic step. Used by the
   # controller when the synchronous verification delivery fails — neither
   # the token nor the webhook subscription should outlive a failed setup.
-  # The setup itself is returned to the redeemed-but-not-completed state
-  # so the caller can retry the POST (no fresh URL needed).
+  # After revert, `webhook_registerable?` returns false (no automation_rule
+  # left), so the bridge gets a clean "start over with a fresh URL"
+  # failure rather than a confusing "your token is gone but the URL still
+  # works" half-state.
   sig { void }
   def revert_completion!
     transaction do
@@ -188,5 +197,27 @@ class HarmonicBridgeSetup < ApplicationRecord
     "harmonic-bridge — #{host}"
   rescue URI::InvalidURIError
     "harmonic-bridge webhook"
+  end
+
+  # An agent can have at most one notification webhook subscription at a
+  # time (enforced by AutomationRule#one_notification_webhook_per_user).
+  # Catching the conflict here — at setup creation — gives the user a
+  # clean "delete your existing webhook first" error before any bootstrap
+  # URL is generated, instead of letting them get all the way to
+  # `harmonic-bridge add` and failing on `complete!`.
+  #
+  # Pending bridge setups (their rule has no webhook_url yet) don't count;
+  # only fully-registered subscriptions block a new setup.
+  sig { void }
+  def no_existing_notification_webhook_for_agent
+    return if ai_agent_user_id.blank? || tenant_id.blank?
+
+    existing = AutomationRule.tenant_scoped_only(tenant_id).where(
+      "ai_agent_id = :id AND (actions->>'webhook_url') IS NOT NULL",
+      id: ai_agent_user_id
+    )
+    return unless existing.exists?
+
+    errors.add(:base, "Agent already has a notification webhook subscription. Remove it before generating a bridge setup URL.")
   end
 end

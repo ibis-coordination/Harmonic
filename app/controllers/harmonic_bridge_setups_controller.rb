@@ -6,18 +6,23 @@
 # the credential. The URL is high-entropy, short-lived (15 min default), and
 # single-use per action:
 #
-#   GET  /bridge-setups/:public_id          → returns the metadata bundle
-#                                             (agent handle, MCP endpoint,
-#                                             webhook register URL). No
-#                                             credentials are minted here;
-#                                             abandoning a redemption leaks
-#                                             nothing.
-#   POST /bridge-setups/:public_id/webhook  → atomically mints the MCP
-#                                             token, registers the
-#                                             notification webhook, verifies
-#                                             reachability, and returns both
-#                                             credentials together. Failure
-#                                             at any step undoes everything.
+#   GET  /bridge-setups/:public_id          → mints the MCP token and the
+#                                             signing secret, returns both
+#                                             plus the metadata bundle. The
+#                                             bridge needs the signing
+#                                             secret on disk before its
+#                                             daemon can validate the
+#                                             verification POST that arrives
+#                                             during the next step.
+#   POST /bridge-setups/:public_id/webhook  → registers the notification
+#                                             webhook, sends a synchronous
+#                                             test delivery to the supplied
+#                                             URL, returns 200 on success.
+#                                             On verification failure, both
+#                                             the token and the webhook
+#                                             subscription are destroyed —
+#                                             the bridge must start over
+#                                             with a fresh setup URL.
 #
 # Tenant context comes from request.subdomain via ApplicationController's
 # standard before_action chain — no special routing.
@@ -37,10 +42,12 @@ class HarmonicBridgeSetupsController < ApplicationController
     setup = find_redeemable_setup
     return render_not_found if setup.nil?
 
-    setup.mark_redeemed!
+    credentials = setup.redeem!
 
     render json: {
       harmonic_mcp_endpoint: mcp_endpoint_url,
+      harmonic_token: credentials[:harmonic_token],
+      signing_secret: credentials[:signing_secret],
       agent_handle: handle_for(setup.ai_agent_user),
       webhook_register_url: harmonic_bridge_setup_webhook_url(public_id: setup.public_id),
       events_recommended: setup.events_recommended,
@@ -57,19 +64,16 @@ class HarmonicBridgeSetupsController < ApplicationController
     return render_not_found if setup.nil?
 
     events = events_param.presence || setup.events_recommended
-    credentials = setup.complete!(
-      webhook_url: params[:webhook_url],
-      events: events
-    )
+    setup.complete!(webhook_url: params[:webhook_url], events: events)
 
-    verification = WebhookTestDelivery.deliver(url: params[:webhook_url], secret: credentials[:signing_secret])
+    verification = WebhookTestDelivery.deliver(url: params[:webhook_url], secret: setup.automation_rule.webhook_secret)
     unless verification.ok
       setup.revert_completion!
       return render status: :unprocessable_entity,
                     json: { error: "webhook_unreachable", detail: verification.error.to_s }
     end
 
-    render json: credentials
+    render json: { ok: true }
   rescue HarmonicBridgeSetup::Expired, HarmonicBridgeSetup::NotYetRedeemed, HarmonicBridgeSetup::WebhookAlreadyRegistered
     render_not_found
   end

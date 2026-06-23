@@ -41,7 +41,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   # ---------- GET show ----------
 
-  test "GET show: returns the metadata bundle and marks redeemed (no credentials yet)" do
+  test "GET show: returns the full credential bundle and marks redeemed" do
     setup = make_setup
     get "/bridge-setups/#{setup.public_id}"
     assert_response :ok
@@ -50,13 +50,15 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert body["harmonic_mcp_endpoint"].present?
     assert body["webhook_register_url"].include?(setup.public_id)
     assert_equal ["notifications.delivered", "reminders.delivered"], body["events_recommended"]
-
-    # No credentials in the GET response — token is minted at POST time.
-    assert_nil body["harmonic_token"]
+    assert body["harmonic_token"].present?
+    assert body["signing_secret"].present?
 
     setup.reload
     assert setup.redeemed_at.present?
-    assert_nil setup.api_token, "no token minted by GET"
+    assert setup.api_token.present?
+    assert setup.automation_rule.present?, "pending rule is created at GET so signing secret has a home"
+    assert_equal body["signing_secret"], setup.automation_rule.webhook_secret
+    assert_equal false, setup.automation_rule.enabled?, "rule is disabled until POST"
   end
 
   test "GET show: 404 on second redemption" do
@@ -84,32 +86,33 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     stub_request(:post, url).to_return(status: 200, body: '{"received":true}')
   end
 
-  test "POST register_webhook: mints token + creates AutomationRule + returns both credentials" do
+  test "POST register_webhook: fills the URL into the GET-created rule + enables it, returns ok" do
     setup = make_setup
     get "/bridge-setups/#{setup.public_id}"
     assert_response :ok
+    get_response_secret = response.parsed_body["signing_secret"]
+    setup.reload
+    pending_rule_id = setup.automation_rule.id
 
     webhook_url = "https://example.com/webhook/#{@agent.tenant_users.find_by(tenant: @tenant).handle}"
     stub_reachable(webhook_url)
-    assert_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count } => 1 do
-      assert_difference -> { @agent.api_tokens.count } => 1 do
+    assert_no_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count }, "rule was already created at GET" do
+      assert_no_difference -> { @agent.api_tokens.count }, "token was already minted at GET" do
         post "/bridge-setups/#{setup.public_id}/webhook",
              params: { webhook_url: webhook_url, events: ["notifications.delivered"] }
       end
     end
     assert_response :ok
-    body = response.parsed_body
-    assert body["harmonic_token"].present?, "POST response carries the freshly-minted MCP token"
-    assert body["signing_secret"].present?
+    assert_equal({ "ok" => true }, response.parsed_body)
 
     setup.reload
     rule = setup.automation_rule
-    assert_not_nil rule
+    assert_equal pending_rule_id, rule.id, "same rule, now populated"
     assert_equal webhook_url, rule.actions["webhook_url"]
-    assert_equal body["signing_secret"], rule.webhook_secret
+    assert rule.enabled?
+    assert_equal get_response_secret, rule.webhook_secret,
+                 "secret is the one returned by GET (rule's own webhook_secret field, unchanged)"
     assert setup.webhook_registered_at.present?
-    assert setup.api_token.present?
-    assert setup.api_token.mcp_only?
   end
 
   test "POST register_webhook: 404 if GET show not yet called" do
@@ -193,14 +196,16 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal setup.events_recommended, rule.trigger_config["event_types"]
   end
 
-  test "POST register_webhook: 422 + nothing leaked (no token, no AutomationRule) when the webhook URL is unreachable" do
+  test "POST register_webhook: 422 + full rollback when verification fails (connection refused)" do
     setup = make_setup
     get "/bridge-setups/#{setup.public_id}"
     url = "https://example.com/unreachable/webhook"
     stub_request(:post, url).to_raise(Errno::ECONNREFUSED)
 
-    assert_no_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count } do
-      assert_no_difference -> { @agent.api_tokens.count } do
+    # Token + secret were minted by GET; the verification failure must wipe
+    # them so the setup isn't left half-finished.
+    assert_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count } => -1 do
+      assert_difference -> { @agent.api_tokens.count } => -1 do
         post "/bridge-setups/#{setup.public_id}/webhook",
              params: { webhook_url: url, events: ["notifications.delivered"] }
       end
@@ -210,21 +215,21 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "webhook_unreachable", body["error"]
     assert body["detail"].present?
 
-    # Setup is back to redeemed-but-not-completed; the caller can retry the POST.
     setup.reload
     assert_nil setup.webhook_registered_at
     assert_nil setup.automation_rule
     assert_nil setup.api_token
+    assert_not setup.webhook_registerable?, "setup is no longer POSTable after revert"
   end
 
-  test "POST register_webhook: 422 + nothing leaked when webhook URL returns a non-2xx status" do
+  test "POST register_webhook: 422 + full rollback when webhook URL returns a non-2xx status" do
     setup = make_setup
     get "/bridge-setups/#{setup.public_id}"
     url = "https://example.com/broken/webhook"
     stub_request(:post, url).to_return(status: 502, body: "Bad Gateway")
 
-    assert_no_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count } do
-      assert_no_difference -> { @agent.api_tokens.count } do
+    assert_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count } => -1 do
+      assert_difference -> { @agent.api_tokens.count } => -1 do
         post "/bridge-setups/#{setup.public_id}/webhook",
              params: { webhook_url: url, events: ["notifications.delivered"] }
       end
@@ -234,11 +239,30 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/502/, response.parsed_body["detail"].to_s)
   end
 
-  test "POST register_webhook: signs the verification request with the fresh signing secret" do
+  test "POST register_webhook: a second POST after a failed verification is 404 (setup is consumed)" do
     setup = make_setup
     get "/bridge-setups/#{setup.public_id}"
-    url = "https://example.com/verify/webhook"
+    url = "https://example.com/will-fail/webhook"
+    stub_request(:post, url).to_raise(Errno::ECONNREFUSED)
+    post "/bridge-setups/#{setup.public_id}/webhook",
+         params: { webhook_url: url, events: ["notifications.delivered"] }
+    assert_response :unprocessable_entity
 
+    # Even retrying with a now-working URL fails: the setup has no signing
+    # secret left, so webhook_registerable? is false.
+    fixed_url = "https://example.com/now-working/webhook"
+    stub_reachable(fixed_url)
+    post "/bridge-setups/#{setup.public_id}/webhook",
+         params: { webhook_url: fixed_url, events: ["notifications.delivered"] }
+    assert_response :not_found
+  end
+
+  test "POST register_webhook: verification request is signed with the GET-revealed secret" do
+    setup = make_setup
+    get "/bridge-setups/#{setup.public_id}"
+    signing_secret = response.parsed_body["signing_secret"]
+
+    url = "https://example.com/verify/webhook"
     captured_headers = {}
     captured_body = nil
     stub_request(:post, url)
@@ -252,7 +276,6 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     post "/bridge-setups/#{setup.public_id}/webhook",
          params: { webhook_url: url, events: ["notifications.delivered"] }
     assert_response :ok
-    signing_secret = response.parsed_body["signing_secret"]
 
     assert_equal "harmonic.webhook.test", captured_headers["X-Harmonic-Event"]
     expected = WebhookDeliveryService.sign(captured_body, captured_headers["X-Harmonic-Timestamp"].to_i, signing_secret)

@@ -53,6 +53,45 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert duplicate.errors[:public_id].any?
   end
 
+  test "create: rejected when the agent already has a notification webhook" do
+    # Simulate an existing notification webhook (manual or prior bridge setup
+    # that succeeded). New bridge setup is blocked so the user has to clean
+    # up the old subscription first instead of failing partway through `add`.
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @agent,
+      created_by: @human,
+      name: "existing-webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://existing.example/webhook" },
+      enabled: true
+    )
+
+    s = build_setup
+    assert_not s.valid?
+    assert_match(/already has a notification webhook/, s.errors[:base].first.to_s)
+  end
+
+  test "create: ALLOWED when the agent has only a pending (URL-less) rule from an earlier setup" do
+    # A previous setup that GETted but never POSTed left a rule with no
+    # webhook_url. That doesn't count as an active subscription — the user
+    # should be able to start a fresh setup.
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @agent,
+      created_by: @human,
+      name: "pending-from-prior-setup",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "payload_template" => {} },
+      enabled: false
+    )
+
+    s = build_setup
+    assert s.valid?, "pending (URL-less) rules don't count as active webhooks: #{s.errors.full_messages}"
+  end
+
   # ---------- redeemable? ----------
 
   test "redeemable?: true when not redeemed and not expired" do
@@ -76,10 +115,10 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
 
   # ---------- webhook_registerable? ----------
 
-  test "webhook_registerable?: true when redeemed but not yet webhook-registered" do
+  test "webhook_registerable?: true when redeemed with a pending AutomationRule and no webhook yet" do
     s = build_setup
     s.save!
-    s.update!(redeemed_at: Time.current)
+    s.redeem!
     assert s.webhook_registerable?
   end
 
@@ -92,7 +131,8 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
   test "webhook_registerable?: false when already webhook-registered" do
     s = build_setup
     s.save!
-    s.update!(redeemed_at: Time.current, webhook_registered_at: Time.current)
+    s.redeem!
+    s.update!(webhook_registered_at: Time.current)
     assert_not s.webhook_registerable?
   end
 
@@ -103,59 +143,27 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert_not s.webhook_registerable?
   end
 
-  # ---------- mark_redeemed! ----------
-
-  test "mark_redeemed!: sets redeemed_at and mints no credentials" do
+  test "webhook_registerable?: false when the AutomationRule has been destroyed (post-revert)" do
     s = build_setup
     s.save!
-    s.mark_redeemed!
-
-    assert s.redeemed_at.present?
-    assert_nil s.api_token
-    assert_nil s.automation_rule
-    assert_equal 0, @agent.api_tokens.count, "no token minted on GET"
+    s.update!(redeemed_at: Time.current, automation_rule: nil)
+    assert_not s.webhook_registerable?, "post-revert setups are no longer POSTable"
   end
 
-  test "mark_redeemed!: raises if already redeemed" do
+  # ---------- redeem! ----------
+
+  test "redeem!: mints an MCP token + creates a pending AutomationRule, returns both plaintexts" do
     s = build_setup
     s.save!
-    s.mark_redeemed!
-    assert_raises(HarmonicBridgeSetup::Redeemed) { s.mark_redeemed! }
-  end
-
-  test "mark_redeemed!: raises if expired" do
-    s = build_setup(expires_at: 1.minute.ago)
-    s.save!
-    assert_raises(HarmonicBridgeSetup::Expired) { s.mark_redeemed! }
-  end
-
-  test "mark_redeemed!: two in-memory instances both call it, only one wins (lock + post-lock re-check)" do
-    # Simulates two concurrent GET requests that both loaded the row before
-    # either committed redemption. with_lock + reload + re-check inside
-    # mark_redeemed! must make exactly one win; the loser raises Redeemed.
-    s = build_setup
-    s.save!
-    s_copy = HarmonicBridgeSetup.find(s.id)
-
-    s.mark_redeemed!
-    assert_raises(HarmonicBridgeSetup::Redeemed) { s_copy.mark_redeemed! }
-  end
-
-  # ---------- complete! ----------
-
-  test "complete!: atomically mints token + creates AutomationRule + returns both credentials" do
-    s = build_setup
-    s.save!
-    s.mark_redeemed!
-
-    webhook_url = "https://agent.example.test/webhook/#{@agent.tenant_users.find_by(tenant_id: @tenant.id).handle}"
-    credentials = s.complete!(webhook_url: webhook_url, events: ["notifications.delivered"])
+    credentials = s.redeem!
 
     assert credentials[:harmonic_token].present?
     assert credentials[:signing_secret].present?
-    assert_match(/\A[a-f0-9]+\z|\A[A-Za-z0-9_-]+\z/, credentials[:harmonic_token], "plaintext should be a credential string")
+    assert_match(/\A[a-f0-9]+\z|\A[A-Za-z0-9_-]+\z/, credentials[:harmonic_token])
 
     s.reload
+    assert s.redeemed_at.present?
+
     token = s.api_token
     assert_not_nil token
     assert_equal @agent.id, token.user_id
@@ -165,12 +173,62 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
 
     rule = s.automation_rule
     assert_not_nil rule
+    assert_equal credentials[:signing_secret], rule.webhook_secret,
+                 "signing secret comes from the rule's own webhook_secret field"
+    assert_equal false, rule.enabled?, "rule starts disabled until POST"
+    assert_nil rule.actions["webhook_url"], "no URL until POST"
     assert_equal @agent.id, rule.ai_agent_id
+  end
+
+  test "redeem!: raises if already redeemed" do
+    s = build_setup
+    s.save!
+    s.redeem!
+    assert_raises(HarmonicBridgeSetup::Redeemed) { s.redeem! }
+  end
+
+  test "redeem!: raises if expired" do
+    s = build_setup(expires_at: 1.minute.ago)
+    s.save!
+    assert_raises(HarmonicBridgeSetup::Expired) { s.redeem! }
+  end
+
+  test "redeem!: two in-memory instances do not double-mint (lock + post-lock re-check)" do
+    # Simulates two concurrent GETs that both loaded the row before either
+    # committed redemption. with_lock + reload + re-check inside redeem! must
+    # make exactly one win; the loser raises Redeemed.
+    s = build_setup
+    s.save!
+    s_copy = HarmonicBridgeSetup.find(s.id)
+
+    s.redeem!
+    assert_raises(HarmonicBridgeSetup::Redeemed) { s_copy.redeem! }
+    assert_equal 1, @agent.api_tokens.count, "exactly one token minted across both calls"
+    assert_equal 1, AutomationRule.where(ai_agent_id: @agent.id).count, "exactly one rule across both calls"
+  end
+
+  # ---------- complete! ----------
+
+  test "complete!: fills the URL into the existing rule and enables it" do
+    s = build_setup
+    s.save!
+    credentials = s.redeem!
+    original_rule_id = s.automation_rule.id
+    original_secret = s.automation_rule.webhook_secret
+
+    webhook_url = "https://agent.example.test/webhook/#{@agent.tenant_users.find_by(tenant_id: @tenant.id).handle}"
+    s.complete!(webhook_url: webhook_url, events: ["notifications.delivered"])
+
+    s.reload
+    rule = s.automation_rule
+    assert_not_nil rule
+    assert_equal original_rule_id, rule.id, "same rule as the one created at redeem time"
+    assert_equal original_secret, rule.webhook_secret, "secret is unchanged"
+    assert_equal credentials[:signing_secret], rule.webhook_secret
     assert_equal "event", rule.trigger_type
     assert_equal ["notifications.delivered"], rule.trigger_config["event_types"]
     assert_equal webhook_url, rule.actions["webhook_url"]
     assert rule.enabled?
-    assert_equal credentials[:signing_secret], rule.webhook_secret
     assert s.webhook_registered_at.present?
   end
 
@@ -185,7 +243,7 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
   test "complete!: raises if already completed" do
     s = build_setup
     s.save!
-    s.mark_redeemed!
+    s.redeem!
     s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
     assert_raises(HarmonicBridgeSetup::WebhookAlreadyRegistered) do
       s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
@@ -195,7 +253,7 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
   test "complete!: raises if expired" do
     s = build_setup
     s.save!
-    s.mark_redeemed!
+    s.redeem!
     s.update_columns(expires_at: 1.minute.ago)
     assert_raises(HarmonicBridgeSetup::Expired) do
       s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
@@ -203,13 +261,13 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
   end
 
   test "complete!: two in-memory instances do not double-complete (lock + post-lock re-check)" do
-    # Simulates two concurrent POSTs that both loaded the row after the GET
-    # committed `redeemed_at` but before either committed completion. with_lock
-    # + reload + re-check inside complete! must make exactly one win; the loser
-    # raises WebhookAlreadyRegistered and mints no token / creates no rule.
+    # Simulates two concurrent POSTs that both loaded the row after redeem!
+    # committed but before either committed completion. with_lock + reload +
+    # re-check inside complete! must make exactly one win; the loser raises
+    # WebhookAlreadyRegistered.
     s = build_setup
     s.save!
-    s.mark_redeemed!
+    s.redeem!
     s_copy = HarmonicBridgeSetup.find(s.id)
 
     s.complete!(webhook_url: "https://first.example/y", events: ["notifications.delivered"])
@@ -218,16 +276,19 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
       s_copy.complete!(webhook_url: "https://second.example/y", events: ["notifications.delivered"])
     end
 
-    assert_equal 1, @agent.api_tokens.count, "exactly one token across both calls"
-    assert_equal 1, AutomationRule.where(ai_agent_id: @agent.id).count, "exactly one AutomationRule across both calls"
+    # Still only the one rule from redeem!; the second complete! didn't
+    # double-update or create a second.
+    assert_equal 1, AutomationRule.where(ai_agent_id: @agent.id).count
+    s.reload
+    assert_equal "https://first.example/y", s.automation_rule.actions["webhook_url"]
   end
 
   # ---------- revert_completion! ----------
 
-  test "revert_completion!: destroys both the token and the AutomationRule, returns setup to retryable state" do
+  test "revert_completion!: destroys the token and the AutomationRule" do
     s = build_setup
     s.save!
-    s.mark_redeemed!
+    s.redeem!
     s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
 
     rule_id = s.automation_rule.id
@@ -238,12 +299,11 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert_nil s.automation_rule
     assert_nil s.api_token
     assert_nil s.webhook_registered_at
-    assert s.redeemed_at.present?, "redeemed_at stays set; only completion is reverted"
+    assert s.redeemed_at.present?, "redeemed_at stays set (the URL has been consumed)"
     assert_nil AutomationRule.find_by(id: rule_id)
     assert_nil ApiToken.find_by(id: token_id)
 
-    # And the setup is retryable: a fresh complete! should work
-    credentials = s.complete!(webhook_url: "https://other/y", events: ["notifications.delivered"])
-    assert credentials[:harmonic_token].present?
+    # The setup is no longer POSTable — caller must get a fresh URL.
+    assert_not s.webhook_registerable?
   end
 end
