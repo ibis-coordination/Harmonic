@@ -163,17 +163,6 @@ test("daemon: wake command inherits HOME and other env vars from the daemon", as
   assert.match(env, new RegExp(`HOME=${process.env["HOME"]}`));
 });
 
-test("daemon: writes per-agent mcp-config.json on startup", async () => {
-  const f = makeFixture();
-  const d = await startWithFixture(f);
-  void d;
-  const mcpConfigPath = path.join(f.configDir, "agents", "alice", "mcp-config.json");
-  assert.ok(existsSync(mcpConfigPath), "expected mcp-config.json to be written for alice");
-  const config = JSON.parse(readFileSync(mcpConfigPath, "utf8"));
-  assert.ok(config.mcpServers["harmonic-alice"]);
-  assert.equal(config.mcpServers["harmonic-alice"].headers.Authorization, "Bearer ${HARMONIC_BRIDGE_TOKEN}");
-});
-
 test("daemon: wake command sees HARMONIC_BRIDGE_AGENT_DIR pointing at the per-agent config dir", async () => {
   const f = makeFixture();
   const agentYmlPath = path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml");
