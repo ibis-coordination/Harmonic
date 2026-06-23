@@ -141,7 +141,7 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
     await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(
       path.join(agentDir, "harmonic-bridge.yml"),
-      renderAgentYaml({ mcpEndpoint: metadata.harmonic_mcp_endpoint, tokenPath, secretPath, events: metadata.events_recommended, handle }),
+      renderAgentYaml({ mcpEndpoint: metadata.harmonic_mcp_endpoint, tokenPath, secretPath, events: metadata.events_recommended, handle, agentDir }),
       { flag: "wx" },
     );
   } catch (e) {
@@ -291,6 +291,7 @@ function renderAgentYaml(f: {
   secretPath: string;
   events: readonly string[];
   handle: string;
+  agentDir: string;
 }): string {
   // Use the yaml library to safely encode scalar values that originate from
   // outside the bridge (Harmonic-supplied URLs, filesystem paths). Without
@@ -306,8 +307,10 @@ harmonic_mcp_endpoint: ${ymlScalar(f.mcpEndpoint)}
 harmonic_token: ${ymlScalar(`file://${f.tokenPath}`)}
 webhook_secret: ${ymlScalar(`file://${f.secretPath}`)}
 
-# Where the wake command runs. Set to a directory the agent's harness can use.
-working_dir: ~
+# Where the wake command runs. Defaults to the agent's own config dir so the
+# daemon loads cleanly out of the box; change this to wherever your harness
+# expects cwd before relying on the agent.
+working_dir: ${ymlScalar(f.agentDir)}
 
 # What to run when a notification arrives. The payload arrives on stdin;
 # HARMONIC_BRIDGE_AGENT_NAME, AGENT_DIR, EVENT_TYPE, MCP_ENDPOINT, and TOKEN

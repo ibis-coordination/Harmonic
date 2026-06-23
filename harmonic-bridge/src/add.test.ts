@@ -129,6 +129,17 @@ test("add: happy path writes secrets + config, sighups daemon, posts registratio
     assert.match(agentYml, /wake_command not configured/);
     assert.match(agentYml, /notifications\.delivered/);
 
+    // Regression: working_dir must be a non-empty string in the emitted YAML.
+    // Writing the literal `~` (intended as a tilde) was a bug — YAML parses
+    // unquoted `~` as null, so the daemon refused to load the agent and the
+    // verification webhook 404'd. Default to the agent dir so the daemon
+    // loads cleanly out of the box.
+    const { parse: parseYaml } = await import("yaml");
+    const parsed = parseYaml(agentYml) as Record<string, unknown>;
+    assert.equal(typeof parsed.working_dir, "string");
+    assert.ok((parsed.working_dir as string).length > 0, "working_dir must not be empty");
+    assert.equal(parsed.working_dir, path.join(f.configDir, "agents", "alice"));
+
     // SIGHUP sent to the daemon (own PID via the fixture).
     assert.equal(signals.length, 1);
     assert.equal(signals[0]![0], process.pid);
