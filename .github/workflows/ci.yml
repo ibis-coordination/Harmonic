@@ -90,6 +90,14 @@ jobs:
           npm run typecheck
           npm test
 
+      - name: Build and test harmonic-bridge
+        run: |
+          cd harmonic-bridge
+          npm install
+          npm run typecheck
+          npm test
+          npm run build
+
   rails-tests:
     runs-on: ubuntu-latest
     strategy:
