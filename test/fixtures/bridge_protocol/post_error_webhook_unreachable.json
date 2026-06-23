@@ -1,0 +1,4 @@
+{
+  "error": "webhook_unreachable",
+  "detail": "HTTP 502"
+}

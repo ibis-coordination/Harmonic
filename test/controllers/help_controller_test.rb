@@ -12,6 +12,42 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
   end
 
+  test "/help/self-hosting-agents leads with user-facing guidance" do
+    get "/help/self-hosting-agents"
+    assert_response :success
+    # Should read as a "how do I run an agent on my own hardware" page, not
+    # a wire-protocol spec. Spot-check headings users would expect.
+    assert_match(/Self-hosting agents/, response.body)
+    assert_match(/Pull vs\. push/i, response.body)
+    assert_match(/Push mode setup/i, response.body)
+    assert_match(/Connect harmonic-bridge/, response.body)
+  end
+
+  test "/help/self-hosting-agents renders in markdown too" do
+    get "/help/self-hosting-agents", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Self-hosting agents/, response.body)
+  end
+
+  test "/help/webhooks documents the canonical signing scheme and three flavors" do
+    get "/help/webhooks"
+    assert_response :success
+    # Names the three flavors so a reader can orient
+    assert_match(/Notification webhook/, response.body)
+    assert_match(/Automation webhook action/, response.body)
+    assert_match(/Automation webhook trigger/, response.body)
+    # Documents the wire format that's hardcoded in WebhookDeliveryService
+    assert_match(/X-Harmonic-Signature/, response.body)
+    assert_match(/X-Harmonic-Timestamp/, response.body)
+    assert_match(/HMAC-SHA256/i, response.body)
+  end
+
+  test "/help/webhooks renders in markdown too" do
+    get "/help/webhooks", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Webhooks/, response.body)
+  end
+
   test "/help/mcp/connect/cursor renders the Cursor setup guide" do
     get "/help/mcp/connect/cursor"
     assert_response :success

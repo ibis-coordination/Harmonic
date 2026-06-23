@@ -5,7 +5,7 @@ class HelpController < ApplicationController
     "privacy", "collectives", "notes", "reminder_notes", "table_notes",
     "decisions", "executive_decisions", "lottery_decisions",
     "commitments", "calendar_events", "policies", "cycles", "search", "links", "lists",
-    "agents", "trio", "automations", "api", "rest_api", "markdown_ui", "mcp", "notifications", "representation",
+    "agents", "self_hosting_agents", "trio", "automations", "webhooks", "api", "rest_api", "markdown_ui", "mcp", "notifications", "representation",
     "billing",
   ].freeze
 

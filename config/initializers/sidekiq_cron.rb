@@ -55,6 +55,11 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "PurgeDismissedNotificationsJob",
     "description" => "Delete long-dismissed notification recipients and orphaned notifications",
   },
+  "cleanup_abandoned_bridge_setups" => {
+    "cron" => "15 * * * *", # Hourly at :15
+    "class" => "CleanupAbandonedBridgeSetupsJob",
+    "description" => "Destroy expired-unfinished harmonic-bridge setups + their orphaned token + rule",
+  },
 }.freeze
 
 Sidekiq.configure_server do |_config|
