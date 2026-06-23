@@ -1,0 +1,8 @@
+{
+  "harmonic_mcp_endpoint": "https://app.harmonic.example/mcp",
+  "harmonic_token": "tok_example_plaintext",
+  "signing_secret": "whsec_example_plaintext",
+  "agent_handle": "reviewer",
+  "webhook_register_url": "https://app.harmonic.example/bridge-setups/abc123/webhook",
+  "events_recommended": ["notifications.delivered", "reminders.delivered"]
+}

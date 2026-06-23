@@ -2,8 +2,11 @@
 
 require "test_helper"
 require "webmock/minitest"
+require_relative "../support/bridge_protocol_fixtures"
 
 class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
+  include BridgeProtocolFixtures
+
   setup do
     @tenant = @global_tenant
     @collective = @global_collective
@@ -46,12 +49,15 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     get "/bridge-setups/#{setup.public_id}"
     assert_response :ok
     body = response.parsed_body
+
+    # Wire-shape contract: same fixture the TypeScript bridge tests load.
+    # If a field is renamed on either side, this fails.
+    assert_matches_bridge_protocol_fixture(body, "get_response.json")
+
+    # Value-level assertions on top of the shape contract.
     assert_equal @agent.tenant_users.find_by(tenant: @tenant).handle, body["agent_handle"]
-    assert body["harmonic_mcp_endpoint"].present?
     assert body["webhook_register_url"].include?(setup.public_id)
     assert_equal ["notifications.delivered", "reminders.delivered"], body["events_recommended"]
-    assert body["harmonic_token"].present?
-    assert body["signing_secret"].present?
 
     setup.reload
     assert setup.redeemed_at.present?
@@ -103,6 +109,8 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
       end
     end
     assert_response :ok
+    # Wire-shape contract for POST success body.
+    assert_matches_bridge_protocol_fixture(response.parsed_body, "post_response.json")
     assert_equal({ "ok" => true }, response.parsed_body)
 
     setup.reload
@@ -212,8 +220,9 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_response :unprocessable_entity
     body = response.parsed_body
+    # Wire-shape contract for the verification-failure error.
+    assert_matches_bridge_protocol_fixture(body, "post_error_webhook_unreachable.json")
     assert_equal "webhook_unreachable", body["error"]
-    assert body["detail"].present?
 
     setup.reload
     assert_nil setup.webhook_registered_at

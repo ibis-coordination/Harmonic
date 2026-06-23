@@ -1,0 +1,4 @@
+{
+  "webhook_url": "https://bridge.example.com/webhook/reviewer",
+  "events": ["notifications.delivered", "reminders.delivered"]
+}

@@ -5,6 +5,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { runAdd } from "./add.js";
+import {
+  assertMatchesProtocolFixture,
+  loadProtocolFixture,
+  protocolFixtureResponse,
+} from "./test-fixtures.js";
 
 const SETUP_URL = "https://harmonic.example/bridge-setups/abc123";
 const REGISTER_URL = "https://harmonic.example/bridge-setups/abc123/webhook";
@@ -43,19 +48,23 @@ ${after}
   return { configDir, secretsDir, cleanup: () => rmSync(configDir, { recursive: true, force: true }) };
 }
 
+/**
+ * Build the GET response from the shared fixture, then override agent_handle
+ * + webhook_register_url so the test fixture path stays self-contained
+ * (the bridge mints these from the URL it gets, but the SHAPE is what
+ * the fixture pins).
+ */
 function makeMetadataResponse(): Response {
+  const base = loadProtocolFixture("get_response.json") as Record<string, unknown>;
   return new Response(JSON.stringify({
-    harmonic_mcp_endpoint: "https://harmonic.example/mcp",
-    harmonic_token: "tok_secret_token_plaintext",
-    signing_secret: "whsec_signing_secret_plaintext",
+    ...base,
     agent_handle: "alice",
     webhook_register_url: REGISTER_URL,
-    events_recommended: ["notifications.delivered", "reminders.delivered"],
   }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
 function makeOkResponse(): Response {
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  return protocolFixtureResponse("post_response.json");
 }
 
 interface FetchCall {
@@ -100,20 +109,23 @@ test("add: happy path writes secrets + config, sighups daemon, posts registratio
     const out = await stdoutPromise;
     assert.equal(code, 0, `expected exit 0; got ${code}; stdout=${out}`);
 
-    // Secrets on disk, mode 0600.
+    // Secrets on disk match the values the (mocked) Harmonic response carried,
+    // mode 0600. Fixture values are what makeMetadataResponse serves.
+    const fixture = loadProtocolFixture("get_response.json") as { harmonic_token: string; signing_secret: string };
     const tokenPath = path.join(f.secretsDir, "alice", "harmonic_token");
     const secretPath = path.join(f.secretsDir, "alice", "webhook_secret");
-    assert.equal(readFileSync(tokenPath, "utf8"), "tok_secret_token_plaintext");
-    assert.equal(readFileSync(secretPath, "utf8"), "whsec_signing_secret_plaintext");
+    assert.equal(readFileSync(tokenPath, "utf8"), fixture.harmonic_token);
+    assert.equal(readFileSync(secretPath, "utf8"), fixture.signing_secret);
     assert.equal(statSync(tokenPath).mode & 0o777, 0o600);
     assert.equal(statSync(secretPath).mode & 0o777, 0o600);
 
     // Per-agent config references the file:// secrets, has a stub wake_command,
-    // and the events list returned by the GET.
+    // and the MCP endpoint + events list returned by the GET.
     const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
-    assert.match(agentYml, /harmonic_mcp_endpoint: https:\/\/harmonic\.example\/mcp/);
-    assert.match(agentYml, new RegExp(`harmonic_token: file://${tokenPath.replace(/\//g, "\\/")}`));
-    assert.match(agentYml, new RegExp(`webhook_secret: file://${secretPath.replace(/\//g, "\\/")}`));
+    const mcpEndpointInFixture = (fixture as unknown as { harmonic_mcp_endpoint: string }).harmonic_mcp_endpoint;
+    assert.ok(agentYml.includes(`harmonic_mcp_endpoint: ${mcpEndpointInFixture}`));
+    assert.ok(agentYml.includes(`harmonic_token: file://${tokenPath}`));
+    assert.ok(agentYml.includes(`webhook_secret: file://${secretPath}`));
     assert.match(agentYml, /wake_command not configured/);
     assert.match(agentYml, /notifications\.delivered/);
 
@@ -129,6 +141,11 @@ test("add: happy path writes secrets + config, sighups daemon, posts registratio
     assert.equal(calls[1]!.method, "POST");
     assert.equal(calls[1]!.url, REGISTER_URL);
     const postBody = JSON.parse(calls[1]!.body!);
+
+    // Wire-shape contract: same fixture the Ruby controller test loads.
+    // If a field is renamed on either side, this fails.
+    assertMatchesProtocolFixture(postBody, "post_request.json");
+
     assert.equal(postBody.webhook_url, "https://bridge.example.com/webhook/alice");
     assert.deepEqual(postBody.events, ["notifications.delivered", "reminders.delivered"]);
 
@@ -285,9 +302,12 @@ test("add: missing daemon.pid before POST → cleans up local files, reports dae
 test("add: POST 422 webhook_unreachable → rolls back local files + sighups daemon to drop the agent", async () => {
   const f = makeFixture();
   try {
+    // Build the 422 from the shared fixture (with a more specific detail)
+    // so this test fails if the error wire shape drifts on either side.
+    const errBase = loadProtocolFixture("post_error_webhook_unreachable.json") as Record<string, unknown>;
     const { fetch: fakeFetch } = recordingFetch([
       () => makeMetadataResponse(),
-      () => new Response(JSON.stringify({ error: "webhook_unreachable", detail: "connection refused" }), { status: 422, headers: { "Content-Type": "application/json" } }),
+      () => new Response(JSON.stringify({ ...errBase, detail: "connection refused" }), { status: 422, headers: { "Content-Type": "application/json" } }),
     ]);
     const signals: Array<[number, NodeJS.Signals]> = [];
     const stderr = new PassThrough();
