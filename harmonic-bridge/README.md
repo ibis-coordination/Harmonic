@@ -8,13 +8,13 @@ Harmonic webhook → harmonic-bridge daemon → spawn your wake command → your
 
 ## Status
 
-**v0.1** — works end-to-end. The daemon loads configs, verifies HMAC signatures against Harmonic's wire format, serializes wakes per agent, and routes per-agent stdout/stderr to log files. The `status`, `reload`, `logs`, and `test` subcommands are reserved but not implemented in v0.1 — they print "not implemented yet" and return non-zero.
+**v0.1** — works end-to-end. The daemon loads configs, verifies HMAC signatures against Harmonic's wire format, serializes wakes per agent, and routes per-agent stdout/stderr to log files. The `add` and `reload` commands are wired; `status`, `logs`, and `test` are reserved but not implemented yet (print "not implemented yet" and exit non-zero).
 
 Node 20+. See [docs/DESIGN.md](docs/DESIGN.md) for principles and architecture.
 
 ## Install
 
-From npm (recommended):
+From npm:
 
 ```
 npm install -g @ibis-coordination/harmonic-bridge
@@ -30,30 +30,68 @@ npm run build
 npm link        # makes `harmonic-bridge` available on PATH
 ```
 
-Front the daemon with Caddy or nginx for TLS.
+You'll also need a way to terminate TLS in front of the daemon — Caddy, nginx, cloudflared, ngrok, or anything else that gives you a public HTTPS URL routed to the daemon's listen port.
 
 ## Quickstart
 
 ```
-harmonic-bridge init                         # writes ~/.harmonic-bridge/config.yml + a systemd unit
+# 1. Write skeleton config + a systemd unit template
+harmonic-bridge init
+
+# 2. Edit ~/.harmonic-bridge/config.yml
+#    Set public_url to the publicly reachable HTTPS URL of this host.
+
+# 3. Start the daemon (foreground or via systemd)
+harmonic-bridge
+
+# 4. For each agent: in Harmonic, click "Connect harmonic-bridge" on the
+#    agent's settings page → copy the command → run it on this host.
+harmonic-bridge add --from https://<your-tenant>.harmonic.example/bridge-setups/<id>
 ```
 
-Edit `~/.harmonic-bridge/config.yml` (set `listen` to the local port your reverse proxy points at). Then for each agent you want to run:
+That's the whole flow. `add` exchanges the one-time URL for the agent's MCP token + webhook signing secret, writes both to disk (at `mode 0600`), writes a per-agent config with a stub `wake_command`, registers the webhook with Harmonic, and sighups the daemon so it picks up the new agent. After `add` succeeds, edit `~/.harmonic-bridge/agents/<handle>/harmonic-bridge.yml` to set the actual `wake_command`, then `harmonic-bridge reload` to apply.
 
-1. Connect the agent in Harmonic, copy the MCP endpoint URL and token.
-2. Register a notification webhook in Harmonic at `/ai-agents/<handle>/webhook` pointed at `https://<your-host>/webhook/<handle>`. Default events (`notifications.delivered`, `reminders.delivered`) are applied automatically. Save the signing secret.
-3. Store the token and signing secret in your secrets backend (see [Secrets](#secrets)).
-4. Write `~/.harmonic-bridge/agents/<handle>/harmonic-bridge.yml` (see [Per-agent config](#per-agent-config)).
-5. Start the daemon: `harmonic-bridge` (or via the generated systemd unit).
+## Daemon config
+
+`~/.harmonic-bridge/config.yml` (written by `init` with these defaults):
+
+```yaml
+listen: 127.0.0.1:8080
+
+# Publicly reachable HTTPS URL of this host — required by `add`.
+# Each agent's webhook URL is constructed as ${public_url}/webhook/<agent-handle>.
+public_url: "https://bridge.example.com"   # SET ME
+
+log_dir: ~/.harmonic-bridge/logs
+
+# Where `add` stores minted credentials. v0.1 only supports `backend: file`.
+secrets:
+  backend: file
+  base_dir: ~/.harmonic-bridge/secrets
+
+# Optional. Built-in resolvers (file://, env://) are always present.
+# secret_resolvers:
+#   op:    "op read {ref}"
+#   awssm: "aws secretsmanager get-secret-value --secret-id {ref} --query SecretString --output text"
+
+# Optional. Steps that run once per agent after `add` succeeds.
+# Lets you opt into harness-specific local setup (writing a Claude Code MCP
+# config, running `codex mcp add`, etc.). See "After-add steps" below.
+# after_add:
+#   - built_in: claude-code-per-agent-mcp-config
+#   - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
+```
+
+Daemon-level config changes (listen, log_dir, secret_resolvers, public_url, secrets) require a daemon restart. `reload` only re-reads per-agent files.
 
 ## Per-agent config
 
-`~/.harmonic-bridge/agents/<agent-handle>/harmonic-bridge.yml`:
+`~/.harmonic-bridge/agents/<agent-handle>/harmonic-bridge.yml` (written by `add`, then you edit):
 
 ```yaml
 harmonic_mcp_endpoint: https://app.harmonic.example/mcp
-harmonic_token: op://Personal/harmonic-dev/token
-webhook_secret: op://Personal/harmonic-dev/webhook
+harmonic_token: file:///home/agent/.harmonic-bridge/secrets/<handle>/harmonic_token
+webhook_secret: file:///home/agent/.harmonic-bridge/secrets/<handle>/webhook_secret
 
 working_dir: /home/agent/code/Harmonic
 wake_command: |
@@ -69,7 +107,7 @@ env:                                   # optional; extra env vars for wake_comma
   ANTHROPIC_API_KEY: op://Personal/anthropic-key
 ```
 
-Any field whose value matches `<scheme>://<rest>` is treated as a [secret reference](#secrets) and resolved at wake time. Plain strings are used as-is.
+Any field whose value matches `<scheme>://<rest>` is a [secret reference](#secrets) and resolved at wake time. Plain strings are used as-is.
 
 Each agent runs in its own directory; the daemon serializes per-agent (one wake at a time) and parallelizes across agents.
 
@@ -86,25 +124,26 @@ Each agent runs in its own directory; the daemon serializes per-agent (one wake 
 
 Exit code 0 is success. Non-zero is logged; harmonic-bridge does not retry (Harmonic already does).
 
-### Wiring MCP into your harness
+## After-add steps
 
-harmonic-bridge passes the Harmonic MCP endpoint and token to the wake command via env vars, but it doesn't configure your harness's MCP discovery for you. Each harness has its own way of learning about MCP servers, and it's a one-time setup step on the host:
+`add` is harness-neutral by default — it writes credentials and a stub wake_command, nothing more. To opt into harness-specific setup, configure `after_add` in the daemon config (applied to every agent) or in a per-agent config (overrides the daemon default).
 
-- **Claude Code**: No `claude mcp add` step needed. The daemon writes a per-agent MCP config to `$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json` on startup, with the token stored as a `${HARMONIC_BRIDGE_TOKEN}` env-var reference (Claude expands it at session start, so secrets never land on disk). The wake_command points at the file:
+Two step forms:
 
-  ```yaml
-  wake_command: |
-    claude -p \
-      --mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json" \
-      --append-system-prompt @"$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md" \
-      --allowedTools "mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__fetch_page,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__execute_action,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__search,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__get_help"
-  ```
+```yaml
+after_add:
+  - built_in: claude-code-per-agent-mcp-config
+  - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
+```
 
-  Server name is `harmonic-<agent-handle>` (matching Harmonic's Connect-flow convention), so multiple agents on one host don't collide. Claude in `-p` (non-interactive) mode can't answer permission prompts, so the `--allowedTools` list above pre-grants the four MCP tools.
+- **`built_in: <name>`** — runs a TypeScript function shipped with harmonic-bridge.
+  Shipped built-ins:
+  - `claude-code-per-agent-mcp-config` — writes `$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json` so a Claude Code wake command can reference it via `--mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json"`. The token is stored as a literal `${HARMONIC_BRIDGE_TOKEN}` env-var reference (Claude expands it at session start, so secrets don't land on disk).
+- **`command: <shell>`** — runs an arbitrary `sh -c` command with the standard env vars set. The plaintext `HARMONIC_BRIDGE_TOKEN` is passed because tools like `claude mcp add` need it literally to embed in their own config.
 
-  Auth: prefer `claude login` (subscription auth carries into the subprocess) over `ANTHROPIC_API_KEY` (separate billing account; easy to confuse with your interactive session's auth and land on "credit balance too low" while talking to Claude interactively just fine).
-- **Codex**: `codex mcp add harmonic --url <MCP_URL> --bearer-token-env-var HARMONIC_BRIDGE_TOKEN` — Codex reads the token from the env var at run time, so harmonic-bridge's env-var pass-through closes the loop. The server URL still gets written to `~/.codex/config.toml`.
-- **Custom scripts** (Python with an MCP client lib, Node script using `@modelcontextprotocol/sdk`, etc.): typically read `HARMONIC_BRIDGE_MCP_ENDPOINT` and `HARMONIC_BRIDGE_TOKEN` from env at startup. No additional setup.
+Steps run sequentially with continue-past-failure: a failed step doesn't stop the next one and doesn't fail the overall `add`. The agent is registered with Harmonic regardless — failed steps surface as warnings on stdout.
+
+The same lifecycle pattern (`after_<command>`) is reserved for future commands: `after_remove`, `after_rotate`, etc.
 
 ## Secrets
 
@@ -123,12 +162,24 @@ secret_resolvers:
 
 ```yaml
 # Example references
-harmonic_token: file:///home/agent/.harmonic-bridge/agents/dev/.token
+harmonic_token: file:///home/agent/.harmonic-bridge/secrets/dev/harmonic_token
 harmonic_token: env://HARMONIC_TOKEN_DEV
 harmonic_token: op://Personal/harmonic-dev/token
 ```
 
-To rotate a secret, update it in your backend. Resolution happens per wake, so no daemon reload is needed unless the *reference* itself changed.
+`add` writes its minted credentials to the configured `secrets.backend` (v0.1: file, mode 0600). To rotate to a different backend later, copy the secrets into your preferred manager, update the per-agent config's references, and `harmonic-bridge reload`.
+
+To rotate a secret value (not the reference), update it in your backend. Resolution happens per wake, so no reload is needed unless the *reference* itself changed.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `harmonic-bridge` | Start the daemon. Stays running until SIGTERM/SIGINT. |
+| `harmonic-bridge init` | Write `~/.harmonic-bridge/config.yml` + a systemd unit template. |
+| `harmonic-bridge add --from <URL>` | Redeem a setup URL from Harmonic, write per-agent config, register the webhook, run after_add steps. |
+| `harmonic-bridge reload` | Re-read per-agent configs in the running daemon without dropping in-flight wakes. (Daemon-level config changes still require a restart.) |
+| `harmonic-bridge help` | Show usage. |
 
 ## Operations
 
@@ -141,13 +192,16 @@ The bound port and shutdown messages go to the daemon's stdout. Per-wake output 
 
 Append-mode, so historical wakes are preserved.
 
-`harmonic-bridge` runs until it receives SIGTERM or SIGINT, then drains in-flight wakes before exiting. If running under systemd, `systemctl stop harmonic-bridge` triggers a clean shutdown.
+The daemon writes `~/.harmonic-bridge/daemon.pid` on start (removed on graceful stop). `harmonic-bridge reload` reads this file to send SIGHUP.
+
+`harmonic-bridge` runs until it receives SIGTERM or SIGINT, then drains in-flight wakes before exiting. Under systemd, `systemctl stop harmonic-bridge` triggers a clean shutdown.
 
 ## Security model
 
 - **HMAC verification.** Inbound requests are verified against the agent's `webhook_secret` using Harmonic's `X-Harmonic-Signature` header (sha256 over `<timestamp>.<body>` with a 5-minute replay window). Failures drop the request before any process spawns.
-- **Secret resolution at wake time.** Resolved secrets live in the wake process's memory only. They are not written to disk, not logged, and not passed as the resolver subprocess's argv (resolvers receive the reference body, not the secret).
+- **Secret resolution at wake time.** Resolved secrets live in the wake process's memory only. They are not written to disk by the daemon, not logged, and not passed as the resolver subprocess's argv (resolvers receive the reference body, not the secret).
 - **Per-agent isolation.** Each agent's secrets, working directory, queue, and log files are independent. A leaked secret never compromises another agent.
+- **`add`-side defenses.** Network-supplied agent handles are validated against `/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/` before being used as a path component. `public_url` must be `https://`. HTTP timeouts (30s) prevent a hung Harmonic from pinning the CLI.
 - **No TLS termination.** harmonic-bridge listens on a local port; your reverse proxy handles TLS.
 
 ## Development
