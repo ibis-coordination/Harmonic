@@ -289,3 +289,155 @@ test("daemon: stop() drains in-flight wakes and closes the server", async () => 
   // And the port is no longer listening.
   await assert.rejects(() => fetch(`http://${HOST}:${d.port}/webhook/alice`, { method: "POST", body: "{}" }));
 });
+
+// ---------- reload ----------
+
+test("daemon.reload(): picks up an agent added to disk after startup", async () => {
+  const f = makeFixture();
+  const d = await startWithFixture(f);
+
+  // POST to a not-yet-configured agent returns 404 (no entry in the map).
+  let res = await fetch(`http://${HOST}:${d.port}/webhook/bob`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": "sha256=" + "0".repeat(64),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body: "{}",
+  });
+  assert.equal(res.status, 404);
+
+  // Drop bob's config + secret on disk, then reload.
+  const bobDir = path.join(f.configDir, "agents", "bob");
+  mkdirSync(bobDir, { recursive: true });
+  const bobSecret = "ws-bob-" + Math.random().toString(36).slice(2);
+  const bobToken = "tok-bob-" + Math.random().toString(36).slice(2);
+  const bobSecretPath = path.join(f.configDir, "secrets", "bob-webhook");
+  const bobTokenPath = path.join(f.configDir, "secrets", "bob-token");
+  writeFileSync(bobSecretPath, bobSecret);
+  writeFileSync(bobTokenPath, bobToken);
+  const bobOutput = path.join(f.configDir, "bob-output.txt");
+  writeFileSync(path.join(bobDir, "harmonic-bridge.yml"), `
+harmonic_mcp_endpoint: https://app.harmonic.example/mcp
+harmonic_token: file://${bobTokenPath}
+webhook_secret: file://${bobSecretPath}
+working_dir: ${f.configDir}
+wake_command: |
+  cat > ${bobOutput}
+`);
+
+  await d.reload();
+
+  // Now bob's webhook accepts and dispatches.
+  const body = "hello-bob";
+  res = await fetch(`http://${HOST}:${d.port}/webhook/bob`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, bobSecret),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body,
+  });
+  assert.equal(res.status, 204);
+  await waitForFile(bobOutput);
+  assert.equal(readFileSync(bobOutput, "utf8"), body);
+});
+
+test("daemon.reload(): drops an agent whose config directory was removed", async () => {
+  const f = makeFixture();
+  const d = await startWithFixture(f);
+
+  // alice exists initially.
+  let res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign("{}", TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body: "{}",
+  });
+  assert.equal(res.status, 204);
+
+  // Remove alice's dir + reload.
+  rmSync(path.join(f.configDir, "agents", "alice"), { recursive: true });
+  await d.reload();
+
+  // alice is now unknown.
+  res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign("{}", TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body: "{}",
+  });
+  assert.equal(res.status, 404);
+});
+
+test("daemon.reload(): a broken per-agent config does not poison the rest", async () => {
+  const f = makeFixture();
+  const d = await startWithFixture(f);
+
+  // Add a broken agent: missing wake_command.
+  const brokenDir = path.join(f.configDir, "agents", "broken");
+  mkdirSync(brokenDir, { recursive: true });
+  writeFileSync(path.join(brokenDir, "harmonic-bridge.yml"), `
+harmonic_mcp_endpoint: https://app.harmonic.example/mcp
+harmonic_token: file:///dev/null
+webhook_secret: file:///dev/null
+working_dir: /tmp
+`);
+
+  // Capture the warning written to stderr.
+  const origWrite = process.stderr.write.bind(process.stderr);
+  const captured: string[] = [];
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    captured.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    await d.reload();
+  } finally {
+    process.stderr.write = origWrite;
+  }
+  assert.ok(captured.some((s) => /broken/.test(s) && /wake_command/.test(s)),
+    `expected stderr to warn about the broken agent; got: ${captured.join("")}`);
+
+  // alice still works.
+  const res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign("{}", TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body: "{}",
+  });
+  assert.equal(res.status, 204);
+});
+
+// ---------- PID file ----------
+
+test("daemon: installSignalHandlers writes daemon.pid on start and removes it on stop", async () => {
+  const f = makeFixture();
+  const d = await startDaemon({
+    configDir: f.configDir,
+    listenOverride: { host: HOST, port: 0 },
+    installSignalHandlers: true,
+  });
+  const pidFilePath = path.join(f.configDir, "daemon.pid");
+  try {
+    assert.ok(existsSync(pidFilePath), "PID file should be written on start");
+    assert.equal(Number(readFileSync(pidFilePath, "utf8")), process.pid);
+  } finally {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  }
+  assert.equal(existsSync(pidFilePath), false, "PID file should be removed on stop");
+});
+
+test("daemon: without installSignalHandlers, no PID file is created", async () => {
+  const f = makeFixture();
+  const d = await startWithFixture(f);
+  void d;
+  assert.equal(existsSync(path.join(f.configDir, "daemon.pid")), false);
+});

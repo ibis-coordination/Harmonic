@@ -1,11 +1,13 @@
 // Daemon entrypoint. Loads daemon + per-agent configs, wires the server,
 // the dispatcher, and the wake-spawn together. Returns a handle the caller
-// can stop() for graceful shutdown.
+// can stop() for graceful shutdown, or reload() to re-read per-agent
+// configs without dropping in-flight wakes.
 //
 // Everything below this point is composition — no business logic. The
 // pieces are exercised independently by their own tests; this module's
 // tests cover the wiring end-to-end.
 
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   listAgentNames,
@@ -24,10 +26,20 @@ export interface DaemonOpts {
   readonly configDir: string;
   /** Override the daemon-config listen address (useful for tests on port 0). */
   readonly listenOverride?: { readonly host: string; readonly port: number };
+  /**
+   * If true, write a PID file at `${configDir}/daemon.pid` on start and
+   * install a SIGHUP handler that reloads per-agent configs. Defaults to
+   * false; production callers (the CLI) pass true. Tests leave it off to
+   * avoid signal-handler interference across concurrent test runs.
+   */
+  readonly installSignalHandlers?: boolean;
 }
 
 export interface RunningDaemon {
   readonly port: number;
+  /** Re-read per-agent configs and update the in-memory map. */
+  reload(): Promise<void>;
+  /** Graceful shutdown — stops accepting webhooks, drains in-flight wakes. */
   stop(): Promise<void>;
 }
 
@@ -41,11 +53,28 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
 
   const agentsDir = path.join(opts.configDir, "agents");
   const agents = new Map<string, AgentConfig>();
-  for (const name of await listAgentNames(agentsDir)) {
-    const agentDir = path.join(agentsDir, name);
-    const cfg = await loadAgentConfig(path.join(agentDir, "harmonic-bridge.yml"));
-    agents.set(name, cfg);
+
+  async function loadAllAgents(): Promise<void> {
+    const names = await listAgentNames(agentsDir);
+    const seen = new Set(names);
+    for (const name of names) {
+      try {
+        const cfg = await loadAgentConfig(path.join(agentsDir, name, "harmonic-bridge.yml"));
+        agents.set(name, cfg);
+      } catch (e) {
+        // One bad config shouldn't take down the daemon's view of healthy
+        // agents. Surface the error and skip; the agent stays absent from
+        // the map (so its webhooks 404 until the config is fixed).
+        const msg = e instanceof Error ? e.message : String(e);
+        process.stderr.write(`harmonic-bridge: failed to load agent "${name}": ${msg}\n`);
+      }
+    }
+    for (const name of agents.keys()) {
+      if (!seen.has(name)) agents.delete(name);
+    }
   }
+
+  await loadAllAgents();
 
   const dispatcher = createDispatcher<WakeEvent>(async (handle, { eventType, payload }) => {
     const cfg = agents.get(handle);
@@ -105,14 +134,37 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     },
   });
 
+  const pidFilePath = path.join(opts.configDir, "daemon.pid");
+  let pidFileWritten = false;
+  let sighupHandler: (() => void) | undefined;
+
+  if (opts.installSignalHandlers) {
+    await fs.writeFile(pidFilePath, String(process.pid), "utf8");
+    pidFileWritten = true;
+
+    sighupHandler = () => {
+      // Fire-and-forget; errors are logged inside loadAllAgents.
+      loadAllAgents().catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        process.stderr.write(`harmonic-bridge: reload failed: ${msg}\n`);
+      });
+    };
+    process.on("SIGHUP", sighupHandler);
+  }
+
   let stopped = false;
   return {
     port: server.port,
+    reload: loadAllAgents,
     stop: async () => {
       if (stopped) return;
       stopped = true;
+      if (sighupHandler) process.off("SIGHUP", sighupHandler);
       await server.close();
       await dispatcher.drain();
+      if (pidFileWritten) {
+        await fs.unlink(pidFilePath).catch(() => undefined);
+      }
     },
   };
 }

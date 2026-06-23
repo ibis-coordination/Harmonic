@@ -2,6 +2,7 @@
 // and by tests. This file has no side effects on import — runCommand must
 // be invoked explicitly.
 
+import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import type { Writable } from "node:stream";
@@ -15,7 +16,7 @@ export interface CliOpts {
   readonly stderr?: Writable;
 }
 
-const STUB_COMMANDS: ReadonlySet<string> = new Set(["status", "reload", "logs", "test"]);
+const STUB_COMMANDS: ReadonlySet<string> = new Set(["status", "logs", "test"]);
 
 /**
  * Run the CLI with the given arguments. Returns the exit code.
@@ -47,6 +48,10 @@ export async function runCommand(args: readonly string[], opts: CliOpts = {}): P
     return 0;
   }
 
+  if (command === "reload") {
+    return await runReload(configDir, stdout, stderr);
+  }
+
   if (STUB_COMMANDS.has(command)) {
     stderr.write(`harmonic-bridge: "${command}" is not implemented yet in v0.1\n`);
     return 2;
@@ -60,7 +65,7 @@ export async function runCommand(args: readonly string[], opts: CliOpts = {}): P
 async function runDaemon(configDir: string, stdout: Writable, stderr: Writable): Promise<number> {
   let daemon;
   try {
-    daemon = await startDaemon({ configDir });
+    daemon = await startDaemon({ configDir, installSignalHandlers: true });
   } catch (e) {
     stderr.write(`harmonic-bridge: failed to start — ${e instanceof Error ? e.message : String(e)}\n`);
     return 1;
@@ -85,6 +90,49 @@ async function runDaemon(configDir: string, stdout: Writable, stderr: Writable):
   return 0;
 }
 
+async function runReload(configDir: string, stdout: Writable, stderr: Writable): Promise<number> {
+  const pidFilePath = path.join(configDir, "daemon.pid");
+  let pidRaw: string;
+  try {
+    pidRaw = await fs.readFile(pidFilePath, "utf8");
+  } catch (e) {
+    if (isNodeError(e) && e.code === "ENOENT") {
+      stderr.write(`harmonic-bridge: no daemon.pid at ${pidFilePath} — is the daemon running?\n`);
+      return 1;
+    }
+    stderr.write(`harmonic-bridge: failed to read ${pidFilePath} — ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
+
+  const pid = Number(pidRaw.trim());
+  if (!Number.isInteger(pid) || pid <= 0) {
+    stderr.write(`harmonic-bridge: ${pidFilePath} contains "${pidRaw.trim()}", not a valid PID\n`);
+    return 1;
+  }
+
+  try {
+    process.kill(pid, "SIGHUP");
+  } catch (e) {
+    if (isNodeError(e) && e.code === "ESRCH") {
+      stderr.write(`harmonic-bridge: no process with PID ${pid} (daemon.pid is stale; remove it and start the daemon)\n`);
+      return 1;
+    }
+    if (isNodeError(e) && e.code === "EPERM") {
+      stderr.write(`harmonic-bridge: not permitted to signal PID ${pid} — is the daemon running as a different user?\n`);
+      return 1;
+    }
+    stderr.write(`harmonic-bridge: failed to send SIGHUP to PID ${pid} — ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
+
+  stdout.write(`harmonic-bridge: SIGHUP sent to PID ${pid} (re-reading per-agent configs)\n`);
+  return 0;
+}
+
+function isNodeError(e: unknown): e is NodeJS.ErrnoException {
+  return e instanceof Error && "code" in e;
+}
+
 function printUsage(out: Writable): void {
   out.write(`Usage: harmonic-bridge [command]
 
@@ -93,11 +141,12 @@ Without a command, starts the daemon (reads ~/.harmonic-bridge/config.yml and
 
 Commands:
   init            Write ~/.harmonic-bridge/config.yml and a systemd unit template.
+  reload          Re-read per-agent configs without dropping in-flight wakes.
+                  (Daemon-level config changes still require a restart.)
   help            Show this help.
 
 Planned (not in v0.1):
   status          Show daemon + per-agent state.
-  reload          Re-read configs without dropping in-flight wakes.
   logs <agent>    Tail an agent's wake logs.
   test <agent>    Send a synthetic event to the wake command.
 `);

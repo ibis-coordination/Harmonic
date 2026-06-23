@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
@@ -92,4 +92,74 @@ test("runCommand: bare invocation fails fast if configDir is missing", async () 
   stderr.end();
   assert.equal(code, 1);
   assert.match(await stderrPromise, /failed to start/);
+});
+
+// ---------- reload ----------
+
+test("runCommand reload: missing daemon.pid prints a clear error", async () => {
+  await withTempDir(async (dir) => {
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const stderrPromise = collect(stderr);
+    const code = await runCommand(["reload"], { configDir: dir, stdout, stderr });
+    stdout.end();
+    stderr.end();
+    assert.equal(code, 1);
+    assert.match(await stderrPromise, /no daemon\.pid.*is the daemon running/);
+  });
+});
+
+test("runCommand reload: malformed daemon.pid prints a clear error", async () => {
+  await withTempDir(async (dir) => {
+    writeFileSync(path.join(dir, "daemon.pid"), "not-a-number");
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const stderrPromise = collect(stderr);
+    const code = await runCommand(["reload"], { configDir: dir, stdout, stderr });
+    stdout.end();
+    stderr.end();
+    assert.equal(code, 1);
+    assert.match(await stderrPromise, /not a valid PID/);
+  });
+});
+
+test("runCommand reload: stale daemon.pid (process gone) prints a clear error", async () => {
+  await withTempDir(async (dir) => {
+    // PID that won't exist: 0x7fffffff is well beyond a typical max-pid.
+    writeFileSync(path.join(dir, "daemon.pid"), "2147483640");
+    const stdout = new PassThrough();
+    const stderr = new PassThrough();
+    const stderrPromise = collect(stderr);
+    const code = await runCommand(["reload"], { configDir: dir, stdout, stderr });
+    stdout.end();
+    stderr.end();
+    assert.equal(code, 1);
+    assert.match(await stderrPromise, /no process with PID.*stale/);
+  });
+});
+
+test("runCommand reload: sends SIGHUP and prints success when the PID exists", async () => {
+  await withTempDir(async (dir) => {
+    // Stub process.kill so we can verify the call without depending on
+    // actual OS signal delivery (which races with node:test's harness
+    // teardown when targeting our own PID).
+    const calls: Array<[number, NodeJS.Signals | number]> = [];
+    const origKill = process.kill;
+    process.kill = ((pid: number, signal: NodeJS.Signals | number) => {
+      calls.push([pid, signal]);
+      return true;
+    }) as typeof process.kill;
+    try {
+      writeFileSync(path.join(dir, "daemon.pid"), "12345");
+      const stdout = new PassThrough();
+      const stdoutPromise = collect(stdout);
+      const code = await runCommand(["reload"], { configDir: dir, stdout });
+      stdout.end();
+      assert.equal(code, 0);
+      assert.deepEqual(calls, [[12345, "SIGHUP"]]);
+      assert.match(await stdoutPromise, /SIGHUP sent.*re-reading per-agent configs/);
+    } finally {
+      process.kill = origKill;
+    }
+  });
 });
