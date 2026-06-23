@@ -31,7 +31,7 @@ test("writeClaudeMcpConfig: writes mcp-config.json with server-name convention",
   });
 });
 
-test("writeClaudeMcpConfig: Authorization header references ${MELODIC_HARMONIC_TOKEN} literally", async () => {
+test("writeClaudeMcpConfig: Authorization header references ${HARMONIC_BRIDGE_TOKEN} literally", async () => {
   await withTempDir(async (dir) => {
     await writeClaudeMcpConfig({
       agentDir: dir,
@@ -41,7 +41,7 @@ test("writeClaudeMcpConfig: Authorization header references ${MELODIC_HARMONIC_T
     const raw = readFileSync(path.join(dir, "mcp-config.json"), "utf8");
     // Critical: the file must contain the literal ${...} reference, not a
     // resolved token. harmonic-bridge never writes secrets to disk.
-    assert.match(raw, /\$\{MELODIC_HARMONIC_TOKEN\}/);
+    assert.match(raw, /\$\{HARMONIC_BRIDGE_TOKEN\}/);
     assert.doesNotMatch(raw, /Bearer (?!\$\{)/);
   });
 });

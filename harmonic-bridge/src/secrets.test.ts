@@ -40,23 +40,23 @@ test("resolveSecret: file:// resolver reads the file's contents", async () => {
 });
 
 test("resolveSecret: env:// resolver reads the env var", async () => {
-  process.env["MELODIC_TEST_SECRET"] = "from-env";
+  process.env["HARMONIC_BRIDGE_TEST_SECRET"] = "from-env";
   try {
-    const value = await resolveSecret("env://MELODIC_TEST_SECRET", BUILTIN_RESOLVERS);
+    const value = await resolveSecret("env://HARMONIC_BRIDGE_TEST_SECRET", BUILTIN_RESOLVERS);
     assert.equal(value, "from-env");
   } finally {
-    delete process.env["MELODIC_TEST_SECRET"];
+    delete process.env["HARMONIC_BRIDGE_TEST_SECRET"];
   }
 });
 
 test("resolveSecret: trims trailing newlines from resolver stdout", async () => {
-  process.env["MELODIC_TEST_TRIM"] = "x";
+  process.env["HARMONIC_BRIDGE_TEST_TRIM"] = "x";
   try {
     // `printenv` always appends \n; resolver should strip it.
-    const value = await resolveSecret("env://MELODIC_TEST_TRIM", BUILTIN_RESOLVERS);
+    const value = await resolveSecret("env://HARMONIC_BRIDGE_TEST_TRIM", BUILTIN_RESOLVERS);
     assert.equal(value, "x");
   } finally {
-    delete process.env["MELODIC_TEST_TRIM"];
+    delete process.env["HARMONIC_BRIDGE_TEST_TRIM"];
   }
 });
 

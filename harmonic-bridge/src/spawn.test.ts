@@ -69,9 +69,9 @@ test("spawnWake: env vars reach the wake command", async () => {
   const stdout = new PassThrough();
   const collectPromise = collect(stdout);
   await spawnWake({
-    command: "printf '%s' \"$MELODIC_TEST_VAR\"",
+    command: "printf '%s' \"$HARMONIC_BRIDGE_TEST_VAR\"",
     cwd: process.cwd(),
-    env: { MELODIC_TEST_VAR: "value-from-config", PATH: process.env["PATH"] ?? "" },
+    env: { HARMONIC_BRIDGE_TEST_VAR: "value-from-config", PATH: process.env["PATH"] ?? "" },
     stdin: "",
     stdout,
   });

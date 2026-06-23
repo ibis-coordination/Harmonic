@@ -47,8 +47,8 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     const cfg = await loadAgentConfig(path.join(agentDir, "harmonic-bridge.yml"));
     agents.set(name, cfg);
     // Maintain a per-agent Claude Code MCP config file so wake commands can
-    // reference it via `--mcp-config "$MELODIC_AGENT_DIR/mcp-config.json"`.
-    // The token is a literal ${MELODIC_HARMONIC_TOKEN} reference; Claude
+    // reference it via `--mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json"`.
+    // The token is a literal ${HARMONIC_BRIDGE_TOKEN} reference; Claude
     // expands env vars in MCP config headers at session start.
     await writeClaudeMcpConfig({
       agentDir,
@@ -65,7 +65,7 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     // Inherit the daemon's environment so common tooling works (HOME for
     // ~/.claude.json discovery, LANG for locale-aware output, USER, TERM,
     // PATH, etc.). The per-agent env: block overrides any inherited keys,
-    // and the MELODIC_* vars are force-set last so neither can shadow them.
+    // and the HARMONIC_BRIDGE_* vars are force-set last so neither can shadow them.
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) {
       if (typeof v === "string") env[k] = v;
@@ -80,11 +80,11 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     const token = await resolveMaybe(cfg.harmonicToken, daemon.secretResolvers);
 
     // harmonic-bridge standard env — set last so the per-agent env: block can't shadow.
-    env["MELODIC_AGENT_NAME"] = handle;
-    env["MELODIC_AGENT_DIR"] = path.join(agentsDir, handle);
-    env["MELODIC_EVENT_TYPE"] = eventType;
-    env["MELODIC_HARMONIC_MCP_ENDPOINT"] = cfg.harmonicMcpEndpoint;
-    env["MELODIC_HARMONIC_TOKEN"] = token;
+    env["HARMONIC_BRIDGE_AGENT_NAME"] = handle;
+    env["HARMONIC_BRIDGE_AGENT_DIR"] = path.join(agentsDir, handle);
+    env["HARMONIC_BRIDGE_EVENT_TYPE"] = eventType;
+    env["HARMONIC_BRIDGE_MCP_ENDPOINT"] = cfg.harmonicMcpEndpoint;
+    env["HARMONIC_BRIDGE_TOKEN"] = token;
 
     const logs = await openAgentLogStreams(daemon.logDir, handle);
     try {

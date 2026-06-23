@@ -59,7 +59,7 @@ working_dir: /home/agent/code/Harmonic
 wake_command: |
   claude -p \
     --append-system-prompt @system-prompt.md \
-    --allowedTools "mcp__harmonic-${MELODIC_AGENT_NAME}__fetch_page,mcp__harmonic-${MELODIC_AGENT_NAME}__execute_action,mcp__harmonic-${MELODIC_AGENT_NAME}__search,mcp__harmonic-${MELODIC_AGENT_NAME}__get_help"
+    --allowedTools "mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__fetch_page,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__execute_action,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__search,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__get_help"
 
 events:                                # optional; drops events not in list before spawn
   - notifications.delivered
@@ -77,11 +77,11 @@ Each agent runs in its own directory; the daemon serializes per-agent (one wake 
 
 - **stdin**: the webhook payload, verbatim (JSON).
 - **env**, in addition to your `env:` block:
-  - `MELODIC_AGENT_NAME`
-  - `MELODIC_AGENT_DIR` — absolute path to the agent's config dir; useful for referencing files like a system prompt: `--append-system-prompt @"$MELODIC_AGENT_DIR/system-prompt.md"`
-  - `MELODIC_EVENT_TYPE`
-  - `MELODIC_HARMONIC_MCP_ENDPOINT`
-  - `MELODIC_HARMONIC_TOKEN` (resolved)
+  - `HARMONIC_BRIDGE_AGENT_NAME`
+  - `HARMONIC_BRIDGE_AGENT_DIR` — absolute path to the agent's config dir; useful for referencing files like a system prompt: `--append-system-prompt @"$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md"`
+  - `HARMONIC_BRIDGE_EVENT_TYPE`
+  - `HARMONIC_BRIDGE_MCP_ENDPOINT`
+  - `HARMONIC_BRIDGE_TOKEN` (resolved)
 - **cwd**: `working_dir`.
 
 Exit code 0 is success. Non-zero is logged; harmonic-bridge does not retry (Harmonic already does).
@@ -90,21 +90,21 @@ Exit code 0 is success. Non-zero is logged; harmonic-bridge does not retry (Harm
 
 harmonic-bridge passes the Harmonic MCP endpoint and token to the wake command via env vars, but it doesn't configure your harness's MCP discovery for you. Each harness has its own way of learning about MCP servers, and it's a one-time setup step on the host:
 
-- **Claude Code**: No `claude mcp add` step needed. The daemon writes a per-agent MCP config to `$MELODIC_AGENT_DIR/mcp-config.json` on startup, with the token stored as a `${MELODIC_HARMONIC_TOKEN}` env-var reference (Claude expands it at session start, so secrets never land on disk). The wake_command points at the file:
+- **Claude Code**: No `claude mcp add` step needed. The daemon writes a per-agent MCP config to `$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json` on startup, with the token stored as a `${HARMONIC_BRIDGE_TOKEN}` env-var reference (Claude expands it at session start, so secrets never land on disk). The wake_command points at the file:
 
   ```yaml
   wake_command: |
     claude -p \
-      --mcp-config "$MELODIC_AGENT_DIR/mcp-config.json" \
-      --append-system-prompt @"$MELODIC_AGENT_DIR/system-prompt.md" \
-      --allowedTools "mcp__harmonic-${MELODIC_AGENT_NAME}__fetch_page,mcp__harmonic-${MELODIC_AGENT_NAME}__execute_action,mcp__harmonic-${MELODIC_AGENT_NAME}__search,mcp__harmonic-${MELODIC_AGENT_NAME}__get_help"
+      --mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json" \
+      --append-system-prompt @"$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md" \
+      --allowedTools "mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__fetch_page,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__execute_action,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__search,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__get_help"
   ```
 
   Server name is `harmonic-<agent-handle>` (matching Harmonic's Connect-flow convention), so multiple agents on one host don't collide. Claude in `-p` (non-interactive) mode can't answer permission prompts, so the `--allowedTools` list above pre-grants the four MCP tools.
 
   Auth: prefer `claude login` (subscription auth carries into the subprocess) over `ANTHROPIC_API_KEY` (separate billing account; easy to confuse with your interactive session's auth and land on "credit balance too low" while talking to Claude interactively just fine).
-- **Codex**: `codex mcp add harmonic --url <MCP_URL> --bearer-token-env-var HARMONIC_TOKEN` — Codex reads the token from the env var at run time, so harmonic-bridge's env-var pass-through closes the loop. The server URL still gets written to `~/.codex/config.toml`.
-- **Custom scripts** (Python with an MCP client lib, Node script using `@modelcontextprotocol/sdk`, etc.): typically read `MELODIC_HARMONIC_MCP_ENDPOINT` and `MELODIC_HARMONIC_TOKEN` from env at startup. No additional setup.
+- **Codex**: `codex mcp add harmonic --url <MCP_URL> --bearer-token-env-var HARMONIC_BRIDGE_TOKEN` — Codex reads the token from the env var at run time, so harmonic-bridge's env-var pass-through closes the loop. The server URL still gets written to `~/.codex/config.toml`.
+- **Custom scripts** (Python with an MCP client lib, Node script using `@modelcontextprotocol/sdk`, etc.): typically read `HARMONIC_BRIDGE_MCP_ENDPOINT` and `HARMONIC_BRIDGE_TOKEN` from env at startup. No additional setup.
 
 ## Secrets
 

@@ -47,8 +47,8 @@ log_dir: ${path.join(configDir, "logs")}
   const wakeCommand = [
     `cat > ${outputFile}`,
     `printf 'agent=%s\\nevent=%s\\nendpoint=%s\\ntoken=%s\\n' ` +
-      `"$MELODIC_AGENT_NAME" "$MELODIC_EVENT_TYPE" ` +
-      `"$MELODIC_HARMONIC_MCP_ENDPOINT" "$MELODIC_HARMONIC_TOKEN" > ${envDumpFile}`,
+      `"$HARMONIC_BRIDGE_AGENT_NAME" "$HARMONIC_BRIDGE_EVENT_TYPE" ` +
+      `"$HARMONIC_BRIDGE_MCP_ENDPOINT" "$HARMONIC_BRIDGE_TOKEN" > ${envDumpFile}`,
   ].join(" && ");
 
   const eventsBlock = opts?.events
@@ -113,7 +113,7 @@ test("daemon: signed POST triggers the agent's wake command with the payload on 
   assert.equal(readFileSync(f.outputFile, "utf8"), body);
 });
 
-test("daemon: wake command sees MELODIC_* env vars and resolved token", async () => {
+test("daemon: wake command sees HARMONIC_BRIDGE_* env vars and resolved token", async () => {
   const f = makeFixture();
   const d = await startWithFixture(f);
   const body = "{}";
@@ -171,16 +171,16 @@ test("daemon: writes per-agent mcp-config.json on startup", async () => {
   assert.ok(existsSync(mcpConfigPath), "expected mcp-config.json to be written for alice");
   const config = JSON.parse(readFileSync(mcpConfigPath, "utf8"));
   assert.ok(config.mcpServers["harmonic-alice"]);
-  assert.equal(config.mcpServers["harmonic-alice"].headers.Authorization, "Bearer ${MELODIC_HARMONIC_TOKEN}");
+  assert.equal(config.mcpServers["harmonic-alice"].headers.Authorization, "Bearer ${HARMONIC_BRIDGE_TOKEN}");
 });
 
-test("daemon: wake command sees MELODIC_AGENT_DIR pointing at the per-agent config dir", async () => {
+test("daemon: wake command sees HARMONIC_BRIDGE_AGENT_DIR pointing at the per-agent config dir", async () => {
   const f = makeFixture();
   const agentYmlPath = path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml");
   const yml = readFileSync(agentYmlPath, "utf8").replace(
     /wake_command: \|[\s\S]*$/,
     `wake_command: |
-  printf '%s' "$MELODIC_AGENT_DIR" > ${f.envDumpFile}
+  printf '%s' "$HARMONIC_BRIDGE_AGENT_DIR" > ${f.envDumpFile}
 `,
   );
   writeFileSync(agentYmlPath, yml);

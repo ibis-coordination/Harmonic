@@ -1,13 +1,13 @@
 // Generate a Claude Code `--mcp-config` file per agent.
 //
 // Wake commands using Claude Code reference this file via
-// `--mcp-config "$MELODIC_AGENT_DIR/mcp-config.json"`. The token is stored
-// as a literal `${MELODIC_HARMONIC_TOKEN}` reference — Claude Code expands
+// `--mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json"`. The token is stored
+// as a literal `${HARMONIC_BRIDGE_TOKEN}` reference — Claude Code expands
 // env vars in MCP config headers at session start, so harmonic-bridge never writes
 // the resolved secret to disk.
 //
 // Server name follows the `harmonic-<agent-handle>` convention so wake
-// commands' `--allowedTools` strings can parameterize on $MELODIC_AGENT_NAME.
+// commands' `--allowedTools` strings can parameterize on $HARMONIC_BRIDGE_AGENT_NAME.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -26,7 +26,7 @@ export async function writeClaudeMcpConfig(args: WriteClaudeMcpConfigArgs): Prom
         type: "http",
         url: args.mcpEndpoint,
         headers: {
-          Authorization: "Bearer ${MELODIC_HARMONIC_TOKEN}",
+          Authorization: "Bearer ${HARMONIC_BRIDGE_TOKEN}",
         },
       },
     },

@@ -33,7 +33,7 @@ test("bin: unknown command exits non-zero and writes to stderr", async () => {
   );
 });
 
-test("bin: 'init' with MELODIC_CONFIG_DIR=- still runs (via runCommand)", async () => {
+test("bin: 'init' with HARMONIC_BRIDGE_CONFIG_DIR=- still runs (via runCommand)", async () => {
   // This is a defensive smoke test: just make sure invoking the bin doesn't
   // silently no-op. The real init logic is covered by init.test.ts.
   await assert.rejects(
