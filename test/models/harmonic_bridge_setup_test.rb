@@ -207,9 +207,51 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert_equal 1, AutomationRule.where(ai_agent_id: @agent.id).count, "exactly one rule across both calls"
   end
 
-  # ---------- complete! ----------
+  test "redeem!: does NOT block on unrelated automation rules for the same agent" do
+    # An agent can have scheduled-task rules, collective-wide rules, etc.
+    # that aren't notification webhooks. Those shouldn't block a bridge setup.
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @agent,
+      created_by: @human,
+      name: "agent's scheduled job",
+      trigger_type: "schedule",
+      trigger_config: { "cron" => "0 9 * * *" },
+      actions: { "task" => "say hi" },
+      enabled: true
+    )
 
-  test "complete!: fills the URL into the existing rule and enables it" do
+    s = build_setup
+    s.save!
+    assert_nothing_raised { s.redeem! }
+    s.reload
+    assert s.redeemed_at.present?
+    assert s.automation_rule.present?
+  end
+
+  test "redeem!: refuses to mint a second rule when another setup for the same agent already redeemed" do
+    # Two separate HarmonicBridgeSetup rows for the same agent — both passed
+    # create-time validation because the first hadn't redeemed yet. The
+    # second redeem! must refuse so we don't end up with two pending rules +
+    # two long-lived tokens for one agent.
+    first = build_setup
+    first.save!
+    second = build_setup
+    second.save!
+
+    first.redeem!
+    assert_raises(HarmonicBridgeSetup::ConflictingSetup) { second.redeem! }
+    assert_equal 1, @agent.api_tokens.count
+    assert_equal 1, AutomationRule.where(ai_agent_id: @agent.id).count
+    second.reload
+    assert_nil second.redeemed_at, "loser stays unredeemed"
+    assert_nil second.api_token
+    assert_nil second.automation_rule
+  end
+
+  # ---------- stage_webhook! ----------
+
+  test "stage_webhook!: fills the URL on the rule but leaves it disabled" do
     s = build_setup
     s.save!
     credentials = s.redeem!
@@ -217,7 +259,7 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     original_secret = s.automation_rule.webhook_secret
 
     webhook_url = "https://agent.example.test/webhook/#{@agent.tenant_users.find_by(tenant_id: @tenant.id).handle}"
-    s.complete!(webhook_url: webhook_url, events: ["notifications.delivered"])
+    s.stage_webhook!(webhook_url: webhook_url, events: ["notifications.delivered"])
 
     s.reload
     rule = s.automation_rule
@@ -228,59 +270,86 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert_equal "event", rule.trigger_type
     assert_equal ["notifications.delivered"], rule.trigger_config["event_types"]
     assert_equal webhook_url, rule.actions["webhook_url"]
-    assert rule.enabled?
-    assert s.webhook_registered_at.present?
+    assert_not rule.enabled?, "rule must stay disabled until verification succeeds"
+    assert_nil s.webhook_registered_at, "webhook_registered_at waits for finalize_webhook!"
   end
 
-  test "complete!: raises if not yet redeemed" do
+  test "stage_webhook!: raises if not yet redeemed" do
     s = build_setup
     s.save!
     assert_raises(HarmonicBridgeSetup::NotYetRedeemed) do
-      s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+      s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
     end
   end
 
-  test "complete!: raises if already completed" do
+  test "stage_webhook!: raises if already finalized" do
     s = build_setup
     s.save!
     s.redeem!
-    s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+    s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+    s.finalize_webhook!
     assert_raises(HarmonicBridgeSetup::WebhookAlreadyRegistered) do
-      s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+      s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
     end
   end
 
-  test "complete!: raises if expired" do
+  test "stage_webhook!: raises if expired" do
     s = build_setup
     s.save!
     s.redeem!
     s.update_columns(expires_at: 1.minute.ago)
     assert_raises(HarmonicBridgeSetup::Expired) do
-      s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+      s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
     end
   end
 
-  test "complete!: two in-memory instances do not double-complete (lock + post-lock re-check)" do
-    # Simulates two concurrent POSTs that both loaded the row after redeem!
-    # committed but before either committed completion. with_lock + reload +
-    # re-check inside complete! must make exactly one win; the loser raises
-    # WebhookAlreadyRegistered.
+  test "stage_webhook!: re-runnable when crash happened before finalize_webhook!" do
+    # If complete! enabled the rule before verification, a crash between then
+    # and revert_completion! left an unverified webhook live. With the
+    # disabled-until-finalize split, a retry of POST is safe: stage_webhook!
+    # re-runs and overwrites the URL while the rule stays disabled.
     s = build_setup
     s.save!
     s.redeem!
-    s_copy = HarmonicBridgeSetup.find(s.id)
-
-    s.complete!(webhook_url: "https://first.example/y", events: ["notifications.delivered"])
-
-    assert_raises(HarmonicBridgeSetup::WebhookAlreadyRegistered) do
-      s_copy.complete!(webhook_url: "https://second.example/y", events: ["notifications.delivered"])
-    end
-
-    # Still only the one rule from redeem!; the second complete! didn't
-    # double-update or create a second.
-    assert_equal 1, AutomationRule.where(ai_agent_id: @agent.id).count
+    s.stage_webhook!(webhook_url: "https://first.example/y", events: ["notifications.delivered"])
+    s.stage_webhook!(webhook_url: "https://second.example/y", events: ["reminders.delivered"])
     s.reload
-    assert_equal "https://first.example/y", s.automation_rule.actions["webhook_url"]
+    rule = s.automation_rule
+    assert_equal "https://second.example/y", rule.actions["webhook_url"]
+    assert_equal ["reminders.delivered"], rule.trigger_config["event_types"]
+    assert_not rule.enabled?
+    assert_nil s.webhook_registered_at
+  end
+
+  # ---------- finalize_webhook! ----------
+
+  test "finalize_webhook!: enables the rule and stamps webhook_registered_at" do
+    s = build_setup
+    s.save!
+    s.redeem!
+    s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+
+    s.finalize_webhook!
+
+    s.reload
+    assert s.automation_rule.enabled?
+    assert s.webhook_registered_at.present?
+  end
+
+  test "finalize_webhook!: raises if no webhook has been staged" do
+    s = build_setup
+    s.save!
+    s.redeem!
+    assert_raises(HarmonicBridgeSetup::WebhookNotStaged) { s.finalize_webhook! }
+  end
+
+  test "finalize_webhook!: raises if already finalized" do
+    s = build_setup
+    s.save!
+    s.redeem!
+    s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+    s.finalize_webhook!
+    assert_raises(HarmonicBridgeSetup::WebhookAlreadyRegistered) { s.finalize_webhook! }
   end
 
   # ---------- revert_completion! ----------
@@ -289,7 +358,8 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     s = build_setup
     s.save!
     s.redeem!
-    s.complete!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+    s.stage_webhook!(webhook_url: "https://x/y", events: ["notifications.delivered"])
+    s.finalize_webhook!
 
     rule_id = s.automation_rule.id
     token_id = s.api_token.id

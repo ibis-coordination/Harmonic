@@ -98,3 +98,43 @@ test("resolveSecret: throws when resolver command exits non-zero", async () => {
     (e: unknown) => e instanceof SecretError,
   );
 });
+
+// ---------- resolveSecret: shell injection defense ----------
+
+test("resolveSecret: reference body with shell metacharacters does NOT get interpreted by sh", async () => {
+  // A reference body containing `;` followed by an attacker command would,
+  // under naïve substitution into a shell template, execute the attacker
+  // command. With the escape, `; touch …` is just data passed to printf.
+  const marker = mkdtempSync(join(tmpdir(), "harmonic-bridge-injection-"));
+  try {
+    const sentinel = join(marker, "PWNED");
+    const resolvers = { ...BUILTIN_RESOLVERS, demo: "printf '%s' {ref}" };
+    const malicious = `safe; touch ${sentinel}`;
+    const value = await resolveSecret(`demo://${malicious}`, resolvers);
+    assert.equal(value, malicious, "the full body must come back from printf, unsplit");
+    // The injected `touch` must not have run.
+    const { existsSync } = await import("node:fs");
+    assert.equal(existsSync(sentinel), false, "the sentinel file would only exist if injection succeeded");
+  } finally {
+    rmSync(marker, { recursive: true, force: true });
+  }
+});
+
+test("resolveSecret: reference body with single quotes round-trips correctly", async () => {
+  const resolvers = { ...BUILTIN_RESOLVERS, demo: "printf '%s' {ref}" };
+  const body = "it's a \"quoted\" thing with $vars and `backticks`";
+  const value = await resolveSecret(`demo://${body}`, resolvers);
+  assert.equal(value, body);
+});
+
+test("resolveSecret: file path with a space resolves correctly (no word-splitting)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "harmonic-bridge-with space-"));
+  try {
+    const path = join(dir, "secret.txt");
+    writeFileSync(path, "ok-with-spaces\n");
+    const value = await resolveSecret(`file://${path}`, BUILTIN_RESOLVERS);
+    assert.equal(value, "ok-with-spaces");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

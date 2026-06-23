@@ -54,6 +54,12 @@ class HarmonicBridgeSetupsController < ApplicationController
     }
   rescue HarmonicBridgeSetup::Expired, HarmonicBridgeSetup::Redeemed
     render_not_found
+  rescue HarmonicBridgeSetup::ConflictingSetup
+    render status: :conflict,
+           json: {
+             error: "agent_has_pending_or_active_webhook",
+             detail: "This agent already has a notification webhook subscription. Remove it before generating a fresh setup URL.",
+           }
   end
 
   def register_webhook
@@ -64,7 +70,8 @@ class HarmonicBridgeSetupsController < ApplicationController
     return render_not_found if setup.nil?
 
     events = events_param.presence || setup.events_recommended
-    setup.complete!(webhook_url: params[:webhook_url], events: events)
+
+    return if stage_or_render_conflict(setup, params[:webhook_url], events)
 
     verification = WebhookTestDelivery.deliver(url: params[:webhook_url], secret: setup.automation_rule.webhook_secret)
     unless verification.ok
@@ -73,12 +80,39 @@ class HarmonicBridgeSetupsController < ApplicationController
                     json: { error: "webhook_unreachable", detail: verification.error.to_s }
     end
 
+    return if finalize_or_render_conflict(setup)
+
     render json: { ok: true }
-  rescue HarmonicBridgeSetup::Expired, HarmonicBridgeSetup::NotYetRedeemed, HarmonicBridgeSetup::WebhookAlreadyRegistered
+  rescue HarmonicBridgeSetup::Expired,
+         HarmonicBridgeSetup::NotYetRedeemed,
+         HarmonicBridgeSetup::WebhookAlreadyRegistered,
+         HarmonicBridgeSetup::WebhookNotStaged
     render_not_found
   end
 
   private
+
+  # Returns true (and renders the response) if staging conflicted; false
+  # if the caller should proceed to verification.
+  def stage_or_render_conflict(setup, webhook_url, events)
+    setup.stage_webhook!(webhook_url: webhook_url, events: events)
+    false
+  rescue ActiveRecord::RecordInvalid => e
+    setup.revert_completion!
+    render status: :unprocessable_entity,
+           json: { error: "webhook_conflict", detail: e.record.errors.full_messages.join("; ") }
+    true
+  end
+
+  def finalize_or_render_conflict(setup)
+    setup.finalize_webhook!
+    false
+  rescue ActiveRecord::RecordInvalid => e
+    setup.revert_completion!
+    render status: :unprocessable_entity,
+           json: { error: "webhook_conflict", detail: e.record.errors.full_messages.join("; ") }
+    true
+  end
 
   def find_redeemable_setup
     setup = HarmonicBridgeSetup.find_by(public_id: params[:public_id])

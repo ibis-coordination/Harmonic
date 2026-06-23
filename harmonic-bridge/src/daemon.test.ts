@@ -1,7 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { startDaemon, type RunningDaemon } from "./daemon.js";
@@ -85,14 +85,19 @@ async function startWithFixture(f: Fixture): Promise<RunningDaemon> {
   return d;
 }
 
-/** Wait for a file to exist (the spawn is async after the 204 ack). */
+/**
+ * Wait for a file to exist AND have non-zero content. The wake command does
+ * `cat > $file && printf …`, and `cat` opens the file (creating it) before
+ * it has finished consuming stdin — so existsSync alone races against the
+ * stdin write. Polling for size > 0 closes that gap.
+ */
 async function waitForFile(filePath: string, timeoutMs = 3000): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (existsSync(filePath)) return;
+    if (existsSync(filePath) && statSync(filePath).size > 0) return;
     await new Promise((r) => setTimeout(r, 25));
   }
-  throw new Error(`file not created within ${timeoutMs}ms: ${filePath}`);
+  throw new Error(`file not populated within ${timeoutMs}ms: ${filePath}`);
 }
 
 test("daemon: signed POST triggers the agent's wake command with the payload on stdin", async () => {

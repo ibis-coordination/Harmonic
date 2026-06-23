@@ -7,6 +7,12 @@
 // only — secrets never get written to disk by harmonic-bridge, never logged, never
 // passed to the resolver subprocess (the resolver receives the reference
 // body, not the secret).
+//
+// The substitution shell-quotes the body so reference bodies with spaces,
+// quotes, or shell metacharacters are passed to the resolver as a single
+// literal argument. A reference like `op://it's a "weird" name` does the
+// right thing; a malicious-looking `file:///tmp/x; rm -rf ~` becomes a
+// path-not-found error instead of a command injection.
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
@@ -54,7 +60,7 @@ export async function resolveSecret(
     throw new SecretError(`no resolver configured for scheme "${parsed.scheme}"`);
   }
 
-  const command = template.replace(PLACEHOLDER_RE, parsed.body);
+  const command = template.replace(PLACEHOLDER_RE, shellQuote(parsed.body));
 
   try {
     const { stdout } = await execAsync(command);
@@ -63,4 +69,14 @@ export async function resolveSecret(
     const detail = e instanceof Error ? e.message : String(e);
     throw new SecretError(`resolver for "${parsed.scheme}" failed: ${detail}`);
   }
+}
+
+/**
+ * POSIX single-quote escape: wrap in single quotes, replace embedded
+ * single quotes with `'\''` (close, escaped quote, reopen). After this,
+ * the result is one shell-safe literal argument no matter what bytes
+ * `value` contains.
+ */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }

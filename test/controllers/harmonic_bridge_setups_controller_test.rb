@@ -86,6 +86,23 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "GET show: 409 when a second setup URL races against a first redemption for the same agent" do
+    # Two HarmonicBridgeSetup rows for the same agent. The first GET wins
+    # and mints the rule. The second GET must NOT mint a second rule —
+    # `redeem!` re-checks inside the lock and raises ConflictingSetup; the
+    # controller surfaces a 409 so the second bridge install fails loudly
+    # rather than silently parking a long-lived token.
+    first = make_setup
+    second = make_setup
+    get "/bridge-setups/#{first.public_id}"
+    assert_response :ok
+    get "/bridge-setups/#{second.public_id}"
+    assert_response :conflict
+    assert_equal "agent_has_pending_or_active_webhook", response.parsed_body["error"]
+    assert_equal 1, @agent.api_tokens.count
+    assert_equal 1, AutomationRule.tenant_scoped_only(@tenant.id).where(ai_agent_id: @agent.id).count
+  end
+
   # ---------- POST register_webhook ----------
 
   def stub_reachable(url)
@@ -117,10 +134,34 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     rule = setup.automation_rule
     assert_equal pending_rule_id, rule.id, "same rule, now populated"
     assert_equal webhook_url, rule.actions["webhook_url"]
-    assert rule.enabled?
+    assert rule.enabled?, "rule is enabled only after verification succeeded"
     assert_equal get_response_secret, rule.webhook_secret,
                  "secret is the one returned by GET (rule's own webhook_secret field, unchanged)"
     assert setup.webhook_registered_at.present?
+  end
+
+  test "POST register_webhook: rule stays disabled during the verification call" do
+    # Tightens the guarantee that real notifications can't fire to an
+    # unverified URL: while the deliver call is in flight, the rule has the
+    # URL stored but enabled? is false.
+    setup = make_setup
+    get "/bridge-setups/#{setup.public_id}"
+    url = "https://example.com/inspect-during-verify/webhook"
+
+    saw_disabled_with_url = false
+    stub_request(:post, url).to_return do |_req|
+      rule = setup.reload.automation_rule
+      saw_disabled_with_url = rule.present? && rule.actions["webhook_url"] == url && !rule.enabled?
+      { status: 200, body: '{"ok":true}' }
+    end
+
+    post "/bridge-setups/#{setup.public_id}/webhook",
+         params: { webhook_url: url, events: ["notifications.delivered"] }
+    assert_response :ok
+    assert saw_disabled_with_url,
+           "during the verification HTTP call, the rule must hold the URL but stay disabled"
+    setup.reload
+    assert setup.automation_rule.enabled?, "rule enables only after deliver returns ok"
   end
 
   test "POST register_webhook: 404 if GET show not yet called" do
