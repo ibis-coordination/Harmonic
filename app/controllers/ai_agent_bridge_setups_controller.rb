@@ -39,7 +39,8 @@ class AiAgentBridgeSetupsController < ApplicationController
   # GET /ai-agents/:handle/bridge-setup/:public_id
   def show
     @page_title = "harmonic-bridge setup — #{@ai_agent.display_name}"
-    @public_setup_url = "#{request.protocol}#{request.host_with_port}/bridge-setups/#{@setup.public_id}"
+    @public_setup_url = harmonic_bridge_setup_url(public_id: @setup.public_id)
+    @bridge_add_command = "harmonic-bridge add --from #{@public_setup_url}"
   end
 
   # GET /ai-agents/:handle/bridge-setup/actions

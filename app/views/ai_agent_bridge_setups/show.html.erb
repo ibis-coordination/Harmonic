@@ -32,8 +32,6 @@
       </section>
     <% else %>
       <%# === Active setup: show the command to paste === %>
-      <% command = "harmonic-bridge add --from #{@public_setup_url}" %>
-
       <section class="pulse-settings-section">
         <p>
           On the host where <code>harmonic-bridge</code> is running, paste the command below into a terminal.
@@ -43,8 +41,8 @@
 
         <label class="pulse-label">Run this on your bridge host</label>
         <div style="display:flex;gap:8px;align-items:flex-start;">
-          <pre class="pulse-form-input" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;"><%= command %></pre>
-          <%= render 'shared/copy_button', text: command %>
+          <pre class="pulse-form-input" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;">harmonic-bridge add --from <%= @public_setup_url %></pre>
+          <%= render 'shared/copy_button', text: @bridge_add_command %>
         </div>
         <p class="pulse-hint">
           Expires <%= time_ago_in_words(@setup.expires_at, include_seconds: true) %> from now
