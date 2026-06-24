@@ -52,7 +52,11 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
+        # Authenticates via npm Trusted Publishing (OIDC). The
+        # `id-token: write` permission above grants the workflow a
+        # short-lived federated token that npm exchanges for publish
+        # credentials — no shared secret. The trusted-publisher
+        # relationship is configured on the package page at
+        # https://www.npmjs.com/package/@ibis-coordination/harmonic-bridge/access
         working-directory: harmonic-bridge
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
