@@ -92,7 +92,12 @@ Rails.application.routes.draw do
   # Public, one-time-use harmonic-bridge setup endpoints. Possession of
   # :public_id is the credential — the URL is unguessable, short-lived, and
   # single-use per action. Backs `harmonic-bridge add --from <url>`.
-  get  'bridge-setups/:public_id'         => 'harmonic_bridge_setups#show',             as: 'harmonic_bridge_setup'
+  #
+  # Both endpoints are POST: each mints credentials / mutates AutomationRule
+  # state. GET would let any pre-fetcher (browser address bar, link-preview
+  # bot, LLM `fetch_page`) burn the redemption without the bridge ever
+  # running.
+  post 'bridge-setups/:public_id'         => 'harmonic_bridge_setups#redeem',           as: 'harmonic_bridge_setup'
   post 'bridge-setups/:public_id/webhook' => 'harmonic_bridge_setups#register_webhook', as: 'harmonic_bridge_setup_webhook'
 
   # Notification webhook (singular — one per user/agent).

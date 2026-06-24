@@ -19,7 +19,7 @@ non-empty.
 
 | Fixture | Direction | When |
 |---|---|---|
-| `get_response.json` | Harmonic → bridge | `GET /bridge-setups/:public_id` success body |
+| `redeem_response.json` | Harmonic → bridge | `POST /bridge-setups/:public_id` success body |
 | `post_request.json` | bridge → Harmonic | `POST /bridge-setups/:public_id/webhook` request body |
 | `post_response.json` | Harmonic → bridge | `POST /bridge-setups/:public_id/webhook` success body |
 | `post_error_webhook_unreachable.json` | Harmonic → bridge | `POST` 422 body when verification fails |

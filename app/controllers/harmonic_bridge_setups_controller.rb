@@ -6,7 +6,7 @@
 # the credential. The URL is high-entropy, short-lived (15 min default), and
 # single-use per action:
 #
-#   GET  /bridge-setups/:public_id          → mints the MCP token and the
+#   POST /bridge-setups/:public_id          → mints the MCP token and the
 #                                             signing secret, returns both
 #                                             plus the metadata bundle. The
 #                                             bridge needs the signing
@@ -24,6 +24,11 @@
 #                                             the bridge must start over
 #                                             with a fresh setup URL.
 #
+# Both endpoints are POST because both mint credentials / mutate
+# AutomationRule state. GET would let any pre-fetcher (a browser address
+# bar visit, a link-preview bot, an LLM `fetch_page`, a security
+# scanner) burn the redemption without the bridge ever running.
+#
 # Tenant context comes from request.subdomain via ApplicationController's
 # standard before_action chain — no special routing.
 class HarmonicBridgeSetupsController < ApplicationController
@@ -38,7 +43,7 @@ class HarmonicBridgeSetupsController < ApplicationController
     true
   end
 
-  def show
+  def redeem
     setup = find_redeemable_setup
     return render_not_found if setup.nil?
 
