@@ -49,13 +49,13 @@ ${after}
 }
 
 /**
- * Build the GET response from the shared fixture, then override agent_handle
+ * Build the redeem POST response from the shared fixture, then override agent_handle
  * + webhook_register_url so the test fixture path stays self-contained
  * (the bridge mints these from the URL it gets, but the SHAPE is what
  * the fixture pins).
  */
 function makeMetadataResponse(): Response {
-  const base = loadProtocolFixture("get_response.json") as Record<string, unknown>;
+  const base = loadProtocolFixture("redeem_response.json") as Record<string, unknown>;
   return new Response(JSON.stringify({
     ...base,
     agent_handle: "alice",
@@ -111,7 +111,7 @@ test("add: happy path writes secrets + config, sighups daemon, posts registratio
 
     // Secrets on disk match the values the (mocked) Harmonic response carried,
     // mode 0600. Fixture values are what makeMetadataResponse serves.
-    const fixture = loadProtocolFixture("get_response.json") as { harmonic_token: string; signing_secret: string };
+    const fixture = loadProtocolFixture("redeem_response.json") as { harmonic_token: string; signing_secret: string };
     const tokenPath = path.join(f.secretsDir, "alice", "harmonic_token");
     const secretPath = path.join(f.secretsDir, "alice", "webhook_secret");
     assert.equal(readFileSync(tokenPath, "utf8"), fixture.harmonic_token);
@@ -120,7 +120,7 @@ test("add: happy path writes secrets + config, sighups daemon, posts registratio
     assert.equal(statSync(secretPath).mode & 0o777, 0o600);
 
     // Per-agent config references the file:// secrets, has a stub wake_command,
-    // and the MCP endpoint + events list returned by the GET.
+    // and the MCP endpoint + events list returned by the redeem POST.
     const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
     const mcpEndpointInFixture = (fixture as unknown as { harmonic_mcp_endpoint: string }).harmonic_mcp_endpoint;
     assert.ok(agentYml.includes(`harmonic_mcp_endpoint: ${mcpEndpointInFixture}`));
@@ -129,14 +129,25 @@ test("add: happy path writes secrets + config, sighups daemon, posts registratio
     assert.match(agentYml, /wake_command not configured/);
     assert.match(agentYml, /notifications\.delivered/);
 
+    // Regression: working_dir must be a non-empty string in the emitted YAML.
+    // Writing the literal `~` (intended as a tilde) was a bug — YAML parses
+    // unquoted `~` as null, so the daemon refused to load the agent and the
+    // verification webhook 404'd. Default to the agent dir so the daemon
+    // loads cleanly out of the box.
+    const { parse: parseYaml } = await import("yaml");
+    const parsed = parseYaml(agentYml) as Record<string, unknown>;
+    assert.equal(typeof parsed.working_dir, "string");
+    assert.ok((parsed.working_dir as string).length > 0, "working_dir must not be empty");
+    assert.equal(parsed.working_dir, path.join(f.configDir, "agents", "alice"));
+
     // SIGHUP sent to the daemon (own PID via the fixture).
     assert.equal(signals.length, 1);
     assert.equal(signals[0]![0], process.pid);
     assert.equal(signals[0]![1], "SIGHUP");
 
-    // GET then POST.
+    // Both are POSTs — the redeem call mints credentials, so it can't be a GET.
     assert.equal(calls.length, 2);
-    assert.equal(calls[0]!.method, "GET");
+    assert.equal(calls[0]!.method, "POST");
     assert.equal(calls[0]!.url, SETUP_URL);
     assert.equal(calls[1]!.method, "POST");
     assert.equal(calls[1]!.url, REGISTER_URL);
@@ -256,7 +267,7 @@ test("add: non-HTTPS public_url returns 1 with clear message", async () => {
 
 // ---------- HTTP-side errors ----------
 
-test("add: GET 404 reports expired URL + tells user to get a fresh one", async () => {
+test("add: redeem POST 404 reports expired URL + tells user to get a fresh one", async () => {
   const f = makeFixture();
   try {
     const { fetch: fakeFetch } = recordingFetch([
@@ -355,7 +366,7 @@ test("add: rejects an unsafe agent_handle (path traversal defense)", async () =>
     stderr.end();
     assert.equal(code, 1);
     assert.match(await stderrPromise, /unsafe agent_handle/);
-    // Only GET was made — no secrets or POST.
+    // Only the redeem POST was made — no secrets, no webhook-register POST.
     assert.equal(calls.length, 1);
     assert.equal(existsSync(path.join(f.secretsDir, "..", "etc")), false);
   } finally {

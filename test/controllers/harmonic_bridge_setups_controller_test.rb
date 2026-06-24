@@ -42,17 +42,17 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     s
   end
 
-  # ---------- GET show ----------
+  # ---------- POST redeem ----------
 
-  test "GET show: returns the full credential bundle and marks redeemed" do
+  test "POST redeem: returns the full credential bundle and marks redeemed" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     assert_response :ok
     body = response.parsed_body
 
     # Wire-shape contract: same fixture the TypeScript bridge tests load.
     # If a field is renamed on either side, this fails.
-    assert_matches_bridge_protocol_fixture(body, "get_response.json")
+    assert_matches_bridge_protocol_fixture(body, "redeem_response.json")
 
     # Value-level assertions on top of the shape contract.
     assert_equal @agent.tenant_users.find_by(tenant: @tenant).handle, body["agent_handle"]
@@ -67,26 +67,26 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, setup.automation_rule.enabled?, "rule is disabled until POST"
   end
 
-  test "GET show: 404 on second redemption" do
+  test "POST redeem: 404 on second redemption" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     assert_response :ok
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     assert_response :not_found
   end
 
-  test "GET show: 404 on expired setup" do
+  test "POST redeem: 404 on expired setup" do
     setup = make_setup(expires_at: 1.minute.ago)
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     assert_response :not_found
   end
 
-  test "GET show: 404 on unknown public_id" do
-    get "/bridge-setups/not-a-real-id"
+  test "POST redeem: 404 on unknown public_id" do
+    post "/bridge-setups/not-a-real-id"
     assert_response :not_found
   end
 
-  test "GET show: 409 when a second setup URL races against a first redemption for the same agent" do
+  test "POST redeem: 409 when a second setup URL races against a first redemption for the same agent" do
     # Two HarmonicBridgeSetup rows for the same agent. The first GET wins
     # and mints the rule. The second GET must NOT mint a second rule —
     # `redeem!` re-checks inside the lock and raises ConflictingSetup; the
@@ -94,9 +94,9 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     # rather than silently parking a long-lived token.
     first = make_setup
     second = make_setup
-    get "/bridge-setups/#{first.public_id}"
+    post "/bridge-setups/#{first.public_id}"
     assert_response :ok
-    get "/bridge-setups/#{second.public_id}"
+    post "/bridge-setups/#{second.public_id}"
     assert_response :conflict
     assert_equal "agent_has_pending_or_active_webhook", response.parsed_body["error"]
     assert_equal 1, @agent.api_tokens.count
@@ -111,9 +111,9 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: fills the URL into the GET-created rule + enables it, returns ok" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     assert_response :ok
-    get_response_secret = response.parsed_body["signing_secret"]
+    redeem_response_secret = response.parsed_body["signing_secret"]
     setup.reload
     pending_rule_id = setup.automation_rule.id
 
@@ -135,7 +135,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal pending_rule_id, rule.id, "same rule, now populated"
     assert_equal webhook_url, rule.actions["webhook_url"]
     assert rule.enabled?, "rule is enabled only after verification succeeded"
-    assert_equal get_response_secret, rule.webhook_secret,
+    assert_equal redeem_response_secret, rule.webhook_secret,
                  "secret is the one returned by GET (rule's own webhook_secret field, unchanged)"
     assert setup.webhook_registered_at.present?
   end
@@ -145,7 +145,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     # unverified URL: while the deliver call is in flight, the rule has the
     # URL stored but enabled? is false.
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     url = "https://example.com/inspect-during-verify/webhook"
 
     saw_disabled_with_url = false
@@ -164,7 +164,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert setup.automation_rule.enabled?, "rule enables only after deliver returns ok"
   end
 
-  test "POST register_webhook: 404 if GET show not yet called" do
+  test "POST register_webhook: 404 if POST redeem not yet called" do
     setup = make_setup
     post "/bridge-setups/#{setup.public_id}/webhook",
          params: { webhook_url: "https://example.org/y", events: ["notifications.delivered"] }
@@ -173,7 +173,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 404 on second invocation" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     url = "https://example.org/y"
     stub_reachable(url)
     post "/bridge-setups/#{setup.public_id}/webhook",
@@ -186,7 +186,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 404 if expired" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     setup.update_columns(expires_at: 1.minute.ago)
     post "/bridge-setups/#{setup.public_id}/webhook",
          params: { webhook_url: "https://example.org/y", events: ["notifications.delivered"] }
@@ -195,14 +195,14 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 422 if webhook_url is missing" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     post "/bridge-setups/#{setup.public_id}/webhook", params: { events: ["notifications.delivered"] }
     assert_response :unprocessable_entity
   end
 
   test "POST register_webhook: 422 if webhook_url is not HTTPS" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     assert_no_difference -> { AutomationRule.tenant_scoped_only(@tenant.id).count } do
       post "/bridge-setups/#{setup.public_id}/webhook",
            params: { webhook_url: "http://example.com/insecure", events: ["notifications.delivered"] }
@@ -213,7 +213,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 422 if webhook_url has embedded credentials" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     # Built dynamically so the literal `user:pass@host` doesn't trip the
     # check-secrets pre-commit hook (which scans for basic-auth URLs).
     url_with_creds = URI("https://example.com/webhook").tap { |u| u.userinfo = "u:p" }.to_s
@@ -226,7 +226,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 422 if webhook_url is malformed" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     post "/bridge-setups/#{setup.public_id}/webhook",
          params: { webhook_url: "not a url", events: ["notifications.delivered"] }
     assert_response :unprocessable_entity
@@ -234,7 +234,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: defaults to setup's events_recommended if events omitted" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     url = "https://example.org/y"
     stub_reachable(url)
     post "/bridge-setups/#{setup.public_id}/webhook",
@@ -247,7 +247,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 422 + full rollback when verification fails (connection refused)" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     url = "https://example.com/unreachable/webhook"
     stub_request(:post, url).to_raise(Errno::ECONNREFUSED)
 
@@ -274,7 +274,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: 422 + full rollback when webhook URL returns a non-2xx status" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     url = "https://example.com/broken/webhook"
     stub_request(:post, url).to_return(status: 502, body: "Bad Gateway")
 
@@ -291,7 +291,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: a second POST after a failed verification is 404 (setup is consumed)" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     url = "https://example.com/will-fail/webhook"
     stub_request(:post, url).to_raise(Errno::ECONNREFUSED)
     post "/bridge-setups/#{setup.public_id}/webhook",
@@ -309,7 +309,7 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
 
   test "POST register_webhook: verification request is signed with the GET-revealed secret" do
     setup = make_setup
-    get "/bridge-setups/#{setup.public_id}"
+    post "/bridge-setups/#{setup.public_id}"
     signing_secret = response.parsed_body["signing_secret"]
 
     url = "https://example.com/verify/webhook"

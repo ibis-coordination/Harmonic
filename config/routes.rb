@@ -92,7 +92,12 @@ Rails.application.routes.draw do
   # Public, one-time-use harmonic-bridge setup endpoints. Possession of
   # :public_id is the credential — the URL is unguessable, short-lived, and
   # single-use per action. Backs `harmonic-bridge add --from <url>`.
-  get  'bridge-setups/:public_id'         => 'harmonic_bridge_setups#show',             as: 'harmonic_bridge_setup'
+  #
+  # Both endpoints are POST: each mints credentials / mutates AutomationRule
+  # state. GET would let any pre-fetcher (browser address bar, link-preview
+  # bot, LLM `fetch_page`) burn the redemption without the bridge ever
+  # running.
+  post 'bridge-setups/:public_id'         => 'harmonic_bridge_setups#redeem',           as: 'harmonic_bridge_setup'
   post 'bridge-setups/:public_id/webhook' => 'harmonic_bridge_setups#register_webhook', as: 'harmonic_bridge_setup_webhook'
 
   # Notification webhook (singular — one per user/agent).
@@ -115,6 +120,20 @@ Rails.application.routes.draw do
   post   'ai-agents/:handle/webhook/toggle'         => 'notification_webhooks#toggle',         as: 'toggle_ai_agent_notification_webhook'
   post   'ai-agents/:handle/webhook/test'           => 'notification_webhooks#test_delivery',  as: 'test_ai_agent_notification_webhook'
   post   'ai-agents/:handle/webhook/rotate_secret'  => 'notification_webhooks#rotate_secret',  as: 'rotate_secret_ai_agent_notification_webhook'
+
+  # Human-facing harmonic-bridge setup UI. All actions live on the
+  # ai_agent_bridge_setups controller so the resource owns its own
+  # action surface (same shape as AgentAutomationsController). Static
+  # /bridge-setup and /bridge-setup/actions/... must come before the
+  # :public_id route so Rails resolves them as paths, not IDs.
+  get  'ai-agents/:handle/bridge-setup'                                                       => 'ai_agent_bridge_setups#new',                                  as: 'new_ai_agent_bridge_setup'
+  get  'ai-agents/:handle/bridge-setup/actions'                                               => 'ai_agent_bridge_setups#actions_index_new'
+  get  'ai-agents/:handle/bridge-setup/actions/connect_harmonic_bridge'                       => 'ai_agent_bridge_setups#describe_connect_harmonic_bridge'
+  post 'ai-agents/:handle/bridge-setup/actions/connect_harmonic_bridge'                       => 'ai_agent_bridge_setups#execute_connect_harmonic_bridge'
+  get  'ai-agents/:handle/bridge-setup/:public_id'                                            => 'ai_agent_bridge_setups#show',                                 as: 'ai_agent_bridge_setup'
+  get  'ai-agents/:handle/bridge-setup/:public_id/actions'                                    => 'ai_agent_bridge_setups#actions_index_show'
+  get  'ai-agents/:handle/bridge-setup/:public_id/actions/cancel_harmonic_bridge_setup'       => 'ai_agent_bridge_setups#describe_cancel_harmonic_bridge_setup'
+  post 'ai-agents/:handle/bridge-setup/:public_id/actions/cancel_harmonic_bridge_setup'       => 'ai_agent_bridge_setups#execute_cancel_harmonic_bridge_setup'
 
   if ENV['AUTH_MODE'] == 'honor_system'
     get 'login' => 'honor_system_sessions#new'

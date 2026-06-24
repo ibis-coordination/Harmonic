@@ -58,6 +58,12 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "update_automation_rule",
     "delete_automation_rule",
     "toggle_automation_rule",
+    # Bridge setup mints an MCP token + binds a notification webhook URL.
+    # Same operator-only category as create_api_token. HUMAN_ONLY_AUTHORIZATION
+    # already enforces this at the action layer; listing here makes the policy
+    # explicit and test-auditable.
+    "connect_harmonic_bridge",
+    "cancel_harmonic_bridge_setup",
   ].freeze
 
   # Capabilities an AI agent needs in its overall configuration before it

@@ -1,0 +1,18 @@
+# Connect harmonic-bridge for <%= @ai_agent.display_name %>
+
+<% if @notification_webhook %>
+This agent already has a notification webhook configured. Remove it before connecting harmonic-bridge.
+
+* [Manage existing webhook](<%= ai_agent_notification_webhook_path(@ai_agent.handle) %>)
+* [Back to settings](<%= ai_agent_settings_path(@ai_agent.handle) %>)
+<% else %>
+Link this agent to a host that's running [harmonic-bridge](https://github.com/ibis-coordination/Harmonic/tree/main/harmonic-bridge). One command on the host hands the bridge an MCP token plus a notification webhook subscription and verifies reachability before going live. The bridge then runs whatever wake_command the operator has wired up (Claude Code, Codex, a Python script) for each event.
+
+Actions:
+
+* [connect_harmonic_bridge](/ai-agents/<%= @ai_agent.handle %>/bridge-setup/actions/connect_harmonic_bridge) — mint a one-time setup URL the bridge daemon redeems.
+
+Alternative:
+
+* [Set up the webhook manually](<%= ai_agent_notification_webhook_path(@ai_agent.handle) %>) — point the agent's notifications at a URL the operator already runs.
+<% end %>

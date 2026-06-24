@@ -117,6 +117,8 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "mark_read" => :private,
     "mark_all_read" => :private,
     "mark_read_for_collective" => :private,
+    "connect_harmonic_bridge" => :private,
+    "cancel_harmonic_bridge_setup" => :private,
 
     # :shared — a specific group/relationship, not a public audience
     "join_collective" => :shared,

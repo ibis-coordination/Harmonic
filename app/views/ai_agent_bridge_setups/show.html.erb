@@ -1,0 +1,70 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@ai_agent.handle}"],
+  ['Settings', ai_agent_settings_path(@ai_agent.handle)],
+  'Connect harmonic-bridge'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'plug', height: 14, class: 'pulse-resource-icon' %>
+        harmonic-bridge setup
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Connect harmonic-bridge for <%= @ai_agent.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @setup.expired? %>
+      <%# === Expired setup === %>
+      <section class="pulse-settings-section">
+        <div class="pulse-notice pulse-notice-warning">
+          <strong>This setup URL has expired.</strong> Mint a fresh one to continue.
+        </div>
+        <p class="pulse-action-row">
+          <%= form_with(url: "/ai-agents/#{@ai_agent.handle}/bridge-setup/actions/connect_harmonic_bridge", method: :post, html: { style: "display:inline;" }, data: { turbo: false }) do %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Generate a new setup URL</button>
+          <% end %>
+          <a href="<%= new_ai_agent_bridge_setup_path(@ai_agent.handle) %>" class="pulse-action-btn">Back</a>
+        </p>
+      </section>
+    <% else %>
+      <%# === Active setup: show the command to paste === %>
+      <section class="pulse-settings-section">
+        <p>
+          On the host where <code>harmonic-bridge</code> is running, paste the command below into a terminal.
+          It exchanges this URL for an MCP token + a notification webhook subscription, then verifies the
+          bridge is reachable from Harmonic before enabling the webhook.
+        </p>
+
+        <label class="pulse-label">Run this on your bridge host</label>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <pre class="pulse-form-input" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;">harmonic-bridge add --from <%= @public_setup_url %></pre>
+          <%= render 'shared/copy_button', text: @bridge_add_command %>
+        </div>
+        <p class="pulse-hint">
+          Expires <%= time_ago_in_words(@setup.expires_at, include_seconds: true) %> from now
+          (<%= l(@setup.expires_at, format: :short) %>).
+        </p>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">After running the command</h2>
+        <p class="pulse-hint">
+          The bridge daemon registers the webhook subscription with Harmonic and asks Harmonic to send a
+          test delivery to confirm the daemon is reachable. Once the test succeeds, the webhook goes live.
+        </p>
+        <p class="pulse-action-row">
+          <a href="<%= ai_agent_settings_path(@ai_agent.handle) %>" class="pulse-action-btn pulse-action-btn-primary">
+            Back to agent settings
+          </a>
+          <%= form_with(url: "/ai-agents/#{@ai_agent.handle}/bridge-setup/#{@setup.public_id}/actions/cancel_harmonic_bridge_setup", method: :post, data: { turbo: false, confirm: "Cancel this setup? The URL stops working." }, html: { style: "display:inline;" }) do %>
+            <button type="submit" class="pulse-action-btn">Cancel setup</button>
+          <% end %>
+        </p>
+      </section>
+    <% end %>
+  </div>
+</article>

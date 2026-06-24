@@ -4,7 +4,9 @@
 // running daemon, and runs any configured after_add steps.
 //
 // Flow:
-//   1. GET <URL> → metadata + token + signing_secret
+//   1. POST <URL> → metadata + token + signing_secret. POST (not GET) so
+//      a stray browser visit or link-preview fetch can't burn the
+//      redemption — both Harmonic-side endpoints mint credentials.
 //   2. Write secrets via the configured backend (v0.1: file://) at mode 0600
 //   3. Write per-agent config with secret references + stub wake_command
 //   4. SIGHUP the daemon so it picks up the new agent before Harmonic's
@@ -86,25 +88,25 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
   }
   const publicUrlBase = (daemonConfig.publicUrl as string).replace(/\/+$/, "");
 
-  // 2. GET setup metadata + credentials
-  stdout.write(`Fetching setup metadata from ${fromUrl}…\n`);
+  // 2. POST to redeem the setup URL → metadata + credentials.
+  stdout.write(`Redeeming setup URL ${fromUrl}…\n`);
   let metadata: SetupMetadata;
   try {
-    const response = await fetchWithTimeout(doFetch, fromUrl, { method: "GET" });
+    const response = await fetchWithTimeout(doFetch, fromUrl, { method: "POST" });
     if (!response.ok) {
       if (response.status === 404) {
         stderr.write(`harmonic-bridge add: setup URL is invalid or expired (404). Click "Connect harmonic-bridge" again for a fresh URL.\n`);
       } else {
-        stderr.write(`harmonic-bridge add: GET ${fromUrl} returned ${response.status} ${response.statusText}\n`);
+        stderr.write(`harmonic-bridge add: POST ${fromUrl} returned ${response.status} ${response.statusText}\n`);
       }
       return 1;
     }
     metadata = (await response.json()) as SetupMetadata;
   } catch (e) {
     if (isAbortError(e)) {
-      stderr.write(`harmonic-bridge add: GET ${fromUrl} timed out after ${HTTP_TIMEOUT_MS / 1000}s.\n`);
+      stderr.write(`harmonic-bridge add: POST ${fromUrl} timed out after ${HTTP_TIMEOUT_MS / 1000}s.\n`);
     } else {
-      stderr.write(`harmonic-bridge add: failed to GET ${fromUrl} — ${errMessage(e)}\n`);
+      stderr.write(`harmonic-bridge add: failed to POST ${fromUrl} — ${errMessage(e)}\n`);
     }
     return 1;
   }
@@ -141,7 +143,7 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
     await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(
       path.join(agentDir, "harmonic-bridge.yml"),
-      renderAgentYaml({ mcpEndpoint: metadata.harmonic_mcp_endpoint, tokenPath, secretPath, events: metadata.events_recommended, handle }),
+      renderAgentYaml({ mcpEndpoint: metadata.harmonic_mcp_endpoint, tokenPath, secretPath, events: metadata.events_recommended, handle, agentDir }),
       { flag: "wx" },
     );
   } catch (e) {
@@ -291,6 +293,7 @@ function renderAgentYaml(f: {
   secretPath: string;
   events: readonly string[];
   handle: string;
+  agentDir: string;
 }): string {
   // Use the yaml library to safely encode scalar values that originate from
   // outside the bridge (Harmonic-supplied URLs, filesystem paths). Without
@@ -306,8 +309,10 @@ harmonic_mcp_endpoint: ${ymlScalar(f.mcpEndpoint)}
 harmonic_token: ${ymlScalar(`file://${f.tokenPath}`)}
 webhook_secret: ${ymlScalar(`file://${f.secretPath}`)}
 
-# Where the wake command runs. Set to a directory the agent's harness can use.
-working_dir: ~
+# Where the wake command runs. Defaults to the agent's own config dir so the
+# daemon loads cleanly out of the box; change this to wherever your harness
+# expects cwd before relying on the agent.
+working_dir: ${ymlScalar(f.agentDir)}
 
 # What to run when a notification arrives. The payload arrives on stdin;
 # HARMONIC_BRIDGE_AGENT_NAME, AGENT_DIR, EVENT_TYPE, MCP_ENDPOINT, and TOKEN
