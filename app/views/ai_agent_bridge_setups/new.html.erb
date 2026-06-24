@@ -1,0 +1,54 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['AI Agents', '/ai-agents'],
+  [@ai_agent.display_name, "/ai-agents/#{@ai_agent.handle}"],
+  ['Settings', ai_agent_settings_path(@ai_agent.handle)],
+  'Connect harmonic-bridge'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'plug', height: 14, class: 'pulse-resource-icon' %>
+        harmonic-bridge
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Connect harmonic-bridge for <%= @ai_agent.display_name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @notification_webhook %>
+      <%# A webhook already exists — bridge setup would conflict. %>
+      <section class="pulse-settings-section">
+        <div class="pulse-notice pulse-notice-warning">
+          <strong>This agent already has a notification webhook configured.</strong>
+          Remove the existing webhook before connecting harmonic-bridge.
+        </div>
+        <p class="pulse-action-row">
+          <%= link_to "Manage existing webhook", ai_agent_notification_webhook_path(@ai_agent.handle), class: "pulse-action-btn pulse-action-btn-primary" %>
+          <%= link_to "Back to settings", ai_agent_settings_path(@ai_agent.handle), class: "pulse-action-btn" %>
+        </p>
+      </section>
+    <% else %>
+      <section class="pulse-settings-section">
+        <p>
+          Link this agent to a host that's running
+          <a href="https://github.com/ibis-coordination/Harmonic/tree/main/harmonic-bridge">harmonic-bridge</a>.
+          One command on the host hands the bridge an MCP token plus a notification webhook subscription
+          and verifies reachability before going live. The bridge then runs whatever wake_command you've
+          wired up (Claude Code, Codex, a Python script — your call) for each event.
+        </p>
+        <p class="pulse-action-row">
+          <%= form_with(url: "/ai-agents/#{@ai_agent.handle}/bridge-setup/actions/connect_harmonic_bridge", method: :post, html: { style: "display:inline;" }, data: { turbo: false }) do %>
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Connect harmonic-bridge</button>
+          <% end %>
+          <%= link_to "Back to settings", ai_agent_settings_path(@ai_agent.handle), class: "pulse-action-btn" %>
+        </p>
+        <p class="pulse-hint">
+          Prefer to point at your own webhook URL directly?
+          <%= link_to "Set up the webhook manually", ai_agent_notification_webhook_path(@ai_agent.handle), class: "pulse-link" %>.
+        </p>
+      </section>
+    <% end %>
+  </div>
+</article>

@@ -72,6 +72,24 @@ This agent has no API tokens.
 *Internal agents cannot have API tokens.*
 <% end %>
 
+<% if @ai_agent.external_ai_agent? %>
+## Notification Webhook
+
+<% if @notification_webhook %>
+| Property | Value |
+|----------|-------|
+| Status | <%= @notification_webhook.enabled? ? "Enabled" : "Disabled" %> |
+| URL | `<%= @notification_webhook.actions["webhook_url"] %>` |
+
+* [Manage webhook](<%= ai_agent_notification_webhook_path(@ai_agent.handle) %>)
+<% else %>
+No notification webhook configured.
+
+* [Connect harmonic-bridge](<%= new_ai_agent_bridge_setup_path(@ai_agent.handle) %>) — operator's bridge daemon redeems a one-time URL to register the webhook.
+* [Set up the webhook manually](<%= ai_agent_notification_webhook_path(@ai_agent.handle) %>) — point the agent's notifications at a URL the operator already runs.
+<% end %>
+<% end %>
+
 <% if @current_tenant.feature_enabled?("stripe_billing") %>
 <% if @ai_agent.billing_exempt? %>
 This agent is billing-exempt. [View billing](/billing)

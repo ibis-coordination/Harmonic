@@ -587,6 +587,26 @@ class ActionsHelper
       authorization: HUMAN_ONLY_AUTHORIZATION,
       visibility: :private,
     },
+    "connect_harmonic_bridge" => {
+      description: "Mint a one-time-use setup URL that lets the agent's harmonic-bridge daemon " \
+                   "redeem an MCP token + notification webhook subscription. The setup is consumed " \
+                   "the first time the bridge POSTs the URL on the operator's host.",
+      params_string: "()",
+      params: [],
+      # The bridge mints credentials with broad scopes for the agent. Only the
+      # human who owns the agent should be able to initiate that — same
+      # restriction `create_api_token` and `create_ai_agent` carry.
+      authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :private,
+    },
+    "cancel_harmonic_bridge_setup" => {
+      description: "Cancel an in-flight harmonic-bridge setup. Destroys any token + rule that " \
+                   "was minted by an unfinalized redemption so no half-state remains.",
+      params_string: "()",
+      params: [],
+      authorization: HUMAN_ONLY_AUTHORIZATION,
+      visibility: :private,
+    },
     "create_ai_agent" => {
       description: "Create a new AI agent",
       params_string: "(name, handle, identity_prompt, generate_token)",
@@ -1417,6 +1437,20 @@ class ActionsHelper
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
           description: ACTION_DEFINITIONS["update_profile"][:description], },
+      ],
+    },
+    "/ai-agents/:handle/bridge-setup" => {
+      controller_actions: ["ai_agent_bridge_setups#new"],
+      actions: [
+        { name: "connect_harmonic_bridge", params_string: ACTION_DEFINITIONS["connect_harmonic_bridge"][:params_string],
+          description: ACTION_DEFINITIONS["connect_harmonic_bridge"][:description], },
+      ],
+    },
+    "/ai-agents/:handle/bridge-setup/:public_id" => {
+      controller_actions: ["ai_agent_bridge_setups#show"],
+      actions: [
+        { name: "cancel_harmonic_bridge_setup", params_string: ACTION_DEFINITIONS["cancel_harmonic_bridge_setup"][:params_string],
+          description: ACTION_DEFINITIONS["cancel_harmonic_bridge_setup"][:description], },
       ],
     },
     "/admin" => {

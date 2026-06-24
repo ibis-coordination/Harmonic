@@ -1,0 +1,25 @@
+# Connect harmonic-bridge for <%= @ai_agent.display_name %>
+
+<% if @setup.expired? %>
+This setup URL has expired. The operator must mint a fresh one from the agent's settings page.
+
+* [Back to agent settings](<%= ai_agent_settings_path(@ai_agent.handle) %>)
+<% else %>
+On the host where `harmonic-bridge` is running, paste this command into a terminal:
+
+```
+harmonic-bridge add --from <%= @public_setup_url %>
+```
+
+The command exchanges this URL for an MCP token plus a notification webhook subscription, then asks Harmonic to send a test delivery to confirm the bridge is reachable before enabling the webhook.
+
+| Property | Value |
+|----------|-------|
+| Expires | <%= @setup.expires_at.iso8601 %> (in <%= time_ago_in_words(@setup.expires_at) %>) |
+| Agent | `<%= @ai_agent.handle %>` |
+
+After running the command:
+
+* [Back to agent settings](<%= ai_agent_settings_path(@ai_agent.handle) %>) — the webhook section will show the active subscription once verification succeeds.
+* [Cancel this setup](/ai-agents/<%= @ai_agent.handle %>/bridge-setup/<%= @setup.public_id %>/actions/cancel_harmonic_bridge_setup) — destroys the in-flight setup along with any token + rule the bridge already minted.
+<% end %>
