@@ -166,6 +166,7 @@ class AiAgentsController < ApplicationController
       caps = Array(capabilities).compact_blank
       config["capabilities"] = caps & CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
     end
+    config["visibility_zones"] = CapabilityCheck.sanitize_zones(params[:visibility_zones]) if params.key?(:visibility_zones)
     @ai_agent.agent_configuration = config
 
     if @ai_agent.save

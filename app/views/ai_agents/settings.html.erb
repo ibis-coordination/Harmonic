@@ -134,6 +134,14 @@
           <%= render "capabilities_section", current_caps: @ai_agent.agent_configuration&.dig("capabilities") %>
         </section>
 
+        <section class="pulse-settings-section">
+          <h3>Visibility zones</h3>
+          <p class="pulse-hint">
+            Restrict which audiences this agent may act in. Actions resolving to an unchecked zone will be blocked.
+          </p>
+          <%= render "visibility_zones_section", current_zones: @ai_agent.agent_configuration&.dig("visibility_zones") %>
+        </section>
+
       </form>
 
       <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--color-border-default);">

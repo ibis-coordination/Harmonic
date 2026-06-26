@@ -38,9 +38,27 @@ module ActionContextValidation
     )
 
     error = ActionContext.new(Current.mcp_action_context).validate_visibility(audience: audience)
-    return if error.nil?
+    unless error.nil?
+      render json: error.to_response_hash, status: :unprocessable_content
+      return
+    end
 
-    render json: error.to_response_hash, status: :unprocessable_content
+    # Visibility-zone guardrail — sibling to the capability check. Gate on the
+    # resolved audience (ground truth), not the declared one: an agent whose
+    # owner hasn't granted the `public` zone can't act in the main collective
+    # even if it declared the tier correctly. private is always allowed.
+    return if CapabilityCheck.zone_allowed?(caller, audience)
+
+    render json: zone_denied_error(audience), status: :forbidden
+  end
+
+  def zone_denied_error(zone)
+    {
+      error: "zone_restricted",
+      zone: zone,
+      hint: "This agent is not permitted to act in the `#{zone}` visibility zone. " \
+            "Its owner can enable that zone in the agent's settings.",
+    }
   end
 
   # `mcp_action_name` is set only by Mcp::EndpointController#call_execute_action,

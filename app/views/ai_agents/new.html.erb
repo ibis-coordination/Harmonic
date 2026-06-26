@@ -79,6 +79,12 @@
         <%= render "capabilities_section", current_caps: nil %>
       </section>
 
+      <section class="pulse-settings-section">
+        <label class="pulse-label">Visibility zones</label>
+        <small class="pulse-hint">Restrict which audiences this agent may act in. Actions resolving to an unchecked zone will be blocked.</small>
+        <%= render "visibility_zones_section", current_zones: nil %>
+      </section>
+
       <%
         internal_enabled = @current_tenant.internal_ai_agents_enabled?
         external_enabled = @current_tenant.external_ai_agents_enabled?

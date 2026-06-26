@@ -274,4 +274,102 @@ class CapabilityCheckTest < ActiveSupport::TestCase
              "Group has no actions: #{group.inspect}"
     end
   end
+
+  # --- Visibility-zone guardrails -----------------------------------------
+
+  # Test: non-agents are never zone-restricted.
+  test "non-ai_agent users can act in any visibility zone" do
+    CapabilityCheck::VISIBILITY_ZONES.each do |zone|
+      assert CapabilityCheck.zone_allowed?(@user, zone),
+             "Non-agent should be allowed in #{zone}"
+    end
+  end
+
+  # Test: with no visibility_zones configured, the default grant applies —
+  # private + shared on, public off.
+  test "ai_agent with no zones configured gets the default grant (private + shared, not public)" do
+    @ai_agent.update_columns(agent_configuration: nil)
+
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "private"), "private is always allowed"
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "shared"), "shared is on by default"
+    assert_not CapabilityCheck.zone_allowed?(@ai_agent, "public"), "public is off by default"
+  end
+
+  # Test: a config that exists but lacks the visibility_zones key still gets
+  # the default (this is the legacy-agent path).
+  test "ai_agent with config but no visibility_zones key gets the default grant" do
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
+
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "private")
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "shared")
+    assert_not CapabilityCheck.zone_allowed?(@ai_agent, "public")
+  end
+
+  # Test: private cannot be disabled, even by an empty array.
+  test "ai_agent with empty visibility_zones can still act in private only" do
+    @ai_agent.update_columns(agent_configuration: { "visibility_zones" => [] })
+
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "private"), "private can never be disabled"
+    assert_not CapabilityCheck.zone_allowed?(@ai_agent, "shared")
+    assert_not CapabilityCheck.zone_allowed?(@ai_agent, "public")
+  end
+
+  # Test: granting public turns it on; an unlisted grantable zone (shared) is off.
+  test "ai_agent with explicit zones is allowed exactly those (plus private)" do
+    @ai_agent.update_columns(agent_configuration: { "visibility_zones" => ["public"] })
+
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "private"), "private always on"
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "public"), "explicitly granted"
+    assert_not CapabilityCheck.zone_allowed?(@ai_agent, "shared"), "not in the list"
+  end
+
+  # Test: private can't be removed even by a hand-edited config that omits it.
+  test "ai_agent zone config that lists only public still permits private" do
+    @ai_agent.update_columns(agent_configuration: { "visibility_zones" => ["public"] })
+
+    assert CapabilityCheck.zone_allowed?(@ai_agent, "private")
+  end
+
+  # Test: allowed_zones returns all zones for non-agents.
+  test "allowed_zones returns all zones for non-ai_agent" do
+    assert_equal CapabilityCheck::VISIBILITY_ZONES, CapabilityCheck.allowed_zones(@user)
+  end
+
+  # Test: allowed_zones returns always-allowed + granted for an agent.
+  test "allowed_zones returns private plus configured grantable zones" do
+    @ai_agent.update_columns(agent_configuration: { "visibility_zones" => ["shared"] })
+
+    allowed = CapabilityCheck.allowed_zones(@ai_agent)
+    assert_includes allowed, "private"
+    assert_includes allowed, "shared"
+    assert_not_includes allowed, "public"
+  end
+
+  # Test: allowed_zones default grant is private + shared.
+  test "allowed_zones default grant is private and shared" do
+    @ai_agent.update_columns(agent_configuration: nil)
+
+    assert_equal ["private", "shared"], CapabilityCheck.allowed_zones(@ai_agent).sort
+  end
+
+  # Test: sanitize_zones keeps only grantable zones, drops blanks and unknowns.
+  test "sanitize_zones filters to grantable zones and drops noise" do
+    assert_equal ["public", "shared"].sort,
+                 CapabilityCheck.sanitize_zones(["public", "shared", "private", "", "bogus"]).sort
+    assert_equal [], CapabilityCheck.sanitize_zones(nil)
+    assert_equal [], CapabilityCheck.sanitize_zones([""])
+    # private is never persisted — it's always-on, not grantable
+    assert_not_includes CapabilityCheck.sanitize_zones(["private", "shared"]), "private"
+  end
+
+  # Test: the zone lists are internally consistent.
+  test "zone category lists are consistent" do
+    assert_empty CapabilityCheck::ALWAYS_ALLOWED_ZONES & CapabilityCheck::GRANTABLE_ZONES,
+                 "Always-allowed and grantable zones must not overlap"
+    assert_equal CapabilityCheck::VISIBILITY_ZONES.sort,
+                 (CapabilityCheck::ALWAYS_ALLOWED_ZONES + CapabilityCheck::GRANTABLE_ZONES).sort,
+                 "Every visibility zone must be either always-allowed or grantable"
+    assert (CapabilityCheck::DEFAULT_GRANTED_ZONES - CapabilityCheck::GRANTABLE_ZONES).empty?,
+           "DEFAULT_GRANTED_ZONES must be a subset of GRANTABLE_ZONES"
+  end
 end

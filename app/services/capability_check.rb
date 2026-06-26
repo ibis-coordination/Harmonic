@@ -287,6 +287,94 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
   ].freeze
 
+  # Visibility-zone guardrails — the sibling restriction to capabilities.
+  #
+  # Capabilities restrict *which actions* an agent may take; zones restrict
+  # *which visibility tiers* it may act in. Same storage (a sibling key on
+  # `User#agent_configuration`), same restricted_user? gate, same fail-closed
+  # request enforcement (see ActionContextValidation), same settings UI.
+  #
+  # Every agent action resolves to one of these tiers via
+  # `Mcp::AudienceResolver.resolve`; the zone allowlist below says which tiers
+  # this agent is permitted to act in.
+  #
+  # Defaults (set by the agent owner):
+  #   private — always enabled, cannot be disabled (an agent must be able to
+  #             act in its own workspace).
+  #   shared  — enabled by default, owner can disable.
+  #   public  — DISABLED by default, owner can enable.
+  VISIBILITY_ZONES = ["private", "shared", "public"].freeze
+
+  # Zones that an agent can always act in — cannot be removed, even via a
+  # hand-edited configuration.
+  ALWAYS_ALLOWED_ZONES = ["private"].freeze
+
+  # Zones the owner can toggle on/off for their agent.
+  GRANTABLE_ZONES = ["public", "shared"].freeze
+
+  # Grantable zones an agent may act in when `visibility_zones` is unset (nil).
+  #
+  # DELIBERATE DIVERGENCE from capabilities: for capabilities, nil means "all
+  # grantable allowed"; for zones, nil means "shared only" (NOT public),
+  # because the owner-facing default leaves public off. `private` is always
+  # allowed regardless (see ALWAYS_ALLOWED_ZONES), so the effective default
+  # set is private + shared.
+  DEFAULT_GRANTED_ZONES = ["shared"].freeze
+
+  # Can this agent act in the given visibility zone?
+  #
+  # @param user [User] The user attempting the action
+  # @param zone [String] One of "private" / "shared" / "public"
+  # @return [Boolean] true if allowed, false if denied
+  sig { params(user: User, zone: T.nilable(String)).returns(T::Boolean) }
+  def self.zone_allowed?(user, zone)
+    # Non-restricted users (see `restricted_user?`) have no zone restrictions
+    return true unless restricted_user?(user)
+
+    # private is always allowed and can't be disabled
+    return true if ALWAYS_ALLOWED_ZONES.include?(zone)
+
+    configured = user.agent_configuration&.dig("visibility_zones")
+
+    # No visibility_zones key (nil) = the default grant (shared only). An
+    # empty array = NONE of the grantable zones (only private remains).
+    # Non-empty = exactly the listed grantable zones.
+    granted = configured.nil? ? DEFAULT_GRANTED_ZONES : configured
+
+    granted.include?(zone)
+  end
+
+  # The full set of visibility zones a user may act in.
+  #
+  # @param user [User] The user to check
+  # @return [Array<String>] Allowed zone names (always includes private)
+  sig { params(user: User).returns(T::Array[String]) }
+  def self.allowed_zones(user)
+    return VISIBILITY_ZONES unless restricted_user?(user)
+
+    configured = user.agent_configuration&.dig("visibility_zones")
+    granted = if configured.nil?
+                DEFAULT_GRANTED_ZONES
+              else
+                configured & GRANTABLE_ZONES
+              end
+
+    ALWAYS_ALLOWED_ZONES + granted
+  end
+
+  # Normalize an owner-submitted list of zones to the persisted form: keep
+  # only grantable zones (private is implicit / always-on and never stored,
+  # mirroring how capabilities never stores AI_AGENT_ALWAYS_ALLOWED actions).
+  #
+  # @param raw [Object] Whatever the form/API submitted (Array, nil, etc.)
+  # @return [Array<String>] Sanitized grantable zones, order-stable
+  sig { params(raw: T.untyped).returns(T::Array[String]) }
+  def self.sanitize_zones(raw)
+    # Intersecting with GRANTABLE_ZONES drops blanks, unknown values, and the
+    # always-on "private" zone in one step, and de-dupes.
+    Array(raw).map(&:to_s) & GRANTABLE_ZONES
+  end
+
   # Check if a user has capability for an action
   #
   # @param user [User] The user attempting the action

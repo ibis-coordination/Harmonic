@@ -613,6 +613,38 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_equal "Hacked Name", @ai_agent.name
   end
 
+  test "update_settings persists sanitized visibility_zones" do
+    sign_in_as(@user, tenant: @tenant)
+    # "private" is always-on and never stored; "bogus" isn't a grantable zone.
+    post "/ai-agents/#{@ai_agent_handle}/settings",
+         params: { visibility_zones: ["public", "private", "bogus"] }
+
+    assert_response :redirect
+    @ai_agent.reload
+    assert_equal ["public"], @ai_agent.agent_configuration["visibility_zones"]
+  end
+
+  test "update_settings with all zones unchecked stores empty array (private only)" do
+    sign_in_as(@user, tenant: @tenant)
+    # The form's hidden sentinel posts a single blank entry on an all-unchecked submit.
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { visibility_zones: [""] }
+
+    assert_response :redirect
+    @ai_agent.reload
+    assert_equal [], @ai_agent.agent_configuration["visibility_zones"]
+  end
+
+  test "update_settings leaves visibility_zones untouched when the param is absent" do
+    @ai_agent.update!(agent_configuration: (@ai_agent.agent_configuration || {}).merge("visibility_zones" => ["shared"]))
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { name: "Renamed" }
+
+    assert_response :redirect
+    @ai_agent.reload
+    assert_equal ["shared"], @ai_agent.agent_configuration["visibility_zones"]
+  end
+
   test "settings page links to billing for archived agent instead of reactivation form" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)

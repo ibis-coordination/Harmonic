@@ -737,6 +737,14 @@ class ApiHelper
         agent_config["capabilities"] = []
       end
 
+      # Handle visibility zones - sibling guardrail to capabilities. Store only
+      # grantable zones (private is always-on and never persisted). The new-agent
+      # form always sends the param (hidden sentinel), so an all-unchecked submit
+      # persists [] = "no grantable zones" (private only). When the param is
+      # absent entirely (non-form API creation) we leave the key unset so the
+      # documented default applies (shared enabled, public disabled).
+      agent_config["visibility_zones"] = CapabilityCheck.sanitize_zones(params[:visibility_zones]) if params.has_key?(:visibility_zones)
+
       # Handle model selection for internal AI agents
       agent_config["model"] = params[:model] if params[:model].present?
 

@@ -106,6 +106,97 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_equal "public", parsed_inner["got"]
   end
 
+  # --- Visibility-zone guardrails -----------------------------------------
+  #
+  # The zone gate sits right after audience resolution in the same concern,
+  # using the resolved audience as ground truth. These pin the three gate
+  # paths an integration test can reach: public denied by default, public
+  # allowed once granted, shared allowed by default. (private-always-allowed
+  # is exhaustively covered at the unit level in capability_check_test.)
+
+  def post_create_note_via_mcp(collective:, declared_visibility:, token:)
+    body = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "execute_action",
+        arguments: {
+          path: "/collectives/#{collective.handle}/note",
+          action: "create_note",
+          params: { text: "zone gate test" },
+          context: {
+            identity: { actor: "@#{token.user.handle}" },
+            visibility: declared_visibility,
+            intention: "write a note",
+          },
+        },
+      },
+    }.to_json
+
+    post "/mcp", params: body, headers: {
+      "Content-Type" => "application/json",
+      "Accept" => "application/json",
+      "Authorization" => "Bearer #{token.plaintext_token}",
+    }
+  end
+
+  def mcp_inner_error(response)
+    inner = response.parsed_body.dig("result", "content", 0, "text")
+    JSON.parse(inner.to_s)
+  end
+
+  test "AI agent is denied a public-zone action by default (public off unless granted)" do
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Zone Default Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    assert_no_difference -> { Note.count } do
+      # main collective → resolves to "public"; declared correctly, but the
+      # agent hasn't been granted the public zone.
+      post_create_note_via_mcp(collective: main, declared_visibility: "public", token: token)
+    end
+
+    assert_response :success # JSON-RPC envelopes the 403 in a tool error
+    parsed = mcp_inner_error(response)
+    assert_equal "zone_restricted", parsed["error"]
+    assert_equal "public", parsed["zone"]
+  end
+
+  test "AI agent granted the public zone may act there" do
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Zone Public Agent",
+                            agent_configuration: { "mode" => "external", "visibility_zones" => ["public"] })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    assert_difference -> { Note.count }, 1 do
+      post_create_note_via_mcp(collective: main, declared_visibility: "public", token: token)
+    end
+    assert_response :success
+  end
+
+  test "AI agent may act in the shared zone by default" do
+    # @collective is a non-main collective → resolves to "shared", which is
+    # on by default. No visibility_zones configured.
+    agent = create_ai_agent(parent: @user, name: "Zone Shared Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    assert_difference -> { Note.count }, 1 do
+      post_create_note_via_mcp(collective: @collective, declared_visibility: "shared", token: token)
+    end
+    assert_response :success
+  end
+
   test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do
     # A human-owned API token (which CAN'T be mcp_only — model validation
     # pins mcp_only to ai_agent users). A direct REST write goes through
