@@ -81,7 +81,7 @@ class TrusteeGrant < ApplicationRecord
   # notification tests that create! then notify explicitly), causing double sends.
   sig { params(attributes: T.untyped).returns(TrusteeGrant) }
   def self.offer!(attributes)
-    grant = create!(attributes)
+    grant = T.cast(create!(attributes), TrusteeGrant)
     NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
     grant
   end
