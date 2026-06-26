@@ -86,6 +86,40 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     assert_not permission.revoked?
   end
 
+  test "offer! creates a pending grant and notifies the trustee as offered" do
+    grant = nil
+    notified = []
+    NotificationService.stub(:notify_trustee_authorization_event!, ->(grant:, event:) { notified << [grant, event] }) do
+      grant = TrusteeGrant.offer!(
+        tenant: @tenant,
+        granting_user: @granting_user,
+        trustee_user: @trustee_user,
+        permissions: { "create_notes" => true },
+      )
+    end
+
+    assert grant.persisted?
+    assert grant.pending?
+    assert_equal [[grant, :offered]], notified
+  end
+
+  test "offer! returns an unsaved record and does not notify when validation fails" do
+    notified = []
+    grant = nil
+    NotificationService.stub(:notify_trustee_authorization_event!, ->(grant:, event:) { notified << [grant, event] }) do
+      grant = TrusteeGrant.offer!(
+        tenant: @tenant,
+        granting_user: @granting_user,
+        trustee_user: @granting_user, # invalid: same as granting user
+        permissions: {},
+      )
+    end
+
+    assert_not grant.persisted?
+    assert_includes grant.errors[:trustee_user], "cannot be the same as the granting user"
+    assert_empty notified
+  end
+
   test "accept! transitions permission from pending to active" do
     permission = TrusteeGrant.create!(
       tenant: @tenant,

@@ -124,7 +124,7 @@ class TrusteeGrantsController < ApplicationController
     # Parse expiration
     expires_at = parse_expires_at(params[:expires_at])
 
-    grant = TrusteeGrant.new(
+    grant = TrusteeGrant.offer!(
       tenant: @current_tenant,
       granting_user: @target_user,
       trustee_user: trustee,
@@ -133,8 +133,7 @@ class TrusteeGrantsController < ApplicationController
       expires_at: expires_at
     )
 
-    if grant.save
-      NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
+    if grant.persisted?
       render_action_success({
                               action_name: "create_trustee_authorization",
                               resource: grant,
