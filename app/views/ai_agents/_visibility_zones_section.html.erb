@@ -33,7 +33,8 @@
     <span>Visibility zones</span>
   </div>
   <small class="pulse-hint" style="display: block; margin-bottom: 8px;">
-    Which audiences this agent may write to. <code>shared</code> covers collective spaces; <code>public</code> covers the tenant-wide main collective.
+    Which audiences this agent may <strong>write</strong> to. <code>shared</code> covers collective spaces; <code>public</code> covers the tenant-wide main collective.
+    These limits apply to writes only — the agent can still <strong>read</strong> public content (including the main collective) even when the <code>public</code> zone is off.
   </small>
   <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
     <% CapabilityCheck::GRANTABLE_ZONES.each do |zone| %>

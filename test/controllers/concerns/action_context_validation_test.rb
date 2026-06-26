@@ -197,6 +197,59 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "AI agent on an mcp_only-disabled token is still zone-gated on a direct REST write (public denied by default)" do
+    # The asymmetry fix: the zone gate used to fire only under MCP dispatch, so
+    # an agent token an owner opted out of mcp_only could reach a direct REST
+    # write with its zone restriction silently dropped. Now the gate runs on
+    # every restricted-agent write, mirroring the capability check. main
+    # collective → resolves to "public", which is off by default.
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Direct-REST Zone Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+
+    assert_no_difference -> { Note.count } do
+      post "/collectives/#{main.handle}/note/actions/create_note",
+           params: { text: "should be zone-blocked" }.to_json,
+           headers: {
+             "Content-Type" => "application/json",
+             "Accept" => "application/json",
+             "Authorization" => "Bearer #{token.plaintext_token}",
+           }
+    end
+
+    assert_response :forbidden
+    body = response.parsed_body
+    assert_equal "zone_restricted", body["error"]
+    assert_equal "public", body["zone"]
+  end
+
+  test "AI agent on an mcp_only-disabled token may write to the shared zone via direct REST (default grant)" do
+    # Companion to the test above: the gate runs on the direct path but allows
+    # what the agent is actually permitted. @collective is non-main → "shared",
+    # on by default. Proves the fix gates rather than blanket-blocking direct
+    # writes, and that mcp_only:false genuinely reaches the action.
+    agent = create_ai_agent(parent: @user, name: "Direct-REST Shared Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+
+    assert_difference -> { Note.count }, 1 do
+      post "/collectives/#{@collective.handle}/note/actions/create_note",
+           params: { text: "shared zone direct REST write" }.to_json,
+           headers: {
+             "Content-Type" => "application/json",
+             "Accept" => "text/markdown",
+             "Authorization" => "Bearer #{token.plaintext_token}",
+           }
+    end
+    assert_response :success
+  end
+
   test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do
     # A human-owned API token (which CAN'T be mcp_only — model validation
     # pins mcp_only to ai_agent users). A direct REST write goes through

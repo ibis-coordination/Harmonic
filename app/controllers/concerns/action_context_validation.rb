@@ -1,15 +1,23 @@
 # typed: false
 
-# Inner-layer half of the agent context gate: validates declared visibility
-# against the action's resolved audience. The outer MCP endpoint catches
-# context_missing / identity_* / intention_missing before dispatching.
+# Inner-layer half of the agent guardrails. Two checks live here, with
+# deliberately different scopes:
 #
-# Scope is MCP-only by design. Agent API tokens default to `mcp_only: true`,
-# which `ApplicationController#api_authorize!` enforces — a token in that
-# mode hitting a direct REST/markdown action returns 403 before any action
-# body runs, so direct-POST writes from agent identities can't bypass the
-# context gate. A principal can opt a token out of mcp_only, but that's a
-# deliberate choice surfaced on the token creation form, not a default.
+# 1. Declared-visibility validation — MCP-only. Compares the visibility tier
+#    the agent declared in its MCP `context` block against the action's
+#    resolved audience. Direct REST/markdown writes carry no context block,
+#    so there's nothing to validate; agent tokens also default to
+#    `mcp_only: true`, which `ApplicationController#api_authorize!` enforces by
+#    returning 403 on direct REST/markdown before any action body runs.
+#
+# 2. Visibility-zone guardrail — fires on EVERY restricted-agent write, MCP or
+#    direct REST/markdown, mirroring how the capability check (ActionCapability
+#    Check) runs on all writes. mcp_only fences direct writes for the default
+#    token, but a principal can opt a token out of mcp_only — a deliberate
+#    choice on the token form. Were the zone gate MCP-only, such a token would
+#    reach writes with its zone restriction silently dropped, the exact bypass
+#    the capability layer already closes by running everywhere. So zones run
+#    everywhere too: capabilities and zones are one system with one scope.
 module ActionContextValidation
   extend ActiveSupport::Concern
 
@@ -20,7 +28,6 @@ module ActionContextValidation
   private
 
   def validate_action_context!
-    return unless under_mcp_execute_action?
     return unless write_request? # from ActionCapabilityCheck
 
     # Under representation, `@current_user` is the represented user (a human,
@@ -37,19 +44,40 @@ module ActionContextValidation
       collective: @current_collective.presence
     )
 
-    error = ActionContext.new(Current.mcp_action_context).validate_visibility(audience: audience)
-    unless error.nil?
-      render json: error.to_response_hash, status: :unprocessable_content
-      return
+    # Declared-visibility validation is MCP-only: there's no context block to
+    # validate on a direct REST/markdown write. The zone gate below still runs.
+    if under_mcp_execute_action?
+      error = ActionContext.new(Current.mcp_action_context).validate_visibility(audience: audience)
+      unless error.nil?
+        render json: error.to_response_hash, status: :unprocessable_content
+        return
+      end
     end
 
-    # Visibility-zone guardrail — sibling to the capability check. Gate on the
-    # resolved audience (ground truth), not the declared one: an agent whose
-    # owner hasn't granted the `public` zone can't act in the main collective
-    # even if it declared the tier correctly. private is always allowed.
+    # Visibility-zone guardrail — sibling to the capability check, and like it
+    # fires on every restricted-agent write regardless of dispatch path (see
+    # the module comment). Gate on the resolved audience (ground truth), not
+    # the declared one: an agent whose owner hasn't granted the `public` zone
+    # can't act in the main collective even via a direct opted-out-of-mcp_only
+    # token. private is always allowed.
     return if CapabilityCheck.zone_allowed?(caller, audience)
 
-    render json: zone_denied_error(audience), status: :forbidden
+    render_zone_denied(audience)
+  end
+
+  # Under MCP the body is captured and surfaced as the tool-call result, so it
+  # must be JSON (Mcp::EndpointController#surface_dispatch_result reads the
+  # rendered body). A direct REST/markdown write gets a format-appropriate
+  # response, mirroring ActionCapabilityCheck#render_capability_denied.
+  def render_zone_denied(zone)
+    error = zone_denied_error(zone)
+    return render(json: error, status: :forbidden) if under_mcp_execute_action?
+
+    respond_to do |format|
+      format.json { render json: error, status: :forbidden }
+      format.md   { render plain: "Error: #{error[:hint]}", status: :forbidden }
+      format.html { render plain: "Forbidden: #{error[:hint]}", status: :forbidden }
+    end
   end
 
   def zone_denied_error(zone)
