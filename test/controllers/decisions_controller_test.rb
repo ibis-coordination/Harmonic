@@ -1529,6 +1529,48 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/\?\?\?/, response.body)
   end
 
+  test "closed vote decision does not highlight winner row before beacon drawn" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    option_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_a, decision_participant: participant, accepted: 1, preferred: 0)
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant, accepted: 1, preferred: 0)
+    @decision.update!(deadline: 1.hour.ago)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    # Random tiebreakers can still reorder rows once the beacon resolves, so no row is the final winner yet.
+    assert_no_match(/pulse-results-winner/, response.body)
+  end
+
+  test "closed vote decision highlights winner row once beacon drawn" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option_a = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    option_b = Option.create!(decision: @decision, decision_participant: participant, title: "Option B")
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_a, decision_participant: participant, accepted: 1, preferred: 0)
+    Vote.create!(tenant: @tenant, collective: @collective, decision: @decision, option: option_b, decision_participant: participant, accepted: 1, preferred: 0)
+    @decision.update!(deadline: 1.hour.ago, lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    # Beacon is drawn, so the order is final and the top row is the confirmed winner.
+    assert_match(/pulse-results-winner/, response.body)
+  end
+
   test "drawn vote decision shows verify link" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -1606,6 +1648,27 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match(/Audit chain:.*verified/, response.body)
     assert_match(/verify/, response.body)
+  end
+
+  test "decision page always shows chainlink audit icon even when beacon drawn" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "vote")
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    option = Option.create!(decision: @decision, decision_participant: participant, title: "Option A")
+    vote = Vote.new(tenant: @tenant, collective: @collective, decision: @decision, option: option, decision_participant: participant, accepted: 1, preferred: 0)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    @decision.update!(deadline: 1.hour.ago, lottery_beacon_round: 999, lottery_beacon_randomness: "abc")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    # The audit chain icon should be the chainlink regardless of state — never the "verified" badge.
+    assert_match(/octicon-link/, response.body)
+    assert_no_match(/octicon-verified/, response.body)
   end
 
   test "verify page shows audit chain section when entries exist" do

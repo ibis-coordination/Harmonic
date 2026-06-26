@@ -24,7 +24,8 @@
           </tr>
         <% end %>
         <% ([nil] + @decision.results + [nil]).each_cons(3).with_index do |(prev_result, result, next_result), index| %>
-          <tr class="<%= (index == 0 && @decision.closed?) ? 'pulse-results-winner' : '' %>">
+          <%# Don't highlight the top row until the beacon is drawn — random tiebreakers can still reorder results. %>
+          <tr class="<%= (index == 0 && @decision.closed? && @decision.beacon_drawn?) ? 'pulse-results-winner' : '' %>">
             <td><%= index + 1 %></td>
             <td><%= markdown_inline(result.option_title) %></td>
             <% unless @decision.is_lottery? %>
