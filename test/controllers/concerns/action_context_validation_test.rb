@@ -263,7 +263,16 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(agent)
     main.add_user!(agent)
     token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
-    note = create_note(text: "target", collective: main, created_by: @user)
+    # Create the note under main's collective scope so its history event's
+    # auto-populated collective_id matches the note (the thread is scoped to
+    # @collective in setup, which is not main).
+    note = nil
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    begin
+      note = create_note(text: "target", collective: main, created_by: @user)
+    ensure
+      Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    end
 
     post "/collectives/#{main.handle}/n/#{note.truncated_id}/actions/totally_made_up_action",
          params: {}.to_json,
