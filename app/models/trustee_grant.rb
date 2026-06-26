@@ -83,7 +83,6 @@ class TrusteeGrant < ApplicationRecord
     raise "Cannot decline: not pending" unless pending?
 
     update!(declined_at: Time.current)
-    NotificationService.notify_trustee_authorization_event!(grant: self, event: :declined)
   end
 
   sig { void }
@@ -91,7 +90,6 @@ class TrusteeGrant < ApplicationRecord
     raise "Cannot revoke: already revoked or declined" if revoked? || declined?
 
     update!(revoked_at: Time.current)
-    NotificationService.notify_trustee_authorization_event!(grant: self, event: :revoked)
   end
 
   # =========================================================================

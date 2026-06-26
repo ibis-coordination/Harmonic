@@ -58,24 +58,17 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
     assert_equal @granting_user, notification.notification_recipients.first.user
   end
 
-  test "declined notifies the granting user" do
+  # Only :offered and :accepted are notifying events. Declined/revoked are
+  # intentionally not handled — they raise like any other unknown event, and
+  # the model transitions no longer call the service for them.
+  test "declined and revoked are not notifying events" do
     grant = build_grant
 
-    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :declined)
-
-    notification = Notification.order(:created_at).last
-    assert_includes notification.title, "declined your trustee authorization"
-    assert_equal @granting_user, notification.notification_recipients.first.user
-  end
-
-  test "revoked notifies the trustee user" do
-    grant = build_grant
-
-    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :revoked)
-
-    notification = Notification.order(:created_at).last
-    assert_includes notification.title, "revoked your trustee authorization"
-    assert_equal @trustee_user, notification.notification_recipients.first.user
+    [:declined, :revoked].each do |event|
+      assert_raises(ArgumentError) do
+        NotificationService.notify_trustee_authorization_event!(grant: grant, event: event)
+      end
+    end
   end
 
   test "unknown event raises ArgumentError" do
@@ -179,24 +172,20 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
     assert_equal @granting_user, Notification.order(:created_at).last.notification_recipients.first.user
   end
 
-  test "decline! sends a notification to the granting user" do
+  test "decline! fires no notification" do
     grant = build_grant
 
-    assert_difference "Notification.count", 1 do
+    assert_no_difference ["Notification.count", "NotificationRecipient.count"] do
       grant.decline!
     end
-
-    assert_equal @granting_user, Notification.order(:created_at).last.notification_recipients.first.user
   end
 
-  test "revoke! sends a notification to the trustee user" do
+  test "revoke! fires no notification" do
     grant = build_grant
-    grant.accept!
+    grant.accept! # accept! itself notifies; revoke! must add nothing on top.
 
-    assert_difference "Notification.count", 1 do
+    assert_no_difference ["Notification.count", "NotificationRecipient.count"] do
       grant.revoke!
     end
-
-    assert_equal @trustee_user, Notification.order(:created_at).last.notification_recipients.first.user
   end
 end

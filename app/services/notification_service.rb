@@ -63,9 +63,11 @@ class NotificationService
   # chat scopes its delivered event to the chat session's private collective.
   # See deliver_trustee_notification!.
   #
-  # event is one of :offered, :accepted, :declined, :revoked. The recipient,
-  # originating actor, and message are derived from the event so call sites
-  # stay one-liners.
+  # event is one of :offered, :accepted. The recipient, originating actor, and
+  # message are derived from the event so call sites stay one-liners. Declined
+  # and revoked transitions deliberately fire nothing — the acting party
+  # already knows they declined/revoked, and the counterparty learns of it
+  # next time they look rather than via an inbox ping.
   sig { params(grant: TrusteeGrant, event: Symbol).void }
   def self.notify_trustee_authorization_event!(grant:, event:)
     granting = grant.granting_user
@@ -82,14 +84,6 @@ class NotificationService
       recipient = granting
       actor = trustee
       title = "#{trustee_name} accepted your trustee authorization"
-    when :declined
-      recipient = granting
-      actor = trustee
-      title = "#{trustee_name} declined your trustee authorization"
-    when :revoked
-      recipient = trustee
-      actor = granting
-      title = "#{granting_name} revoked your trustee authorization"
     else
       raise ArgumentError, "Unknown trustee authorization event: #{event.inspect}"
     end
@@ -300,12 +294,12 @@ class NotificationService
   # (no triggering Event, since trustee grants have no collective). Channels
   # honor the recipient's per-type preferences, falling back to in-app. A
   # delivery failure is logged rather than raised so it never breaks the
-  # underlying accept/decline/revoke/offer action, which has already persisted.
+  # underlying offer/accept action, which has already persisted.
   #
   # After the in-app/email rows are created we fire `notifications.delivered`
   # so notification-webhook subscribers receive these too (see
   # fire_notifications_delivered_event). `actor` is the originating party (the
-  # one who offered/accepted/declined/revoked), surfaced to the webhook payload
+  # one who offered/accepted), surfaced to the webhook payload
   # via `original_actor_id` exactly as the chat-message path does.
   sig { params(grant: TrusteeGrant, recipient: User, actor: T.nilable(User), title: String).void }
   def self.deliver_trustee_notification!(grant:, recipient:, actor:, title:)
