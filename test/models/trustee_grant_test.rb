@@ -103,20 +103,21 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     assert_equal [[grant, :offered]], notified
   end
 
-  test "offer! returns an unsaved record and does not notify when validation fails" do
+  test "offer! raises RecordInvalid and does not notify when validation fails" do
     notified = []
-    grant = nil
+    error = nil
     NotificationService.stub(:notify_trustee_authorization_event!, ->(grant:, event:) { notified << [grant, event] }) do
-      grant = TrusteeGrant.offer!(
-        tenant: @tenant,
-        granting_user: @granting_user,
-        trustee_user: @granting_user, # invalid: same as granting user
-        permissions: {},
-      )
+      error = assert_raises(ActiveRecord::RecordInvalid) do
+        TrusteeGrant.offer!(
+          tenant: @tenant,
+          granting_user: @granting_user,
+          trustee_user: @granting_user, # invalid: same as granting user
+          permissions: {},
+        )
+      end
     end
 
-    assert_not grant.persisted?
-    assert_includes grant.errors[:trustee_user], "cannot be the same as the granting user"
+    assert_includes error.record.errors[:trustee_user], "cannot be the same as the granting user"
     assert_empty notified
   end
 

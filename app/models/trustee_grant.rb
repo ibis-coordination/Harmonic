@@ -72,15 +72,17 @@ class TrusteeGrant < ApplicationRecord
 
   # Create a pending grant and notify the trustee that they've been offered it.
   # Mirrors accept!/decline!/revoke! so all four lifecycle verbs live on the model,
-  # each owning its own notification. Uses save (not create!) so callers keep the
-  # usual validation-error branch via the returned record's #persisted?.
+  # each owning its own notification. Like the sibling bang verbs (which use update!),
+  # this fails loudly: it raises ActiveRecord::RecordInvalid if the grant is invalid,
+  # so the notification only ever fires for a persisted grant. Callers that want to
+  # render validation errors rather than 500 should rescue RecordInvalid.
   # Note: deliberately NOT an after_create callback — that would fire on every
   # TrusteeGrant.create! (fixtures, the pre-accepted parent-grant path, and the
   # notification tests that create! then notify explicitly), causing double sends.
   sig { params(attributes: T.untyped).returns(TrusteeGrant) }
   def self.offer!(attributes)
-    grant = new(attributes)
-    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered) if grant.save
+    grant = create!(attributes)
+    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
     grant
   end
 
