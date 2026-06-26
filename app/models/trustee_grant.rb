@@ -70,12 +70,28 @@ class TrusteeGrant < ApplicationRecord
   # STATE TRANSITION METHODS
   # =========================================================================
 
+  # Create a pending grant and notify the trustee that they've been offered it.
+  # Mirrors accept!/decline!/revoke! so all four lifecycle verbs live on the model,
+  # each owning its own notification. Like the sibling bang verbs (which use update!),
+  # this fails loudly: it raises ActiveRecord::RecordInvalid if the grant is invalid,
+  # so the notification only ever fires for a persisted grant. Callers that want to
+  # render validation errors rather than 500 should rescue RecordInvalid.
+  # Note: deliberately NOT an after_create callback — that would fire on every
+  # TrusteeGrant.create! (fixtures, the pre-accepted parent-grant path, and the
+  # notification tests that create! then notify explicitly), causing double sends.
+  sig { params(attributes: T.untyped).returns(TrusteeGrant) }
+  def self.offer!(attributes)
+    grant = T.cast(create!(attributes), TrusteeGrant)
+    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
+    grant
+  end
+
   sig { void }
   def accept!
     raise "Cannot accept: not pending" unless pending?
 
     update!(accepted_at: Time.current)
-    # TODO: Send notification to granting_user
+    NotificationService.notify_trustee_authorization_event!(grant: self, event: :accepted)
   end
 
   sig { void }
@@ -83,7 +99,6 @@ class TrusteeGrant < ApplicationRecord
     raise "Cannot decline: not pending" unless pending?
 
     update!(declined_at: Time.current)
-    # TODO: Send notification to granting_user
   end
 
   sig { void }
@@ -91,7 +106,6 @@ class TrusteeGrant < ApplicationRecord
     raise "Cannot revoke: already revoked or declined" if revoked? || declined?
 
     update!(revoked_at: Time.current)
-    # TODO: Send notification to trustee_user
   end
 
   # =========================================================================

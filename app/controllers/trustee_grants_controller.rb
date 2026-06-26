@@ -124,30 +124,29 @@ class TrusteeGrantsController < ApplicationController
     # Parse expiration
     expires_at = parse_expires_at(params[:expires_at])
 
-    grant = TrusteeGrant.new(
-      tenant: @current_tenant,
-      granting_user: @target_user,
-      trustee_user: trustee,
-      permissions: permissions,
-      collective_scope: collective_scope,
-      expires_at: expires_at
-    )
-
-    if grant.save
-      # TODO: Send notification to trustee_user
-      render_action_success({
-                              action_name: "create_trustee_authorization",
-                              resource: grant,
-                              result: "Trustee authorization request sent to #{trustee.display_name || trustee.handle}",
-                              redirect_to: trustee_grant_show_path(grant),
-                            })
-    else
-      render_action_error({
-                            action_name: "create_trustee_authorization",
-                            resource: nil,
-                            error: grant.errors.full_messages.join(", "),
-                          })
+    begin
+      grant = TrusteeGrant.offer!(
+        tenant: @current_tenant,
+        granting_user: @target_user,
+        trustee_user: trustee,
+        permissions: permissions,
+        collective_scope: collective_scope,
+        expires_at: expires_at
+      )
+    rescue ActiveRecord::RecordInvalid => e
+      return render_action_error({
+                                   action_name: "create_trustee_authorization",
+                                   resource: nil,
+                                   error: e.record.errors.full_messages.join(", "),
+                                 })
     end
+
+    render_action_success({
+                            action_name: "create_trustee_authorization",
+                            resource: grant,
+                            result: "Trustee authorization request sent to #{trustee.display_name || trustee.handle}",
+                            redirect_to: trustee_grant_show_path(grant),
+                          })
   end
 
   # =========================================================================

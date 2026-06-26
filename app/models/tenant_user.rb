@@ -156,6 +156,9 @@ class TenantUser < ApplicationRecord
     "chat_message" => { "in_app" => true, "email" => false },
     "trio_unavailable" => { "in_app" => true, "email" => false },
     "tune_in" => { "in_app" => true, "email" => false },
+    # Trustee authorization lifecycle (offered/accepted/declined/revoked).
+    # In-app by default, matching most types; users can opt into email.
+    "trustee_authorization" => { "in_app" => true, "email" => false },
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }
