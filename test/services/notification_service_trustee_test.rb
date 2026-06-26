@@ -110,7 +110,7 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
   test "delivery failure is swallowed and does not raise" do
     grant = build_grant
     # Force a failure mid-delivery; the underlying action must not blow up.
-    Notification.stub(:create!, ->(*) { raise "boom" }) do
+    Notification.stub(:create!, ->(*_) { raise "boom" }) do
       assert_nothing_raised do
         NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
       end
