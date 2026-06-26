@@ -134,7 +134,7 @@ class TrusteeGrantsController < ApplicationController
     )
 
     if grant.save
-      # TODO: Send notification to trustee_user
+      NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
       render_action_success({
                               action_name: "create_trustee_authorization",
                               resource: grant,

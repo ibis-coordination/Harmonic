@@ -44,6 +44,50 @@ class NotificationService
     notification
   end
 
+  # Notification type for trustee-authorization lifecycle events.
+  TRUSTEE_NOTIFICATION_TYPE = "trustee_authorization"
+
+  # Notify the affected party of a trustee-authorization lifecycle event.
+  #
+  # Unlike most notifications, trustee authorizations are user-relative, not
+  # collective-relative — they live under /u/:handle/settings and have no
+  # collective. The Event/EventService path requires a collective_id (NOT NULL),
+  # so we create the in-app notification directly here instead of routing through
+  # EventService.record! + NotificationDispatcher. The trade-off: these do not
+  # fire `notifications.delivered` webhook events (which also require a
+  # collective). In-app inbox + email channels are honored per user preference.
+  #
+  # event is one of :offered, :accepted, :declined, :revoked. The recipient and
+  # message are derived from the event so call sites stay one-liners.
+  sig { params(grant: TrusteeGrant, event: Symbol).void }
+  def self.notify_trustee_authorization_event!(grant:, event:)
+    granting = grant.granting_user
+    trustee = grant.trustee_user
+    granting_name = granting&.display_name || granting&.name || "Someone"
+    trustee_name = trustee&.display_name || trustee&.name || "Someone"
+
+    case event
+    when :offered
+      recipient = trustee
+      title = "#{granting_name} invited you to act on their behalf as a trustee"
+    when :accepted
+      recipient = granting
+      title = "#{trustee_name} accepted your trustee authorization"
+    when :declined
+      recipient = granting
+      title = "#{trustee_name} declined your trustee authorization"
+    when :revoked
+      recipient = trustee
+      title = "#{granting_name} revoked your trustee authorization"
+    else
+      raise ArgumentError, "Unknown trustee authorization event: #{event.inspect}"
+    end
+
+    return if recipient.nil?
+
+    deliver_trustee_notification!(grant: grant, recipient: recipient, title: title)
+  end
+
   # Create or update a chat message notification for the recipient.
   # One notification per sender — if an undismissed notification from
   # the same sender already exists, we update its timestamp instead
@@ -232,5 +276,55 @@ class NotificationService
     Rails.logger.error("Failed to fire notifications.delivered event: #{e.message}")
   end
 
-  private_class_method :dismiss_attributes, :notification_ids_for_collective
+  # Creates the trustee-authorization notification + recipient rows directly
+  # (no Event, since trustee grants have no collective). Channels honor the
+  # recipient's per-type preferences, falling back to in-app. A delivery
+  # failure is logged rather than raised so it never breaks the underlying
+  # accept/decline/revoke/offer action, which has already persisted.
+  sig { params(grant: TrusteeGrant, recipient: User, title: String).void }
+  def self.deliver_trustee_notification!(grant:, recipient:, title:)
+    tenant = grant.tenant
+    return if tenant.nil?
+
+    tenant_user = TenantUser.tenant_scoped_only(tenant.id).find_by(user: recipient)
+    channels = tenant_user ? tenant_user.notification_channels_for(TRUSTEE_NOTIFICATION_TYPE) : ["in_app"]
+    return if channels.empty?
+
+    url = trustee_grant_path_for(grant: grant, user: recipient, tenant: tenant)
+
+    notification = Notification.create!(
+      tenant: tenant,
+      notification_type: TRUSTEE_NOTIFICATION_TYPE,
+      title: title,
+      url: url
+    )
+
+    channels.each do |channel|
+      notification_recipient = NotificationRecipient.create!(
+        notification: notification,
+        user: recipient,
+        tenant: tenant,
+        channel: channel,
+        status: "pending"
+      )
+      NotificationDeliveryJob.perform_later(notification_recipient.id)
+    end
+  rescue StandardError => e
+    Rails.logger.error("Failed to deliver trustee authorization notification: #{e.message}")
+  end
+
+  # Builds the recipient-relative show path for a grant. The trustee-grants
+  # controller authorizes by the :handle in the URL, so the link must point at
+  # the recipient's own handle (not always the granting user's) or they'd be
+  # forbidden from opening their own notification.
+  sig { params(grant: TrusteeGrant, user: User, tenant: Tenant).returns(T.nilable(String)) }
+  def self.trustee_grant_path_for(grant:, user:, tenant:)
+    handle = TenantUser.tenant_scoped_only(tenant.id).find_by(user: user)&.handle
+    return nil unless handle
+
+    "/u/#{handle}/settings/trustee-authorizations/#{grant.truncated_id}"
+  end
+
+  private_class_method :dismiss_attributes, :notification_ids_for_collective,
+                       :deliver_trustee_notification!, :trustee_grant_path_for
 end
