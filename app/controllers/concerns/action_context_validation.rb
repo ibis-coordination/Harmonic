@@ -28,7 +28,21 @@ module ActionContextValidation
   private
 
   def validate_action_context!
+    # Mirror ActionCapabilityCheck's two route exemptions exactly — now that the
+    # zone gate runs on every write (not just MCP), it must defer on the same
+    # routes the capability layer does, or it reintroduces the 403s that layer
+    # deliberately avoids.
+    #
+    # 1. Unknown-action catch-all: let it 404 with the list of real actions
+    #    rather than masking that teaching error with a zone/visibility 403.
+    # 2. Session-management writes: whoever starts a representation session can
+    #    end it; gating "stop representing" on the represented agent's zones
+    #    would trap the representative in the session.
+    return if controller_path == "application" && action_name == "unknown_action_fallback"
+
     return unless write_request? # from ActionCapabilityCheck
+
+    return if ActionCapabilityCheck::SESSION_MANAGEMENT_WRITES.include?("#{controller_path}##{action_name}")
 
     # Under representation, `@current_user` is the represented user (a human,
     # not restricted), while the actual API caller is the agent recorded as

@@ -250,6 +250,34 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "AI agent on an mcp_only-disabled token hitting an unknown action gets the 404 teaching error, not a zone 403" do
+    # Now that the zone gate runs on every restricted-agent write, it must defer
+    # to the unknown-action catch-all exactly as ActionCapabilityCheck does — an
+    # action name that exists nowhere should yield the useful 404 + action list,
+    # not be masked by a zone/visibility 403. Uses the main collective (→ public,
+    # off by default) so the zone gate WOULD fire if the exemption were missing.
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Unknown-Action Zone Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+    note = create_note(text: "target", collective: main, created_by: @user)
+
+    post "/collectives/#{main.handle}/n/#{note.truncated_id}/actions/totally_made_up_action",
+         params: {}.to_json,
+         headers: {
+           "Content-Type" => "application/json",
+           "Accept" => "text/markdown",
+           "Authorization" => "Bearer #{token.plaintext_token}",
+         }
+
+    assert_response :not_found
+    assert_includes response.body, "totally_made_up_action"
+    refute_includes response.body, "visibility zone"
+  end
+
   test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do
     # A human-owned API token (which CAN'T be mcp_only — model validation
     # pins mcp_only to ai_agent users). A direct REST write goes through
