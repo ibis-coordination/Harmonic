@@ -118,6 +118,54 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
   end
 
   # =========================================================================
+  # notifications.delivered EVENT (webhook routing)
+  # =========================================================================
+
+  def delivered_events
+    Event.tenant_scoped_only(@tenant.id).where(event_type: "notifications.delivered")
+  end
+
+  test "offered fires notifications.delivered scoped to the trustee's private workspace" do
+    grant = build_grant
+    before = delivered_events.count
+
+    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
+
+    assert_equal before + 1, delivered_events.count
+    delivered = delivered_events.order(:created_at).last
+    # The recipient is the event actor (existing pipeline semantic) and must be
+    # a member of the event's collective for webhook dispatch to forward it.
+    assert_equal @trustee_user.id, delivered.actor_id
+    assert_equal @trustee_user.private_workspace.id, delivered.collective_id
+    # The originating party (granting user) is surfaced for the webhook payload.
+    assert_equal @granting_user.id, delivered.metadata["original_actor_id"]
+    assert_equal "trustee_authorization", delivered.metadata["notification_type"]
+  end
+
+  test "accepted fires notifications.delivered to the granting user with the trustee as actor" do
+    grant = build_grant
+    before = delivered_events.count
+
+    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :accepted)
+
+    assert_equal before + 1, delivered_events.count
+    delivered = delivered_events.order(:created_at).last
+    assert_equal @granting_user.id, delivered.actor_id
+    assert_equal @granting_user.private_workspace.id, delivered.collective_id
+    assert_equal @trustee_user.id, delivered.metadata["original_actor_id"]
+  end
+
+  test "no notifications.delivered event when all channels are disabled" do
+    grant = build_grant
+    @trustee_tu.set_notification_preference!("trustee_authorization", "in_app", false)
+    before = delivered_events.count
+
+    NotificationService.notify_trustee_authorization_event!(grant: grant, event: :offered)
+
+    assert_equal before, delivered_events.count
+  end
+
+  # =========================================================================
   # CALL-SITE WIRING (model state transitions)
   # =========================================================================
 

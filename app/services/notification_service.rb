@@ -51,14 +51,21 @@ class NotificationService
   #
   # Unlike most notifications, trustee authorizations are user-relative, not
   # collective-relative — they live under /u/:handle/settings and have no
-  # collective. The Event/EventService path requires a collective_id (NOT NULL),
-  # so we create the in-app notification directly here instead of routing through
-  # EventService.record! + NotificationDispatcher. The trade-off: these do not
-  # fire `notifications.delivered` webhook events (which also require a
-  # collective). In-app inbox + email channels are honored per user preference.
+  # collective. The Event/EventService path used to create most notifications
+  # requires a collective_id (NOT NULL), so we create the in-app notification
+  # directly here instead of routing through EventService.record! +
+  # NotificationDispatcher — the same pattern chat-message notifications use.
   #
-  # event is one of :offered, :accepted, :declined, :revoked. The recipient and
-  # message are derived from the event so call sites stay one-liners.
+  # Like chat, we still fire a `notifications.delivered` event so that user
+  # notification-webhook subscribers (e.g. bridge agents) receive these. That
+  # event needs a collective home; we use the recipient's private workspace —
+  # a per-user collective the recipient is always a member of — mirroring how
+  # chat scopes its delivered event to the chat session's private collective.
+  # See deliver_trustee_notification!.
+  #
+  # event is one of :offered, :accepted, :declined, :revoked. The recipient,
+  # originating actor, and message are derived from the event so call sites
+  # stay one-liners.
   sig { params(grant: TrusteeGrant, event: Symbol).void }
   def self.notify_trustee_authorization_event!(grant:, event:)
     granting = grant.granting_user
@@ -69,15 +76,19 @@ class NotificationService
     case event
     when :offered
       recipient = trustee
+      actor = granting
       title = "#{granting_name} invited you to act on their behalf as a trustee"
     when :accepted
       recipient = granting
+      actor = trustee
       title = "#{trustee_name} accepted your trustee authorization"
     when :declined
       recipient = granting
+      actor = trustee
       title = "#{trustee_name} declined your trustee authorization"
     when :revoked
       recipient = trustee
+      actor = granting
       title = "#{granting_name} revoked your trustee authorization"
     else
       raise ArgumentError, "Unknown trustee authorization event: #{event.inspect}"
@@ -85,7 +96,7 @@ class NotificationService
 
     return if recipient.nil?
 
-    deliver_trustee_notification!(grant: grant, recipient: recipient, title: title)
+    deliver_trustee_notification!(grant: grant, recipient: recipient, actor: actor, title: title)
   end
 
   # Create or update a chat message notification for the recipient.
@@ -247,15 +258,22 @@ class NotificationService
   # Fires `notifications.delivered` for user-notification webhook routing.
   # Skipped for reminder notifications — `ReminderDeliveryJob` fires
   # `reminders.delivered` for those.
+  #
+  # tenant_id/collective_id default to the thread context (the common case for
+  # collective-scoped notifications and chat). Callers whose notification has
+  # no thread collective context — trustee authorizations — pass them
+  # explicitly; EventService.record! drops the event if collective_id is nil.
   sig do
     params(
       notification: Notification,
       recipient: User,
       channels: T::Array[String],
+      tenant_id: T.nilable(String),
+      collective_id: T.nilable(String),
       extra_metadata: T::Hash[String, T.untyped]
     ).void
   end
-  def self.fire_notifications_delivered_event(notification:, recipient:, channels:, extra_metadata: {})
+  def self.fire_notifications_delivered_event(notification:, recipient:, channels:, tenant_id: nil, collective_id: nil, extra_metadata: {})
     return if notification.notification_type == "reminder"
 
     metadata = {
@@ -270,19 +288,27 @@ class NotificationService
       event_type: "notifications.delivered",
       actor: recipient,
       subject: notification,
-      metadata: metadata
+      metadata: metadata,
+      tenant_id: tenant_id,
+      collective_id: collective_id
     )
   rescue StandardError => e
     Rails.logger.error("Failed to fire notifications.delivered event: #{e.message}")
   end
 
   # Creates the trustee-authorization notification + recipient rows directly
-  # (no Event, since trustee grants have no collective). Channels honor the
-  # recipient's per-type preferences, falling back to in-app. A delivery
-  # failure is logged rather than raised so it never breaks the underlying
-  # accept/decline/revoke/offer action, which has already persisted.
-  sig { params(grant: TrusteeGrant, recipient: User, title: String).void }
-  def self.deliver_trustee_notification!(grant:, recipient:, title:)
+  # (no triggering Event, since trustee grants have no collective). Channels
+  # honor the recipient's per-type preferences, falling back to in-app. A
+  # delivery failure is logged rather than raised so it never breaks the
+  # underlying accept/decline/revoke/offer action, which has already persisted.
+  #
+  # After the in-app/email rows are created we fire `notifications.delivered`
+  # so notification-webhook subscribers receive these too (see
+  # fire_notifications_delivered_event). `actor` is the originating party (the
+  # one who offered/accepted/declined/revoked), surfaced to the webhook payload
+  # via `original_actor_id` exactly as the chat-message path does.
+  sig { params(grant: TrusteeGrant, recipient: User, actor: T.nilable(User), title: String).void }
+  def self.deliver_trustee_notification!(grant:, recipient:, actor:, title:)
     tenant = grant.tenant
     return if tenant.nil?
 
@@ -309,6 +335,22 @@ class NotificationService
       )
       NotificationDeliveryJob.perform_later(notification_recipient.id)
     end
+
+    # Route the delivered event through the recipient's private workspace — the
+    # user-relative collective they always belong to — so the webhook dispatcher
+    # (which requires the recipient to be a member of the event's collective)
+    # forwards it. Mirrors chat's use of the chat session's private collective.
+    workspace = Collective.tenant_scoped_only(tenant.id)
+      .find_by(created_by_id: recipient.id, collective_type: "private_workspace")
+
+    fire_notifications_delivered_event(
+      notification: notification,
+      recipient: recipient,
+      channels: channels,
+      tenant_id: tenant.id,
+      collective_id: workspace&.id,
+      extra_metadata: actor ? { "original_actor_id" => actor.id } : {}
+    )
   rescue StandardError => e
     Rails.logger.error("Failed to deliver trustee authorization notification: #{e.message}")
   end
