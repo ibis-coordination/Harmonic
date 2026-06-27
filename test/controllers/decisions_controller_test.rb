@@ -237,6 +237,55 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Option A", option.title
   end
 
+  test "options partial does not N+1 on per-option vote lookups" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    3.times { |i| add_option_with_vote(participant, "Small #{i}") }
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    options_url = "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/options.html"
+    get options_url # warm caches
+    assert_response :success
+    small_count = count_sql_queries { get options_url }
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    5.times { |i| add_option_with_vote(participant, "Big #{i}") }
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    large_count = count_sql_queries { get options_url }
+
+    # Adding 5 options (each with a vote) must not add a per-option vote query.
+    assert_operator (large_count - small_count), :<, 5,
+      "options partial is N+1 on votes: #{small_count} queries for 3 options, #{large_count} for 8"
+  end
+
+  # Counts user-level SQL queries (skips SCHEMA + TRANSACTION noise).
+  def count_sql_queries(&block)
+    count = 0
+    callback = ->(_name, _start, _finish, _id, payload) do
+      next if payload[:name].to_s =~ /SCHEMA|TRANSACTION/
+      count += 1
+    end
+    ActiveSupport::Notifications.subscribed(callback, "sql.active_record", &block)
+    count
+  end
+
+  def add_option_with_vote(participant, title)
+    option = Option.create!(decision: @decision, decision_participant: participant, title: title)
+    Vote.create!(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+    option
+  end
+
   # === Close Decision Tests ===
 
   test "creator can close decision from show page" do
