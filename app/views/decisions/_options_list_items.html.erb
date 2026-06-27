@@ -1,3 +1,4 @@
+<% votes_by_option_id = @votes.index_by(&:option_id) %>
 <% @decision.options.order(:created_at).each_with_index do |option, index| %>
   <% if @decision.is_executive? && @decision.can_close?(@current_user) %>
     <%# Executive decision maker: checkbox only (no star) %>
@@ -12,7 +13,7 @@
       <%= markdown_inline(option.title) %>
     </li>
   <% else %>
-    <% vote = @votes.where(option: option).first || Vote.new(accepted: 0) %>
+    <% vote = votes_by_option_id[option.id] || Vote.new(accepted: 0) %>
     <li class="pulse-option-item" data-option-id="<%= option.id %>">
       <input type="hidden" name="votes[<%= index %>][option_title]" value="<%= option.title %>">
       <input type="hidden" name="votes[<%= index %>][accepted]" value="0">
