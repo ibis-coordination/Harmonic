@@ -1,0 +1,37 @@
+<%# Summary section for resource pages %>
+<%# Usage: render 'shared/summaries_section', summarizable: @note %>
+<% summary = summarizable.summary %>
+<% if summarizable.is_summarizable? && (summary.present? || (@current_user && summarizable.can_write_summary?(@current_user))) %>
+  <div style="margin-top: 16px;">
+    <h3>Summary</h3>
+    <% if summary.present? %>
+      <div class="pulse-summary-embed">
+        <div class="pulse-summary-header">
+          <%= render AvatarComponent.new(user: summary.created_by) %>
+          <div>
+            <a href="<%= summary.created_by.path %>"><strong><%= summary.created_by.display_name %></strong></a>
+            <a href="<%= summary.path %>" class="pulse-timestamp"><%= time_ago_in_words(summary.updated_at) %> ago</a>
+          </div>
+        </div>
+        <div class="pulse-summary-body pulse-markdown-content">
+          <%= markdown(summary.text) %>
+        </div>
+      </div>
+      <% if @current_user && summarizable.can_write_summary?(@current_user) %>
+        <%= form_with url: "#{summarizable.path}/actions/add_summary", method: :post, class: "pulse-form", local: true do |form| %>
+          <%= form.text_area :text, value: summary.text, class: "pulse-form-input", rows: 4, style: "width: 100%; box-sizing: border-box;" %>
+          <div style="margin-top: 8px;">
+            <%= form.submit "Update summary", class: "pulse-action-btn pulse-action-btn-primary" %>
+          </div>
+        <% end %>
+      <% end %>
+    <% else %>
+      <%= form_with url: "#{summarizable.path}/actions/add_summary", method: :post, class: "pulse-form", local: true do |form| %>
+        <%= form.text_area :text, placeholder: "Summarize this...", class: "pulse-form-input", rows: 4, style: "width: 100%; box-sizing: border-box;" %>
+        <div style="margin-top: 8px;">
+          <%= form.submit "Add summary", class: "pulse-action-btn pulse-action-btn-primary" %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

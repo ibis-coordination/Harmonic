@@ -147,6 +147,7 @@
     <%= render 'participants' %>
   </div>
 
+  <%= render 'shared/summaries_section', summarizable: @commitment %>
   <%= render 'shared/pulse_comments', commentable: @commitment %>
   <%= render 'shared/pulse_backlinks', resource: @commitment %>
 </article>

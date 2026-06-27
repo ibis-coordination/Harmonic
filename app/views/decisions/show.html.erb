@@ -273,6 +273,7 @@
     </div>
   <% end %>
 
+  <%= render 'shared/summaries_section', summarizable: @decision %>
   <%= render 'shared/pulse_comments', commentable: @decision %>
   <%= render 'shared/pulse_backlinks', resource: @decision %>
 </article>

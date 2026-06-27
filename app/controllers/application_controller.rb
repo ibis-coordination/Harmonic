@@ -1245,6 +1245,40 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  def describe_add_summary
+    render_action_description(ActionsHelper.action_description("add_summary", resource: current_resource))
+  end
+
+  def add_summary
+    return render_action_error({ action_name: "add_summary", resource: current_resource, error: "You must be logged in.", status: :unauthorized }) unless current_user
+
+    unless current_resource.respond_to?(:is_summarizable?) && current_resource.is_summarizable?
+      return render_action_error({ action_name: "add_summary", resource: current_resource,
+                                   error: "Summaries cannot be added to this item.", })
+    end
+
+    unless current_resource.can_write_summary?(current_user)
+      return render_action_error({ action_name: "add_summary", resource: current_resource,
+                                   error: "You do not have permission to summarize this item.", status: :forbidden })
+    end
+
+    begin
+      existed = current_resource.summary.present?
+      api_helper(params: { text: params[:text] }).add_summary(summarizable: current_resource)
+      render_action_success({
+                              action_name: "add_summary",
+                              resource: current_resource,
+                              result: existed ? "Summary updated successfully." : "Summary added successfully.",
+                            })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+                            action_name: "add_summary",
+                            resource: current_resource,
+                            error: e.message,
+                          })
+    end
+  end
+
   def render_actions_index(locals)
     @page_title ||= "Actions"
     base_path = request.path.split("/actions")[0]

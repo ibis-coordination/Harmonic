@@ -1043,7 +1043,7 @@ class NoteTest < ActiveSupport::TestCase
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
 
-    (Note::SUBTYPES - ["comment", "statement"]).each do |subtype|
+    (Note::SUBTYPES - ["comment", "statement", "summary"]).each do |subtype|
       attrs = {
         tenant: tenant,
         collective: collective,
@@ -1978,6 +1978,180 @@ class NoteTest < ActiveSupport::TestCase
 
     note2 = Note.new(subtype: "post", tenant: tenant, collective: collective, created_by: user, updated_by: user)
     assert_not note2.is_statement?
+  end
+
+  # === Summary Subtype Tests ===
+
+  test "summary note requires summarizable" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(
+      subtype: "summary",
+      text: "A summary without a parent",
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current
+    )
+    assert_not note.valid?
+    assert note.errors[:subtype].any?
+  end
+
+  test "summary note is valid with summarizable decision" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    decision = Decision.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      question: "Test?",
+      description: "",
+      deadline: 1.day.from_now
+    )
+
+    note = Note.new(
+      subtype: "summary",
+      text: "Summary of the decision discussion.",
+      summarizable: decision,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current
+    )
+    assert note.valid?
+  end
+
+  test "summary note is valid with summarizable note" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    parent = Note.create!(
+      subtype: "post",
+      text: "Long thread to summarize",
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective
+    )
+
+    note = Note.new(
+      subtype: "summary",
+      text: "Summary of the thread.",
+      summarizable: parent,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current
+    )
+    assert note.valid?
+  end
+
+  test "non-summary note cannot have summarizable" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    decision = Decision.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      question: "Test?",
+      description: "",
+      deadline: 1.day.from_now
+    )
+
+    note = Note.new(
+      subtype: "post",
+      text: "A regular note",
+      summarizable: decision,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective
+    )
+    assert_not note.valid?
+    assert note.errors[:subtype].any?
+  end
+
+  test "is_summary? predicate" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    note = Note.new(subtype: "summary", tenant: tenant, collective: collective, created_by: user, updated_by: user)
+    assert note.is_summary?
+
+    note2 = Note.new(subtype: "post", tenant: tenant, collective: collective, created_by: user, updated_by: user)
+    assert_not note2.is_summary?
+  end
+
+  test "is_summarizable? returns false for a summary note" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    parent = Note.create!(
+      subtype: "post",
+      text: "Parent note",
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective
+    )
+    summary = Note.create!(
+      subtype: "summary",
+      text: "Summary text",
+      summarizable: parent,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current
+    )
+
+    assert parent.is_summarizable?
+    assert_not summary.is_summarizable?
+  end
+
+  test "has_summarizable? predicate" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    decision = Decision.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      question: "Test?",
+      description: "",
+      deadline: 1.day.from_now
+    )
+
+    summary = Note.create!(
+      subtype: "summary",
+      text: "Summary text",
+      summarizable: decision,
+      created_by: user,
+      updated_by: user,
+      tenant: tenant,
+      collective: collective,
+      deadline: Time.current
+    )
+    assert summary.has_summarizable?
+
+    standalone = Note.new(subtype: "post", tenant: tenant, collective: collective, created_by: user, updated_by: user)
+    assert_not standalone.has_summarizable?
   end
 
   # --- Comment display_path / root_commentable ---

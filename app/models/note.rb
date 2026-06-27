@@ -5,6 +5,7 @@ class Note < ApplicationRecord
   include Tracked
   include Linkable
   include Pinnable
+  include Summarizable
   include HasTruncatedId
   include Attachable
   include Commentable
@@ -14,7 +15,7 @@ class Note < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   participates_in_hard_delete
-  SUBTYPES = ["post", "reminder", "table", "comment", "statement"].freeze
+  SUBTYPES = ["post", "reminder", "table", "comment", "statement", "summary"].freeze
   MAX_TITLE_LENGTH = 1000
   MAX_TEXT_LENGTH = 1_000_000
 
@@ -31,6 +32,9 @@ class Note < ApplicationRecord
 
   # Statementable pattern - allows notes to be statements on statementable resources
   belongs_to :statementable, polymorphic: true, optional: true
+
+  # Summarizable pattern - allows notes to be summaries of summarizable resources
+  belongs_to :summarizable, polymorphic: true, optional: true
 
   # Reminder notes link to their scheduled notification
   belongs_to :reminder_notification, class_name: "Notification", optional: true
@@ -51,6 +55,7 @@ class Note < ApplicationRecord
   validates :edit_access, inclusion: { in: EDIT_ACCESS_OPTIONS }
   validate :comments_must_be_comment_subtype
   validate :statements_must_be_statement_subtype
+  validate :summaries_must_be_summary_subtype
   validate :validate_table_data, if: :should_validate_table_data?
 
   after_create do
@@ -218,6 +223,8 @@ class Note < ApplicationRecord
       commentable_id: commentable_id,
       statementable_type: statementable_type,
       statementable_id: statementable_id,
+      summarizable_type: summarizable_type,
+      summarizable_id: summarizable_id,
       reminder_notification_id: reminder_notification_id,
       reminder_scheduled_for: reminder_scheduled_for,
     }
@@ -289,6 +296,16 @@ class Note < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
+  def is_summary?
+    subtype == "summary"
+  end
+
+  sig { returns(T::Boolean) }
+  def is_summarizable?
+    !is_summary?
+  end
+
+  sig { returns(T::Boolean) }
   def has_commentable?
     commentable_type.present? && commentable_id.present?
   end
@@ -305,8 +322,13 @@ class Note < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
+  def has_summarizable?
+    summarizable_type.present? && summarizable_id.present?
+  end
+
+  sig { returns(T::Boolean) }
   def standalone_note?
-    !is_comment? && !is_statement?
+    !is_comment? && !is_statement? && !is_summary?
   end
 
   # The non-comment ancestor this conversation is *about* — the Decision /
@@ -452,6 +474,14 @@ class Note < ApplicationRecord
       errors.add(:subtype, "must be statement for statementable notes")
     elsif !has_statementable? && subtype == "statement"
       errors.add(:subtype, "cannot be statement without a statementable parent")
+    end
+  end
+
+  def summaries_must_be_summary_subtype
+    if has_summarizable? && subtype != "summary"
+      errors.add(:subtype, "must be summary for summarizable notes")
+    elsif !has_summarizable? && subtype == "summary"
+      errors.add(:subtype, "cannot be summary without a summarizable parent")
     end
   end
 

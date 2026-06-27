@@ -13,6 +13,7 @@ class Decision < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   include Statementable
+  include Summarizable
   SUBTYPES = ["vote", "lottery", "executive"].freeze
   MAX_OPTIONS = 100
   MAX_QUESTION_LENGTH = 1000

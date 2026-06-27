@@ -3913,14 +3913,16 @@ dialog.pulse-dialog form {
 }
 
 /* Statement Embed */
-.pulse-statement-embed {
+.pulse-statement-embed,
+.pulse-summary-embed {
   margin-top: 16px;
   padding: 16px;
   border: 1px solid var(--color-border-default);
   background: var(--color-canvas-subtle);
 }
 
-.pulse-statement-header {
+.pulse-statement-header,
+.pulse-summary-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3929,15 +3931,18 @@ dialog.pulse-dialog form {
   color: var(--color-fg-muted);
 }
 
-.pulse-statement-header a {
+.pulse-statement-header a,
+.pulse-summary-header a {
   color: var(--color-fg-default);
 }
 
-.pulse-statement-body {
+.pulse-statement-body,
+.pulse-summary-body {
   margin-bottom: 12px;
 }
 
-.pulse-statement-footer {
+.pulse-statement-footer,
+.pulse-summary-footer {
   display: flex;
   align-items: center;
   gap: 12px;

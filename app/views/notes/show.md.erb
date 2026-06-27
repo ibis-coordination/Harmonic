@@ -6,7 +6,13 @@ This <%= @note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the 
 | created_by | @<%= @note.created_by.handle %> |
 | created_at | <%= @note.created_at %> |
 <% else %>
+<% if @note.is_summary? && @note.summarizable -%>
+# Summary of <%= @note.summarizable.class.to_s %> [<%= @note.summarizable.truncated_id %>](<%= @note.summarizable.path %>)
+<% elsif @note.is_summary? -%>
+# Summary of a deleted <%= @note.summarizable_type&.downcase || "item" %>
+<% else -%>
 # Note: <%= @note.title %>
+<% end -%>
 
 | created_by | <%= resource_author_md(@note) %> |
 | created_at | <%= @note.created_at %> |
@@ -54,6 +60,7 @@ Replying to a deleted <%= @note.commentable_type&.downcase || "item" %>
 <% end -%>
 <%= render 'shared/backlinks', resource: @note %>
 <%= render 'shared/attachments_section', resource: @note %>
+<%= render 'shared/summaries_section', resource: @note unless @note.is_summary? %>
 <%= render 'shared/comments_section', resource: @note %>
 <% if @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
 

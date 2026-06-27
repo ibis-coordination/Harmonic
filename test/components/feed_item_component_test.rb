@@ -63,6 +63,64 @@ class FeedItemComponentTest < ViewComponent::TestCase
     assert_text "Replying to"
   end
 
+  test "renders statement type indicator and parent link for statement notes" do
+    parent = build_note(truncated_id: "parent01", title: "Parent Note", text: "Parent text")
+    note = build_note(text: "Statement text", is_statement: true, statementable: parent)
+    user = build_user(display_name: "Bob")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 30.minutes.ago
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Statement"
+    assert_selector ".pulse-feed-item-reply"
+    assert_text "Statement on"
+    assert_no_selector ".pulse-feed-item-title"
+  end
+
+  test "renders summary type indicator and parent link for summary notes" do
+    parent = build_note(truncated_id: "parent01", title: "Parent Note", text: "Parent text")
+    note = build_note(text: "Summary text", is_summary: true, summarizable: parent)
+    user = build_user(display_name: "Bob")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 30.minutes.ago
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Summary"
+    assert_selector ".pulse-feed-item-reply"
+    assert_text "Summary of"
+    assert_no_selector ".pulse-feed-item-title"
+  end
+
+  test "summary feed item without a summarizable parent omits the parent link" do
+    note = build_note(text: "Summary text", is_summary: true)
+    user = build_user(display_name: "Bob")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 30.minutes.ago
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Summary"
+    assert_no_selector ".pulse-feed-item-reply"
+  end
+
+  test "statement feed item without a statementable parent omits the parent link" do
+    note = build_note(text: "Statement text", is_statement: true)
+    user = build_user(display_name: "Bob")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 30.minutes.ago
+                  ))
+    assert_selector ".pulse-feed-item-type span", text: "Statement"
+    assert_no_selector ".pulse-feed-item-reply"
+  end
+
   test "does not show title row when persisted_title is blank (single-line body)" do
     note = build_note(title: nil, text: "Single line of content")
     user = build_user(display_name: "Alice")

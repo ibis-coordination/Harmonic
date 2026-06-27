@@ -185,6 +185,7 @@ Log in to vote and see results. Votes are not anonymous — individual votes are
 <% end -%>
 <%= render 'shared/backlinks', resource: @decision %>
 <%= render 'shared/attachments_section', resource: @decision %>
+<%= render 'shared/summaries_section', resource: @decision %>
 <%= render 'shared/comments_section', resource: @decision %>
 <% if @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
 

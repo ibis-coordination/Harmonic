@@ -1,0 +1,10 @@
+<%# Summary section for markdown views %>
+<%# Usage: render 'shared/summaries_section', resource: @note %>
+<% if resource.summary.present? -%>
+## [Summary](<%= resource.summary.path %>)
+
+<%= resource.summary.text %>
+
+*— <%= user_link_md(resource.summary.created_by) %>, <%= time_ago_in_words(resource.summary.updated_at) %> ago*
+
+<% end -%>

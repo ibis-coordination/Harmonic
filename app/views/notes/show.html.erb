@@ -22,6 +22,8 @@
     "Comment"
   elsif @note.is_statement?
     "Statement"
+  elsif @note.is_summary?
+    "Summary"
   elsif @note.is_table?
     "Table"
   elsif @note.is_reminder?
@@ -32,8 +34,8 @@
   <%= render ResourceHeaderComponent.new(
     type_label: note_type_label,
     title: @note.persisted_title,
-    icon_name: @note.is_comment? ? "comment" : (@note.is_statement? ? "law" : nil),
-    icon_class: (@note.is_comment? || @note.is_statement?) ? nil : "note-icon",
+    icon_name: @note.is_comment? ? "comment" : (@note.is_statement? ? "law" : (@note.is_summary? ? "book" : nil)),
+    icon_class: (@note.is_comment? || @note.is_statement? || @note.is_summary?) ? nil : "note-icon",
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
@@ -104,6 +106,20 @@
       <%= octicon 'law', height: 14 %>
       Statement on a deleted <%= @note.statementable_type&.downcase || "item" %>
     </div>
+  <% elsif @note.is_summary? && @note.summarizable %>
+    <div class="pulse-reply-context" style="cursor:pointer;"
+         data-controller="card-navigate"
+         data-card-navigate-url-value="<%= @note.summarizable.path %>"
+         data-action="click->card-navigate#navigate auxclick->card-navigate#navigate">
+      <%= octicon 'book', height: 14 %>
+      Summary of
+      <%= render 'shared/pulse_resource_link', resource: @note.summarizable %>
+    </div>
+  <% elsif @note.is_summary? %>
+    <div class="pulse-reply-context">
+      <%= octicon 'book', height: 14 %>
+      Summary of a deleted <%= @note.summarizable_type&.downcase || "item" %>
+    </div>
   <% end %>
 
   <div class="pulse-resource-meta">
@@ -152,6 +168,8 @@
       </div>
     </div>
   <% end %>
+
+  <%= render 'shared/summaries_section', summarizable: @note %>
 
   <%# Confirmed Reads Section %>
   <div class="pulse-confirmed-section" data-note-target="confirmSection">
