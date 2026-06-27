@@ -12,6 +12,8 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
+    @collective.collective_members.find_by(user: @user).add_role!('summarizer')
+
     @note = Note.create!(
       tenant: @tenant,
       collective: @collective,
@@ -65,6 +67,36 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     assert_no_difference -> { Note.where(subtype: "summary", summarizable: @note).count } do
       post "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/actions/add_summary",
            params: { text: "Should not save." }
+    end
+  end
+
+  test "member without summarizer role cannot add a summary" do
+    other_user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.clear_thread_scope
+    sign_in_as(other_user, tenant: @tenant)
+
+    assert_no_difference -> { Note.where(subtype: "summary", summarizable: @note).count } do
+      post "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/actions/add_summary",
+           params: { text: "Should not save." }
+    end
+  end
+
+  test "any member can summarize when collective allows it" do
+    other_user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    @collective.settings['any_member_can_summarize'] = true
+    @collective.save!
+    Tenant.clear_thread_scope
+    sign_in_as(other_user, tenant: @tenant)
+
+    assert_difference -> { Note.where(subtype: "summary", summarizable: @note).count }, 1 do
+      post "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/actions/add_summary",
+           params: { text: "Open summary." }
     end
   end
 
@@ -238,6 +270,43 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
       post "/collectives/#{@collective.handle}/n/#{summary_note.truncated_id}/actions/add_summary",
            params: { text: "Meta-summary." }
     end
+  end
+
+  test "markdown action list omits add_summary for members without the summarizer role" do
+    other_user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.clear_thread_scope
+    sign_in_as(other_user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}.md"
+    assert_response :success
+    assert_no_match(/add_summary/, response.body)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}.md"
+    assert_response :success
+    assert_no_match(/add_summary/, response.body)
+
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}.md"
+    assert_response :success
+    assert_no_match(/add_summary/, response.body)
+  end
+
+  test "markdown action list includes add_summary for the summarizer member" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}.md"
+    assert_response :success
+    assert_match(/add_summary/, response.body)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}.md"
+    assert_response :success
+    assert_match(/add_summary/, response.body)
+
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}.md"
+    assert_response :success
+    assert_match(/add_summary/, response.body)
   end
 
   test "markdown action list omits add_summary for a summary note" do

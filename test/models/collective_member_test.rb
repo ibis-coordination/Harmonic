@@ -49,6 +49,36 @@ class CollectiveMemberTest < ActiveSupport::TestCase
     assert_not @collective_member.can_represent?
   end
 
+  # === can_summarize? Tests ===
+
+  test "can_summarize? returns false by default" do
+    assert_not @collective_member.can_summarize?
+  end
+
+  test "can_summarize? returns true with summarizer role" do
+    @collective_member.add_role!('summarizer')
+    assert @collective_member.can_summarize?
+  end
+
+  test "can_summarize? returns true when collective.any_member_can_summarize is enabled" do
+    @collective.settings['any_member_can_summarize'] = true
+    @collective.save!
+    assert @collective_member.can_summarize?
+  end
+
+  test "can_summarize? returns false when archived even with summarizer role" do
+    @collective_member.add_role!('summarizer')
+    @collective_member.archive!
+    assert_not @collective_member.can_summarize?
+  end
+
+  test "can_summarize? returns false when archived even with any_member_can_summarize" do
+    @collective.settings['any_member_can_summarize'] = true
+    @collective.save!
+    @collective_member.archive!
+    assert_not @collective_member.can_summarize?
+  end
+
   # === can_invite? Tests ===
 
   test "can_invite? returns false by default when collective is invite_only" do

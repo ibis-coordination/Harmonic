@@ -217,6 +217,7 @@ class CollectivesController < ApplicationController
     unless @current_collective.private_workspace?
       @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
       @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
+      @current_collective.settings['any_member_can_summarize'] = params[:summarization] == 'any_member'
     end
     unless ENV['SAAS_MODE'] == 'true'
       @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]

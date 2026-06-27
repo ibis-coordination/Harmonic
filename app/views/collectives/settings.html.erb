@@ -146,6 +146,21 @@
           </label>
         </fieldset>
       </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Summarization</h2>
+        <fieldset class="pulse-radio-group">
+          <legend class="pulse-fieldset-legend">Who can write summaries of items in <%= @current_collective.name %>?</legend>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :summarization, 'any_member', checked: @current_collective.any_member_can_summarize?, class: 'pulse-radio-input' %>
+            <span>Any member can write summaries</span>
+          </label>
+          <label class="pulse-radio-label">
+            <%= form.radio_button :summarization, 'only_summarizers', checked: !@current_collective.any_member_can_summarize?, class: 'pulse-radio-input' %>
+            <span>Only designated summarizers can write summaries</span>
+          </label>
+        </fieldset>
+      </section>
       <% end %>
 
       <%

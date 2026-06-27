@@ -11,7 +11,9 @@ module Summarizable
   end
 
   def can_write_summary?(user)
-    user.present?
+    return false unless user.present?
+    member = collective.collective_members.find_by(user: user)
+    member.present? && member.can_summarize?
   end
 
   def is_summarizable?

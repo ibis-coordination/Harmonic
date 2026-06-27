@@ -108,15 +108,40 @@ class SummarizableTest < ActiveSupport::TestCase
     end
   end
 
-  test "can_write_summary? returns true for any signed-in user" do
-    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
-    other_user = create_user
-    assert decision.can_write_summary?(@user)
-    assert decision.can_write_summary?(other_user)
-  end
-
   test "can_write_summary? returns false for nil user" do
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     assert_not decision.can_write_summary?(nil)
+  end
+
+  test "can_write_summary? returns false for a member without the summarizer role" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    assert_not decision.can_write_summary?(@user)
+  end
+
+  test "can_write_summary? returns true for a member with the summarizer role" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    @collective.collective_members.find_by(user: @user).add_role!('summarizer')
+    assert decision.can_write_summary?(@user)
+  end
+
+  test "can_write_summary? returns true when the collective allows any member to summarize" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    @collective.settings['any_member_can_summarize'] = true
+    @collective.save!
+    assert decision.can_write_summary?(@user)
+  end
+
+  test "can_write_summary? returns false for a non-member" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    outsider = create_user
+    assert_not decision.can_write_summary?(outsider)
+  end
+
+  test "can_write_summary? returns false for an archived summarizer" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    member = @collective.collective_members.find_by(user: @user)
+    member.add_role!('summarizer')
+    member.archive!
+    assert_not decision.can_write_summary?(@user)
   end
 end

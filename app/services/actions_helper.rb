@@ -1063,7 +1063,9 @@ class ActionsHelper
 
   ADD_SUMMARY_CONDITION = lambda { |context|
     resource = context[:resource]
-    resource.respond_to?(:is_summarizable?) && resource.is_summarizable?
+    user = context[:user]
+    resource.respond_to?(:is_summarizable?) && resource.is_summarizable? &&
+      resource.respond_to?(:can_write_summary?) && resource.can_write_summary?(user)
   }
 
   @@actions_by_route = {
@@ -1307,10 +1309,14 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["close_decision"][:description], },
         { name: "add_statement", params_string: ACTION_DEFINITIONS["add_statement"][:params_string],
           description: ACTION_DEFINITIONS["add_statement"][:description], },
-        { name: "add_summary", params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
-          description: ACTION_DEFINITIONS["add_summary"][:description], },
       ],
       conditional_actions: [
+        {
+          name: "add_summary",
+          params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
+          description: ACTION_DEFINITIONS["add_summary"][:description],
+          condition: ADD_SUMMARY_CONDITION,
+        },
         {
           name: "report_content",
           params_string: ACTION_DEFINITIONS["report_content"][:params_string],
@@ -1349,10 +1355,14 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["join_commitment"][:description], },
         { name: "add_comment", params_string: ACTION_DEFINITIONS["add_comment"][:params_string],
           description: ACTION_DEFINITIONS["add_comment"][:description], },
-        { name: "add_summary", params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
-          description: ACTION_DEFINITIONS["add_summary"][:description], },
       ],
       conditional_actions: [
+        {
+          name: "add_summary",
+          params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
+          description: ACTION_DEFINITIONS["add_summary"][:description],
+          condition: ADD_SUMMARY_CONDITION,
+        },
         {
           name: "report_content",
           params_string: ACTION_DEFINITIONS["report_content"][:params_string],

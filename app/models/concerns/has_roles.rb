@@ -45,13 +45,17 @@ module HasRoles # TenantUser, CollectiveMember, ...
     has_role?('representative')
   end
 
+  def is_summarizer?
+    has_role?('summarizer')
+  end
+
   class_methods do
     def where_has_role(role)
       where("settings->'roles' ? :role", role: role)
     end
 
     def valid_roles
-      ['admin', 'representative']
+      ['admin', 'representative', 'summarizer']
     end
   end
 end

@@ -114,6 +114,7 @@ class Collective < ApplicationRecord
       "timezone" => "UTC",
       "all_members_can_invite" => false,
       "any_member_can_represent" => false,
+      "any_member_can_summarize" => false,
       "tempo" => "weekly",
       "synchronization_mode" => "improv",
       "allow_file_uploads" => false,
@@ -135,6 +136,7 @@ class Collective < ApplicationRecord
       settings["invite_only"] = true
       settings["all_members_can_invite"] = false
       settings["any_member_can_represent"] = false
+      settings["any_member_can_summarize"] = false
       settings["tempo"] = "weekly"
     end
 
@@ -145,6 +147,7 @@ class Collective < ApplicationRecord
     settings["invite_only"] = true
     settings["all_members_can_invite"] = false
     settings["any_member_can_represent"] = false
+    settings["any_member_can_summarize"] = false
   end
 
   sig { returns(T::Boolean) }
@@ -834,6 +837,11 @@ class Collective < ApplicationRecord
   sig { returns(T::Boolean) }
   def any_member_can_represent?
     !!settings["any_member_can_represent"]
+  end
+
+  sig { returns(T::Boolean) }
+  def any_member_can_summarize?
+    !!settings["any_member_can_summarize"]
   end
 
   sig { returns(Cycle) }
