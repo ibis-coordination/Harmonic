@@ -74,6 +74,7 @@ import AuditVerifyController from "./audit_verify_controller"
 import AutoSubmitController from "./auto_submit_controller"
 import CheckboxGroupController from "./checkbox_group_controller"
 import KebabMenuController from "./kebab_menu_controller"
+import SummaryToggleController from "./summary_toggle_controller"
 import CommitmentSubtypeController from "./commitment_subtype_controller"
 import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
@@ -146,6 +147,7 @@ application.register("audit-verify", AuditVerifyController)
 application.register("auto-submit", AutoSubmitController)
 application.register("checkbox-group", CheckboxGroupController)
 application.register("kebab-menu", KebabMenuController)
+application.register("summary-toggle", SummaryToggleController)
 application.register("dialog", DialogController)
 application.register("tabs", TabsController)
 application.register("webhook-test", WebhookTestController)

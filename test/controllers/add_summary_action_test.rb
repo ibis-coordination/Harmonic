@@ -191,12 +191,12 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
 
   # === Display ===
 
-  test "decision markdown view renders summary section" do
+  test "decision markdown view links to the summary without inlining its content" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
-      subtype: "summary", text: "A summary.",
+    summary = Note.create!(
+      subtype: "summary", text: "Secret summary text that must not appear on the parent.",
       summarizable: @decision, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
     )
@@ -205,16 +205,17 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}.md"
     assert_response :success
-    assert_match(/## \[Summary\]/, response.body)
-    assert_match(/A summary\./, response.body)
+    assert_match(/## Summary/, response.body)
+    assert_match(/#{Regexp.escape(summary.path)}/, response.body)
+    assert_no_match(/Secret summary text/, response.body)
   end
 
-  test "note markdown view renders summary section" do
+  test "note markdown view links to the summary without inlining its content" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
-      subtype: "summary", text: "Thread summary.",
+    summary = Note.create!(
+      subtype: "summary", text: "Secret thread summary text.",
       summarizable: @note, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
     )
@@ -223,16 +224,17 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}.md"
     assert_response :success
-    assert_match(/## \[Summary\]/, response.body)
-    assert_match(/Thread summary\./, response.body)
+    assert_match(/## Summary/, response.body)
+    assert_match(/#{Regexp.escape(summary.path)}/, response.body)
+    assert_no_match(/Secret thread summary text/, response.body)
   end
 
-  test "commitment markdown view renders summary section" do
+  test "commitment markdown view links to the summary without inlining its content" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
-      subtype: "summary", text: "Commitment summary.",
+    summary = Note.create!(
+      subtype: "summary", text: "Secret commitment summary text.",
       summarizable: @commitment, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
     )
@@ -241,15 +243,33 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}.md"
     assert_response :success
-    assert_match(/## \[Summary\]/, response.body)
-    assert_match(/Commitment summary\./, response.body)
+    assert_match(/## Summary/, response.body)
+    assert_match(/#{Regexp.escape(summary.path)}/, response.body)
+    assert_no_match(/Secret commitment summary text/, response.body)
   end
 
   test "markdown view omits summary section when none exists" do
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}.md"
     assert_response :success
-    assert_no_match(/## \[Summary\]/, response.body)
+    assert_no_match(/## Summary/, response.body)
+  end
+
+  test "summary's own markdown show page includes its full text content" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    summary = Note.create!(
+      subtype: "summary", text: "Full summary content lives only here.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/n/#{summary.truncated_id}.md"
+    assert_response :success
+    assert_match(/Full summary content lives only here\./, response.body)
   end
 
   # === Summaries cannot summarize summaries ===
@@ -345,7 +365,49 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/n/#{summary_note.truncated_id}.md"
     assert_response :success
     assert_match(/Summary of Note \[#{@note.truncated_id}\]/, response.body)
-    assert_no_match(/## \[Summary\]/, response.body)
+    assert_no_match(/## Summary/, response.body)
+  end
+
+  test "html show page renders the summary section hidden by default with targets wired" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    Note.create!(
+      subtype: "summary", text: "Hidden until revealed.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_select "[data-summary-toggle-target='section'][hidden]"
+    assert_select "[data-summary-toggle-target='embed'][hidden]"
+    assert_select "[data-summary-toggle-target='form'][hidden]"
+    assert_select "a[data-action*='summary-toggle#showEmbed']", text: /View summary/
+    assert_select "a[data-action*='summary-toggle#showForm']", text: /Edit summary/
+  end
+
+  test "html show page hides view-summary kebab item when no summary exists" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_select "a[data-action*='summary-toggle#showEmbed']", count: 0
+    assert_select "a[data-action*='summary-toggle#showForm']", text: /Add summary/
+  end
+
+  test "html show page hides add-summary kebab item for members without the summarizer role" do
+    other_user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.clear_thread_scope
+    sign_in_as(other_user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+    assert_response :success
+    assert_select "a[data-action*='summary-toggle#showForm']", count: 0
   end
 
   test "html show page omits summary form for a summary note" do

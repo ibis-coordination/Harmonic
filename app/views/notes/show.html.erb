@@ -1,4 +1,4 @@
-<span data-controller="note" data-note-id="<%= @note.id %>">
+<span data-controller="note summary-toggle" data-note-id="<%= @note.id %>">
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_collective.name, @current_collective.path],
   (@note.is_comment? ? 'Comment' : 'Note')
@@ -54,13 +54,29 @@
       <% end %>
       <% show_pin = @current_user && !@current_collective.is_main_collective? %>
       <% show_report = @current_user && @note.created_by_id != @current_user.id && !@already_reported %>
-      <% if show_pin || show_report %>
+      <% show_view_summary = @note.is_summarizable? && @note.summary.present? %>
+      <% show_add_summary = @current_user && @note.is_summarizable? && @note.can_write_summary?(@current_user) %>
+      <% if show_pin || show_report || show_view_summary || show_add_summary %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
+              <% if show_view_summary %>
+                <li>
+                  <a href="#" data-action="click->summary-toggle#showEmbed">
+                    <%= octicon 'book', height: 14 %> View summary
+                  </a>
+                </li>
+              <% end %>
+              <% if show_add_summary %>
+                <li>
+                  <a href="#" data-action="click->summary-toggle#showForm">
+                    <%= octicon 'pencil', height: 14 %> <%= @note.summary.present? ? "Edit summary" : "Add summary" %>
+                  </a>
+                </li>
+              <% end %>
               <% if show_pin %>
                 <li><%= render 'shared/pulse_pin_button', resource: @note, is_pinned: @is_pinned %></li>
               <% end %>
@@ -77,6 +93,8 @@
       <% end %>
     <% end
   end %>
+
+  <%= render 'shared/summaries_section', summarizable: @note %>
 
   <% if @note.is_comment? && @note.commentable %>
     <div class="pulse-reply-context" style="cursor:pointer;"
@@ -168,8 +186,6 @@
       </div>
     </div>
   <% end %>
-
-  <%= render 'shared/summaries_section', summarizable: @note %>
 
   <%# Confirmed Reads Section %>
   <div class="pulse-confirmed-section" data-note-target="confirmSection">
