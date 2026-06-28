@@ -66,10 +66,16 @@ export default class MarkdownPreviewController extends Controller {
 
     const text = this.inputTarget.value
     if (text.trim() === "") {
+      this.previewTarget.style.minHeight = ""
       this.previewTarget.innerHTML = `<p class="pulse-md-empty">Nothing to preview.</p>`
       return
     }
 
+    // Pin the preview at its current rendered height so swapping innerHTML to
+    // the tiny "Loading…" placeholder doesn't shrink the grid cell. The final
+    // response resets this so the new content determines the editor's height.
+    const heldHeight = this.previewTarget.offsetHeight
+    if (heldHeight > 0) this.previewTarget.style.minHeight = `${heldHeight}px`
     this.previewTarget.innerHTML = `<p class="pulse-md-empty">Loading preview…</p>`
 
     const requestId = ++this.previewRequestId
@@ -94,10 +100,12 @@ export default class MarkdownPreviewController extends Controller {
 
       // A newer request started while we were awaiting — drop this stale result.
       if (requestId !== this.previewRequestId) return
+      this.previewTarget.style.minHeight = ""
       this.previewTarget.innerHTML = html
     } catch (error) {
       if (requestId !== this.previewRequestId) return
       console.error("Error loading markdown preview:", error)
+      this.previewTarget.style.minHeight = ""
       this.previewTarget.innerHTML = `<p class="pulse-md-empty">Couldn't load preview.</p>`
     }
   }

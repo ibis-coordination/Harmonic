@@ -31,10 +31,10 @@
   <div class="pulse-md-tabs" role="tablist">
     <button type="button" class="pulse-md-tab is-active" role="tab" aria-selected="true"
             data-markdown-preview-target="writeTab"
-            data-action="markdown-preview#showWrite"><%= octicon 'pencil', height: 14 %> Write</button>
+            data-action="markdown-preview#showWrite">Write</button>
     <button type="button" class="pulse-md-tab" role="tab" aria-selected="false"
             data-markdown-preview-target="previewTab"
-            data-action="markdown-preview#showPreview"><%= octicon 'eye', height: 14 %> Preview</button>
+            data-action="markdown-preview#showPreview">Preview</button>
   </div>
 
   <% textarea = capture do %>
@@ -49,15 +49,22 @@
           data: textarea_data %>
   <% end %>
 
-  <% if mention %>
-    <div class="mention-autocomplete-container <%= local_assigns[:mention_container_class] %>" data-controller="mention-autocomplete"
-         data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
+  <%# Stack the input area and the preview pane in the same grid cell so the
+      cell's height is the max of both — switching tabs never changes the
+      editor's height (it can only grow if the preview content needs more
+      space). The hidden one stays in layout via the [hidden] CSS override
+      below; visibility:hidden keeps its footprint without showing it. %>
+  <div class="pulse-md-stack">
+    <% if mention %>
+      <div class="mention-autocomplete-container <%= local_assigns[:mention_container_class] %>" data-controller="mention-autocomplete"
+           data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
+        <%= textarea %>
+        <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
+      </div>
+    <% else %>
       <%= textarea %>
-      <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-    </div>
-  <% else %>
-    <%= textarea %>
-  <% end %>
+    <% end %>
 
-  <div class="markdown-body pulse-md-preview" data-markdown-preview-target="preview" hidden></div>
+    <div class="markdown-body pulse-md-preview" data-markdown-preview-target="preview" hidden></div>
+  </div>
 </div>

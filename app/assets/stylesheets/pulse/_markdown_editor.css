@@ -1,49 +1,136 @@
 /*
  * Markdown editor: GitHub-style Write / Preview toggle for text-entry forms.
+ *
+ * The whole editor reads as one widget: a single outer border wraps the tab
+ * strip and the input area, focus moves to the wrapper, and the active tab
+ * "lifts" by removing its bottom border so it visually merges with the content
+ * below. Inner textareas (.pulse-form-textarea, .pulse-form-input) drop their
+ * own border/background — the wrapper provides them.
+ *
+ * Corners are square (no border-radius) to match the rest of the Pulse UI.
+ *
  * Colors use the shared --color-* tokens from root_variables.css.
  */
 
 .pulse-md-editor {
   width: 100%;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-canvas-default);
+}
+
+.pulse-md-editor:focus-within {
+  border-color: var(--color-accent-fg);
 }
 
 .pulse-md-tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  background: var(--color-canvas-subtle);
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .pulse-md-tab {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 6px 12px;
+  margin-bottom: -1px; /* overlap the strip's bottom border so the active tab can "eat" it */
   font-size: 0.85rem;
   line-height: 1;
   color: var(--color-fg-muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--border-radius-lg);
   cursor: pointer;
+}
+
+/* Pull every tab up by 1px so its top border lies on top of the wrapper's
+   border — when any tab is active, its top border merges with the wrapper's
+   top edge. The first tab also pulls left by 1px so it merges with the
+   wrapper's left edge at the top-left corner. */
+.pulse-md-tab {
+  margin-top: -1px;
+}
+
+.pulse-md-tab:first-child {
+  margin-left: -1px;
 }
 
 .pulse-md-tab:hover {
   color: var(--color-fg-default);
-  background: var(--color-canvas-subtle);
 }
 
 .pulse-md-tab.is-active {
   color: var(--color-fg-default);
-  background: var(--color-canvas-subtle);
+  background: var(--color-canvas-default);
   border-color: var(--color-border-default);
+  border-bottom-color: var(--color-canvas-default);
+}
+
+/* When the editor wrapper picks up focus, the active tab's top border (and
+   the leftmost tab's left border) must follow — they sit on top of the
+   wrapper's border and would otherwise show as gray seams inside the blue
+   outline. The active tab's right border stays gray (internal divider) and
+   the bottom stays canvas-default (eats the strip divider). */
+.pulse-md-editor:focus-within .pulse-md-tab.is-active {
+  border-top-color: var(--color-accent-fg);
+}
+
+.pulse-md-editor:focus-within .pulse-md-tab.is-active:first-child {
+  border-left-color: var(--color-accent-fg);
+}
+
+/* Inner inputs and the preview pane sit flush inside the wrapper — the
+   wrapper provides the border, radius, and focus highlight, so we strip
+   theirs to avoid double borders. */
+.pulse-md-editor .pulse-form-textarea,
+.pulse-md-editor .pulse-form-input,
+.pulse-md-editor .pulse-md-preview {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.pulse-md-editor .pulse-form-textarea:focus,
+.pulse-md-editor .pulse-form-input:focus {
+  outline: none;
+  border: none;
 }
 
 .pulse-md-preview {
-  min-height: 6em;
   padding: 8px 12px;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--border-radius-lg);
-  background: var(--color-canvas-default);
+}
+
+/* Stack the input area and the preview pane in the same grid cell so the
+   cell sizes to the taller of the two — toggling tabs cannot change the
+   editor's height. The hidden pane stays in layout via visibility:hidden so
+   it still contributes its natural size to the cell. */
+.pulse-md-stack {
+  display: grid;
+}
+
+.pulse-md-stack > * {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+/* Both panes (and the textarea inside the mention container, when present)
+   grow to fill the grid cell, so the visible pane always covers the editor's
+   full content area — even when the cell grew because the OTHER pane
+   demanded more room. min-height (not height) so the item's intrinsic size
+   still contributes to cell sizing in the first place. */
+.pulse-md-stack > textarea,
+.pulse-md-stack > .pulse-md-preview,
+.pulse-md-stack > .mention-autocomplete-container,
+.pulse-md-stack > .mention-autocomplete-container > textarea {
+  min-height: 100%;
+}
+
+.pulse-md-stack [hidden] {
+  display: revert !important;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .pulse-md-empty {
