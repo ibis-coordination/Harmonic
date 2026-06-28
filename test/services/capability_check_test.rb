@@ -274,4 +274,55 @@ class CapabilityCheckTest < ActiveSupport::TestCase
              "Group has no actions: #{group.inspect}"
     end
   end
+
+  # --- Public-write guardrail ---------------------------------------------
+
+  # Test: non-agents are never write-restricted.
+  test "non-ai_agent users may always write to the public space" do
+    assert CapabilityCheck.public_writes_allowed?(@user),
+           "Non-agent should be allowed to write publicly"
+  end
+
+  # Test: with no configuration, public writes are off by default.
+  test "ai_agent with no configuration cannot write publicly by default" do
+    @ai_agent.update_columns(agent_configuration: nil)
+
+    assert_not CapabilityCheck.public_writes_allowed?(@ai_agent), "public writes off by default"
+  end
+
+  # Test: a config that exists but lacks the allow_public_writes key is still
+  # off (this is the legacy-agent path).
+  test "ai_agent with config but no allow_public_writes key cannot write publicly" do
+    @ai_agent.update_columns(agent_configuration: { "capabilities" => ["create_note"] })
+
+    assert_not CapabilityCheck.public_writes_allowed?(@ai_agent)
+  end
+
+  # Test: an explicit false keeps public writes off.
+  test "ai_agent with allow_public_writes false cannot write publicly" do
+    @ai_agent.update_columns(agent_configuration: { "allow_public_writes" => false })
+
+    assert_not CapabilityCheck.public_writes_allowed?(@ai_agent)
+  end
+
+  # Test: an explicit true turns public writes on.
+  test "ai_agent with allow_public_writes true may write publicly" do
+    @ai_agent.update_columns(agent_configuration: { "allow_public_writes" => true })
+
+    assert CapabilityCheck.public_writes_allowed?(@ai_agent)
+  end
+
+  # Test: only the boolean `true` opens the gate. The write paths cast input to
+  # a real boolean, so a non-boolean value can only arrive via a hand-edited
+  # config or seed — and an unexpected value must keep the gate closed rather
+  # than be interpreted (no string coercion). This includes the string "true":
+  # if it isn't a real boolean, it doesn't grant public writes.
+  test "ai_agent with a non-boolean-true allow_public_writes cannot write publicly" do
+    ["true", "false", "0", "f", "off", "", 1, 0].each do |value|
+      @ai_agent.update_columns(agent_configuration: { "allow_public_writes" => value })
+
+      assert_not CapabilityCheck.public_writes_allowed?(@ai_agent),
+                 "expected #{value.inspect} to keep public writes off — only boolean true grants access"
+    end
+  end
 end

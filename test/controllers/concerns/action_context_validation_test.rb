@@ -106,6 +106,188 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_equal "public", parsed_inner["got"]
   end
 
+  # --- Public-write guardrail ---------------------------------------------
+  #
+  # The public-write gate sits right after audience resolution in the same
+  # concern, using the resolved audience as ground truth. These pin the gate
+  # paths an integration test can reach: public denied by default, public
+  # allowed once enabled, shared always allowed. (private-always-allowed is
+  # covered at the unit level in capability_check_test.)
+
+  def post_create_note_via_mcp(collective:, declared_visibility:, token:)
+    body = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "execute_action",
+        arguments: {
+          path: "/collectives/#{collective.handle}/note",
+          action: "create_note",
+          params: { text: "zone gate test" },
+          context: {
+            identity: { actor: "@#{token.user.handle}" },
+            visibility: declared_visibility,
+            intention: "write a note",
+          },
+        },
+      },
+    }.to_json
+
+    post "/mcp", params: body, headers: {
+      "Content-Type" => "application/json",
+      "Accept" => "application/json",
+      "Authorization" => "Bearer #{token.plaintext_token}",
+    }
+  end
+
+  def mcp_inner_error(response)
+    inner = response.parsed_body.dig("result", "content", 0, "text")
+    JSON.parse(inner.to_s)
+  end
+
+  test "AI agent is denied a public write by default (public off unless enabled)" do
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Public Default Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    assert_no_difference -> { Note.count } do
+      # main collective → resolves to "public"; declared correctly, but the
+      # agent hasn't been granted public writes.
+      post_create_note_via_mcp(collective: main, declared_visibility: "public", token: token)
+    end
+
+    assert_response :success # JSON-RPC envelopes the 403 in a tool error
+    parsed = mcp_inner_error(response)
+    assert_equal "public_writes_disabled", parsed["error"]
+    assert_equal "public", parsed["zone"]
+  end
+
+  test "AI agent with public writes enabled may act in the public space" do
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Public Write Agent",
+                            agent_configuration: { "mode" => "external", "allow_public_writes" => true })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    assert_difference -> { Note.count }, 1 do
+      post_create_note_via_mcp(collective: main, declared_visibility: "public", token: token)
+    end
+    assert_response :success
+  end
+
+  test "AI agent may act in the shared zone regardless of public-write setting" do
+    # @collective is a non-main collective → resolves to "shared", which is
+    # always allowed. No allow_public_writes configured.
+    agent = create_ai_agent(parent: @user, name: "Shared Zone Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+
+    assert_difference -> { Note.count }, 1 do
+      post_create_note_via_mcp(collective: @collective, declared_visibility: "shared", token: token)
+    end
+    assert_response :success
+  end
+
+  test "AI agent on an mcp_only-disabled token is still public-gated on a direct REST write (public denied by default)" do
+    # The asymmetry fix: the gate used to fire only under MCP dispatch, so an
+    # agent token an owner opted out of mcp_only could reach a direct REST
+    # write with its restriction silently dropped. Now the gate runs on every
+    # restricted-agent write, mirroring the capability check. main collective →
+    # resolves to "public", which is off by default.
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Direct-REST Public Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+
+    assert_no_difference -> { Note.count } do
+      post "/collectives/#{main.handle}/note/actions/create_note",
+           params: { text: "should be public-blocked" }.to_json,
+           headers: {
+             "Content-Type" => "application/json",
+             "Accept" => "application/json",
+             "Authorization" => "Bearer #{token.plaintext_token}",
+           }
+    end
+
+    assert_response :forbidden
+    body = response.parsed_body
+    assert_equal "public_writes_disabled", body["error"]
+    assert_equal "public", body["zone"]
+  end
+
+  test "AI agent on an mcp_only-disabled token may write to the shared zone via direct REST (always allowed)" do
+    # Companion to the test above: the gate runs on the direct path but allows
+    # what the agent is actually permitted. @collective is non-main → "shared",
+    # always allowed. Proves the fix gates rather than blanket-blocking direct
+    # writes, and that mcp_only:false genuinely reaches the action.
+    agent = create_ai_agent(parent: @user, name: "Direct-REST Shared Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+
+    assert_difference -> { Note.count }, 1 do
+      post "/collectives/#{@collective.handle}/note/actions/create_note",
+           params: { text: "shared zone direct REST write" }.to_json,
+           headers: {
+             "Content-Type" => "application/json",
+             "Accept" => "text/markdown",
+             "Authorization" => "Bearer #{token.plaintext_token}",
+           }
+    end
+    assert_response :success
+  end
+
+  test "AI agent on an mcp_only-disabled token hitting an unknown action gets the 404 teaching error, not a public-write 403" do
+    # Now that the public-write gate runs on every restricted-agent write, it
+    # must defer to the unknown-action catch-all exactly as ActionCapabilityCheck
+    # does — an action name that exists nowhere should yield the useful 404 +
+    # action list, not be masked by a public-write/visibility 403. Uses the main
+    # collective (→ public, off by default) so the gate WOULD fire if the
+    # exemption were missing.
+    main = @tenant.main_collective
+    main.enable_api!
+    agent = create_ai_agent(parent: @user, name: "Unknown-Action Public Agent",
+                            agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    main.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+    # Create the note under main's collective scope so its history event's
+    # auto-populated collective_id matches the note (the thread is scoped to
+    # @collective in setup, which is not main).
+    note = nil
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    begin
+      note = create_note(text: "target", collective: main, created_by: @user)
+    ensure
+      Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    end
+
+    post "/collectives/#{main.handle}/n/#{note.truncated_id}/actions/totally_made_up_action",
+         params: {}.to_json,
+         headers: {
+           "Content-Type" => "application/json",
+           "Accept" => "text/markdown",
+           "Authorization" => "Bearer #{token.plaintext_token}",
+         }
+
+    assert_response :not_found
+    assert_includes response.body, "totally_made_up_action"
+    refute_includes response.body, "public_writes_disabled"
+  end
+
   test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do
     # A human-owned API token (which CAN'T be mcp_only — model validation
     # pins mcp_only to ai_agent users). A direct REST write goes through

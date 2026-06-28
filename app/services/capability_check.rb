@@ -287,6 +287,48 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
   ].freeze
 
+  # Public-write guardrail — the sibling restriction to capabilities.
+  #
+  # Capabilities restrict *which actions* an agent may take; this restricts
+  # whether the agent may *write to the public visibility tier* (the
+  # tenant-wide main collective). Same storage (a key on
+  # `User#agent_configuration`), same restricted_user? gate, same fail-closed
+  # request enforcement (see ActionContextValidation), same settings UI.
+  #
+  # Every agent action resolves to a visibility tier via
+  # `Mcp::AudienceResolver.resolve`. We only gate the `public` tier:
+  #
+  #   private — the agent's own workspace; always allowed.
+  #   shared  — collective spaces; always allowed. Already scoped by collective
+  #             membership (don't add the agent to a collective you don't want
+  #             it writing to), so a separate toggle would be redundant.
+  #   public  — the tenant-wide main collective. DISABLED by default, owner can
+  #             enable via `allow_public_writes`. Off by default because an
+  #             agent with read-only access to a non-public collective could
+  #             otherwise leak that content into the public space.
+  #
+  # This is intentionally a single boolean rather than a per-tier allowlist:
+  # private and shared need no toggle, so the only meaningful control is
+  # whether public writes are permitted.
+
+  # May this agent write to the public visibility tier?
+  #
+  # @param user [User] The user attempting the action
+  # @return [Boolean] true if allowed, false if denied
+  sig { params(user: User).returns(T::Boolean) }
+  def self.public_writes_allowed?(user)
+    # Non-restricted users (see `restricted_user?`) have no write restrictions.
+    return true unless restricted_user?(user)
+
+    # Off by default: only the boolean `true` enables it. The write paths
+    # (AiAgentsController#update_settings, ApiHelper) cast input to a real
+    # boolean, so `true` is the only value we ever expect to store. We compare
+    # against it explicitly rather than coercing on read: an unexpected value
+    # (a string left by a hand-edited config or seed, anything other than
+    # `true`) should keep the gate closed, not be interpreted. Fail closed.
+    user.agent_configuration&.dig("allow_public_writes") == true
+  end
+
   # Check if a user has capability for an action
   #
   # @param user [User] The user attempting the action

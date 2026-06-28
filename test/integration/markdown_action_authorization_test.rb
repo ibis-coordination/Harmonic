@@ -137,4 +137,54 @@ class MarkdownActionAuthorizationTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_no_match(/join_commitment/, response.body)
   end
+
+  # ==========================================
+  # Agent actions filtered by allow_public_writes
+  # ==========================================
+  #
+  # The public-write guardrail (CapabilityCheck#public_writes_allowed?) denies
+  # any restricted-agent write whose resolved audience is "public" when the
+  # owner hasn't enabled allow_public_writes. Discovery must agree, or the
+  # frontmatter advertises actions the gate will deny.
+
+  def agent_token(allow_public_writes:)
+    config = { "mode" => "external", "allow_public_writes" => allow_public_writes }
+    agent = create_ai_agent(parent: @user, name: "Discovery Agent #{SecureRandom.hex(4)}",
+                            agent_configuration: config)
+    @tenant.add_user!(agent)
+    @tenant.main_collective.add_user!(agent)
+    ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+  end
+
+  test "main-collective note frontmatter omits public-resolved actions when allow_public_writes is off" do
+    @tenant.enable_api!
+    main = @tenant.main_collective
+    main.enable_api!
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    note = create_note(tenant: @tenant, collective: main, created_by: @user, title: "main note")
+    token = agent_token(allow_public_writes: false)
+
+    get "/collectives/#{main.handle}/n/#{note.truncated_id}",
+        headers: { "Accept" => "text/markdown", "Authorization" => "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    assert_no_match(/visibility: public/, response.body,
+                    "discovery advertised a public-resolved action the public-write gate will deny")
+  end
+
+  test "main-collective note frontmatter includes public-resolved actions when allow_public_writes is on" do
+    @tenant.enable_api!
+    main = @tenant.main_collective
+    main.enable_api!
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main.handle)
+    note = create_note(tenant: @tenant, collective: main, created_by: @user, title: "main note")
+    token = agent_token(allow_public_writes: true)
+
+    get "/collectives/#{main.handle}/n/#{note.truncated_id}",
+        headers: { "Accept" => "text/markdown", "Authorization" => "Bearer #{token.plaintext_token}" }
+
+    assert_response :success
+    assert_match(/visibility: public/, response.body,
+                 "expected discovery to list public-resolved actions for an agent with public writes enabled")
+  end
 end

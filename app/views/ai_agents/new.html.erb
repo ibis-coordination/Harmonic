@@ -79,6 +79,12 @@
         <%= render "capabilities_section", current_caps: nil %>
       </section>
 
+      <section class="pulse-settings-section">
+        <label class="pulse-label">Public writes</label>
+        <small class="pulse-hint">Whether this agent may write to the public space. Off by default; private and shared writes are always allowed.</small>
+        <%= render "public_writes_section", allow_public_writes: nil %>
+      </section>
+
       <%
         internal_enabled = @current_tenant.internal_ai_agents_enabled?
         external_enabled = @current_tenant.external_ai_agents_enabled?

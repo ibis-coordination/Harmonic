@@ -134,6 +134,14 @@
           <%= render "capabilities_section", current_caps: @ai_agent.agent_configuration&.dig("capabilities") %>
         </section>
 
+        <section class="pulse-settings-section">
+          <h3>Public writes</h3>
+          <p class="pulse-hint">
+            Whether this agent may perform write actions in the public space. Not recommended for agents with access to sensitive information.
+          </p>
+          <%= render "public_writes_section", allow_public_writes: @ai_agent.agent_configuration&.dig("allow_public_writes") %>
+        </section>
+
       </form>
 
       <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--color-border-default);">
