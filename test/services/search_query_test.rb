@@ -164,6 +164,62 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert results.none? { |r| r.subtype == "comment" }
   end
 
+  test "subtype:summary returns only summary notes" do
+    summary = Note.create!(
+      subtype: "summary", text: "Summary text",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    SearchIndexer.reindex(summary)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "subtype:summary cycle:all"
+    )
+
+    results = search.results
+    assert results.all? { |r| r.subtype == "summary" }
+    assert_includes results.pluck(:item_id), summary.id
+  end
+
+  test "subtype:statement returns only statement notes" do
+    statement = Note.create!(
+      subtype: "statement", text: "Final statement",
+      statementable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    SearchIndexer.reindex(statement)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "subtype:statement cycle:all"
+    )
+
+    results = search.results
+    assert results.all? { |r| r.subtype == "statement" }
+    assert_includes results.pluck(:item_id), statement.id
+  end
+
+  test "-subtype:summary excludes summaries" do
+    SearchIndexer.reindex(@note)
+    summary = Note.create!(
+      subtype: "summary", text: "Summary text",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    SearchIndexer.reindex(summary)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "type:note -subtype:summary cycle:all"
+    )
+
+    results = search.results
+    assert_includes results.pluck(:item_id), @note.id
+    assert_not_includes results.pluck(:item_id), summary.id
+    assert results.none? { |r| r.subtype == "summary" }
+  end
+
   # Time window tests
 
   test "cycle filter restricts to time window" do

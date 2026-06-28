@@ -49,10 +49,21 @@ class FeedItemComponent < ViewComponent::Base
     @type == "Note" && @item.is_a?(Note) && @item.is_comment?
   end
 
+  sig { returns(T::Boolean) }
+  def is_statement?
+    @type == "Note" && @item.is_a?(Note) && @item.is_statement?
+  end
+
+  sig { returns(T::Boolean) }
+  def is_summary?
+    @type == "Note" && @item.is_a?(Note) && @item.is_summary?
+  end
+
   sig { returns(String) }
   def display_type
     return "Comment" if is_comment?
-    return "Statement" if @type == "Note" && @item.is_a?(Note) && @item.is_statement?
+    return "Statement" if is_statement?
+    return "Summary" if is_summary?
     return "Table" if @type == "Note" && @item.is_a?(Note) && @item.is_table?
     return "Reminder" if @type == "Note" && @item.is_a?(Note) && @item.is_reminder?
     return "Executive Decision" if @type == "Decision" && @item.is_a?(Decision) && @item.is_executive?
@@ -155,6 +166,7 @@ class FeedItemComponent < ViewComponent::Base
     # blank — without this gate, a titleless multi-line note would render its
     # first line as the title AND the full text as the body, duplicating the
     # first line. Only render the title row when the user actually typed one.
+    return false if is_statement? || is_summary?
     return T.cast(@item, Note).persisted_title.present? if @type == "Note"
 
     true

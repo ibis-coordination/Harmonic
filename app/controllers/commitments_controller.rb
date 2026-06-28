@@ -3,9 +3,13 @@
 class CommitmentsController < ApplicationController
   include AttachmentActions
 
-  allows_anonymous :show
-  before_action :set_no_cache_headers, only: [:show]
-  before_action :enforce_anonymous_read_rate_limit, only: [:show]
+  allows_anonymous :show, :summary
+  before_action :set_no_cache_headers, only: [:show, :summary]
+  before_action :enforce_anonymous_read_rate_limit, only: [:show, :summary]
+
+  def summary
+    render_summary_for(current_commitment)
+  end
 
   def show
     @commitment = current_commitment || find_deleted_commitment

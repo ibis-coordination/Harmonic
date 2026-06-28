@@ -13,6 +13,9 @@
     <% if u.collective_member.is_representative? %>
       <span class="role-badge" title="representatives can perform actions on behalf of the collective as a whole">representative</span>
     <% end %>
+    <% if u.collective_member.is_summarizer? %>
+      <span class="role-badge" title="summarizers can write summaries of items in this collective">summarizer</span>
+    <% end %>
   </li>
 <% end %>
 </ul>

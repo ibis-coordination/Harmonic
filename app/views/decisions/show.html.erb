@@ -1,4 +1,4 @@
-<span data-controller="decision" data-decision-id="<%= @decision.id %>">
+<span data-controller="decision summary-toggle" data-decision-id="<%= @decision.id %>">
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_collective.name, @current_collective.path],
   'Decision'
@@ -55,13 +55,29 @@
       <% show_settings = @decision.can_edit_settings?(@current_user) %>
       <% show_pin = @current_user %>
       <% show_report = @current_user && @decision.created_by_id != @current_user.id && !@already_reported %>
-      <% if show_settings || show_pin || show_report %>
+      <% show_view_summary = @decision.summary.present? %>
+      <% show_add_summary = @current_user && @decision.can_write_summary?(@current_user) %>
+      <% if show_settings || show_pin || show_report || show_view_summary || show_add_summary %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
+              <% if show_view_summary %>
+                <li>
+                  <a href="#" data-action="click->summary-toggle#showEmbed">
+                    <%= octicon 'book', height: 14 %> View summary
+                  </a>
+                </li>
+              <% end %>
+              <% if show_add_summary %>
+                <li>
+                  <a href="#" data-action="click->summary-toggle#showForm">
+                    <%= octicon 'pencil', height: 14 %> <%= @decision.summary.present? ? "Edit summary" : "Add summary" %>
+                  </a>
+                </li>
+              <% end %>
               <% if show_settings %>
                 <li>
                   <%= link_to "#{@decision.path}/settings" do %>
@@ -85,6 +101,8 @@
       <% end %>
     <% end
   end %>
+
+  <%= render 'shared/summaries_section', summarizable: @decision %>
 
   <div class="pulse-resource-meta">
     <%= render AuthorComponent.new(resource: @decision, current_user: @current_user, show_updated: !@decision.closed?) %>

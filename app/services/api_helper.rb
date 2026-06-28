@@ -1015,6 +1015,45 @@ class ApiHelper
     statement
   end
 
+  def add_summary(summarizable:)
+    raise "Unauthorized" unless summarizable.can_write_summary?(current_user)
+    raise "Summary text is required" if params[:text].blank?
+
+    summary = create_or_update_summary!(summarizable, params[:text])
+
+    if current_representation_session
+      current_representation_session.record_event!(
+        request: request,
+        action_name: "add_summary",
+        resource: summary,
+        context_resource: summarizable
+      )
+    end
+    summary
+  end
+
+  private def create_or_update_summary!(summarizable, text)
+    existing = summarizable.summary
+    if existing
+      existing.text = text
+      existing.updated_by = current_user
+      existing.save!
+      existing
+    else
+      Note.create!(
+        subtype: "summary",
+        text: text,
+        summarizable: summarizable,
+        created_by: current_user,
+        updated_by: current_user,
+        tenant: current_tenant,
+        collective: current_collective,
+        deadline: Time.current,
+        edit_access: "owner"
+      )
+    end
+  end
+
   # Resolve a user by UUID, handle, or @handle — scoped to current tenant
   private def resolve_user(identifier)
     id = identifier.to_s.strip

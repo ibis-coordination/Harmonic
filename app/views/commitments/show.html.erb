@@ -1,4 +1,4 @@
-<span data-controller="commitment" data-commitment-id="<%= @commitment.id %>">
+<span data-controller="commitment summary-toggle" data-commitment-id="<%= @commitment.id %>">
 <% breadcrumb_label = if @commitment.is_policy?
                         "Policy"
                       elsif @commitment.is_calendar_event?
@@ -43,13 +43,29 @@
       <% end %>
       <% show_pin = @current_user %>
       <% show_report = @current_user && @commitment.created_by_id != @current_user.id && !@already_reported %>
-      <% if show_pin || show_report %>
+      <% show_view_summary = @commitment.summary.present? %>
+      <% show_add_summary = @current_user && @commitment.can_write_summary?(@current_user) %>
+      <% if show_pin || show_report || show_view_summary || show_add_summary %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
+              <% if show_view_summary %>
+                <li>
+                  <a href="#" data-action="click->summary-toggle#showEmbed">
+                    <%= octicon 'book', height: 14 %> View summary
+                  </a>
+                </li>
+              <% end %>
+              <% if show_add_summary %>
+                <li>
+                  <a href="#" data-action="click->summary-toggle#showForm">
+                    <%= octicon 'pencil', height: 14 %> <%= @commitment.summary.present? ? "Edit summary" : "Add summary" %>
+                  </a>
+                </li>
+              <% end %>
               <% if show_pin %>
                 <li><%= render 'shared/pulse_pin_button', resource: @commitment, is_pinned: @is_pinned %></li>
               <% end %>
@@ -66,6 +82,8 @@
       <% end %>
     <% end
   end %>
+
+  <%= render 'shared/summaries_section', summarizable: @commitment %>
 
   <div class="pulse-resource-meta">
     <%= render 'shared/pulse_author', resource: @commitment %>

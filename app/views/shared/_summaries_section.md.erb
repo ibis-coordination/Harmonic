@@ -1,0 +1,9 @@
+<%# Summary section for markdown views — links to the summary's show page %>
+<%# instead of inlining its content, so agents must fetch the summary to read it. %>
+<%# Usage: render 'shared/summaries_section', resource: @note %>
+<% if resource.summary.present? -%>
+## Summary
+
+[View summary](<%= resource.summary.path %>) by <%= user_link_md(resource.summary.created_by) %> (<%= time_ago_in_words(resource.summary.updated_at) %> ago)
+
+<% end -%>

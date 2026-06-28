@@ -528,6 +528,17 @@ class ActionsHelper
       visibility: :by_collective,
     },
 
+    # Summary action (shared across notes, decisions, commitments)
+    "add_summary" => {
+      description: "Add or update the summary of this item.",
+      params_string: "(text)",
+      params: [
+        { name: "text", type: "string", description: "The summary text" },
+      ],
+      authorization: :collective_member,
+      visibility: :by_collective,
+    },
+
     # Attachment actions
     "add_attachment" => {
       description: "Add a file attachment",
@@ -1050,6 +1061,13 @@ class ActionsHelper
       !ContentReport.exists?(reporter: user, reportable: resource)
   }
 
+  ADD_SUMMARY_CONDITION = lambda { |context|
+    resource = context[:resource]
+    user = context[:user]
+    resource.respond_to?(:is_summarizable?) && resource.is_summarizable? &&
+      resource.respond_to?(:can_write_summary?) && resource.can_write_summary?(user)
+  }
+
   @@actions_by_route = {
     "/" => {
       controller_actions: ["home#index"],
@@ -1166,6 +1184,12 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["add_comment"][:description], },
       ],
       conditional_actions: [
+        {
+          name: "add_summary",
+          params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
+          description: ACTION_DEFINITIONS["add_summary"][:description],
+          condition: ADD_SUMMARY_CONDITION,
+        },
         {
           name: "confirm_read",
           params_string: ACTION_DEFINITIONS["confirm_read"][:params_string],
@@ -1288,6 +1312,12 @@ class ActionsHelper
       ],
       conditional_actions: [
         {
+          name: "add_summary",
+          params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
+          description: ACTION_DEFINITIONS["add_summary"][:description],
+          condition: ADD_SUMMARY_CONDITION,
+        },
+        {
           name: "report_content",
           params_string: ACTION_DEFINITIONS["report_content"][:params_string],
           description: ACTION_DEFINITIONS["report_content"][:description],
@@ -1327,6 +1357,12 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["add_comment"][:description], },
       ],
       conditional_actions: [
+        {
+          name: "add_summary",
+          params_string: ACTION_DEFINITIONS["add_summary"][:params_string],
+          description: ACTION_DEFINITIONS["add_summary"][:description],
+          condition: ADD_SUMMARY_CONDITION,
+        },
         {
           name: "report_content",
           params_string: ACTION_DEFINITIONS["report_content"][:params_string],

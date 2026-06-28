@@ -13,6 +13,7 @@ class Commitment < ApplicationRecord
   include HasRepresentationSessionEvents
   include SoftDeletable
   include Statementable
+  include Summarizable
   SUBTYPES = ["action", "calendar_event", "policy"].freeze
   MAX_TITLE_LENGTH = 1000
   MAX_DESCRIPTION_LENGTH = 1_000_000

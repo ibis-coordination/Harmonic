@@ -12,6 +12,10 @@
     <div class="pulse-feed-item-type">
       <% if is_comment? %>
         <%= helpers.octicon 'comment', height: 16 %>
+      <% elsif is_statement? %>
+        <%= helpers.octicon 'law', height: 16 %>
+      <% elsif is_summary? %>
+        <%= helpers.octicon 'book', height: 16 %>
       <% else %>
         <i class="<%= @type.downcase %>-icon icon-sm"></i>
       <% end %>
@@ -38,6 +42,18 @@
         <%= helpers.octicon 'reply' %>
         <span>Replying to</span>
         <%= render 'shared/inline_resource_item', resource: T.unsafe(@item).commentable %>
+      </div>
+    <% elsif is_statement? && T.unsafe(@item).statementable %>
+      <div class="pulse-feed-item-reply">
+        <%= helpers.octicon 'law' %>
+        <span>Statement on</span>
+        <%= render 'shared/inline_resource_item', resource: T.unsafe(@item).statementable %>
+      </div>
+    <% elsif is_summary? && T.unsafe(@item).summarizable %>
+      <div class="pulse-feed-item-reply">
+        <%= helpers.octicon 'book' %>
+        <span>Summary of</span>
+        <%= render 'shared/inline_resource_item', resource: T.unsafe(@item).summarizable %>
       </div>
     <% end %>
     <% if show_title? %>

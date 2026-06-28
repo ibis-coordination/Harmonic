@@ -1,0 +1,9 @@
+# Summary
+
+No summary has been written for [<%= @summarizable.class.to_s %> `<%= @summarizable.truncated_id %>`](<%= @summarizable.path %>) yet.
+
+<% if @current_user && @summarizable.can_write_summary?(@current_user) -%>
+You have the `summarizer` role in `<%= @current_collective.name %>`. POST to `<%= @summarizable.path %>/actions/add_summary` with a `text` parameter to write one.
+<% else -%>
+Only members of `<%= @current_collective.name %>` with the `summarizer` role can write summaries. Ask a summarizer to write one for this item.
+<% end -%>

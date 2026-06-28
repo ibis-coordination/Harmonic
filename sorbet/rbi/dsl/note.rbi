@@ -146,6 +146,7 @@ class Note
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::Note).void
       ).void
@@ -156,10 +157,11 @@ class Note
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::Note])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -167,6 +169,7 @@ class Note
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::Note]).void
       ).void
@@ -177,10 +180,11 @@ class Note
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::Note]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -247,6 +251,7 @@ class Note
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -259,11 +264,12 @@ class Note
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -381,6 +387,9 @@ class Note
     sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
     def build_reminder_notification(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_summary(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -448,6 +457,12 @@ class Note
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Notification) }
     def create_reminder_notification!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_summary(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_summary!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -545,6 +560,12 @@ class Note
     sig { returns(T.untyped) }
     def reload_statementable; end
 
+    sig { returns(T.untyped) }
+    def reload_summarizable; end
+
+    sig { returns(T.nilable(::Note)) }
+    def reload_summary; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -596,6 +617,12 @@ class Note
     def reset_statementable; end
 
     sig { void }
+    def reset_summarizable; end
+
+    sig { void }
+    def reset_summary; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
@@ -612,6 +639,24 @@ class Note
 
     sig { returns(T::Boolean) }
     def statementable_previously_changed?; end
+
+    sig { returns(T.untyped) }
+    def summarizable; end
+
+    sig { params(value: T.untyped).void }
+    def summarizable=(value); end
+
+    sig { returns(T::Boolean) }
+    def summarizable_changed?; end
+
+    sig { returns(T::Boolean) }
+    def summarizable_previously_changed?; end
+
+    sig { returns(T.nilable(::Note)) }
+    def summary; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def summary=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -1472,6 +1517,12 @@ class Note
     def restore_subtype!; end
 
     sig { void }
+    def restore_summarizable_id!; end
+
+    sig { void }
+    def restore_summarizable_type!; end
+
+    sig { void }
     def restore_table_data!; end
 
     sig { void }
@@ -1596,6 +1647,18 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_summarizable_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_summarizable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_summarizable_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_summarizable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_table_data; end
@@ -1779,6 +1842,96 @@ class Note
 
     sig { void }
     def subtype_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def summarizable_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def summarizable_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def summarizable_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def summarizable_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def summarizable_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def summarizable_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def summarizable_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def summarizable_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def summarizable_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_id_was; end
+
+    sig { void }
+    def summarizable_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_type; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def summarizable_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def summarizable_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def summarizable_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def summarizable_type_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def summarizable_type_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def summarizable_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def summarizable_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_type_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def summarizable_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def summarizable_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def summarizable_type_was; end
+
+    sig { void }
+    def summarizable_type_will_change!; end
 
     sig { returns(T.untyped) }
     def table_data; end
@@ -2190,6 +2343,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_subtype?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_summarizable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_summarizable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_table_data?(from: T.unsafe(nil), to: T.unsafe(nil)); end

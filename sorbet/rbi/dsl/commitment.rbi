@@ -176,6 +176,7 @@ class Commitment
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::Commitment).void
       ).void
@@ -186,10 +187,11 @@ class Commitment
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::Commitment])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -197,6 +199,7 @@ class Commitment
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::Commitment]).void
       ).void
@@ -207,10 +210,11 @@ class Commitment
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::Commitment]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -292,6 +296,7 @@ class Commitment
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -304,11 +309,12 @@ class Commitment
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -431,6 +437,9 @@ class Commitment
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def build_statement(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_summary(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -486,6 +495,12 @@ class Commitment
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def create_statement!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_summary(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_summary!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -563,6 +578,9 @@ class Commitment
     sig { returns(T.nilable(::Note)) }
     def reload_statement; end
 
+    sig { returns(T.nilable(::Note)) }
+    def reload_summary; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -596,6 +614,9 @@ class Commitment
     def reset_statement; end
 
     sig { void }
+    def reset_summary; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
@@ -606,6 +627,12 @@ class Commitment
 
     sig { params(value: T.nilable(::Note)).void }
     def statement=(value); end
+
+    sig { returns(T.nilable(::Note)) }
+    def summary; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def summary=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end

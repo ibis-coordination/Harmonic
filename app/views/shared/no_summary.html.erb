@@ -1,0 +1,35 @@
+<%# Rendered when an item's `/summary` path is fetched but no summary
+    exists. Tells the viewer the slot is empty and points them at the
+    right next step (write one, or ask a summarizer to). The controller
+    sets @summarizable to the parent resource. %>
+<span data-controller="summary-toggle">
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_collective.name, @current_collective.path],
+  [@summarizable.class.to_s, @summarizable.path],
+  'Summary'
+] %>
+
+<article class="pulse-resource-detail">
+  <%= render ResourceHeaderComponent.new(
+    type_label: "Summary",
+    title: nil,
+    icon_name: "book",
+  ) %>
+
+  <div class="pulse-resource-body" style="padding: 24px;">
+    <p>No summary has been written for <%= render 'shared/pulse_resource_link', resource: @summarizable %> yet.</p>
+
+    <% if @current_user && @summarizable.can_write_summary?(@current_user) %>
+      <p>You have the <strong>summarizer</strong> role in <%= @current_collective.name %>. Write a summary of this item below.</p>
+      <%= form_with url: "#{@summarizable.path}/actions/add_summary", method: :post, class: "pulse-form", local: true do |form| %>
+        <%= form.text_area :text, placeholder: "Summarize this...", class: "pulse-form-input", rows: 4, style: "width: 100%; box-sizing: border-box;" %>
+        <div style="margin-top: 8px;">
+          <%= form.submit "Add summary", class: "pulse-action-btn pulse-action-btn-primary" %>
+        </div>
+      <% end %>
+    <% else %>
+      <p>Only members of <%= @current_collective.name %> with the <strong>summarizer</strong> role can write summaries. Ask a summarizer to write one for this item.</p>
+    <% end %>
+  </div>
+</article>
+</span>

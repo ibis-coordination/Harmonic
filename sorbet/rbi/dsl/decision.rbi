@@ -146,6 +146,7 @@ class Decision
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::Decision).void
       ).void
@@ -156,10 +157,11 @@ class Decision
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::Decision])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -167,6 +169,7 @@ class Decision
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::Decision]).void
       ).void
@@ -177,10 +180,11 @@ class Decision
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::Decision]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -247,6 +251,7 @@ class Decision
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -259,11 +264,12 @@ class Decision
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -384,6 +390,9 @@ class Decision
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def build_statement(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def build_summary(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -445,6 +454,12 @@ class Decision
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
     def create_statement!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_summary(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::Note) }
+    def create_summary!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
@@ -565,6 +580,9 @@ class Decision
     sig { returns(T.nilable(::Note)) }
     def reload_statement; end
 
+    sig { returns(T.nilable(::Note)) }
+    def reload_summary; end
+
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
 
@@ -601,6 +619,9 @@ class Decision
     def reset_statement; end
 
     sig { void }
+    def reset_summary; end
+
+    sig { void }
     def reset_tenant; end
 
     sig { void }
@@ -611,6 +632,12 @@ class Decision
 
     sig { params(value: T.nilable(::Note)).void }
     def statement=(value); end
+
+    sig { returns(T.nilable(::Note)) }
+    def summary; end
+
+    sig { params(value: T.nilable(::Note)).void }
+    def summary=(value); end
 
     sig { returns(T.nilable(::Tenant)) }
     def tenant; end
@@ -1253,6 +1280,51 @@ class Decision
     sig { void }
     def description_will_change!; end
 
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after; end
+
+    sig { params(value: T.nilable(::ActiveSupport::TimeWithZone)).returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after=(value); end
+
+    sig { returns(T::Boolean) }
+    def hard_delete_after?; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def hard_delete_after_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def hard_delete_after_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def hard_delete_after_change; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def hard_delete_after_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def hard_delete_after_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def hard_delete_after_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def hard_delete_after_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_previously_was; end
+
+    sig { returns(T.nilable(::ActiveSupport::TimeWithZone)) }
+    def hard_delete_after_was; end
+
+    sig { void }
+    def hard_delete_after_will_change!; end
+
     sig { returns(::String) }
     def id; end
 
@@ -1554,6 +1626,9 @@ class Decision
     def restore_description!; end
 
     sig { void }
+    def restore_hard_delete_after!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1645,6 +1720,12 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_description?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
+    def saved_change_to_hard_delete_after; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_hard_delete_after?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -1966,6 +2047,9 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_description?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_hard_delete_after?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

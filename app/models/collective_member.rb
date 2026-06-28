@@ -111,6 +111,11 @@ class CollectiveMember < ApplicationRecord
     archived_at.nil? && (has_role?('representative') || T.must(collective).any_member_can_represent?)
   end
 
+  sig { returns(T::Boolean) }
+  def can_summarize?
+    archived_at.nil? && (has_role?('summarizer') || T.must(collective).any_member_can_summarize?)
+  end
+
   # Alias for backwards compatibility
   sig { returns(T::Boolean) }
   def is_admin?
