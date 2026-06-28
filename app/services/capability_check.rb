@@ -102,6 +102,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "confirm_read",
     "acknowledge_reminder",
     "add_comment",
+    "add_summary",
     "create_decision",
     "update_decision_settings",
     "delete_decision",
@@ -189,6 +190,11 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
       name: "Comments",
       description: "Post comments on notes, decisions, and commitments.",
       actions: ["add_comment"],
+    },
+    {
+      name: "Summaries",
+      description: "Write or update the summary of a note, decision, or commitment.",
+      actions: ["add_summary"],
     },
     {
       name: "Decisions",

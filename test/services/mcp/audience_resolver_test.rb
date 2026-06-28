@@ -177,6 +177,7 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "unpin_decision" => :by_collective,
     "close_decision" => :by_collective,
     "add_statement" => :by_collective,
+    "add_summary" => :by_collective,
     "delete_decision" => :by_collective,
     "create_commitment" => :by_collective,
     "update_commitment_settings" => :by_collective,
