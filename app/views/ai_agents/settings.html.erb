@@ -135,11 +135,11 @@
         </section>
 
         <section class="pulse-settings-section">
-          <h3>Visibility zones</h3>
+          <h3>Public writes</h3>
           <p class="pulse-hint">
-            Restrict which audiences this agent may act in. Actions resolving to an unchecked zone will be blocked.
+            Whether this agent may write to the public space. Off by default; private and shared writes are always allowed.
           </p>
-          <%= render "visibility_zones_section", current_zones: @ai_agent.agent_configuration&.dig("visibility_zones") %>
+          <%= render "public_writes_section", allow_public_writes: @ai_agent.agent_configuration&.dig("allow_public_writes") %>
         </section>
 
       </form>

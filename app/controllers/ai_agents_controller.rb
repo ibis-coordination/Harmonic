@@ -166,7 +166,7 @@ class AiAgentsController < ApplicationController
       caps = Array(capabilities).compact_blank
       config["capabilities"] = caps & CapabilityCheck::AI_AGENT_GRANTABLE_ACTIONS
     end
-    config["visibility_zones"] = CapabilityCheck.sanitize_zones(params[:visibility_zones]) if params.key?(:visibility_zones)
+    config["allow_public_writes"] = ActiveModel::Type::Boolean.new.cast(params[:allow_public_writes]) if params.key?(:allow_public_writes)
     @ai_agent.agent_configuration = config
 
     if @ai_agent.save

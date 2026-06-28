@@ -1,0 +1,23 @@
+<%# Renders the public-write toggle used by both the new-agent form and the
+    agent settings form. Sibling to _capabilities_section.
+
+    Required local: allow_public_writes — the agent's current setting (true /
+    false), or nil for a brand-new agent with no configuration yet. nil and
+    false both render unchecked (public writes are off by default). %>
+
+<%# Hidden sentinel so an unchecked box still posts allow_public_writes=0 —
+    the controller casts it to false, preserving "uncheck = disable" semantics. %>
+<%= hidden_field_tag "allow_public_writes", "0" %>
+
+<div style="margin-top: 8px;">
+  <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+    <%= check_box_tag "allow_public_writes", "1", allow_public_writes == true, id: "allow_public_writes" %>
+    <span style="font-size: 13px;">Allow writes to the public space (the tenant-wide main collective)</span>
+  </label>
+  <small class="pulse-hint" style="display: block; margin-top: 8px;">
+    Off by default. The agent can always write to its own <code>private</code> workspace and to the
+    <code>shared</code> collectives it belongs to — restrict <code>shared</code> access by choosing which
+    collectives the agent is a member of. This toggle covers <strong>writes</strong> only; the agent can
+    still <strong>read</strong> public content even when public writes are off.
+  </small>
+</div>

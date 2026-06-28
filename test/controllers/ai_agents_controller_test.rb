@@ -613,36 +613,37 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_equal "Hacked Name", @ai_agent.name
   end
 
-  test "update_settings persists sanitized visibility_zones" do
+  test "update_settings persists allow_public_writes when the box is checked" do
     sign_in_as(@user, tenant: @tenant)
-    # "private" is always-on and never stored; "bogus" isn't a grantable zone.
-    post "/ai-agents/#{@ai_agent_handle}/settings",
-         params: { visibility_zones: ["public", "private", "bogus"] }
+    # The form posts "1" when the checkbox is checked.
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { allow_public_writes: "1" }
 
     assert_response :redirect
     @ai_agent.reload
-    assert_equal ["public"], @ai_agent.agent_configuration["visibility_zones"]
+    assert_equal true, @ai_agent.agent_configuration["allow_public_writes"]
   end
 
-  test "update_settings with all zones unchecked stores empty array (private only)" do
+  test "update_settings stores allow_public_writes false on the hidden-sentinel-only submit" do
+    @ai_agent.update!(agent_configuration: (@ai_agent.agent_configuration || {}).merge("allow_public_writes" => true))
+
     sign_in_as(@user, tenant: @tenant)
-    # The form's hidden sentinel posts a single blank entry on an all-unchecked submit.
-    post "/ai-agents/#{@ai_agent_handle}/settings", params: { visibility_zones: [""] }
+    # An unchecked box posts only the hidden sentinel "0".
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { allow_public_writes: "0" }
 
     assert_response :redirect
     @ai_agent.reload
-    assert_equal [], @ai_agent.agent_configuration["visibility_zones"]
+    assert_equal false, @ai_agent.agent_configuration["allow_public_writes"]
   end
 
-  test "update_settings leaves visibility_zones untouched when the param is absent" do
-    @ai_agent.update!(agent_configuration: (@ai_agent.agent_configuration || {}).merge("visibility_zones" => ["shared"]))
+  test "update_settings leaves allow_public_writes untouched when the param is absent" do
+    @ai_agent.update!(agent_configuration: (@ai_agent.agent_configuration || {}).merge("allow_public_writes" => true))
 
     sign_in_as(@user, tenant: @tenant)
     post "/ai-agents/#{@ai_agent_handle}/settings", params: { name: "Renamed" }
 
     assert_response :redirect
     @ai_agent.reload
-    assert_equal ["shared"], @ai_agent.agent_configuration["visibility_zones"]
+    assert_equal true, @ai_agent.agent_configuration["allow_public_writes"]
   end
 
   test "settings page links to billing for archived agent instead of reactivation form" do

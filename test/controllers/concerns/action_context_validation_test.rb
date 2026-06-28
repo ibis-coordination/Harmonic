@@ -106,13 +106,13 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_equal "public", parsed_inner["got"]
   end
 
-  # --- Visibility-zone guardrails -----------------------------------------
+  # --- Public-write guardrail ---------------------------------------------
   #
-  # The zone gate sits right after audience resolution in the same concern,
-  # using the resolved audience as ground truth. These pin the three gate
+  # The public-write gate sits right after audience resolution in the same
+  # concern, using the resolved audience as ground truth. These pin the gate
   # paths an integration test can reach: public denied by default, public
-  # allowed once granted, shared allowed by default. (private-always-allowed
-  # is exhaustively covered at the unit level in capability_check_test.)
+  # allowed once enabled, shared always allowed. (private-always-allowed is
+  # covered at the unit level in capability_check_test.)
 
   def post_create_note_via_mcp(collective:, declared_visibility:, token:)
     body = {
@@ -146,10 +146,10 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     JSON.parse(inner.to_s)
   end
 
-  test "AI agent is denied a public-zone action by default (public off unless granted)" do
+  test "AI agent is denied a public write by default (public off unless enabled)" do
     main = @tenant.main_collective
     main.enable_api!
-    agent = create_ai_agent(parent: @user, name: "Zone Default Agent",
+    agent = create_ai_agent(parent: @user, name: "Public Default Agent",
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     main.add_user!(agent)
@@ -157,21 +157,21 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
 
     assert_no_difference -> { Note.count } do
       # main collective → resolves to "public"; declared correctly, but the
-      # agent hasn't been granted the public zone.
+      # agent hasn't been granted public writes.
       post_create_note_via_mcp(collective: main, declared_visibility: "public", token: token)
     end
 
     assert_response :success # JSON-RPC envelopes the 403 in a tool error
     parsed = mcp_inner_error(response)
-    assert_equal "zone_restricted", parsed["error"]
+    assert_equal "public_writes_disabled", parsed["error"]
     assert_equal "public", parsed["zone"]
   end
 
-  test "AI agent granted the public zone may act there" do
+  test "AI agent with public writes enabled may act in the public space" do
     main = @tenant.main_collective
     main.enable_api!
-    agent = create_ai_agent(parent: @user, name: "Zone Public Agent",
-                            agent_configuration: { "mode" => "external", "visibility_zones" => ["public"] })
+    agent = create_ai_agent(parent: @user, name: "Public Write Agent",
+                            agent_configuration: { "mode" => "external", "allow_public_writes" => true })
     @tenant.add_user!(agent)
     main.add_user!(agent)
     token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
@@ -182,10 +182,10 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "AI agent may act in the shared zone by default" do
+  test "AI agent may act in the shared zone regardless of public-write setting" do
     # @collective is a non-main collective → resolves to "shared", which is
-    # on by default. No visibility_zones configured.
-    agent = create_ai_agent(parent: @user, name: "Zone Shared Agent",
+    # always allowed. No allow_public_writes configured.
+    agent = create_ai_agent(parent: @user, name: "Shared Zone Agent",
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
@@ -197,15 +197,15 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "AI agent on an mcp_only-disabled token is still zone-gated on a direct REST write (public denied by default)" do
-    # The asymmetry fix: the zone gate used to fire only under MCP dispatch, so
-    # an agent token an owner opted out of mcp_only could reach a direct REST
-    # write with its zone restriction silently dropped. Now the gate runs on
-    # every restricted-agent write, mirroring the capability check. main
-    # collective → resolves to "public", which is off by default.
+  test "AI agent on an mcp_only-disabled token is still public-gated on a direct REST write (public denied by default)" do
+    # The asymmetry fix: the gate used to fire only under MCP dispatch, so an
+    # agent token an owner opted out of mcp_only could reach a direct REST
+    # write with its restriction silently dropped. Now the gate runs on every
+    # restricted-agent write, mirroring the capability check. main collective →
+    # resolves to "public", which is off by default.
     main = @tenant.main_collective
     main.enable_api!
-    agent = create_ai_agent(parent: @user, name: "Direct-REST Zone Agent",
+    agent = create_ai_agent(parent: @user, name: "Direct-REST Public Agent",
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     main.add_user!(agent)
@@ -213,7 +213,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
 
     assert_no_difference -> { Note.count } do
       post "/collectives/#{main.handle}/note/actions/create_note",
-           params: { text: "should be zone-blocked" }.to_json,
+           params: { text: "should be public-blocked" }.to_json,
            headers: {
              "Content-Type" => "application/json",
              "Accept" => "application/json",
@@ -223,14 +223,14 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     body = response.parsed_body
-    assert_equal "zone_restricted", body["error"]
+    assert_equal "public_writes_disabled", body["error"]
     assert_equal "public", body["zone"]
   end
 
-  test "AI agent on an mcp_only-disabled token may write to the shared zone via direct REST (default grant)" do
+  test "AI agent on an mcp_only-disabled token may write to the shared zone via direct REST (always allowed)" do
     # Companion to the test above: the gate runs on the direct path but allows
     # what the agent is actually permitted. @collective is non-main → "shared",
-    # on by default. Proves the fix gates rather than blanket-blocking direct
+    # always allowed. Proves the fix gates rather than blanket-blocking direct
     # writes, and that mcp_only:false genuinely reaches the action.
     agent = create_ai_agent(parent: @user, name: "Direct-REST Shared Agent",
                             agent_configuration: { "mode" => "external" })
@@ -250,15 +250,16 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "AI agent on an mcp_only-disabled token hitting an unknown action gets the 404 teaching error, not a zone 403" do
-    # Now that the zone gate runs on every restricted-agent write, it must defer
-    # to the unknown-action catch-all exactly as ActionCapabilityCheck does — an
-    # action name that exists nowhere should yield the useful 404 + action list,
-    # not be masked by a zone/visibility 403. Uses the main collective (→ public,
-    # off by default) so the zone gate WOULD fire if the exemption were missing.
+  test "AI agent on an mcp_only-disabled token hitting an unknown action gets the 404 teaching error, not a public-write 403" do
+    # Now that the public-write gate runs on every restricted-agent write, it
+    # must defer to the unknown-action catch-all exactly as ActionCapabilityCheck
+    # does — an action name that exists nowhere should yield the useful 404 +
+    # action list, not be masked by a public-write/visibility 403. Uses the main
+    # collective (→ public, off by default) so the gate WOULD fire if the
+    # exemption were missing.
     main = @tenant.main_collective
     main.enable_api!
-    agent = create_ai_agent(parent: @user, name: "Unknown-Action Zone Agent",
+    agent = create_ai_agent(parent: @user, name: "Unknown-Action Public Agent",
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     main.add_user!(agent)
@@ -284,7 +285,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
     assert_includes response.body, "totally_made_up_action"
-    refute_includes response.body, "visibility zone"
+    refute_includes response.body, "public_writes_disabled"
   end
 
   test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do

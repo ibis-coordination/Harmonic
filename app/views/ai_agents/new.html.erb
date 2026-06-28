@@ -80,9 +80,9 @@
       </section>
 
       <section class="pulse-settings-section">
-        <label class="pulse-label">Visibility zones</label>
-        <small class="pulse-hint">Restrict which audiences this agent may act in. Actions resolving to an unchecked zone will be blocked.</small>
-        <%= render "visibility_zones_section", current_zones: nil %>
+        <label class="pulse-label">Public writes</label>
+        <small class="pulse-hint">Whether this agent may write to the public space. Off by default; private and shared writes are always allowed.</small>
+        <%= render "public_writes_section", allow_public_writes: nil %>
       </section>
 
       <%
