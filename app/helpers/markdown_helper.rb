@@ -19,33 +19,20 @@ module MarkdownHelper
     # Filter through ActionAuthorization (handles role checks, capabilities, trustee grants, and blocks)
     current_user = instance_variable_get(:@current_user)
     context = build_authorization_context
-    all_actions = all_actions.select do |action|
-      # Executive decisions exclude the vote action
-      decision = context[:resource]
-      next false if decision.is_a?(Decision) && (decision.is_executive? || decision.is_lottery?) && action[:name] == "vote"
-
-      ActionAuthorization.authorized?(action[:name], current_user, context)
-    end
-
     collective = instance_variable_get(:@current_collective)
+    # Discovery must agree with execute-time enforcement, or the page advertises
+    # actions the gate will deny. The public-write guardrail
+    # (see ActionContextValidation / CapabilityCheck#public_writes_allowed?) denies
+    # any restricted-agent write whose resolved audience is "public" when the
+    # owner hasn't enabled allow_public_writes. Strip those here too.
+    public_writes_denied = current_user.present? &&
+                           !CapabilityCheck.public_writes_allowed?(current_user)
+    all_actions.filter_map do |action|
+      audience = Mcp::AudienceResolver.resolve(capability_action: action[:name], collective: collective)
+      next if audience == "public" && public_writes_denied
+      next unless action_allowed_at_this_route?(action, current_user, context)
 
-    all_actions.map do |action|
-      action_name = action[:name]
-      definition = ActionsHelper.action_definition(action_name)
-
-      {
-        name: action_name,
-        visibility: Mcp::AudienceResolver.resolve(capability_action: action_name, collective: collective),
-        description: action[:description] || definition&.dig(:description) || "",
-        params: (definition&.dig(:params) || []).map do |param|
-          {
-            name: param[:name],
-            type: param[:type] || "string",
-            required: param[:required] != false,
-            description: param[:description],
-          }
-        end,
-      }
+      build_action_descriptor(action, audience)
     end
   end
 
@@ -72,6 +59,31 @@ module MarkdownHelper
   end
 
   private
+
+  def action_allowed_at_this_route?(action, current_user, context)
+    decision = context[:resource]
+    # Executive/lottery decisions exclude the vote action
+    return false if decision.is_a?(Decision) && (decision.is_executive? || decision.is_lottery?) && action[:name] == "vote"
+
+    ActionAuthorization.authorized?(action[:name], current_user, context)
+  end
+
+  def build_action_descriptor(action, audience)
+    definition = ActionsHelper.action_definition(action[:name])
+    {
+      name: action[:name],
+      visibility: audience,
+      description: action[:description] || definition&.dig(:description) || "",
+      params: (definition&.dig(:params) || []).map do |param|
+        {
+          name: param[:name],
+          type: param[:type] || "string",
+          required: param[:required] != false,
+          description: param[:description],
+        }
+      end,
+    }
+  end
 
   # Build the route pattern from the current request.
   # Uses ActionsHelper.route_pattern_for as the single source of truth.
