@@ -2,6 +2,7 @@
 
 class AiAgentsController < ApplicationController
   include RequiresReverification
+  include NotificationPreferencesParams
 
   TASK_RUNS_PER_MINUTE = 5
 
@@ -11,6 +12,7 @@ class AiAgentsController < ApplicationController
   before_action :require_any_ai_agents_enabled, only: [
     :index, :show, :settings, :update_settings,
     :describe_update_ai_agent, :execute_update_ai_agent, :settings_actions_index,
+    :update_notification_preferences, :describe_update_notification_preferences, :execute_update_notification_preferences,
   ]
   before_action :require_internal_ai_agents_enabled, only: [:run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
@@ -25,11 +27,13 @@ class AiAgentsController < ApplicationController
                 only: [:new, :create, :execute_create_ai_agent]
   before_action :set_ai_agent,
                 only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate,
-                       :reactivate,]
-  before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index]
+                       :reactivate, :update_notification_preferences, :describe_update_notification_preferences,
+                       :execute_update_notification_preferences,]
+  before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index, :describe_update_notification_preferences]
   before_action :authorize_parent, only: [
     :update_settings, :describe_update_ai_agent, :execute_update_ai_agent,
     :deactivate, :reactivate,
+    :update_notification_preferences, :execute_update_notification_preferences,
   ]
 
   # GET /ai-agents - List all AI agents owned by current user
@@ -571,6 +575,47 @@ class AiAgentsController < ApplicationController
                             error: @ai_agent.errors.full_messages.join(", "),
                           })
     end
+  end
+
+  # POST /ai-agents/:handle/settings/notifications
+  # HTML form submit of the agent's full notification preference matrix.
+  def update_notification_preferences
+    tu = @ai_agent.tenant_user
+    if tu.nil?
+      flash[:error] = "Could not load this agent's settings."
+      return redirect_to ai_agent_settings_path(@ai_agent.handle)
+    end
+
+    tu.update_notification_preferences!(notification_preferences_from_params(complete: true))
+
+    flash[:notice] = "Notification preferences updated"
+    redirect_to ai_agent_settings_path(@ai_agent.handle)
+  end
+
+  def describe_update_notification_preferences
+    render_action_description(ActionsHelper.action_description("update_notification_preferences", resource: @ai_agent))
+  end
+
+  # POST /ai-agents/:handle/settings/actions/update_notification_preferences
+  # Markdown action surface: partial merge of the supplied channel toggles.
+  def execute_update_notification_preferences
+    tu = @ai_agent.tenant_user
+    if tu.nil?
+      return render_action_error({
+                                   action_name: "update_notification_preferences",
+                                   resource: @ai_agent,
+                                   error: "Could not load this agent's settings.",
+                                 })
+    end
+
+    tu.update_notification_preferences!(notification_preferences_from_params(complete: false))
+
+    render_action_success({
+                            action_name: "update_notification_preferences",
+                            resource: @ai_agent,
+                            result: "Notification preferences updated",
+                            redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
+                          })
   end
 
   def current_resource_model

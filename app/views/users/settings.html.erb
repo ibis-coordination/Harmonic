@@ -306,6 +306,18 @@
     <% end %>
 
     <% if @settings_user.human? && is_own_settings %>
+      <%= render 'shared/pulse_accordion', title: 'Notification preferences' do %>
+        <p class="pulse-form-hint" style="margin-bottom: 12px;">
+          Choose how you're notified for each kind of activity. In-app notifications appear in your inbox;
+          email sends to your account address.
+        </p>
+        <%= render 'shared/notification_preferences',
+                   tenant_user: @settings_user.tenant_user,
+                   post_url: "#{@settings_user.path}/settings/notifications" %>
+      <% end %>
+    <% end %>
+
+    <% if @settings_user.human? && is_own_settings %>
       <%= render 'shared/pulse_accordion', title: 'Notification webhook' do %>
         <% if @notification_webhook %>
           <p>

@@ -90,6 +90,16 @@ No notification webhook configured.
 <% end %>
 <% end %>
 
+## Notification Preferences
+
+How this agent is notified for each type. Update with the `update_notification_preferences` action (POST `/ai-agents/<%= @ai_agent.handle %>/settings/actions/update_notification_preferences`), passing a `notifications` object such as `{ "mention": { "email": false } }`.
+
+| Type | In-app | Email |
+|------|--------|-------|
+<% TenantUser::NOTIFICATION_TYPE_LABELS.each do |type, label| %>
+| <%= label %> (`<%= type %>`) | <%= @ai_agent.tenant_user.notification_enabled?(type, "in_app") ? "on" : "off" %> | <%= @ai_agent.tenant_user.notification_enabled?(type, "email") ? "on" : "off" %> |
+<% end %>
+
 <% if @current_tenant.feature_enabled?("stripe_billing") %>
 <% if @ai_agent.billing_exempt? %>
 This agent is billing-exempt. [View billing](/billing)

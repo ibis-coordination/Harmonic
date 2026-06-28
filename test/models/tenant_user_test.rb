@@ -107,6 +107,48 @@ class TenantUserTest < ActiveSupport::TestCase
     assert_empty channels
   end
 
+  test "update_notification_preferences! applies a multi-type, multi-channel update" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant_user = user.tenant_user
+
+    tenant_user.update_notification_preferences!(
+      "mention" => { "email" => false },
+      "comment" => { "email" => true, "in_app" => false },
+    )
+    tenant_user.reload
+
+    refute tenant_user.notification_enabled?("mention", "email")
+    assert tenant_user.notification_enabled?("mention", "in_app"), "untouched channel keeps its default"
+    assert tenant_user.notification_enabled?("comment", "email")
+    refute tenant_user.notification_enabled?("comment", "in_app")
+  end
+
+  test "update_notification_preferences! merges — types not supplied keep their existing values" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant_user = user.tenant_user
+
+    tenant_user.set_notification_preference!("system", "email", false)
+    tenant_user.update_notification_preferences!("mention" => { "email" => false })
+    tenant_user.reload
+
+    refute tenant_user.notification_enabled?("system", "email"), "earlier change is preserved"
+    refute tenant_user.notification_enabled?("mention", "email")
+  end
+
+  test "update_notification_preferences! ignores unknown types and channels" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant_user = user.tenant_user
+
+    tenant_user.update_notification_preferences!(
+      "bogus_type" => { "email" => true },
+      "comment" => { "carrier_pigeon" => true },
+    )
+    tenant_user.reload
+
+    refute tenant_user.notification_preferences.key?("bogus_type")
+    refute tenant_user.notification_preferences["comment"].key?("carrier_pigeon")
+  end
+
   # === Handle generation ===
 
   test "add_user! generates a unique handle when another tenant user already has the name-derived one" do

@@ -1,0 +1,36 @@
+<%# Notification delivery preferences: a notification-type x channel checkbox
+    matrix. Unchecked boxes are omitted by the browser and recorded as false by
+    UsersController/AiAgentsController (notification_preferences_from_params,
+    complete: true).
+    Locals:
+      tenant_user — TenantUser whose preferences are shown/edited
+      post_url    — form target that handles the submit %>
+<%= form_with url: post_url, method: :post, class: "pulse-form" do %>
+  <table class="pulse-table">
+    <thead>
+      <tr>
+        <th scope="col">Notification</th>
+        <% TenantUser::NOTIFICATION_CHANNELS.each do |channel| %>
+          <th scope="col"><%= channel == "in_app" ? "In-app" : "Email" %></th>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% TenantUser::NOTIFICATION_TYPE_LABELS.each do |type, label| %>
+        <tr>
+          <th scope="row" style="font-weight: 400;"><%= label %></th>
+          <% TenantUser::NOTIFICATION_CHANNELS.each do |channel| %>
+            <td>
+              <label class="pulse-checkbox-label" aria-label="<%= label %> — <%= channel == "in_app" ? "in-app" : "email" %>">
+                <%= check_box_tag "notifications[#{type}][#{channel}]", "true", tenant_user.notification_enabled?(type, channel) %>
+              </label>
+            </td>
+          <% end %>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+  <div class="pulse-form-actions">
+    <%= submit_tag "Save notification preferences", class: "pulse-action-btn-primary" %>
+  </div>
+<% end %>

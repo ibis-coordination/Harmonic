@@ -646,6 +646,43 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal true, @ai_agent.agent_configuration["allow_public_writes"]
   end
 
+  # === Agent notification preferences ===
+
+  test "agent settings page renders the notification preferences matrix" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/ai-agents/#{@ai_agent_handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "Notification preferences"
+    assert_includes response.body, "notifications[comment][email]"
+  end
+
+  test "parent can update an agent's notification preferences via the HTML form" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/settings/notifications",
+      params: { notifications: { comment: { email: "true" }, mention: { in_app: "true" } } }
+
+    assert_response :redirect
+    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "email")
+    refute tu.notification_enabled?("mention", "email"), "omitted box recorded as off"
+  end
+
+  test "parent can update an agent's notification preferences via the markdown action" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/settings/actions/update_notification_preferences",
+      params: { notifications: { mention: { email: "false" } } },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
+    refute tu.notification_enabled?("mention", "email"), "supplied toggle applied"
+    assert tu.notification_enabled?("comment", "in_app"), "untouched type keeps its default"
+  end
+
   test "settings page links to billing for archived agent instead of reactivation form" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)

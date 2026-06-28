@@ -161,6 +161,25 @@ class TenantUser < ApplicationRecord
     "trustee_authorization" => { "in_app" => true, "email" => false },
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
+  # User-facing labels for each notification type, in display order. Keys must
+  # stay in sync with DEFAULT_NOTIFICATION_PREFERENCES and
+  # Notification::NOTIFICATION_TYPES. Drives the settings UI and the markdown
+  # action surface.
+  NOTIFICATION_TYPE_LABELS = T.let({
+    "mention" => "Mentions",
+    "comment" => "Comments",
+    "participation" => "Participation (votes, joins, RSVPs)",
+    "system" => "System & account",
+    "reminder" => "Reminders",
+    "chat_message" => "Chat messages",
+    "trio_unavailable" => "Trio unavailable",
+    "tune_in" => "Tune-ins",
+    "trustee_authorization" => "Trustee authorizations",
+  }.freeze, T::Hash[String, String])
+
+  # Delivery channels a user can toggle per notification type.
+  NOTIFICATION_CHANNELS = T.let(%w[in_app email].freeze, T::Array[String])
+
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }
   def notification_preferences
     settings_hash = T.cast(settings, T.nilable(T::Hash[String, T.untyped]))
@@ -195,6 +214,32 @@ class TenantUser < ApplicationRecord
     notification_prefs = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
     notification_prefs[notification_type] ||= {}
     T.must(notification_prefs[notification_type])[channel] = enabled
+    save!
+  end
+
+  # Bulk-update notification preferences from a nested hash of
+  # { type => { channel => bool } }. Unknown types/channels are ignored;
+  # types/channels absent from the hash are left unchanged (merge, not replace),
+  # so partial updates from the markdown action surface are safe. The HTML
+  # settings form passes a complete matrix, so every box reflects its state.
+  sig { params(preferences: T::Hash[String, T::Hash[String, T::Boolean]]).void }
+  def update_notification_preferences!(preferences)
+    self.settings ||= {}
+    settings_hash = T.cast(settings, T::Hash[String, T.untyped])
+    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    current = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
+
+    preferences.each do |type, channels|
+      next unless NOTIFICATION_TYPE_LABELS.key?(type)
+      next unless channels.is_a?(Hash)
+
+      current[type] ||= {}
+      channels.each do |channel, enabled|
+        next unless NOTIFICATION_CHANNELS.include?(channel)
+
+        T.must(current[type])[channel] = enabled
+      end
+    end
     save!
   end
 

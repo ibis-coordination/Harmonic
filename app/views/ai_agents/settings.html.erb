@@ -291,6 +291,17 @@
         </section>
       <% end %>
 
+      <section class="pulse-settings-section">
+        <h3>Notification preferences</h3>
+        <p class="pulse-form-hint" style="margin-bottom: 12px;">
+          Choose how this agent is notified for each kind of activity. In-app notifications appear in its
+          inbox; email sends to the agent's account address (if set).
+        </p>
+        <%= render 'shared/notification_preferences',
+                   tenant_user: @ai_agent.tenant_user,
+                   post_url: "/ai-agents/#{@ai_agent.handle}/settings/notifications" %>
+      </section>
+
       <% if @current_tenant.feature_enabled?("stripe_billing") %>
         <section class="pulse-settings-section">
           <p class="pulse-muted">

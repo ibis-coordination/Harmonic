@@ -762,4 +762,56 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Has 1 AI agent"
     assert_not_includes response.body, "Has 2 AI agents"
   end
+
+  # === Notification preferences ===
+
+  test "settings page renders the notification preferences matrix" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/u/#{@user.handle}/settings"
+
+    assert_response :success
+    assert_includes response.body, "Notification preferences"
+    assert_includes response.body, "notifications[comment][email]"
+  end
+
+  test "POST settings/notifications writes the full matrix and treats unchecked boxes as off" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Submit only two boxes checked. mention/email defaults to true and is now
+    # absent from the payload, so the complete-matrix write must turn it off.
+    post "/u/#{@user.handle}/settings/notifications",
+      params: { notifications: { comment: { email: "true" }, mention: { in_app: "true" } } }
+
+    assert_response :redirect
+    tu = @user.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "email")
+    refute tu.notification_enabled?("comment", "in_app"), "unchecked box recorded as off"
+    refute tu.notification_enabled?("mention", "email"), "omitted box recorded as off"
+    assert tu.notification_enabled?("mention", "in_app")
+  end
+
+  test "markdown action update_notification_preferences merges only supplied keys" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/u/#{@user.handle}/settings/actions/update_notification_preferences",
+      params: { notifications: { comment: { email: "true" } } },
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    tu = @user.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "email"), "supplied toggle applied"
+    assert tu.notification_enabled?("mention", "email"), "untouched type keeps its default"
+  end
+
+  test "cannot update another user's notification preferences" do
+    other = create_user(email: "other-#{SecureRandom.hex(4)}@example.com", name: "Other Person")
+    other_handle = @tenant.add_user!(other).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/u/#{other_handle}/settings/notifications",
+      params: { notifications: { comment: { email: "true" } } }
+
+    assert_response :forbidden
+  end
 end
