@@ -745,8 +745,8 @@ class NoteTest < ActiveSupport::TestCase
     tenant2 = create_tenant(subdomain: "tenant2-#{SecureRandom.hex(4)}")
     user = create_user
 
-    collective1 = create_collective(tenant: tenant1, created_by: user, handle: "studio1-#{SecureRandom.hex(4)}")
-    collective2 = create_collective(tenant: tenant2, created_by: user, handle: "studio2-#{SecureRandom.hex(4)}")
+    collective1 = create_collective(tenant: tenant1, created_by: user, handle: "collective1-#{SecureRandom.hex(4)}")
+    collective2 = create_collective(tenant: tenant2, created_by: user, handle: "collective2-#{SecureRandom.hex(4)}")
 
     note = Note.create!(
       tenant: tenant1,
