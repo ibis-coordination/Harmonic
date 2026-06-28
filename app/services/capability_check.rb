@@ -320,13 +320,13 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     # Non-restricted users (see `restricted_user?`) have no write restrictions.
     return true unless restricted_user?(user)
 
-    # Off by default: only an explicit truthy `allow_public_writes` enables it.
-    # Cast rather than `!!` so the gate stays closed for falsey values that
-    # survive in JSONB as strings — e.g. "false", "0", "f". The write paths
-    # (AiAgentsController#update_settings, ApiHelper) already cast to a real
-    # boolean, but a hand-edited config or seed could leave a string here, and
-    # `!!"false"` is `true` — a fail-open we don't want on a security gate.
-    ActiveModel::Type::Boolean.new.cast(user.agent_configuration&.dig("allow_public_writes")) || false
+    # Off by default: only the boolean `true` enables it. The write paths
+    # (AiAgentsController#update_settings, ApiHelper) cast input to a real
+    # boolean, so `true` is the only value we ever expect to store. We compare
+    # against it explicitly rather than coercing on read: an unexpected value
+    # (a string left by a hand-edited config or seed, anything other than
+    # `true`) should keep the gate closed, not be interpreted. Fail closed.
+    user.agent_configuration&.dig("allow_public_writes") == true
   end
 
   # Check if a user has capability for an action
