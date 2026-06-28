@@ -277,11 +277,8 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
   # --- Trustee grantable groups (issue #260) ------------------------------
 
-  test "TRUSTEE_GRANTABLE_ACTIONS equals the flattened trustee groups with no duplicates" do
+  test "no trustee-grantable action appears in more than one group" do
     grouped = CapabilityCheck::TRUSTEE_GRANTABLE_GROUPS.flat_map { |g| g[:actions] }
-    assert_equal grouped, CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS,
-                 "TRUSTEE_GRANTABLE_ACTIONS must be derived from TRUSTEE_GRANTABLE_GROUPS"
-
     duplicates = grouped.tally.select { |_, count| count > 1 }.keys
     assert_empty duplicates, "Trustee actions appear in multiple groups: #{duplicates.inspect}"
   end

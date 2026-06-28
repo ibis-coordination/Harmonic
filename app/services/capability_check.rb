@@ -303,8 +303,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
   #     grant's permission map governs what the trustee may do *while acting
   #     on the grantor's behalf*; accepting grants, representing, and granting
   #     trusteeship govern the relationship itself, not in-session behavior, so
-  #     listing them in a per-grant checklist is a category error. See
-  #     .claude/plans/representation-territory-map.md.
+  #     listing them in a per-grant checklist is a category error.
   #   - adds "Collective presence" (send_heartbeat). Trustees could already be
   #     granted this; agents instead get it as an always-allowed infrastructure
   #     action, so it isn't in the agent grantable groups.

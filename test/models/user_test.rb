@@ -1275,6 +1275,14 @@ class UserTest < ActiveSupport::TestCase
     TrusteeGrant::GRANTABLE_ACTIONS.each do |action_name|
       assert permission.has_action_permission?(action_name), "Auto-created permission should have #{action_name} action"
     end
+
+    # Anchor the scope explicitly — the parent's auto-grant covers destructive
+    # and content-management actions, not just the create/edit/vote subset.
+    # If the grantable list narrows, this asserts the parent still gets these.
+    %w[delete_note delete_decision delete_commitment remove_attachment report_content send_message].each do |action_name|
+      assert permission.has_action_permission?(action_name),
+             "Parent's auto-grant should cover #{action_name}"
+    end
   end
 
   test "auto-created TrusteeGrant allows all collectives" do
