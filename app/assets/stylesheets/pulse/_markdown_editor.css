@@ -1,0 +1,53 @@
+/*
+ * Markdown editor: GitHub-style Write / Preview toggle for text-entry forms.
+ * Colors use the shared --color-* tokens from root_variables.css.
+ */
+
+.pulse-md-editor {
+  width: 100%;
+}
+
+.pulse-md-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.pulse-md-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--color-fg-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
+}
+
+.pulse-md-tab:hover {
+  color: var(--color-fg-default);
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-md-tab.is-active {
+  color: var(--color-fg-default);
+  background: var(--color-canvas-subtle);
+  border-color: var(--color-border-default);
+}
+
+.pulse-md-preview {
+  min-height: 6em;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-canvas-default);
+}
+
+.pulse-md-empty {
+  color: var(--color-fg-muted);
+  font-style: italic;
+  margin: 0;
+}

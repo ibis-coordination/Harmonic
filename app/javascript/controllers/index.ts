@@ -41,6 +41,7 @@ import LightboxController from "./lightbox_controller"
 import LogoutController from "./logout_controller"
 import MemberSelectController from "./member_select_controller"
 import MentionAutocompleteController from "./mention_autocomplete_controller"
+import MarkdownPreviewController from "./markdown_preview_controller"
 import MetricController from "./metric_controller"
 import MoreButtonController from "./more_button_controller"
 import NavController from "./nav_controller"
@@ -115,6 +116,7 @@ application.register("list-form", ListFormController)
 application.register("logout", LogoutController)
 application.register("member-select", MemberSelectController)
 application.register("mention-autocomplete", MentionAutocompleteController)
+application.register("markdown-preview", MarkdownPreviewController)
 application.register("metric", MetricController)
 application.register("more-button", MoreButtonController)
 application.register("nav", NavController)

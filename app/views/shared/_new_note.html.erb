@@ -1,8 +1,8 @@
 <%= form_with url: "#{@current_collective.path}/note" do |form| %>
-  <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-    <%= form.text_area :text, placeholder: @current_collective.private_workspace? ? "Note" : "Note (use @ to mention users)", autofocus: true, style: 'height:6em;width:100%;background:none;border:none;', data: { mention_autocomplete_target: "input" } %>
-    <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-  </div>
+  <%= render 'shared/markdown_editor', form: form,
+        placeholder: @current_collective.private_workspace? ? "Note" : "Note (use @ to mention users)",
+        autofocus: true,
+        textarea_style: 'height:6em;width:100%;background:none;border:none;' %>
   <%= render 'shared/multi_file_select', form: form %>
   <%= form.submit 'Post' %>
   <span>
