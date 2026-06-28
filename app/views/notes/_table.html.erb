@@ -25,7 +25,7 @@
         <% table.rows.each do |row| %>
           <tr>
             <% table.columns.each do |col| %>
-              <td><%= row[col["name"]] %></td>
+              <td><%= markdown_inline(row[col["name"]]) %></td>
             <% end %>
             <% if @note.user_can_edit_content?(@current_user) %>
               <td>

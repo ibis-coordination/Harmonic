@@ -1807,4 +1807,32 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "reminder", note.subtype
     assert_not_nil note.reminder_notification_id
   end
+
+  # === Table note HTML rendering ===
+
+  test "table note HTML view renders markdown links in cells instead of raw text" do
+    sign_in_as(@user, tenant: @tenant)
+
+    note = Note.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      updated_by: @user,
+      subtype: "table",
+      title: "Links table",
+      text: "",
+      table_data: {
+        "description" => "",
+        "columns" => [{ "name" => "Link", "type" => "text" }],
+        "rows" => [{ "_id" => "r1", "Link" => "[Example](https://example.com)" }],
+      },
+    )
+
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+    assert_response :success
+
+    # The cell value should be rendered as a clickable link, not raw markdown text
+    assert_match(/<a [^>]*href="https:\/\/example\.com"/, response.body)
+    assert_not_includes response.body, "[Example](https://example.com)"
+  end
 end
