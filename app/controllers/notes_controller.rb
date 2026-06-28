@@ -439,7 +439,7 @@ class NotesController < ApplicationController
     markdown = NoteTableFormatter.to_markdown({
       "columns" => table.columns,
       "rows" => result[:rows],
-    })
+    }, include_ids: true)
     render_action_success({
       action_name: "query_rows",
       resource: current_note,

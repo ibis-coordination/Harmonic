@@ -753,6 +753,21 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "pending"
   end
 
+  test "query_rows action exposes each row's _id so it can be updated or deleted" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/query_rows",
+      params: {},
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "| _id | Status | Due |"
+    assert_includes response.body, row["_id"], "query_rows must surface the row _id needed by update_row/delete_row"
+  end
+
   test "summarize action returns aggregation result" do
     sign_in_as(@user, tenant: @tenant)
     note = Note.create!(

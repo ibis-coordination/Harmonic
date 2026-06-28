@@ -62,6 +62,8 @@ The `query_rows` action supports:
 - `limit` — Max rows to return (default 20)
 - `offset` — Skip rows for pagination
 
+`query_rows` results include each row's `_id` as the first column. This is how you obtain the `row_id` needed by `update_row` and `delete_row` for rows you did not just add — the rendered table and note body omit `_id`, so query first, then update or delete.
+
 ### Aggregation
 
 The `summarize` action computes a value over rows:

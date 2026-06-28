@@ -21,6 +21,51 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
     assert_includes result, "| in_progress | 2026-04-28 |"
   end
 
+  test "omits _id column by default" do
+    table_data = {
+      "columns" => [{ "name" => "Status", "type" => "text" }],
+      "rows" => [{ "_id" => "abc1", "Status" => "done" }],
+    }
+
+    result = NoteTableFormatter.to_markdown(table_data)
+
+    assert_includes result, "| Status |"
+    refute_includes result, "_id"
+    refute_includes result, "abc1"
+  end
+
+  test "prepends _id column when include_ids is true" do
+    table_data = {
+      "columns" => [
+        { "name" => "Status", "type" => "text" },
+        { "name" => "Due", "type" => "date" },
+      ],
+      "rows" => [
+        { "_id" => "abc1", "Status" => "done", "Due" => "2026-04-20" },
+        { "_id" => "def2", "Status" => "in_progress", "Due" => "2026-04-28" },
+      ],
+    }
+
+    result = NoteTableFormatter.to_markdown(table_data, include_ids: true)
+
+    assert_includes result, "| _id | Status | Due |"
+    assert_includes result, "| --- | --- | --- |"
+    assert_includes result, "| abc1 | done | 2026-04-20 |"
+    assert_includes result, "| def2 | in_progress | 2026-04-28 |"
+  end
+
+  test "renders blank _id cell when a row has no _id and include_ids is true" do
+    table_data = {
+      "columns" => [{ "name" => "Status", "type" => "text" }],
+      "rows" => [{ "Status" => "done" }],
+    }
+
+    result = NoteTableFormatter.to_markdown(table_data, include_ids: true)
+
+    assert_includes result, "| _id | Status |"
+    assert_includes result, "|  | done |"
+  end
+
   test "prepends description before table" do
     table_data = {
       "description" => "Task tracker for Q2.",
