@@ -311,4 +311,24 @@ class CapabilityCheckTest < ActiveSupport::TestCase
 
     assert CapabilityCheck.public_writes_allowed?(@ai_agent)
   end
+
+  # Test: a falsey value that survives in JSONB as a string keeps the gate
+  # closed. The write paths cast to a real boolean, but a hand-edited config or
+  # seed could leave a string here — and `!!"false"` is `true`, a fail-open we
+  # must not allow on a security gate.
+  test "ai_agent with allow_public_writes string \"false\" cannot write publicly" do
+    ["false", "0", "f", "off", ""].each do |falsey|
+      @ai_agent.update_columns(agent_configuration: { "allow_public_writes" => falsey })
+
+      assert_not CapabilityCheck.public_writes_allowed?(@ai_agent),
+                 "expected #{falsey.inspect} to keep public writes off"
+    end
+  end
+
+  # Test: a truthy string value still enables public writes (cast both ways).
+  test "ai_agent with allow_public_writes string \"true\" may write publicly" do
+    @ai_agent.update_columns(agent_configuration: { "allow_public_writes" => "true" })
+
+    assert CapabilityCheck.public_writes_allowed?(@ai_agent)
+  end
 end
