@@ -20,7 +20,8 @@ class MarkdownRenderer
     ),
     autolink: true,
     tables: true,
-    fenced_code_blocks: true
+    fenced_code_blocks: true,
+    no_intra_emphasis: true # Don't treat intra-word underscores as emphasis (e.g. a_b c_d)
   )
 
   sig { params(content: T.untyped, shift_headers: T::Boolean, display_references: T::Boolean).returns(String) }

@@ -43,6 +43,22 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert html.include?("<em>italic</em>")
   end
 
+  test "render does not treat intra-word underscores as italics" do
+    markdown = "a_b c_d"
+    html = MarkdownRenderer.render(markdown)
+
+    # no_intra_emphasis keeps underscores inside/between words literal
+    assert html.include?("a_b c_d"), "Expected underscores to be preserved literally: #{html}"
+    assert_not html.include?("<em>"), "Expected no <em> tag for intra-word underscores: #{html}"
+  end
+
+  test "render still converts underscore-delimited italics" do
+    markdown = "This is _italic_ text"
+    html = MarkdownRenderer.render(markdown)
+
+    assert html.include?("<em>italic</em>"), "Expected single-underscore emphasis to still render: #{html}"
+  end
+
   test "render converts links" do
     markdown = "[Click here](https://example.com)"
     html = MarkdownRenderer.render(markdown)
