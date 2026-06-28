@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Incomplete capabilities list on the trustee-authorization form** (#260) — the new-grant form listed a stale, hand-maintained subset of 17 actions. It now renders the full grouped capability list, mirroring the agent capability form, from a shared source of truth (`CapabilityCheck::TRUSTEE_GRANTABLE_GROUPS`), so the form and `TrusteeGrant::GRANTABLE_ACTIONS` can no longer drift. Excludes the rep-lifecycle / trustee-admin groups (which gate the representation relationship, not in-session behavior) and keeps collective presence (`send_heartbeat`).
+
 ## [1.31.0] - 2026-06-27
 
 ### Added

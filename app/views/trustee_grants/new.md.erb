@@ -17,9 +17,16 @@ Grant another user authority to act on your behalf. They will need to accept the
 
 ## Grantable Actions
 
-<% @grantable_actions.each do |action_name| -%>
+<% @grantable_groups.each do |group| -%>
+### <%= group[:name] %>
+
+<%= group[:description] %>
+
+<% group[:actions].each do |action_name| -%>
 <% action_def = ActionsHelper::ACTION_DEFINITIONS[action_name] -%>
 * `<%= action_name %>` - <%= action_def&.dig(:description) || action_name.humanize %>
+<% end -%>
+
 <% end -%>
 
 ## Available Users

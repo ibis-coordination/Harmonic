@@ -4,27 +4,12 @@ class TrusteeGrant < ApplicationRecord
   extend T::Sig
   include HasTruncatedId
 
-  # Actions that can be granted to trustees
-  # Uses actual action names from ActionsHelper::ACTION_DEFINITIONS
-  GRANTABLE_ACTIONS = T.let([
-    "create_note",
-    "update_note",
-    "create_decision",
-    "update_decision_settings",
-    "create_commitment",
-    "update_commitment_settings",
-    "vote",
-    "add_options",
-    "join_commitment",
-    "add_comment",
-    "pin_note",
-    "unpin_note",
-    "pin_decision",
-    "unpin_decision",
-    "pin_commitment",
-    "unpin_commitment",
-    "send_heartbeat",
-  ].freeze, T::Array[String])
+  # Actions that can be granted to trustees. Uses actual action names from
+  # ActionsHelper::ACTION_DEFINITIONS. Derived from the trustee capability
+  # groups (issue #260) so the new-grant form and this allowlist share a
+  # single source of truth and can't drift — historically this was a stale,
+  # hand-maintained subset of the full capability list.
+  GRANTABLE_ACTIONS = T.let(CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS, T::Array[String])
 
   belongs_to :tenant
   belongs_to :granting_user, class_name: "User"

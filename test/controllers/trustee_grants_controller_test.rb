@@ -341,6 +341,10 @@ class TrusteeGrantsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "create_note"
     assert_includes response.body, "vote"
+    # #260: the form now renders the full grouped capability list, so actions
+    # missing from the old hand-maintained subset must show up too.
+    assert_includes response.body, "add_summary"
+    assert_includes response.body, "report_content"
   end
 
   # === Create Tests ===

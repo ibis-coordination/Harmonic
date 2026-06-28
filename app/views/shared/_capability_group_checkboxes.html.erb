@@ -1,0 +1,34 @@
+<%# Grouped capability checkboxes, shared by capability-granting forms (the
+    trustee-authorization form today; the agent capability form can adopt it
+    too). Each group renders with all / none toggles.
+
+    Locals:
+      groups     — array of { name:, description:, actions: [...] }
+      param_name — form field name, e.g. "permissions[]" or "capabilities[]"
+      selected   — array of action strings to pre-check (default: none)
+      id_prefix  — DOM id prefix for checkbox ids (default: "cap") %>
+
+<% selected = local_assigns.fetch(:selected, []) %>
+<% id_prefix = local_assigns.fetch(:id_prefix, "cap") %>
+
+<% groups.each do |group| %>
+  <div style="margin-top: 16px;" data-controller="checkbox-group">
+    <div style="font-weight: 500; font-size: 13px; margin-bottom: 4px; color: var(--text-primary); display: flex; align-items: center; gap: 12px;">
+      <span><%= group[:name] %></span>
+      <span style="font-weight: normal; font-size: 12px;">
+        <a href="#" data-action="checkbox-group#checkAll" class="pulse-link">all</a>
+        /
+        <a href="#" data-action="checkbox-group#uncheckAll" class="pulse-link">none</a>
+      </span>
+    </div>
+    <small class="pulse-hint" style="display: block; margin-bottom: 8px;"><%= group[:description] %></small>
+    <div class="pulse-checkbox-group" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px;">
+      <% group[:actions].each do |action| %>
+        <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <%= check_box_tag param_name, action, selected.include?(action), id: "#{id_prefix}_#{action}", data: { checkbox_group_target: "checkbox" } %>
+          <code style="font-size: 12px;"><%= action %></code>
+        </label>
+      <% end %>
+    </div>
+  </div>
+<% end %>

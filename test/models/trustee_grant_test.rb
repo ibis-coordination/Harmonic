@@ -334,6 +334,17 @@ class TrusteeGrantTest < ActiveSupport::TestCase
     assert TrusteeGrant::GRANTABLE_ACTIONS.include?("join_commitment")
   end
 
+  test "GRANTABLE_ACTIONS shares a source of truth with the trustee form (#260)" do
+    # The model allowlist and the new-grant form must not drift — both derive
+    # from CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS.
+    assert_equal CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS, TrusteeGrant::GRANTABLE_ACTIONS
+
+    # Content capabilities that were missing from the old hand-maintained list.
+    %w[add_comment add_summary delete_note create_reminder_note report_content send_message].each do |action|
+      assert_includes TrusteeGrant::GRANTABLE_ACTIONS, action
+    end
+  end
+
   # =========================================================================
   # COLLECTIVE SCOPING
   # =========================================================================

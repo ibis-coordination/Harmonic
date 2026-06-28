@@ -275,6 +275,58 @@ class CapabilityCheckTest < ActiveSupport::TestCase
     end
   end
 
+  # --- Trustee grantable groups (issue #260) ------------------------------
+
+  test "TRUSTEE_GRANTABLE_ACTIONS equals the flattened trustee groups with no duplicates" do
+    grouped = CapabilityCheck::TRUSTEE_GRANTABLE_GROUPS.flat_map { |g| g[:actions] }
+    assert_equal grouped, CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS,
+                 "TRUSTEE_GRANTABLE_ACTIONS must be derived from TRUSTEE_GRANTABLE_GROUPS"
+
+    duplicates = grouped.tally.select { |_, count| count > 1 }.keys
+    assert_empty duplicates, "Trustee actions appear in multiple groups: #{duplicates.inspect}"
+  end
+
+  test "every trustee group has a name, description, and actions" do
+    CapabilityCheck::TRUSTEE_GRANTABLE_GROUPS.each do |group|
+      assert group[:name].is_a?(String) && group[:name].present?, "Group missing name: #{group.inspect}"
+      assert group[:description].is_a?(String) && group[:description].present?,
+             "Group missing description: #{group.inspect}"
+      assert group[:actions].is_a?(Array) && group[:actions].any?, "Group has no actions: #{group.inspect}"
+    end
+  end
+
+  test "every trustee-grantable action is a defined action" do
+    CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS.each do |action|
+      assert ActionsHelper::ACTION_DEFINITIONS.key?(action),
+             "Trustee action #{action} has no ActionsHelper definition"
+    end
+  end
+
+  test "trustee groups cover the full content capability set" do
+    # Regression guard for #260: the old list was a stale 17-action subset.
+    # These content actions were previously missing from the trustee form.
+    expected = %w[
+      create_note delete_note add_comment add_summary
+      create_decision delete_decision create_commitment delete_commitment
+      create_reminder_note create_table_note add_row report_content send_message
+      create_user_list tune_in send_heartbeat
+    ]
+    missing = expected - CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS
+    assert_empty missing, "Trustee form is missing content capabilities: #{missing.inspect}"
+  end
+
+  test "trustee groups exclude rep-lifecycle and trustee-admin actions" do
+    # These gate the representation relationship itself, not in-session
+    # behavior, so they don't belong on a per-grant permission checklist.
+    excluded = %w[
+      accept_trustee_authorization decline_trustee_authorization
+      create_trustee_authorization revoke_trustee_authorization
+      start_representation end_representation
+    ]
+    leaked = excluded & CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS
+    assert_empty leaked, "Rep-lifecycle actions leaked into trustee grantable set: #{leaked.inspect}"
+  end
+
   # --- Public-write guardrail ---------------------------------------------
 
   # Test: non-agents are never write-restricted.
