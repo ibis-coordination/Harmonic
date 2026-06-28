@@ -43,11 +43,11 @@ namespace :e2e do
       puts "Added user to tenant: #{tenant_subdomain}"
     end
 
-    # Add to main studio
+    # Add to main collective
     if tenant.main_collective
       unless tenant.main_collective.collective_members.exists?(user: user)
         tenant.main_collective.add_user!(user)
-        puts "Added user to main studio: #{tenant.main_collective.name}"
+        puts "Added user to main collective: #{tenant.main_collective.name}"
       end
     end
 
