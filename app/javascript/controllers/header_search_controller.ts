@@ -58,7 +58,7 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
 
   /**
    * Build the auto-populated prefix based on context.
-   * `list:<id>` takes precedence on list pages, then `scope:private` for
+   * `list:<id>` takes precedence on list pages, then `visibility:private` for
    * workspaces, then `collective:handle` for collectives.
    */
   private buildPrefix(): string | null {
@@ -67,7 +67,7 @@ export default class HeaderSearchController extends Controller<HTMLElement> {
     }
 
     if (this.workspaceValue) {
-      return "scope:private"
+      return "visibility:private"
     }
 
     const handle = this.collectiveHandleValue

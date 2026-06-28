@@ -812,9 +812,9 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes search.results.pluck(:item_id), @note.id
   end
 
-  # scope: operator tests
+  # visibility: operator tests
 
-  test "scope:public restricts search to main collective only" do
+  test "visibility:public restricts search to main collective only" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_collective.add_user!(@user)
@@ -823,7 +823,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "scope:public cycle:all"
+      raw_query: "visibility:public cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)
@@ -832,7 +832,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, @note.id
   end
 
-  test "scope:private returns only workspace content" do
+  test "visibility:private returns only workspace content" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_collective.add_user!(@user)
@@ -846,7 +846,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "scope:private cycle:all"
+      raw_query: "visibility:private cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)
@@ -855,7 +855,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, @note.id
   end
 
-  test "scope:shared returns non-public non-workspace content" do
+  test "visibility:shared returns non-public non-workspace content" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_collective.add_user!(@user)
@@ -869,7 +869,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "scope:shared cycle:all"
+      raw_query: "visibility:shared cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)
@@ -880,7 +880,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, workspace_note.id
   end
 
-  test "-scope:private excludes workspace content" do
+  test "-visibility:private excludes workspace content" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_collective.add_user!(@user)
@@ -894,7 +894,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "-scope:private cycle:all"
+      raw_query: "-visibility:private cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)
@@ -905,7 +905,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, workspace_note.id
   end
 
-  test "-scope:public excludes main collective content" do
+  test "-visibility:public excludes main collective content" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_collective.add_user!(@user)
@@ -919,7 +919,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
-      raw_query: "-scope:public cycle:all"
+      raw_query: "-visibility:public cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)
@@ -930,7 +930,7 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes result_ids, main_note.id
   end
 
-  test "scope:public for unauthenticated user returns main collective results" do
+  test "visibility:public for unauthenticated user returns main collective results" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     main_note = create_note(tenant: @tenant, collective: main_collective, created_by: @user, text: "public unauthenticated content")
@@ -938,7 +938,7 @@ class SearchQueryTest < ActiveSupport::TestCase
 
     search = SearchQuery.new(
       tenant: @tenant, current_user: nil,
-      raw_query: "scope:public cycle:all"
+      raw_query: "visibility:public cycle:all"
     )
 
     result_ids = search.results.pluck(:item_id)

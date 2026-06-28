@@ -112,7 +112,6 @@
   background: transparent;
   padding: 6px 10px 6px 0;
   font-size: 13px;
-  font-family: var(--fontStack-monospace);
   width: 180px;
   min-width: 120px;
   color: var(--color-fg-default);
