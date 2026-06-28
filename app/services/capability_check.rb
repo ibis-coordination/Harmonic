@@ -287,6 +287,42 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
   ].freeze
 
+  # Groups whose actions gate the representation *relationship* rather than
+  # what a trustee does in-session, so they're excluded from the trustee
+  # form (see TRUSTEE_GRANTABLE_GROUPS).
+  TRUSTEE_EXCLUDED_GROUP_NAMES = [
+    "Trustee authorization responses",
+    "Trustee authorization admin",
+    "Representation",
+  ].freeze
+
+  # Capability groups shown on the trustee-authorization form (issue #260),
+  # mirroring the agent capability form so the two surfaces stay in sync.
+  # Starts from AI_AGENT_GRANTABLE_GROUPS (the full content set), then:
+  #   - drops the rep-lifecycle / trustee-admin groups above. A trustee
+  #     grant's permission map governs what the trustee may do *while acting
+  #     on the grantor's behalf*; accepting grants, representing, and granting
+  #     trusteeship govern the relationship itself, not in-session behavior, so
+  #     listing them in a per-grant checklist is a category error.
+  #   - adds "Collective presence" (send_heartbeat). Trustees could already be
+  #     granted this; agents instead get it as an always-allowed infrastructure
+  #     action, so it isn't in the agent grantable groups.
+  TRUSTEE_GRANTABLE_GROUPS = (
+    AI_AGENT_GRANTABLE_GROUPS.reject { |group| TRUSTEE_EXCLUDED_GROUP_NAMES.include?(group[:name]) } +
+    [
+      {
+        name: "Collective presence",
+        description: "Send a heartbeat to mark presence in a collective's cycle.",
+        actions: ["send_heartbeat"],
+      },
+    ]
+  ).freeze
+
+  # Flat list of trustee-grantable action names, derived from the groups so the
+  # form and the model's permission allowlist (TrusteeGrant::GRANTABLE_ACTIONS)
+  # cannot drift apart.
+  TRUSTEE_GRANTABLE_ACTIONS = TRUSTEE_GRANTABLE_GROUPS.flat_map { |group| group[:actions] }.freeze
+
   # Public-write guardrail — the sibling restriction to capabilities.
   #
   # Capabilities restrict *which actions* an agent may take; this restricts

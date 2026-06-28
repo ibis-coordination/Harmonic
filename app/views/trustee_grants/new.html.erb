@@ -40,16 +40,14 @@ base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
 
       <section class="pulse-settings-section">
         <label class="pulse-label">What actions should they be able to perform?</label>
-        <p class="pulse-text-muted">Select the actions they can perform on your behalf.</p>
+        <p class="pulse-text-muted">Select the actions they can perform on your behalf. Nothing is granted by default.</p>
 
         <fieldset class="pulse-fieldset">
-          <% @grantable_actions.each do |action_name| %>
-            <% action_def = ActionsHelper::ACTION_DEFINITIONS[action_name] %>
-            <label class="pulse-checkbox-label">
-              <input type="checkbox" name="permissions[]" value="<%= action_name %>" class="pulse-checkbox">
-              <%= action_def&.dig(:description) || action_name.humanize %>
-            </label>
-          <% end %>
+          <%= render "shared/capability_group_checkboxes",
+                     groups: @grantable_groups,
+                     param_name: "permissions[]",
+                     selected: [],
+                     id_prefix: "perm" %>
         </fieldset>
       </section>
 

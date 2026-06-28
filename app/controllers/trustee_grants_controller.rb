@@ -59,7 +59,7 @@ class TrusteeGrantsController < ApplicationController
     @grant = TrusteeGrant.new
     @available_users = available_users_for_grant
     @available_collectives = @target_user.collectives.listable
-    @grantable_actions = TrusteeGrant::GRANTABLE_ACTIONS
+    @grantable_groups = CapabilityCheck::TRUSTEE_GRANTABLE_GROUPS
   end
 
   # =========================================================================

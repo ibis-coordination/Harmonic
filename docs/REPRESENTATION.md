@@ -236,14 +236,18 @@ TrusteeGrants enable user-to-user delegation with granular permissions.
 
 ### Grant Permissions
 
-Grants can specify which actions are allowed:
+Grants can specify which actions are allowed. The grantable list is derived
+from `CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS` (the trustee capability
+groups) so the new-grant form and this allowlist share one source of truth.
+It mirrors the agent capability groups minus the rep-lifecycle / trustee-admin
+groups (which gate the representation relationship, not in-session behavior),
+plus collective presence (`send_heartbeat`):
 
 ```ruby
-TrusteeGrant::GRANTABLE_ACTIONS = [
-  "create_note", "update_note", "create_decision", "vote",
-  "create_commitment", "join_commitment", "add_comment",
-  "pin_note", "unpin_note", # ... etc
-]
+TrusteeGrant::GRANTABLE_ACTIONS = CapabilityCheck::TRUSTEE_GRANTABLE_ACTIONS
+# => content actions across notes, decisions, commitments, comments,
+#    summaries, tables, reminders, attachments, chat, lists, reporting,
+#    and send_heartbeat
 ```
 
 ### Collective Scoping
