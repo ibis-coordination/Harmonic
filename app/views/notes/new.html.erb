@@ -20,17 +20,13 @@
     <div data-note-subtype-target="postFields"<%= ' style="display: none;"'.html_safe if @subtype != 'post' %>>
       <div class="pulse-form-group">
         <label class="pulse-form-label">Text</label>
-        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-          <%= form.text_area :text,
+        <%= render 'shared/markdown_editor', form: form, field: :text,
               placeholder: @current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)",
               autofocus: true,
-              value: @note.text,
-              class: "pulse-form-textarea",
-              rows: 8,
               required: true,
-              data: { mention_autocomplete_target: "input" } %>
-          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-        </div>
+              value: @note.text,
+              rows: 8,
+              textarea_class: "pulse-form-textarea" %>
       </div>
       <%= render 'shared/note_media_uploader', pending: true %>
     </div>
@@ -38,16 +34,13 @@
     <div data-note-subtype-target="reminderFields"<%= ' style="display: none;"'.html_safe unless @subtype == 'reminder' %>>
       <div class="pulse-form-group">
         <label class="pulse-form-label">Text</label>
-        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-          <%= form.text_area :text,
+        <%= render 'shared/markdown_editor', form: form, field: :text,
               placeholder: "What should you be reminded about?",
-              value: @note.text,
-              class: "pulse-form-textarea",
-              rows: 4,
               required: true,
-              data: { mention_autocomplete_target: "input", note_subtype_target: "reminderTextInput" } %>
-          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-        </div>
+              value: @note.text,
+              rows: 4,
+              textarea_class: "pulse-form-textarea",
+              extra_data: { note_subtype_target: "reminderTextInput" } %>
         <p class="pulse-form-hint">You and anyone @mentioned will be notified when this reminder fires.</p>
       </div>
       <div class="pulse-form-group">

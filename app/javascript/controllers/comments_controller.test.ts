@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import CommentsController from "./comments_controller"
+import MarkdownPreviewController from "./markdown_preview_controller"
 
 describe("CommentsController", () => {
   let application: Application
@@ -202,6 +203,64 @@ describe("CommentsController", () => {
       expect(consoleSpy).toHaveBeenCalled()
       // Button should be re-enabled after error
       expect(submitButton.disabled).toBe(false)
+    })
+  })
+
+  it("resets the markdown editor to Write mode after a successful submit", async () => {
+    document.body.innerHTML = `
+      <div class="pulse-comments-section"
+           data-controller="comments"
+           data-comments-refresh-url-value="/test-resource/comments.html">
+        <div class="pulse-comments-list" data-comments-target="list"></div>
+        <form data-comments-target="form"
+              action="/test-resource/comments"
+              method="post"
+              data-action="submit->comments#submit">
+          <div class="pulse-md-editor"
+               data-controller="markdown-preview"
+               data-markdown-preview-url-value="/markdown/preview">
+            <button type="button" data-markdown-preview-target="writeTab"
+                    data-action="markdown-preview#showWrite">Write</button>
+            <button type="button" data-markdown-preview-target="previewTab"
+                    data-action="markdown-preview#showPreview">Preview</button>
+            <textarea name="text" data-comments-target="textarea"
+                      data-markdown-preview-target="input"></textarea>
+            <div data-markdown-preview-target="preview" hidden></div>
+          </div>
+          <button type="submit" data-comments-target="submitButton">Add Comment</button>
+        </form>
+      </div>
+    `
+    application.register("markdown-preview", MarkdownPreviewController)
+
+    const textarea = document.querySelector("textarea") as HTMLTextAreaElement
+    const pane = document.querySelector("[data-markdown-preview-target='preview']") as HTMLElement
+
+    // Let both controllers connect (connect() puts the editor in Write mode).
+    await vi.waitFor(() => expect(textarea.hidden).toBe(false))
+
+    // Simulate the user having submitted from the Preview tab.
+    textarea.hidden = true
+    pane.hidden = false
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ success: true }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list"></div>'),
+      })
+    vi.stubGlobal("fetch", mockFetch)
+
+    textarea.value = "Hello"
+    document.querySelector("form")!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true })
+    )
+
+    // After a successful submit the editor is back in Write mode.
+    await vi.waitFor(() => {
+      expect(textarea.hidden).toBe(false)
+      expect(pane.hidden).toBe(true)
     })
   })
 

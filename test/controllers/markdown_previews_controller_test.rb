@@ -44,6 +44,21 @@ class MarkdownPreviewsControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, "Too much text"
   end
 
+  test "inline fallback renders an inline span rather than a block paragraph" do
+    sign_in_as(@user, tenant: @tenant)
+    post "/markdown/preview", params: { text: "a" * (MarkdownPreviewsController::MAX_PREVIEW_LENGTH + 1), inline: "true" }
+    assert_response :unprocessable_entity
+    assert_includes @response.body, "<span"
+    assert_not_includes @response.body, "<p"
+  end
+
+  test "block fallback renders a paragraph when not inline" do
+    sign_in_as(@user, tenant: @tenant)
+    post "/markdown/preview", params: { text: "a" * (MarkdownPreviewsController::MAX_PREVIEW_LENGTH + 1) }
+    assert_response :unprocessable_entity
+    assert_includes @response.body, "<p"
+  end
+
   test "requires authentication" do
     post "/markdown/preview", params: { text: "hi" }
     assert_response :redirect

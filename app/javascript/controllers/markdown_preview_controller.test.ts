@@ -126,6 +126,35 @@ describe("MarkdownPreviewController", () => {
     })
   })
 
+  it("ignores a stale preview response once a newer request supersedes it", async () => {
+    // First request hangs; we resolve it by hand after the second one lands.
+    let resolveFirst: (value: { ok: boolean; text: () => Promise<string> }) => void
+    const firstResponse = new Promise<{ ok: boolean; text: () => Promise<string> }>((resolve) => {
+      resolveFirst = resolve
+    })
+    const mockFetch = vi
+      .fn()
+      .mockImplementationOnce(() => firstResponse)
+      .mockResolvedValueOnce({ ok: true, text: () => Promise.resolve("<p>NEW</p>") })
+    vi.stubGlobal("fetch", mockFetch)
+
+    const { preview, textarea, pane } = els()
+
+    textarea.value = "first"
+    preview.click() // request 1 — left pending
+    textarea.value = "second"
+    preview.click() // request 2 — resolves first
+
+    await vi.waitFor(() => expect(pane.innerHTML).toContain("NEW"))
+
+    // Resolve the older request last; it must not overwrite the newer result.
+    resolveFirst!({ ok: true, text: () => Promise.resolve("<p>OLD</p>") })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(pane.innerHTML).toContain("NEW")
+    expect(pane.innerHTML).not.toContain("OLD")
+  })
+
   it("sends inline=true when configured", async () => {
     const editor = document.querySelector(".pulse-md-editor") as HTMLElement
     editor.setAttribute("data-markdown-preview-inline-value", "true")

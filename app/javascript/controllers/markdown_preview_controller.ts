@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { getCsrfToken } from "../utils/csrf"
+import { fetchWithCsrf } from "../utils/csrf"
 
 /**
  * Adds a GitHub-style Write / Preview toggle to a markdown text field.
@@ -40,6 +40,11 @@ export default class MarkdownPreviewController extends Controller {
   declare urlValue: string
   declare inlineValue: boolean
 
+  // Monotonic id stamped on each preview request. Only the most recent request
+  // is allowed to write to the pane, so a slow response can't overwrite a newer
+  // one (e.g. rapid Preview → Write → edit → Preview clicks).
+  private previewRequestId = 0
+
   connect(): void {
     this.showWrite()
   }
@@ -67,27 +72,31 @@ export default class MarkdownPreviewController extends Controller {
 
     this.previewTarget.innerHTML = `<p class="pulse-md-empty">Loading preview…</p>`
 
+    const requestId = ++this.previewRequestId
+
     try {
       const body = new URLSearchParams()
       body.set("text", text)
       if (this.inlineValue) body.set("inline", "true")
 
-      const response = await fetch(this.urlValue, {
+      const response = await fetchWithCsrf(this.urlValue, {
         method: "POST",
         headers: {
-          "X-CSRF-Token": getCsrfToken(),
           "Content-Type": "application/x-www-form-urlencoded",
           Accept: "text/html",
         },
         body: body.toString(),
       })
 
-      if (response.ok) {
-        this.previewTarget.innerHTML = await response.text()
-      } else {
-        this.previewTarget.innerHTML = `<p class="pulse-md-empty">Couldn't load preview.</p>`
-      }
+      const html = response.ok
+        ? await response.text()
+        : `<p class="pulse-md-empty">Couldn't load preview.</p>`
+
+      // A newer request started while we were awaiting — drop this stale result.
+      if (requestId !== this.previewRequestId) return
+      this.previewTarget.innerHTML = html
     } catch (error) {
+      if (requestId !== this.previewRequestId) return
       console.error("Error loading markdown preview:", error)
       this.previewTarget.innerHTML = `<p class="pulse-md-empty">Couldn't load preview.</p>`
     }

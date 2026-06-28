@@ -12,23 +12,31 @@ class MarkdownPreviewsController < ApplicationController
 
   def create
     text = params[:text].to_s
+    inline = params[:inline].to_s == "true"
 
     if text.length > MAX_PREVIEW_LENGTH
-      render html: helpers.tag.p("Too much text to preview.", class: "pulse-md-empty"), status: :unprocessable_entity
+      render html: empty_message("Too much text to preview.", inline:), status: :unprocessable_entity
       return
     end
 
     if text.strip.empty?
-      render html: helpers.tag.p("Nothing to preview.", class: "pulse-md-empty")
+      render html: empty_message("Nothing to preview.", inline:)
       return
     end
 
-    inline = params[:inline].to_s == "true"
     rendered = inline ? helpers.markdown_inline(text) : helpers.markdown(text)
     render html: rendered
   end
 
   private
+
+  # Placeholder shown when there's nothing (or too much) to render. Inline
+  # consumers (e.g. comments) get a span so it sits in their inline-styled pane;
+  # block consumers get a paragraph.
+  def empty_message(text, inline:)
+    tag_name = inline ? :span : :p
+    helpers.tag.public_send(tag_name, text, class: "pulse-md-empty")
+  end
 
   # No single resource backs this endpoint.
   def current_resource_model

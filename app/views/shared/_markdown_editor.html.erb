@@ -5,20 +5,25 @@
     form  - the form builder
 
   Optional locals:
-    field            - field name (default :text)
-    placeholder      - textarea placeholder
-    autofocus        - boolean (default false)
-    rows             - textarea rows
-    textarea_class   - CSS class for the textarea
-    textarea_style   - inline style for the textarea
-    inline           - render preview with inline markdown (strips outer <p>); default false
-    mention          - wrap the textarea in a mention-autocomplete container; default true
+    field                   - field name (default :text)
+    value                   - explicit textarea value (for url-bound forms that prefill)
+    placeholder             - textarea placeholder
+    autofocus               - boolean (default false)
+    required                - boolean (default false)
+    rows                    - textarea rows
+    textarea_class          - CSS class for the textarea
+    textarea_style          - inline style for the textarea
+    extra_data              - extra data-* attributes merged into the textarea
+    inline                  - render preview with inline markdown (strips outer <p>); default false
+    mention                 - wrap the textarea in a mention-autocomplete container; default true
+    mention_container_class - extra classes for the mention-autocomplete container
 %>
 <% field        = local_assigns.fetch(:field, :text) %>
 <% inline       = local_assigns.fetch(:inline, false) %>
 <% mention      = local_assigns.fetch(:mention, true) && @current_collective.present? %>
 <% textarea_data = { markdown_preview_target: "input" } %>
 <% textarea_data[:mention_autocomplete_target] = "input" if mention %>
+<% textarea_data.merge!(local_assigns.fetch(:extra_data, {})) %>
 
 <div class="pulse-md-editor" data-controller="markdown-preview"
      data-markdown-preview-url-value="<%= markdown_preview_path %>"
@@ -36,6 +41,8 @@
     <%= form.text_area field,
           placeholder: local_assigns[:placeholder],
           autofocus: local_assigns.fetch(:autofocus, false),
+          required: local_assigns.fetch(:required, false),
+          value: local_assigns[:value],
           rows: local_assigns[:rows],
           class: local_assigns[:textarea_class],
           style: local_assigns[:textarea_style],
@@ -43,7 +50,7 @@
   <% end %>
 
   <% if mention %>
-    <div class="mention-autocomplete-container" data-controller="mention-autocomplete"
+    <div class="mention-autocomplete-container <%= local_assigns[:mention_container_class] %>" data-controller="mention-autocomplete"
          data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
       <%= textarea %>
       <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
