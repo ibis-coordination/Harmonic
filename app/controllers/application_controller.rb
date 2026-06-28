@@ -1106,6 +1106,40 @@ class ApplicationController < ActionController::Base
     @already_reported = current_user && ContentReport.exists?(reporter: current_user, reportable: resource)
   end
 
+  # Render a summarizable resource's summary at the parent's `/summary` path,
+  # so agents who know the pattern can fetch a summary without first having
+  # to learn its truncated id. Uses the shared/summary view, which composes
+  # the shared/_note_main partial that backs notes/show as well. When the
+  # parent has no summary, renders the shared/no_summary view (200) so the
+  # response can guide the viewer to write or request one.
+  def render_summary_for(parent)
+    return render "shared/404", status: :not_found unless parent
+    # Summary notes themselves are not summarizable, so reject
+    # /n/<summary_id>/summary URLs rather than rendering a contradictory
+    # "no summary written yet" page that points at a 403-on-submit form.
+    return render "shared/404", status: :not_found unless parent.respond_to?(:is_summarizable?) && parent.is_summarizable?
+
+    @summarizable = parent
+    @note = parent.summary
+
+    if @note.nil?
+      @page_title = "Summary"
+      @page_description = "No summary written yet"
+      @sidebar_mode = "resource"
+      return render template: "shared/no_summary"
+    end
+
+    @page_title = @note.title.presence || excerpt(@note.text, max: 50) || "Summary"
+    @page_description = excerpt(@note.text, max: 200) || "Summary"
+    @sidebar_mode = "resource"
+    return if @note.deleted?
+
+    set_pin_vars(resource: @note)
+    set_report_vars(@note)
+    @note_reader = NoteReader.new(note: @note, user: current_user)
+    render template: "shared/summary"
+  end
+
   def report_content_flash
     if params[:also_block] == "1"
       "Thank you for your report. The author has been blocked and our moderators will review the reported content."
@@ -1114,8 +1148,8 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  def set_pin_vars
-    @pinnable = current_resource
+  def set_pin_vars(resource: current_resource)
+    @pinnable = resource
     pin_destination = current_collective == current_tenant.main_collective ? "your profile" : "the collective homepage"
     # Pinning to "your profile" requires a user. Anon viewers on the main
     # collective have no profile to pin to, and the pin UI is hidden for them.
@@ -1124,7 +1158,7 @@ class ApplicationController < ActionController::Base
       @pin_click_title = nil
       return
     end
-    @is_pinned = current_resource.is_pinned?(tenant: @current_tenant, collective: @current_collective, user: @current_user)
+    @is_pinned = resource.is_pinned?(tenant: @current_tenant, collective: @current_collective, user: @current_user)
     @pin_click_title = "Click to #{@is_pinned ? "unpin from " : "pin to "}#{pin_destination}"
   end
 

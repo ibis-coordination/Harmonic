@@ -41,7 +41,7 @@
         </button>
       </div>
     <% elsif @note_reader.acknowledged_reminder? %>
-      <%= render 'history' %>
+      <%= render 'notes/history' %>
     <% else %>
       <div class="pulse-section-label">
         <%= octicon 'bell', height: 14 %>
@@ -83,7 +83,7 @@
       </button>
     </div>
   <% elsif @note_reader.confirmed_read? %>
-    <%= render 'history' %>
+    <%= render 'notes/history' %>
   <% else %>
     <div class="pulse-section-label">
       <%= octicon 'book', height: 14 %>

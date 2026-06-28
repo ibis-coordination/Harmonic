@@ -4,6 +4,6 @@
 <% if resource.summary.present? -%>
 ## Summary
 
-[`<%= resource.summary.truncated_id %>`](<%= resource.summary.path %>) by <%= user_link_md(resource.summary.created_by) %> (<%= time_ago_in_words(resource.summary.updated_at) %> ago)
+[View summary](<%= resource.summary.path %>) by <%= user_link_md(resource.summary.created_by) %> (<%= time_ago_in_words(resource.summary.updated_at) %> ago)
 
 <% end -%>

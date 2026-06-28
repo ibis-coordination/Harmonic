@@ -238,6 +238,18 @@ class Note < ApplicationRecord
     "n"
   end
 
+  def path
+    # Summary notes use the canonical `<parent>/summary` URL so agents can
+    # fetch a parent's summary without first learning the summary's id.
+    # Falls back to the default note path if the polymorphic parent has
+    # been orphaned (e.g. by a raw delete that bypassed dependent: :destroy).
+    if is_summary? && summarizable
+      "#{summarizable.path}/summary"
+    else
+      super
+    end
+  end
+
   sig { returns(ActiveRecord::Relation) }
   def history_events
     note_history_events

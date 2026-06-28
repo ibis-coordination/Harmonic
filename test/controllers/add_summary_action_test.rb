@@ -272,6 +272,199 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     assert_match(/Full summary content lives only here\./, response.body)
   end
 
+  # === Pretty-path summary routes ===
+
+  test "decision summary path serves the summary content in markdown" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    Note.create!(
+      subtype: "summary", text: "Decision summary body.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary.md"
+    assert_response :success
+    assert_match(/Decision summary body\./, response.body)
+  end
+
+  test "note summary path serves the summary content in markdown" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    Note.create!(
+      subtype: "summary", text: "Note thread summary body.",
+      summarizable: @note, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/summary.md"
+    assert_response :success
+    assert_match(/Note thread summary body\./, response.body)
+  end
+
+  test "commitment summary path serves the summary content in markdown" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    Note.create!(
+      subtype: "summary", text: "Commitment summary body.",
+      summarizable: @commitment, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/summary.md"
+    assert_response :success
+    assert_match(/Commitment summary body\./, response.body)
+  end
+
+  test "summary path returns no-summary page when none exists for a summarizer" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary.md"
+    assert_response :success
+    assert_match(/No summary has been written/, response.body)
+    assert_match(/summarizer/, response.body)
+    assert_match(%r{#{Regexp.escape(@decision.path)}/actions/add_summary}, response.body)
+  end
+
+  test "summary path no-summary page for a non-summarizer points at requesting one" do
+    other_user = create_user
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.clear_thread_scope
+    sign_in_as(other_user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary.md"
+    assert_response :success
+    assert_match(/No summary has been written/, response.body)
+    assert_match(/Ask a summarizer/, response.body)
+  end
+
+  test "summary path html no-summary page renders 200 with add-summary form for a summarizer" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary"
+    assert_response :success
+    assert_match(/No summary has been written/, response.body)
+    assert_select "form[action*='/actions/add_summary']"
+  end
+
+  test "summary path serves the summary content as html" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    Note.create!(
+      subtype: "summary", text: "Decision summary html body.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary"
+    assert_response :success
+    assert_match(/Decision summary html body\./, response.body)
+  end
+
+  test "legacy /n/<summary_truncated_id> path still serves the summary" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    summary = Note.create!(
+      subtype: "summary", text: "Legacy URL summary body.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/n/#{summary.truncated_id}"
+    assert_response :success
+    assert_match(/Legacy URL summary body\./, response.body)
+  end
+
+  test "summary-of-a-summary URL returns 404" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    summary = Note.create!(
+      subtype: "summary", text: "The summary.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "/collectives/#{@collective.handle}/n/#{summary.truncated_id}/summary"
+    assert_response :not_found
+  end
+
+  test "anonymous viewer can read no_summary html page on anon-readable tenant" do
+    prior_env = ENV.fetch("ANON_READABLE_TENANT_SUBDOMAINS", nil)
+    ENV["ANON_READABLE_TENANT_SUBDOMAINS"] = @tenant.subdomain
+    Tenant.reset_anon_readable_subdomains!
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    main_collective = @tenant.main_collective
+    decision = Decision.create!(
+      tenant: @tenant, collective: main_collective, created_by: @user,
+      question: "Public?", description: "A public decision", deadline: 1.week.from_now
+    )
+    Tenant.clear_thread_scope
+
+    host! "#{@tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    get "/d/#{decision.truncated_id}/summary"
+    assert_response :success
+    assert_match(/No summary has been written/, response.body)
+    assert_match(/Ask a summarizer/, response.body)
+  ensure
+    ENV["ANON_READABLE_TENANT_SUBDOMAINS"] = prior_env
+    Tenant.reset_anon_readable_subdomains!
+  end
+
+  test "anonymous viewer can read no_summary markdown page on anon-readable tenant" do
+    prior_env = ENV.fetch("ANON_READABLE_TENANT_SUBDOMAINS", nil)
+    ENV["ANON_READABLE_TENANT_SUBDOMAINS"] = @tenant.subdomain
+    Tenant.reset_anon_readable_subdomains!
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    main_collective = @tenant.main_collective
+    decision = Decision.create!(
+      tenant: @tenant, collective: main_collective, created_by: @user,
+      question: "Public?", description: "A public decision", deadline: 1.week.from_now
+    )
+    Tenant.clear_thread_scope
+
+    host! "#{@tenant.subdomain}.#{ENV.fetch('HOSTNAME', nil)}"
+    get "/d/#{decision.truncated_id}/summary.md"
+    assert_response :success
+    assert_match(/No summary has been written/, response.body)
+    assert_match(/Ask a summarizer/, response.body)
+  ensure
+    ENV["ANON_READABLE_TENANT_SUBDOMAINS"] = prior_env
+    Tenant.reset_anon_readable_subdomains!
+  end
+
+  test "summary path returns Note#path canonical form" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    summary = Note.create!(
+      subtype: "summary", text: "Canonical path summary.",
+      summarizable: @decision, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    assert_equal "#{@decision.path}/summary", summary.path
+  end
+
   # === Summaries cannot summarize summaries ===
 
   test "cannot create a summary of a summary note" do

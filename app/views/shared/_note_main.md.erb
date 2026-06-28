@@ -1,0 +1,74 @@
+<%# Main markdown body for a note's show page. Used by notes/show.md.erb
+    and by shared/summary.md.erb. Takes `note:`. Reads @current_user
+    and @already_reported as instance vars. %>
+<% if note.deleted? %>
+# Note [deleted]
+
+This <%= note.is_comment? ? "comment" : "note" %> has been deleted<%= " by the author" if note.deleted_by_id == note.created_by_id %>.
+
+| created_by | @<%= note.created_by.handle %> |
+| created_at | <%= note.created_at %> |
+<% else %>
+<% if note.is_summary? && note.summarizable -%>
+# Summary of <%= note.summarizable.class.to_s %> [<%= note.summarizable.truncated_id %>](<%= note.summarizable.path %>)
+<% elsif note.is_summary? -%>
+# Summary of a deleted <%= note.summarizable_type&.downcase || "item" %>
+<% else -%>
+# Note: <%= note.title %>
+<% end -%>
+
+| created_by | <%= resource_author_md(note) %> |
+| created_at | <%= note.created_at %> |
+| updated_at | <%= note.updated_at %> |
+| deadline | <%= note.deadline %> |
+<% if note.is_reminder? -%>
+| reminder_status | <%= note.reminder_pending? ? "pending" : (note.reminder_delivered? ? "delivered" : "cancelled") %> |
+<% if note.reminder_scheduled_for -%>
+| reminder_scheduled_for | <%= note.reminder_scheduled_for&.iso8601 %> |
+<% end -%>
+| reminder_notifies | author and @mentioned users |
+<% end -%>
+
+<%= render 'shared/automation_attribution', resource: note %>
+<% if note.is_comment? && note.commentable -%>
+Replying to <%= note.commentable.class.to_s %> [<%= note.commentable.truncated_id %>](<%= note.commentable.path %>)
+
+<% elsif note.is_comment? -%>
+Replying to a deleted <%= note.commentable_type&.downcase || "item" %>
+
+<% end -%>
+<% truncated_text = truncate_content(note.text) %>
+## Text
+
+```markdown
+<%= truncated_text.gsub(/```/, '\\`\\`\\`') %>
+```
+<% notice = markdown_truncation_notice(note.text, truncated_text, url: note.path) %>
+<%= notice if notice %>
+
+## History
+
+<% note.history_events.includes(:user).order(happened_at: :desc).each do |event| -%>
+* <% if event.user %><%= history_event_actor_md(event) %> <% end %><%= event.description %> at <%= event.happened_at %>
+<% end -%>
+
+<% if note.media_items.any? -%>
+## Images
+
+<% note.media_items.each do |item| -%>
+![<%= item.alt_text_for_markdown %>](<%= item.url(variant: :large) %>)<% if item.caption.present? %>
+*<%= item.caption_for_markdown %>*<% end %>
+
+<% end -%>
+<% end -%>
+<%= render 'shared/backlinks', resource: note %>
+<%= render 'shared/attachments_section', resource: note %>
+<%= render 'shared/summaries_section', resource: note unless note.is_summary? %>
+<%= render 'shared/comments_section', resource: note %>
+<% if @current_user && note.created_by_id != @current_user.id && !@already_reported %>
+
+---
+
+[Report this <%= note.is_comment? ? "comment" : "note" %>](<%= note.path %>/report)
+<% end %>
+<% end %>

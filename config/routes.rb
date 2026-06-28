@@ -583,6 +583,7 @@ Rails.application.routes.draw do
     get "#{prefix}/note/actions/create_table_note" => 'notes#describe_create_table_note'
     post "#{prefix}/note/actions/create_table_note" => 'notes#create_table_note_action'
     resources :notes, only: [:show], path: "#{prefix}/n" do
+      get '/summary' => 'notes#summary'
       get '/report' => 'notes#report'
       get '/actions' => 'notes#actions_index_show'
       get '/actions/confirm_read' => 'notes#describe_confirm_read'
@@ -656,6 +657,7 @@ Rails.application.routes.draw do
     get "#{prefix}/decide/actions/create_decision" => 'decisions#describe_create_decision'
     post "#{prefix}/decide/actions/create_decision" => 'decisions#create_decision'
     resources :decisions, only: [:show], path: "#{prefix}/d" do
+      get '/summary' => 'decisions#summary'
       get '/report' => 'decisions#report'
       get '/actions' => 'decisions#actions_index_show'
       get '/actions/add_options' => 'decisions#describe_add_options'
@@ -710,6 +712,7 @@ Rails.application.routes.draw do
     get "#{prefix}/commit/actions/create_commitment" => 'commitments#describe_create_commitment'
     post "#{prefix}/commit/actions/create_commitment" => 'commitments#create_commitment_action'
     resources :commitments, only: [:show], path: "#{prefix}/c" do
+      get '/summary' => 'commitments#summary'
       get '/report' => 'commitments#report'
       get '/actions' => 'commitments#actions_index_show'
       get '/actions/join_commitment' => 'commitments#describe_join_commitment'
