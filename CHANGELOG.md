@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.32.0] - 2026-06-28
+
+### Added
+
+- **GitHub-style markdown Write/Preview toggle** (#258) — markdown text fields now have a Preview tab that renders server-side via `MarkdownRenderer` (same sanitization, reference linking, and header shifting as the posted result). New `POST /markdown/preview` endpoint (auth-required, length-capped, inline mode for comments), `markdown-preview` Stimulus controller, and a reusable `shared/_markdown_editor` partial wired into the new-note form and the Pulse comment form.
+
+### Changed
+
+- **Search `scope:` filter renamed to `visibility:`** (#272) — standardizes on the same term used by markdown/MCP actions. Renames the DSL operator, internal params, and `SearchQuery` methods. `scope:` stays as a backward-compatible operator alias so existing links and saved queries keep working; help docs document `visibility:` only.
+- **Table-note cells render through the markdown renderer** (#279) — HTML view previously emitted raw text, so links inside a cell showed as literal `[text](url)` even though the markdown view already rendered them. Cells now run through the existing `markdown_inline` helper so the HTML view matches the markdown view; all calculation/aggregation stays server-side in `NoteTableService`.
+- **Cleanup stray "studio" references** (#278) — the e2e setup task's console output and a few test-fixture handles still said "studio" after collectives were renamed. Switched to "collective". The `default_studio_settings` backward-compat fallback on `Tenant` is deliberately kept (data-migration decision, out of scope).
+
+### Fixed
+
+- **Intra-word underscores no longer rendered as italics** (#269) — terms like `a_b c_d` were being parsed by Redcarpet as emphasis, producing `a<em>b c</em>d`. Enabled the `no_intra_emphasis` extension (already supported by Redcarpet 3.6.0) so intra-word underscores stay literal; single underscores delimiting a word still render as italics.
+- **Search-box font regression** (#276) — the search bar referenced `--fontStack-monospace` before that variable was defined, so it rendered in the inherited proportional UI font. When the variable was defined (4f9e0adc, Jun 11) the input silently switched to the wider monospace font, overflowing the fixed-width box. Dropped the `font-family` declaration to restore the prior proportional rendering.
+- **Incomplete capabilities list on the trustee-authorization form** (#260) — the new-grant form listed a stale, hand-maintained subset of 17 actions. It now renders the full grouped capability list, mirroring the agent capability form, from a shared source of truth (`CapabilityCheck::TRUSTEE_GRANTABLE_GROUPS`), so the form and `TrusteeGrant::GRANTABLE_ACTIONS` can no longer drift. Excludes the rep-lifecycle / trustee-admin groups (which gate the representation relationship, not in-session behavior) and keeps collective presence (`send_heartbeat`).
+
 ## [1.31.0] - 2026-06-27
 
 ### Added
