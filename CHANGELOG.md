@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.31.0] - 2026-06-27
+
+### Added
+
+- **Summaries on notes/decisions/commitments** (#263) — per-resource summary as a Note with subtype "summary", served at `<parent>/summary`. New `summarizer` role on `CollectiveMember` gates authorship, with a collective-level `any_member_can_summarize` toggle (off by default, locked off for private workspaces and chat collectives); `add_summary` upserts (mirroring `add_statement`). Markdown surface shows a section header plus a link to the summary's own page — the parent no longer inlines summary content. `subtype:summary` / `subtype:statement` documented as search filters across `/help`, search markdown, and search HTML.
+- **Public-write guardrail on AI agents** (#257) — per-agent `allow_public_writes` toggle (off by default for restricted agents). Writes whose resolved audience is `public` (the tenant main collective, plus tenant-scoped actions like `tune_in`) return 403 `public_writes_disabled` unless the owner enables the toggle. Discovery on the same routes hides those actions in the `actions:` frontmatter to match enforcement. Gate runs on every restricted-agent write regardless of dispatch path; declared-visibility validation in MCP remains MCP-only. Closes #256.
+- **Trustee-authorization notifications** (#255) — `offered` notifies the trustee, `accepted` notifies the granting user. Inbox + (preference-gated) email + `notifications.delivered` webhook scoped to the recipient's private workspace, so bridge agents receive them. `declined`/`revoked` deliberately do not notify — the actor already knows and the counterparty sees state on the grant page. `TrusteeGrant.offer!` joins `accept!`/`decline!`/`revoke!` so all four lifecycle verbs live on the model.
+
+### Changed
+
+- **Decision verification UI polish** (#254) — the audit-chain icon is always the chainlink octicon (no longer swaps to a `verified` badge after the beacon is drawn); the winner-row highlight in `_results` is now gated on `beacon_drawn?` in addition to `closed?`, so random tiebreakers don't visually crown a winner before the beacon resolves.
+
+### Fixed
+
+- **N+1 vote query in decision options partial** (#262) — `_options_list_items` called `@votes.where(option: ...).first` per option (Sentry 7565374452: 19 queries, 29% of the transaction). Load the participant's votes once and index by `option_id`.
+
+### Infrastructure
+
+- **harmonic-bridge npm publish uses Trusted Publishing** — the publish workflow exchanges a short-lived OIDC token for npm credentials via the `id-token: write` permission; no more shared `NPM_TOKEN` to rotate.
+
 ## [1.30.0] - 2026-06-24
 
 ### Added
