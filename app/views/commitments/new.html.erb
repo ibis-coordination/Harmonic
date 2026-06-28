@@ -45,14 +45,10 @@
 
     <div class="pulse-form-group">
       <label class="pulse-form-label">Description <span class="pulse-form-label-optional">(optional)</span></label>
-      <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-        <%= form.text_area :description,
+      <%= render 'shared/markdown_editor', form: form, field: :description,
             placeholder: description_placeholder,
-            class: "pulse-form-textarea",
             rows: 4,
-            data: { mention_autocomplete_target: "input" } %>
-        <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-      </div>
+            textarea_class: "pulse-form-textarea" %>
     </div>
 
     <%= render 'shared/multi_file_select', form: form %>

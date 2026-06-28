@@ -298,6 +298,10 @@ Rails.application.routes.draw do
   # not via execute_action — so no /search/actions/* routes.
   get 'search' => 'search#show'
 
+  # Renders a markdown preview for text-entry forms (notes, comments, etc.).
+  # Tenant-level: not tied to a specific collective or resource.
+  post 'markdown/preview' => 'markdown_previews#create', as: 'markdown_preview'
+
   # ============================================================
   # ADMIN ROUTES
   # ============================================================

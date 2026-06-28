@@ -20,16 +20,12 @@
     <%= form_with(url: "#{@note.path}/edit", method: :post, class: "pulse-form") do |form| %>
       <div class="pulse-form-group">
         <label class="pulse-form-label">Content</label>
-        <div class="mention-autocomplete-container" data-controller="mention-autocomplete" data-mention-autocomplete-collective-path-value="<%= @current_collective.path %>">
-          <%= form.text_area :text,
+        <%= render 'shared/markdown_editor', form: form, field: :text,
               placeholder: @note.is_reminder? ? "What should you be reminded about?" : (@current_collective.private_workspace? ? "Write your note here..." : "Write your note here... (use @ to mention users)"),
-              value: @note.text,
-              class: "pulse-form-textarea",
-              rows: @note.is_reminder? ? 4 : 12,
               required: true,
-              data: { mention_autocomplete_target: "input" } %>
-          <div data-mention-autocomplete-target="dropdown" class="mention-dropdown"></div>
-        </div>
+              value: @note.text,
+              rows: @note.is_reminder? ? 4 : 12,
+              textarea_class: "pulse-form-textarea" %>
         <% if @note.is_reminder? %>
           <p class="pulse-form-hint">You and anyone @mentioned will be notified when this reminder fires.</p>
         <% else %>

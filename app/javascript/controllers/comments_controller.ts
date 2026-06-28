@@ -56,6 +56,11 @@ export default class CommentsController extends Controller {
           this.textareaTarget.value = ""
         }
 
+        // If the user submitted from the Preview tab, the markdown editor is
+        // still showing the (now stale) rendered HTML with the textarea hidden.
+        // Reset it to Write mode so the next comment opens ready to type.
+        this.resetPreviewToWrite()
+
         // Refresh the comments list
         await this.refreshComments()
       } else {
@@ -141,6 +146,18 @@ export default class CommentsController extends Controller {
         }
       }
     })
+  }
+
+  // Return the markdown editor (if any) to Write mode after a submit, so a
+  // comment sent from the Preview tab doesn't leave stale rendered HTML behind.
+  private resetPreviewToWrite(): void {
+    const editor = this.element.querySelector('[data-controller~="markdown-preview"]')
+    if (!editor) return
+    const controller = this.application.getControllerForElementAndIdentifier(
+      editor,
+      "markdown-preview"
+    ) as { showWrite?: () => void } | null
+    controller?.showWrite?.()
   }
 
   private showLoadingState(): void {
