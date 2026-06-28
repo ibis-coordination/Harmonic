@@ -44,6 +44,10 @@ class NoteTableService
 
   sig { params(name: String, type: String).void }
   def add_column!(name, type)
+    if name.start_with?("_harmonic_")
+      raise "Column name '#{name}' uses the reserved '_harmonic_' prefix"
+    end
+
     new_data = mutable_data
     new_data["columns"] << { "name" => name, "type" => type }
     apply_and_save!(new_data)
@@ -64,9 +68,9 @@ class NoteTableService
   sig { params(values: T::Hash[String, T.untyped], created_by: User).returns(T::Hash[String, T.untyped]) }
   def add_row!(values, created_by:)
     row = {
-      "_id" => SecureRandom.hex(4),
-      "_created_by" => created_by.id,
-      "_created_at" => Time.current.iso8601,
+      "_harmonic_row_id" => SecureRandom.hex(4),
+      "_harmonic_created_by" => created_by.id,
+      "_harmonic_created_at" => Time.current.iso8601,
     }
     column_names.each do |col_name|
       row[col_name] = values[col_name]&.to_s
@@ -81,7 +85,7 @@ class NoteTableService
   sig { params(row_id: String, values: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }
   def update_row!(row_id, values)
     new_data = mutable_data
-    row_index = new_data["rows"].index { |r| r["_id"] == row_id }
+    row_index = new_data["rows"].index { |r| r["_harmonic_row_id"] == row_id }
     raise "Row '#{row_id}' not found" unless row_index
 
     row = new_data["rows"][row_index] = new_data["rows"][row_index].dup
@@ -98,7 +102,7 @@ class NoteTableService
   def delete_row!(row_id)
     new_data = mutable_data
     original_count = new_data["rows"].length
-    new_data["rows"] = new_data["rows"].reject { |r| r["_id"] == row_id }
+    new_data["rows"] = new_data["rows"].reject { |r| r["_harmonic_row_id"] == row_id }
     raise "Row '#{row_id}' not found" if new_data["rows"].length == original_count
 
     apply_and_save!(new_data)

@@ -8,8 +8,8 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
         { "name" => "Due", "type" => "date" },
       ],
       "rows" => [
-        { "_id" => "abc1", "Status" => "done", "Due" => "2026-04-20" },
-        { "_id" => "def2", "Status" => "in_progress", "Due" => "2026-04-28" },
+        { "_harmonic_row_id" => "abc1", "Status" => "done", "Due" => "2026-04-20" },
+        { "_harmonic_row_id" => "def2", "Status" => "in_progress", "Due" => "2026-04-28" },
       ],
     }
 
@@ -21,40 +21,40 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
     assert_includes result, "| in_progress | 2026-04-28 |"
   end
 
-  test "omits _id column by default" do
+  test "omits _harmonic_row_id column by default" do
     table_data = {
       "columns" => [{ "name" => "Status", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "Status" => "done" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "Status" => "done" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
 
     assert_includes result, "| Status |"
-    refute_includes result, "_id"
+    refute_includes result, "_harmonic_row_id"
     refute_includes result, "abc1"
   end
 
-  test "prepends _id column when include_ids is true" do
+  test "prepends _harmonic_row_id column when include_ids is true" do
     table_data = {
       "columns" => [
         { "name" => "Status", "type" => "text" },
         { "name" => "Due", "type" => "date" },
       ],
       "rows" => [
-        { "_id" => "abc1", "Status" => "done", "Due" => "2026-04-20" },
-        { "_id" => "def2", "Status" => "in_progress", "Due" => "2026-04-28" },
+        { "_harmonic_row_id" => "abc1", "Status" => "done", "Due" => "2026-04-20" },
+        { "_harmonic_row_id" => "def2", "Status" => "in_progress", "Due" => "2026-04-28" },
       ],
     }
 
     result = NoteTableFormatter.to_markdown(table_data, include_ids: true)
 
-    assert_includes result, "| _id | Status | Due |"
+    assert_includes result, "| _harmonic_row_id | Status | Due |"
     assert_includes result, "| --- | --- | --- |"
     assert_includes result, "| abc1 | done | 2026-04-20 |"
     assert_includes result, "| def2 | in_progress | 2026-04-28 |"
   end
 
-  test "renders blank _id cell when a row has no _id and include_ids is true" do
+  test "renders blank _harmonic_row_id cell when a row has no id and include_ids is true" do
     table_data = {
       "columns" => [{ "name" => "Status", "type" => "text" }],
       "rows" => [{ "Status" => "done" }],
@@ -62,7 +62,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
 
     result = NoteTableFormatter.to_markdown(table_data, include_ids: true)
 
-    assert_includes result, "| _id | Status |"
+    assert_includes result, "| _harmonic_row_id | Status |"
     assert_includes result, "|  | done |"
   end
 
@@ -70,7 +70,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
     table_data = {
       "description" => "Task tracker for Q2.",
       "columns" => [{ "name" => "Task", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "Task" => "Ship it" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "Task" => "Ship it" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -99,7 +99,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
   test "escapes pipe characters in cell values" do
     table_data = {
       "columns" => [{ "name" => "Value", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "Value" => "a|b|c" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "Value" => "a|b|c" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -128,7 +128,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
         { "name" => "A", "type" => "text" },
         { "name" => "B", "type" => "text" },
       ],
-      "rows" => [{ "_id" => "abc1", "A" => "hello", "B" => nil }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "A" => "hello", "B" => nil }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -138,7 +138,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
   test "handles empty string cell values" do
     table_data = {
       "columns" => [{ "name" => "A", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "A" => "" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "A" => "" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -148,7 +148,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
   test "strips null bytes from values" do
     table_data = {
       "columns" => [{ "name" => "A", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "A" => "hello\x00world" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "A" => "hello\x00world" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -159,7 +159,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
   test "strips control characters from values" do
     table_data = {
       "columns" => [{ "name" => "A", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "A" => "hello\x01\x02world" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "A" => "hello\x01\x02world" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -169,7 +169,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
   test "preserves script tags as literal text (sanitized by Redcarpet on render)" do
     table_data = {
       "columns" => [{ "name" => "Content", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "Content" => "<script>alert('xss')</script>" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "Content" => "<script>alert('xss')</script>" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)
@@ -179,7 +179,7 @@ class NoteTableFormatterTest < ActiveSupport::TestCase
   test "preserves markdown syntax in cell values" do
     table_data = {
       "columns" => [{ "name" => "Note", "type" => "text" }],
-      "rows" => [{ "_id" => "abc1", "Note" => "**bold** and [link](http://example.com)" }],
+      "rows" => [{ "_harmonic_row_id" => "abc1", "Note" => "**bold** and [link](http://example.com)" }],
     }
 
     result = NoteTableFormatter.to_markdown(table_data)

@@ -32,7 +32,7 @@ Each table has an optional **description** field for explaining the table's purp
 | Characters per cell | 1,000 |
 | Total table size | 2 MB |
 
-Column names must be alphanumeric (plus spaces and underscores), unique, and cannot start with an underscore.
+Column names must be alphanumeric (plus spaces and underscores), unique, and cannot start with an underscore. The `_harmonic_` prefix is reserved for Harmonic's internal bookkeeping fields (row id, creator, timestamp) and cannot be used for a column name.
 
 ## AI Agent Access
 
@@ -62,7 +62,7 @@ The `query_rows` action supports:
 - `limit` — Max rows to return (default 20)
 - `offset` — Skip rows for pagination
 
-`query_rows` results include each row's `_id` as the first column. This is how you obtain the `row_id` needed by `update_row` and `delete_row` for rows you did not just add — the rendered table and note body omit `_id`, so query first, then update or delete.
+`query_rows` results include each row's `_harmonic_row_id` as the first column. This is how you obtain the `row_id` needed by `update_row` and `delete_row` for rows you did not just add — the rendered table and note body omit `_harmonic_row_id`, so query first, then update or delete.
 
 ### Aggregation
 

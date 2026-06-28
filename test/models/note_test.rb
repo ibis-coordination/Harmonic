@@ -1363,6 +1363,25 @@ class NoteTest < ActiveSupport::TestCase
     assert(note.errors[:table_data].any? { |e| e.include?("underscore") })
   end
 
+  test "table note rejects column names using the reserved _harmonic_ prefix" do
+    note = Note.new(
+      tenant_id: Tenant.current_id,
+      collective_id: Collective.current_id,
+      created_by: @global_user,
+      updated_by: @global_user,
+      subtype: "table",
+      title: "Reserved prefix",
+      text: "",
+      table_data: {
+        "columns" => [{ "name" => "_harmonic_row_id", "type" => "text" }],
+        "rows" => [],
+      }
+    )
+
+    assert_not note.valid?
+    assert(note.errors[:table_data].any? { |e| e.include?("_harmonic_") })
+  end
+
   test "table note rejects column names with special characters" do
     note = Note.new(
       tenant_id: Tenant.current_id,
@@ -1412,7 +1431,7 @@ class NoteTest < ActiveSupport::TestCase
       text: "",
       table_data: {
         "columns" => [{ "name" => "Data", "type" => "text" }],
-        "rows" => [{ "_id" => "abc1", "Data" => "x" * 1001 }],
+        "rows" => [{ "_harmonic_row_id" => "abc1", "Data" => "x" * 1001 }],
       }
     )
 

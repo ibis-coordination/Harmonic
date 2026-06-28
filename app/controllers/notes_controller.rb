@@ -370,7 +370,7 @@ class NotesController < ApplicationController
     row = api_helper.add_row
     respond_to do |format|
       format.html { redirect_to current_note.path, notice: "Row added." }
-      format.md { render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_id']})." }) }
+      format.md { render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_harmonic_row_id']})." }) }
     end
   rescue RuntimeError, ActiveRecord::RecordInvalid => e
     respond_to do |format|
@@ -629,7 +629,7 @@ class NotesController < ApplicationController
       parsed = JSON.parse(params[:initial_rows]) rescue []
       col_names = columns.map { |c| c["name"] }
       initial_rows = parsed.map do |row|
-        r = { "_id" => SecureRandom.hex(4), "_created_by" => @current_user.id, "_created_at" => Time.current.iso8601 }
+        r = { "_harmonic_row_id" => SecureRandom.hex(4), "_harmonic_created_by" => @current_user.id, "_harmonic_created_at" => Time.current.iso8601 }
         col_names.each { |name| r[name] = row[name]&.to_s }
         r
       end
