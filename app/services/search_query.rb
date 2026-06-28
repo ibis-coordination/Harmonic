@@ -91,7 +91,7 @@ class SearchQuery
     min_links max_links min_backlinks max_backlinks min_comments max_comments
     min_readers max_readers min_voters max_voters min_participants max_participants
     after_date before_date
-    scope exclude_scope
+    visibility exclude_visibility
   ].freeze
 
   sig { returns(T::Array[User]) }
@@ -309,13 +309,13 @@ class SearchQuery
   attr_reader :collective
 
   sig { returns(T.nilable(String)) }
-  def scope
-    @params[:scope].presence
+  def visibility
+    @params[:visibility].presence
   end
 
   sig { returns(T.nilable(String)) }
-  def exclude_scope
-    @params[:exclude_scope].presence
+  def exclude_visibility
+    @params[:exclude_visibility].presence
   end
 
   # Options for UI dropdowns
@@ -516,8 +516,8 @@ class SearchQuery
         .where(tenant_id: @tenant.id, collective_type: "private_workspace")
         .pluck(:id)
 
-      # Apply scope filter
-      ids = case scope
+      # Apply visibility filter
+      ids = case visibility
       when "public"
         [main_id].compact
       when "shared"
@@ -528,8 +528,8 @@ class SearchQuery
         member_ids
       end
 
-      # Apply negated scope filter
-      case exclude_scope
+      # Apply negated visibility filter
+      case exclude_visibility
       when "public"
         ids -= [main_id].compact
       when "shared"

@@ -32,10 +32,10 @@ class SearchQueryParser
   LIST_VALUE_PATTERN = /\A([a-f0-9]{8}|mutuals|tuned_in)\z/
 
   OPERATORS = T.let({
-    # Location scope
+    # Location / visibility
     "collective" => { pattern: COLLECTIVE_HANDLE_PATTERN, multi: false },
     "list" => { pattern: LIST_VALUE_PATTERN, multi: false },
-    "scope" => { values: ["public", "shared", "private"], multi: true },
+    "visibility" => { values: ["public", "shared", "private"], multi: true },
 
     # User filters
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
@@ -83,6 +83,13 @@ class SearchQueryParser
     "type" => { "n" => "note", "d" => "decision", "c" => "commitment" },
     "sort" => { "new" => "newest", "old" => "oldest" },
   }.freeze, T::Hash[String, T::Hash[String, String]])
+
+  # Backward-compatible operator key aliases. `scope:` was renamed to
+  # `visibility:` to match the visibility term used in markdown/MCP actions;
+  # the old key is still accepted so existing links and saved queries keep working.
+  OPERATOR_ALIASES = T.let({
+    "scope" => "visibility",
+  }.freeze, T::Hash[String, String])
 
   # Map DSL sort values to SearchQuery sort_by format
   SORT_MAPPING = T.let({
@@ -165,6 +172,7 @@ class SearchQueryParser
 
       if match_data
         key = T.must(match_data[1]).downcase
+        key = OPERATOR_ALIASES.fetch(key, key)
         value = match_data[2]
 
         if valid_operator?(key, T.must(value))
@@ -311,9 +319,9 @@ class SearchQueryParser
     # List scope — truncated_id or shorthand alias ("mutuals" | "tuned_in").
     params[:list_id_or_alias] = build_collective_param("list")
 
-    # Scope filter (public/shared/private)
-    params[:scope] = build_scope_param
-    params[:exclude_scope] = build_negated_scope_param
+    # Visibility filter (public/shared/private)
+    params[:visibility] = build_visibility_param
+    params[:exclude_visibility] = build_negated_visibility_param
 
     params.compact
   end
@@ -496,32 +504,32 @@ class SearchQueryParser
     T.must(values.last)
   end
 
-  ALL_SCOPES = T.let(%w[public shared private].freeze, T::Array[String])
+  ALL_VISIBILITIES = T.let(%w[public shared private].freeze, T::Array[String])
 
   sig { returns(T.nilable(String)) }
-  def build_scope_param
-    values = (@operators["scope"] || []).uniq
+  def build_visibility_param
+    values = (@operators["visibility"] || []).uniq
     return nil if values.blank?
 
-    # Single scope: use directly
+    # Single visibility: use directly
     return T.must(values.first) if values.length == 1
 
-    # All three scopes: no filter needed
+    # All three visibilities: no filter needed
     return nil if values.length >= 3
 
-    # Two scopes: translate to exclude_scope of the missing one
-    # (handled by build_negated_scope_param)
+    # Two visibilities: translate to exclude_visibility of the missing one
+    # (handled by build_negated_visibility_param)
     nil
   end
 
   sig { returns(T.nilable(String)) }
-  def build_negated_scope_param
-    included = (@operators["scope"] || []).uniq
-    negated = (@negated_operators["scope"] || []).uniq
+  def build_negated_visibility_param
+    included = (@operators["visibility"] || []).uniq
+    negated = (@negated_operators["visibility"] || []).uniq
 
-    # Two included scopes → exclude the missing one
+    # Two included visibilities → exclude the missing one
     if included.length == 2
-      missing = (ALL_SCOPES - included).first
+      missing = (ALL_VISIBILITIES - included).first
       return missing
     end
 

@@ -576,64 +576,77 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "main", result[:collective_handle]
   end
 
-  # scope: operator
+  # visibility: operator
 
-  test "scope:public sets scope" do
-    result = SearchQueryParser.new("scope:public").parse
-    assert_equal "public", result[:scope]
+  test "visibility:public sets visibility" do
+    result = SearchQueryParser.new("visibility:public").parse
+    assert_equal "public", result[:visibility]
   end
 
-  test "scope:private sets scope" do
-    result = SearchQueryParser.new("scope:private").parse
-    assert_equal "private", result[:scope]
+  test "visibility:private sets visibility" do
+    result = SearchQueryParser.new("visibility:private").parse
+    assert_equal "private", result[:visibility]
   end
 
-  test "scope:shared sets scope" do
-    result = SearchQueryParser.new("scope:shared").parse
-    assert_equal "shared", result[:scope]
+  test "visibility:shared sets visibility" do
+    result = SearchQueryParser.new("visibility:shared").parse
+    assert_equal "shared", result[:visibility]
   end
 
-  test "-scope:private sets exclude_scope" do
-    result = SearchQueryParser.new("-scope:private").parse
-    assert_equal "private", result[:exclude_scope]
-    assert_nil result[:scope]
+  test "-visibility:private sets exclude_visibility" do
+    result = SearchQueryParser.new("-visibility:private").parse
+    assert_equal "private", result[:exclude_visibility]
+    assert_nil result[:visibility]
   end
 
-  test "scope:public,shared translates to exclude_scope:private" do
-    result = SearchQueryParser.new("scope:public scope:shared").parse
-    assert_nil result[:scope]
-    assert_equal "private", result[:exclude_scope]
+  test "visibility:public,shared translates to exclude_visibility:private" do
+    result = SearchQueryParser.new("visibility:public visibility:shared").parse
+    assert_nil result[:visibility]
+    assert_equal "private", result[:exclude_visibility]
   end
 
-  test "scope:public,shared comma syntax translates to exclude_scope:private" do
-    result = SearchQueryParser.new("scope:public,shared").parse
-    assert_nil result[:scope]
-    assert_equal "private", result[:exclude_scope]
+  test "visibility:public,shared comma syntax translates to exclude_visibility:private" do
+    result = SearchQueryParser.new("visibility:public,shared").parse
+    assert_nil result[:visibility]
+    assert_equal "private", result[:exclude_visibility]
   end
 
-  test "scope:shared,private translates to exclude_scope:public" do
-    result = SearchQueryParser.new("scope:shared scope:private").parse
-    assert_nil result[:scope]
-    assert_equal "public", result[:exclude_scope]
+  test "visibility:shared,private translates to exclude_visibility:public" do
+    result = SearchQueryParser.new("visibility:shared visibility:private").parse
+    assert_nil result[:visibility]
+    assert_equal "public", result[:exclude_visibility]
   end
 
-  test "scope:public,shared,private means no filter" do
-    result = SearchQueryParser.new("scope:public scope:shared scope:private").parse
-    assert_nil result[:scope]
-    assert_nil result[:exclude_scope]
+  test "visibility:public,shared,private means no filter" do
+    result = SearchQueryParser.new("visibility:public visibility:shared visibility:private").parse
+    assert_nil result[:visibility]
+    assert_nil result[:exclude_visibility]
   end
 
-  test "invalid scope treated as search text" do
-    result = SearchQueryParser.new("scope:invalid").parse
-    assert_equal "scope:invalid", result[:q]
-    assert_nil result[:scope]
+  test "invalid visibility treated as search text" do
+    result = SearchQueryParser.new("visibility:invalid").parse
+    assert_equal "visibility:invalid", result[:q]
+    assert_nil result[:visibility]
   end
 
-  test "scope: operator with other operators" do
-    result = SearchQueryParser.new("budget scope:public type:note").parse
+  test "visibility: operator with other operators" do
+    result = SearchQueryParser.new("budget visibility:public type:note").parse
     assert_equal "budget", result[:q]
-    assert_equal "public", result[:scope]
+    assert_equal "public", result[:visibility]
     assert_equal "note", result[:type]
+  end
+
+  # Backward-compatible `scope:` alias for `visibility:`
+
+  test "scope: alias maps to visibility" do
+    result = SearchQueryParser.new("scope:private").parse
+    assert_equal "private", result[:visibility]
+  end
+
+  test "-scope: alias maps to exclude_visibility" do
+    result = SearchQueryParser.new("-scope:private").parse
+    assert_equal "private", result[:exclude_visibility]
+    assert_nil result[:visibility]
   end
 
   test "invalid collective: value is treated as search text" do
