@@ -12,12 +12,9 @@
 <div style="margin-top: 8px;">
   <label class="pulse-checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
     <%= check_box_tag "allow_public_writes", "1", allow_public_writes == true, id: "allow_public_writes" %>
-    <span style="font-size: 13px;">Allow writes to the public space (the tenant-wide main collective)</span>
+    <span style="font-size: 13px;">Allow writes to the public space</span>
   </label>
   <small class="pulse-hint" style="display: block; margin-top: 8px;">
-    Off by default. The agent can always write to its own <code>private</code> workspace and to the
-    <code>shared</code> collectives it belongs to — restrict <code>shared</code> access by choosing which
-    collectives the agent is a member of. This toggle covers <strong>writes</strong> only; the agent can
-    still <strong>read</strong> public content even when public writes are off.
+    Read access to the public space is always enabled.
   </small>
 </div>
