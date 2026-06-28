@@ -76,7 +76,9 @@ describe("MarkdownPreviewController", () => {
     expect(mockFetch.mock.calls[0][0]).toContain("/markdown/preview")
     expect(mockFetch.mock.calls[0][1].method).toBe("POST")
     expect(mockFetch.mock.calls[0][1].headers["X-CSRF-Token"]).toBe("test-csrf-token")
-    expect(mockFetch.mock.calls[0][1].body).toContain("text=%2A%2Abold%2A%2A")
+    // URLSearchParams' form-urlencoded serializer leaves "*" unencoded (it is in
+    // the unreserved "*-._" set), so the body is "text=**bold**", not "%2A%2A...".
+    expect(mockFetch.mock.calls[0][1].body).toContain("text=**bold**")
   })
 
   it("does not fetch when the textarea is empty", async () => {
