@@ -97,9 +97,8 @@ class MentionParser
       TenantUser.where(tenant_id: tenant_id, handle: index_handles)
         .includes(:user)
         .each do |tenant_user|
-          handle = tenant_user.handle
-          path = tenant_user.user&.path
-          paths[handle] = path if handle && path
+          path = tenant_user.user.path
+          paths[tenant_user.handle] = path if path
         end
     end
 

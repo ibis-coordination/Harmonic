@@ -149,32 +149,32 @@ class MarkdownRenderer
     return html unless html.include?("@")
 
     doc = Nokogiri::HTML.fragment(html)
-    candidate_nodes = doc.search(".//text()").reject do |node|
-      node.ancestors.any? { |ancestor| MENTION_SKIP_ANCESTORS.include?(ancestor.name) }
-    end.select { |node| node.content.match?(MentionParser::MENTION_PATTERN) }
+    candidate_nodes = doc.search(".//text()").select do |node|
+      next false if node.ancestors.any? { |ancestor| MENTION_SKIP_ANCESTORS.include?(ancestor.name) }
+
+      node.content.match?(MentionParser::MENTION_PATTERN)
+    end
     return html if candidate_nodes.empty?
 
     combined_text = candidate_nodes.map(&:content).join("\n")
     paths = MentionParser.resolve_paths(combined_text, tenant_id: tenant_id, collective: current_collective)
     return html if paths.empty?
 
-    candidate_nodes.each do |node|
-      # Escape the literal text first; handle characters ([A-Za-z0-9_-]) are
-      # never HTML-special, so the mention pattern still matches afterward and
-      # surrounding text is safely escaped.
-      replaced = CGI.escapeHTML(node.content).gsub(MentionParser::MENTION_PATTERN) do |match|
-        handle = match.delete_prefix("@")
-        path = paths[handle]
-        if path
-          "<a href=\"#{CGI.escapeHTML(path)}\" class=\"mention-link\">@#{handle}</a>"
-        else
-          match
-        end
-      end
-      node.replace(Nokogiri::HTML.fragment(replaced))
-    end
-
+    candidate_nodes.each { |node| node.replace(Nokogiri::HTML.fragment(mention_links_for(node.content, paths))) }
     doc.to_html
+  end
+
+  # Rewrite @mentions in a plain-text node into mention links. The literal text
+  # is HTML-escaped first; handle characters ([A-Za-z0-9_-]) are never
+  # HTML-special, so the mention pattern still matches and surrounding text
+  # stays safely escaped. Handles without a resolved path are left as-is.
+  sig { params(text: String, paths: T::Hash[String, String]).returns(String) }
+  def self.mention_links_for(text, paths)
+    CGI.escapeHTML(text).gsub(MentionParser::MENTION_PATTERN) do |match|
+      handle = match.delete_prefix("@")
+      path = paths[handle]
+      path ? "<a href=\"#{CGI.escapeHTML(path)}\" class=\"mention-link\">@#{handle}</a>" : match
+    end
   end
 
   # The current collective, resolved from thread-local request state. Needed
