@@ -86,7 +86,9 @@ describe("CommentThreadController", () => {
     }
 
     beforeEach(() => {
-      vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {})
+      // jsdom doesn't implement scrollIntoView, so define a no-op stub the
+      // highlight path can call.
+      Element.prototype.scrollIntoView = vi.fn()
     })
 
     it("highlights the targeted comment and clears the comment_id param", async () => {
