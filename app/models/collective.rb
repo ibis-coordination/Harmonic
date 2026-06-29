@@ -100,8 +100,10 @@ class Collective < ApplicationRecord
 
   sig { params(handle: String).returns(T::Boolean) }
   def self.handle_available?(handle)
-    return false if RESERVED_HANDLES.include?(handle)
+    return false if RESERVED_HANDLES.include?(handle.to_s.downcase)
 
+    # `handle` is citext, so this count is case-insensitive: "Foo" is taken
+    # once "foo" exists.
     Collective.where(handle: handle).count == 0
   end
 
@@ -625,9 +627,12 @@ class Collective < ApplicationRecord
   sig { void }
   def handle_is_valid
     if handle.present?
-      only_alphanumeric_with_dash = T.must(handle).match?(/\A[a-z0-9-]+\z/)
+      # Uppercase is allowed so the display form keeps the case the user chose
+      # ("Foo-Team"). The `handle` column is `citext`, so lookup and the
+      # (tenant_id, handle) uniqueness index stay case-insensitive.
+      only_alphanumeric_with_dash = T.must(handle).match?(/\A[a-zA-Z0-9-]+\z/)
       errors.add(:handle, "must be alphanumeric with dashes") unless only_alphanumeric_with_dash
-      errors.add(:handle, "is reserved") if RESERVED_HANDLES.include?(handle)
+      errors.add(:handle, "is reserved") if RESERVED_HANDLES.include?(T.must(handle).downcase)
     else
       errors.add(:handle, "can't be blank")
     end

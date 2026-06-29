@@ -202,14 +202,14 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     assert_equal "captain-custom", tu.handle
   end
 
-  test "POST /invite-required/accept normalizes a free-text handle" do
+  test "POST /invite-required/accept slugifies a free-text handle while preserving case" do
     invite = create_invite
     sign_in_without_membership(@uninvited_user)
 
     post "/invite-required/accept", params: { code: invite.code, handle: "Captain Custom" }
 
     tu = @tenant.tenant_users.find_by(user: @uninvited_user)
-    assert_equal "captain-custom", tu.handle
+    assert_equal "Captain-Custom", tu.handle
   end
 
   test "POST /invite-required/accept with a taken handle re-renders the confirmation page with an error and no memberships" do

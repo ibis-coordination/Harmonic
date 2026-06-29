@@ -243,8 +243,43 @@ class TenantUserTest < ActiveSupport::TestCase
 
     tu.update!(handle: "Renamed Handle")
 
-    assert_equal "renamed-handle", tu.reload.handle,
-                 "settings renames must normalize the same way signup does"
+    assert_equal "Renamed-Handle", tu.reload.handle,
+                 "settings renames slugify whitespace but preserve the chosen case"
+  end
+
+  test "explicit handle preserves the case the user chose" do
+    tenant = create_tenant(subdomain: "hcase-#{SecureRandom.hex(4)}")
+    user = create_user(email: "case-#{SecureRandom.hex(4)}@example.com", name: "Case User")
+    tu = tenant.add_user!(user)
+
+    tu.update!(handle: "Linus")
+
+    assert_equal "Linus", tu.reload.handle, "display case must be remembered, not lowercased"
+  end
+
+  test "handle uniqueness is case-insensitive within a tenant" do
+    tenant = create_tenant(subdomain: "hci-#{SecureRandom.hex(4)}")
+    first = create_user(email: "ci1-#{SecureRandom.hex(4)}@example.com", name: "First")
+    second = create_user(email: "ci2-#{SecureRandom.hex(4)}@example.com", name: "Second")
+    tenant.add_user!(first).update!(handle: "linus")
+
+    second_tu = tenant.add_user!(second)
+    second_tu.handle = "Linus"
+
+    assert_not second_tu.valid?, "\"Linus\" must collide with an existing \"linus\""
+    assert_includes second_tu.errors[:handle].to_s.downcase, "taken"
+  end
+
+  test "a handle resolves regardless of the case it is looked up by" do
+    tenant = create_tenant(subdomain: "hlk-#{SecureRandom.hex(4)}")
+    user = create_user(email: "lk-#{SecureRandom.hex(4)}@example.com", name: "Lookup User")
+    tenant.add_user!(user).update!(handle: "Linus")
+
+    %w[linus LINUS Linus].each do |variant|
+      assert_equal user.id,
+                   tenant.tenant_users.find_by(handle: variant)&.user_id,
+                   "@#{variant} should resolve to the same identity"
+    end
   end
 
   test "an explicit duplicate handle fails validation instead of crashing on the DB constraint" do
@@ -287,6 +322,16 @@ class TenantUserTest < ActiveSupport::TestCase
     tenant = create_tenant
     user = create_user
     tu = TenantUser.new(tenant: tenant, user: user, handle: "trio", display_name: user.name)
+    assert_not tu.valid?
+    assert_includes tu.errors[:handle].to_s.downcase, "reserved"
+  end
+
+  test "a cased variant of a reserved handle is still rejected for a human user" do
+    # Case preservation must not let "Trio"/"TRIO" slip past the reserved-handle
+    # gate, since the citext column treats them as the same handle anyway.
+    tenant = create_tenant
+    user = create_user
+    tu = TenantUser.new(tenant: tenant, user: user, handle: "Trio", display_name: user.name)
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
