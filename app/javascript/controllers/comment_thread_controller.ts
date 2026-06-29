@@ -47,6 +47,22 @@ export default class CommentThreadController extends Controller {
       target.scrollIntoView({ behavior: "smooth", block: "center" })
       target.classList.add("pulse-comment-highlighted")
     })
+
+    // Drop the `?comment_id=` param now that we've highlighted. Replying refreshes
+    // the comments list, which reconnects this controller; without clearing the
+    // param, every reply would re-run the highlight animation on the original
+    // comment.
+    this.clearCommentIdParam()
+  }
+
+  private clearCommentIdParam(): void {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("comment_id")) return
+
+    url.searchParams.delete("comment_id")
+    const query = url.searchParams.toString()
+    const newUrl = `${url.pathname}${query ? `?${query}` : ""}${url.hash}`
+    window.history.replaceState(window.history.state, "", newUrl)
   }
 
   private async refreshCommentsList(): Promise<void> {
