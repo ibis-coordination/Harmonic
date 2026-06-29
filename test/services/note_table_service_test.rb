@@ -153,6 +153,17 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     assert_equal 2, table.columns.length
   end
 
+  test "add_column! allows a leading underscore that is not the _harmonic_ prefix" do
+    note = create_table_note
+    table = NoteTableService.new(note)
+
+    table.add_column!("_source", "text")
+
+    assert_includes table.column_names, "_source"
+    assert_equal 3, table.columns.length
+    assert note.valid?, note.errors.full_messages.to_sentence
+  end
+
   test "remove_column! removes column and its values" do
     note = create_table_note
     table = NoteTableService.new(note)

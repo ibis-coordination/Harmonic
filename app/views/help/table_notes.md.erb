@@ -32,7 +32,7 @@ Each table has an optional **description** field for explaining the table's purp
 | Characters per cell | 1,000 |
 | Total table size | 2 MB |
 
-Column names must be alphanumeric (plus spaces and underscores), unique, and cannot start with an underscore. The `_harmonic_` prefix is reserved for Harmonic's internal bookkeeping fields (row id, creator, timestamp) and cannot be used for a column name.
+Column names must be alphanumeric (plus spaces and underscores) and unique. A leading underscore is allowed (e.g. `_id`, `_source` from a CSV import), with one exception: the `_harmonic_` prefix is reserved for Harmonic's internal bookkeeping fields (row id, creator, timestamp) and cannot be used for a column name.
 
 ## AI Agent Access
 

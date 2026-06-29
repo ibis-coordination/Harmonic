@@ -62,8 +62,6 @@ class NoteTableValidator
         errors.add(:table_data, "column name '#{name.truncate(20)}' contains invalid characters (alphanumeric, spaces, underscores only)")
       elsif name.start_with?("_harmonic_")
         errors.add(:table_data, "column name '#{name.truncate(20)}' uses the reserved '_harmonic_' prefix")
-      elsif name.start_with?("_")
-        errors.add(:table_data, "column names cannot start with underscore (reserved for metadata)")
       end
 
       unless VALID_COLUMN_TYPES.include?(col["type"])

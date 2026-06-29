@@ -1344,23 +1344,22 @@ class NoteTest < ActiveSupport::TestCase
     assert(note.errors[:table_data].any? { |e| e.include?("unique") })
   end
 
-  test "table note rejects column names starting with underscore" do
+  test "table note allows column names starting with underscore (only _harmonic_ is reserved)" do
     note = Note.new(
       tenant_id: Tenant.current_id,
       collective_id: Collective.current_id,
       created_by: @global_user,
       updated_by: @global_user,
       subtype: "table",
-      title: "Reserved column",
+      title: "Underscore column",
       text: "",
       table_data: {
-        "columns" => [{ "name" => "_id", "type" => "text" }],
+        "columns" => [{ "name" => "_id", "type" => "text" }, { "name" => "_source", "type" => "text" }],
         "rows" => [],
       }
     )
 
-    assert_not note.valid?
-    assert(note.errors[:table_data].any? { |e| e.include?("underscore") })
+    assert note.valid?, note.errors.full_messages.to_sentence
   end
 
   test "table note rejects column names using the reserved _harmonic_ prefix" do
