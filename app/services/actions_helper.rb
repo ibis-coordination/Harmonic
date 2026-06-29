@@ -569,6 +569,20 @@ class ActionsHelper
       authorization: [:self, :representative],
       visibility: :public,
     },
+    "update_notification_preferences" => {
+      description: "Update which channels deliver each notification type. " \
+                   "Pass a `notifications` object mapping type to channel booleans; " \
+                   "only the keys you include are changed.",
+      params_string: "(notifications)",
+      params: [
+        { name: "notifications", type: "object",
+          description: "Nested object { \"<type>\": { \"in_app\": true|false, \"email\": true|false } }. " \
+                       "Types: mention, comment, participation, system, reminder, chat_message, trio_unavailable, tune_in, trustee_authorization. " \
+                       "Channels: in_app, email. Example: { \"comment\": { \"email\": true }, \"mention\": { \"email\": false } }.", },
+      ],
+      authorization: [:self, :representative],
+      visibility: :private,
+    },
     "update_scratchpad" => {
       description: "Update your scratchpad with notes for your future self",
       params_string: "(content)",
@@ -1419,6 +1433,8 @@ class ActionsHelper
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
           description: ACTION_DEFINITIONS["update_profile"][:description], },
+        { name: "update_notification_preferences", params_string: ACTION_DEFINITIONS["update_notification_preferences"][:params_string],
+          description: ACTION_DEFINITIONS["update_notification_preferences"][:description], },
       ],
     },
     "/u/:handle/lists" => {
@@ -1474,6 +1490,8 @@ class ActionsHelper
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
           description: ACTION_DEFINITIONS["update_profile"][:description], },
+        { name: "update_notification_preferences", params_string: ACTION_DEFINITIONS["update_notification_preferences"][:params_string],
+          description: ACTION_DEFINITIONS["update_notification_preferences"][:description], },
       ],
     },
     "/ai-agents/:handle/bridge-setup" => {

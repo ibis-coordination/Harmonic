@@ -59,6 +59,8 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/settings/actions' => 'ai_agents#settings_actions_index'
   get 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#describe_update_ai_agent'
   post 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#execute_update_ai_agent'
+  get 'ai-agents/:handle/settings/actions/update_notification_preferences' => 'ai_agents#describe_update_notification_preferences'
+  post 'ai-agents/:handle/settings/actions/update_notification_preferences' => 'ai_agents#execute_update_notification_preferences'
 
   get 'ai-agents/:handle/run' => 'ai_agents#run_task', as: 'ai_agent_run_task'
   post 'ai-agents/:handle/run' => 'ai_agents#execute_task', as: 'ai_agent_execute_task'
@@ -412,6 +414,10 @@ Rails.application.routes.draw do
     get 'settings/actions' => 'users#actions_index', on: :member
     get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
     post 'settings/actions/update_profile' => 'users#execute_update_profile', on: :member
+    # Notification preferences (channel x type matrix)
+    post 'settings/notifications' => 'users#update_notification_preferences', on: :member
+    get 'settings/actions/update_notification_preferences' => 'users#describe_update_notification_preferences', on: :member
+    post 'settings/actions/update_notification_preferences' => 'users#execute_update_notification_preferences', on: :member
     # API token actions
     get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
     get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member

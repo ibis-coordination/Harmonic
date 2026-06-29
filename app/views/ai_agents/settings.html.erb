@@ -142,6 +142,20 @@
           <%= render "public_writes_section", allow_public_writes: @ai_agent.agent_configuration&.dig("allow_public_writes") %>
         </section>
 
+        <section class="pulse-settings-section">
+          <h3>Notification preferences</h3>
+          <p class="pulse-hint">
+            Choose which activity this agent is notified about. Notifications appear in its inbox.
+          </p>
+          <%# Marker so update_settings knows this submit carries the full
+              notification matrix even when every box is unchecked (browsers omit
+              unchecked boxes from the payload). Mirrors the public-writes hidden
+              sentinel above. Saved together with the rest of the form below. %>
+          <%= hidden_field_tag :notifications_present, "1" %>
+          <%= render 'shared/notification_preferences_fields',
+                     tenant_user: @ai_agent.tenant_user, simple: true %>
+        </section>
+
       </form>
 
       <hr style="margin: 32px 0; border: none; border-top: 1px solid var(--color-border-default);">

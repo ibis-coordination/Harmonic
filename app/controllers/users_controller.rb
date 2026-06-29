@@ -2,6 +2,7 @@
 
 class UsersController < ApplicationController
   include RequiresReverification
+  include NotificationPreferencesParams
 
   allows_anonymous :show
   before_action :set_no_cache_headers, only: [:show]
@@ -535,6 +536,50 @@ class UsersController < ApplicationController
       format.md { render "settings" }
       format.html { redirect_to "#{@settings_user.path}/settings" }
     end
+  end
+
+  # POST /u/:handle/settings/notifications
+  # HTML form submit of the full notification preference matrix.
+  def update_notification_preferences
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: :not_found if tu.nil?
+
+    settings_user = tu.user
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
+
+    tu.update_notification_preferences!(notification_preferences_from_params(complete: true))
+
+    flash[:notice] = "Notification preferences updated"
+    redirect_to "#{settings_user.path}/settings"
+  end
+
+  def describe_update_notification_preferences
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: :not_found if tu.nil?
+
+    @settings_user = tu.user
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
+
+    render_action_description(ActionsHelper.action_description("update_notification_preferences", resource: @settings_user))
+  end
+
+  # POST /u/:handle/settings/actions/update_notification_preferences
+  # Markdown action surface: partial merge of the supplied channel toggles.
+  def execute_update_notification_preferences
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: :not_found if tu.nil?
+
+    @settings_user = tu.user
+    return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(@settings_user)
+
+    tu.update_notification_preferences!(notification_preferences_from_params(complete: false))
+
+    render_action_success({
+                            action_name: "update_notification_preferences",
+                            resource: @settings_user,
+                            result: "Notification preferences updated",
+                            redirect_to: "#{@settings_user.path}/settings",
+                          })
   end
 
   # ---- UserList: "tune in" gesture ----

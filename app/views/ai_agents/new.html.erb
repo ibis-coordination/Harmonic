@@ -85,6 +85,16 @@
         <%= render "public_writes_section", allow_public_writes: nil %>
       </section>
 
+      <section class="pulse-settings-section">
+        <label class="pulse-label">Notification preferences</label>
+        <small class="pulse-hint">Choose which activity this agent is notified about. Notifications appear in its inbox. You can change this later.</small>
+        <%# Marker so execute_create_ai_agent applies the full matrix even when
+            every box is unchecked. tenant_user is nil — the record doesn't exist
+            yet, so the boxes seed from the defaults. %>
+        <%= hidden_field_tag :notifications_present, "1" %>
+        <%= render 'shared/notification_preferences_fields', tenant_user: nil, simple: true %>
+      </section>
+
       <%
         internal_enabled = @current_tenant.internal_ai_agents_enabled?
         external_enabled = @current_tenant.external_ai_agents_enabled?

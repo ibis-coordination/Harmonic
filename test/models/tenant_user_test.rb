@@ -3,6 +3,19 @@ require "test_helper"
 class TenantUserTest < ActiveSupport::TestCase
   # Notification Preferences Tests
 
+  test "notification type sets stay in sync across the three sources of truth" do
+    # NOTIFICATION_TYPE_LABELS (UI + markdown surface), the default-preferences
+    # matrix, and Notification::NOTIFICATION_TYPES (what actually gets emitted)
+    # all enumerate the same types. Drift would silently drop a type from the
+    # settings UI or leave it without a default.
+    labels = TenantUser::NOTIFICATION_TYPE_LABELS.keys.sort
+    defaults = TenantUser::DEFAULT_NOTIFICATION_PREFERENCES.keys.sort
+    emitted = Notification::NOTIFICATION_TYPES.sort
+
+    assert_equal emitted, labels, "NOTIFICATION_TYPE_LABELS keys must match Notification::NOTIFICATION_TYPES"
+    assert_equal emitted, defaults, "DEFAULT_NOTIFICATION_PREFERENCES keys must match Notification::NOTIFICATION_TYPES"
+  end
+
   test "notification_preferences returns defaults when not set" do
     tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
@@ -105,6 +118,48 @@ class TenantUserTest < ActiveSupport::TestCase
     # Unknown type should return empty array
     channels = tenant_user.notification_channels_for("unknown_type")
     assert_empty channels
+  end
+
+  test "update_notification_preferences! applies a multi-type, multi-channel update" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant_user = user.tenant_user
+
+    tenant_user.update_notification_preferences!(
+      "mention" => { "email" => false },
+      "comment" => { "email" => true, "in_app" => false },
+    )
+    tenant_user.reload
+
+    refute tenant_user.notification_enabled?("mention", "email")
+    assert tenant_user.notification_enabled?("mention", "in_app"), "untouched channel keeps its default"
+    assert tenant_user.notification_enabled?("comment", "email")
+    refute tenant_user.notification_enabled?("comment", "in_app")
+  end
+
+  test "update_notification_preferences! merges — types not supplied keep their existing values" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant_user = user.tenant_user
+
+    tenant_user.set_notification_preference!("system", "email", false)
+    tenant_user.update_notification_preferences!("mention" => { "email" => false })
+    tenant_user.reload
+
+    refute tenant_user.notification_enabled?("system", "email"), "earlier change is preserved"
+    refute tenant_user.notification_enabled?("mention", "email")
+  end
+
+  test "update_notification_preferences! ignores unknown types and channels" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant_user = user.tenant_user
+
+    tenant_user.update_notification_preferences!(
+      "bogus_type" => { "email" => true },
+      "comment" => { "carrier_pigeon" => true },
+    )
+    tenant_user.reload
+
+    refute tenant_user.notification_preferences.key?("bogus_type")
+    refute tenant_user.notification_preferences["comment"].key?("carrier_pigeon")
   end
 
   # === Handle generation ===

@@ -1,0 +1,13 @@
+<%# Human notification-preference form: the full notification-type x channel
+    matrix with its own submit, posting to its own endpoint. Agents instead
+    embed the simple single-toggle fields in their main settings form — see
+    _notification_preferences_fields.
+    Locals:
+      tenant_user — TenantUser whose preferences are shown/edited
+      post_url    — form target that handles the submit %>
+<%= form_with url: post_url, method: :post, class: "pulse-form" do %>
+  <%= render 'shared/notification_preferences_fields', tenant_user: tenant_user, simple: false %>
+  <div class="pulse-form-actions">
+    <%= submit_tag "Save notification preferences", class: "pulse-action-btn-primary" %>
+  </div>
+<% end %>

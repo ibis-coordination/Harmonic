@@ -2,6 +2,7 @@
 
 class AiAgentsController < ApplicationController
   include RequiresReverification
+  include NotificationPreferencesParams
 
   TASK_RUNS_PER_MINUTE = 5
 
@@ -11,6 +12,7 @@ class AiAgentsController < ApplicationController
   before_action :require_any_ai_agents_enabled, only: [
     :index, :show, :settings, :update_settings,
     :describe_update_ai_agent, :execute_update_ai_agent, :settings_actions_index,
+    :describe_update_notification_preferences, :execute_update_notification_preferences,
   ]
   before_action :require_internal_ai_agents_enabled, only: [:run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
@@ -25,11 +27,13 @@ class AiAgentsController < ApplicationController
                 only: [:new, :create, :execute_create_ai_agent]
   before_action :set_ai_agent,
                 only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate,
-                       :reactivate,]
-  before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index]
+                       :reactivate, :describe_update_notification_preferences,
+                       :execute_update_notification_preferences,]
+  before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index, :describe_update_notification_preferences]
   before_action :authorize_parent, only: [
     :update_settings, :describe_update_ai_agent, :execute_update_ai_agent,
     :deactivate, :reactivate,
+    :execute_update_notification_preferences,
   ]
 
   # GET /ai-agents - List all AI agents owned by current user
@@ -169,13 +173,26 @@ class AiAgentsController < ApplicationController
     config["allow_public_writes"] = ActiveModel::Type::Boolean.new.cast(params[:allow_public_writes]) if params.key?(:allow_public_writes)
     @ai_agent.agent_configuration = config
 
-    if @ai_agent.save
+    # Notification preferences live on the agent's tenant_user and ride along in
+    # the same settings form (single Save button — no separate notifications
+    # submit). The hidden notifications_present marker distinguishes "every box
+    # unchecked" from "this submit doesn't touch notifications". Persist both in
+    # one transaction so a failed agent save never leaves the notification
+    # matrix half-written (and vice versa).
+    saved = false
+    ActiveRecord::Base.transaction do
+      next unless @ai_agent.save
+
+      apply_agent_notification_preferences_from_form(@ai_agent)
+      saved = true
+    end
+
+    if saved
       flash[:notice] = "Settings updated successfully"
-      redirect_to ai_agent_settings_path(@ai_agent.handle)
     else
       flash[:error] = @ai_agent.errors.full_messages.join(", ")
-      redirect_to ai_agent_settings_path(@ai_agent.handle)
     end
+    redirect_to ai_agent_settings_path(@ai_agent.handle)
   end
 
   # GET /ai-agents/:handle/run - Show task form for specific AI agent
@@ -450,6 +467,11 @@ class AiAgentsController < ApplicationController
         end
       end
     end
+    # Seed the new agent's notification preferences when the create form carries
+    # them (signalled by the notifications_present marker). Markdown/API creation
+    # omits the marker, so those callers keep the defaults.
+    apply_agent_notification_preferences_from_form(@ai_agent)
+
     charged_cents = nil
     if current_tenant.feature_enabled?("stripe_billing")
       assign_billing_customer!(@ai_agent)
@@ -573,11 +595,42 @@ class AiAgentsController < ApplicationController
     end
   end
 
+  def describe_update_notification_preferences
+    render_action_description(ActionsHelper.action_description("update_notification_preferences", resource: @ai_agent))
+  end
+
+  # POST /ai-agents/:handle/settings/actions/update_notification_preferences
+  # Markdown action surface: partial merge of the supplied channel toggles.
+  def execute_update_notification_preferences
+    # The agent is always loaded via its current-tenant tenant_user (set_ai_agent),
+    # so tenant_user is present here — matching the views, which dereference it
+    # without a guard.
+    @ai_agent.tenant_user.update_notification_preferences!(notification_preferences_from_params(complete: false))
+
+    render_action_success({
+                            action_name: "update_notification_preferences",
+                            resource: @ai_agent,
+                            result: "Notification preferences updated",
+                            redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
+                          })
+  end
+
   def current_resource_model
     User
   end
 
   private
+
+  # Persist the agent's notification preferences when the settings / new-agent
+  # form carries them (marked by the hidden notifications_present field). The
+  # form renders a single on/off box per type mapped to the in_app channel;
+  # complete: true records every unchecked box — including the always-absent
+  # email column — as false, which is correct for agents (no email address).
+  def apply_agent_notification_preferences_from_form(ai_agent)
+    return unless params.key?(:notifications_present)
+
+    ai_agent.tenant_user.update_notification_preferences!(notification_preferences_from_params(complete: true))
+  end
 
   def load_credit_balance_for_agents
     return unless current_user&.human?

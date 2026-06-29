@@ -40,6 +40,12 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "remove_ai_agent_from_collective",
     "create_api_token",
     "update_profile",
+    # Notification preferences govern which events reach the agent — its
+    # effective wake/trigger surface. Same reasoning as automation rules below:
+    # agents should not be self-modifying what notifies them. The owner/trustee
+    # configures this through the settings UI (gated by can_edit?, not this
+    # list), so blocking the agent-as-actor here doesn't affect that path.
+    "update_notification_preferences",
     "create_webhook",
     "update_webhook",
     "delete_webhook",
