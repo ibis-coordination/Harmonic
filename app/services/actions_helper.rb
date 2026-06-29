@@ -570,7 +570,9 @@ class ActionsHelper
       visibility: :public,
     },
     "update_notification_preferences" => {
-      description: "Update which channels deliver each notification type. Pass a `notifications` object mapping type to channel booleans; only the keys you include are changed.",
+      description: "Update which channels deliver each notification type. " \
+                   "Pass a `notifications` object mapping type to channel booleans; " \
+                   "only the keys you include are changed.",
       params_string: "(notifications)",
       params: [
         { name: "notifications", type: "object",

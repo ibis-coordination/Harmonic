@@ -28,7 +28,10 @@ module NotificationPreferencesParams
         present = type_params.key?(channel)
         next unless complete || present
 
-        (preferences[type] ||= {})[channel] = boolean.cast(type_params[channel])
+        # An absent box (browsers omit unchecked checkboxes) is a definite
+        # false, not nil — the column is typed T::Hash[String, T::Boolean].
+        # Boolean.cast(nil) returns nil, so coerce the absent path explicitly.
+        (preferences[type] ||= {})[channel] = present ? boolean.cast(type_params[channel]) : false
       end
     end
     preferences

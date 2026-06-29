@@ -3,6 +3,19 @@ require "test_helper"
 class TenantUserTest < ActiveSupport::TestCase
   # Notification Preferences Tests
 
+  test "notification type sets stay in sync across the three sources of truth" do
+    # NOTIFICATION_TYPE_LABELS (UI + markdown surface), the default-preferences
+    # matrix, and Notification::NOTIFICATION_TYPES (what actually gets emitted)
+    # all enumerate the same types. Drift would silently drop a type from the
+    # settings UI or leave it without a default.
+    labels = TenantUser::NOTIFICATION_TYPE_LABELS.keys.sort
+    defaults = TenantUser::DEFAULT_NOTIFICATION_PREFERENCES.keys.sort
+    emitted = Notification::NOTIFICATION_TYPES.sort
+
+    assert_equal emitted, labels, "NOTIFICATION_TYPE_LABELS keys must match Notification::NOTIFICATION_TYPES"
+    assert_equal emitted, defaults, "DEFAULT_NOTIFICATION_PREFERENCES keys must match Notification::NOTIFICATION_TYPES"
+  end
+
   test "notification_preferences returns defaults when not set" do
     tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user

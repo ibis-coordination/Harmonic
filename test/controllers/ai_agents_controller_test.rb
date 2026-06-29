@@ -440,7 +440,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
                    notifications: { comment: { in_app: "true" } } }
 
     assert_response :redirect
-    agent = User.where(user_type: "ai_agent").order(:created_at).last
+    agent = @user.ai_agents.find_by!(name: "Notif Agent")
     tu = agent.tenant_users.find_by(tenant: @tenant)
     assert tu.notification_enabled?("comment", "in_app"), "checked toggle on"
     refute tu.notification_enabled?("mention", "in_app"), "unchecked toggle off"
@@ -705,6 +705,42 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     refute tu.notification_enabled?("comment", "email"), "agents never get email — recorded off"
   end
 
+  test "update_settings stores unchecked channels as false, not nil" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/settings",
+      params: { name: "Test AI Agent", notifications_present: "1",
+                notifications: { comment: { in_app: "true" } } }
+
+    assert_response :redirect
+    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
+    # The agent form never renders an email box, so the email channel is always
+    # absent from the payload. complete: true must record those as the boolean
+    # false — not JSON null (the column is typed Hash[String, Boolean]). Assert
+    # with == false (not !value) so a nil regression fails here.
+    assert_equal false, tu.notification_preferences.dig("comment", "email")
+    assert_equal false, tu.notification_preferences.dig("mention", "in_app"),
+      "unchecked in_app box stored as false, not nil"
+  end
+
+  test "update_settings rolls back notification preferences when the agent save fails" do
+    sign_in_as(@user, tenant: @tenant)
+    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "in_app"), "default on"
+
+    # mode is immutable after creation, so submitting a different mode fails
+    # @ai_agent.save. The notification toggles (comment unchecked) must NOT be
+    # committed — no partial write.
+    post "/ai-agents/#{@ai_agent_handle}/settings",
+      params: { name: "Test AI Agent", mode: "external", notifications_present: "1",
+                notifications: { mention: { in_app: "true" } } }
+
+    assert_response :redirect
+    tu.reload
+    assert tu.notification_enabled?("comment", "in_app"),
+      "prefs unchanged because the agent save failed"
+  end
+
   test "update_settings leaves notification preferences untouched when the marker is absent" do
     sign_in_as(@user, tenant: @tenant)
     tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
@@ -717,18 +753,6 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     tu.reload
     assert tu.notification_enabled?("comment", "in_app"), "preferences preserved"
-  end
-
-  test "parent can update an agent's notification preferences via the HTML form" do
-    sign_in_as(@user, tenant: @tenant)
-
-    post "/ai-agents/#{@ai_agent_handle}/settings/notifications",
-      params: { notifications: { comment: { email: "true" }, mention: { in_app: "true" } } }
-
-    assert_response :redirect
-    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
-    assert tu.notification_enabled?("comment", "email")
-    refute tu.notification_enabled?("mention", "email"), "omitted box recorded as off"
   end
 
   test "parent can update an agent's notification preferences via the markdown action" do

@@ -17,16 +17,17 @@
        TenantUser::DEFAULT_NOTIFICATION_PREFERENCES.dig(type, channel) == true
      end
    } %>
+<%# Simple mode is a single on/off box per type, mapped to the in_app channel
+    (agents have no email address); the full matrix renders every channel. Drive
+    both from one channels list so the header and body never drift. %>
+<% channels = simple ? %w[in_app] : TenantUser::NOTIFICATION_CHANNELS %>
+<% channel_label = ->(channel) { channel == "in_app" ? "In-app" : "Email" } %>
 <table class="pulse-table">
   <thead>
     <tr>
       <th scope="col">Notification</th>
-      <% if simple %>
-        <th scope="col">Enabled</th>
-      <% else %>
-        <% TenantUser::NOTIFICATION_CHANNELS.each do |channel| %>
-          <th scope="col"><%= channel == "in_app" ? "In-app" : "Email" %></th>
-        <% end %>
+      <% channels.each do |channel| %>
+        <th scope="col"><%= simple ? "Enabled" : channel_label.call(channel) %></th>
       <% end %>
     </tr>
   </thead>
@@ -34,20 +35,12 @@
     <% TenantUser::NOTIFICATION_TYPE_LABELS.each do |type, label| %>
       <tr>
         <th scope="row" style="font-weight: 400;"><%= label %></th>
-        <% if simple %>
+        <% channels.each do |channel| %>
           <td>
-            <label class="pulse-checkbox-label" aria-label="<%= label %>">
-              <%= check_box_tag "notifications[#{type}][in_app]", "true", enabled.call(type, "in_app") %>
+            <label class="pulse-checkbox-label" aria-label="<%= simple ? label : "#{label} — #{channel_label.call(channel).downcase}" %>">
+              <%= check_box_tag "notifications[#{type}][#{channel}]", "true", enabled.call(type, channel) %>
             </label>
           </td>
-        <% else %>
-          <% TenantUser::NOTIFICATION_CHANNELS.each do |channel| %>
-            <td>
-              <label class="pulse-checkbox-label" aria-label="<%= label %> — <%= channel == "in_app" ? "in-app" : "email" %>">
-                <%= check_box_tag "notifications[#{type}][#{channel}]", "true", enabled.call(type, channel) %>
-              </label>
-            </td>
-          <% end %>
         <% end %>
       </tr>
     <% end %>

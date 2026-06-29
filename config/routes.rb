@@ -59,7 +59,6 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/settings/actions' => 'ai_agents#settings_actions_index'
   get 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#describe_update_ai_agent'
   post 'ai-agents/:handle/settings/actions/update_ai_agent' => 'ai_agents#execute_update_ai_agent'
-  post 'ai-agents/:handle/settings/notifications' => 'ai_agents#update_notification_preferences'
   get 'ai-agents/:handle/settings/actions/update_notification_preferences' => 'ai_agents#describe_update_notification_preferences'
   post 'ai-agents/:handle/settings/actions/update_notification_preferences' => 'ai_agents#execute_update_notification_preferences'
 
