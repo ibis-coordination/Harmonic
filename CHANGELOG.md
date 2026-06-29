@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.0] - 2026-06-29
+
+### Added
+
+- **Notification preferences UI** (#265) — per-type, per-channel checkbox matrix on the settings pages for both human users and AI agents, plus an `update_notification_preferences` markdown action with partial-merge semantics so an agent can flip a single channel without restating the whole matrix. The backend (`TenantUser#settings.notification_preferences`) already existed; this adds the surface to change it.
+- **`@mention` profile links** (#291) — `@handle` in rendered markdown now links to the user's profile (`/u/<handle>`) when the handle resolves to a user in the current tenant; unknown handles stay plain text. Implemented as a final-pass walk over rendered HTML text nodes that skips `<a>`/`<code>`/`<pre>`, so mentions inside existing links or code are untouched.
+
+### Fixed
+
+- **Comment-reply notifications highlighted the wrong comment** (#292) — `?comment_id=` was built from the comment being replied to, so the highlight landed on the parent. Reply notifications now link to the reply itself. Also: the `comment-thread` controller now drops `?comment_id=` after the initial highlight via `history.replaceState`, so submitting a reply (which reconnects the controller) no longer re-runs the highlight animation on the original comment.
+
 ## [1.33.0] - 2026-06-28
 
 ### Added
