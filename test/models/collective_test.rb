@@ -158,6 +158,42 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_equal "collective_identity", collective.identity_user.user_type
   end
 
+  # Goal 2 of handle-model-unification: the identity user shares the collective's
+  # own handle so @foo-team and /collectives/foo-team resolve to one identity.
+  test "identity user shares the collective's handle" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "Foo-Team")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_equal "Foo-Team", identity_tu.handle
+  end
+
+  test "identity user handle is suffixed when a user already holds the collective handle" do
+    tenant = create_tenant
+    user = create_user
+    TenantUser.create!(tenant: tenant, user: create_user, display_name: "Squatter", handle: "foo-team")
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_match(/\Afoo-team-[0-9a-f]{4}\z/, identity_tu.handle)
+  end
+
+  test "identity user handle is suffixed when the collective handle is reserved for system agents" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Trio", handle: "trio")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_match(/\Atrio-[0-9a-f]{4}\z/, identity_tu.handle)
+  end
+
+  test "renaming the collective syncs the identity user handle" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+    collective.update!(handle: "bar-team")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_equal "bar-team", identity_tu.handle
+  end
+
   test "Collective#trio_user is nil by default and links to a User when set" do
     tenant = create_tenant
     user = create_user
