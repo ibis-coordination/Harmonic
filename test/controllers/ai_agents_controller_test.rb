@@ -422,6 +422,31 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "new AI agent form renders notification toggles (single on/off per type)" do
+    sign_in_with_ai_agents_reverify(@user)
+    get "/ai-agents/new"
+
+    assert_response :success
+    assert_includes response.body, "Notification preferences"
+    assert_includes response.body, "notifications[comment][in_app]"
+    assert_not_includes response.body, "notifications[comment][email]"
+  end
+
+  test "create applies notification toggles from the new-agent form" do
+    sign_in_with_ai_agents_reverify(@user)
+
+    post "/ai-agents/new/actions/create_ai_agent",
+         params: { name: "Notif Agent", mode: "internal", notifications_present: "1",
+                   notifications: { comment: { in_app: "true" } } }
+
+    assert_response :redirect
+    agent = User.where(user_type: "ai_agent").order(:created_at).last
+    tu = agent.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "in_app"), "checked toggle on"
+    refute tu.notification_enabled?("mention", "in_app"), "unchecked toggle off"
+    refute tu.notification_enabled?("comment", "email"), "agents never get email"
+  end
+
   test "AI agent user cannot access new AI agent form" do
     # AI agents use API tokens, not session auth, so they get redirected to login
     sign_in_as(@ai_agent, tenant: @tenant)
@@ -648,14 +673,50 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   # === Agent notification preferences ===
 
-  test "agent settings page renders the notification preferences matrix" do
+  test "agent settings page renders a single on/off toggle per notification type, no email column" do
     sign_in_as(@user, tenant: @tenant)
 
     get "/ai-agents/#{@ai_agent_handle}/settings"
 
     assert_response :success
     assert_includes response.body, "Notification preferences"
-    assert_includes response.body, "notifications[comment][email]"
+    # Simple boolean toggle: the in_app box is present...
+    assert_includes response.body, "notifications[comment][in_app]"
+    # ...and the email column is gone (agents have no email address).
+    assert_not_includes response.body, "notifications[comment][email]"
+    # Folded into the single page form — no separate notifications submit.
+    assert_not_includes response.body, "Save notification preferences"
+    assert_includes response.body, "Save Settings"
+  end
+
+  test "update_settings saves agent notification toggles from the single page form" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Main form submit: notifications_present marks the matrix; comment is
+    # checked (in_app), mention is unchecked (box omitted by the browser).
+    post "/ai-agents/#{@ai_agent_handle}/settings",
+      params: { name: "Test AI Agent", notifications_present: "1",
+                notifications: { comment: { in_app: "true" } } }
+
+    assert_response :redirect
+    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "in_app"), "checked toggle stays on"
+    refute tu.notification_enabled?("mention", "in_app"), "unchecked toggle recorded as off"
+    refute tu.notification_enabled?("comment", "email"), "agents never get email — recorded off"
+  end
+
+  test "update_settings leaves notification preferences untouched when the marker is absent" do
+    sign_in_as(@user, tenant: @tenant)
+    tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "in_app"), "default on"
+
+    # A submit that does not carry the notification fields (no marker) must not
+    # wipe the matrix to all-off.
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { name: "Renamed" }
+
+    assert_response :redirect
+    tu.reload
+    assert tu.notification_enabled?("comment", "in_app"), "preferences preserved"
   end
 
   test "parent can update an agent's notification preferences via the HTML form" do

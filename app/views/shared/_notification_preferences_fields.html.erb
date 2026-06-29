@@ -1,0 +1,55 @@
+<%# Notification-preference fields WITHOUT a <form> wrapper, so they can be
+    embedded directly in a host form (the agent settings / new-agent form share
+    one Save button — see _notification_preferences for the human standalone
+    form). Locals:
+      tenant_user — TenantUser whose saved prefs seed the boxes. nil falls back
+                    to defaults (the new-agent form renders before the record
+                    exists).
+      simple      — when true, render a single on/off toggle per type. Agents
+                    have no real email address, so the in-app/email split is
+                    meaningless for them; the lone box maps to the in_app
+                    channel. Unchecked boxes are omitted by the browser and
+                    recorded as false by the receiving controller (complete: true). %>
+<% enabled = ->(type, channel) {
+     if tenant_user
+       tenant_user.notification_enabled?(type, channel)
+     else
+       TenantUser::DEFAULT_NOTIFICATION_PREFERENCES.dig(type, channel) == true
+     end
+   } %>
+<table class="pulse-table">
+  <thead>
+    <tr>
+      <th scope="col">Notification</th>
+      <% if simple %>
+        <th scope="col">Enabled</th>
+      <% else %>
+        <% TenantUser::NOTIFICATION_CHANNELS.each do |channel| %>
+          <th scope="col"><%= channel == "in_app" ? "In-app" : "Email" %></th>
+        <% end %>
+      <% end %>
+    </tr>
+  </thead>
+  <tbody>
+    <% TenantUser::NOTIFICATION_TYPE_LABELS.each do |type, label| %>
+      <tr>
+        <th scope="row" style="font-weight: 400;"><%= label %></th>
+        <% if simple %>
+          <td>
+            <label class="pulse-checkbox-label" aria-label="<%= label %>">
+              <%= check_box_tag "notifications[#{type}][in_app]", "true", enabled.call(type, "in_app") %>
+            </label>
+          </td>
+        <% else %>
+          <% TenantUser::NOTIFICATION_CHANNELS.each do |channel| %>
+            <td>
+              <label class="pulse-checkbox-label" aria-label="<%= label %> — <%= channel == "in_app" ? "in-app" : "email" %>">
+                <%= check_box_tag "notifications[#{type}][#{channel}]", "true", enabled.call(type, channel) %>
+              </label>
+            </td>
+          <% end %>
+        <% end %>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

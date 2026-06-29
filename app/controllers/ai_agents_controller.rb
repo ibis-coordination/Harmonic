@@ -173,6 +173,12 @@ class AiAgentsController < ApplicationController
     config["allow_public_writes"] = ActiveModel::Type::Boolean.new.cast(params[:allow_public_writes]) if params.key?(:allow_public_writes)
     @ai_agent.agent_configuration = config
 
+    # Notification preferences live on the agent's tenant_user and ride along in
+    # the same settings form (single Save button — no separate notifications
+    # submit). The hidden notifications_present marker distinguishes "every box
+    # unchecked" from "this submit doesn't touch notifications".
+    apply_agent_notification_preferences_from_form(@ai_agent)
+
     if @ai_agent.save
       flash[:notice] = "Settings updated successfully"
       redirect_to ai_agent_settings_path(@ai_agent.handle)
@@ -454,6 +460,10 @@ class AiAgentsController < ApplicationController
         end
       end
     end
+    # Seed the new agent's notification preferences from the create form (HTML
+    # only — the marker is absent on markdown/API creation, leaving defaults).
+    apply_agent_notification_preferences_from_form(@ai_agent)
+
     charged_cents = nil
     if current_tenant.feature_enabled?("stripe_billing")
       assign_billing_customer!(@ai_agent)
@@ -623,6 +633,18 @@ class AiAgentsController < ApplicationController
   end
 
   private
+
+  # Persist the agent's notification preferences when the settings / new-agent
+  # form carries them (marked by the hidden notifications_present field). The
+  # form renders a single on/off box per type mapped to the in_app channel;
+  # complete: true records every unchecked box — including the always-absent
+  # email column — as false, which is correct for agents (no email address).
+  def apply_agent_notification_preferences_from_form(ai_agent)
+    return unless params.key?(:notifications_present)
+
+    tu = ai_agent.tenant_user
+    tu&.update_notification_preferences!(notification_preferences_from_params(complete: true))
+  end
 
   def load_credit_balance_for_agents
     return unless current_user&.human?
