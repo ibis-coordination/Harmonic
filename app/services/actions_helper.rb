@@ -279,7 +279,8 @@ class ActionsHelper
       visibility: :by_collective,
     },
     "query_rows" => {
-      description: "Query rows in this table with optional filtering, sorting, and pagination",
+      description: "Query rows in this table with optional filtering, sorting, and pagination. " \
+        "Results include each row's _harmonic_row_id, the identifier passed as row_id to update_row/delete_row",
       params_string: "(where, order_by, order, limit, offset)",
       params: [
         { name: "where", type: "object", required: false, description: "Filter by column values, e.g. { \"Status\": \"done\" }" },

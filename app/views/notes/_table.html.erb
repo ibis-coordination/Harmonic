@@ -35,7 +35,7 @@
                   style: "display: inline;",
                   data: { turbo_confirm: "Delete this row?" }
                 ) do |f| %>
-                  <%= f.hidden_field :row_id, value: row["_id"] %>
+                  <%= f.hidden_field :row_id, value: row["_harmonic_row_id"] %>
                   <button type="submit" class="pulse-action-btn-secondary" style="padding: 2px 6px;" title="Delete row">
                     <%= octicon 'trash', height: 12 %>
                   </button>

@@ -544,6 +544,25 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, note.table_data["columns"].length
   end
 
+  test "create_table_note action rejects a column using the reserved _harmonic_ prefix" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference -> { Note.count } do
+      post "/collectives/#{@collective.handle}/note/actions/create_table_note",
+        params: {
+          title: "Sneaky Table",
+          columns: [
+            { name: "Status", type: "text" },
+            { name: "_harmonic_row_id", type: "text" },
+          ],
+        },
+        headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes response.body, "_harmonic_"
+  end
+
   test "create_table_note action appears on note creation page" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -684,7 +703,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/delete_row",
-      params: { row_id: row["_id"] }
+      params: { row_id: row["_harmonic_row_id"] }
 
     assert_response :redirect
     assert_redirected_to note.path
@@ -713,7 +732,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "pending", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_row",
-      params: { row_id: row["_id"], values: { "Status" => "done" } },
+      params: { row_id: row["_harmonic_row_id"], values: { "Status" => "done" } },
       headers: { "Accept" => "text/markdown" }
 
     assert_response :success
@@ -728,7 +747,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/delete_row",
-      params: { row_id: row["_id"] },
+      params: { row_id: row["_harmonic_row_id"] },
       headers: { "Accept" => "text/markdown" }
 
     assert_response :success
@@ -751,6 +770,21 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "1 rows match"
     assert_includes response.body, "done"
     refute_includes response.body, "pending"
+  end
+
+  test "query_rows action exposes each row's _harmonic_row_id so it can be updated or deleted" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/query_rows",
+      params: {},
+      headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "| _harmonic_row_id | Status | Due |"
+    assert_includes response.body, row["_harmonic_row_id"], "query_rows must surface the row _harmonic_row_id needed by update_row/delete_row"
   end
 
   test "summarize action returns aggregation result" do
@@ -1824,7 +1858,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       table_data: {
         "description" => "",
         "columns" => [{ "name" => "Link", "type" => "text" }],
-        "rows" => [{ "_id" => "r1", "Link" => "[Example](https://example.com)" }],
+        "rows" => [{ "_harmonic_row_id" => "r1", "Link" => "[Example](https://example.com)" }],
       },
     )
 

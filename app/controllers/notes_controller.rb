@@ -133,7 +133,7 @@ class NotesController < ApplicationController
                             resource: note,
                             result: "Table note created.",
                           })
-  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+  rescue ArgumentError, RuntimeError, ActiveRecord::RecordInvalid => e
     render_action_error({
                           action_name: "create_table_note",
                           error: e.message,
@@ -370,7 +370,7 @@ class NotesController < ApplicationController
     row = api_helper.add_row
     respond_to do |format|
       format.html { redirect_to current_note.path, notice: "Row added." }
-      format.md { render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_id']})." }) }
+      format.md { render_action_success({ action_name: "add_row", resource: current_note, result: "Row added (id: #{row['_harmonic_row_id']})." }) }
     end
   rescue RuntimeError, ActiveRecord::RecordInvalid => e
     respond_to do |format|
@@ -414,7 +414,7 @@ class NotesController < ApplicationController
   def execute_add_table_column
     api_helper.add_table_column
     render_action_success({ action_name: "add_table_column", resource: current_note, result: "Column '#{params[:name]}' added." })
-  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+  rescue ArgumentError, RuntimeError, ActiveRecord::RecordInvalid => e
     render_action_error({ action_name: "add_table_column", resource: current_note, error: e.message })
   end
 
@@ -439,7 +439,7 @@ class NotesController < ApplicationController
     markdown = NoteTableFormatter.to_markdown({
       "columns" => table.columns,
       "rows" => result[:rows],
-    })
+    }, include_ids: true)
     render_action_success({
       action_name: "query_rows",
       resource: current_note,
@@ -505,7 +505,7 @@ class NotesController < ApplicationController
       format.html { redirect_to current_note.path, notice: "#{operations.length} operations applied." }
       format.md { render_action_success({ action_name: "batch_table_update", resource: current_note, result: "#{operations.length} operations applied." }) }
     end
-  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+  rescue ArgumentError, RuntimeError, ActiveRecord::RecordInvalid => e
     respond_to do |format|
       format.json { render json: { success: false, error: e.message }, status: :unprocessable_entity }
       format.html { redirect_to current_note.path, alert: e.message }
@@ -629,7 +629,7 @@ class NotesController < ApplicationController
       parsed = JSON.parse(params[:initial_rows]) rescue []
       col_names = columns.map { |c| c["name"] }
       initial_rows = parsed.map do |row|
-        r = { "_id" => SecureRandom.hex(4), "_created_by" => @current_user.id, "_created_at" => Time.current.iso8601 }
+        r = { "_harmonic_row_id" => SecureRandom.hex(4), "_harmonic_created_by" => @current_user.id, "_harmonic_created_at" => Time.current.iso8601 }
         col_names.each { |name| r[name] = row[name]&.to_s }
         r
       end

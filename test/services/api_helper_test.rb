@@ -509,7 +509,7 @@ class ApiHelperTest < ActiveSupport::TestCase
 
     row = helper.add_row
 
-    assert row["_id"].present?
+    assert row["_harmonic_row_id"].present?
     assert_equal "done", row["Status"]
     assert_equal "42", row["Amount"]
     assert_equal 1, note.reload.table_data["rows"].length
@@ -520,7 +520,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     table = NoteTableService.new(note)
     row = table.add_row!({ "Status" => "pending", "Amount" => "10" }, created_by: @user)
 
-    helper = table_api_helper(note, params: { row_id: row["_id"], values: { "Status" => "done" } })
+    helper = table_api_helper(note, params: { row_id: row["_harmonic_row_id"], values: { "Status" => "done" } })
     updated = helper.update_row
 
     assert_equal "done", updated["Status"]
@@ -532,7 +532,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     table = NoteTableService.new(note)
     row = table.add_row!({ "Status" => "done", "Amount" => "10" }, created_by: @user)
 
-    helper = table_api_helper(note, params: { row_id: row["_id"] })
+    helper = table_api_helper(note, params: { row_id: row["_harmonic_row_id"] })
     helper.delete_row
 
     assert_equal 0, note.reload.table_data["rows"].length
@@ -647,7 +647,7 @@ class ApiHelperTest < ActiveSupport::TestCase
     )
 
     row = helper.add_row
-    assert row["_id"].present?
+    assert row["_harmonic_row_id"].present?
   end
 
   test "add_table_column requires resource owner" do

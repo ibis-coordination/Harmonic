@@ -335,9 +335,13 @@ class ApiHelper
     end.select { |c| c["name"].present? }
 
     col_names = columns.map { |c| c["name"] }
+    if (reserved = col_names.find { |n| n.to_s.start_with?("_harmonic_") })
+      raise ArgumentError, "Column name '#{reserved}' uses the reserved '_harmonic_' prefix"
+    end
+
     initial_rows = (params[:initial_rows] || []).map do |row|
       row = row.respond_to?(:to_unsafe_h) ? row.to_unsafe_h : row.to_h
-      r = { "_id" => SecureRandom.hex(4), "_created_by" => current_user.id, "_created_at" => Time.current.iso8601 }
+      r = { "_harmonic_row_id" => SecureRandom.hex(4), "_harmonic_created_by" => current_user.id, "_harmonic_created_at" => Time.current.iso8601 }
       col_names.each { |name| r[name] = row[name.to_s]&.to_s || row[name.to_sym]&.to_s }
       r
     end

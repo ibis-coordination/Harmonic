@@ -58,7 +58,7 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     row = table.add_row!({ "Status" => "done", "Due" => "2026-04-20" }, created_by: note.created_by)
 
     assert_equal 1, table.rows.length
-    assert row["_id"].present?
+    assert row["_harmonic_row_id"].present?
     assert_equal "done", row["Status"]
     assert_includes note.text, "done"
     assert_includes note.text, "2026-04-20"
@@ -69,7 +69,7 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     table = NoteTableService.new(note)
     row = table.add_row!({ "Status" => "pending", "Due" => "2026-04-20" }, created_by: note.created_by)
 
-    updated = table.update_row!(row["_id"], { "Status" => "done" })
+    updated = table.update_row!(row["_harmonic_row_id"], { "Status" => "done" })
 
     assert_equal "done", updated["Status"]
     assert_equal "2026-04-20", updated["Due"]
@@ -90,7 +90,7 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     table = NoteTableService.new(note)
     row = table.add_row!({ "Status" => "done", "Due" => "2026-04-20" }, created_by: note.created_by)
 
-    table.delete_row!(row["_id"])
+    table.delete_row!(row["_harmonic_row_id"])
 
     assert_equal 0, table.rows.length
     refute_includes note.text, "done"
@@ -140,6 +140,38 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     assert_equal 3, table.columns.length
     assert_includes table.column_names, "Priority"
     assert_includes note.text, "Priority"
+  end
+
+  test "add_column! rejects a column using the reserved _harmonic_ prefix" do
+    note = create_table_note
+    table = NoteTableService.new(note)
+
+    error = assert_raises(ArgumentError) do
+      table.add_column!("_harmonic_sneaky", "text")
+    end
+    assert_includes error.message, "_harmonic_"
+    assert_equal 2, table.columns.length
+  end
+
+  test "define_columns! rejects a column using the reserved _harmonic_ prefix" do
+    note = create_table_note
+    table = NoteTableService.new(note)
+
+    error = assert_raises(ArgumentError) do
+      table.define_columns!([{ "name" => "_harmonic_row_id", "type" => "text" }])
+    end
+    assert_includes error.message, "_harmonic_"
+  end
+
+  test "add_column! allows a leading underscore that is not the _harmonic_ prefix" do
+    note = create_table_note
+    table = NoteTableService.new(note)
+
+    table.add_column!("_source", "text")
+
+    assert_includes table.column_names, "_source"
+    assert_equal 3, table.columns.length
+    assert note.valid?, note.errors.full_messages.to_sentence
   end
 
   test "remove_column! removes column and its values" do
