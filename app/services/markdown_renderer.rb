@@ -9,8 +9,57 @@
 class MarkdownRenderer
   extend T::Sig
   extend OcticonsHelper
+
+  # Redcarpet HTML renderer that turns @mention handles into profile links as
+  # part of rendering. Doing this in #normal_text (rather than walking the
+  # rendered HTML afterwards) means the contexts where a mention must stay
+  # literal — code spans, fenced code blocks, and autolinked emails — are
+  # handled for free, because Redcarpet routes those through separate callbacks
+  # that never reach #normal_text. The one context #normal_text can't see is
+  # link text, so #link unwraps any mention anchors its content picked up.
+  class MentionRenderer < Redcarpet::Render::HTML
+    extend T::Sig
+
+    # Matches a mention anchor emitted by #normal_text, capturing its visible
+    # label so #link can unwrap it back to plain text inside an enclosing link.
+    MENTION_LINK = %r{<a href="[^"]*" class="mention-link">(@[A-Za-z0-9_-]+)</a>}
+
+    # Render plain text, linkifying any @mention that resolves to a real user
+    # in the current tenant. Handles that don't resolve stay plain text, as
+    # does everything when there's no '@' or no tenant context. The literal
+    # text is HTML-escaped first; handle characters ([A-Za-z0-9_-]) are never
+    # HTML-special, so the mention pattern still matches the escaped text while
+    # the surrounding content stays safely escaped.
+    sig { params(text: T.nilable(String)).returns(String) }
+    def normal_text(text)
+      escaped = CGI.escapeHTML(text.to_s)
+      return escaped unless text&.include?("@")
+
+      tenant_id = Tenant.current_id
+      return escaped if tenant_id.blank?
+
+      paths = MentionParser.resolve_paths(text, tenant_id: tenant_id, collective: MarkdownRenderer.current_collective)
+      return escaped if paths.empty?
+
+      escaped.gsub(MentionParser::MENTION_PATTERN) do |match|
+        handle = match.delete_prefix("@")
+        path = paths[handle]
+        path ? %(<a href="#{CGI.escapeHTML(path)}" class="mention-link">@#{handle}</a>) : match
+      end
+    end
+
+    # A mention inside link text (e.g. `[@alice](/x)`) would otherwise nest a
+    # mention anchor inside the link's anchor — invalid HTML. Strip any mention
+    # anchors back to their label before the enclosing link is built so the
+    # original link stays intact and the mention stays plain.
+    sig { params(link: T.nilable(String), title: T.nilable(String), content: T.nilable(String)).returns(T.nilable(String)) }
+    def link(link, title, content)
+      super(link, title, content&.gsub(MENTION_LINK, '\1'))
+    end
+  end
+
   @@markdown = Redcarpet::Markdown.new(
-    Redcarpet::Render::HTML.new(
+    MentionRenderer.new(
       hard_wrap: true,
       safe_links_only: true,
       filter_html: false, # Turned off so we can handle sanitization manually
@@ -36,7 +85,6 @@ class MarkdownRenderer
     if display_references
       output = display_refereces(output)
     end
-    output = linkify_mentions(output)
     output
   end
 
@@ -44,8 +92,7 @@ class MarkdownRenderer
   def self.render_inline(content)
     raw_html = @@markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
-    linkified = linkify_mentions(sanitized_html)
-    linkified.gsub(/<p>(.*)<\/p>/, '\1')
+    sanitized_html.gsub(/<p>(.*)<\/p>/, '\1')
   end
 
   private
@@ -130,51 +177,6 @@ class MarkdownRenderer
       end
     end
     doc.to_html
-  end
-
-  # Tags whose text should never be linkified: existing links (no nested
-  # <a>) and code spans/blocks (literal @handles shown as code stay literal).
-  MENTION_SKIP_ANCESTORS = %w[a code pre].freeze
-
-  # Render @mention handles as links to the mentioned user's profile. Only
-  # handles that resolve to a real user in the current tenant are linked;
-  # everything else is left as plain text. Mentions inside links or code are
-  # left untouched. Requires Tenant.current_id to be set — outside a tenant
-  # context (e.g. nil thread state) the content is returned unchanged.
-  sig { params(html: String).returns(String) }
-  def self.linkify_mentions(html)
-    tenant_id = Tenant.current_id
-    return html if tenant_id.blank?
-    # Cheap early-out: no '@' means no mentions, so skip the Nokogiri parse.
-    return html unless html.include?("@")
-
-    doc = Nokogiri::HTML.fragment(html)
-    candidate_nodes = doc.search(".//text()").select do |node|
-      next false if node.ancestors.any? { |ancestor| MENTION_SKIP_ANCESTORS.include?(ancestor.name) }
-
-      node.content.match?(MentionParser::MENTION_PATTERN)
-    end
-    return html if candidate_nodes.empty?
-
-    combined_text = candidate_nodes.map(&:content).join("\n")
-    paths = MentionParser.resolve_paths(combined_text, tenant_id: tenant_id, collective: current_collective)
-    return html if paths.empty?
-
-    candidate_nodes.each { |node| node.replace(Nokogiri::HTML.fragment(mention_links_for(node.content, paths))) }
-    doc.to_html
-  end
-
-  # Rewrite @mentions in a plain-text node into mention links. The literal text
-  # is HTML-escaped first; handle characters ([A-Za-z0-9_-]) are never
-  # HTML-special, so the mention pattern still matches and surrounding text
-  # stays safely escaped. Handles without a resolved path are left as-is.
-  sig { params(text: String, paths: T::Hash[String, String]).returns(String) }
-  def self.mention_links_for(text, paths)
-    CGI.escapeHTML(text).gsub(MentionParser::MENTION_PATTERN) do |match|
-      handle = match.delete_prefix("@")
-      path = paths[handle]
-      path ? "<a href=\"#{CGI.escapeHTML(path)}\" class=\"mention-link\">@#{handle}</a>" : match
-    end
   end
 
   # The current collective, resolved from thread-local request state. Needed

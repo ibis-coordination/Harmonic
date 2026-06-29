@@ -418,7 +418,9 @@ class MarkdownRendererTest < ActiveSupport::TestCase
 
     html = MarkdownRenderer.render("Hello @alice, welcome!", display_references: false)
 
-    assert_includes html, '<a href="/u/alice" class="mention-link">@alice</a>'
+    # Mentions are rendered during the markdown pass, so (like every other
+    # relative link) they also pick up rel="noopener noreferrer" from sanitize.
+    assert_match %r{<a href="/u/alice"[^>]*class="mention-link"[^>]*>@alice</a>}, html
   end
 
   test "render leaves unknown @mentions as plain text" do
@@ -435,8 +437,8 @@ class MarkdownRendererTest < ActiveSupport::TestCase
 
     html = MarkdownRenderer.render("@alice and @bob", display_references: false)
 
-    assert_includes html, '<a href="/u/alice" class="mention-link">@alice</a>'
-    assert_includes html, '<a href="/u/bob" class="mention-link">@bob</a>'
+    assert_match %r{<a href="/u/alice"[^>]*class="mention-link"[^>]*>@alice</a>}, html
+    assert_match %r{<a href="/u/bob"[^>]*class="mention-link"[^>]*>@bob</a>}, html
   end
 
   test "render does not linkify mentions inside inline code" do
@@ -472,7 +474,7 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     html = MarkdownRenderer.render("1 < 2 and @alice", display_references: false)
 
     assert_includes html, "1 &lt; 2"
-    assert_includes html, '<a href="/u/alice" class="mention-link">@alice</a>'
+    assert_match %r{<a href="/u/alice"[^>]*class="mention-link"[^>]*>@alice</a>}, html
   end
 
   # === Edge Cases ===
