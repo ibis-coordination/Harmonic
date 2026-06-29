@@ -213,6 +213,20 @@
     <% end %>
   <% end %>
 
+  <%# Notification preferences — a basic per-user setting, independent of whether
+      the tenant has the API enabled, so it lives outside the api_enabled? block. %>
+  <% if @settings_user.human? && is_own_settings %>
+    <%= render 'shared/pulse_accordion', title: 'Notification preferences' do %>
+      <p class="pulse-form-hint" style="margin-bottom: 12px;">
+        Choose how you're notified for each kind of activity. In-app notifications appear in your inbox;
+        email sends to your account address.
+      </p>
+      <%= render 'shared/notification_preferences',
+                 tenant_user: @settings_user.tenant_user,
+                 post_url: "#{@settings_user.path}/settings/notifications" %>
+    <% end %>
+  <% end %>
+
   <% if @current_tenant.api_enabled? %>
     <%# API Tokens Section - includes user's own tokens + AI agents' tokens %>
     <%= render 'shared/pulse_accordion', title: 'API Tokens', count: @all_api_tokens.count do %>
@@ -303,18 +317,6 @@
           Manage Trustee Authorizations
         </a>
       </div>
-    <% end %>
-
-    <% if @settings_user.human? && is_own_settings %>
-      <%= render 'shared/pulse_accordion', title: 'Notification preferences' do %>
-        <p class="pulse-form-hint" style="margin-bottom: 12px;">
-          Choose how you're notified for each kind of activity. In-app notifications appear in your inbox;
-          email sends to your account address.
-        </p>
-        <%= render 'shared/notification_preferences',
-                   tenant_user: @settings_user.tenant_user,
-                   post_url: "#{@settings_user.path}/settings/notifications" %>
-      <% end %>
     <% end %>
 
     <% if @settings_user.human? && is_own_settings %>

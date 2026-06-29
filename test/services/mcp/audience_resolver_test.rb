@@ -93,6 +93,7 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "create_tenant" => :public,
     "update_tenant_settings" => :public,
     "update_profile" => :public,
+    "update_notification_preferences" => :public,
     "tune_in" => :public,
     "tune_out" => :public,
     # :public placeholder for user_list actions — each list carries its own
