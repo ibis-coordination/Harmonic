@@ -93,7 +93,6 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "create_tenant" => :public,
     "update_tenant_settings" => :public,
     "update_profile" => :public,
-    "update_notification_preferences" => :public,
     "tune_in" => :public,
     "tune_out" => :public,
     # :public placeholder for user_list actions — each list carries its own
@@ -108,6 +107,7 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "remove_member_from_list" => :public,
 
     # :private — only the acting agent sees it
+    "update_notification_preferences" => :private,
     "update_scratchpad" => :private,
     "create_api_token" => :private,
     "retry_sidekiq_job" => :private,
@@ -206,7 +206,7 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     # updating a parallel allowlist. Locking these in keeps that drift from
     # returning.
     ["dismiss", "dismiss_all", "dismiss_for_collective", "dismiss_for_chat", "mark_read", "mark_all_read",
-     "mark_read_for_collective",].each do |action|
+     "mark_read_for_collective", "update_notification_preferences",].each do |action|
       assert_equal "private", Mcp::AudienceResolver.resolve(capability_action: action, collective: nil),
                    "expected #{action} to be private"
     end

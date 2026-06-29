@@ -581,7 +581,7 @@ class ActionsHelper
                        "Channels: in_app, email. Example: { \"comment\": { \"email\": true }, \"mention\": { \"email\": false } }.", },
       ],
       authorization: [:self, :representative],
-      visibility: :public,
+      visibility: :private,
     },
     "update_scratchpad" => {
       description: "Update your scratchpad with notes for your future self",
