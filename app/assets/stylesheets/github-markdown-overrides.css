@@ -19,3 +19,15 @@
   margin-left: 2px;
   opacity: 0.7;
 }
+
+/* @mention links. MarkdownRenderer rewrites @handle mentions that resolve to
+   a real user into profile links with a .mention-link class. Render them with
+   a slightly heavier weight so they read as a mention, not an ordinary link. */
+.markdown-body a.mention-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.markdown-body a.mention-link:hover {
+  text-decoration: underline;
+}

@@ -36,6 +36,7 @@ class MarkdownRenderer
     if display_references
       output = display_refereces(output)
     end
+    output = linkify_mentions(output)
     output
   end
 
@@ -43,7 +44,8 @@ class MarkdownRenderer
   def self.render_inline(content)
     raw_html = @@markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
-    sanitized_html.gsub(/<p>(.*)<\/p>/, '\1')
+    linkified = linkify_mentions(sanitized_html)
+    linkified.gsub(/<p>(.*)<\/p>/, '\1')
   end
 
   private
@@ -128,6 +130,61 @@ class MarkdownRenderer
       end
     end
     doc.to_html
+  end
+
+  # Tags whose text should never be linkified: existing links (no nested
+  # <a>) and code spans/blocks (literal @handles shown as code stay literal).
+  MENTION_SKIP_ANCESTORS = %w[a code pre].freeze
+
+  # Render @mention handles as links to the mentioned user's profile. Only
+  # handles that resolve to a real user in the current tenant are linked;
+  # everything else is left as plain text. Mentions inside links or code are
+  # left untouched. Requires Tenant.current_id to be set — outside a tenant
+  # context (e.g. nil thread state) the content is returned unchanged.
+  sig { params(html: String).returns(String) }
+  def self.linkify_mentions(html)
+    tenant_id = Tenant.current_id
+    return html if tenant_id.blank?
+    # Cheap early-out: no '@' means no mentions, so skip the Nokogiri parse.
+    return html unless html.include?("@")
+
+    doc = Nokogiri::HTML.fragment(html)
+    candidate_nodes = doc.search(".//text()").reject do |node|
+      node.ancestors.any? { |ancestor| MENTION_SKIP_ANCESTORS.include?(ancestor.name) }
+    end.select { |node| node.content.match?(MentionParser::MENTION_PATTERN) }
+    return html if candidate_nodes.empty?
+
+    combined_text = candidate_nodes.map(&:content).join("\n")
+    paths = MentionParser.resolve_paths(combined_text, tenant_id: tenant_id, collective: current_collective)
+    return html if paths.empty?
+
+    candidate_nodes.each do |node|
+      # Escape the literal text first; handle characters ([A-Za-z0-9_-]) are
+      # never HTML-special, so the mention pattern still matches afterward and
+      # surrounding text is safely escaped.
+      replaced = CGI.escapeHTML(node.content).gsub(MentionParser::MENTION_PATTERN) do |match|
+        handle = match.delete_prefix("@")
+        path = paths[handle]
+        if path
+          "<a href=\"#{CGI.escapeHTML(path)}\" class=\"mention-link\">@#{handle}</a>"
+        else
+          match
+        end
+      end
+      node.replace(Nokogiri::HTML.fragment(replaced))
+    end
+
+    doc.to_html
+  end
+
+  # The current collective, resolved from thread-local request state. Needed
+  # to map @trio to the collective-local trio user when linkifying mentions.
+  sig { returns(T.nilable(Collective)) }
+  def self.current_collective
+    collective_id = Collective.current_id
+    return nil if collective_id.blank?
+
+    Collective.find_by(id: collective_id)
   end
 
   sig { params(html: String).returns(String) }

@@ -411,6 +411,70 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert_not html.include?("note-icon")
   end
 
+  # === @mention Linking Tests ===
+
+  test "render links @mention handles that resolve to a user" do
+    @global_user.tenant_user.update!(handle: "alice")
+
+    html = MarkdownRenderer.render("Hello @alice, welcome!", display_references: false)
+
+    assert_includes html, '<a href="/u/alice" class="mention-link">@alice</a>'
+  end
+
+  test "render leaves unknown @mentions as plain text" do
+    html = MarkdownRenderer.render("Hello @nobody_here", display_references: false)
+
+    assert_includes html, "@nobody_here"
+    assert_not html.include?('class="mention-link"')
+  end
+
+  test "render links multiple resolvable mentions" do
+    @global_user.tenant_user.update!(handle: "alice")
+    bob = create_user(email: "bob_#{SecureRandom.hex(4)}@example.com", name: "Bob")
+    @global_tenant.add_user!(bob, handle: "bob")
+
+    html = MarkdownRenderer.render("@alice and @bob", display_references: false)
+
+    assert_includes html, '<a href="/u/alice" class="mention-link">@alice</a>'
+    assert_includes html, '<a href="/u/bob" class="mention-link">@bob</a>'
+  end
+
+  test "render does not linkify mentions inside inline code" do
+    @global_user.tenant_user.update!(handle: "alice")
+
+    html = MarkdownRenderer.render("Use `@alice` literally", display_references: false)
+
+    assert_not html.include?('class="mention-link"')
+    assert_includes html, "<code>@alice</code>"
+  end
+
+  test "render does not linkify mentions inside code blocks" do
+    @global_user.tenant_user.update!(handle: "alice")
+
+    html = MarkdownRenderer.render("```\nping @alice\n```", display_references: false)
+
+    assert_not html.include?('class="mention-link"')
+  end
+
+  test "render does not linkify a mention that is already inside a link" do
+    @global_user.tenant_user.update!(handle: "alice")
+
+    html = MarkdownRenderer.render("[@alice](https://example.com)", display_references: false)
+
+    # The text stays inside the original link; no nested mention link is added.
+    assert_not html.include?('class="mention-link"')
+    assert_includes html, 'href="https://example.com"'
+  end
+
+  test "render escapes surrounding text when linkifying mentions" do
+    @global_user.tenant_user.update!(handle: "alice")
+
+    html = MarkdownRenderer.render("1 < 2 and @alice", display_references: false)
+
+    assert_includes html, "1 &lt; 2"
+    assert_includes html, '<a href="/u/alice" class="mention-link">@alice</a>'
+  end
+
   # === Edge Cases ===
 
   test "render handles very long content" do

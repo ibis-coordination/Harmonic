@@ -274,6 +274,48 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_empty result
   end
 
+  # === resolve_paths tests ===
+
+  test "resolve_paths returns empty hash for blank text or tenant" do
+    assert_equal({}, MentionParser.resolve_paths(nil, tenant_id: "123"))
+    assert_equal({}, MentionParser.resolve_paths("@alice", tenant_id: nil))
+  end
+
+  test "resolve_paths maps resolvable handles to their profile paths" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+
+    result = MentionParser.resolve_paths("Hello @alice!", tenant_id: tenant.id)
+
+    assert_equal({ "alice" => "/u/alice" }, result)
+  end
+
+  test "resolve_paths omits handles that do not resolve to a user" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+
+    result = MentionParser.resolve_paths("Hey @alice and @nobody", tenant_id: tenant.id)
+
+    assert_equal({ "alice" => "/u/alice" }, result)
+  end
+
+  test "resolve_paths maps @trio to the collective trio profile when collective is provided" do
+    tenant, collective, _user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
+    collective.update!(trio_user: trio)
+
+    result = MentionParser.resolve_paths("hi @trio", tenant_id: tenant.id, collective: collective)
+
+    assert_equal({ "trio" => "/u/trio" }, result)
+  end
+
   # === extract_handles tests ===
 
   test "extract_handles returns empty array for blank text" do
