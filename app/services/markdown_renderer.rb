@@ -9,8 +9,63 @@
 class MarkdownRenderer
   extend T::Sig
   extend OcticonsHelper
+
+  # Redcarpet HTML renderer that turns @mention handles into profile links as
+  # part of rendering. Doing this in #normal_text (rather than walking the
+  # rendered HTML afterwards) means the contexts where a mention must stay
+  # literal — code spans, fenced code blocks, and autolinked emails — are
+  # handled for free, because Redcarpet routes those through separate callbacks
+  # that never reach #normal_text. The one context #normal_text can't see is
+  # link text, so #link unwraps any mention anchors its content picked up.
+  class MentionRenderer < Redcarpet::Render::HTML
+    extend T::Sig
+
+    # Matches a mention anchor emitted by #normal_text, capturing its visible
+    # label so #link can unwrap it back to plain text inside an enclosing link.
+    MENTION_LINK = %r{<a href="[^"]*" class="mention-link">(@[A-Za-z0-9_-]+)</a>}
+
+    # Render plain text, linkifying any @mention that resolves to a real user
+    # in the current tenant. Handles that don't resolve stay plain text, as
+    # does everything when there's no '@' or no tenant context. The literal
+    # text is HTML-escaped first; handle characters ([A-Za-z0-9_-]) are never
+    # HTML-special, so the mention pattern still matches the escaped text while
+    # the surrounding content stays safely escaped.
+    sig { params(text: T.nilable(String)).returns(String) }
+    def normal_text(text)
+      escaped = CGI.escapeHTML(text.to_s)
+      return escaped unless text&.include?("@")
+
+      tenant_id = Tenant.current_id
+      return escaped if tenant_id.blank?
+
+      paths = MentionParser.resolve_paths(text, tenant_id: tenant_id, collective: MarkdownRenderer.current_collective)
+      return escaped if paths.empty?
+
+      escaped.gsub(MentionParser::MENTION_PATTERN) do |match|
+        handle = match.delete_prefix("@")
+        path = paths[handle]
+        path ? %(<a href="#{CGI.escapeHTML(path)}" class="mention-link">@#{handle}</a>) : match
+      end
+    end
+
+    # Render a markdown link. A mention inside link text (e.g. `[@alice](/x)`)
+    # would otherwise nest a mention anchor inside this anchor — invalid HTML —
+    # so any mention anchors in the content are unwrapped back to their label,
+    # keeping the original link intact and the mention plain. We build the
+    # anchor here rather than delegating to Redcarpet's built-in renderer
+    # because its callbacks are C methods with no Ruby `super` to call; href
+    # safety (dangerous protocols) is enforced downstream in .sanitize.
+    sig { params(link: T.nilable(String), title: T.nilable(String), content: T.nilable(String)).returns(String) }
+    def link(link, title, content)
+      inner = content.to_s.gsub(MENTION_LINK, '\1')
+      href = CGI.escapeHTML(link.to_s)
+      title_attr = title.present? ? %( title="#{CGI.escapeHTML(title)}") : ""
+      %(<a href="#{href}"#{title_attr}>#{inner}</a>)
+    end
+  end
+
   @@markdown = Redcarpet::Markdown.new(
-    Redcarpet::Render::HTML.new(
+    MentionRenderer.new(
       hard_wrap: true,
       safe_links_only: true,
       filter_html: false, # Turned off so we can handle sanitization manually
@@ -128,6 +183,16 @@ class MarkdownRenderer
       end
     end
     doc.to_html
+  end
+
+  # The current collective, resolved from thread-local request state. Needed
+  # to map @trio to the collective-local trio user when linkifying mentions.
+  sig { returns(T.nilable(Collective)) }
+  def self.current_collective
+    collective_id = Collective.current_id
+    return nil if collective_id.blank?
+
+    Collective.find_by(id: collective_id)
   end
 
   sig { params(html: String).returns(String) }

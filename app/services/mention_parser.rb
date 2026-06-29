@@ -64,6 +64,52 @@ class MentionParser
       .select { |u| collective.user_is_member?(u) }
   end
 
+  # Resolve mentioned handles to profile paths so @mentions can be rendered
+  # as links. Returns a hash of { handle => profile_path } containing only
+  # the handles that resolve to a real user in the tenant. Resolution mirrors
+  # .parse (including the collective-local @trio special case); handles that
+  # don't resolve are omitted so callers can leave them as plain text.
+  sig do
+    params(
+      text: T.nilable(String),
+      tenant_id: T.nilable(String),
+      collective: T.nilable(Collective),
+    ).returns(T::Hash[String, String])
+  end
+  def self.resolve_paths(text, tenant_id:, collective: nil)
+    return {} if text.blank? || tenant_id.blank?
+
+    handles = extract_handles(text)
+    return {} if handles.empty?
+
+    # Same @trio handling as .parse: when a collective is provided, "@trio"
+    # always means this collective's trio, resolved below rather than through
+    # the tenant-wide handle index.
+    index_handles = if collective
+      handles - [TRIO_HANDLE]
+    else
+      handles
+    end
+
+    paths = {}
+
+    if index_handles.any?
+      TenantUser.where(tenant_id: tenant_id, handle: index_handles)
+        .includes(:user)
+        .each do |tenant_user|
+          path = tenant_user.user.path
+          paths[tenant_user.handle] = path if path
+        end
+    end
+
+    if collective && handles.include?(TRIO_HANDLE)
+      trio_path = collective.trio_user&.path
+      paths[TRIO_HANDLE] = trio_path if trio_path
+    end
+
+    paths
+  end
+
   sig { params(text: T.nilable(String)).returns(T::Array[String]) }
   def self.extract_handles(text)
     return [] if text.blank?
