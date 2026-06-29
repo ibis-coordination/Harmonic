@@ -73,6 +73,78 @@ describe("CommentThreadController", () => {
   afterEach(() => {
     application.stop()
     vi.restoreAllMocks()
+    window.history.replaceState({}, "", "/")
+  })
+
+  describe("highlightCommentFromUrl", () => {
+    // Reconnect a fresh controller after pointing the URL at a comment, since
+    // the shared beforeEach already connected with a comment_id-less URL.
+    const reconnect = (): void => {
+      application.stop()
+      application = Application.start()
+      application.register("comment-thread", CommentThreadController)
+    }
+
+    beforeEach(() => {
+      vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {})
+    })
+
+    it("highlights the targeted comment and clears the comment_id param", async () => {
+      window.history.replaceState({}, "", "/test-resource?comment_id=def456")
+      reconnect()
+
+      const target = document.getElementById("n-def456") as HTMLElement
+      await vi.waitFor(() => {
+        expect(target.classList.contains("pulse-comment-highlighted")).toBe(true)
+      })
+
+      // The collapsed replies group containing the target is expanded.
+      expect(document.getElementById("replies-abc123")?.hidden).toBe(false)
+      // The param is dropped so reconnects won't re-highlight.
+      expect(window.location.search).toBe("")
+    })
+
+    it("preserves other query params and the hash when clearing comment_id", async () => {
+      window.history.replaceState({}, "", "/test-resource?foo=bar&comment_id=def456#section")
+      reconnect()
+
+      const target = document.getElementById("n-def456") as HTMLElement
+      await vi.waitFor(() => {
+        expect(target.classList.contains("pulse-comment-highlighted")).toBe(true)
+      })
+
+      expect(window.location.search).toBe("?foo=bar")
+      expect(window.location.hash).toBe("#section")
+    })
+
+    it("does not re-highlight when the controller reconnects after a reply", async () => {
+      window.history.replaceState({}, "", "/test-resource?comment_id=def456")
+      reconnect()
+
+      const target = document.getElementById("n-def456") as HTMLElement
+      await vi.waitFor(() => {
+        expect(target.classList.contains("pulse-comment-highlighted")).toBe(true)
+      })
+
+      // Simulate the post-reply refresh: clear the visual highlight and
+      // reconnect a fresh controller (as replaceWith does in the real flow).
+      target.classList.remove("pulse-comment-highlighted")
+      reconnect()
+
+      await new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      )
+      expect(target.classList.contains("pulse-comment-highlighted")).toBe(false)
+    })
+
+    it("does nothing when comment_id is absent", async () => {
+      window.history.replaceState({}, "", "/test-resource")
+      reconnect()
+
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      const highlighted = document.querySelector(".pulse-comment-highlighted")
+      expect(highlighted).toBeNull()
+    })
   })
 
   describe("toggleReplies", () => {

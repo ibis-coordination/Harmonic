@@ -484,6 +484,45 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal decision_owner.id, recipient.user_id
   end
 
+  test "reply notification url highlights the reply, not the comment being replied to" do
+    tenant, collective, author = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    replier = create_user(email: "nested-replier@example.com", name: "Nested Replier")
+    tenant.add_user!(replier)
+    collective.add_user!(replier)
+
+    # author posts a note, then a first comment on it
+    note = create_note(tenant: tenant, collective: collective, created_by: author, text: "Root note")
+    first_comment = create_note(
+      tenant: tenant,
+      collective: collective,
+      created_by: author,
+      text: "First comment",
+      subtype: "comment",
+      commentable: note
+    )
+
+    # replier replies to the first comment
+    reply = create_note(
+      tenant: tenant,
+      collective: collective,
+      created_by: replier,
+      text: "A reply to the first comment",
+      subtype: "comment",
+      commentable: first_comment
+    )
+
+    event = Event.where(event_type: "comment.created", subject: reply).last
+    notification = Notification.where(event: event, notification_type: "comment").last
+    assert_not_nil notification, "Expected a reply notification for the first comment's author"
+
+    # The link must land on the reply itself, not the comment being replied to.
+    assert_equal reply.display_path, notification.url
+    assert_includes notification.url, "comment_id=#{reply.truncated_id}"
+    assert_not_includes notification.url, "comment_id=#{first_comment.truncated_id}"
+  end
+
   # NOTE: AI agent task triggering tests have been moved to AutomationDispatcherTest
   # since agent triggering is now handled by the automation system via AutomationDispatcher
   # instead of the hardcoded triggers that were previously in NotificationDispatcher.

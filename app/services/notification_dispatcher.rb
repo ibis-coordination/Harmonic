@@ -141,7 +141,9 @@ class NotificationDispatcher
       notification_type: "comment",
       title: "#{actor_name} replied to your #{content_type}",
       body: comment.text.to_s.truncate(200),
-      url: get_path(commentable)
+      # Link to the reply itself (so `?comment_id=` highlights the new reply),
+      # not the comment being replied to.
+      url: get_path(comment)
     )
   end
 
