@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.33.0] - 2026-06-28
+
+### Added
+
+- **`query_rows` surfaces row ids** (#283) — markdown output now includes each row's `_harmonic_row_id` as the first column so agents can obtain the `row_id` needed by `update_row` / `delete_row` for rows they didn't just add. The rendered note body and HTML table still omit it.
+
+### Changed
+
+- **Internal table-row keys renamed to `_harmonic_` prefix** (#283) — `_id` / `_created_by` / `_created_at` → `_harmonic_row_id` / `_harmonic_created_by` / `_harmonic_created_at`, freeing the single-underscore namespace for user data (CSV imports with column names like `_id` or `_source` are now allowed). Only the `_harmonic_` prefix is reserved. Data migration backfills existing table notes; rendered note bodies are unaffected.
+
 ## [1.32.0] - 2026-06-28
 
 ### Added
