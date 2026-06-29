@@ -37,6 +37,10 @@ class NoteTableService
   def define_columns!(cols)
     raise "Cannot replace columns when rows exist" if rows.any? && columns.any?
 
+    if (reserved = cols.find { |c| c["name"].to_s.start_with?("_harmonic_") })
+      raise ArgumentError, "Column name '#{reserved["name"]}' uses the reserved '_harmonic_' prefix"
+    end
+
     new_data = mutable_data
     new_data["columns"] = cols
     apply_and_save!(new_data)
@@ -45,7 +49,7 @@ class NoteTableService
   sig { params(name: String, type: String).void }
   def add_column!(name, type)
     if name.start_with?("_harmonic_")
-      raise "Column name '#{name}' uses the reserved '_harmonic_' prefix"
+      raise ArgumentError, "Column name '#{name}' uses the reserved '_harmonic_' prefix"
     end
 
     new_data = mutable_data

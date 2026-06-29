@@ -559,6 +559,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
         headers: { "Accept" => "text/markdown" }
     end
 
+    assert_response :unprocessable_entity
     assert_includes response.body, "_harmonic_"
   end
 

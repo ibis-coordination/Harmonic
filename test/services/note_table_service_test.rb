@@ -146,11 +146,21 @@ class NoteTableServiceTest < ActiveSupport::TestCase
     note = create_table_note
     table = NoteTableService.new(note)
 
-    error = assert_raises(RuntimeError) do
+    error = assert_raises(ArgumentError) do
       table.add_column!("_harmonic_sneaky", "text")
     end
     assert_includes error.message, "_harmonic_"
     assert_equal 2, table.columns.length
+  end
+
+  test "define_columns! rejects a column using the reserved _harmonic_ prefix" do
+    note = create_table_note
+    table = NoteTableService.new(note)
+
+    error = assert_raises(ArgumentError) do
+      table.define_columns!([{ "name" => "_harmonic_row_id", "type" => "text" }])
+    end
+    assert_includes error.message, "_harmonic_"
   end
 
   test "add_column! allows a leading underscore that is not the _harmonic_ prefix" do

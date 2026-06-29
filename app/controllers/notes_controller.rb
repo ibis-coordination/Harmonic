@@ -414,7 +414,7 @@ class NotesController < ApplicationController
   def execute_add_table_column
     api_helper.add_table_column
     render_action_success({ action_name: "add_table_column", resource: current_note, result: "Column '#{params[:name]}' added." })
-  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+  rescue ArgumentError, RuntimeError, ActiveRecord::RecordInvalid => e
     render_action_error({ action_name: "add_table_column", resource: current_note, error: e.message })
   end
 
@@ -505,7 +505,7 @@ class NotesController < ApplicationController
       format.html { redirect_to current_note.path, notice: "#{operations.length} operations applied." }
       format.md { render_action_success({ action_name: "batch_table_update", resource: current_note, result: "#{operations.length} operations applied." }) }
     end
-  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+  rescue ArgumentError, RuntimeError, ActiveRecord::RecordInvalid => e
     respond_to do |format|
       format.json { render json: { success: false, error: e.message }, status: :unprocessable_entity }
       format.html { redirect_to current_note.path, alert: e.message }

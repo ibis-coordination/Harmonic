@@ -26,6 +26,8 @@ class RenameTableRowInternalFieldsToHarmonicPrefix < ActiveRecord::Migration[7.2
   }.freeze
 
   def up
+    failed_note_ids = []
+
     Note.unscoped_for_system_job.where(subtype: "table").find_each do |note|
       data = note.table_data
       next unless data.is_a?(Hash)
@@ -50,14 +52,20 @@ class RenameTableRowInternalFieldsToHarmonicPrefix < ActiveRecord::Migration[7.2
       next unless changed
 
       new_data = data.merge("rows" => new_rows)
-      ActiveRecord::Base.transaction do
-        note.update_columns(table_data: new_data)
-      end
+      # update_columns is a single statement and already atomic, so no transaction wrapper.
+      note.update_columns(table_data: new_data)
     rescue StandardError => e
-      Rails.logger.warn(
+      failed_note_ids << note.id
+      Rails.logger.error(
         "RenameTableRowInternalFieldsToHarmonicPrefix: skipping note #{note.id}: #{e.message}"
       )
     end
+
+    return if failed_note_ids.empty?
+
+    # Fail the deploy loud rather than continuing with inconsistently-migrated data.
+    raise "RenameTableRowInternalFieldsToHarmonicPrefix: #{failed_note_ids.length} note(s) failed to migrate; " \
+          "sample ids: #{failed_note_ids.first(10).join(', ')}"
   end
 
   def down
