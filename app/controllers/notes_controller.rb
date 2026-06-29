@@ -133,7 +133,7 @@ class NotesController < ApplicationController
                             resource: note,
                             result: "Table note created.",
                           })
-  rescue RuntimeError, ActiveRecord::RecordInvalid => e
+  rescue ArgumentError, RuntimeError, ActiveRecord::RecordInvalid => e
     render_action_error({
                           action_name: "create_table_note",
                           error: e.message,

@@ -1345,11 +1345,15 @@ class NoteTest < ActiveSupport::TestCase
   end
 
   test "table note allows column names starting with underscore (only _harmonic_ is reserved)" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
     note = Note.new(
-      tenant_id: Tenant.current_id,
-      collective_id: Collective.current_id,
-      created_by: @global_user,
-      updated_by: @global_user,
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
       subtype: "table",
       title: "Underscore column",
       text: "",
