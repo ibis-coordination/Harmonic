@@ -68,7 +68,9 @@ class TenantUser < ApplicationRecord
   def reserved_handle_requires_matching_system_role
     # Reserved keys are lowercase; fold the (now case-preserving) handle so
     # "Trio"/"TRIO" can't slip past the system-role gate.
-    required_role = RESERVED_HANDLES[handle&.downcase]
+    return if handle.blank?
+
+    required_role = RESERVED_HANDLES[handle.downcase]
     return unless required_role
     return if T.must(user).system_role == required_role
 
