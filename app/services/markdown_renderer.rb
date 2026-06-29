@@ -48,13 +48,19 @@ class MarkdownRenderer
       end
     end
 
-    # A mention inside link text (e.g. `[@alice](/x)`) would otherwise nest a
-    # mention anchor inside the link's anchor — invalid HTML. Strip any mention
-    # anchors back to their label before the enclosing link is built so the
-    # original link stays intact and the mention stays plain.
-    sig { params(link: T.nilable(String), title: T.nilable(String), content: T.nilable(String)).returns(T.nilable(String)) }
+    # Render a markdown link. A mention inside link text (e.g. `[@alice](/x)`)
+    # would otherwise nest a mention anchor inside this anchor — invalid HTML —
+    # so any mention anchors in the content are unwrapped back to their label,
+    # keeping the original link intact and the mention plain. We build the
+    # anchor here rather than delegating to Redcarpet's built-in renderer
+    # because its callbacks are C methods with no Ruby `super` to call; href
+    # safety (dangerous protocols) is enforced downstream in .sanitize.
+    sig { params(link: T.nilable(String), title: T.nilable(String), content: T.nilable(String)).returns(String) }
     def link(link, title, content)
-      super(link, title, content&.gsub(MENTION_LINK, '\1'))
+      inner = content.to_s.gsub(MENTION_LINK, '\1')
+      href = CGI.escapeHTML(link.to_s)
+      title_attr = title.present? ? %( title="#{CGI.escapeHTML(title)}") : ""
+      %(<a href="#{href}"#{title_attr}>#{inner}</a>)
     end
   end
 
