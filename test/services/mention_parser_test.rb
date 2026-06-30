@@ -329,4 +329,60 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal 1, result.size
     assert_includes result, "alice"
   end
+
+  # === code-span / code-block exclusion (#299) ===
+
+  test "extract_handles skips a handle inside an inline code span" do
+    assert_equal [], MentionParser.extract_handles("Enable it by mentioning `@trio` in a note.")
+  end
+
+  test "extract_handles skips handles inside a fenced code block" do
+    text = <<~MD
+      Here is an example:
+
+      ```
+      @alice please review
+      ```
+
+      Done.
+    MD
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  test "extract_handles skips handles in a tilde-fenced code block" do
+    text = "~~~\n@bob ping\n~~~"
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  test "extract_handles still returns a real handle alongside a code-span example" do
+    result = MentionParser.extract_handles("Hey @alice, mention people like `@bob` to ping them.")
+
+    assert_equal ["alice"], result
+  end
+
+  test "extract_handles still matches a normal handle adjacent to a code span" do
+    result = MentionParser.extract_handles("`code` then @carol")
+
+    assert_equal ["carol"], result
+  end
+
+  test "extract_handles is unaffected by a lone unbalanced backtick" do
+    result = MentionParser.extract_handles("a stray ` and then @dave")
+
+    assert_equal ["dave"], result
+  end
+
+  test "parse does not notify a handle that only appears inside a code span" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+
+    # @alice resolves normally, but here it appears only inside a code span, so
+    # it must not generate a mention notification.
+    result = MentionParser.parse("Document it as `@alice`.", tenant_id: tenant.id)
+
+    assert_empty result
+  end
 end

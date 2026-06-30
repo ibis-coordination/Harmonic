@@ -6,6 +6,14 @@ class MentionParser
   MENTION_PATTERN = /@([a-zA-Z0-9_-]+)/
   TRIO_HANDLE = "trio"
 
+  # A fenced code block: an opening run of >=3 backticks or tildes at line
+  # start, through the matching closing fence (or end of text if unclosed).
+  FENCED_CODE_BLOCK = /^[ \t]*(`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*\1[ \t]*$|\z)/m
+
+  # An inline code span: a run of backticks, the shortest span up to the same
+  # run. (`@trio` -> matched and excluded; a lone stray backtick won't match.)
+  INLINE_CODE_SPAN = /(`+)[^`]*?\1/
+
   sig do
     params(
       text: T.nilable(String),
@@ -114,6 +122,26 @@ class MentionParser
   def self.extract_handles(text)
     return [] if text.blank?
 
-    text.scan(MENTION_PATTERN).flatten.uniq
+    # Skip @handles written inside code spans/blocks so they don't generate
+    # mention notifications — they render as literal text, not links. This
+    # mirrors the Markdown renderer (MarkdownRenderer::MentionRenderer, #295),
+    # which gets the same exclusion for free because Redcarpet routes code
+    # through callbacks that never reach #normal_text. Here the notification
+    # path parses the raw Markdown source, so we strip code first. (#299)
+    #
+    # On the rendering path this is a no-op: resolve_paths only ever sees a
+    # single (already code-free) text node, so there is nothing to strip.
+    strip_code(text).scan(MENTION_PATTERN).flatten.uniq
   end
+
+  # Replace fenced code blocks and inline code spans with a space so the
+  # mention pattern can't match handles inside them. Fenced blocks are removed
+  # first so their delimiter backticks don't get consumed as inline spans.
+  sig { params(text: T.nilable(String)).returns(String) }
+  def self.strip_code(text)
+    return "" if text.nil?
+
+    text.gsub(FENCED_CODE_BLOCK, " ").gsub(INLINE_CODE_SPAN, " ")
+  end
+  private_class_method :strip_code
 end
