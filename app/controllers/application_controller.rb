@@ -1106,12 +1106,16 @@ class ApplicationController < ActionController::Base
     @already_reported = current_user && ContentReport.exists?(reporter: current_user, reportable: resource)
   end
 
-  # Render a summarizable resource's summary at the parent's `/summary` path,
-  # so agents who know the pattern can fetch a summary without first having
-  # to learn its truncated id. Uses the shared/summary view, which composes
-  # the shared/_note_main partial that backs notes/show as well. When the
-  # parent has no summary, renders the shared/no_summary view (200) so the
-  # response can guide the viewer to write or request one.
+  # Serve a summarizable resource's summary from the parent's `/summary` path,
+  # so agents and humans can reach a summary without first learning its
+  # truncated id. When a summary exists, this is a thin redirect to the
+  # summary note's own canonical `/n/<id>` page: the summary is an ordinary
+  # note and lives at the canonical path, which is what lets confirm/
+  # acknowledge/report and every other suffix-built action endpoint resolve
+  # against `/n/<id>/...` — no parallel set of `/summary`-nested action routes
+  # required (#287). When the parent has no summary, renders the
+  # shared/no_summary view (200) so the response can guide the viewer to write
+  # or request one (nothing to redirect to yet).
   def render_summary_for(parent)
     return render "shared/404", status: :not_found unless parent
     # Summary notes themselves are not summarizable, so reject
@@ -1129,15 +1133,10 @@ class ApplicationController < ActionController::Base
       return render template: "shared/no_summary"
     end
 
-    @page_title = @note.title.presence || excerpt(@note.text, max: 50) || "Summary"
-    @page_description = excerpt(@note.text, max: 200) || "Summary"
-    @sidebar_mode = "resource"
-    return if @note.deleted?
-
-    set_pin_vars(resource: @note)
-    set_report_vars(@note)
-    @note_reader = NoteReader.new(note: @note, user: current_user)
-    render template: "shared/summary"
+    # Preserve the requested format so `<parent>/summary.md` still lands on the
+    # markdown representation of the canonical page.
+    fmt = request.format.symbol
+    redirect_to(fmt.nil? || fmt == :html ? @note.path : "#{@note.path}.#{fmt}")
   end
 
   def report_content_flash

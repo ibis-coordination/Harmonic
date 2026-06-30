@@ -238,18 +238,6 @@ class Note < ApplicationRecord
     "n"
   end
 
-  def path
-    # Summary notes use the canonical `<parent>/summary` URL so agents can
-    # fetch a parent's summary without first learning the summary's id.
-    # Falls back to the default note path if the polymorphic parent has
-    # been orphaned (e.g. by a raw delete that bypassed dependent: :destroy).
-    if is_summary? && summarizable
-      "#{summarizable.path}/summary"
-    else
-      super
-    end
-  end
-
   sig { returns(ActiveRecord::Relation) }
   def history_events
     note_history_events
@@ -375,6 +363,13 @@ class Note < ApplicationRecord
   # returns the root commentable's path with `?comment_id=<truncated_id>` so
   # the caller lands on the full thread with this comment marked, rather
   # than the isolated /n/<comment-id> page. For non-comments, equals `path`.
+  #
+  # Summaries are addressed by their own canonical `/n/<id>` page just like
+  # any other note; the friendly `<parent>/summary` URL is a redirect-only
+  # entry point (see ApplicationController#render_summary_for), not a distinct
+  # resource path. Keeping summaries on the canonical path is what makes
+  # confirm/acknowledge/report and every other suffix-built action endpoint
+  # resolve — overriding `path` to `<parent>/summary` is what 404'd them.
   #
   # Use `path` (not `display_path`) when building API URLs by suffix
   # concatenation (form actions, JS action endpoints, etc.) — `path` is the
