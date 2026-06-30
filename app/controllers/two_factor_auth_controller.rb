@@ -97,6 +97,13 @@ class TwoFactorAuthController < ApplicationController
 
     if identity.verify_otp(code || "")
       identity.enable_otp!
+      # The user just passed a TOTP challenge on this device — same proof
+      # of device trust we mint a refresh token for at login. Without this,
+      # a user who just enabled 2FA in their current session has zero
+      # refresh tokens until they log out and back in, which means they
+      # see no "Devices" on settings and lose the silent-re-auth benefit
+      # until the next session expiry.
+      issue_refresh_token_for!(current_user, two_factor_at: Time.current)
       @recovery_codes = identity.generate_recovery_codes!
       session.delete(:pending_otp_secret)
       SecurityAuditLog.log_2fa_enabled(identity: identity, ip: request.remote_ip)
