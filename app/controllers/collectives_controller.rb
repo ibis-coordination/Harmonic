@@ -641,6 +641,66 @@ class CollectivesController < ApplicationController
 
   def members
     @page_title = 'Members'
+    @can_manage_members = @current_user&.collective_member&.is_admin? &&
+      !@current_collective.private_workspace? &&
+      !@current_collective.is_main_collective?
+    @manageable_roles = CollectiveMember.valid_roles
+  end
+
+  # POST /collectives/:handle/members/update_roles
+  # Admin-only. Grants or revokes a single role on a member. Mirrors the
+  # add_ai_agent JSON response pattern so the members page can update inline.
+  def update_member_roles
+    member = authorize_member_management
+    return if member == :handled
+
+    role = params[:role].to_s
+    unless CollectiveMember.valid_roles.include?(role)
+      return render status: 422, json: { error: 'Invalid role' }
+    end
+
+    grant = ActiveModel::Type::Boolean.new.cast(params[:grant])
+
+    # Lockout protection: never let the last admin lose the admin role, or
+    # there would be no one left who can manage the collective.
+    if role == 'admin' && !grant && last_admin?(member)
+      return render status: 422, json: { error: 'Cannot remove the admin role from the last admin of this collective.' }
+    end
+
+    begin
+      grant ? member.add_role!(role) : member.remove_role!(role)
+    rescue => e
+      return render status: 422, json: { error: e.message }
+    end
+
+    render json: {
+      user_id: member.user_id,
+      role: role,
+      granted: grant,
+      roles: member.roles,
+    }
+  end
+
+  # DELETE /collectives/:handle/members/remove
+  # Admin-only. Archives a member's collective membership, removing them from
+  # the collective. The owner and the acting admin cannot be removed this way.
+  def remove_member
+    member = authorize_member_management
+    return if member == :handled
+
+    if member.user_id == @current_collective.created_by_id
+      return render status: 422, json: { error: 'The collective owner cannot be removed.' }
+    end
+    if member.user_id == @current_user.id
+      return render status: 422, json: { error: 'You cannot remove yourself. Use Leave instead.' }
+    end
+
+    member.archive!
+
+    render json: {
+      user_id: member.user_id,
+      user_name: member.user.display_name,
+    }
   end
 
   def invite
@@ -771,6 +831,41 @@ class CollectivesController < ApplicationController
 
   # POST /collectives/:collective_handle/deactivate
   private
+
+  # Shared guard for the member-management endpoints. Renders the appropriate
+  # JSON error and returns :handled when the request is not allowed; otherwise
+  # returns the (non-archived) CollectiveMember being acted on.
+  def authorize_member_management
+    unless @current_user.collective_member&.is_admin?
+      render status: 403, json: { error: 'Unauthorized' }
+      return :handled
+    end
+    if @current_collective.private_workspace? || @current_collective.is_main_collective?
+      render status: 403, json: { error: 'Members cannot be managed for this collective.' }
+      return :handled
+    end
+    member = CollectiveMember.find_by(
+      collective: @current_collective,
+      user_id: params[:user_id],
+      archived_at: nil,
+    )
+    if member.nil?
+      render status: 404, json: { error: 'Member not found.' }
+      return :handled
+    end
+    member
+  end
+
+  # True when `member` is an admin and is the only remaining (non-archived)
+  # admin of the collective — used to prevent admin lockout.
+  def last_admin?(member)
+    return false unless member.is_admin?
+
+    @current_collective.collective_members
+      .where(archived_at: nil)
+      .where_has_role('admin')
+      .count <= 1
+  end
 
   # A collective can be upgraded only when billing is actually in effect on
   # the tenant, it isn't the main collective (always free), and it isn't

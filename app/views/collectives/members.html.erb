@@ -18,19 +18,50 @@
     <% if @team.empty? %>
       <p class="pulse-empty-content"><em>No members yet.</em></p>
     <% else %>
-      <div class="pulse-participants-list">
+      <div class="pulse-participants-list"
+        <% if @can_manage_members %>
+          data-controller="collective-member-manager"
+          data-collective-member-manager-update-roles-url-value="<%= @current_collective.path %>/members/update_roles"
+          data-collective-member-manager-remove-url-value="<%= @current_collective.path %>/members/remove"
+        <% end %>>
         <% @team.each do |u| %>
-          <div class="pulse-participant">
+          <div class="pulse-participant" data-member-id="<%= u.id %>">
             <%= render "shared/avatar", user: u %>
             <a href="<%= u.path %>" class="pulse-participant-name"><%= u.display_name %></a>
             <% if u.ai_agent? %>
               <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
-            <% if u.collective_member.is_admin? %>
-              <span class="pulse-badge pulse-badge-muted">admin</span>
-            <% end %>
-            <% if u.collective_member.is_representative? %>
-              <span class="pulse-badge pulse-badge-muted">representative</span>
+            <% if @can_manage_members %>
+              <div class="pulse-member-controls">
+                <% @manageable_roles.each do |role| %>
+                  <% active = u.collective_member.has_role?(role) %>
+                  <button type="button"
+                          class="pulse-role-toggle<%= active ? ' is-active' : '' %>"
+                          aria-pressed="<%= active ? 'true' : 'false' %>"
+                          title="<%= active ? "Remove #{role} role" : "Grant #{role} role" %>"
+                          data-action="collective-member-manager#toggleRole"
+                          data-user-id="<%= u.id %>"
+                          data-role="<%= role %>"
+                          data-granted="<%= active ? 'true' : 'false' %>">
+                    <%= role %>
+                  </button>
+                <% end %>
+                <% unless u.id == @current_collective.created_by_id || u.id == @current_user&.id %>
+                  <button type="button" class="pulse-action-btn-danger pulse-member-remove"
+                          data-action="collective-member-manager#remove"
+                          data-user-id="<%= u.id %>"
+                          data-user-name="<%= u.display_name %>">
+                    Remove
+                  </button>
+                <% end %>
+              </div>
+            <% else %>
+              <% if u.collective_member.is_admin? %>
+                <span class="pulse-badge pulse-badge-muted">admin</span>
+              <% end %>
+              <% if u.collective_member.is_representative? %>
+                <span class="pulse-badge pulse-badge-muted">representative</span>
+              <% end %>
             <% end %>
           </div>
         <% end %>

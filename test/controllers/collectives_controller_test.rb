@@ -1376,6 +1376,165 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
                  "untrusted return_to must fall through to the default settings redirect")
   end
 
+  # === Member Management Tests (issue #316) ===
+
+  def add_member(name:, roles: [])
+    user = create_user(name: name)
+    @tenant.add_user!(user)
+    @collective.add_user!(user, roles: roles)
+    user
+  end
+
+  test "members page shows management controls for admins" do
+    add_member(name: "Regular Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_match(/collective-member-manager/, response.body)
+    assert_match(/collective-member-manager#toggleRole/, response.body)
+  end
+
+  test "members page hides management controls from non-admins" do
+    member = add_member(name: "Regular Member")
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_no_match(/collective-member-manager/, response.body)
+  end
+
+  test "admin can grant a role to a member" do
+    member = add_member(name: "Future Rep")
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: member.id, role: "representative", grant: "true" }
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: member)
+    assert cm.has_role?("representative"), "expected the representative role to be granted"
+  end
+
+  test "admin can revoke a role from a member" do
+    member = add_member(name: "Demoted Rep", roles: ["representative"])
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: member.id, role: "representative", grant: "false" }
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: member)
+    assert_not cm.has_role?("representative"), "expected the representative role to be revoked"
+  end
+
+  test "non-admin cannot update member roles" do
+    actor = add_member(name: "Not An Admin")
+    target = add_member(name: "Target")
+    sign_in_as(actor, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: target.id, role: "representative", grant: "true" }
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative")
+  end
+
+  test "rejects an invalid role" do
+    member = add_member(name: "Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: member.id, role: "superuser", grant: "true" }
+
+    assert_response :unprocessable_entity
+  end
+
+  test "cannot remove the admin role from the last admin" do
+    # @user is the only admin of @collective (set in setup).
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: @user.id, role: "admin", grant: "false" }
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: @user)
+    assert cm.has_role?("admin"), "the last admin must retain the admin role"
+  end
+
+  test "admin can revoke admin role when another admin remains" do
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: other_admin.id, role: "admin", grant: "false" }
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: other_admin)
+    assert_not cm.has_role?("admin")
+  end
+
+  test "admin can remove a member from the collective" do
+    member = add_member(name: "Leaving Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "/collectives/#{@collective.handle}/members/remove",
+           params: { user_id: member.id }
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: member)
+    assert cm.archived?, "expected the membership to be archived"
+  end
+
+  test "cannot remove the collective owner" do
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    delete "/collectives/#{@collective.handle}/members/remove",
+           params: { user_id: @user.id }
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: @user)
+    assert_not cm.archived?, "the owner must not be removable"
+  end
+
+  test "admin cannot remove themselves via the member management UI" do
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    delete "/collectives/#{@collective.handle}/members/remove",
+           params: { user_id: other_admin.id }
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: other_admin)
+    assert_not cm.archived?, "self-removal must be blocked"
+  end
+
+  test "non-admin cannot remove a member" do
+    actor = add_member(name: "Not An Admin")
+    target = add_member(name: "Target")
+    sign_in_as(actor, tenant: @tenant)
+
+    delete "/collectives/#{@collective.handle}/members/remove",
+           params: { user_id: target.id }
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.archived?
+  end
+
+  test "removing a non-member returns 404" do
+    stranger = create_user(name: "Stranger")
+    @tenant.add_user!(stranger)
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "/collectives/#{@collective.handle}/members/remove",
+           params: { user_id: stranger.id }
+
+    assert_response :not_found
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

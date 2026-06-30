@@ -516,6 +516,8 @@ Rails.application.routes.draw do
     get "#{prefix}/views" => 'collectives#views'
     get "#{prefix}/view" => 'collectives#view'
     get "#{prefix}/members" => 'collectives#members'
+    post "#{prefix}/members/update_roles" => 'collectives#update_member_roles'
+    delete "#{prefix}/members/remove" => 'collectives#remove_member'
     get "#{prefix}/settings" => 'collectives#settings'
     post "#{prefix}/settings" => 'collectives#update_settings'
     get "#{prefix}/upgrade" => 'collectives#upgrade_preview'
