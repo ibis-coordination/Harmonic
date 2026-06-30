@@ -1840,6 +1840,18 @@ class UserTest < ActiveSupport::TestCase
     assert_not_nil agent_token.deleted_at
   end
 
+  test "revoke_all_sessions! revokes all of the user's refresh tokens" do
+    user = create_user
+    a = RefreshToken.issue!(user: user, two_factor_at: Time.current)
+    b = RefreshToken.issue!(user: user, two_factor_at: Time.current)
+
+    user.revoke_all_sessions!
+
+    assert a.reload.revoked?, "refresh token A must be revoked so silent re-auth can't restore the session"
+    assert b.reload.revoked?
+    assert_equal "admin", a.revoked_reason
+  end
+
   # =========================================================================
   # Private Workspace tests
   # =========================================================================

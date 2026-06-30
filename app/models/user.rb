@@ -641,6 +641,9 @@ class User < ApplicationRecord
     T.unsafe(self).ai_agents.find_each do |ai_agent|
       ApiToken.for_user_across_tenants(ai_agent).where(deleted_at: nil).find_each(&:delete!)
     end
+    # Revoke refresh tokens too — otherwise a stolen refresh cookie could
+    # silently restore the session right after this method finishes.
+    RefreshToken.revoke_all_for_user!(id, reason: "admin")
   end
 
   sig { params(by: User, reason: String, skip_billing_sync: T::Boolean).void }
