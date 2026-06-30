@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.35.0] - 2026-06-30
+
+### Added
+
+- **Silent re-authentication via refresh tokens** (#312) — expired sessions no longer bounce users to the login page. Login (with 2FA) issues a rotated, HttpOnly refresh cookie per device; a missing session cookie is silently exchanged for a fresh one. New **Devices** accordion on settings lists active devices ("Mac · Chrome", "iPhone · Safari") with per-device "Sign out" and "Sign out other devices"; revoked devices are kicked out on their next request. Refresh tokens are also revoked on logout, password change, 2FA disable, and the admin account-security panic button.
+- **PWA manifest and mobile-friendly meta** (#309, #310) — `/manifest.json` served per-subdomain (each tenant installs as its own home-screen entry), 192/512 icons, apple-touch-icon, theme-color, mobile-web-app meta. Inputs bumped to 16px on mobile to block iOS focus zoom, plus tap-highlight / overscroll / `img max-width` cleanups.
+
+### Fixed
+
+- **@-mentions inside indented code blocks still notified** (#306, fixes #299) — the regex-based stripper missed 4-space/tab-indented blocks. Replaced with a `Redcarpet::Render::StripDown` subclass so the notification path uses the same tokenizer as the HTML renderer.
+
+### Infrastructure
+
+- **Local docker-compose test environment** (#311) — new `docker-compose.test.yml` runs the suite against an isolated Postgres/Redis pair; `docs/TESTING.md` documents it.
+- **Bump yard 0.9.43 → 0.9.44** (#314).
+
 ## [1.34.1] - 2026-06-30
 
 ### Fixed
