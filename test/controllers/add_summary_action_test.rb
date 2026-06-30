@@ -274,11 +274,11 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
 
   # === Pretty-path summary routes ===
 
-  test "decision summary path serves the summary content in markdown" do
+  test "decision summary path redirects to the summary's canonical markdown page" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
+    summary = Note.create!(
       subtype: "summary", text: "Decision summary body.",
       summarizable: @decision, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
@@ -287,15 +287,17 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary.md"
+    assert_redirected_to "#{summary.path}.md"
+    follow_redirect!
     assert_response :success
     assert_match(/Decision summary body\./, response.body)
   end
 
-  test "note summary path serves the summary content in markdown" do
+  test "note summary path redirects to the summary's canonical markdown page" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
+    summary = Note.create!(
       subtype: "summary", text: "Note thread summary body.",
       summarizable: @note, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
@@ -304,15 +306,17 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/summary.md"
+    assert_redirected_to "#{summary.path}.md"
+    follow_redirect!
     assert_response :success
     assert_match(/Note thread summary body\./, response.body)
   end
 
-  test "commitment summary path serves the summary content in markdown" do
+  test "commitment summary path redirects to the summary's canonical markdown page" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
+    summary = Note.create!(
       subtype: "summary", text: "Commitment summary body.",
       summarizable: @commitment, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
@@ -321,6 +325,8 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/summary.md"
+    assert_redirected_to "#{summary.path}.md"
+    follow_redirect!
     assert_response :success
     assert_match(/Commitment summary body\./, response.body)
   end
@@ -356,11 +362,11 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     assert_select "form[action*='/actions/add_summary']"
   end
 
-  test "summary path serves the summary content as html" do
+  test "summary path redirects to the summary's canonical html page" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    Note.create!(
+    summary = Note.create!(
       subtype: "summary", text: "Decision summary html body.",
       summarizable: @decision, created_by: @user, updated_by: @user,
       tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
@@ -369,6 +375,8 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/summary"
+    assert_redirected_to summary.path
+    follow_redirect!
     assert_response :success
     assert_match(/Decision summary html body\./, response.body)
   end
@@ -450,7 +458,7 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Tenant.reset_anon_readable_subdomains!
   end
 
-  test "summary path returns Note#path canonical form" do
+  test "summary note #path is the canonical /n/<id> form, not the /summary URL" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -462,7 +470,7 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    assert_equal "#{@decision.path}/summary", summary.path
+    assert_equal "#{@collective.path}/n/#{summary.truncated_id}", summary.path
   end
 
   # === Summaries cannot summarize summaries ===
@@ -620,9 +628,10 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     assert_select "form[action*='/actions/add_summary']", count: 0
   end
 
-  # Regression for #287: the Confirm Read button on a summary page must POST to
-  # the summary note's canonical /n/<id>/confirm.html route, NOT to
-  # <parent>/summary/confirm.html (which has no route and silently 404'd).
+  # Regression for #287: navigating to a parent's `<parent>/summary` URL must
+  # land (via redirect) on the summary's canonical /n/<id> page, where the
+  # Confirm Read button POSTs to /n/<id>/confirm.html — NOT the broken
+  # <parent>/summary/confirm.html route that had no route and silently 404'd.
   test "confirm-read button on a summary page targets the canonical /n/<id> route, not /summary" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -641,6 +650,8 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     sign_in_as(reader, tenant: @tenant)
 
     get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/summary"
+    assert_redirected_to summary_note.path
+    follow_redirect!
     assert_response :success
 
     canonical = "/collectives/#{@collective.handle}/n/#{summary_note.truncated_id}/confirm.html"

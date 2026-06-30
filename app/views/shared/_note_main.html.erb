@@ -1,6 +1,6 @@
-<%# Main body of a note's show page. Used by notes/show.html.erb and by
-    shared/summary.html.erb. Takes `note:`; reads @current_user,
-    @current_collective, @is_pinned, @already_reported, @note_reader. %>
+<%# Main body of a note's show page. Used by notes/show.html.erb. Takes
+    `note:`; reads @current_user, @current_collective, @is_pinned,
+    @already_reported, @note_reader. %>
 <% if note.deleted? %>
 <article class="pulse-resource-detail">
   <div class="pulse-resource-body" style="padding: 24px;">

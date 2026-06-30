@@ -359,27 +359,23 @@ class Note < ApplicationRecord
   end
 
   # The URL to link to when surfacing this note in a display context —
-  # comment lists, mention notifications, agent task prompts. Two notes
-  # diverge from their canonical `/n/<id>` page:
-  #   - Comments return the root commentable's path with
-  #     `?comment_id=<truncated_id>` so the caller lands on the full thread
-  #     with this comment marked, rather than the isolated /n/<comment-id> page.
-  #   - Summaries return their parent's `<parent>/summary` URL so a reader
-  #     lands on the summary in the context of what it summarizes. Falls back
-  #     to the canonical path if the polymorphic parent has been orphaned
-  #     (e.g. by a raw delete that bypassed dependent: :destroy).
-  # For every other note, equals `path`.
+  # comment lists, mention notifications, agent task prompts. For comments,
+  # returns the root commentable's path with `?comment_id=<truncated_id>` so
+  # the caller lands on the full thread with this comment marked, rather
+  # than the isolated /n/<comment-id> page. For non-comments, equals `path`.
+  #
+  # Summaries are addressed by their own canonical `/n/<id>` page just like
+  # any other note; the friendly `<parent>/summary` URL is a redirect-only
+  # entry point (see ApplicationController#render_summary_for), not a distinct
+  # resource path. Keeping summaries on the canonical path is what makes
+  # confirm/acknowledge/report and every other suffix-built action endpoint
+  # resolve — overriding `path` to `<parent>/summary` is what 404'd them.
   #
   # Use `path` (not `display_path`) when building API URLs by suffix
   # concatenation (form actions, JS action endpoints, etc.) — `path` is the
-  # canonical bare resource URL. Overriding `path` for summaries is what
-  # broke confirm/acknowledge/report routing (the action endpoints were built
-  # as `<parent>/summary/confirm.html`, which has no route); the divergence
-  # belongs on `display_path`, not `path`.
+  # canonical bare resource URL.
   sig { returns(T.nilable(String)) }
   def display_path
-    return "#{summarizable.path}/summary" if is_summary? && summarizable
-
     return path unless is_comment? && has_commentable?
 
     root = root_commentable

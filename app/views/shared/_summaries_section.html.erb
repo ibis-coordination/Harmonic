@@ -13,7 +13,7 @@
             <%= render AvatarComponent.new(user: summary.created_by) %>
             <div>
               <a href="<%= summary.created_by.path %>"><strong><%= summary.created_by.display_name %></strong></a>
-              <a href="<%= summary.display_path %>" class="pulse-timestamp"><%= time_ago_in_words(summary.updated_at) %> ago</a>
+              <a href="<%= summary.path %>" class="pulse-timestamp"><%= time_ago_in_words(summary.updated_at) %> ago</a>
             </div>
           </div>
           <div class="pulse-summary-body pulse-markdown-content">
