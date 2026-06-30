@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.34.1] - 2026-06-30
+
+### Fixed
+
+- **Markdown renderer SIGABRTed Puma under concurrent requests** (#307) — a shared `Redcarpet::Markdown` class variable raced across Puma threads whenever `MentionRenderer#normal_text` released the GVL during the DB lookup for `@`-mentions; the C extension's internal work buffer corrupted and the process aborted, taking every in-flight request to 502 until restart. Build a fresh `Markdown` instance per render call; allocation cost is unmeasurable next to the render work.
+- **Confirm-read on summary notes never recorded** (#303, fixes #287) — summary notes overrode `Note#path` to `<parent>/summary`, so every action endpoint derived from `@note.path` (confirm-read, acknowledge, report, history) posted to a route that did not exist. Split into canonical `Note#path` (used to build action endpoints) and `Note#display_path` (used for friendly links).
+- **Email notifications attempted SMTP to AI-agent placeholder addresses** (#302, fixes #294) — AI agents are created with `<uuid>@not-a-real-email.com` to satisfy User validations, but the notification path did not check `user.human?`. Guards added at three layers: delivery-time skip, channel selection drops `email` for non-humans, and preference writes coerce `email: true` to `false` for non-human users.
+
 ## [1.34.0] - 2026-06-29
 
 ### Added
