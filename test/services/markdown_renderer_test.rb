@@ -502,4 +502,52 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert html.include?("Title")
     assert html.include?("<strong>Bold text</strong>")
   end
+
+  # === Concurrency ===
+  #
+  # Redcarpet's C extension is not thread-safe: two threads calling render on
+  # the same Markdown instance corrupt its internal work buffer and the process
+  # dies with `markdown.c: Assertion 'md->work_bufs[BUFFER_SPAN].size == 0'
+  # failed.` from SIGABRT. The renderer must therefore avoid sharing a single
+  # Markdown instance across Puma threads.
+  #
+  # Reproducing the race needs a GVL release mid-render. Redcarpet's C `render`
+  # never releases the GVL on its own, so plain markdown is effectively atomic
+  # under threads and won't show the bug. In production the release happens
+  # inside MentionRenderer#normal_text → MentionParser.resolve_paths, which
+  # queries the DB. Here the stub simulates that release with Thread.pass,
+  # widening the race window without taking a DB connection per thread (which
+  # would deadlock against transactional fixtures).
+  #
+  # When this regresses, the test runner itself dies with the [BUG] crash, not
+  # a clean assertion failure — that *is* the red signal.
+  test "render is safe under concurrent calls from multiple threads" do
+    inputs = [
+      "Hello @alice, see [the docs](https://example.com).",
+      "**Bold** _italic_ and `code` with @alice mentioned.",
+      "# Heading\n\nParagraph mentioning @alice inline.\n\n- a\n- b\n- c",
+      "Multiple @alice mentions of @alice in one line.",
+      "Mixed [link to @alice](/u/alice) and plain @alice text.",
+    ]
+    fake_paths = { "alice" => "/u/alice" }
+
+    MentionParser.stub :resolve_paths, ->(*_) {
+      Thread.pass
+      fake_paths
+    } do
+      threads = 8.times.map do
+        Thread.new do
+          Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+          100.times do |i|
+            html = MarkdownRenderer.render(inputs[i % inputs.size], display_references: false)
+            raise "empty output for input #{i}" if html.to_s.empty?
+          end
+          :ok
+        end
+      end
+
+      results = threads.map(&:value)
+      assert_equal Array.new(8, :ok), results
+    end
+  end
 end
