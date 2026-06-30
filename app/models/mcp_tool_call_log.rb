@@ -35,4 +35,19 @@ class McpToolCallLog < ApplicationRecord
   validates :tool_name, presence: true
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :duration_ms, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+
+  # Newest first — the order a principal inspecting the log wants by default.
+  scope :recent, -> { order(created_at: :desc) }
+
+  # True when the call was attributed to an AiAgentTaskRun — i.e. it came from
+  # an internal agent-runner ephemeral token. False for external MCP clients
+  # (Claude Desktop / Code / Cursor / etc.).
+  def internal?
+    ai_agent_task_run_id.present?
+  end
+
+  # Human-readable label for where the call originated, for log views.
+  def source_label
+    internal? ? "Internal task run" : "External client"
+  end
 end

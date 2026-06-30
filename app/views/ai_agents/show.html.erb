@@ -114,6 +114,9 @@
       <a href="/ai-agents/<%= @ai_agent.handle %>/settings" class="pulse-action-btn">
         <%= octicon 'gear' %> Settings
       </a>
+      <a href="<%= ai_agent_mcp_tool_calls_path(@ai_agent.handle) %>" class="pulse-action-btn">
+        <%= octicon 'log' %> MCP Tool Calls
+      </a>
       <a href="<%= @ai_agent.path %>" class="pulse-action-btn">
         <%= octicon 'person' %> View Profile
       </a>

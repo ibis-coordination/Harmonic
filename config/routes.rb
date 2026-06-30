@@ -67,6 +67,9 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/runs' => 'ai_agents#runs', as: 'ai_agent_runs'
   get 'ai-agents/:handle/runs/:run_id' => 'ai_agents#show_run', as: 'ai_agent_run'
   post 'ai-agents/:handle/runs/:run_id/cancel' => 'ai_agents#cancel_run', as: 'cancel_ai_agent_run'
+  # MCP tool-call log — principal-facing inspection of an agent's MCP calls
+  get 'ai-agents/:handle/mcp-tool-calls' => 'ai_agents#mcp_tool_calls', as: 'ai_agent_mcp_tool_calls'
+  get 'ai-agents/:handle/mcp-tool-calls/:log_id' => 'ai_agents#show_mcp_tool_call', as: 'ai_agent_mcp_tool_call'
   # AI Agent automations
   get 'ai-agents/:handle/automations' => 'agent_automations#index', as: 'ai_agent_automations'
   get 'ai-agents/:handle/automations/new' => 'agent_automations#new', as: 'new_ai_agent_automation'

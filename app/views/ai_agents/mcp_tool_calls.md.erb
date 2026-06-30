@@ -1,0 +1,20 @@
+# MCP Tool Calls — <%= @ai_agent.display_name %>
+
+Handle: `<%= @ai_agent.handle %>`
+
+<% if @logs.empty? -%>
+No MCP tool calls have been recorded for this agent yet.
+<% else -%>
+Showing the <%= @logs.size %> most recent call<%= @logs.size == 1 ? "" : "s" %> (most recent first, max <%= @log_limit %>).
+
+| Time | Tool | Status | Duration | Source | Details |
+|------|------|--------|----------|--------|---------|
+<% @logs.each do |log| -%>
+| <%= time_ago_in_words(log.created_at) %> ago | `<%= log.tool_name %>` | <%= log.status %> | <%= log.duration_ms %> ms | <%= log.source_label %> | [view](/ai-agents/<%= @ai_agent.handle %>/mcp-tool-calls/<%= log.id %>) |
+<% end -%>
+<% end -%>
+
+## Navigation
+
+* [Back to agent](/ai-agents/<%= @ai_agent.handle %>)
+* [Back to AI Agents](/ai-agents)

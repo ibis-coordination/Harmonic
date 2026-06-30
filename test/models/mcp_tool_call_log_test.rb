@@ -123,6 +123,39 @@ class McpToolCallLogTest < ActiveSupport::TestCase
     assert_equal task_run, log.ai_agent_task_run
   end
 
+  test "recent scope orders newest first" do
+    older = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "search", status: "ok", duration_ms: 1, created_at: 2.hours.ago
+    )
+    newer = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "fetch_page", status: "ok", duration_ms: 1, created_at: 1.minute.ago
+    )
+
+    assert_equal [newer, older], McpToolCallLog.recent.to_a
+  end
+
+  test "internal? and source_label reflect the ai_agent_task_run association" do
+    external = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "search", status: "ok", duration_ms: 1
+    )
+    assert_not external.internal?
+    assert_equal "External client", external.source_label
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @agent, initiated_by: @user,
+      task: "test", max_steps: 5, status: "running"
+    )
+    internal = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "search", status: "ok", duration_ms: 1, ai_agent_task_run: task_run
+    )
+    assert internal.internal?
+    assert_equal "Internal task run", internal.source_label
+  end
+
   test "destroying the api_token nullifies the log's api_token_id (audit row survives)" do
     # Task-scoped internal tokens are destroyed on task completion. Logs
     # written during the task must survive that destroy — the audit trail

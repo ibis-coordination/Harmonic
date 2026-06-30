@@ -6,13 +6,20 @@ class AiAgentsController < ApplicationController
 
   TASK_RUNS_PER_MINUTE = 5
 
+  # Cap the MCP tool-call log page at the most recent N rows. The table is
+  # append-only with no retention policy yet (see McpToolCallLog), so an
+  # unbounded query would grow without limit for a chatty agent.
+  MCP_TOOL_CALLS_PER_PAGE = 100
+
   before_action :set_sidebar_mode,
-                only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :create, :execute_create_ai_agent, :deactivate,
+                only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :mcp_tool_calls, :show_mcp_tool_call, :create,
+                       :execute_create_ai_agent, :deactivate,
                        :reactivate,]
   before_action :require_any_ai_agents_enabled, only: [
     :index, :show, :settings, :update_settings,
     :describe_update_ai_agent, :execute_update_ai_agent, :settings_actions_index,
     :describe_update_notification_preferences, :execute_update_notification_preferences,
+    :mcp_tool_calls, :show_mcp_tool_call,
   ]
   before_action :require_internal_ai_agents_enabled, only: [:run_task, :execute_task, :runs, :show_run, :cancel_run]
   before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
@@ -346,6 +353,36 @@ class AiAgentsController < ApplicationController
       end
       format.json { render json: { status: @task_run.status } }
     end
+  end
+
+  # GET /ai-agents/:handle/mcp-tool-calls - List MCP tool calls made by this agent
+  def mcp_tool_calls
+    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can view MCP tool calls" unless current_user&.human?
+
+    @ai_agent = find_ai_agent_by_handle
+    return render status: :not_found, plain: "404 Not Found" unless @ai_agent
+
+    @page_title = "MCP Tool Calls - #{@ai_agent.display_name}"
+    @log_limit = MCP_TOOL_CALLS_PER_PAGE
+    @logs = McpToolCallLog
+      .where(user: @ai_agent)
+      .includes(:api_token, :ai_agent_task_run)
+      .recent
+      .limit(@log_limit)
+  end
+
+  # GET /ai-agents/:handle/mcp-tool-calls/:log_id - Inspect a single MCP tool call
+  def show_mcp_tool_call
+    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can view MCP tool calls" unless current_user&.human?
+
+    @ai_agent = find_ai_agent_by_handle
+    return render status: :not_found, plain: "404 Not Found" unless @ai_agent
+
+    @log = McpToolCallLog.where(user: @ai_agent).find_by(id: params[:log_id])
+    return render status: :not_found, plain: "404 Not Found" unless @log
+
+    @page_title = "MCP Tool Call - #{@ai_agent.display_name}"
+    @resources = @log.mcp_tool_call_resources.order(:created_at)
   end
 
   def new
