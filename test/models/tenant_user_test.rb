@@ -36,7 +36,7 @@ class TenantUserTest < ActiveSupport::TestCase
     tenant, collective, parent = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
     agent = create_ai_agent(parent: parent)
-    agent_tenant_user = agent.tenant_user
+    agent_tenant_user = tenant.add_user!(agent)
 
     # Force email on in stored prefs; the channel must still be filtered out.
     agent_tenant_user.update_notification_preferences!("mention" => { "in_app" => true, "email" => true })
@@ -50,7 +50,7 @@ class TenantUserTest < ActiveSupport::TestCase
     tenant, collective, parent = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
     agent = create_ai_agent(parent: parent)
-    agent_tenant_user = agent.tenant_user
+    agent_tenant_user = tenant.add_user!(agent)
 
     agent_tenant_user.update_notification_preferences!("mention" => { "email" => true })
 
