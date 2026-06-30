@@ -30,6 +30,21 @@ cp .env.example .env
 ./scripts/stop.sh    # stop the app
 ```
 
+## Running tests locally
+
+The Rails test suite runs in Docker via a trimmed, CI-faithful compose file
+([`docker-compose.test.yml`](docker-compose.test.yml)) — just a test runner plus
+Postgres and Redis, matching the versions and environment used in CI.
+
+```bash
+docker compose -f docker-compose.test.yml build
+docker compose -f docker-compose.test.yml run --rm test                                   # full suite
+docker compose -f docker-compose.test.yml run --rm test bundle exec rails test test/models  # a subset
+docker compose -f docker-compose.test.yml down -v                                         # tear down
+```
+
+The image bakes the app code, gems and assets, so rebuild after changing code.
+
 ## License
 
 MIT
