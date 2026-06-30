@@ -88,4 +88,11 @@
   .pulse-container.no-sidebar .pulse-main {
     padding: 24px 16px;
   }
+
+  /* iOS Safari zooms the viewport on focus when input font-size < 16px. */
+  .pulse-form-input,
+  .pulse-form-textarea,
+  .pulse-form-select {
+    font-size: 16px;
+  }
 }
