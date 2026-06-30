@@ -79,6 +79,33 @@ class RefreshTokenTest < ActiveSupport::TestCase
     assert_match(/iPhone/, T.must(token.user_agent))
   end
 
+  # === Device label parsing (platform + browser) ===
+
+  {
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15" =>
+      "Mac · Safari",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" =>
+      "Mac · Chrome",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0" =>
+      "Mac · Firefox",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0" =>
+      "Windows PC · Edge",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 OPR/106.0.0.0" =>
+      "Windows PC · Opera",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" =>
+      "iPhone · Safari",
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" =>
+      "Android · Chrome",
+    "curl/8.4.0" => "Unknown device",
+    "" => "Unknown device",
+  }.each do |ua, expected|
+    test "device_label parses '#{ua[0..40]}...' as '#{expected}'" do
+      request = Struct.new(:user_agent, :remote_ip).new(ua, "1.2.3.4")
+      token = RefreshToken.issue!(user: @user, request: request)
+      assert_equal expected, token.device_label
+    end
+  end
+
   # === Lookup ===
 
   test "find_by_plaintext returns the row for a valid token" do
