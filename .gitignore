@@ -4,6 +4,13 @@
 # or operating system, you probably want to add a global ignore instead:
 #   git config --global core.excludesfile '~/.gitignore_global'
 
+# Secrets: only the SOPS-encrypted *.enc.env may be committed. Never the
+# decrypted material or the age key that unlocks it. See docs/INFRASTRUCTURE.md.
+/secrets/decrypted/
+/secrets/age.key
+*.age.key
+secrets/secrets.env
+
 # Ignore bundler config.
 /.bundle
 

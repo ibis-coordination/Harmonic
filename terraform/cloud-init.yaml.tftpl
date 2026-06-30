@@ -1,0 +1,40 @@
+#cloud-config
+# First-boot host bootstrap. Installs Docker and lays down the /opt/harmonic
+# skeleton. It intentionally does NOT pull images or start the stack — the
+# operator finishes setup by placing the decrypted secrets and running
+# scripts/deploy.sh (see docs/INFRASTRUCTURE.md). Provisioning != release.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - age   # for SOPS decryption of the secrets file at deploy time
+
+write_files:
+  # The age private key is the single secret this box needs to unlock all the
+  # rest. cloud-init user-data is itself sensitive (visible to the DO API /
+  # account), so this placeholder is deliberately empty: plant the key
+  # out-of-band after boot (scp, or a vault step), or template it in via a
+  # separate sensitive variable if you accept it living in state. See the
+  # "Bootstrapping the one key" section of the infra doc.
+  - path: /opt/harmonic/secrets/age.key
+    permissions: "0600"
+    content: ""
+
+runcmd:
+  # Install Docker Engine + compose plugin from the official convenience script.
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  # Lay down the deployment directory from the repo (compose files, scripts,
+  # maintenance templates). Only deploy-time files are needed; the image
+  # carries the app.
+  - git clone --depth 1 ${compose_repo} /tmp/harmonic-src
+  - mkdir -p /opt/harmonic/config/maintenance /opt/harmonic/scripts /run/secrets
+  - cp /tmp/harmonic-src/docker-compose.production.yml /opt/harmonic/
+  - cp -r /tmp/harmonic-src/scripts/. /opt/harmonic/scripts/
+  - cp -r /tmp/harmonic-src/config/maintenance/. /opt/harmonic/config/maintenance/
+  - rm -rf /tmp/harmonic-src
+  - echo "Harmonic host bootstrap complete. Next: place secrets, run scripts/deploy.sh --with-migrations" > /opt/harmonic/BOOTSTRAP_DONE

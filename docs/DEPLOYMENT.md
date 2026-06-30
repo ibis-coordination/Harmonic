@@ -6,6 +6,11 @@ Production uses pre-built Docker images from GitHub Container Registry. No sourc
 
 ### Server Setup (One-Time)
 
+> The manual steps below can be provisioned declaratively instead — see
+> [INFRASTRUCTURE.md](INFRASTRUCTURE.md) for the Terraform (Tier 1) module that
+> creates the droplet, managed Postgres, Spaces bucket, DNS, firewall, and SES,
+> and bootstraps Docker via cloud-init.
+
 Clone the repo or copy these files to your server:
 
 ```
@@ -327,5 +332,6 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$(git config user.email)" --pass
 
 ## Related Documentation
 
+- [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Terraform provisioning (Tier 1) and the SOPS secrets architecture
 - [MONITORING.md](MONITORING.md) - Monitoring and alerting setup
 - [SECURITY_AND_SCALING.md](SECURITY_AND_SCALING.md) - Security features and scaling guide
