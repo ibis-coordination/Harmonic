@@ -6,10 +6,11 @@ import { fetchWithCsrf } from "../utils/csrf"
 // Mirrors the JSON contract of CollectivesController#update_member_roles and
 // #remove_member.
 export default class CollectiveMemberManagerController extends Controller {
-  static values = { updateRolesUrl: String, removeUrl: String }
+  static values = { updateRolesUrl: String, removeUrl: String, roleOrder: Array }
 
   declare readonly updateRolesUrlValue: string
   declare readonly removeUrlValue: string
+  declare readonly roleOrderValue: string[]
 
   toggleRole(event: Event): void {
     event.preventDefault()
@@ -34,8 +35,13 @@ export default class CollectiveMemberManagerController extends Controller {
         const data = await response.json().catch(() => ({}))
         throw new Error(data.error || "Failed to update role")
       })
-      .then((data: { granted: boolean }) => {
+      .then((data: { granted: boolean; roles: string[] }) => {
         this.applyRoleState(button, role, data.granted)
+        // Reflect the authoritative role set the server returned: rebuild this
+        // member's pill row so admins can see who holds what at a glance.
+        this.renderRolePills(userId, data.roles)
+        // The action succeeded — collapse the menu so the result is visible.
+        this.closeMenu(button)
       })
       .catch((error: Error) => {
         console.error("Error updating member role:", error)
@@ -83,6 +89,29 @@ export default class CollectiveMemberManagerController extends Controller {
   private applyRoleState(button: HTMLButtonElement, role: string, granted: boolean): void {
     button.dataset.granted = granted ? "true" : "false"
     button.textContent = granted ? `Remove role ${role}` : `Add role ${role}`
+  }
+
+  // Rebuild the member's role pills from the server's authoritative role list,
+  // ordered by roleOrderValue so the row stays stable as roles are toggled.
+  private renderRolePills(userId: string, roles: string[]): void {
+    const container = this.element.querySelector(`[data-role-pills-for="${userId}"]`)
+    if (!container) return
+
+    const ordered = this.roleOrderValue.filter((role) => roles.includes(role))
+    const pills = ordered.map((role) => {
+      const pill = document.createElement("span")
+      pill.className = "pulse-badge pulse-badge-muted"
+      pill.dataset.rolePill = role
+      pill.textContent = role
+      return pill
+    })
+    container.replaceChildren(...pills)
+  }
+
+  // Collapse the kebab <details> menu the clicked item lives in.
+  private closeMenu(button: HTMLButtonElement): void {
+    const menu = button.closest("details")
+    if (menu) (menu as HTMLDetailsElement).open = false
   }
 
   private removeMemberCard(userId: string): void {

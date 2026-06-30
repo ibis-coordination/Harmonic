@@ -1739,6 +1739,18 @@ h1.pulse-resource-title {
   flex-wrap: wrap;
 }
 
+/* Role pills showing the roles each member currently holds. */
+.pulse-member-roles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pulse-member-roles:empty {
+  display: none;
+}
+
 /* Admin controls on the members page (role toggles + remove) */
 .pulse-member-controls {
   display: flex;

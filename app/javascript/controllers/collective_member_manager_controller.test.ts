@@ -12,11 +12,13 @@ describe("CollectiveMemberManagerController", () => {
     document.body.innerHTML = `
       <div data-controller="collective-member-manager"
            data-collective-member-manager-update-roles-url-value="/collectives/team/members/update_roles"
-           data-collective-member-manager-remove-url-value="/collectives/team/members/remove">
+           data-collective-member-manager-remove-url-value="/collectives/team/members/remove"
+           data-collective-member-manager-role-order-value='["admin","representative","summarizer"]'>
         <div class="pulse-participant" data-member-id="u1">
           <a href="/u/one">Member One</a>
+          <div class="pulse-member-roles" data-role-pills-for="u1"></div>
           <div class="pulse-member-controls">
-            <details class="pulse-member-menu">
+            <details class="pulse-member-menu" open>
               <summary class="pulse-member-menu-toggle">menu</summary>
               <div class="top-menu pulse-member-menu-list">
                 <ul>
@@ -87,6 +89,63 @@ describe("CollectiveMemberManagerController", () => {
       await vi.waitFor(() => {
         expect(button.dataset.granted).toBe("true")
         expect(button.textContent).toBe("Remove role admin")
+      })
+    })
+
+    it("renders a role pill and closes the menu on a successful grant", async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({ user_id: "u1", role: "admin", granted: true, roles: ["admin"] }),
+      }
+      vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
+
+      const button = document.querySelector("button[data-role='admin']") as HTMLButtonElement
+      button.click()
+
+      await vi.waitFor(() => {
+        const pills = document.querySelector("[data-role-pills-for='u1']") as HTMLElement
+        expect(pills.querySelector("[data-role-pill='admin']")?.textContent).toBe("admin")
+        const menu = document.querySelector("details.pulse-member-menu") as HTMLDetailsElement
+        expect(menu.open).toBe(false)
+      })
+    })
+
+    it("orders rebuilt pills by the configured role order", async () => {
+      const mockResponse = {
+        ok: true,
+        // Server returns roles out of canonical order; the row should still
+        // render admin, representative, summarizer.
+        json: () =>
+          Promise.resolve({ user_id: "u1", role: "summarizer", granted: true, roles: ["summarizer", "admin", "representative"] }),
+      }
+      vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
+
+      const button = document.querySelector("button[data-role='admin']") as HTMLButtonElement
+      button.click()
+
+      await vi.waitFor(() => {
+        const pills = Array.from(
+          document.querySelectorAll("[data-role-pills-for='u1'] [data-role-pill]")
+        ).map((el) => el.getAttribute("data-role-pill"))
+        expect(pills).toEqual(["admin", "representative", "summarizer"])
+      })
+    })
+
+    it("clears the pill row when the last role is revoked", async () => {
+      const pills = document.querySelector("[data-role-pills-for='u1']") as HTMLElement
+      pills.innerHTML = `<span class="pulse-badge pulse-badge-muted" data-role-pill="admin">admin</span>`
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({ user_id: "u1", role: "admin", granted: false, roles: [] }),
+      }
+      vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
+
+      const button = document.querySelector("button[data-role='admin']") as HTMLButtonElement
+      button.dataset.granted = "true"
+      button.click()
+
+      await vi.waitFor(() => {
+        expect(pills.querySelectorAll("[data-role-pill]").length).toBe(0)
       })
     })
 

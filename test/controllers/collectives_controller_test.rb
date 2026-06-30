@@ -1493,8 +1493,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
 
-    # Each manageable member gets a kebab <details> menu rather than a row of
-    # always-visible role pills.
+    # Each manageable member gets a kebab <details> menu for adding/removing
+    # roles (the role pills themselves are covered separately below).
     assert_select "details.pulse-member-menu", minimum: 1
     # A role the member lacks is offered as an "Add role" action…
     assert_select "button.pulse-member-menu-item[data-user-id=?][data-role=?][data-granted=?]",
@@ -1503,6 +1503,32 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # …and the destructive action sits at the bottom of the same menu.
     assert_select "button.pulse-member-menu-item-danger[data-action=?]", "collective-member-manager#remove"
     assert_match(/Remove from collective/, response.body)
+  end
+
+  test "members page renders role pills for the roles a member holds" do
+    member = add_member(name: "Sitting Rep", roles: ["representative"])
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # The pill row shows the roles the member currently holds, so admins can see
+    # who has which roles at a glance. The Stimulus controller is given the
+    # canonical role order so it can rebuild this row in place on update.
+    assert_select "[data-collective-member-manager-role-order-value]"
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", member.id.to_s, "representative"
+    # A role the member does not hold gets no pill.
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", member.id.to_s, "summarizer", count: 0
+  end
+
+  test "members page renders the owner's admin as a pill" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # The owner always holds admin; it surfaces as a (non-revocable) pill.
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", @user.id.to_s, "admin"
   end
 
   test "members page shows an already-held role as a 'Remove role' menu item" do

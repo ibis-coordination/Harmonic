@@ -23,6 +23,7 @@
           data-controller="collective-member-manager"
           data-collective-member-manager-update-roles-url-value="<%= @current_collective.path %>/members/update_roles"
           data-collective-member-manager-remove-url-value="<%= @current_collective.path %>/members/remove"
+          data-collective-member-manager-role-order-value="<%= @manageable_roles.to_json %>"
         <% end %>>
         <% @team.each do |u| %>
           <div class="pulse-participant" data-member-id="<%= u.id %>">
@@ -31,13 +32,20 @@
             <% if u.ai_agent? %>
               <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
+            <%# Pills showing the roles this member currently holds. The Stimulus
+                controller rebuilds this list in place when a role is added or
+                removed via the kebab menu below. Rendered in the canonical
+                @manageable_roles order so the row stays stable across updates. %>
+            <div class="pulse-member-roles" data-role-pills-for="<%= u.id %>">
+              <% @manageable_roles.each do |role| %>
+                <% if u.collective_member.has_role?(role) %>
+                  <span class="pulse-badge pulse-badge-muted" data-role-pill="<%= role %>"><%= role %></span>
+                <% end %>
+              <% end %>
+            </div>
             <% if @can_manage_members %>
               <% is_owner = u.id == @current_collective.created_by_id %>
               <div class="pulse-member-controls">
-                <% if is_owner %>
-                  <%# The owner is always an admin (the server rejects revoking it), so show a static badge rather than a kebab entry that can't act. %>
-                  <span class="pulse-badge pulse-badge-muted" title="The collective owner is always an admin">admin</span>
-                <% end %>
                 <details class="pulse-member-menu" data-controller="kebab-menu">
                   <summary class="pulse-action-btn-secondary pulse-member-menu-toggle" title="Manage member">
                     <%= octicon 'kebab-horizontal', height: 14 %>
@@ -45,7 +53,7 @@
                   <div class="top-menu pulse-member-menu-list">
                     <ul>
                       <% @manageable_roles.each do |role| %>
-                        <%# Owner's admin is permanent (handled by the static badge above); the model forbids the representative role for collective-identity users, so don't offer a toggle that can only 422. %>
+                        <%# Owner's admin is permanent (the server rejects revoking it), so don't offer a toggle that can only 422 — it shows as a pill above instead. The model also forbids the representative role for collective-identity users. %>
                         <% next if role == 'admin' && is_owner %>
                         <% next if role == 'representative' && u.collective_identity? %>
                         <% active = u.collective_member.has_role?(role) %>
@@ -76,13 +84,6 @@
                   </div>
                 </details>
               </div>
-            <% else %>
-              <% if u.collective_member.is_admin? %>
-                <span class="pulse-badge pulse-badge-muted">admin</span>
-              <% end %>
-              <% if u.collective_member.is_representative? %>
-                <span class="pulse-badge pulse-badge-muted">representative</span>
-              <% end %>
             <% end %>
           </div>
         <% end %>
