@@ -34,20 +34,25 @@
             <% if @can_manage_members %>
               <div class="pulse-member-controls">
                 <% @manageable_roles.each do |role| %>
-                  <% active = u.collective_member.has_role?(role) %>
-                  <button type="button"
-                          class="pulse-role-toggle<%= active ? ' is-active' : '' %>"
-                          aria-pressed="<%= active ? 'true' : 'false' %>"
-                          title="<%= active ? "Remove #{role} role" : "Grant #{role} role" %>"
-                          data-action="collective-member-manager#toggleRole"
-                          data-user-id="<%= u.id %>"
-                          data-role="<%= role %>"
-                          data-granted="<%= active ? 'true' : 'false' %>">
-                    <%= role %>
-                  </button>
+                  <% if role == 'admin' && u.id == @current_collective.created_by_id %>
+                    <%# The owner is always an admin (the server rejects revoking it), so show a static badge rather than a toggle that can't act. %>
+                    <span class="pulse-badge pulse-badge-muted" title="The collective owner is always an admin">admin</span>
+                  <% else %>
+                    <% active = u.collective_member.has_role?(role) %>
+                    <button type="button"
+                            class="pulse-role-toggle<%= active ? ' is-active' : '' %>"
+                            aria-pressed="<%= active ? 'true' : 'false' %>"
+                            title="<%= active ? "Remove #{role} role" : "Grant #{role} role" %>"
+                            data-action="collective-member-manager#toggleRole"
+                            data-user-id="<%= u.id %>"
+                            data-role="<%= role %>"
+                            data-granted="<%= active ? 'true' : 'false' %>">
+                      <%= role %>
+                    </button>
+                  <% end %>
                 <% end %>
                 <% unless u.id == @current_collective.created_by_id || u.id == @current_user&.id %>
-                  <button type="button" class="pulse-action-btn-danger pulse-member-remove"
+                  <button type="button" class="pulse-action-btn pulse-action-btn-danger pulse-member-remove"
                           data-action="collective-member-manager#remove"
                           data-user-id="<%= u.id %>"
                           data-user-name="<%= u.display_name %>">

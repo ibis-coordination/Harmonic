@@ -1463,6 +1463,29 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert cm.has_role?("admin"), "the last admin must retain the admin role"
   end
 
+  test "cannot revoke the admin role from the collective owner" do
+    # A second admin exists, so this is blocked by the owner guard rather than
+    # the last-admin guard.
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: @user.id, role: "admin", grant: "false" }
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: @user)
+    assert cm.has_role?("admin"), "the collective owner must remain an admin"
+  end
+
+  test "members page shows the owner admin as a static badge, not a toggle" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    # The owner's admin role must not be rendered as a revocable toggle.
+    assert_no_match(/data-user-id="#{@user.id}"\s+data-role="admin"/, response.body)
+  end
+
   test "admin can revoke admin role when another admin remains" do
     other_admin = add_member(name: "Second Admin", roles: ["admin"])
     sign_in_as(@user, tenant: @tenant)

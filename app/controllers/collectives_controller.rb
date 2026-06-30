@@ -661,6 +661,13 @@ class CollectivesController < ApplicationController
 
     grant = ActiveModel::Type::Boolean.new.cast(params[:grant])
 
+    # The collective owner is permanent (see #remove_member); they must always
+    # retain admin so a second admin can never lock them out of their own
+    # collective.
+    if role == 'admin' && !grant && member.user_id == @current_collective.created_by_id
+      return render status: 422, json: { error: 'The collective owner must remain an admin.' }
+    end
+
     # Lockout protection: never let the last admin lose the admin role, or
     # there would be no one left who can manage the collective.
     if role == 'admin' && !grant && last_admin?(member)
