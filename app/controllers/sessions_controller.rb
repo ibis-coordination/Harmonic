@@ -69,6 +69,11 @@ class SessionsController < ApplicationController
       session[:user_id] = identity.user.id
       session[:logged_in_at] = Time.current.to_i
       session[:last_activity_at] = Time.current.to_i
+      # No refresh token issued on the no-2FA path. Refresh tokens encode
+      # "this device passed 2FA recently" — issuing one to a user who didn't
+      # would create a path to silently re-auth them indefinitely after they
+      # later enable 2FA. Users without 2FA still re-do the OAuth bounce on
+      # session expiry (status quo); users with 2FA get the silent refresh.
       SecurityAuditLog.log_login_success(
         user: identity.user,
         ip: request.remote_ip,

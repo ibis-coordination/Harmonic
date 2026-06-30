@@ -1054,6 +1054,36 @@ class ApplicationController < ActionController::Base
     cookies.delete(key, **opts)
   end
 
+  REFRESH_COOKIE_NAME = :_harmonic_refresh
+
+  # Issue a refresh token for the given user and set the parent-domain cookie.
+  # Called at successful interactive-login completion. No-op for non-human
+  # user types as defense in depth — production login flows already gate on
+  # humans, but the guard makes it safe to call this from any session-set
+  # site without thinking about user_type.
+  def issue_refresh_token_for!(user, two_factor_at: nil)
+    return nil unless user&.human?
+
+    token = RefreshToken.issue!(user: user, two_factor_at: two_factor_at, request: request)
+    set_refresh_cookie(token)
+    token
+  end
+
+  def set_refresh_cookie(token)
+    cookies[REFRESH_COOKIE_NAME] = {
+      value: token.plaintext_token,
+      domain: ".#{ENV.fetch("HOSTNAME", nil)}",
+      httponly: true,
+      secure: !Rails.env.test? && (Rails.env.production? || ENV["HOST_MODE"] == "caddy"),
+      same_site: :lax,
+      expires: RefreshToken::LIFETIME.from_now,
+    }
+  end
+
+  def delete_refresh_cookie
+    delete_shared_domain_cookie(REFRESH_COOKIE_NAME)
+  end
+
   def clear_participant_uid_cookie
     cookies.delete(:decision_participant_uid)
   end

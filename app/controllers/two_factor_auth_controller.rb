@@ -248,6 +248,7 @@ class TwoFactorAuthController < ApplicationController
     session[:user_id] = user.id
     session[:logged_in_at] = Time.current.to_i
     session[:last_activity_at] = Time.current.to_i
+    issue_refresh_token_for!(user, two_factor_at: Time.current)
     clear_pending_2fa_session
     # Mirror the non-2FA branch of oauth_callback — without this, every
     # 2FA-protected login would be missing from the login-success audit
