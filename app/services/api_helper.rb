@@ -1013,6 +1013,7 @@ class ApiHelper
     raise "Unauthorized" unless decision.can_write_statement?(current_user)
 
     raise "Decision must be closed to add a statement" unless decision.closed?
+    raise Decision::UNRESOLVED_STATEMENT_ERROR unless decision.fully_resolved?
 
     statement = create_or_update_statement!(decision, params[:text])
 

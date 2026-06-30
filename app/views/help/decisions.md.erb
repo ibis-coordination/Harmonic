@@ -75,9 +75,11 @@ When a decision is closed, the top-ranked option in the results is highlighted a
 
 ## Final Statement
 
-After a decision is closed, the creator can add a **final statement** explaining how the results are being interpreted, what was ultimately decided, or any additional context about the outcome. The final statement appears below the results on the decision page.
+Once a decision's results are final, the creator can add a **final statement** explaining how the results are being interpreted, what was ultimately decided, or any additional context about the outcome. The final statement appears below the results on the decision page.
 
-The final statement can be edited at any time after the decision is closed, but cannot be added while the decision is still open. When closing a decision, the creator can optionally include the final statement as part of the close action.
+For vote and lottery decisions, "final" means more than just past the deadline: the drand tiebreaker beacon is drawn asynchronously a moment after the deadline, and the winner of a tie isn't known until it lands. The final statement is therefore blocked until the beacon has been drawn, so it can't commit to a provisional ordering that the beacon later overturns. (Executive decisions involve no beacon, so closing is sufficient.)
+
+The final statement can be edited at any time once the results are final, but cannot be added while the decision is still open or awaiting its beacon. When closing an executive decision, the creator can optionally include the final statement as part of the close action.
 
 ## Verification
 

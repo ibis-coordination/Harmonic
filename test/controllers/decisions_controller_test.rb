@@ -363,7 +363,9 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(deadline: Time.current)
+    # Vote decision: fully resolved requires both a passed deadline and a drawn
+    # tiebreaker beacon (#267).
+    @decision.update!(deadline: Time.current, lottery_beacon_round: 12345)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -380,7 +382,9 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @decision.update!(deadline: Time.current)
+    # Vote decision: fully resolved requires both a passed deadline and a drawn
+    # tiebreaker beacon (#267).
+    @decision.update!(deadline: Time.current, lottery_beacon_round: 12345)
     Note.create!(
       subtype: "statement", text: "First draft.",
       statementable: @decision, created_by: @user, updated_by: @user,
@@ -407,6 +411,65 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
 
     @decision.reload
     assert_nil @decision.statement
+  end
+
+  # #267: a vote decision past its deadline but before the tiebreaker beacon is
+  # drawn is closed-but-unresolved. A final statement written now could commit
+  # to a provisional winner that the beacon later overturns, so it must be
+  # blocked until the beacon lands.
+  test "creator cannot add statement on a closed vote decision before the beacon is drawn" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: Time.current) # closed, no beacon yet
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    @decision.reload
+    assert @decision.closed?
+    assert_not @decision.beacon_drawn?
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Calling it for the provisional leader." }
+
+    @decision.reload
+    assert_nil @decision.statement, "statement must be blocked until the beacon is drawn"
+  end
+
+  test "markdown add_statement on a closed-but-unresolved vote returns a conflict error" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: Time.current) # closed, no beacon yet
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Too early." }, headers: { "Accept" => "text/markdown" }
+
+    assert_response :conflict
+    assert_match(/tiebreaker beacon has not been drawn/, response.body)
+    @decision.reload
+    assert_nil @decision.statement
+  end
+
+  # Once the beacon lands, the same decision becomes writable.
+  test "creator can add statement on a closed vote decision after the beacon is drawn" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(deadline: Time.current, lottery_beacon_round: 777, lottery_beacon_randomness: "feedface")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/add_statement",
+      params: { text: "Now the result is final." }
+
+    @decision.reload
+    assert_equal "Now the result is final.", @decision.statement&.text
   end
 
   test "statement is displayed on show page when present" do

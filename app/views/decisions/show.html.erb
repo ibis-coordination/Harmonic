@@ -159,11 +159,15 @@
         <% if @decision.statement.present? %>
           <%= render StatementEmbedComponent.new(statement: @decision.statement, current_user: @current_user) %>
         <% elsif @current_user && @decision.can_write_statement?(@current_user) %>
-          <%= form_with url: "#{@decision.path}/actions/add_statement", method: :post, class: "pulse-form" do |form| %>
-            <%= form.text_area :text, placeholder: "How do you interpret these results?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
-            <div style="margin-top: 8px;">
-              <%= form.submit 'Submit Final Statement', class: "pulse-action-btn pulse-action-btn-primary" %>
-            </div>
+          <% if @decision.fully_resolved? %>
+            <%= form_with url: "#{@decision.path}/actions/add_statement", method: :post, class: "pulse-form" do |form| %>
+              <%= form.text_area :text, placeholder: "How do you interpret these results?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
+              <div style="margin-top: 8px;">
+                <%= form.submit 'Submit Final Statement', class: "pulse-action-btn pulse-action-btn-primary" %>
+              </div>
+            <% end %>
+          <% else %>
+            <p class="pulse-muted">The final statement can't be written yet — the tiebreaker beacon hasn't been drawn, so the results aren't final. Check back in a moment.</p>
           <% end %>
         <% end %>
       </div>
