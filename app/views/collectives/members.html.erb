@@ -32,33 +32,49 @@
               <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
             <% if @can_manage_members %>
+              <% is_owner = u.id == @current_collective.created_by_id %>
               <div class="pulse-member-controls">
-                <% @manageable_roles.each do |role| %>
-                  <% if role == 'admin' && u.id == @current_collective.created_by_id %>
-                    <%# The owner is always an admin (the server rejects revoking it), so show a static badge rather than a toggle that can't act. %>
-                    <span class="pulse-badge pulse-badge-muted" title="The collective owner is always an admin">admin</span>
-                  <% else %>
-                    <% active = u.collective_member.has_role?(role) %>
-                    <button type="button"
-                            class="pulse-role-toggle<%= active ? ' is-active' : '' %>"
-                            aria-pressed="<%= active ? 'true' : 'false' %>"
-                            title="<%= active ? "Remove #{role} role" : "Grant #{role} role" %>"
-                            data-action="collective-member-manager#toggleRole"
-                            data-user-id="<%= u.id %>"
-                            data-role="<%= role %>"
-                            data-granted="<%= active ? 'true' : 'false' %>">
-                      <%= role %>
-                    </button>
-                  <% end %>
+                <% if is_owner %>
+                  <%# The owner is always an admin (the server rejects revoking it), so show a static badge rather than a kebab entry that can't act. %>
+                  <span class="pulse-badge pulse-badge-muted" title="The collective owner is always an admin">admin</span>
                 <% end %>
-                <% unless u.id == @current_collective.created_by_id || u.id == @current_user&.id %>
-                  <button type="button" class="pulse-action-btn pulse-action-btn-danger pulse-member-remove"
-                          data-action="collective-member-manager#remove"
-                          data-user-id="<%= u.id %>"
-                          data-user-name="<%= u.display_name %>">
-                    Remove
-                  </button>
-                <% end %>
+                <details class="pulse-member-menu" data-controller="kebab-menu">
+                  <summary class="pulse-action-btn-secondary pulse-member-menu-toggle" title="Manage member">
+                    <%= octicon 'kebab-horizontal', height: 14 %>
+                  </summary>
+                  <div class="top-menu pulse-member-menu-list">
+                    <ul>
+                      <% @manageable_roles.each do |role| %>
+                        <%# Owner's admin is permanent (handled by the static badge above); the model forbids the representative role for collective-identity users, so don't offer a toggle that can only 422. %>
+                        <% next if role == 'admin' && is_owner %>
+                        <% next if role == 'representative' && u.collective_identity? %>
+                        <% active = u.collective_member.has_role?(role) %>
+                        <li>
+                          <button type="button"
+                                  class="pulse-member-menu-item"
+                                  data-action="collective-member-manager#toggleRole"
+                                  data-user-id="<%= u.id %>"
+                                  data-role="<%= role %>"
+                                  data-granted="<%= active ? 'true' : 'false' %>">
+                            <%= active ? "Remove role #{role}" : "Add role #{role}" %>
+                          </button>
+                        </li>
+                      <% end %>
+                      <% unless is_owner || u.id == @current_user&.id %>
+                        <li class="pulse-member-menu-divider"><hr></li>
+                        <li>
+                          <button type="button"
+                                  class="pulse-member-menu-item pulse-member-menu-item-danger"
+                                  data-action="collective-member-manager#remove"
+                                  data-user-id="<%= u.id %>"
+                                  data-user-name="<%= u.display_name %>">
+                            Remove from collective
+                          </button>
+                        </li>
+                      <% end %>
+                    </ul>
+                  </div>
+                </details>
               </div>
             <% else %>
               <% if u.collective_member.is_admin? %>

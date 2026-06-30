@@ -1486,6 +1486,49 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/data-user-id="#{@user.id}"\s+data-role="admin"/, response.body)
   end
 
+  test "members page renders a per-member kebab menu with add-role and remove items" do
+    member = add_member(name: "Regular Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # Each manageable member gets a kebab <details> menu rather than a row of
+    # always-visible role pills.
+    assert_select "details.pulse-member-menu", minimum: 1
+    # A role the member lacks is offered as an "Add role" action…
+    assert_select "button.pulse-member-menu-item[data-user-id=?][data-role=?][data-granted=?]",
+                  member.id.to_s, "representative", "false"
+    assert_match(/Add role representative/, response.body)
+    # …and the destructive action sits at the bottom of the same menu.
+    assert_select "button.pulse-member-menu-item-danger[data-action=?]", "collective-member-manager#remove"
+    assert_match(/Remove from collective/, response.body)
+  end
+
+  test "members page shows an already-held role as a 'Remove role' menu item" do
+    member = add_member(name: "Sitting Rep", roles: ["representative"])
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    assert_select "button.pulse-member-menu-item[data-user-id=?][data-role=?][data-granted=?]",
+                  member.id.to_s, "representative", "true"
+    assert_match(/Remove role representative/, response.body)
+  end
+
+  test "members page does not offer a remove-from-collective item for the acting admin" do
+    # A second admin manages the page; they must not see a self-removal control
+    # (Leave handles that), though they can still toggle their own roles.
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    assert_select "button.pulse-member-menu-item-danger[data-user-id=?]", other_admin.id.to_s, count: 0
+  end
+
   test "admin can revoke admin role when another admin remains" do
     other_admin = add_member(name: "Second Admin", roles: ["admin"])
     sign_in_as(@user, tenant: @tenant)

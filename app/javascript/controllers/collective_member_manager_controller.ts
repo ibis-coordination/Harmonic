@@ -35,7 +35,7 @@ export default class CollectiveMemberManagerController extends Controller {
         throw new Error(data.error || "Failed to update role")
       })
       .then((data: { granted: boolean }) => {
-        this.applyRoleState(button, data.granted)
+        this.applyRoleState(button, role, data.granted)
       })
       .catch((error: Error) => {
         console.error("Error updating member role:", error)
@@ -78,10 +78,11 @@ export default class CollectiveMemberManagerController extends Controller {
       })
   }
 
-  private applyRoleState(button: HTMLButtonElement, granted: boolean): void {
+  // Reflect the new role state on the kebab menu item: the label flips between
+  // "Add role X" and "Remove role X" so the next click does the opposite.
+  private applyRoleState(button: HTMLButtonElement, role: string, granted: boolean): void {
     button.dataset.granted = granted ? "true" : "false"
-    button.setAttribute("aria-pressed", granted ? "true" : "false")
-    button.classList.toggle("is-active", granted)
+    button.textContent = granted ? `Remove role ${role}` : `Add role ${role}`
   }
 
   private removeMemberCard(userId: string): void {

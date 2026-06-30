@@ -1744,41 +1744,63 @@ h1.pulse-resource-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
 }
 
-.pulse-role-toggle {
-  padding: 2px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-canvas-subtle);
-  color: var(--color-fg-muted);
-  font-size: 11px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* Per-member kebab menu (admin-only). A <details> element anchors the
+   dropdown; the summary is the kebab toggle. */
+.pulse-member-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.pulse-member-menu-toggle {
   cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 6px;
 }
 
-.pulse-role-toggle:hover {
-  border-color: var(--color-accent-fg);
+/* Hide the native disclosure triangle the <summary> renders by default. */
+.pulse-member-menu-toggle::-webkit-details-marker {
+  display: none;
+}
+.pulse-member-menu-toggle::marker {
+  content: "";
 }
 
-.pulse-role-toggle.is-active {
-  background: var(--color-accent-subtle);
-  color: var(--color-accent-fg);
-  border-color: var(--color-accent-fg);
+/* Anchor the dropdown to the kebab toggle. Visibility is governed by the
+   <details> open/closed state (UA behavior) — do NOT set display here, or the
+   menu would stay visible when collapsed. */
+.pulse-member-menu-list {
+  top: 100%;
+  right: 0;
+  white-space: nowrap;
 }
 
-.pulse-role-toggle:disabled {
-  cursor: default;
-  opacity: 0.6;
+.pulse-member-menu-item {
+  width: 100%;
+  text-align: left;
 }
 
-.pulse-member-remove {
-  margin-left: 4px;
-  padding: 2px 10px;
-  font-size: 12px;
+.pulse-member-menu-item-danger {
+  color: var(--color-danger-fg);
+}
+
+.pulse-member-menu-item-danger:hover {
+  color: var(--color-danger-fg);
+}
+
+.pulse-member-menu-divider {
+  padding: 4px 0 !important;
+}
+
+.pulse-member-menu-divider hr {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  border: none;
+  background: var(--color-border-default);
 }
 
 .pulse-join-status {

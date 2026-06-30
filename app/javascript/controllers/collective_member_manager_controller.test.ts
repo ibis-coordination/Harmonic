@@ -16,12 +16,23 @@ describe("CollectiveMemberManagerController", () => {
         <div class="pulse-participant" data-member-id="u1">
           <a href="/u/one">Member One</a>
           <div class="pulse-member-controls">
-            <button type="button" class="pulse-role-toggle" aria-pressed="false"
-                    data-action="collective-member-manager#toggleRole"
-                    data-user-id="u1" data-role="admin" data-granted="false">admin</button>
-            <button type="button" class="pulse-action-btn-danger pulse-member-remove"
-                    data-action="collective-member-manager#remove"
-                    data-user-id="u1" data-user-name="Member One">Remove</button>
+            <details class="pulse-member-menu">
+              <summary class="pulse-member-menu-toggle">menu</summary>
+              <div class="top-menu pulse-member-menu-list">
+                <ul>
+                  <li>
+                    <button type="button" class="pulse-member-menu-item"
+                            data-action="collective-member-manager#toggleRole"
+                            data-user-id="u1" data-role="admin" data-granted="false">Add role admin</button>
+                  </li>
+                  <li>
+                    <button type="button" class="pulse-member-menu-item pulse-member-menu-item-danger"
+                            data-action="collective-member-manager#remove"
+                            data-user-id="u1" data-user-name="Member One">Remove from collective</button>
+                  </li>
+                </ul>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -63,7 +74,7 @@ describe("CollectiveMemberManagerController", () => {
       )
     })
 
-    it("marks the button active on success", async () => {
+    it("flips the menu item label to 'Remove role' on success", async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({ user_id: "u1", role: "admin", granted: true, roles: ["admin"] }),
@@ -74,9 +85,33 @@ describe("CollectiveMemberManagerController", () => {
       button.click()
 
       await vi.waitFor(() => {
-        expect(button.classList.contains("is-active")).toBe(true)
         expect(button.dataset.granted).toBe("true")
-        expect(button.getAttribute("aria-pressed")).toBe("true")
+        expect(button.textContent).toBe("Remove role admin")
+      })
+    })
+
+    it("sends grant=false and flips label back to 'Add role' when already granted", async () => {
+      const button = document.querySelector("button[data-role='admin']") as HTMLButtonElement
+      button.dataset.granted = "true"
+      button.textContent = "Remove role admin"
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({ user_id: "u1", role: "admin", granted: false, roles: [] }),
+      }
+      vi.mocked(fetch).mockResolvedValue(mockResponse as Response)
+
+      button.click()
+
+      expect(fetch).toHaveBeenCalledWith(
+        "/collectives/team/members/update_roles",
+        expect.objectContaining({
+          body: JSON.stringify({ user_id: "u1", role: "admin", grant: false }),
+        })
+      )
+
+      await vi.waitFor(() => {
+        expect(button.dataset.granted).toBe("false")
+        expect(button.textContent).toBe("Add role admin")
       })
     })
 
