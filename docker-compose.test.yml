@@ -1,0 +1,65 @@
+# docker-compose.test.yml — run the Rails test suite locally in Docker.
+#
+# Mirrors the `rails-tests` job in .github/workflows/ci.yml (same postgres/redis
+# versions, same env vars, db:create + db:schema:load) so a green run here should
+# mean a green run in CI. It deliberately omits everything tests don't need —
+# web/js/sidekiq, caddy/ngrok, mailcatcher, litellm/agent-runner — to keep the
+# footprint small enough for a modest box.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml build
+#   docker compose -f docker-compose.test.yml run --rm test                                   # full suite
+#   docker compose -f docker-compose.test.yml run --rm test bundle exec rails test test/models  # a subset
+#   docker compose -f docker-compose.test.yml down -v                                         # tear down + drop the db volume
+#
+# The image bakes the app code, gems, node_modules and built JS assets (see
+# Dockerfile), so there is no source bind-mount: rebuild after changing code.
+
+services:
+  test:
+    build: .
+    command: >
+      bash -c "bin/rails db:create &&
+               bin/rails db:schema:load &&
+               bundle exec rails test"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      RAILS_ENV: test
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      AUTH_MODE: oauth
+      HOSTNAME: harmonic.localhost
+      PRIMARY_SUBDOMAIN: app
+      AUTH_SUBDOMAIN: auth
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: decisiveteam
+      POSTGRES_PASSWORD: decisiveteam
+      POSTGRES_DB: decisive_team_test
+    # Test data is disposable. A named volume keeps RAM use low; swap it for
+    # `tmpfs: /var/lib/postgresql/data` to run the DB in RAM (faster, but adds a
+    # few hundred MB of RAM pressure — drop it back on a tight box).
+    volumes:
+      - pg_data_test:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decisiveteam -d decisive_team_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:6.2-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data_test:

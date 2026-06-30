@@ -30,6 +30,11 @@ cp .env.example .env
 ./scripts/stop.sh    # stop the app
 ```
 
+## Running tests locally
+
+See [docs/TESTING.md](docs/TESTING.md) for how to run the Rails suite (Docker),
+the TypeScript/JavaScript tests (no Docker), and the Playwright e2e tests.
+
 ## License
 
 MIT
