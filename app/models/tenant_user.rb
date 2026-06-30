@@ -196,7 +196,11 @@ class TenantUser < ApplicationRecord
     prefs = notification_preferences[notification_type] || DEFAULT_NOTIFICATION_PREFERENCES[notification_type] || {}
     channels = []
     channels << "in_app" if prefs["in_app"]
-    channels << "email" if prefs["email"]
+    # Non-human users (ai_agent, collective_identity) have no routable email
+    # address, so never return the email channel for them regardless of stored
+    # prefs. Keeps every caller (dispatcher, reminder service, trustee path)
+    # honest and avoids creating an email NotificationRecipient that can't deliver.
+    channels << "email" if prefs["email"] && user.human?
     channels
   end
 
@@ -237,6 +241,11 @@ class TenantUser < ApplicationRecord
       channels.each do |channel, enabled|
         next unless NOTIFICATION_CHANNELS.include?(channel)
 
+        # Non-human users can never carry a stored email:true — the markdown
+        # action surface accepts arbitrary payloads and the simple-mode form
+        # omits the email column, so coerce it to false at write time to keep
+        # persisted state clean.
+        enabled = false if channel == "email" && !user.human?
         T.must(current[type])[channel] = enabled
       end
     end

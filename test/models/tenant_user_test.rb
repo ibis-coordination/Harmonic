@@ -32,6 +32,32 @@ class TenantUserTest < ActiveSupport::TestCase
     assert prefs["system"]["email"]
   end
 
+  test "notification_channels_for never returns email for a non-human user" do
+    tenant, collective, parent = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    agent = create_ai_agent(parent: parent)
+    agent_tenant_user = agent.tenant_user
+
+    # Force email on in stored prefs; the channel must still be filtered out.
+    agent_tenant_user.update_notification_preferences!("mention" => { "in_app" => true, "email" => true })
+
+    channels = agent_tenant_user.notification_channels_for("mention")
+    assert_includes channels, "in_app"
+    refute_includes channels, "email", "agents have no routable address — email channel must be dropped"
+  end
+
+  test "update_notification_preferences! coerces email to false for a non-human user" do
+    tenant, collective, parent = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    agent = create_ai_agent(parent: parent)
+    agent_tenant_user = agent.tenant_user
+
+    agent_tenant_user.update_notification_preferences!("mention" => { "email" => true })
+
+    refute agent_tenant_user.notification_preferences["mention"]["email"],
+      "agents must never persist a stored email:true"
+  end
+
   test "notification_channels_for returns correct channels based on defaults" do
     tenant, _collective, user = create_tenant_collective_user
     tenant_user = user.tenant_user
