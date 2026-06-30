@@ -619,4 +619,58 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "form[action*='/actions/add_summary']", count: 0
   end
+
+  # Regression for #287: the Confirm Read button on a summary page must POST to
+  # the summary note's canonical /n/<id>/confirm.html route, NOT to
+  # <parent>/summary/confirm.html (which has no route and silently 404'd).
+  test "confirm-read button on a summary page targets the canonical /n/<id> route, not /summary" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    summary_note = Note.create!(
+      subtype: "summary", text: "The summary itself.",
+      summarizable: @note, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # A non-author member who hasn't confirmed yet sees the Confirm Read button.
+    reader = create_user
+    @tenant.add_user!(reader)
+    @collective.add_user!(reader)
+    sign_in_as(reader, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/n/#{@note.truncated_id}/summary"
+    assert_response :success
+
+    canonical = "/collectives/#{@collective.handle}/n/#{summary_note.truncated_id}/confirm.html"
+    assert_select "button[data-url='#{canonical}']",
+                  "Confirm Read button must post to the summary note's canonical confirm route"
+    assert_not_includes @response.body, "/summary/confirm.html",
+                        "the broken <parent>/summary/confirm.html target must be gone"
+  end
+
+  # Following from the regression above: POSTing to the canonical route records
+  # the read end-to-end.
+  test "confirm-read on a summary note's canonical route records the read" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    summary_note = Note.create!(
+      subtype: "summary", text: "The summary itself.",
+      summarizable: @note, created_by: @user, updated_by: @user,
+      tenant: @tenant, collective: @collective, deadline: Time.current, edit_access: "owner"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    reader = create_user
+    @tenant.add_user!(reader)
+    @collective.add_user!(reader)
+    sign_in_as(reader, tenant: @tenant)
+
+    assert_difference -> { NoteHistoryEvent.where(note: summary_note, user: reader, event_type: "read_confirmation").count }, 1 do
+      post "/collectives/#{@collective.handle}/n/#{summary_note.truncated_id}/confirm.html"
+    end
+    assert_response :success
+  end
 end

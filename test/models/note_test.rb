@@ -2304,6 +2304,52 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal "#{decision.path}?comment_id=#{leaf.truncated_id}", leaf.display_path
   end
 
+  # --- Summary path / display_path (issue #287) ---
+  #
+  # A summary note's *canonical* path must stay `/n/<id>` so action endpoints
+  # built by suffix concatenation (confirm/acknowledge/report, the markdown
+  # action list) resolve. The `<parent>/summary` URL is a display URL and
+  # belongs on #display_path. Overriding #path was what 404'd confirm-read.
+
+  test "summary note #path is the canonical /n/<id> URL, not the /summary display URL" do
+    tenant, collective, user = create_tenant_collective_user
+    parent = create_note(tenant: tenant, collective: collective, created_by: user)
+    summary = Note.create!(
+      subtype: "summary", text: "TL;DR", summarizable: parent,
+      created_by: user, updated_by: user, tenant: tenant, collective: collective,
+    )
+
+    assert_equal "#{collective.path}/n/#{summary.truncated_id}", summary.path
+    refute_includes summary.path, "/summary",
+                    "canonical #path must not be the /summary URL — action endpoints are built from it"
+  end
+
+  test "summary note #display_path is the parent's <parent>/summary URL" do
+    tenant, collective, user = create_tenant_collective_user
+    parent = create_note(tenant: tenant, collective: collective, created_by: user)
+    summary = Note.create!(
+      subtype: "summary", text: "TL;DR", summarizable: parent,
+      created_by: user, updated_by: user, tenant: tenant, collective: collective,
+    )
+
+    assert_equal "#{parent.path}/summary", summary.display_path
+  end
+
+  test "summary note #display_path falls back to the canonical path when the parent is orphaned" do
+    tenant, collective, user = create_tenant_collective_user
+    parent = create_note(tenant: tenant, collective: collective, created_by: user)
+    summary = Note.create!(
+      subtype: "summary", text: "TL;DR", summarizable: parent,
+      created_by: user, updated_by: user, tenant: tenant, collective: collective,
+    )
+
+    # Simulate a raw delete that bypassed dependent: :destroy.
+    summary.update_columns(summarizable_id: nil, summarizable_type: nil)
+    summary.reload
+
+    assert_equal summary.path, summary.display_path
+  end
+
   test "comments_with_threads injects root_commentable so #display_path is O(1) per comment" do
     tenant, collective, user = create_tenant_collective_user
     decision = create_decision(tenant: tenant, collective: collective, created_by: user)

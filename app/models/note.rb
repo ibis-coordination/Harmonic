@@ -238,18 +238,6 @@ class Note < ApplicationRecord
     "n"
   end
 
-  def path
-    # Summary notes use the canonical `<parent>/summary` URL so agents can
-    # fetch a parent's summary without first learning the summary's id.
-    # Falls back to the default note path if the polymorphic parent has
-    # been orphaned (e.g. by a raw delete that bypassed dependent: :destroy).
-    if is_summary? && summarizable
-      "#{summarizable.path}/summary"
-    else
-      super
-    end
-  end
-
   sig { returns(ActiveRecord::Relation) }
   def history_events
     note_history_events
@@ -371,16 +359,27 @@ class Note < ApplicationRecord
   end
 
   # The URL to link to when surfacing this note in a display context —
-  # comment lists, mention notifications, agent task prompts. For comments,
-  # returns the root commentable's path with `?comment_id=<truncated_id>` so
-  # the caller lands on the full thread with this comment marked, rather
-  # than the isolated /n/<comment-id> page. For non-comments, equals `path`.
+  # comment lists, mention notifications, agent task prompts. Two notes
+  # diverge from their canonical `/n/<id>` page:
+  #   - Comments return the root commentable's path with
+  #     `?comment_id=<truncated_id>` so the caller lands on the full thread
+  #     with this comment marked, rather than the isolated /n/<comment-id> page.
+  #   - Summaries return their parent's `<parent>/summary` URL so a reader
+  #     lands on the summary in the context of what it summarizes. Falls back
+  #     to the canonical path if the polymorphic parent has been orphaned
+  #     (e.g. by a raw delete that bypassed dependent: :destroy).
+  # For every other note, equals `path`.
   #
   # Use `path` (not `display_path`) when building API URLs by suffix
   # concatenation (form actions, JS action endpoints, etc.) — `path` is the
-  # canonical bare resource URL.
+  # canonical bare resource URL. Overriding `path` for summaries is what
+  # broke confirm/acknowledge/report routing (the action endpoints were built
+  # as `<parent>/summary/confirm.html`, which has no route); the divergence
+  # belongs on `display_path`, not `path`.
   sig { returns(T.nilable(String)) }
   def display_path
+    return "#{summarizable.path}/summary" if is_summary? && summarizable
+
     return path unless is_comment? && has_commentable?
 
     root = root_commentable
