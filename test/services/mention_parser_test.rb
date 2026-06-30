@@ -385,4 +385,45 @@ class MentionParserTest < ActiveSupport::TestCase
 
     assert_empty result
   end
+
+  # An indented (4-space) code block is just as much "code" as a fenced one and
+  # renders as literal text, so handles inside it must not notify. The blank
+  # line before the indent is what makes it a code block rather than a
+  # paragraph continuation — see the contrast test below.
+  test "extract_handles skips handles inside an indented code block" do
+    text = <<~MD
+      Here is an example:
+
+          @alice please review
+
+      Done.
+    MD
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  test "extract_handles skips handles inside a tab-indented code block" do
+    text = "Example:\n\n\t@bob ping\n\nDone."
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  # The contrast to the indented-code-block case: with no blank line before it,
+  # an indented line is a lazy paragraph continuation, NOT a code block, so the
+  # handle renders as a live link and must still notify. A regex that blanked
+  # any 4-space-indented line would wrongly drop this; deferring to the Markdown
+  # tokenizer (as the renderer does) gets the distinction right.
+  test "extract_handles still returns a handle on an indented paragraph continuation line" do
+    text = "Talking about\n    @carol here."
+
+    assert_equal ["carol"], MentionParser.extract_handles(text)
+  end
+
+  # Nested list items are indented but are not code — they render as normal text
+  # with live mentions, so they must still notify.
+  test "extract_handles still returns a handle inside a nested list item" do
+    text = "- outer point\n  - inner mentioning @dave"
+
+    assert_equal ["dave"], MentionParser.extract_handles(text)
+  end
 end

@@ -1,18 +1,48 @@
 # typed: true
 
+require "redcarpet/render_strip"
+
 class MentionParser
   extend T::Sig
 
   MENTION_PATTERN = /@([a-zA-Z0-9_-]+)/
   TRIO_HANDLE = "trio"
 
-  # A fenced code block: an opening run of >=3 backticks or tildes at line
-  # start, through the matching closing fence (or end of text if unclosed).
-  FENCED_CODE_BLOCK = /^[ \t]*(`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*\1[ \t]*$|\z)/m
+  # A Redcarpet plain-text renderer that drops code while keeping every other
+  # kind of text. It subclasses StripDown — which already extracts the text
+  # content of each node — and blanks only the code callbacks. The upshot is
+  # that "what counts as code" is decided by the same Markdown tokenizer the
+  # HTML renderer uses (MarkdownRenderer, #295), so the notification path can't
+  # drift from the render path the way a separate hand-rolled regex would: a
+  # fenced block, an *indented* (4-space/tab) block, an inline span, and a
+  # mention inside a nested list are all classified here exactly as on render.
+  # Code is replaced with whitespace (never nothing) so text on either side of
+  # a span can't fuse into a spurious handle — "@" `x` "foo" must not read as
+  # "@foo". (#299)
+  class CodeStrippingRenderer < Redcarpet::Render::StripDown
+    def block_code(_code, _language)
+      "\n"
+    end
 
-  # An inline code span: a run of backticks, the shortest span up to the same
-  # run. (`@trio` -> matched and excluded; a lone stray backtick won't match.)
-  INLINE_CODE_SPAN = /(`+)[^`]*?\1/
+    def codespan(_code)
+      " "
+    end
+  end
+
+  # Tokenizer extensions mirror MarkdownRenderer's so code is recognized
+  # identically on both paths: fenced_code_blocks so ``` fences route through
+  # block_code, and no_intra_emphasis so underscores in handles aren't eaten as
+  # emphasis (e.g. @a_b_c stays one handle rather than splitting on the _b_).
+  CODE_STRIPPER = T.let(
+    Redcarpet::Markdown.new(
+      CodeStrippingRenderer,
+      autolink: true,
+      tables: true,
+      fenced_code_blocks: true,
+      no_intra_emphasis: true,
+    ),
+    Redcarpet::Markdown,
+  )
 
   sig do
     params(
@@ -87,7 +117,8 @@ class MentionParser
   def self.resolve_paths(text, tenant_id:, collective: nil)
     return {} if text.blank? || tenant_id.blank?
 
-    handles = extract_handles(text)
+    # Render path: text is a single, already code-free node, so skip stripping.
+    handles = extract_handles(text, strip: false)
     return {} if handles.empty?
 
     # Same @trio handling as .parse: when a collective is provided, "@trio"
@@ -118,30 +149,32 @@ class MentionParser
     paths
   end
 
-  sig { params(text: T.nilable(String)).returns(T::Array[String]) }
-  def self.extract_handles(text)
+  sig { params(text: T.nilable(String), strip: T::Boolean).returns(T::Array[String]) }
+  def self.extract_handles(text, strip: true)
     return [] if text.blank?
 
-    # Skip @handles written inside code spans/blocks so they don't generate
-    # mention notifications — they render as literal text, not links. This
-    # mirrors the Markdown renderer (MarkdownRenderer::MentionRenderer, #295),
-    # which gets the same exclusion for free because Redcarpet routes code
-    # through callbacks that never reach #normal_text. Here the notification
-    # path parses the raw Markdown source, so we strip code first. (#299)
+    # The notification path parses the raw Markdown source, so strip code first:
+    # @handles inside code spans/blocks render as literal text, not links, and
+    # must not generate mention notifications. This mirrors the renderer
+    # (MarkdownRenderer::MentionRenderer, #295), which gets the same exclusion
+    # for free because Redcarpet routes code through callbacks that never reach
+    # #normal_text. (#299)
     #
-    # On the rendering path this is a no-op: resolve_paths only ever sees a
-    # single (already code-free) text node, so there is nothing to strip.
-    strip_code(text).scan(MENTION_PATTERN).flatten.uniq
+    # The render path passes strip: false — resolve_paths is only ever called
+    # with a single, already code-free text node, so stripping there is both
+    # unnecessary and undesirable (it would re-tokenize each fragment).
+    source = strip ? strip_code(text) : T.must(text)
+    source.scan(MENTION_PATTERN).flatten.uniq
   end
 
-  # Replace fenced code blocks and inline code spans with a space so the
-  # mention pattern can't match handles inside them. Fenced blocks are removed
-  # first so their delimiter backticks don't get consumed as inline spans.
+  # Render the Markdown to plain text with every code construct removed (see
+  # CodeStrippingRenderer), so the mention pattern can't match handles inside
+  # code. Returns "" for nil input.
   sig { params(text: T.nilable(String)).returns(String) }
   def self.strip_code(text)
     return "" if text.nil?
 
-    text.gsub(FENCED_CODE_BLOCK, " ").gsub(INLINE_CODE_SPAN, " ")
+    CODE_STRIPPER.render(text)
   end
   private_class_method :strip_code
 end
