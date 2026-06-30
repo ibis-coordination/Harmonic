@@ -185,6 +185,18 @@ class RefreshTokenTest < ActiveSupport::TestCase
     assert_not_nil token.rotated_at
   end
 
+  test "rotate! inherits the parent's user_agent and IP when no request is provided" do
+    request = Struct.new(:user_agent, :remote_ip).new(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit Chrome/120",
+      "203.0.113.5",
+    )
+    parent = RefreshToken.issue!(user: @user, request: request)
+    successor = parent.rotate!
+    assert_equal parent.user_agent, successor.user_agent,
+                 "successor must inherit parent UA — the buggy `request&.user_agent.to_s.first(255) || user_agent` would have written empty string here"
+    assert_equal parent.ip_at_issue, successor.ip_at_issue
+  end
+
   test "rotate! cannot be called twice on the same token" do
     token = RefreshToken.issue!(user: @user)
     token.rotate!

@@ -1099,11 +1099,7 @@ class ApplicationController < ActionController::Base
   # timeout-driven logout, because we want silent re-auth to keep working
   # for the next visit after a session timeout.
   def revoke_current_refresh_token!(reason:)
-    raw = cookies[REFRESH_COOKIE_NAME]
-    if raw.present?
-      token = RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
-      token&.revoke!(reason: reason)
-    end
+    RefreshToken.find_by_plaintext(cookies[REFRESH_COOKIE_NAME])&.revoke!(reason: reason)
     delete_refresh_cookie
   end
 
@@ -1122,10 +1118,7 @@ class ApplicationController < ActionController::Base
     return if api_token_present?
     return if request.subdomain == auth_subdomain
 
-    raw = cookies[REFRESH_COOKIE_NAME]
-    return if raw.blank?
-
-    token = RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
+    token = current_refresh_token
     return if token.nil? || !token.revoked?
 
     SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip, reason: "refresh_token_revoked") if current_user
@@ -1134,16 +1127,14 @@ class ApplicationController < ActionController::Base
     redirect_to "/login"
   end
 
-  # The refresh token currently in the cookie, if any. Used by the devices
-  # settings page to mark "this device" and to exempt it from
-  # revoke-all-other-devices. Returns nil if no cookie or no matching row.
+  # The refresh token currently in the cookie, if any. Memoized so the
+  # settings page, enforce_refresh_token_revocation, and the view all
+  # share a single lookup per request. Returns nil if no cookie or no
+  # matching row.
   def current_refresh_token
     return @current_refresh_token if defined?(@current_refresh_token)
 
-    raw = cookies[REFRESH_COOKIE_NAME]
-    @current_refresh_token = if raw.present?
-      RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
-    end
+    @current_refresh_token = RefreshToken.find_by_plaintext(cookies[REFRESH_COOKIE_NAME])
   end
   helper_method :current_refresh_token
 
@@ -1162,10 +1153,10 @@ class ApplicationController < ActionController::Base
     return unless silent_refresh_eligible_request?
     return unless silent_refresh_needed?
 
-    raw = cookies[REFRESH_COOKIE_NAME]
-    return if raw.blank?
-
-    token = RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
+    # Bypass the memoized current_refresh_token here: silent refresh
+    # mutates the cookie (rotation, deletion), so later callers should
+    # re-resolve against the post-mutation cookie state.
+    token = RefreshToken.find_by_plaintext(cookies[REFRESH_COOKIE_NAME])
     if token.nil? || token.revoked? || token.expired?
       delete_refresh_cookie
       return

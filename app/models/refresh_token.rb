@@ -82,7 +82,7 @@ class RefreshToken < ApplicationRecord
       family_id: SecureRandom.uuid,
       two_factor_at: two_factor_at,
       device_label: parse_device_label(request&.user_agent),
-      user_agent: request&.user_agent.to_s.first(255),
+      user_agent: request&.user_agent&.first(255),
       ip_at_issue: request&.remote_ip
     )
   end
@@ -151,7 +151,10 @@ class RefreshToken < ApplicationRecord
         family_id: T.must(family_id),
         two_factor_at: two_factor_at,
         device_label: device_label,
-        user_agent: request&.user_agent.to_s.first(255) || user_agent,
+        # `request&.user_agent.to_s.first(255) || user_agent` was buggy:
+        # nil.to_s.first(255) is "" which is truthy, so the `||` never fell
+        # through and successors got "" instead of inheriting the parent UA.
+        user_agent: (request&.user_agent || user_agent)&.first(255),
         ip_at_issue: request&.remote_ip || ip_at_issue
       )
     end
