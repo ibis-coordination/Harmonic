@@ -299,8 +299,16 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert @decision.closed?, "Decision should be closed after close_decision action"
   end
 
-  test "creator can close decision with final statement" do
+  # #267: an executive decision needs no beacon, so it's fully resolved the
+  # instant it closes — an inline final statement on close is allowed.
+  test "creator can close an executive decision with a final statement" do
     sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    @decision.update!(subtype: "executive")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
       params: { final_statement: "We chose Option A." }
@@ -308,6 +316,26 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     @decision.reload
     assert @decision.closed?
     assert_equal "We chose Option A.", @decision.statement&.text
+  end
+
+  # #267 regression: close_decision writes the inline final_statement *inside*
+  # the close transaction, before the lottery beacon job is enqueued. For a
+  # vote/lottery decision that's the closed-but-unresolved window, so the
+  # statement must be blocked exactly as add_statement is — otherwise the
+  # creator commits a statement onto a provisional winner the beacon can flip.
+  # The guard raises inside the transaction, so the whole close rolls back
+  # rather than leaving a closed decision with a dropped statement.
+  test "creator cannot close a vote decision with an inline final statement before the beacon" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert @decision.is_vote?, "default decision subtype is vote"
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { final_statement: "Calling it for the provisional leader." }
+
+    @decision.reload
+    assert_not @decision.closed?, "close must roll back when the inline statement is blocked"
+    assert_nil @decision.statement, "no statement may be committed before the beacon is drawn"
   end
 
   test "creator can close decision via markdown action" do

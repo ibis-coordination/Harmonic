@@ -1136,6 +1136,17 @@ class ApiHelper
   end
 
   private def create_or_update_statement!(statementable, text)
+    # Guard #267 at the lowest shared layer so *every* call site is covered.
+    # add_statement already checks this, but close_decision writes an inline
+    # final_statement inside the close transaction — before the lottery beacon
+    # job is even enqueued — so a creator could otherwise commit a statement
+    # onto a provisional vote/lottery winner the beacon later overturns. The
+    # guard is decision-specific (statements are also written on commitments,
+    # representation sessions, and notes, none of which have a beacon).
+    if statementable.is_a?(Decision) && !statementable.fully_resolved?
+      raise Decision::UNRESOLVED_STATEMENT_ERROR
+    end
+
     existing = statementable.statement
     if existing
       existing.text = text
