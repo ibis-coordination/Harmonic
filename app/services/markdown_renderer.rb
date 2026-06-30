@@ -64,24 +64,34 @@ class MarkdownRenderer
     end
   end
 
-  @@markdown = Redcarpet::Markdown.new(
-    MentionRenderer.new(
-      hard_wrap: true,
-      safe_links_only: true,
-      filter_html: false, # Turned off so we can handle sanitization manually
-      no_images: false,   # Same as above
-      no_links: false,    # Same as above
-      no_styles: true     # No need for inline styles
-    ),
+  RENDERER_OPTIONS = {
+    hard_wrap: true,
+    safe_links_only: true,
+    filter_html: false, # Turned off so we can handle sanitization manually
+    no_images: false,   # Same as above
+    no_links: false,    # Same as above
+    no_styles: true,    # No need for inline styles
+  }.freeze
+
+  MARKDOWN_OPTIONS = {
     autolink: true,
     tables: true,
     fenced_code_blocks: true,
-    no_intra_emphasis: true # Don't treat intra-word underscores as emphasis (e.g. a_b c_d)
-  )
+    no_intra_emphasis: true, # Don't treat intra-word underscores as emphasis (e.g. a_b c_d)
+  }.freeze
+
+  # Redcarpet's C extension is not thread-safe: concurrent #render calls on a
+  # shared Markdown instance corrupt its internal work buffer and SIGABRT the
+  # process. A new instance per call is the standard recommendation and avoids
+  # shared mutable state under Puma's threaded mode.
+  sig { returns(Redcarpet::Markdown) }
+  def self.build_markdown
+    Redcarpet::Markdown.new(MentionRenderer.new(RENDERER_OPTIONS), MARKDOWN_OPTIONS)
+  end
 
   sig { params(content: T.untyped, shift_headers: T::Boolean, display_references: T::Boolean).returns(String) }
   def self.render(content, shift_headers: true, display_references: true)
-    raw_html = @@markdown.render(content.to_s)
+    raw_html = build_markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
     if shift_headers
       output = shift_headers(sanitized_html)
@@ -96,7 +106,7 @@ class MarkdownRenderer
 
   sig { params(content: T.untyped).returns(String) }
   def self.render_inline(content)
-    raw_html = @@markdown.render(content.to_s)
+    raw_html = build_markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
     sanitized_html.gsub(/<p>(.*)<\/p>/, '\1')
   end
