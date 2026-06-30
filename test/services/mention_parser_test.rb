@@ -329,4 +329,101 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal 1, result.size
     assert_includes result, "alice"
   end
+
+  # === code-span / code-block exclusion (#299) ===
+
+  test "extract_handles skips a handle inside an inline code span" do
+    assert_equal [], MentionParser.extract_handles("Enable it by mentioning `@trio` in a note.")
+  end
+
+  test "extract_handles skips handles inside a fenced code block" do
+    text = <<~MD
+      Here is an example:
+
+      ```
+      @alice please review
+      ```
+
+      Done.
+    MD
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  test "extract_handles skips handles in a tilde-fenced code block" do
+    text = "~~~\n@bob ping\n~~~"
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  test "extract_handles still returns a real handle alongside a code-span example" do
+    result = MentionParser.extract_handles("Hey @alice, mention people like `@bob` to ping them.")
+
+    assert_equal ["alice"], result
+  end
+
+  test "extract_handles still matches a normal handle adjacent to a code span" do
+    result = MentionParser.extract_handles("`code` then @carol")
+
+    assert_equal ["carol"], result
+  end
+
+  test "extract_handles is unaffected by a lone unbalanced backtick" do
+    result = MentionParser.extract_handles("a stray ` and then @dave")
+
+    assert_equal ["dave"], result
+  end
+
+  test "parse does not notify a handle that only appears inside a code span" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+
+    # @alice resolves normally, but here it appears only inside a code span, so
+    # it must not generate a mention notification.
+    result = MentionParser.parse("Document it as `@alice`.", tenant_id: tenant.id)
+
+    assert_empty result
+  end
+
+  # An indented (4-space) code block is just as much "code" as a fenced one and
+  # renders as literal text, so handles inside it must not notify. The blank
+  # line before the indent is what makes it a code block rather than a
+  # paragraph continuation — see the contrast test below.
+  test "extract_handles skips handles inside an indented code block" do
+    text = <<~MD
+      Here is an example:
+
+          @alice please review
+
+      Done.
+    MD
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  test "extract_handles skips handles inside a tab-indented code block" do
+    text = "Example:\n\n\t@bob ping\n\nDone."
+
+    assert_equal [], MentionParser.extract_handles(text)
+  end
+
+  # The contrast to the indented-code-block case: with no blank line before it,
+  # an indented line is a lazy paragraph continuation, NOT a code block, so the
+  # handle renders as a live link and must still notify. A regex that blanked
+  # any 4-space-indented line would wrongly drop this; deferring to the Markdown
+  # tokenizer (as the renderer does) gets the distinction right.
+  test "extract_handles still returns a handle on an indented paragraph continuation line" do
+    text = "Talking about\n    @carol here."
+
+    assert_equal ["carol"], MentionParser.extract_handles(text)
+  end
+
+  # Nested list items are indented but are not code — they render as normal text
+  # with live mentions, so they must still notify.
+  test "extract_handles still returns a handle inside a nested list item" do
+    text = "- outer point\n  - inner mentioning @dave"
+
+    assert_equal ["dave"], MentionParser.extract_handles(text)
+  end
 end
