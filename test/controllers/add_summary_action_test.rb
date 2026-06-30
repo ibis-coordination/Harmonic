@@ -654,11 +654,12 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_response :success
 
-    # The button posts to the summary note's own canonical path + /confirm.html
-    # (Note#path, whatever its exact prefix), NOT to <parent>/summary/confirm.html.
+    # The Confirm Read button posts to the summary note's own canonical path +
+    # /confirm.html (Note#path, whatever its exact prefix), NOT to the broken
+    # <parent>/summary/confirm.html route. (NB: assert_select's second arg is an
+    # equality/text matcher, not a failure message — keep it to count/text.)
     canonical = "#{summary_note.path}/confirm.html"
-    assert_select "button[data-url='#{canonical}']",
-                  "Confirm Read button must post to the summary note's canonical confirm route"
+    assert_select "button[data-url='#{canonical}']", count: 1
     assert_not_includes @response.body, "/summary/confirm.html",
                         "the broken <parent>/summary/confirm.html target must be gone"
   end
