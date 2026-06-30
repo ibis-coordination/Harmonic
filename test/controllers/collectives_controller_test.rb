@@ -1627,6 +1627,72 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "a non-member of the collective cannot update member roles" do
+    # The actor belongs to the tenant but is NOT a member of @collective, so
+    # `@current_user.collective_member` is nil for this collective. They must be
+    # denied just like a non-admin member is.
+    outsider = create_user(name: "Tenant Outsider")
+    @tenant.add_user!(outsider)
+    target = add_member(name: "Target")
+    sign_in_as(outsider, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/update_roles",
+         params: { user_id: target.id, role: "representative", grant: "true" }
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative"), "a non-member must not be able to grant roles"
+  end
+
+  test "a non-member of the collective cannot remove a member" do
+    outsider = create_user(name: "Tenant Outsider")
+    @tenant.add_user!(outsider)
+    target = add_member(name: "Target")
+    sign_in_as(outsider, tenant: @tenant)
+
+    delete "/collectives/#{@collective.handle}/members/remove",
+           params: { user_id: target.id }
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.archived?, "a non-member must not be able to remove members"
+  end
+
+  test "member roles cannot be managed on a private workspace even by its admin" do
+    # Every user is the admin of their own private workspace, so this passes the
+    # admin check and exercises the collective-type guard specifically: member
+    # management is forbidden on private workspaces (and the main collective).
+    sign_in_as(@user, tenant: @tenant)
+    workspace = Collective.unscoped.find_by(
+      tenant_id: @tenant.id,
+      created_by_id: @user.id,
+      collective_type: "private_workspace",
+    )
+    assert_not_nil workspace, "expected @user to own a private workspace"
+
+    post "/collectives/#{workspace.handle}/members/update_roles",
+         params: { user_id: @user.id, role: "representative", grant: "true" }
+
+    assert_response :forbidden
+    assert_match(/cannot be managed/i, response.body)
+  end
+
+  test "members cannot be removed from a private workspace even by its admin" do
+    sign_in_as(@user, tenant: @tenant)
+    workspace = Collective.unscoped.find_by(
+      tenant_id: @tenant.id,
+      created_by_id: @user.id,
+      collective_type: "private_workspace",
+    )
+    assert_not_nil workspace, "expected @user to own a private workspace"
+
+    delete "/collectives/#{workspace.handle}/members/remove",
+           params: { user_id: @user.id }
+
+    assert_response :forbidden
+    assert_match(/cannot be managed/i, response.body)
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
