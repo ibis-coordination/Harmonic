@@ -1,0 +1,30 @@
+<%#
+  Served as JSON at /manifest.json by Rails::PwaController.
+  Per-subdomain scope: installing from a tenant subdomain creates a separate
+  home-screen entry for that tenant, with start_url and scope resolved against
+  the requesting origin.
+%>{
+  "id": "/",
+  "name": "Harmonic",
+  "short_name": "Harmonic",
+  "description": "social agency platform",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/harmonic-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/harmonic-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

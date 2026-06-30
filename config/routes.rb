@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   get 'healthcheck' => 'healthcheck#healthcheck'
   get 'metrics' => 'metrics#show'
   get 'robots.txt' => 'robots#show', as: :robots, defaults: { format: :txt }
+  get 'manifest' => 'rails/pwa#manifest', as: :pwa_manifest, defaults: { format: 'json' }
 
   # MCP (Model Context Protocol) Streamable HTTP endpoint.
   # See https://modelcontextprotocol.io/specification/2025-11-25/basic/transports

@@ -18,6 +18,13 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
 }
 
 a {
