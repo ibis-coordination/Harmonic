@@ -711,6 +711,58 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, note.table_data["rows"].length
   end
 
+  # #286: rows could be created and deleted in the HTML UI, but not updated.
+  test "update_row via HTML form redirects back to note and updates the row" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "pending", "Due" => "2026-05-01" }, created_by: @user)
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_row",
+      params: { row_id: row["_harmonic_row_id"], values: { "Status" => "done", "Due" => "2026-06-01" } }
+
+    assert_response :redirect
+    assert_redirected_to note.path
+    note.reload
+    updated = note.table_data["rows"].first
+    assert_equal "done", updated["Status"]
+    assert_equal "2026-06-01", updated["Due"]
+  end
+
+  test "update_row via HTML form on a missing row redirects with an alert" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_row",
+      params: { row_id: "nonexistent", values: { "Status" => "done" } }
+
+    assert_response :redirect
+    assert_redirected_to note.path
+    assert_match(/not found/i, flash[:alert])
+  end
+
+  # #286: the HTML table renders an in-place edit affordance — per-row inputs
+  # wired (via the form= attribute) to a hidden update_row form — for a member
+  # who can edit the content.
+  test "table show page renders per-row edit inputs and an update_row form for an editor" do
+    sign_in_as(@user, tenant: @tenant)
+    note = create_table_note
+    table = NoteTableService.new(note)
+    row = table.add_row!({ "Status" => "pending", "Due" => "2026-05-01" }, created_by: @user)
+    form_id = "update-row-#{row["_harmonic_row_id"]}"
+
+    get note.path
+
+    assert_response :success
+    assert_select "form##{form_id}[action='#{note.path}/actions/update_row']"
+    assert_select "tr[data-controller='table-row-edit']"
+    # One editable cell input per column (Status, Due), each wired to the row's
+    # hidden update form via the HTML form= attribute.
+    assert_select "input[form='#{form_id}']", count: 2
+    assert_select "button[data-table-row-edit-target='editButton']"
+    assert_select "button[type='submit'][form='#{form_id}']"
+  end
+
   test "add_row action adds a row to table note" do
     sign_in_as(@user, tenant: @tenant)
     note = create_table_note

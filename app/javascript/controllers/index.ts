@@ -80,6 +80,7 @@ import CommitmentSubtypeController from "./commitment_subtype_controller"
 import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
+import TableRowEditController from "./table_row_edit_controller"
 import WebhookTestController from "./webhook_test_controller"
 
 // Register all controllers
@@ -152,6 +153,7 @@ application.register("kebab-menu", KebabMenuController)
 application.register("summary-toggle", SummaryToggleController)
 application.register("dialog", DialogController)
 application.register("tabs", TabsController)
+application.register("table-row-edit", TableRowEditController)
 application.register("webhook-test", WebhookTestController)
 
 export { application }
