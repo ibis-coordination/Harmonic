@@ -1051,6 +1051,29 @@ CREATE TABLE public.options (
 
 
 --
+-- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.refresh_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    token_digest character varying NOT NULL,
+    family_id uuid NOT NULL,
+    expires_at timestamp(6) without time zone NOT NULL,
+    rotated_at timestamp(6) without time zone,
+    last_used_at timestamp(6) without time zone NOT NULL,
+    revoked_at timestamp(6) without time zone,
+    revoked_reason character varying,
+    user_agent character varying,
+    device_label character varying,
+    ip_at_issue character varying,
+    two_factor_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: representation_session_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2768,6 +2791,14 @@ ALTER TABLE ONLY public.omni_auth_identities
 
 ALTER TABLE ONLY public.options
     ADD CONSTRAINT options_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
 
 
 --
@@ -4765,6 +4796,34 @@ CREATE INDEX index_options_on_decision_participant_id ON public.options USING bt
 --
 
 CREATE INDEX index_options_on_tenant_id ON public.options USING btree (tenant_id);
+
+
+--
+-- Name: index_refresh_tokens_on_family_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_refresh_tokens_on_family_id ON public.refresh_tokens USING btree (family_id);
+
+
+--
+-- Name: index_refresh_tokens_on_token_digest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_refresh_tokens_on_token_digest ON public.refresh_tokens USING btree (token_digest);
+
+
+--
+-- Name: index_refresh_tokens_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_refresh_tokens_on_user_id ON public.refresh_tokens USING btree (user_id);
+
+
+--
+-- Name: index_refresh_tokens_on_user_id_and_revoked_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_refresh_tokens_on_user_id_and_revoked_at ON public.refresh_tokens USING btree (user_id, revoked_at);
 
 
 --
@@ -9013,6 +9072,14 @@ ALTER TABLE ONLY public.ai_agent_task_runs
 
 
 --
+-- Name: refresh_tokens fk_rails_279e9a0091; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.refresh_tokens
+    ADD CONSTRAINT fk_rails_279e9a0091 FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: invites fk_rails_29373b6d24; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10171,6 +10238,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260629000000'),
 ('20260628000000'),
 ('20260626000000'),
 ('20260622000000'),
