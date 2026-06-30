@@ -9,6 +9,11 @@ class ApplicationController < ActionController::Base
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 
   before_action :restore_mcp_dispatch_context!
+  # Silent refresh must run before current_user so downstream callbacks see
+  # the restored session. It is a no-op outside the oauth AUTH_MODE, on the
+  # auth subdomain, in an API-token request, in an auth controller, or
+  # mid-2FA. See attempt_silent_refresh for details.
+  before_action :attempt_silent_refresh
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_collective,
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
@@ -1082,6 +1087,110 @@ class ApplicationController < ActionController::Base
 
   def delete_refresh_cookie
     delete_shared_domain_cookie(REFRESH_COOKIE_NAME)
+  end
+
+  # Silently re-establish a session from a long-lived refresh token. Runs
+  # before current_user so downstream callbacks see the restored session as
+  # if the user had been logged in all along.
+  #
+  # Triggers when the session is missing OR its timestamps are stale (the
+  # latter case would otherwise immediately fail check_session_timeout).
+  #
+  # Reverification invariant: silent refresh resets the session entirely
+  # (via reset_session), so per-scope reverified_at_* keys are dropped. The
+  # user must reverify on the next sensitive action even though their
+  # "logged in" status is restored.
+  def attempt_silent_refresh
+    return unless silent_refresh_eligible_request?
+    return unless silent_refresh_needed?
+
+    raw = cookies[REFRESH_COOKIE_NAME]
+    return if raw.blank?
+
+    token = RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
+    if token.nil? || token.revoked? || token.expired?
+      delete_refresh_cookie
+      return
+    end
+
+    user = token.user
+    unless user&.human? && !user.suspended? && !sessions_revoked_after?(token, user)
+      reason = if !user&.human? then "non_human"
+               elsif user.suspended? then "suspended"
+               else "sessions_revoked"
+               end
+      SecurityAuditLog.log_refresh_ineligible(
+        token_id: token.id,
+        user_id: token.user_id,
+        ip: request.remote_ip,
+        reason: reason,
+      )
+      token.revoke!(reason: "user_ineligible")
+      delete_refresh_cookie
+      return
+    end
+
+    if token.rotated_at.present?
+      if token.rotated_at > RefreshToken::REPLAY_GRACE_WINDOW.ago
+        # In-flight race: a sibling request already rotated this token.
+        # Establish a session without rotating again — the browser cookie
+        # was already updated to the successor by the winning sibling.
+        establish_silent_session(token)
+        return
+      end
+      RefreshToken.revoke_family!(token.family_id, reason: "rotation_replay")
+      SecurityAuditLog.log_refresh_replay(
+        token_id: token.id,
+        family_id: token.family_id,
+        user_id: token.user_id,
+        ip: request.remote_ip,
+      )
+      delete_refresh_cookie
+      return
+    end
+
+    successor = token.rotate!(request: request)
+    establish_silent_session(successor)
+    set_refresh_cookie(successor)
+  end
+
+  def silent_refresh_eligible_request?
+    return false unless ENV.fetch("AUTH_MODE", nil) == "oauth"
+    return false if request.subdomain == auth_subdomain
+    return false if api_token_present?
+    return false if is_auth_controller?
+    return false if session[:pending_2fa_identity_id].present?
+    true
+  end
+
+  def silent_refresh_needed?
+    return true if session[:user_id].blank?
+
+    # Session present but its timestamps would fail check_session_timeout —
+    # refresh now instead of letting the user get bounced to /login.
+    logged_in_stale = session[:logged_in_at].present? &&
+      Time.zone.at(session[:logged_in_at]) < SESSION_ABSOLUTE_TIMEOUT.ago
+    idle_stale = session[:last_activity_at].present? &&
+      Time.zone.at(session[:last_activity_at]) < SESSION_IDLE_TIMEOUT.ago
+    logged_in_stale || idle_stale
+  end
+
+  def establish_silent_session(token)
+    # Full reset wipes stale reverification proofs (reverified_at_*) along
+    # with everything else — that's the safe failure mode the plan requires.
+    reset_session
+    session[:user_id] = token.user_id
+    session[:logged_in_at] = Time.current.to_i
+    session[:last_activity_at] = Time.current.to_i
+  end
+
+  # If admin (or the user themselves) revoked all sessions after this token
+  # was minted, the token shouldn't be honored — silent refresh would
+  # otherwise let a stale refresh cookie undo a revocation. Tokens minted
+  # AFTER the revocation are fine; only the pre-revocation ones are killed.
+  def sessions_revoked_after?(token, user)
+    return false if user.sessions_revoked_at.blank?
+    user.sessions_revoked_at > token.created_at
   end
 
   def clear_participant_uid_cookie

@@ -61,6 +61,36 @@ class SecurityAuditLog
     )
   end
 
+  # Refresh-token events. Replay detection means a token marked rotated_at
+  # was presented again outside the in-flight grace window — either a stolen
+  # token replay or a developer bug. Ineligible means the user backing a
+  # valid token is no longer allowed to silently re-auth (suspended or no
+  # longer human).
+
+  sig { params(token_id: String, family_id: String, user_id: String, ip: String).void }
+  def self.log_refresh_replay(token_id:, family_id:, user_id:, ip:)
+    log_event(
+      event: "refresh_token_replay",
+      severity: :warn,
+      token_id: token_id,
+      family_id: family_id,
+      user_id: user_id,
+      ip: ip,
+    )
+  end
+
+  sig { params(token_id: String, user_id: String, ip: String, reason: String).void }
+  def self.log_refresh_ineligible(token_id:, user_id:, ip:, reason:)
+    log_event(
+      event: "refresh_token_ineligible",
+      severity: :warn,
+      token_id: token_id,
+      user_id: user_id,
+      ip: ip,
+      reason: reason,
+    )
+  end
+
   # Password events
 
   sig { params(email: String, ip: String).void }
