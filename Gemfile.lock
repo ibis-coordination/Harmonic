@@ -516,7 +516,7 @@ GEM
       anyway_config (>= 1.3, < 3)
       sidekiq
       yabeda (~> 0.6)
-    yard (0.9.43)
+    yard (0.9.44)
     yard-sorbet (0.9.0)
       sorbet-runtime
       yard
