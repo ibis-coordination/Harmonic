@@ -1917,8 +1917,12 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
     assert_response :success
 
-    # The cell value should be rendered as a clickable link, not raw markdown text
+    # The cell's DISPLAY renders the value as a clickable link, not raw markdown.
     assert_match(/<a [^>]*href="https:\/\/example\.com"/, response.body)
-    assert_not_includes response.body, "[Example](https://example.com)"
+    assert_select "span[data-table-row-edit-target='display'] a[href='https://example.com']"
+    # The raw markdown now also appears as the hidden edit input's value (#286),
+    # which is expected — so the "not raw text" guard is scoped to the rendered
+    # display cell, not the whole body.
+    assert_select "span[data-table-row-edit-target='display']", text: /\[Example\]\(/, count: 0
   end
 end
