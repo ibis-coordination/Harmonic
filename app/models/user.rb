@@ -16,6 +16,7 @@ class User < ApplicationRecord
   has_many :collective_members
   has_many :collectives, through: :collective_members
   has_many :api_tokens
+  has_many :refresh_tokens, dependent: :restrict_with_exception
   has_many :ai_agents, class_name: "User", foreign_key: "parent_id"
   has_many :notification_recipients
   has_many :notifications, through: :notification_recipients

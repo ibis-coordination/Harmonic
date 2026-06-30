@@ -18,6 +18,11 @@ class ApplicationController < ActionController::Base
                 :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
+  # The refresh cookie is sent on every request. If its token has been
+  # revoked (e.g. user signed this device out from another device), kill
+  # the session here on the very next request, rather than waiting for the
+  # session to time out naturally. See enforce_refresh_token_revocation.
+  before_action :enforce_refresh_token_revocation
   before_action :check_user_suspension
   before_action :check_activation_gate
   before_action :check_stripe_billing_gate
@@ -864,7 +869,7 @@ class ApplicationController < ActionController::Base
 
   CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help",
                                         "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",
-                                        "ai_agent_connect", "application",].freeze
+                                        "ai_agent_connect", "application", "devices",].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -1101,6 +1106,46 @@ class ApplicationController < ActionController::Base
     end
     delete_refresh_cookie
   end
+
+  # Sign the user out on this very request if the refresh cookie's token
+  # has been revoked. This is what makes "Sign out other device" actually
+  # take effect on the other device — its next request carries the revoked
+  # cookie and lands here.
+  #
+  # Skipped on auth controllers (we'd interfere with login), API-token
+  # requests (no refresh cookie semantics), and the auth subdomain
+  # (sessions there are intentionally transient). Tokens that are merely
+  # rotated (not revoked) pass through — rotation is benign in-flight
+  # state, not a kill signal.
+  def enforce_refresh_token_revocation
+    return if is_auth_controller?
+    return if api_token_present?
+    return if request.subdomain == auth_subdomain
+
+    raw = cookies[REFRESH_COOKIE_NAME]
+    return if raw.blank?
+
+    token = RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
+    return if token.nil? || !token.revoked?
+
+    SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip, reason: "refresh_token_revoked") if current_user
+    delete_refresh_cookie
+    logout_user!
+    redirect_to "/login"
+  end
+
+  # The refresh token currently in the cookie, if any. Used by the devices
+  # settings page to mark "this device" and to exempt it from
+  # revoke-all-other-devices. Returns nil if no cookie or no matching row.
+  def current_refresh_token
+    return @current_refresh_token if defined?(@current_refresh_token)
+
+    raw = cookies[REFRESH_COOKIE_NAME]
+    @current_refresh_token = if raw.present?
+      RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
+    end
+  end
+  helper_method :current_refresh_token
 
   # Silently re-establish a session from a long-lived refresh token. Runs
   # before current_user so downstream callbacks see the restored session as

@@ -213,6 +213,48 @@
     <% end %>
   <% end %>
 
+  <%# Per-user device list, shown only to the user themselves. Admin-level
+      "sign this user out everywhere" lives on the admin UI and uses
+      RefreshToken.revoke_all_for_user! + user.sessions_revoked_at; it's
+      intentionally not exposed here. %>
+  <% if @settings_user.human? && is_own_settings && @active_devices.any? %>
+    <%= render 'shared/pulse_accordion', title: 'Devices', count: @active_devices.size do %>
+      <p class="pulse-form-hint" style="margin-bottom: 16px;">
+        Where you're signed in. Sign out anything you don't recognize.
+      </p>
+      <% other_devices_count = @active_devices.count { |d| d.id != current_refresh_token&.id } %>
+      <% @active_devices.each do |device| %>
+        <% is_current = current_refresh_token&.id == device.id %>
+        <div class="pulse-row" style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--color-border-default);">
+          <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong><%= device.device_label.presence || "Unknown device" %></strong>
+              <% if is_current %>
+                <span class="pulse-badge pulse-badge-success">This device</span>
+              <% end %>
+            </div>
+            <div class="pulse-form-hint" style="font-size:12px;">
+              Last used <%= time_ago_in_words(device.last_used_at) %> ago
+            </div>
+          </div>
+          <% if is_current && other_devices_count >= 2 %>
+            <%= button_to "Sign out other devices",
+                  "#{@settings_user.path}/settings/devices/revoke_others",
+                  method: :post,
+                  class: "pulse-action-btn pulse-action-btn-danger",
+                  data: { turbo_confirm: "Sign out every device except this one?" } %>
+          <% elsif !is_current %>
+            <%= button_to "Sign out",
+                  "#{@settings_user.path}/settings/devices/#{device.id}",
+                  method: :delete,
+                  class: "pulse-action-btn",
+                  data: { turbo_confirm: "Sign out #{device.device_label}?" } %>
+          <% end %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+
   <%# Notification preferences — a basic per-user setting, independent of whether
       the tenant has the API enabled, so it lives outside the api_enabled? block. %>
   <% if @settings_user.human? && is_own_settings %>

@@ -42,6 +42,8 @@ class RefreshToken < ApplicationRecord
 
   belongs_to :user
 
+  scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
+
   # Plaintext is only available immediately after issuance; never stored.
   attr_accessor :plaintext_token
 
