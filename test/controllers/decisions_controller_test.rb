@@ -318,13 +318,12 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "We chose Option A.", @decision.statement&.text
   end
 
-  # #267 regression: close_decision writes the inline final_statement *inside*
-  # the close transaction, before the lottery beacon job is enqueued. For a
-  # vote/lottery decision that's the closed-but-unresolved window, so the
-  # statement must be blocked exactly as add_statement is — otherwise the
-  # creator commits a statement onto a provisional winner the beacon can flip.
-  # The guard raises inside the transaction, so the whole close rolls back
-  # rather than leaving a closed decision with a dropped statement.
+  # #267/#304 regression: a vote/lottery decision's tiebreaker beacon is drawn
+  # asynchronously *after* close, so it's never fully resolved at close time and
+  # an inline final_statement can't be applied. close_decision rejects that
+  # combination up front — before anything is closed — so the caller gets an
+  # actionable error instead of a close that mysteriously rolls back. The
+  # decision must stay open and no statement may be written.
   test "creator cannot close a vote decision with an inline final statement before the beacon" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -334,7 +333,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
       params: { final_statement: "Calling it for the provisional leader." }
 
     @decision.reload
-    assert_not @decision.closed?, "close must roll back when the inline statement is blocked"
+    assert_not @decision.closed?, "close must be rejected when an inline statement is supplied before the beacon"
     assert_nil @decision.statement, "no statement may be committed before the beacon is drawn"
   end
 
@@ -348,6 +347,24 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     assert @decision.closed?
     assert_response :success
     assert_match(/closed/i, response.body)
+  end
+
+  # #304: the markdown action mirrors the HTML one — supplying a final_statement
+  # while closing a vote/lottery decision is rejected up front (the beacon isn't
+  # drawn yet), and the decision stays open so the caller can retry the close
+  # without the statement.
+  test "markdown close_decision with an inline final statement on a vote is rejected before the beacon" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert @decision.is_vote?, "default decision subtype is vote"
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions/close_decision",
+      params: { final_statement: "Too early." }, headers: { "Accept" => "text/markdown" }
+
+    assert_match(/beacon/i, response.body)
+    @decision.reload
+    assert_not @decision.closed?, "decision must stay open when the inline statement is rejected"
+    assert_nil @decision.statement
   end
 
   test "non-creator cannot close decision" do

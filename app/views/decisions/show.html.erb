@@ -37,12 +37,13 @@
                   <%= form.submit 'Close Lottery', class: "pulse-action-btn pulse-action-btn-primary" %>
                 </div>
               <% else %>
+                <%# No final-statement field here: a vote's tiebreaker beacon is
+                    drawn asynchronously *after* close, so the decision is never
+                    fully resolved at close time and an inline statement would be
+                    rejected (#267/#304). The creator adds the statement from the
+                    results section once the beacon has been drawn. %>
                 <h2 style="margin: 0 0 12px 0; font-size: 1.25em;">Close Decision</h2>
-                <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. You can optionally add a final statement explaining the outcome.</p>
-                <div style="margin-bottom: 20px;">
-                  <label for="final_statement" class="pulse-label" style="display: block; margin-bottom: 6px;">Final Statement (optional)</label>
-                  <%= form.text_area :final_statement, placeholder: "How do you interpret these results? What was decided?", class: "pulse-form-input", rows: 3, style: "width: 100%; box-sizing: border-box;" %>
-                </div>
+                <p class="pulse-body-text-muted" style="margin: 0 0 20px 0; line-height: 1.5;">Voting will end immediately. Once the results are final — a moment later, when the tiebreaker beacon is drawn — you'll be able to add a final statement explaining the outcome.</p>
                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
                   <button type="button" class="pulse-action-btn-secondary" data-action="click->dialog#close">Cancel</button>
                   <%= form.submit 'Close Decision', class: "pulse-action-btn pulse-action-btn-primary" %>
