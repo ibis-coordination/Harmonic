@@ -82,6 +82,38 @@ class NotificationDeliveryJobTest < ActiveSupport::TestCase
     assert_equal "delivered", recipient.status
   end
 
+  test "perform does NOT send email to non-human recipient but marks delivered" do
+    tenant, collective, parent = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    agent = create_ai_agent(parent: parent)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
+    notification = Notification.create!(
+      tenant: tenant,
+      event: event,
+      notification_type: "mention",
+      title: "Test Email Notification",
+      body: "This is a test notification body",
+      url: "/n/test123",
+    )
+
+    recipient = NotificationRecipient.create!(
+      notification: notification,
+      user: agent,
+      channel: "email",
+      status: "pending",
+    )
+
+    initial_count = ActionMailer::Base.deliveries.size
+    NotificationDeliveryJob.perform_now(recipient.id)
+
+    assert_equal initial_count, ActionMailer::Base.deliveries.size, "agent's fake address must not receive mail"
+    recipient.reload
+    assert_equal "delivered", recipient.status
+    assert recipient.delivered_at.present?
+  end
+
   test "perform does nothing if recipient not found" do
     # Should not raise an error
     assert_nothing_raised do

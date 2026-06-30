@@ -33,8 +33,12 @@ class NotificationDeliveryJob < TenantScopedJob
   sig { params(recipient: NotificationRecipient).void }
   def deliver_email(recipient)
     user = recipient.user
-    # Skip email delivery for users without email addresses
-    return recipient.mark_delivered! if user.nil? || user.email.blank?
+    # Skip email delivery for users without a routable address. Non-human users
+    # (ai_agent, collective_identity) carry a syntactically valid but unroutable
+    # placeholder address (e.g. "<uuid>@not-a-real-email.com"), so a blank check
+    # alone lets them through. Guarding on human? covers existing DB rows without
+    # a backfill — this is the load-bearing layer.
+    return recipient.mark_delivered! if user.nil? || !user.human? || user.email.blank?
 
     NotificationMailer.notification_email(recipient).deliver_now
     recipient.mark_delivered!
