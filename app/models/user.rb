@@ -16,6 +16,7 @@ class User < ApplicationRecord
   has_many :collective_members
   has_many :collectives, through: :collective_members
   has_many :api_tokens
+  has_many :refresh_tokens, dependent: :restrict_with_exception
   has_many :ai_agents, class_name: "User", foreign_key: "parent_id"
   has_many :notification_recipients
   has_many :notifications, through: :notification_recipients
@@ -640,6 +641,9 @@ class User < ApplicationRecord
     T.unsafe(self).ai_agents.find_each do |ai_agent|
       ApiToken.for_user_across_tenants(ai_agent).where(deleted_at: nil).find_each(&:delete!)
     end
+    # Revoke refresh tokens too — otherwise a stolen refresh cookie could
+    # silently restore the session right after this method finishes.
+    RefreshToken.revoke_all_for_user!(id, reason: "admin")
   end
 
   sig { params(by: User, reason: String, skip_billing_sync: T::Boolean).void }

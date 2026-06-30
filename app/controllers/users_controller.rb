@@ -150,6 +150,12 @@ class UsersController < ApplicationController
 
     @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@settings_user).first
 
+    # Active refresh tokens = trusted devices. Sorted with the current
+    # device first (so the user sees themselves at the top), then by most
+    # recently used.
+    @active_devices = @settings_user.refresh_tokens.active.order(last_used_at: :desc).to_a
+    @active_devices.sort_by! { |d| [current_refresh_token&.id == d.id ? 0 : 1, -d.last_used_at.to_i] }
+
     respond_to do |format|
       format.html
       format.md

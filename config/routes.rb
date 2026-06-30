@@ -390,6 +390,8 @@ Rails.application.routes.draw do
     delete 'settings/email' => 'users#cancel_email_change', on: :member
     get 'settings/email/confirm/:token' => 'users#confirm_email', on: :member, as: 'confirm_email'
     patch 'image' => 'users#update_image', on: :member
+    delete 'settings/devices/:device_id' => 'devices#destroy', on: :member
+    post   'settings/devices/revoke_others' => 'devices#revoke_others', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy] do

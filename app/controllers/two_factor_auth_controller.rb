@@ -97,6 +97,13 @@ class TwoFactorAuthController < ApplicationController
 
     if identity.verify_otp(code || "")
       identity.enable_otp!
+      # The user just passed a TOTP challenge on this device — same proof
+      # of device trust we mint a refresh token for at login. Without this,
+      # a user who just enabled 2FA in their current session has zero
+      # refresh tokens until they log out and back in, which means they
+      # see no "Devices" on settings and lose the silent-re-auth benefit
+      # until the next session expiry.
+      issue_refresh_token_for!(current_user, two_factor_at: Time.current)
       @recovery_codes = identity.generate_recovery_codes!
       session.delete(:pending_otp_secret)
       SecurityAuditLog.log_2fa_enabled(identity: identity, ip: request.remote_ip)
@@ -150,6 +157,10 @@ class TwoFactorAuthController < ApplicationController
 
     if valid
       identity.disable_otp!
+      # Disabling 2FA invalidates device trust everywhere — refresh tokens
+      # encode "this device passed 2FA recently" and that precondition no
+      # longer holds. The user re-authenticates on each device next time.
+      RefreshToken.revoke_all_for_user!(current_user.id, reason: "two_factor_disabled")
       SecurityAuditLog.log_2fa_disabled(identity: identity, ip: request.remote_ip)
       flash[:notice] = "Two-factor authentication has been disabled."
       redirect_to "/u/#{current_user.handle}/settings"
@@ -248,6 +259,7 @@ class TwoFactorAuthController < ApplicationController
     session[:user_id] = user.id
     session[:logged_in_at] = Time.current.to_i
     session[:last_activity_at] = Time.current.to_i
+    issue_refresh_token_for!(user, two_factor_at: Time.current)
     clear_pending_2fa_session
     # Mirror the non-2FA branch of oauth_callback — without this, every
     # 2FA-protected login would be missing from the login-success audit
