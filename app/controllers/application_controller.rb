@@ -1089,6 +1089,19 @@ class ApplicationController < ActionController::Base
     delete_shared_domain_cookie(REFRESH_COOKIE_NAME)
   end
 
+  # Revoke the refresh token currently in the cookie (the one this device
+  # is holding) and clear the cookie. Used on explicit logout — not on
+  # timeout-driven logout, because we want silent re-auth to keep working
+  # for the next visit after a session timeout.
+  def revoke_current_refresh_token!(reason:)
+    raw = cookies[REFRESH_COOKIE_NAME]
+    if raw.present?
+      token = RefreshToken.find_by(token_digest: RefreshToken.digest(raw))
+      token&.revoke!(reason: reason)
+    end
+    delete_refresh_cookie
+  end
+
   # Silently re-establish a session from a long-lived refresh token. Runs
   # before current_user so downstream callbacks see the restored session as
   # if the user had been logged in all along.

@@ -57,7 +57,13 @@ class PasswordResetsController < ApplicationController
           return
         end
         user = User.find_by(email: @identity.email)
-        SecurityAuditLog.log_password_changed(user: user, ip: request.remote_ip) if user
+        if user
+          # Password change invalidates device trust everywhere — anyone
+          # holding a refresh cookie issued under the old password loses
+          # access on their next request.
+          RefreshToken.revoke_all_for_user!(user.id, reason: "password_change")
+          SecurityAuditLog.log_password_changed(user: user, ip: request.remote_ip)
+        end
         flash[:notice] = "Your password has been updated successfully. You can now log in."
         redirect_to "/login"
       else

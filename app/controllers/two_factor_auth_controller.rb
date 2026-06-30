@@ -150,6 +150,10 @@ class TwoFactorAuthController < ApplicationController
 
     if valid
       identity.disable_otp!
+      # Disabling 2FA invalidates device trust everywhere — refresh tokens
+      # encode "this device passed 2FA recently" and that precondition no
+      # longer holds. The user re-authenticates on each device next time.
+      RefreshToken.revoke_all_for_user!(current_user.id, reason: "two_factor_disabled")
       SecurityAuditLog.log_2fa_disabled(identity: identity, ip: request.remote_ip)
       flash[:notice] = "Two-factor authentication has been disabled."
       redirect_to "/u/#{current_user.handle}/settings"

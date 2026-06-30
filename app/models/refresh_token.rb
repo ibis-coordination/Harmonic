@@ -28,7 +28,14 @@ class RefreshToken < ApplicationRecord
   # refresh to skip the 2FA re-prompt.
   TWO_FACTOR_TRUST_WINDOW = 30.days
 
-  VALID_REVOKE_REASONS = ["user_logout", "rotation_replay", "user_ineligible", "admin", "password_change"].freeze
+  VALID_REVOKE_REASONS = [
+    "user_logout",
+    "rotation_replay",
+    "user_ineligible",
+    "admin",
+    "password_change",
+    "two_factor_disabled",
+  ].freeze
 
   class AlreadyRotated < StandardError; end
   class NotRotatable < StandardError; end
@@ -86,12 +93,23 @@ class RefreshToken < ApplicationRecord
   end
 
   # Revoke every non-revoked token in the family. Used on replay-detected
-  # compromise or on bulk revocation (password change, "revoke all devices").
+  # compromise.
   sig { params(family_id: String, reason: String).void }
   def self.revoke_family!(family_id, reason:)
     raise ArgumentError, "invalid reason" unless VALID_REVOKE_REASONS.include?(reason)
 
     where(family_id: family_id, revoked_at: nil)
+      .update_all(revoked_at: Time.current, revoked_reason: reason)
+  end
+
+  # Revoke every non-revoked token for the user. Used on security-posture
+  # changes that should kill device trust everywhere: password change, 2FA
+  # disable, admin "log this user out everywhere".
+  sig { params(user_id: String, reason: String).void }
+  def self.revoke_all_for_user!(user_id, reason:)
+    raise ArgumentError, "invalid reason" unless VALID_REVOKE_REASONS.include?(reason)
+
+    where(user_id: user_id, revoked_at: nil)
       .update_all(revoked_at: Time.current, revoked_reason: reason)
   end
 

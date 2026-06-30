@@ -202,6 +202,39 @@ class RefreshTokenTest < ActiveSupport::TestCase
     assert_equal "user_logout", a.reload.revoked_reason
   end
 
+  # === revoke_all_for_user! ===
+
+  test "revoke_all_for_user! revokes every active token for the user" do
+    a = RefreshToken.issue!(user: @user)
+    b = RefreshToken.issue!(user: @user)
+    RefreshToken.revoke_all_for_user!(@user.id, reason: "password_change")
+    assert a.reload.revoked?
+    assert b.reload.revoked?
+    assert_equal "password_change", a.reload.revoked_reason
+  end
+
+  test "revoke_all_for_user! does not touch other users' tokens" do
+    other = create_user(email: "other-#{SecureRandom.hex(4)}@example.com")
+    mine = RefreshToken.issue!(user: @user)
+    theirs = RefreshToken.issue!(user: other)
+    RefreshToken.revoke_all_for_user!(@user.id, reason: "password_change")
+    assert mine.reload.revoked?
+    refute theirs.reload.revoked?
+  end
+
+  test "revoke_all_for_user! leaves already-revoked tokens untouched" do
+    a = RefreshToken.issue!(user: @user)
+    a.revoke!(reason: "user_logout")
+    RefreshToken.revoke_all_for_user!(@user.id, reason: "password_change")
+    assert_equal "user_logout", a.reload.revoked_reason
+  end
+
+  test "revoke_all_for_user! rejects unknown reasons" do
+    assert_raises(ArgumentError) do
+      RefreshToken.revoke_all_for_user!(@user.id, reason: "nonsense")
+    end
+  end
+
   # === Digest ===
 
   test "digest is deterministic SHA-256 hex" do
