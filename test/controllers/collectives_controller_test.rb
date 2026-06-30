@@ -1761,11 +1761,46 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/grant/, response.body)
   end
 
-  # Elevation-of-privilege guard: member management is human-only. An AI agent
-  # that is a collective admin must still be blocked by the capability layer,
-  # which runs ahead of the controller on the /actions/ path.
-  test "an AI-agent admin is blocked from updating member roles by the capability layer" do
+  # Member management is a two-key elevation-of-privilege surface for AI agents:
+  # the agent needs BOTH the owner-granted capability (here: default config, so
+  # all grantable actions are allowed) AND collective-admin standing. An agent
+  # that a human has deliberately made a collective admin can act.
+  test "an AI-agent admin with the capability can update member roles" do
     agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post update_roles_path,
+         params: { user_id: target.id, role: "representative", grant: "true" },
+         headers: agent_md_headers(agent)
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: target)
+    assert cm.has_role?("representative"), "an admin AI agent with the capability should grant the role"
+  end
+
+  test "an AI-agent admin with the capability can remove members" do
+    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post remove_member_path,
+         params: { user_id: target.id },
+         headers: agent_md_headers(agent)
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: target)
+    assert cm.archived?, "an admin AI agent with the capability should remove the member"
+  end
+
+  # First key: the owner-granted capability. An agent whose capabilities are
+  # narrowed to exclude member management is denied by the capability layer even
+  # if it is a collective admin.
+  test "an AI-agent admin without the member-management capability is denied" do
+    agent = create_ai_agent(
+      parent: @user, name: "Scoped Bot",
+      agent_configuration: { "mode" => "internal", "capabilities" => ["create_note"] },
+    )
     @collective.add_user!(agent, roles: ["admin"])
     target = add_member(name: "Target")
 
@@ -1775,21 +1810,23 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     cm = @collective.collective_members.find_by(user: target)
-    assert_not cm.has_role?("representative"), "an AI agent must never grant collective roles"
+    assert_not cm.has_role?("representative"), "an agent lacking the capability must not grant roles"
   end
 
-  test "an AI-agent admin is blocked from removing members by the capability layer" do
-    agent = create_ai_agent(parent: @user, name: "Admin Bot")
-    @collective.add_user!(agent, roles: ["admin"])
+  # Second key: collective-admin standing. An agent with the capability but no
+  # admin role is rejected by the action's :collective_admin authorization.
+  test "an AI-agent non-admin with the capability is denied by authorization" do
+    agent = create_ai_agent(parent: @user, name: "Member Bot")
+    @collective.add_user!(agent) # no admin role
     target = add_member(name: "Target")
 
-    post remove_member_path,
-         params: { user_id: target.id },
+    post update_roles_path,
+         params: { user_id: target.id, role: "representative", grant: "true" },
          headers: agent_md_headers(agent)
 
     assert_response :forbidden
     cm = @collective.collective_members.find_by(user: target)
-    assert_not cm.archived?, "an AI agent must never remove collective members"
+    assert_not cm.has_role?("representative"), "a non-admin agent must not grant roles"
   end
 
   private

@@ -859,8 +859,10 @@ class CollectivesController < ApplicationController
   # otherwise returns the (non-archived) CollectiveMember being acted on.
   #
   # The path-based capability check (ActionCapabilityCheck) already runs ahead
-  # of this and blocks capability-restricted actors; this enforces the
-  # collective-admin authorization and resolves the target member.
+  # of this: a capability-restricted actor (an AI agent) reaches here only if it
+  # has been granted the member-management capability. This method is the second
+  # key — it enforces collective-admin standing and resolves the target member —
+  # so an agent must be both capability-granted AND a collective admin to act.
   def authorize_member_management(action_name)
     unless @current_user&.collective_member&.is_admin?
       render_action_error({ action_name: action_name, resource: @current_collective, error: 'You must be an admin to manage members.', status: :forbidden })
