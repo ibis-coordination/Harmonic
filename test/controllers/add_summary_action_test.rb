@@ -654,7 +654,9 @@ class AddSummaryActionTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_response :success
 
-    canonical = "/collectives/#{@collective.handle}/n/#{summary_note.truncated_id}/confirm.html"
+    # The button posts to the summary note's own canonical path + /confirm.html
+    # (Note#path, whatever its exact prefix), NOT to <parent>/summary/confirm.html.
+    canonical = "#{summary_note.path}/confirm.html"
     assert_select "button[data-url='#{canonical}']",
                   "Confirm Read button must post to the summary note's canonical confirm route"
     assert_not_includes @response.body, "/summary/confirm.html",
