@@ -65,7 +65,6 @@ import ChatSearchController from "./chat_search_controller"
 import AiAgentManagerController from "./ai_agent_manager_controller"
 import AiAgentModeController from "./ai_agent_mode_controller"
 import AiAgentCollectiveAdderController from "./ai_agent_collective_adder_controller"
-import CollectiveMemberManagerController from "./collective_member_manager_controller"
 import TaskRunStatusController from "./task_run_status_controller"
 import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
@@ -140,7 +139,6 @@ application.register("chat-search", ChatSearchController)
 application.register("ai_agent-manager", AiAgentManagerController)
 application.register("ai_agent-mode", AiAgentModeController)
 application.register("ai_agent-collective-adder", AiAgentCollectiveAdderController)
-application.register("collective-member-manager", CollectiveMemberManagerController)
 application.register("task-run-status", TaskRunStatusController)
 application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)

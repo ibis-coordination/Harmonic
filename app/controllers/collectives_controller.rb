@@ -647,67 +647,82 @@ class CollectivesController < ApplicationController
     @manageable_roles = CollectiveMember.valid_roles
   end
 
-  # POST /collectives/:handle/members/update_roles
-  # Admin-only. Grants or revokes a single role on a member. Mirrors the
-  # add_ai_agent JSON response pattern so the members page can update inline.
-  def update_member_roles
-    member = authorize_member_management
+  def actions_index_members
+    @page_title = "Actions | Members"
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/members'))
+  end
+
+  def describe_update_member_roles
+    render_action_description(ActionsHelper.action_description("update_member_roles", resource: @current_collective))
+  end
+
+  # POST /collectives/:handle/members/actions/update_member_roles
+  # Admin-only. Grants or revokes a single role on a member. Runs through the
+  # standard action pipeline (path-based capability check + action helpers).
+  def execute_update_member_roles
+    member = authorize_member_management("update_member_roles")
     return if member == :handled
 
     role = params[:role].to_s
     unless CollectiveMember.valid_roles.include?(role)
-      return render status: 422, json: { error: 'Invalid role' }
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: "Invalid role: #{role}." })
     end
 
     grant = ActiveModel::Type::Boolean.new.cast(params[:grant])
 
-    # The collective owner is permanent (see #remove_member); they must always
-    # retain admin so a second admin can never lock them out of their own
-    # collective.
+    # The collective owner is permanent (see #execute_remove_member); they must
+    # always retain admin so a second admin can never lock them out of their
+    # own collective.
     if role == 'admin' && !grant && member.user_id == @current_collective.created_by_id
-      return render status: 422, json: { error: 'The collective owner must remain an admin.' }
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: 'The collective owner must remain an admin.' })
     end
 
     # Lockout protection: never let the last admin lose the admin role, or
     # there would be no one left who can manage the collective.
     if role == 'admin' && !grant && last_admin?(member)
-      return render status: 422, json: { error: 'Cannot remove the admin role from the last admin of this collective.' }
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: 'Cannot remove the admin role from the last admin of this collective.' })
     end
 
     begin
       grant ? member.add_role!(role) : member.remove_role!(role)
     rescue => e
-      return render status: 422, json: { error: e.message }
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: e.message })
     end
 
-    render json: {
-      user_id: member.user_id,
-      role: role,
-      granted: grant,
-      roles: member.roles,
-    }
+    render_action_success({
+      action_name: 'update_member_roles',
+      resource: @current_collective,
+      result: "#{member.user.display_name} #{grant ? 'now has' : 'no longer has'} the #{role} role.",
+      redirect_to: "#{@current_collective.path}/members",
+    })
   end
 
-  # DELETE /collectives/:handle/members/remove
+  def describe_remove_member
+    render_action_description(ActionsHelper.action_description("remove_member", resource: @current_collective))
+  end
+
+  # POST /collectives/:handle/members/actions/remove_member
   # Admin-only. Archives a member's collective membership, removing them from
   # the collective. The owner and the acting admin cannot be removed this way.
-  def remove_member
-    member = authorize_member_management
+  def execute_remove_member
+    member = authorize_member_management("remove_member")
     return if member == :handled
 
     if member.user_id == @current_collective.created_by_id
-      return render status: 422, json: { error: 'The collective owner cannot be removed.' }
+      return render_action_error({ action_name: 'remove_member', resource: @current_collective, error: 'The collective owner cannot be removed.' })
     end
     if member.user_id == @current_user.id
-      return render status: 422, json: { error: 'You cannot remove yourself. Use Leave instead.' }
+      return render_action_error({ action_name: 'remove_member', resource: @current_collective, error: 'You cannot remove yourself. Use Leave instead.' })
     end
 
     member.archive!
 
-    render json: {
-      user_id: member.user_id,
-      user_name: member.user.display_name,
-    }
+    render_action_success({
+      action_name: 'remove_member',
+      resource: @current_collective,
+      result: "#{member.user.display_name} has been removed from #{@current_collective.name}.",
+      redirect_to: "#{@current_collective.path}/members",
+    })
   end
 
   def invite
@@ -839,16 +854,20 @@ class CollectivesController < ApplicationController
   # POST /collectives/:collective_handle/deactivate
   private
 
-  # Shared guard for the member-management endpoints. Renders the appropriate
-  # JSON error and returns :handled when the request is not allowed; otherwise
-  # returns the (non-archived) CollectiveMember being acted on.
-  def authorize_member_management
-    unless @current_user.collective_member&.is_admin?
-      render status: 403, json: { error: 'Unauthorized' }
+  # Shared guard for the member-management actions. Renders the appropriate
+  # action error and returns :handled when the request is not allowed;
+  # otherwise returns the (non-archived) CollectiveMember being acted on.
+  #
+  # The path-based capability check (ActionCapabilityCheck) already runs ahead
+  # of this and blocks capability-restricted actors; this enforces the
+  # collective-admin authorization and resolves the target member.
+  def authorize_member_management(action_name)
+    unless @current_user&.collective_member&.is_admin?
+      render_action_error({ action_name: action_name, resource: @current_collective, error: 'You must be an admin to manage members.', status: :forbidden })
       return :handled
     end
     if @current_collective.private_workspace? || @current_collective.is_main_collective?
-      render status: 403, json: { error: 'Members cannot be managed for this collective.' }
+      render_action_error({ action_name: action_name, resource: @current_collective, error: 'Members cannot be managed for this collective.', status: :forbidden })
       return :handled
     end
     member = CollectiveMember.find_by(
@@ -857,7 +876,7 @@ class CollectivesController < ApplicationController
       archived_at: nil,
     )
     if member.nil?
-      render status: 404, json: { error: 'Member not found.' }
+      render_action_error({ action_name: action_name, resource: @current_collective, error: 'Member not found.', status: :not_found })
       return :handled
     end
     member

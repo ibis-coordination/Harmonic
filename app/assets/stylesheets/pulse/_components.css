@@ -1790,6 +1790,11 @@ h1.pulse-resource-title {
   white-space: nowrap;
 }
 
+.pulse-member-menu-form {
+  margin: 0;
+  width: 100%;
+}
+
 .pulse-member-menu-item {
   width: 100%;
   text-align: left;

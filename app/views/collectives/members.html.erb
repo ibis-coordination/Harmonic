@@ -18,13 +18,7 @@
     <% if @team.empty? %>
       <p class="pulse-empty-content"><em>No members yet.</em></p>
     <% else %>
-      <div class="pulse-participants-list"
-        <% if @can_manage_members %>
-          data-controller="collective-member-manager"
-          data-collective-member-manager-update-roles-url-value="<%= @current_collective.path %>/members/update_roles"
-          data-collective-member-manager-remove-url-value="<%= @current_collective.path %>/members/remove"
-          data-collective-member-manager-role-order-value="<%= @manageable_roles.to_json %>"
-        <% end %>>
+      <div class="pulse-participants-list">
         <% @team.each do |u| %>
           <div class="pulse-participant" data-member-id="<%= u.id %>">
             <%= render "shared/avatar", user: u %>
@@ -32,10 +26,10 @@
             <% if u.ai_agent? %>
               <span class="pulse-badge pulse-badge-muted">ai_agent</span>
             <% end %>
-            <%# Pills showing the roles this member currently holds. The Stimulus
-                controller rebuilds this list in place when a role is added or
-                removed via the kebab menu below. Rendered in the canonical
-                @manageable_roles order so the row stays stable across updates. %>
+            <%# Pills showing the roles this member currently holds, so admins can
+                see who has which roles at a glance. Server-rendered in the
+                canonical @manageable_roles order; the page reloads after a role
+                change (the action redirects back here) so the pills stay current. %>
             <div class="pulse-member-roles" data-role-pills-for="<%= u.id %>">
               <% @manageable_roles.each do |role| %>
                 <% if u.collective_member.has_role?(role) %>
@@ -53,31 +47,33 @@
                   <div class="top-menu pulse-member-menu-list">
                     <ul>
                       <% @manageable_roles.each do |role| %>
-                        <%# Owner's admin is permanent (the server rejects revoking it), so don't offer a toggle that can only 422 — it shows as a pill above instead. The model also forbids the representative role for collective-identity users. %>
+                        <%# Owner's admin is permanent (the action rejects revoking it), so don't offer a toggle that can only fail — it shows as a pill above instead. The model also forbids the representative role for collective-identity users. %>
                         <% next if role == 'admin' && is_owner %>
                         <% next if role == 'representative' && u.collective_identity? %>
                         <% active = u.collective_member.has_role?(role) %>
+                        <% role_label = active ? "Remove role #{role}" : "Add role #{role}" %>
+                        <%# Each item is a real action POST — capability-checked and
+                            authorized server-side. On success the action redirects
+                            back to this page, so the pills and menu refresh. %>
                         <li>
-                          <button type="button"
-                                  class="pulse-member-menu-item"
-                                  data-action="collective-member-manager#toggleRole"
-                                  data-user-id="<%= u.id %>"
-                                  data-role="<%= role %>"
-                                  data-granted="<%= active ? 'true' : 'false' %>">
-                            <%= active ? "Remove role #{role}" : "Add role #{role}" %>
-                          </button>
+                          <%= button_to role_label,
+                                "#{@current_collective.path}/members/actions/update_member_roles",
+                                method: :post,
+                                params: { user_id: u.id, role: role, grant: (active ? "false" : "true") },
+                                class: "pulse-member-menu-item",
+                                form: { class: "pulse-member-menu-form", data: { member_id: u.id, role: role } } %>
                         </li>
                       <% end %>
                       <% unless is_owner || u.id == @current_user&.id %>
                         <li class="pulse-member-menu-divider"><hr></li>
                         <li>
-                          <button type="button"
-                                  class="pulse-member-menu-item pulse-member-menu-item-danger"
-                                  data-action="collective-member-manager#remove"
-                                  data-user-id="<%= u.id %>"
-                                  data-user-name="<%= u.display_name %>">
-                            Remove from collective
-                          </button>
+                          <%= button_to "Remove from collective",
+                                "#{@current_collective.path}/members/actions/remove_member",
+                                method: :post,
+                                params: { user_id: u.id },
+                                class: "pulse-member-menu-item pulse-member-menu-item-danger",
+                                form: { class: "pulse-member-menu-form" },
+                                data: { turbo_confirm: "Remove #{u.display_name} from this collective?" } %>
                         </li>
                       <% end %>
                     </ul>

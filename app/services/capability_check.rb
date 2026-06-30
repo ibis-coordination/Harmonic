@@ -38,6 +38,11 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "create_ai_agent",
     "add_ai_agent_to_collective",
     "remove_ai_agent_from_collective",
+    # Member management is an elevation-of-privilege surface (grants/revokes
+    # admin and other roles, removes members). Human admins only — agents must
+    # never grant themselves or others collective authority.
+    "update_member_roles",
+    "remove_member",
     "create_api_token",
     "update_profile",
     # Notification preferences govern which events reach the agent — its

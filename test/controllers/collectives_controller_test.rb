@@ -1377,6 +1377,13 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   # === Member Management Tests (issue #316) ===
+  #
+  # Member management runs through the standard action pipeline:
+  #   POST /collectives/:handle/members/actions/{update_member_roles,remove_member}
+  # The markdown (action API) contract returns real HTTP status codes, so the
+  # behavioral tests drive the endpoints with an `Accept: text/markdown` header.
+
+  MEMBER_MGMT_MD = { "Accept" => "text/markdown" }.freeze
 
   def add_member(name:, roles: [])
     user = create_user(name: name)
@@ -1385,14 +1392,38 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     user
   end
 
+  def update_roles_path(collective = @collective)
+    "/collectives/#{collective.handle}/members/actions/update_member_roles"
+  end
+
+  def remove_member_path(collective = @collective)
+    "/collectives/#{collective.handle}/members/actions/remove_member"
+  end
+
+  # Mint a write-scoped API token for an agent — agents authenticate via Bearer
+  # token, not browser sessions (those are redirected), so the elevation-of-
+  # privilege tests below drive the action endpoints the way an agent actually
+  # would.
+  def agent_api_token(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def agent_md_headers(agent)
+    { "Authorization" => "Bearer #{agent_api_token(agent).plaintext_token}", "Accept" => "text/markdown" }
+  end
+
   test "members page shows management controls for admins" do
     add_member(name: "Regular Member")
     sign_in_as(@user, tenant: @tenant)
 
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
-    assert_match(/collective-member-manager/, response.body)
-    assert_match(/collective-member-manager#toggleRole/, response.body)
+    # Admins get a per-member kebab menu whose items POST to the action endpoints.
+    assert_select "details.pulse-member-menu", minimum: 1
+    assert_select "form.pulse-member-menu-form[action$=?]", "/members/actions/update_member_roles", minimum: 1
   end
 
   test "members page hides management controls from non-admins" do
@@ -1401,15 +1432,18 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
-    assert_no_match(/collective-member-manager/, response.body)
+    # No kebab menu and no action forms for non-admins.
+    assert_select "details.pulse-member-menu", count: 0
+    assert_select "form.pulse-member-menu-form", count: 0
   end
 
   test "admin can grant a role to a member" do
     member = add_member(name: "Future Rep")
     sign_in_as(@user, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: member.id, role: "representative", grant: "true" }
+    post update_roles_path,
+         params: { user_id: member.id, role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :success
     cm = @collective.collective_members.find_by(user: member)
@@ -1420,8 +1454,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     member = add_member(name: "Demoted Rep", roles: ["representative"])
     sign_in_as(@user, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: member.id, role: "representative", grant: "false" }
+    post update_roles_path,
+         params: { user_id: member.id, role: "representative", grant: "false" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :success
     cm = @collective.collective_members.find_by(user: member)
@@ -1433,8 +1468,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
     sign_in_as(actor, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: target.id, role: "representative", grant: "true" }
+    post update_roles_path,
+         params: { user_id: target.id, role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
     cm = @collective.collective_members.find_by(user: target)
@@ -1445,8 +1481,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     member = add_member(name: "Member")
     sign_in_as(@user, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: member.id, role: "superuser", grant: "true" }
+    post update_roles_path,
+         params: { user_id: member.id, role: "superuser", grant: "true" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
   end
@@ -1455,8 +1492,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # @user is the only admin of @collective (set in setup).
     sign_in_as(@user, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: @user.id, role: "admin", grant: "false" }
+    post update_roles_path,
+         params: { user_id: @user.id, role: "admin", grant: "false" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
     cm = @collective.collective_members.find_by(user: @user)
@@ -1469,21 +1507,24 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     other_admin = add_member(name: "Second Admin", roles: ["admin"])
     sign_in_as(other_admin, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: @user.id, role: "admin", grant: "false" }
+    post update_roles_path,
+         params: { user_id: @user.id, role: "admin", grant: "false" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
     cm = @collective.collective_members.find_by(user: @user)
     assert cm.has_role?("admin"), "the collective owner must remain an admin"
   end
 
-  test "members page shows the owner admin as a static badge, not a toggle" do
+  test "members page shows the owner admin as a pill, not a role toggle" do
     sign_in_as(@user, tenant: @tenant)
 
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
-    # The owner's admin role must not be rendered as a revocable toggle.
-    assert_no_match(/data-user-id="#{@user.id}"\s+data-role="admin"/, response.body)
+    # The owner's admin surfaces as a (non-revocable) pill…
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", @user.id.to_s, "admin"
+    # …and is never rendered as a revocable role-toggle form.
+    assert_select "form.pulse-member-menu-form[data-member-id=?][data-role=?]", @user.id.to_s, "admin", count: 0
   end
 
   test "members page renders a per-member kebab menu with add-role and remove items" do
@@ -1496,12 +1537,15 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # Each manageable member gets a kebab <details> menu for adding/removing
     # roles (the role pills themselves are covered separately below).
     assert_select "details.pulse-member-menu", minimum: 1
-    # A role the member lacks is offered as an "Add role" action…
-    assert_select "button.pulse-member-menu-item[data-user-id=?][data-role=?][data-granted=?]",
-                  member.id.to_s, "representative", "false"
+    # A role the member lacks is offered as an "Add role" action whose form
+    # carries grant=true so the click adds the role.
+    assert_select "form.pulse-member-menu-form[data-member-id=?][data-role=?]", member.id.to_s, "representative" do
+      assert_select "input[name=?][value=?]", "grant", "true"
+    end
     assert_match(/Add role representative/, response.body)
-    # …and the destructive action sits at the bottom of the same menu.
-    assert_select "button.pulse-member-menu-item-danger[data-action=?]", "collective-member-manager#remove"
+    # …and the destructive action posts to the remove endpoint at the bottom.
+    assert_select "form.pulse-member-menu-form[action$=?] button.pulse-member-menu-item-danger",
+                  "/members/actions/remove_member"
     assert_match(/Remove from collective/, response.body)
   end
 
@@ -1513,9 +1557,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # The pill row shows the roles the member currently holds, so admins can see
-    # who has which roles at a glance. The Stimulus controller is given the
-    # canonical role order so it can rebuild this row in place on update.
-    assert_select "[data-collective-member-manager-role-order-value]"
+    # who has which roles at a glance.
     assert_select "[data-role-pills-for=?] span[data-role-pill=?]", member.id.to_s, "representative"
     # A role the member does not hold gets no pill.
     assert_select "[data-role-pills-for=?] span[data-role-pill=?]", member.id.to_s, "summarizer", count: 0
@@ -1538,8 +1580,10 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
 
-    assert_select "button.pulse-member-menu-item[data-user-id=?][data-role=?][data-granted=?]",
-                  member.id.to_s, "representative", "true"
+    # A held role's form carries grant=false so the click revokes it.
+    assert_select "form.pulse-member-menu-form[data-member-id=?][data-role=?]", member.id.to_s, "representative" do
+      assert_select "input[name=?][value=?]", "grant", "false"
+    end
     assert_match(/Remove role representative/, response.body)
   end
 
@@ -1552,15 +1596,18 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
 
-    assert_select "button.pulse-member-menu-item-danger[data-user-id=?]", other_admin.id.to_s, count: 0
+    # No remove form targeting the acting admin themselves.
+    assert_select "form.pulse-member-menu-form[action$=?] input[name=?][value=?]",
+                  "/members/actions/remove_member", "user_id", other_admin.id.to_s, count: 0
   end
 
   test "admin can revoke admin role when another admin remains" do
     other_admin = add_member(name: "Second Admin", roles: ["admin"])
     sign_in_as(@user, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: other_admin.id, role: "admin", grant: "false" }
+    post update_roles_path,
+         params: { user_id: other_admin.id, role: "admin", grant: "false" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :success
     cm = @collective.collective_members.find_by(user: other_admin)
@@ -1571,8 +1618,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     member = add_member(name: "Leaving Member")
     sign_in_as(@user, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/members/remove",
-           params: { user_id: member.id }
+    post remove_member_path,
+         params: { user_id: member.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :success
     cm = @collective.collective_members.find_by(user: member)
@@ -1583,8 +1631,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     other_admin = add_member(name: "Second Admin", roles: ["admin"])
     sign_in_as(other_admin, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/members/remove",
-           params: { user_id: @user.id }
+    post remove_member_path,
+         params: { user_id: @user.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
     cm = @collective.collective_members.find_by(user: @user)
@@ -1595,8 +1644,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     other_admin = add_member(name: "Second Admin", roles: ["admin"])
     sign_in_as(other_admin, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/members/remove",
-           params: { user_id: other_admin.id }
+    post remove_member_path,
+         params: { user_id: other_admin.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
     cm = @collective.collective_members.find_by(user: other_admin)
@@ -1608,8 +1658,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
     sign_in_as(actor, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/members/remove",
-           params: { user_id: target.id }
+    post remove_member_path,
+         params: { user_id: target.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
     cm = @collective.collective_members.find_by(user: target)
@@ -1621,8 +1672,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @tenant.add_user!(stranger)
     sign_in_as(@user, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/members/remove",
-           params: { user_id: stranger.id }
+    post remove_member_path,
+         params: { user_id: stranger.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :not_found
   end
@@ -1636,8 +1688,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
     sign_in_as(outsider, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/members/update_roles",
-         params: { user_id: target.id, role: "representative", grant: "true" }
+    post update_roles_path,
+         params: { user_id: target.id, role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
     cm = @collective.collective_members.find_by(user: target)
@@ -1650,8 +1703,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
     sign_in_as(outsider, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/members/remove",
-           params: { user_id: target.id }
+    post remove_member_path,
+         params: { user_id: target.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
     cm = @collective.collective_members.find_by(user: target)
@@ -1670,8 +1724,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     )
     assert_not_nil workspace, "expected @user to own a private workspace"
 
-    post "/collectives/#{workspace.handle}/members/update_roles",
-         params: { user_id: @user.id, role: "representative", grant: "true" }
+    post update_roles_path(workspace),
+         params: { user_id: @user.id, role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
     assert_match(/cannot be managed/i, response.body)
@@ -1686,11 +1741,55 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     )
     assert_not_nil workspace, "expected @user to own a private workspace"
 
-    delete "/collectives/#{workspace.handle}/members/remove",
-           params: { user_id: @user.id }
+    post remove_member_path(workspace),
+         params: { user_id: @user.id },
+         headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
     assert_match(/cannot be managed/i, response.body)
+  end
+
+  test "the describe endpoint documents the update_member_roles params" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get update_roles_path, headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    assert_match(/update_member_roles/, response.body)
+    assert_match(/user_id/, response.body)
+    assert_match(/role/, response.body)
+    assert_match(/grant/, response.body)
+  end
+
+  # Elevation-of-privilege guard: member management is human-only. An AI agent
+  # that is a collective admin must still be blocked by the capability layer,
+  # which runs ahead of the controller on the /actions/ path.
+  test "an AI-agent admin is blocked from updating member roles by the capability layer" do
+    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post update_roles_path,
+         params: { user_id: target.id, role: "representative", grant: "true" },
+         headers: agent_md_headers(agent)
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative"), "an AI agent must never grant collective roles"
+  end
+
+  test "an AI-agent admin is blocked from removing members by the capability layer" do
+    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post remove_member_path,
+         params: { user_id: target.id },
+         headers: agent_md_headers(agent)
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.archived?, "an AI agent must never remove collective members"
   end
 
   private
