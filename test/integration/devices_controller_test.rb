@@ -31,6 +31,20 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Sign out/i, response.body)
   end
 
+  test "the device list shows one row per device even after many rotations (#326)" do
+    current = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    4.times { current = current.rotate! }
+    cookies[REFRESH_COOKIE] = T.must(current.plaintext_token)
+    RefreshToken.issue!(user: @user, two_factor_at: Time.current) # one genuinely-other device
+
+    get "/u/#{@user.handle}/settings"
+
+    assert_response :success
+    # One "Last used … ago" hint is rendered per listed device: the rotated
+    # predecessors of the current device must not each appear as their own row.
+    assert_equal 2, response.body.scan(/Last used .*? ago/).size
+  end
+
   # === destroy ===
 
   test "DELETE /settings/devices/:id revokes the specified device" do
@@ -73,7 +87,7 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     refute others_device.reload.revoked?, "must not be able to revoke another user's device through your own settings"
   end
 
-  test "DELETE with a revoked id is a graceful no-op (the listing scope is .active only)" do
+  test "DELETE with a revoked id is a graceful no-op (the listing scope is .live only)" do
     revoked = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
     revoked.revoke!(reason: "user_logout")
     original_time = revoked.revoked_at
@@ -108,6 +122,22 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
 
     assert a.reload.revoked?
     assert b.reload.revoked?
+  end
+
+  test "rotated predecessors don't count as separate devices in revoke_others (#326)" do
+    # One physical device that has silently refreshed many times. Each refresh
+    # rotates the token, leaving a rotated-but-not-revoked predecessor behind.
+    current = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    5.times { current = current.rotate! }
+    cookies[REFRESH_COOKIE] = T.must(current.plaintext_token)
+    other = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+
+    post "/u/#{@user.handle}/settings/devices/revoke_others"
+
+    assert other.reload.revoked?, "the one genuinely-other device is signed out"
+    refute current.reload.revoked?, "the current device stays signed in"
+    assert_equal "Signed out of 1 other device.", flash[:notice],
+                 "count reflects live devices, not the rotation chain"
   end
 
   test "revoke_others does not touch other users' devices" do

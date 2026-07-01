@@ -14,7 +14,7 @@ class DevicesController < ApplicationController
   # on the very next request and logs the user out — including the
   # current device, which lands here on the redirect.
   def destroy
-    device = @showing_user.refresh_tokens.active.find_by(id: params[:device_id])
+    device = @showing_user.refresh_tokens.live.find_by(id: params[:device_id])
     if device.nil?
       flash[:alert] = "That device is no longer active."
     else
@@ -26,7 +26,7 @@ class DevicesController < ApplicationController
 
   # POST /u/:handle/settings/devices/revoke_others
   def revoke_others
-    scope = @showing_user.refresh_tokens.active
+    scope = @showing_user.refresh_tokens.live
     scope = scope.where.not(id: current_refresh_token.id) if current_refresh_token
     count = scope.update_all(revoked_at: Time.current, revoked_reason: "user_logout")
     flash[:notice] = "Signed out of #{count} other #{'device'.pluralize(count)}."
