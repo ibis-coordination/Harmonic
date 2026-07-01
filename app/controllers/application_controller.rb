@@ -4,7 +4,14 @@ class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
   include PendingInviteStash
-  # Session timeout configuration (in seconds)
+  # Session timeout configuration (in seconds). These checks in
+  # check_session_timeout are the sole authority on session expiry — they emit
+  # the user-facing flash and the SecurityAuditLog logout event. NOTE:
+  # SESSION_ABSOLUTE_TIMEOUT is mirrored by config/initializers/session_store.rb,
+  # which sets the session cookie's `expire_after` to *twice* it so the cookie
+  # persists past the absolute cap and these checks always fire before the cookie
+  # itself expires (an expired cookie would blank the session silently, skipping
+  # the flash and audit log). Keep the two SESSION_ABSOLUTE_TIMEOUT defaults in sync.
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 

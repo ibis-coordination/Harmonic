@@ -44,6 +44,18 @@ class RefreshToken < ApplicationRecord
 
   scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
 
+  # One row per distinct signed-in device. A successful silent refresh rotates
+  # the token — the predecessor keeps `revoked_at` nil (it stays queryable so
+  # replay detection can distinguish an in-flight race from an attack), so it
+  # still satisfies `active`. Only the un-rotated tail of each family is a live
+  # device; without the `rotated_at: nil` filter the device list grows by one
+  # every refresh, all sharing the successor-inherited label (#326).
+  #
+  # Conditions are inlined rather than chained off `active` so this typed: true
+  # file doesn't depend on the `active` scope being present in the generated
+  # RBI (it currently isn't).
+  scope :live, -> { where(revoked_at: nil, rotated_at: nil).where("expires_at > ?", Time.current) }
+
   # Plaintext is only available immediately after issuance; never stored.
   attr_accessor :plaintext_token
 

@@ -105,6 +105,31 @@ class SilentRefreshTest < ActionDispatch::IntegrationTest
     assert_equal before_count, RefreshToken.count, "fresh session must not trigger rotation"
   end
 
+  # === Session cookie persistence (#326 root cause) ===
+  # The refresh churn behind #326 came from `_harmonic_session` being a
+  # browser-session cookie: on an iOS PWA, iOS reaps the standalone web view on
+  # backgrounding, so every cold launch arrived with the session cookie already
+  # gone but a live 90-day refresh cookie beside it — forcing a silent refresh
+  # (and a rotation) on every app open. config/initializers/session_store.rb now
+  # sets `expire_after` so the cookie persists on disk and a cold-start within
+  # the session's valid window reuses it instead of rotating.
+  #
+  # `expire_after` is set LONGER than the absolute cap (not equal to the idle
+  # timeout) on purpose: Rails' CookieStore embeds the expiry in the payload and
+  # blanks the session server-side once it passes, which would preempt
+  # check_session_timeout — the code that emits the timeout flash and the audit
+  # log event. The cookie is a persistence backstop; the server-side checks stay
+  # the sole expiry authority. See authentication_security_test.rb for the
+  # timeout-behavior coverage this protects.
+
+  test "session cookie persists past the absolute cap so server-side timeouts stay authoritative (#326)" do
+    expire_after = Rails.application.config.session_options[:expire_after]
+    assert_not_nil expire_after,
+                   "session cookie must set expire_after so a PWA cold-start reuses it instead of forcing a silent refresh (#326)"
+    assert_operator expire_after, :>, ApplicationController::SESSION_ABSOLUTE_TIMEOUT,
+                    "cookie must outlive the absolute cap so check_session_timeout (flash + audit) fires before the cookie expires"
+  end
+
   test "silent refresh is a no-op with an API token request (Authorization header)" do
     seed_refresh_cookie
     @tenant.enable_api! if @tenant.respond_to?(:enable_api!)

@@ -274,6 +274,42 @@ class RefreshTokenTest < ActiveSupport::TestCase
     end
   end
 
+  # === Scopes ===
+
+  test "active includes a rotated-but-not-revoked predecessor" do
+    token = RefreshToken.issue!(user: @user)
+    token.rotate!
+    # Predecessor keeps revoked_at nil so replay detection can inspect it.
+    assert_includes @user.refresh_tokens.active, token.reload
+  end
+
+  test "live excludes rotated predecessors, leaving one row per family" do
+    token = RefreshToken.issue!(user: @user)
+    successor = token.rotate!
+    live = @user.refresh_tokens.live
+    assert_not_includes live, token.reload
+    assert_includes live, successor.reload
+    assert_equal 1, live.count
+  end
+
+  test "live collapses a long rotation chain to a single device (#326)" do
+    token = RefreshToken.issue!(user: @user)
+    17.times { token = token.rotate! }
+    # 18 active rows accumulate, but they're all one device.
+    assert_equal 18, @user.refresh_tokens.active.count
+    assert_equal 1, @user.refresh_tokens.live.count
+    assert_equal token.reload, @user.refresh_tokens.live.sole
+  end
+
+  test "live excludes revoked and expired tokens" do
+    revoked = RefreshToken.issue!(user: @user)
+    revoked.revoke!(reason: "user_logout")
+    expired = RefreshToken.issue!(user: @user)
+    expired.update!(expires_at: 1.day.ago)
+    live = RefreshToken.issue!(user: @user)
+    assert_equal [live], @user.refresh_tokens.live.to_a
+  end
+
   # === Digest ===
 
   test "digest is deterministic SHA-256 hex" do
