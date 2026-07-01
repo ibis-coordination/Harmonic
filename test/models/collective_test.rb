@@ -316,7 +316,7 @@ class CollectiveTest < ActiveSupport::TestCase
     assert main_collective.api_enabled?
   end
 
-  test "Collective.api_enabled? returns false by default for non-main collective" do
+  test "Collective.api_enabled? returns false for non-main collective when tenant API is disabled" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(
@@ -326,7 +326,26 @@ class CollectiveTest < ActiveSupport::TestCase
       handle: "api-test-collective"
     )
 
+    # Tenant API flag is off by default, which gates the collective regardless
+    # of the collective-local default.
     assert_not collective.api_enabled?
+  end
+
+  test "Collective.api_enabled? is true by default for a new collective under an API-enabled tenant" do
+    # Regression for #323: new collectives should inherit their tenant's
+    # API-enabled posture rather than defaulting API off.
+    tenant = create_tenant
+    user = create_user
+    tenant.set_feature_flag!("api", true)
+
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Inherited API Collective",
+      handle: "inherited-api-collective"
+    )
+
+    assert collective.api_enabled?, "New collective should default to API enabled when the tenant has API enabled"
   end
 
   test "Collective.enable_api! enables API for collective" do

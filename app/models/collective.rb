@@ -121,7 +121,7 @@ class Collective < ApplicationRecord
       "file_upload_limit" => 100.megabytes,
       "pinned" => {},
       "feature_flags" => {
-        "api" => false,
+        "api" => true,
         "file_attachments" => false,
       },
     }.merge(
