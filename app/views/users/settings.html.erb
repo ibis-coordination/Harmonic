@@ -255,6 +255,36 @@
     <% end %>
   <% end %>
 
+  <% if @settings_user.human? && is_own_settings && FeatureFlagService.enabled?("web_push", tenant: @current_tenant) %>
+    <%= render 'shared/pulse_accordion', title: 'Push notifications', count: @push_subscriptions.size.positive? ? @push_subscriptions.size : nil do %>
+      <p class="pulse-form-hint" style="margin-bottom: 16px;">
+        Get notifications on a device's lock screen even when Harmonic isn't open.
+        On iPhone or iPad, add Harmonic to your home screen first.
+      </p>
+      <div data-controller="web-push" data-web-push-url-value="<%= @settings_user.path %>/settings/push-subscriptions" style="margin-bottom: 16px;">
+        <button type="button" class="pulse-action-btn-primary"
+                data-web-push-target="button"
+                data-action="click->web-push#subscribe">Enable on this device</button>
+        <p class="pulse-form-hint" data-web-push-target="status" hidden></p>
+      </div>
+      <% @push_subscriptions.each do |subscription| %>
+        <div class="pulse-row" style="display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--color-border-default);">
+          <div style="flex:1;">
+            <strong><%= subscription.device_label.presence || "Unknown device" %></strong>
+            <div class="pulse-form-hint" style="font-size:12px;">
+              Last seen <%= time_ago_in_words(subscription.last_seen_at) %> ago
+            </div>
+          </div>
+          <%= button_to "Disable",
+                "#{@settings_user.path}/settings/push-subscriptions/#{subscription.id}",
+                method: :delete,
+                class: "pulse-action-btn",
+                data: { turbo_confirm: "Disable push notifications for #{subscription.device_label.presence || 'this device'}?" } %>
+        </div>
+      <% end %>
+    <% end %>
+  <% end %>
+
   <%# Notification preferences — a basic per-user setting, independent of whether
       the tenant has the API enabled, so it lives outside the api_enabled? block. %>
   <% if @settings_user.human? && is_own_settings %>

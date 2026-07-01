@@ -25,10 +25,26 @@ class NotificationDeliveryJob < TenantScopedJob
     when "in_app"
       # In-app notifications are already created, just mark as delivered
       recipient.mark_delivered!
+    when "web_push"
+      deliver_web_push(recipient)
     end
   end
 
   private
+
+  # Fan out one WebPushDeliveryJob per active subscription (device). The
+  # recipient row is "delivered" once handed off; per-device outcomes land on
+  # the subscription rows (revocation, error forensics).
+  sig { params(recipient: NotificationRecipient).void }
+  def deliver_web_push(recipient)
+    user = recipient.user
+    return recipient.mark_delivered! if user.nil? || !user.human?
+
+    user.web_push_subscriptions.active.find_each do |subscription|
+      WebPushDeliveryJob.perform_later(T.must(recipient.id), subscription.id)
+    end
+    recipient.mark_delivered!
+  end
 
   sig { params(recipient: NotificationRecipient).void }
   def deliver_email(recipient)

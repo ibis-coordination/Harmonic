@@ -27,7 +27,7 @@ class UsersController < ApplicationController
     redirect_to "#{current_user.path}/settings/webhooks"
   end
 
-  AVAILABLE_PROFILE_TABS = %w[posts activity lists common_collectives].freeze
+  AVAILABLE_PROFILE_TABS = ["posts", "activity", "lists", "common_collectives"].freeze
   DEFAULT_PROFILE_TAB = "posts"
 
   def show
@@ -110,9 +110,9 @@ class UsersController < ApplicationController
     @show_tune_in_on_mutuals = @current_user.present? && @current_user.id != @showing_user.id
     @tune_in_state = if @show_tune_in_on_mutuals
                        TuneInState.compute(
-                         viewer:     @current_user,
+                         viewer: @current_user,
                          target_ids: @mutuals.map(&:id),
-                         tenant:     @current_tenant,
+                         tenant: @current_tenant
                        )
                      end
 
@@ -156,6 +156,8 @@ class UsersController < ApplicationController
     # most recently used.
     @active_devices = @settings_user.refresh_tokens.live.order(last_used_at: :desc).to_a
     @active_devices.sort_by! { |d| [current_refresh_token&.id == d.id ? 0 : 1, -d.last_used_at.to_i] }
+
+    @push_subscriptions = @settings_user.web_push_subscriptions.active.order(last_seen_at: :desc).to_a
 
     respond_to do |format|
       format.html
@@ -248,7 +250,7 @@ class UsersController < ApplicationController
     # Bio / location / website are per-tenant — write straight to the
     # TenantUser. Use `key?` so a deliberate empty string clears the field
     # but not submitting the field at all leaves it untouched.
-    %i[bio location website].each do |field|
+    [:bio, :location, :website].each do |field|
       tu[field] = params[field].to_s.strip.presence if params.key?(field)
     end
     tu.save!
@@ -747,7 +749,7 @@ class UsersController < ApplicationController
     @posts_feed_items = FeedBuilder.new(
       notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id, subtype: "post"),
       decisions_scope: Decision.none,
-      commitments_scope: Commitment.none,
+      commitments_scope: Commitment.none
     ).feed_items
   end
 
@@ -755,7 +757,7 @@ class UsersController < ApplicationController
     @activity_feed_items = FeedBuilder.new(
       notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id).where.not(subtype: "post"),
       decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
-      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
+      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id)
     ).feed_items
   end
 
@@ -809,5 +811,4 @@ class UsersController < ApplicationController
   def token_authenticated_action?
     action_name == "confirm_email"
   end
-
 end

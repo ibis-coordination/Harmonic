@@ -100,3 +100,11 @@ feature_flags:
     default_tenant: false
     default_collective: false
     collective_level: false
+
+  web_push:
+    name: "Web Push Notifications"
+    description: "Delivers notifications to users' devices via Web Push. Users opt in per device from their settings page; per-type channel preferences control which notifications push."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false

@@ -108,6 +108,8 @@ Model.for_user_across_tenants(user)
 - `OauthIdentity` - OAuth provider identities
 - `OmniAuthIdentity` - OmniAuth provider identities
 - `StripeCustomer` - Billing record; attached to the human user, not a tenant (a single subscription spans all billing-enabled tenants)
+- `RefreshToken` - Trusted device for silent re-auth; valid across every tenant the user belongs to
+- `WebPushSubscription` - Push device registration; user-global like `RefreshToken` (per-tenant delivery is governed by the `web_push` channel preference on `TenantUser`)
 
 **Enforcement**:
 - Static analysis: `./scripts/check-tenant-safety.sh` detects banned `.unscoped` usage

@@ -397,6 +397,8 @@ Rails.application.routes.draw do
     patch 'image' => 'users#update_image', on: :member
     delete 'settings/devices/:device_id' => 'devices#destroy', on: :member
     post   'settings/devices/revoke_others' => 'devices#revoke_others', on: :member
+    post   'settings/push-subscriptions' => 'web_push_subscriptions#create', on: :member
+    delete 'settings/push-subscriptions/:subscription_id' => 'web_push_subscriptions#destroy', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy] do

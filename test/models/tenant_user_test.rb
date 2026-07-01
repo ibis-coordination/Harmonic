@@ -378,7 +378,69 @@ class TenantUserTest < ActiveSupport::TestCase
     assert tu.valid?
   end
 
+  # Web push channel
+
+  test "notification_channels_for includes web_push when flag on, pref on, and an active subscription exists" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+
+    channels = user.tenant_user.notification_channels_for("mention")
+
+    assert_includes channels, "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when the tenant flag is off" do
+    _tenant, _collective, user = create_tenant_collective_user
+    subscribe_to_push!(user)
+
+    channels = user.tenant_user.notification_channels_for("mention")
+
+    refute_includes channels, "web_push"
+  end
+
+  test "notification_channels_for excludes web_push without an active subscription" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+
+    subscription = subscribe_to_push!(user)
+    subscription.revoke!(reason: "gone")
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when the pref is off" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+    user.tenant_user.set_notification_preference!("mention", "web_push", false)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "update_notification_preferences! accepts the web_push channel" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+
+    user.tenant_user.update_notification_preferences!("comment" => { "web_push" => false })
+
+    refute_includes user.tenant_user.notification_channels_for("comment"), "web_push"
+    assert_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
   private
+
+  def subscribe_to_push!(user)
+    WebPushSubscription.upsert_for!(
+      user: user,
+      endpoint: "https://push.example.com/send/#{SecureRandom.hex(4)}",
+      p256dh_key: "p256dh-key",
+      auth_key: "auth-key"
+    )
+  end
 
   def first_tenant_user_for_validation
     tenant = create_tenant(subdomain: "fields-#{SecureRandom.hex(4)}")
