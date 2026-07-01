@@ -1440,6 +1440,50 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match "execute_action", response.body
   end
 
+  def attach_resource_to_log(log, display_path:)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @ai_agent)
+    McpToolCallResource.create!(
+      tenant: @tenant,
+      mcp_tool_call_log: log,
+      resource: note,
+      resource_collective: @collective,
+      action_name: "create_note",
+      display_path: display_path,
+    )
+  ensure
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "MCP tool call detail renders a safe stored display_path as a link" do
+    log = create_mcp_log_for(@ai_agent, tool_name: "execute_action", arguments: {})
+    safe_path = "/collectives/#{@collective.handle}/n/abc123"
+    attach_resource_to_log(log, display_path: safe_path)
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
+    assert_response :success
+    assert_match %r{<a[^>]+href="#{Regexp.escape(safe_path)}"}, response.body
+  end
+
+  # Regression guard for the show_mcp_tool_call.html.erb review finding
+  # (Harmonic PR #308): a stored `display_path` is only ever rendered as an
+  # `href` when it's a same-origin relative path. Server-side path computation
+  # can't produce a scheme, but if one ever reached the column it must render
+  # as inert text, never as an executable javascript: link.
+  test "MCP tool call detail renders a hostile stored display_path as inert text, not an href" do
+    log = create_mcp_log_for(@ai_agent, tool_name: "execute_action", arguments: {})
+    attach_resource_to_log(log, display_path: "javascript:alert(document.cookie)")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
+    assert_response :success
+    # The value is still shown to the human operator ...
+    assert_match "javascript:alert(document.cookie)", response.body
+    # ... but never as a clickable link that would execute it.
+    assert_no_match %r{href=["']\s*javascript:}i, response.body
+  end
+
   test "MCP tool call detail returns 404 for an unknown log id" do
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/00000000-0000-0000-0000-000000000000"

@@ -59,8 +59,10 @@
                 <td><%= res.action_name %></td>
                 <td><%= res.resource_type %></td>
                 <td>
-                  <% if res.display_path.present? %>
+                  <% if safe_internal_path?(res.display_path) %>
                     <a href="<%= res.display_path %>" class="pulse-link"><%= res.display_path %></a>
+                  <% elsif res.display_path.present? %>
+                    <%= res.display_path %>
                   <% else %>
                     —
                   <% end %>

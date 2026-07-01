@@ -152,7 +152,7 @@
           <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--color-canvas-subtle); border-radius: 6px; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
               <i class="<%= resource.class.to_s.downcase %>-icon icon-sm"></i>
-              <% if task_run_resource.display_path.present? %>
+              <% if safe_internal_path?(task_run_resource.display_path) %>
                 <a href="<%= task_run_resource.display_path %>" style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                   <%= resource_title %>
                 </a>
