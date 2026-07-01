@@ -111,16 +111,23 @@ class SilentRefreshTest < ActionDispatch::IntegrationTest
   # backgrounding, so every cold launch arrived with the session cookie already
   # gone but a live 90-day refresh cookie beside it — forcing a silent refresh
   # (and a rotation) on every app open. config/initializers/session_store.rb now
-  # sets `expire_after` to the idle timeout, so the cookie persists on disk for
-  # exactly as long as the session stays idle-valid and a cold-start within that
-  # window reuses the session instead of rotating.
+  # sets `expire_after` so the cookie persists on disk and a cold-start within
+  # the session's valid window reuses it instead of rotating.
+  #
+  # `expire_after` is set LONGER than the absolute cap (not equal to the idle
+  # timeout) on purpose: Rails' CookieStore embeds the expiry in the payload and
+  # blanks the session server-side once it passes, which would preempt
+  # check_session_timeout — the code that emits the timeout flash and the audit
+  # log event. The cookie is a persistence backstop; the server-side checks stay
+  # the sole expiry authority. See authentication_security_test.rb for the
+  # timeout-behavior coverage this protects.
 
-  test "session cookie is configured to persist for the idle-timeout window (#326)" do
+  test "session cookie persists past the absolute cap so server-side timeouts stay authoritative (#326)" do
     expire_after = Rails.application.config.session_options[:expire_after]
     assert_not_nil expire_after,
                    "session cookie must set expire_after so a PWA cold-start reuses it instead of forcing a silent refresh (#326)"
-    assert_equal ApplicationController::SESSION_IDLE_TIMEOUT, expire_after,
-                 "cookie persistence must track the server-side idle timeout (single source of truth via SESSION_IDLE_TIMEOUT)"
+    assert_operator expire_after, :>, ApplicationController::SESSION_ABSOLUTE_TIMEOUT,
+                    "cookie must outlive the absolute cap so check_session_timeout (flash + audit) fires before the cookie expires"
   end
 
   test "silent refresh is a no-op with an API token request (Authorization header)" do
