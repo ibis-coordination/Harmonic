@@ -30,7 +30,10 @@
 
   .pulse-top-header {
     padding: 8px 12px;
-    position: relative;
+    /* Stay sticky (not static) so the header still auto-hides on mobile and
+     * remains the containing block for the expanded search overlay below. */
+    position: sticky;
+    top: 0;
   }
 
   .header-search-wrapper {

@@ -32,7 +32,9 @@
       <%= octicon 'heart' %>
     </div>
     <% unless @hide_header %>
-      <header class="pulse-top-header">
+      <header class="pulse-top-header"
+              data-controller="auto-hide-header"
+              data-auto-hide-header-hidden-class="pulse-top-header--hidden">
         <a href="/" class="pulse-logo">
           <i class="tri-logo-icon icon-sm"></i>
           <span>Harmonic</span>

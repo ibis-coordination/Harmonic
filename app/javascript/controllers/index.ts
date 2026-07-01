@@ -12,6 +12,7 @@ window.Stimulus = application
 
 // Import all controllers
 import AjaxToggleController from "./ajax_toggle_controller"
+import AutoHideHeaderController from "./auto_hide_header_controller"
 import ListFormController from "./list_form_controller"
 import CardExpandController from "./card_expand_controller"
 import CardNavigateController from "./card_navigate_controller"
@@ -84,6 +85,7 @@ import WebhookTestController from "./webhook_test_controller"
 
 // Register all controllers
 application.register("ajax-toggle", AjaxToggleController)
+application.register("auto-hide-header", AutoHideHeaderController)
 application.register("card-expand", CardExpandController)
 application.register("card-navigate", CardNavigateController)
 application.register("clipboard", ClipboardController)
