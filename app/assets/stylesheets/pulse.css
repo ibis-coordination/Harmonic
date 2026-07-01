@@ -6,6 +6,7 @@
  *
  *= require pulse/_base
  *= require pulse/_layout
+ *= require pulse/_rail
  *= require pulse/_components
  *= require pulse/_markdown_editor
  *= require pulse/_sidebar

@@ -787,6 +787,23 @@ class ApplicationController < ActionController::Base
   end
   helper_method :current_actor
 
+  # Collectives shown as square icons in the persistent left rail (issue #337):
+  # the viewer's standard collectives in the current tenant, minus the main
+  # collective (which the rail renders separately as the public-space eye).
+  # Empty for anonymous viewers. Collective is tenant-scoped, so this is
+  # already limited to the current tenant.
+  def rail_collectives
+    return @rail_collectives if defined?(@rail_collectives)
+    return (@rail_collectives = []) if @current_user.nil? || @current_tenant.nil?
+
+    @rail_collectives = @current_user.collectives
+      .where(collective_type: "standard")
+      .where.not(id: @current_tenant.main_collective_id)
+      .order(:name)
+      .to_a
+  end
+  helper_method :rail_collectives
+
   # Active representation sessions owned by this caller that are not attached
   # to the current request. The markdown layout surfaces these as a warning
   # so the agent can attach or end them.

@@ -82,11 +82,20 @@
         <% end %>
       </div>
     <% end %>
-    <%= render SidebarComponent.new(requested_mode: @sidebar_mode || "full", collective: @current_collective) do %>
-      <main class="pulse-main">
-        <%= yield %>
-      </main>
-    <% end %>
+    <div class="pulse-app-shell">
+      <% if @current_user %>
+        <%= render CollectiveRailComponent.new(
+          main_collective: @current_tenant&.main_collective,
+          collectives: rail_collectives,
+          current_collective: @current_collective,
+        ) %>
+      <% end %>
+      <%= render SidebarComponent.new(requested_mode: @sidebar_mode || "full", collective: @current_collective) do %>
+        <main class="pulse-main">
+          <%= yield %>
+        </main>
+      <% end %>
+    </div>
     <p class="pulse-motto-footer"
       title="These words appear on every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️."
     >

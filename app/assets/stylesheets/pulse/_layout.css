@@ -2,10 +2,18 @@
  * Container, sidebar structure, main content area, header, footer
  */
 
+/* App Shell: persistent collective rail + the rest of the app */
+.pulse-app-shell {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
 /* Main Container */
 .pulse-container {
   display: flex;
   flex: 1;
+  min-width: 0;
 }
 
 /* Sidebar */
@@ -331,8 +339,14 @@
   background: var(--color-border-default);
 }
 
+/* When the collective rail (72px) is present, the sidebar's right edge shifts
+   right by the rail width, so the footer's continuation line follows it. */
+.pulse-app-shell:has(.pulse-rail) + .pulse-motto-footer::before {
+  left: 351px;
+}
+
 /* Hide sidebar border line when no sidebar */
-.pulse-container.no-sidebar + .pulse-motto-footer::before {
+.pulse-app-shell:has(.pulse-container.no-sidebar) + .pulse-motto-footer::before {
   display: none;
 }
 

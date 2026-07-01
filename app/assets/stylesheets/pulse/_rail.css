@@ -1,0 +1,103 @@
+/* Pulse Collective Rail (issue #337)
+ *
+ * A persistent Discord/Slack-style vertical rail of collectives. The public
+ * space (main collective) is the topmost entry, rendered as a bare eye icon
+ * with no square. Every other collective is a square profile icon.
+ *
+ * First-pass sketch — visuals will iterate.
+ */
+
+.pulse-rail {
+  flex-shrink: 0;
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  background: var(--color-canvas-subtle);
+  border-right: 1px solid var(--color-border-default);
+  overflow-y: auto;
+}
+
+/* Each rail entry: a 48px hit area with a left-edge active indicator. */
+.pulse-rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  color: var(--color-fg-muted);
+  text-decoration: none;
+}
+
+/* The active/hover indicator pill on the left edge (Discord-style). */
+.pulse-rail-indicator {
+  position: absolute;
+  left: -12px;
+  width: 4px;
+  height: 0;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-fg-default);
+  transition: height 0.15s ease;
+}
+
+.pulse-rail-item:hover .pulse-rail-indicator {
+  height: 20px;
+}
+
+.pulse-rail-item.active .pulse-rail-indicator {
+  height: 36px;
+}
+
+/* Square profile icons for collectives. */
+.pulse-rail-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  object-fit: cover;
+  transition: border-radius 0.15s ease;
+}
+
+.pulse-rail-item:hover .pulse-rail-avatar,
+.pulse-rail-item.active .pulse-rail-avatar {
+  border-radius: 10px;
+}
+
+/* Span-based fallback avatars (initials) also need to fill the square. */
+.pulse-rail-avatar.inline-avatar {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* The public space: an eye icon with NO square — the only bare entry. */
+.pulse-rail-public .pulse-rail-eye {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-rail-public:hover,
+.pulse-rail-public.active {
+  color: var(--color-accent-fg);
+}
+
+.pulse-rail-public .octicon {
+  fill: currentColor;
+}
+
+/* Divider between the public space and the collective squares. */
+.pulse-rail-divider {
+  width: 32px;
+  height: 1px;
+  background: var(--color-border-default);
+  margin: 2px 0;
+}
+
+@media (max-width: 768px) {
+  /* Keep the rail visible but slimmer on narrow viewports. */
+  .pulse-rail {
+    width: 60px;
+  }
+}
