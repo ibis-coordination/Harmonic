@@ -50,4 +50,23 @@ class McpToolCallLog < ApplicationRecord
   def source_label
     internal? ? "Internal task run" : "External client"
   end
+
+  # The Harmonic page path the call targeted, when the tool records one
+  # (fetch_page / execute_action). Nil for tools that take no path
+  # (search / get_help).
+  def logged_path
+    arguments&.dig("path").presence
+  end
+
+  # The action name for execute_action calls; nil for every other tool.
+  def logged_action_name
+    arguments&.dig("action").presence
+  end
+
+  # The agent's declared intention for the call, pulled from the context
+  # block. Present only when a context block was supplied (required for
+  # execute_action, optional for representation-session reads).
+  def intention
+    context&.dig("intention").presence
+  end
 end

@@ -29,9 +29,9 @@
           <tr>
             <th>Time</th>
             <th>Tool</th>
-            <th>Status</th>
-            <th>Duration</th>
-            <th>Source</th>
+            <th>Path</th>
+            <th>Action</th>
+            <th>Intention</th>
           </tr>
         </thead>
         <tbody>
@@ -44,16 +44,20 @@
               </td>
               <td><code><%= log.tool_name %></code></td>
               <td>
-                <% if log.status == "ok" %>
-                  <span class="pulse-tag pulse-tag-success">ok</span>
-                <% elsif log.status == "pending" %>
-                  <span class="pulse-tag">pending</span>
+                <% if log.logged_path %>
+                  <code><%= log.logged_path %></code>
                 <% else %>
-                  <span class="pulse-tag pulse-tag-danger"><%= log.status %></span>
+                  <span class="pulse-muted">—</span>
                 <% end %>
               </td>
-              <td><%= log.duration_ms %> ms</td>
-              <td><%= log.source_label %></td>
+              <td>
+                <% if log.logged_action_name %>
+                  <code><%= log.logged_action_name %></code>
+                <% else %>
+                  <span class="pulse-muted">—</span>
+                <% end %>
+              </td>
+              <td><%= log.intention.presence || content_tag(:span, "—", class: "pulse-muted") %></td>
             </tr>
           <% end %>
         </tbody>

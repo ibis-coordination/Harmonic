@@ -1380,6 +1380,19 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_match "fetch_page", response.body
   end
 
+  test "MCP tool calls list surfaces path, action, and intention" do
+    create_mcp_log_for(@ai_agent,
+                       tool_name: "execute_action",
+                       arguments: { "path" => "/collectives/team/n/abc123", "action" => "add_comment" },
+                       context: { "intention" => "Reply to Dan on the doc thread", "visibility" => "shared" })
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :success
+    assert_match "/collectives/team/n/abc123", response.body
+    assert_match "add_comment", response.body
+    assert_match "Reply to Dan on the doc thread", response.body
+  end
+
   test "MCP tool calls list renders markdown" do
     create_mcp_log_for(@ai_agent)
     sign_in_as(@user, tenant: @tenant)
