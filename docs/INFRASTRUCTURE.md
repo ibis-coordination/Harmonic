@@ -85,8 +85,8 @@ material arrives:
 |---|---|
 | **Pre-place files (default)** | Operator drops one 0600 file per secret into `secrets/run/` (scp, config-mgmt, password-manager CLI). Zero dependencies; no hook needed. |
 | **SOPS + age** | Encrypt a **private** dotenv file (kept outside this repo), decrypt at deploy with one age key. Version-controlled + encrypted at rest in your private store. Example hook: `secrets/adapters/populate-secrets.sops.example.sh`. Pairs with Tier 1 — **Terraform never sees plaintext**. |
-| **AWS SSM Parameter Store** | Viable (we're in AWS), but means an IAM user's static creds on a DO box. A hook runs `aws ssm get-parameters`. |
-| **Vault agent / OpenBao** | For operators already running one. (Vault is BUSL-licensed now; OpenBao is the OSS fork.) Over-engineering at single-droplet scale, but the hook contract supports it. |
+| **AWS SSM Parameter Store** | Viable (we're in AWS), but means an IAM user's static creds on a DO box (an instance role avoids that). A hook runs `aws ssm get-parameters-by-path`. Example hook: `secrets/adapters/populate-secrets.ssm.example.sh`. |
+| **Vault agent / OpenBao** | For operators already running one. (Vault is BUSL-licensed now; OpenBao is the OSS fork.) Over-engineering at single-droplet scale, but the hook contract supports it. Example hook: `secrets/adapters/populate-secrets.vault.example.sh`. |
 | Rails encrypted credentials | Complementary (see split below), not an Axis-2 adapter. |
 
 harmonic-devs' own deployment will use **SOPS + age**, with the encrypted blob
