@@ -36,30 +36,31 @@
   ) do |header|
     header.with_actions do %>
       <%= render 'shared/copy_to_clipboard', text: request.original_url %>
-      <% if note.user_can_edit?(@current_user) %>
-        <% if note.is_table? %>
-          <%= link_to "#{note.path}/settings", class: 'pulse-action-btn' do %>
-            <%= octicon 'gear', height: 14 %>
-            Settings
-          <% end %>
-        <% else %>
-          <%= link_to "#{note.path}/edit", class: 'pulse-action-btn' do %>
-            <%= octicon 'pencil', height: 14 %>
-            Edit
-          <% end %>
-        <% end %>
-      <% end %>
+      <% show_edit = note.user_can_edit?(@current_user) %>
       <% show_pin = @current_user && !@current_collective.is_main_collective? %>
       <% show_report = @current_user && note.created_by_id != @current_user.id && !@already_reported %>
       <% show_view_summary = note.is_summarizable? && note.summary.present? %>
       <% show_add_summary = @current_user && note.is_summarizable? && note.can_write_summary?(@current_user) %>
-      <% if show_pin || show_report || show_view_summary || show_add_summary %>
+      <% if show_edit || show_pin || show_report || show_view_summary || show_add_summary %>
         <details data-controller="kebab-menu" style="position: relative; display: inline-block;">
           <summary class="pulse-action-btn-secondary" style="cursor: pointer; list-style: none;" title="More actions">
             <%= octicon 'kebab-horizontal', height: 14 %>
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
+              <% if show_edit %>
+                <li>
+                  <% if note.is_table? %>
+                    <%= link_to "#{note.path}/settings" do %>
+                      <%= octicon 'gear', height: 14 %> Settings
+                    <% end %>
+                  <% else %>
+                    <%= link_to "#{note.path}/edit" do %>
+                      <%= octicon 'pencil', height: 14 %> Edit
+                    <% end %>
+                  <% end %>
+                </li>
+              <% end %>
               <% if show_view_summary %>
                 <li>
                   <a href="#" data-action="click->summary-toggle#showEmbed">
