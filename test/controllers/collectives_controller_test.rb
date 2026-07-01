@@ -1405,6 +1405,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # privilege tests below drive the action endpoints the way an agent actually
   # would.
   def agent_api_token(agent)
+    # Bearer-token auth is gated on the tenant (and the collective) having API
+    # access enabled — otherwise the request is rejected with a 403 "API not
+    # enabled for this tenant" before it ever reaches the action.
+    @tenant.enable_api!
+    @collective.enable_api!
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
   ensure
@@ -1680,9 +1685,12 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a non-member of the collective cannot update member roles" do
-    # The actor belongs to the tenant but is NOT a member of @collective, so
-    # `@current_user.collective_member` is nil for this collective. They must be
-    # denied just like a non-admin member is.
+    # The actor belongs to the tenant but is NOT a member of @collective. A
+    # non-member is stopped at the collective-membership boundary itself: the
+    # request is bounced to the collective's /join page before it ever reaches
+    # the member-management authz. That redirect *is* the denial — the mutation
+    # never runs — which is a strictly stronger guarantee than a 403 from the
+    # action.
     outsider = create_user(name: "Tenant Outsider")
     @tenant.add_user!(outsider)
     target = add_member(name: "Target")
@@ -1692,12 +1700,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          params: { user_id: target.id, role: "representative", grant: "true" },
          headers: MEMBER_MGMT_MD
 
-    assert_response :forbidden
+    assert_redirected_to "#{@collective.path}/join"
     cm = @collective.collective_members.find_by(user: target)
     assert_not cm.has_role?("representative"), "a non-member must not be able to grant roles"
   end
 
   test "a non-member of the collective cannot remove a member" do
+    # As above: a non-member is bounced to /join at the collective boundary
+    # before reaching the action, so the removal never runs.
     outsider = create_user(name: "Tenant Outsider")
     @tenant.add_user!(outsider)
     target = add_member(name: "Target")
@@ -1707,7 +1717,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          params: { user_id: target.id },
          headers: MEMBER_MGMT_MD
 
-    assert_response :forbidden
+    assert_redirected_to "#{@collective.path}/join"
     cm = @collective.collective_members.find_by(user: target)
     assert_not cm.archived?, "a non-member must not be able to remove members"
   end
