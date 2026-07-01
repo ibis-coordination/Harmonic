@@ -1,0 +1,46 @@
+<%# Offline fallback page. Pre-cached by the service worker on install and
+    served when an HTML navigation fails. Fully self-contained — when this
+    renders, nothing else is reachable. %>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Offline — Harmonic</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #ffffff;
+        color: #1f2328;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0d1117; color: #e6edf3; }
+        button { background: #21262d; color: #e6edf3; border-color: #30363d; }
+      }
+      main { text-align: center; padding: 2rem; max-width: 24rem; }
+      h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+      p { margin: 0 0 1.5rem; opacity: 0.8; }
+      button {
+        font: inherit;
+        padding: 0.5rem 1.25rem;
+        border: 1px solid #d1d9e0;
+        border-radius: 6px;
+        background: #f6f8fa;
+        color: inherit;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You're offline</h1>
+      <p>Harmonic needs a connection. Your content will be here when you're back online.</p>
+      <button onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

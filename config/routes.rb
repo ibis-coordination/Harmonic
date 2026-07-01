@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   get 'metrics' => 'metrics#show'
   get 'robots.txt' => 'robots#show', as: :robots, defaults: { format: :txt }
   get 'manifest' => 'rails/pwa#manifest', as: :pwa_manifest, defaults: { format: 'json' }
+  get 'service-worker' => 'pwa#service_worker', as: :pwa_service_worker, defaults: { format: 'js' }
+  get 'offline' => 'pwa#offline', as: :pwa_offline
 
   # MCP (Model Context Protocol) Streamable HTTP endpoint.
   # See https://modelcontextprotocol.io/specification/2025-11-25/basic/transports

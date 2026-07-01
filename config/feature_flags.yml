@@ -92,3 +92,11 @@ feature_flags:
     default_tenant: false
     default_collective: false
     collective_level: false
+
+  service_worker:
+    name: "Service Worker"
+    description: "Installs a service worker for instant cold opens and an offline fallback page. Turning this off makes installed service workers uninstall themselves on their next update check."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false

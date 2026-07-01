@@ -9,6 +9,9 @@
     <link rel="icon" href="/<%= @current_app %>-favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="/harmonic-apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
+    <% if @current_tenant && FeatureFlagService.enabled?("service_worker", tenant: @current_tenant) %>
+      <meta name="service-worker-enabled" content="true">
+    <% end %>
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
     <meta name="mobile-web-app-capable" content="yes">
