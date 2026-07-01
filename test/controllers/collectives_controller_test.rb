@@ -1392,6 +1392,12 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     user
   end
 
+  # The member-management actions identify their target by handle (the id the
+  # markdown/agent interface exposes), not the internal numeric user id.
+  def handle_for(user)
+    user.tenant_users.find_by(tenant_id: @tenant.id).handle
+  end
+
   def update_roles_path(collective = @collective)
     "/collectives/#{collective.handle}/members/actions/update_member_roles"
   end
@@ -1447,7 +1453,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: member.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(member), role: "representative", grant: "true" },
          headers: MEMBER_MGMT_MD
 
     assert_response :success
@@ -1460,7 +1466,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: member.id, role: "representative", grant: "false" },
+         params: { user_handle: handle_for(member), role: "representative", grant: "false" },
          headers: MEMBER_MGMT_MD
 
     assert_response :success
@@ -1474,7 +1480,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(actor, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: target.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
          headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
@@ -1487,7 +1493,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: member.id, role: "superuser", grant: "true" },
+         params: { user_handle: handle_for(member), role: "superuser", grant: "true" },
          headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
@@ -1498,7 +1504,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: @user.id, role: "admin", grant: "false" },
+         params: { user_handle: handle_for(@user), role: "admin", grant: "false" },
          headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
@@ -1513,7 +1519,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(other_admin, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: @user.id, role: "admin", grant: "false" },
+         params: { user_handle: handle_for(@user), role: "admin", grant: "false" },
          headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
@@ -1603,7 +1609,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     # No remove form targeting the acting admin themselves.
     assert_select "form.pulse-member-menu-form[action$=?] input[name=?][value=?]",
-                  "/members/actions/remove_member", "user_id", other_admin.id.to_s, count: 0
+                  "/members/actions/remove_member", "user_handle", handle_for(other_admin), count: 0
   end
 
   test "admin can revoke admin role when another admin remains" do
@@ -1611,7 +1617,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: other_admin.id, role: "admin", grant: "false" },
+         params: { user_handle: handle_for(other_admin), role: "admin", grant: "false" },
          headers: MEMBER_MGMT_MD
 
     assert_response :success
@@ -1624,7 +1630,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post remove_member_path,
-         params: { user_id: member.id },
+         params: { user_handle: handle_for(member) },
          headers: MEMBER_MGMT_MD
 
     assert_response :success
@@ -1637,7 +1643,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(other_admin, tenant: @tenant)
 
     post remove_member_path,
-         params: { user_id: @user.id },
+         params: { user_handle: handle_for(@user) },
          headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
@@ -1650,7 +1656,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(other_admin, tenant: @tenant)
 
     post remove_member_path,
-         params: { user_id: other_admin.id },
+         params: { user_handle: handle_for(other_admin) },
          headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
@@ -1664,7 +1670,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(actor, tenant: @tenant)
 
     post remove_member_path,
-         params: { user_id: target.id },
+         params: { user_handle: handle_for(target) },
          headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
@@ -1678,7 +1684,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post remove_member_path,
-         params: { user_id: stranger.id },
+         params: { user_handle: handle_for(stranger) },
          headers: MEMBER_MGMT_MD
 
     assert_response :not_found
@@ -1697,7 +1703,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(outsider, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_id: target.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
          headers: MEMBER_MGMT_MD
 
     assert_redirected_to "#{@collective.path}/join"
@@ -1714,7 +1720,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(outsider, tenant: @tenant)
 
     post remove_member_path,
-         params: { user_id: target.id },
+         params: { user_handle: handle_for(target) },
          headers: MEMBER_MGMT_MD
 
     assert_redirected_to "#{@collective.path}/join"
@@ -1735,7 +1741,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil workspace, "expected @user to own a private workspace"
 
     post update_roles_path(workspace),
-         params: { user_id: @user.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(@user), role: "representative", grant: "true" },
          headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
@@ -1752,7 +1758,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil workspace, "expected @user to own a private workspace"
 
     post remove_member_path(workspace),
-         params: { user_id: @user.id },
+         params: { user_handle: handle_for(@user) },
          headers: MEMBER_MGMT_MD
 
     assert_response :forbidden
@@ -1766,7 +1772,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_match(/update_member_roles/, response.body)
-    assert_match(/user_id/, response.body)
+    assert_match(/user_handle/, response.body)
     assert_match(/role/, response.body)
     assert_match(/grant/, response.body)
   end
@@ -1781,7 +1787,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
 
     post update_roles_path,
-         params: { user_id: target.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
          headers: agent_md_headers(agent)
 
     assert_response :success
@@ -1795,7 +1801,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
 
     post remove_member_path,
-         params: { user_id: target.id },
+         params: { user_handle: handle_for(target) },
          headers: agent_md_headers(agent)
 
     assert_response :success
@@ -1815,7 +1821,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
 
     post update_roles_path,
-         params: { user_id: target.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
          headers: agent_md_headers(agent)
 
     assert_response :forbidden
@@ -1831,7 +1837,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     target = add_member(name: "Target")
 
     post update_roles_path,
-         params: { user_id: target.id, role: "representative", grant: "true" },
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
          headers: agent_md_headers(agent)
 
     assert_response :forbidden

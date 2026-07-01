@@ -162,9 +162,9 @@ class ActionsHelper
     },
     "update_member_roles" => {
       description: "Grant or revoke a role on a member of this collective",
-      params_string: "(user_id, role, grant)",
+      params_string: "(user_handle, role, grant)",
       params: [
-        { name: "user_id", type: "integer", required: true, description: "ID of the member to update" },
+        { name: "user_handle", type: "string", required: true, description: "Handle of the member to update (e.g. @alice)" },
         { name: "role", type: "string", required: true, description: "Role to change: admin, representative, or summarizer" },
         { name: "grant", type: "boolean", required: true, description: "true to add the role, false to remove it" },
       ],
@@ -173,9 +173,9 @@ class ActionsHelper
     },
     "remove_member" => {
       description: "Remove a member from this collective (archives their membership)",
-      params_string: "(user_id)",
+      params_string: "(user_handle)",
       params: [
-        { name: "user_id", type: "integer", required: true, description: "ID of the member to remove" },
+        { name: "user_handle", type: "string", required: true, description: "Handle of the member to remove (e.g. @alice)" },
       ],
       authorization: :collective_admin,
       visibility: :by_collective,

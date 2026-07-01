@@ -59,7 +59,7 @@
                           <%= button_to role_label,
                                 "#{@current_collective.path}/members/actions/update_member_roles",
                                 method: :post,
-                                params: { user_id: u.id, role: role, grant: (active ? "false" : "true") },
+                                params: { user_handle: u.handle, role: role, grant: (active ? "false" : "true") },
                                 class: "pulse-member-menu-item",
                                 form: { class: "pulse-member-menu-form", data: { member_id: u.id, role: role } } %>
                         </li>
@@ -70,7 +70,7 @@
                           <%= button_to "Remove from collective",
                                 "#{@current_collective.path}/members/actions/remove_member",
                                 method: :post,
-                                params: { user_id: u.id },
+                                params: { user_handle: u.handle },
                                 class: "pulse-member-menu-item pulse-member-menu-item-danger",
                                 form: { class: "pulse-member-menu-form" },
                                 data: { turbo_confirm: "Remove #{u.display_name} from this collective?" } %>

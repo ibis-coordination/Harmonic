@@ -872,9 +872,14 @@ class CollectivesController < ApplicationController
       render_action_error({ action_name: action_name, resource: @current_collective, error: 'Members cannot be managed for this collective.', status: :forbidden })
       return :handled
     end
-    member = CollectiveMember.find_by(
+    # Members are identified by handle (the stable, human-meaningful id the
+    # markdown/agent interface exposes), not the internal numeric user id.
+    # Handles are tenant-scoped via TenantUser; accept an optional leading "@".
+    handle = params[:user_handle].to_s.delete_prefix("@")
+    target_user = @current_tenant.tenant_users.find_by(handle: handle)&.user
+    member = target_user && CollectiveMember.find_by(
       collective: @current_collective,
-      user_id: params[:user_id],
+      user_id: target_user.id,
       archived_at: nil,
     )
     if member.nil?
