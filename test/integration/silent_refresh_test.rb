@@ -105,6 +105,24 @@ class SilentRefreshTest < ActionDispatch::IntegrationTest
     assert_equal before_count, RefreshToken.count, "fresh session must not trigger rotation"
   end
 
+  # === Session cookie persistence (#326 root cause) ===
+  # The refresh churn behind #326 came from `_harmonic_session` being a
+  # browser-session cookie: on an iOS PWA, iOS reaps the standalone web view on
+  # backgrounding, so every cold launch arrived with the session cookie already
+  # gone but a live 90-day refresh cookie beside it — forcing a silent refresh
+  # (and a rotation) on every app open. config/initializers/session_store.rb now
+  # sets `expire_after` to the idle timeout, so the cookie persists on disk for
+  # exactly as long as the session stays idle-valid and a cold-start within that
+  # window reuses the session instead of rotating.
+
+  test "session cookie is configured to persist for the idle-timeout window (#326)" do
+    expire_after = Rails.application.config.session_options[:expire_after]
+    assert_not_nil expire_after,
+                   "session cookie must set expire_after so a PWA cold-start reuses it instead of forcing a silent refresh (#326)"
+    assert_equal ApplicationController::SESSION_IDLE_TIMEOUT, expire_after,
+                 "cookie persistence must track the server-side idle timeout (single source of truth via SESSION_IDLE_TIMEOUT)"
+  end
+
   test "silent refresh is a no-op with an API token request (Authorization header)" do
     seed_refresh_cookie
     @tenant.enable_api! if @tenant.respond_to?(:enable_api!)

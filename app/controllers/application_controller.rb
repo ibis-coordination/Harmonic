@@ -4,7 +4,10 @@ class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
   include PendingInviteStash
-  # Session timeout configuration (in seconds)
+  # Session timeout configuration (in seconds). NOTE: SESSION_IDLE_TIMEOUT is
+  # mirrored by config/initializers/session_store.rb, which uses it as the
+  # session cookie's `expire_after` so the cookie persists on disk for exactly
+  # as long as the session stays idle-valid. Keep the two defaults in sync.
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 
