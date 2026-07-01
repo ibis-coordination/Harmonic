@@ -577,4 +577,68 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     recipient
   end
+
+  # === Push opt-in banner ===
+
+  test "index shows the push opt-in banner when eligible" do
+    @tenant.enable_feature_flag!(:web_push)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+
+    assert_response :success
+    assert_match "push-optin-banner", response.body
+    assert_match "lock screen", response.body
+  end
+
+  test "index hides the banner when the web_push flag is off" do
+    @tenant.disable_feature_flag!(:web_push)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+
+    assert_no_match(/push-optin-banner/, response.body)
+  end
+
+  test "index hides the banner when the user already has an active subscription" do
+    @tenant.enable_feature_flag!(:web_push)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/here", p256dh_key: "k", auth_key: "a"
+    )
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+
+    assert_no_match(/push-optin-banner/, response.body)
+  end
+
+  test "index hides the banner after the user dismisses it" do
+    @tenant.enable_feature_flag!(:web_push)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/dismiss-push-banner"
+    assert_response :redirect
+
+    get "/notifications"
+
+    assert_no_match(/push-optin-banner/, response.body)
+  end
+
+  test "dismiss-push-banner records the notice on the tenant_user" do
+    @tenant.enable_feature_flag!(:web_push)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/dismiss-push-banner"
+
+    tenant_user = @tenant.tenant_users.find_by(user: @user)
+    assert_includes tenant_user.dismissed_notices, "push-optin-banner"
+  end
+
+  test "dismiss-push-banner requires authentication" do
+    post "/notifications/dismiss-push-banner"
+
+    assert_response :redirect
+    tenant_user = @tenant.tenant_users.find_by(user: @user)
+    assert_not_includes tenant_user.dismissed_notices, "push-optin-banner"
+  end
 end

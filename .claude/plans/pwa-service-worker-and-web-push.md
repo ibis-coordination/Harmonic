@@ -162,7 +162,7 @@ Manual: subscribe on phone, trigger a comment, see notification; tap action butt
 
 ## Decisions
 
-- **Opt-in moment**: settings page only initially. Don't auto-prompt on install — measure adoption first, revisit if low.
+- **Opt-in moment**: settings page, plus a dismissible banner on the notifications page (highest-intent surface; the button click satisfies the user-gesture requirement). No auto-prompt on install. Banner shows only with the tenant flag on, a human user, no active subscription anywhere, and no prior dismissal (`HasDismissibleNotices` on TenantUser).
 - **Subscription scope**: subscriptions are per-user (device registrations, cross-tenant); *whether* a tenant's notifications push is the per-tenant channel preference on `TenantUser` — the same split email already uses.
 - **Audience**: human users only. AI agents stay on webhooks.
 - **Chat messages**: included, pushed per-message; in-app dedup unchanged.

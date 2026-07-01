@@ -278,6 +278,7 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
+  post 'notifications/dismiss-push-banner' => 'notifications#dismiss_push_banner'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'

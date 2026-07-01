@@ -3,6 +3,8 @@
 class NotificationsController < ApplicationController
   before_action :require_user
 
+  PUSH_BANNER_NOTICE_ID = "push-optin-banner".freeze
+
   def index
     @sidebar_mode = 'minimal'
     # Set only tenant scope (not collective scope) to allow loading events from all collectives
@@ -88,6 +90,13 @@ class NotificationsController < ApplicationController
 
     @unread_count = NotificationService.unread_count_for(current_user, tenant: current_tenant)
     @page_title = @unread_count > 0 ? "(#{@unread_count}) Notifications" : "Notifications"
+    @show_push_banner = show_push_banner?
+  end
+
+  # POST /notifications/dismiss-push-banner
+  def dismiss_push_banner
+    current_user.tenant_user&.dismiss_notice!(PUSH_BANNER_NOTICE_ID)
+    redirect_to "/notifications"
   end
 
   def unread_count
@@ -332,6 +341,20 @@ class NotificationsController < ApplicationController
   end
 
   private
+
+  # The push opt-in banner shows to humans on push-enabled tenants who have
+  # no registered device and haven't dismissed it. A subscription on ANY
+  # device hides it everywhere — they know the feature exists; don't nag.
+  def show_push_banner?
+    return false unless FeatureFlagService.enabled?("web_push", tenant: @current_tenant)
+    return false unless current_user.human?
+
+    tenant_user = current_user.tenant_user
+    return false if tenant_user.nil?
+    return false if tenant_user.dismissed_notices.include?(PUSH_BANNER_NOTICE_ID)
+
+    !current_user.web_push_subscriptions.active.exists?
+  end
 
   def require_user
     return if current_user
