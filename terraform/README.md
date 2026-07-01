@@ -35,10 +35,11 @@ terraform init
 terraform plan
 terraform apply
 
-# Then seed the secrets file from outputs:
+# Then seed your secrets from outputs, into your PRIVATE store (outside this
+# repo) — one file per name in secrets/secrets.example, populated on the box
+# under secrets/run/ by your chosen adapter. Then run scripts/deploy.sh.
 terraform output -raw database_url
 terraform output -raw spaces_access_key_id
-# ...into secrets/secrets.enc.env (SOPS), then run scripts/deploy.sh on the box.
 ```
 
 ## State contains credentials — encrypt it
@@ -46,8 +47,8 @@ terraform output -raw spaces_access_key_id
 Managed Postgres and Spaces hand back generated credentials, so they land in
 Terraform **state**. Use the encrypted remote backend (commented in
 `versions.tf`) before a real apply. App / third-party secrets (Stripe, SES SMTP,
-`SECRET_KEY_BASE`, …) are kept **out** of state entirely via SOPS — see the
-infra doc.
+`SECRET_KEY_BASE`, …) are kept **out** of state entirely — they flow through the
+file-secrets contract, never a Terraform resource. See the infra doc.
 
 ## Not in scope (yet)
 

@@ -332,6 +332,6 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$(git config user.email)" --pass
 
 ## Related Documentation
 
-- [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Terraform provisioning (Tier 1) and the SOPS secrets architecture
+- [INFRASTRUCTURE.md](INFRASTRUCTURE.md) - Terraform provisioning (Tier 1) and the file-mounted secrets architecture
 - [MONITORING.md](MONITORING.md) - Monitoring and alerting setup
 - [SECURITY_AND_SCALING.md](SECURITY_AND_SCALING.md) - Security features and scaling guide

@@ -60,27 +60,51 @@ agent-runner, nothing more.
 
 ### Axis 2 — storage / root of trust
 
+> **Governing constraint (non-negotiable).** Harmonic is an open-source
+> codebase deployed by many operators. **No secret material — plaintext or
+> ciphertext — may live in this repo**, and the strategy must be deployable by
+> anyone in the general case. So the repo ships only an *interface* for
+> supplying secrets; each deployment's actual material is bring-your-own and
+> stays private (a separate private repo, an object-store object, or planted at
+> provision time). Storage is therefore an **operator choice behind a swappable
+> hook**, not a value this repo hard-codes.
+
 Every storage scheme (master.key, age key, Vault token, cloud IAM) reduces to
 bootstrapping exactly **one** credential onto the server. That bootstrap is the
 whole game. Relevant asymmetry: we run on a **DO droplet** (no instance-profile
 equivalent) but already use **AWS for SES** (AWS gives instance profiles for
-free). That affects which option is cheapest.
+free). That affects which option each operator finds cheapest.
 
-| Option | Fit |
+`scripts/deploy.sh` calls a **guarded populate hook** (`$SECRETS_HOOK`,
+default `/opt/harmonic/secrets/populate-secrets.sh`) whose job is to write one
+file per secret into `$SECRETS_DIR` (`secrets/run/`, gitignored). The repo
+ships **no hook**, so the default is a strict no-op; the operator picks how the
+material arrives:
+
+| Adapter | Fit |
 |---|---|
-| **SOPS + age** | **Chosen.** Encrypt a repo-committed secrets file; decrypt at deploy with one age key. ~½ day, version-controlled, encrypted at rest, key delivered once. Pairs with Tier 1 — **Terraform never sees plaintext**. |
-| Rails encrypted credentials | Complementary (see split below), not either/or. |
-| AWS SSM Parameter Store | Viable (we're in AWS), but means an IAM user's static creds on a DO box. Clean later upgrade. |
-| Infisical | Best DX if we want a secrets *product*; cost is running/trusting another service. |
-| OpenBao / Vault | Over-engineering at this scale. (Vault is BUSL-licensed now; OpenBao is the OSS fork.) |
+| **Pre-place files (default)** | Operator drops one 0600 file per secret into `secrets/run/` (scp, config-mgmt, password-manager CLI). Zero dependencies; no hook needed. |
+| **SOPS + age** | Encrypt a **private** dotenv file (kept outside this repo), decrypt at deploy with one age key. Version-controlled + encrypted at rest in your private store. Example hook: `secrets/adapters/populate-secrets.sops.example.sh`. Pairs with Tier 1 — **Terraform never sees plaintext**. |
+| **AWS SSM Parameter Store** | Viable (we're in AWS), but means an IAM user's static creds on a DO box. A hook runs `aws ssm get-parameters`. |
+| **Vault agent / OpenBao** | For operators already running one. (Vault is BUSL-licensed now; OpenBao is the OSS fork.) Over-engineering at single-droplet scale, but the hook contract supports it. |
+| Rails encrypted credentials | Complementary (see split below), not an Axis-2 adapter. |
+
+harmonic-devs' own deployment will use **SOPS + age**, with the encrypted blob
+in a private repo — but that's our operator choice, not a repo default.
 
 ### The split we use
 
 - **Infra / third-party** secrets (`DATABASE_URL`, `REDIS_PASSWORD`, Spaces keys,
-  Stripe, SES SMTP, OAuth) → **SOPS file** (`secrets/secrets.enc.env`).
+  Stripe, SES SMTP, OAuth) → **file-mounted `/run/secrets/<NAME>`**, populated by
+  the operator's chosen adapter. Names listed in `secrets/secrets.example`.
 - **App-internal** secrets (`SECRET_KEY_BASE`, `AGENT_RUNNER_SECRET`) → **Rails
   encrypted credentials** (`config/credentials.yml.enc`). Different owner, blast
   radius, and rotation cadence.
+
+Secrets are **global** — one shared set of infra/third-party creds across all
+tenant subdomains (resolved by
+[decision bcf853b3](https://www.harmonic.social/collectives/harmonic-devs/d/bcf853b3);
+per-tenant drew zero support). No per-tenant lookup path or per-tenant split.
 
 ## Secrets and Terraform state
 
@@ -91,20 +115,25 @@ in Terraform **state**. Mitigations:
 1. Use the **encrypted remote backend** (DO Spaces / `s3` backend — templated in
    `terraform/versions.tf`). Never keep state on a laptop or in git.
 2. Keep **everything else out of state**: app and third-party secrets go through
-   SOPS, never through a `local_file` / templated-`.env` Terraform resource.
+   the file-secrets contract (populated by your adapter), never through a
+   `local_file` / templated-`.env` Terraform resource.
 
-This is why the SOPS choice matters beyond convenience — it's what shrinks the
-state-plaintext problem down to just the two credentials Terraform must generate.
+This is why keeping secrets out of Terraform matters beyond convenience — it
+shrinks the state-plaintext problem down to just the two credentials Terraform
+must generate.
 
 ## Bootstrapping the one key
 
-The age private key is the single credential the box needs to unlock the rest.
-`deploy.sh` looks for it at `/opt/harmonic/secrets/age.key` (override with
+Whichever adapter you choose reduces to planting **one** bootstrap credential on
+the box. For the SOPS+age adapter that's the age private key; the example hook
+looks for it at `/opt/harmonic/secrets/age.key` (override with
 `SOPS_AGE_KEY_FILE`). cloud-init writes an **empty placeholder** there on
 purpose — user-data is itself visible to the DO API, so the real key should be
 planted out-of-band after first boot (`scp`, or your password manager's CLI).
 If you accept the key living in Terraform state, you can instead template it in
-via a sensitive variable — a deliberate trade-off, not the default.
+via a sensitive variable — a deliberate trade-off, not the default. Operators
+who instead pre-place the plaintext secret files, or use an instance-profile
+adapter (SSM), have no long-lived bootstrap key at all.
 
 ## Boot-ordering caveat
 
@@ -124,23 +153,37 @@ terraform apply                 # cloud primitives + Docker host
   └─ outputs: droplet_ip, database_url, spaces keys, ...
        │
        ▼
-secrets/secrets.enc.env         # seed from outputs, `sops -e -i`, commit cipher
+(your PRIVATE store, outside this repo)   # seed secrets from outputs by BYO means
        │
        ▼  (on the droplet)
 scripts/deploy.sh --with-migrations
-  ├─ decrypt_secrets()          # SOPS → secrets/decrypted/<NAME> (0600, tmpfs-bound)
-  ├─ docker compose -f prod -f secrets up -d
+  ├─ populate_secrets()         # optional $SECRETS_HOOK writes secrets/run/<NAME>
+  │                             #   (default: operator pre-placed the files; no-op)
+  ├─ docker compose -f prod -f secrets up -d   # overlay enabled only if populated
   │     └─ mounts /run/secrets/<NAME> → 00_file_secrets.rb → ENV
   └─ rails db:migrate
 ```
 
-## Open questions (carried from the brainstorm)
+## Decisions & open questions
 
-1. **age vs AWS KMS** for the SOPS key. Defaulting to **age** for simplicity; KMS
+**Resolved:**
+
+- **No secret material in the repo** — settled by directive: the repo ships only
+  the interface; material is bring-your-own and private. This is the governing
+  constraint above, not a vote.
+- **Secrets scope: global** — one shared set across all tenants
+  ([decision bcf853b3](https://www.harmonic.social/collectives/harmonic-devs/d/bcf853b3);
+  per-tenant drew zero support).
+- **Topology: single-node** — the module stays single-droplet, upgrade-friendly
+  ([decision 651b8093](https://www.harmonic.social/collectives/harmonic-devs/d/651b8093)).
+
+**Operator choices (not repo defaults):**
+
+1. **Which adapter** populates `/run/secrets/` — pre-placed files (default),
+   SOPS+age, AWS SSM, Vault. See the Axis-2 table; example hook in
+   `secrets/adapters/`.
+2. **age vs AWS KMS** for operators using the SOPS adapter. age is simplest; KMS
    adds an audit trail but ties decrypt to AWS creds on a DO box.
-2. **Per-tenant secrets?** The current layout assumes secrets are global (the
-   `.env` model). If any are per-tenant (e.g. separate Stripe keys per tenant
-   subdomain), the file layout and the Rails-credentials split both change.
-   **This is the assumption most worth confirming.**
-3. **Secrets *service* (Infisical/SSM) now, or file-based then upgrade?**
-   Defaulting to **file-based**; SSM/Infisical is a clean later upgrade.
+3. **Secrets *service* (Infisical/SSM) vs file-based** — file-based is the
+   simplest starting point; a service is a clean later upgrade behind the same
+   hook contract.

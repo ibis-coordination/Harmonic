@@ -10,36 +10,32 @@ set -e
 cd "$(dirname "$0")/.."
 
 COMPOSE_FILES=(-f docker-compose.production.yml)
-ENCRYPTED_SECRETS="secrets/secrets.enc.env"
-DECRYPTED_DIR="secrets/decrypted"
 
-# Decrypt SOPS-managed secrets into per-key files for the compose `secrets:`
-# overlay (docker-compose.secrets.yml). No-op when the encrypted file is
-# absent, so the legacy .env path is unaffected. See docs/INFRASTRUCTURE.md.
-decrypt_secrets() {
-  [ -f "$ENCRYPTED_SECRETS" ] || return 0
+# Directory of per-secret files that the compose `secrets:` overlay mounts to
+# /run/secrets/<NAME>. Operator-populated, gitignored — NO secret material,
+# plaintext or ciphertext, lives in this repo.
+SECRETS_DIR="${SECRETS_DIR:-secrets/run}"
 
-  if ! command -v sops >/dev/null 2>&1; then
-    echo "ERROR: $ENCRYPTED_SECRETS present but 'sops' is not installed." >&2
-    exit 1
+# Optional operator-provided populate hook, sourced from OUTSIDE this repo.
+# Its job is to materialize one 0600 file per secret under $SECRETS_DIR from a
+# bring-your-own source. The repo ships NO hook by default, so this is a strict
+# no-op until an operator installs one. Example adapters (SOPS+age, AWS SSM,
+# Vault agent) live in secrets/adapters/ — copy one out of the repo, fill in
+# your private source, and point $SECRETS_HOOK at it. See docs/INFRASTRUCTURE.md.
+SECRETS_HOOK="${SECRETS_HOOK:-/opt/harmonic/secrets/populate-secrets.sh}"
+
+# Populate file-mounted secrets and enable the overlay — but only when the
+# operator has opted in (a populate hook exists, or files are already present).
+# Absent → strict no-op, so the legacy .env path is unaffected.
+populate_secrets() {
+  if [ -x "$SECRETS_HOOK" ]; then
+    echo "Populating secrets via hook: $SECRETS_HOOK"
+    SECRETS_DIR="$SECRETS_DIR" "$SECRETS_HOOK"
   fi
 
-  # The age private key is the one bootstrapped credential (see infra doc).
-  export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-/opt/harmonic/secrets/age.key}"
-
-  echo "Decrypting secrets -> $DECRYPTED_DIR ..."
-  install -d -m 700 "$DECRYPTED_DIR"
-
-  # Decrypt to dotenv, then split into one 0600 file per key.
-  local plaintext
-  plaintext="$(sops -d --input-type dotenv --output-type dotenv "$ENCRYPTED_SECRETS")"
-  while IFS='=' read -r key value; do
-    case "$key" in ''|\#*) continue ;; esac
-    printf '%s' "$value" > "$DECRYPTED_DIR/$key"
-    chmod 600 "$DECRYPTED_DIR/$key"
-  done <<< "$plaintext"
-
-  COMPOSE_FILES+=(-f docker-compose.secrets.yml)
+  if [ -d "$SECRETS_DIR" ] && [ -n "$(ls -A "$SECRETS_DIR" 2>/dev/null)" ]; then
+    COMPOSE_FILES+=(-f docker-compose.secrets.yml)
+  fi
 }
 
 if [ "$1" = "--with-migrations" ]; then
@@ -54,7 +50,7 @@ else
   exit 1
 fi
 
-decrypt_secrets
+populate_secrets
 
 echo "Pulling latest images..."
 docker compose "${COMPOSE_FILES[@]}" pull

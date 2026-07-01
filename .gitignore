@@ -4,11 +4,14 @@
 # or operating system, you probably want to add a global ignore instead:
 #   git config --global core.excludesfile '~/.gitignore_global'
 
-# Secrets: only the SOPS-encrypted *.enc.env may be committed. Never the
-# decrypted material or the age key that unlocks it. See docs/INFRASTRUCTURE.md.
-/secrets/decrypted/
+# Secrets: NO secret material — plaintext or ciphertext — belongs in this repo.
+# The repo ships only the interface (secrets/secrets.example + adapters). These
+# patterns guard against committing real material by accident.
+# See docs/INFRASTRUCTURE.md.
+/secrets/run/
 /secrets/age.key
 *.age.key
+*.enc.env
 secrets/secrets.env
 
 # Ignore bundler config.
