@@ -6,7 +6,6 @@ class EmailChangeMailer < ApplicationMailer
     @confirm_url = email_confirm_url(user, raw_token, tenant)
     mail(
       to: user.pending_email,
-      from: ENV["MAILER_FROM_ADDRESS"] || "noreply@harmonic.social",
       subject: "Confirm your new email address on #{ENV['HOSTNAME']}",
     )
   end
@@ -18,7 +17,6 @@ class EmailChangeMailer < ApplicationMailer
     @login_url = login_url(tenant)
     mail(
       to: user.email,
-      from: ENV["MAILER_FROM_ADDRESS"] || "noreply@harmonic.social",
       subject: "Email change requested for your #{ENV['HOSTNAME']} account",
     )
   end
