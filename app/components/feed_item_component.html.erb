@@ -33,7 +33,7 @@
       <% else %>
         <span>Anonymous</span>
       <% end %>
-      &middot; <%= helpers.time_ago_in_words(@created_at) %> ago
+      &middot; <%= helpers.timeago(@created_at) %>
     </div>
   </div>
   <div class="pulse-feed-item-body">
