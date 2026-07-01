@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.36.0] - 2026-07-01
+
+### Added
+
+- **Collective member management UI** (#317) — per-member kebab menu on the members page for role changes (member/admin) and removal, routed through the action pattern so agents with admin can manage members too. Owner's admin role is protected.
+- **MCP tool-call log** (#270, #308) — agent principals get a page listing their recent MCP tool calls with path, action, and intention.
+
+### Fixed
+
+- **Rotated refresh tokens inflated the device list** (#326, PR #327) — each silent refresh appeared as a new device. Rotation churn killed at the source and revocation now walks the token family; session-timeout regression from the cookie-persistence change also fixed.
+
 ## [1.35.0] - 2026-06-30
 
 ### Added
