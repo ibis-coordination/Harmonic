@@ -140,6 +140,14 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "summarize",
     "update_table_description",
     "batch_table_update",
+    # Collective member management — an elevation-of-privilege surface (grants/
+    # revokes admin and other roles, removes members). Grantable, not blocked:
+    # an agent can only act here when it ALSO passes the action's
+    # `:collective_admin` authorization, i.e. a human has deliberately made it a
+    # collective admin. So this is a two-key control — owner-granted capability
+    # AND collective-admin standing — not a self-elevation path.
+    "update_member_roles",
+    "remove_member",
     # Trustee grant actions
     "accept_trustee_authorization",
     "decline_trustee_authorization",
@@ -291,6 +299,13 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
       description: "Report notes, decisions, or commitments for review.",
       actions: ["report_content"],
     },
+    {
+      name: "Member management",
+      description: "Grant and revoke member roles (admin, representative, summarizer) and remove members. " \
+                   "Only takes effect when the agent is itself an admin of the collective.",
+      actions: ["update_member_roles", "remove_member"],
+      default_unchecked: true,
+    },
   ].freeze
 
   # Groups whose actions gate the representation *relationship* rather than
@@ -300,6 +315,12 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "Trustee authorization responses",
     "Trustee authorization admin",
     "Representation",
+    # Member management governs the collective's own authority structure, not
+    # in-session content work. It's exposed as an agent capability (an owner
+    # arming their own agent that they've made a collective admin), but kept off
+    # the per-grant trustee checklist for now — delegating collective-governance
+    # power through a personal trustee grant is a separate policy decision.
+    "Member management",
   ].freeze
 
   # Capability groups shown on the trustee-authorization form (issue #260),

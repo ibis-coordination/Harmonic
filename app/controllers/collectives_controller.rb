@@ -641,6 +641,88 @@ class CollectivesController < ApplicationController
 
   def members
     @page_title = 'Members'
+    @can_manage_members = @current_user&.collective_member&.is_admin? &&
+      !@current_collective.private_workspace? &&
+      !@current_collective.is_main_collective?
+    @manageable_roles = CollectiveMember.valid_roles
+  end
+
+  def actions_index_members
+    @page_title = "Actions | Members"
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/members'))
+  end
+
+  def describe_update_member_roles
+    render_action_description(ActionsHelper.action_description("update_member_roles", resource: @current_collective))
+  end
+
+  # POST /collectives/:handle/members/actions/update_member_roles
+  # Admin-only. Grants or revokes a single role on a member. Runs through the
+  # standard action pipeline (path-based capability check + action helpers).
+  def execute_update_member_roles
+    member = authorize_member_management("update_member_roles")
+    return if member == :handled
+
+    role = params[:role].to_s
+    unless CollectiveMember.valid_roles.include?(role)
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: "Invalid role: #{role}." })
+    end
+
+    grant = ActiveModel::Type::Boolean.new.cast(params[:grant])
+
+    # The collective owner is permanent (see #execute_remove_member); they must
+    # always retain admin so a second admin can never lock them out of their
+    # own collective.
+    if role == 'admin' && !grant && member.user_id == @current_collective.created_by_id
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: 'The collective owner must remain an admin.' })
+    end
+
+    # Lockout protection: never let the last admin lose the admin role, or
+    # there would be no one left who can manage the collective.
+    if role == 'admin' && !grant && last_admin?(member)
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: 'Cannot remove the admin role from the last admin of this collective.' })
+    end
+
+    begin
+      grant ? member.add_role!(role) : member.remove_role!(role)
+    rescue => e
+      return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: e.message })
+    end
+
+    render_action_success({
+      action_name: 'update_member_roles',
+      resource: @current_collective,
+      result: "#{member.user.display_name} #{grant ? 'now has' : 'no longer has'} the #{role} role.",
+      redirect_to: "#{@current_collective.path}/members",
+    })
+  end
+
+  def describe_remove_member
+    render_action_description(ActionsHelper.action_description("remove_member", resource: @current_collective))
+  end
+
+  # POST /collectives/:handle/members/actions/remove_member
+  # Admin-only. Archives a member's collective membership, removing them from
+  # the collective. The owner and the acting admin cannot be removed this way.
+  def execute_remove_member
+    member = authorize_member_management("remove_member")
+    return if member == :handled
+
+    if member.user_id == @current_collective.created_by_id
+      return render_action_error({ action_name: 'remove_member', resource: @current_collective, error: 'The collective owner cannot be removed.' })
+    end
+    if member.user_id == @current_user.id
+      return render_action_error({ action_name: 'remove_member', resource: @current_collective, error: 'You cannot remove yourself. Use Leave instead.' })
+    end
+
+    member.archive!
+
+    render_action_success({
+      action_name: 'remove_member',
+      resource: @current_collective,
+      result: "#{member.user.display_name} has been removed from #{@current_collective.name}.",
+      redirect_to: "#{@current_collective.path}/members",
+    })
   end
 
   def invite
@@ -771,6 +853,52 @@ class CollectivesController < ApplicationController
 
   # POST /collectives/:collective_handle/deactivate
   private
+
+  # Shared guard for the member-management actions. Renders the appropriate
+  # action error and returns :handled when the request is not allowed;
+  # otherwise returns the (non-archived) CollectiveMember being acted on.
+  #
+  # The path-based capability check (ActionCapabilityCheck) already runs ahead
+  # of this: a capability-restricted actor (an AI agent) reaches here only if it
+  # has been granted the member-management capability. This method is the second
+  # key — it enforces collective-admin standing and resolves the target member —
+  # so an agent must be both capability-granted AND a collective admin to act.
+  def authorize_member_management(action_name)
+    unless @current_user&.collective_member&.is_admin?
+      render_action_error({ action_name: action_name, resource: @current_collective, error: 'You must be an admin to manage members.', status: :forbidden })
+      return :handled
+    end
+    if @current_collective.private_workspace? || @current_collective.is_main_collective?
+      render_action_error({ action_name: action_name, resource: @current_collective, error: 'Members cannot be managed for this collective.', status: :forbidden })
+      return :handled
+    end
+    # Members are identified by handle (the stable, human-meaningful id the
+    # markdown/agent interface exposes), not the internal numeric user id.
+    # Handles are tenant-scoped via TenantUser; accept an optional leading "@".
+    handle = params[:user_handle].to_s.delete_prefix("@")
+    target_user = @current_tenant.tenant_users.find_by(handle: handle)&.user
+    member = target_user && CollectiveMember.find_by(
+      collective: @current_collective,
+      user_id: target_user.id,
+      archived_at: nil,
+    )
+    if member.nil?
+      render_action_error({ action_name: action_name, resource: @current_collective, error: 'Member not found.', status: :not_found })
+      return :handled
+    end
+    member
+  end
+
+  # True when `member` is an admin and is the only remaining (non-archived)
+  # admin of the collective — used to prevent admin lockout.
+  def last_admin?(member)
+    return false unless member.is_admin?
+
+    @current_collective.collective_members
+      .where(archived_at: nil)
+      .where_has_role('admin')
+      .count <= 1
+  end
 
   # A collective can be upgraded only when billing is actually in effect on
   # the tenant, it isn't the main collective (always free), and it isn't

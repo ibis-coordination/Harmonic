@@ -160,6 +160,26 @@ class ActionsHelper
       authorization: :collective_member,
       visibility: :by_collective,
     },
+    "update_member_roles" => {
+      description: "Grant or revoke a role on a member of this collective",
+      params_string: "(user_handle, role, grant)",
+      params: [
+        { name: "user_handle", type: "string", required: true, description: "Handle of the member to update (e.g. @alice)" },
+        { name: "role", type: "string", required: true, description: "Role to change: admin, representative, or summarizer" },
+        { name: "grant", type: "boolean", required: true, description: "true to add the role, false to remove it" },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
+    "remove_member" => {
+      description: "Remove a member from this collective (archives their membership)",
+      params_string: "(user_handle)",
+      params: [
+        { name: "user_handle", type: "string", required: true, description: "Handle of the member to remove (e.g. @alice)" },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
 
     # Note actions
     "create_note" => {
@@ -1179,7 +1199,12 @@ class ActionsHelper
     },
     "/collectives/:collective_handle/members" => {
       controller_actions: ["collectives#members"],
-      actions: [],
+      actions: [
+        { name: "update_member_roles", params_string: ACTION_DEFINITIONS["update_member_roles"][:params_string],
+          description: ACTION_DEFINITIONS["update_member_roles"][:description], },
+        { name: "remove_member", params_string: ACTION_DEFINITIONS["remove_member"][:params_string],
+          description: ACTION_DEFINITIONS["remove_member"][:description], },
+      ],
     },
     "/collectives/:collective_handle/note" => {
       controller_actions: ["notes#new"],

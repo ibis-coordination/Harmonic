@@ -1739,6 +1739,87 @@ h1.pulse-resource-title {
   flex-wrap: wrap;
 }
 
+/* Role pills showing the roles each member currently holds. */
+.pulse-member-roles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pulse-member-roles:empty {
+  display: none;
+}
+
+/* Admin controls on the members page (role toggles + remove) */
+.pulse-member-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Per-member kebab menu (admin-only). A <details> element anchors the
+   dropdown; the summary is the kebab toggle. */
+.pulse-member-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.pulse-member-menu-toggle {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 6px;
+}
+
+/* Hide the native disclosure triangle the <summary> renders by default. */
+.pulse-member-menu-toggle::-webkit-details-marker {
+  display: none;
+}
+.pulse-member-menu-toggle::marker {
+  content: "";
+}
+
+/* Anchor the dropdown to the kebab toggle. Visibility is governed by the
+   <details> open/closed state (UA behavior) — do NOT set display here, or the
+   menu would stay visible when collapsed. */
+.pulse-member-menu-list {
+  top: 100%;
+  right: 0;
+  white-space: nowrap;
+}
+
+.pulse-member-menu-form {
+  margin: 0;
+  width: 100%;
+}
+
+.pulse-member-menu-item {
+  width: 100%;
+  text-align: left;
+}
+
+.pulse-member-menu-item-danger {
+  color: var(--color-danger-fg);
+}
+
+.pulse-member-menu-item-danger:hover {
+  color: var(--color-danger-fg);
+}
+
+.pulse-member-menu-divider {
+  padding: 4px 0 !important;
+}
+
+.pulse-member-menu-divider hr {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  border: none;
+  background: var(--color-border-default);
+}
+
 .pulse-join-status {
   display: flex;
   align-items: center;

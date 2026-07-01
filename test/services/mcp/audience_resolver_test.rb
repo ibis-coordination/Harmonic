@@ -150,6 +150,8 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "update_collective_settings" => :by_collective,
     "add_ai_agent_to_collective" => :by_collective,
     "remove_ai_agent_from_collective" => :by_collective,
+    "update_member_roles" => :by_collective,
+    "remove_member" => :by_collective,
     "send_heartbeat" => :by_collective,
     "create_note" => :by_collective,
     "update_note" => :by_collective,
