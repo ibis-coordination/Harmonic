@@ -1,0 +1,42 @@
+# MCP Tool Call — <%= @ai_agent.display_name %>
+
+| Field | Value |
+|-------|-------|
+| Tool | `<%= @log.tool_name %>` |
+| Status | <%= @log.status %> |
+| Duration | <%= @log.duration_ms %> ms |
+| Source | <%= @log.source_label %> |
+| Time | <%= @log.created_at.utc.iso8601 %> |
+| Request ID | <%= @log.request_id.presence || "—" %> |
+<% if @log.ai_agent_task_run_id.present? -%>
+| Task Run | [<%= @log.ai_agent_task_run_id %>](/ai-agents/<%= @ai_agent.handle %>/runs/<%= @log.ai_agent_task_run_id %>) |
+<% end -%>
+
+## Arguments
+
+```json
+<%= JSON.pretty_generate(@log.arguments || {}) %>
+```
+
+<% if @log.context.present? -%>
+## Context
+
+```json
+<%= JSON.pretty_generate(@log.context) %>
+```
+
+<% end -%>
+<% if @resources.any? -%>
+## Resources touched (<%= @resources.size %>)
+
+| Action | Resource | Path |
+|--------|----------|------|
+<% @resources.each do |res| -%>
+| <%= res.action_name %> | <%= res.resource_type %> | <% if res.display_path.present? %>[<%= res.display_path %>](<%= res.display_path %>)<% else %>—<% end %> |
+<% end -%>
+
+<% end -%>
+## Navigation
+
+* [Back to tool calls](/ai-agents/<%= @ai_agent.handle %>/mcp-tool-calls)
+* [Back to agent](/ai-agents/<%= @ai_agent.handle %>)

@@ -91,6 +91,39 @@ class AiAgentsHelperTest < ActionView::TestCase
     assert_not_includes result, '"type": "navigate"'
   end
 
+  # === safe_internal_path? ===
+  #
+  # Guards the `display_path` -> `<a href>` render in show_mcp_tool_call and
+  # show_run against a scheme-bearing value ever reaching the column. These
+  # cases are the exploit shapes a regression would have to slip through.
+
+  test "safe_internal_path? accepts a same-origin relative path" do
+    assert safe_internal_path?("/collectives/team/n/abc123")
+    assert safe_internal_path?("/workspace/foo/d/xyz?comment_id=q1")
+    assert safe_internal_path?("/")
+  end
+
+  test "safe_internal_path? rejects a javascript: URI" do
+    assert_not safe_internal_path?("javascript:alert(document.cookie)")
+    assert_not safe_internal_path?("JavaScript:alert(1)")
+  end
+
+  test "safe_internal_path? rejects data: and other schemes" do
+    assert_not safe_internal_path?("data:text/html,<script>alert(1)</script>")
+    assert_not safe_internal_path?("http://evil.example/x")
+    assert_not safe_internal_path?("https://evil.example/x")
+  end
+
+  test "safe_internal_path? rejects a protocol-relative host" do
+    assert_not safe_internal_path?("//evil.example/x")
+  end
+
+  test "safe_internal_path? rejects blank and nil" do
+    assert_not safe_internal_path?(nil)
+    assert_not safe_internal_path?("")
+    assert_not safe_internal_path?("   ")
+  end
+
   test "available_llm_models returns models from litellm config" do
     models = available_llm_models
 

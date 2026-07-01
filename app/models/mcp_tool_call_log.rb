@@ -35,4 +35,38 @@ class McpToolCallLog < ApplicationRecord
   validates :tool_name, presence: true
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :duration_ms, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+
+  # Newest first — the order a principal inspecting the log wants by default.
+  scope :recent, -> { order(created_at: :desc) }
+
+  # True when the call was attributed to an AiAgentTaskRun — i.e. it came from
+  # an internal agent-runner ephemeral token. False for external MCP clients
+  # (Claude Desktop / Code / Cursor / etc.).
+  def internal?
+    ai_agent_task_run_id.present?
+  end
+
+  # Human-readable label for where the call originated, for log views.
+  def source_label
+    internal? ? "Internal task run" : "External client"
+  end
+
+  # The Harmonic page path the call targeted, when the tool records one
+  # (fetch_page / execute_action). Nil for tools that take no path
+  # (search / get_help).
+  def logged_path
+    arguments&.dig("path").presence
+  end
+
+  # The action name for execute_action calls; nil for every other tool.
+  def logged_action_name
+    arguments&.dig("action").presence
+  end
+
+  # The agent's declared intention for the call, pulled from the context
+  # block. Present only when a context block was supplied (required for
+  # execute_action, optional for representation-session reads).
+  def intention
+    context&.dig("intention").presence
+  end
 end

@@ -1350,6 +1350,155 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [], @ai_agent.agent_configuration["capabilities"]
   end
 
+  # === MCP Tool Call Log Tests ===
+
+  def create_mcp_log_for(agent, **attrs)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    log = McpToolCallLog.create!({
+      tenant: @tenant,
+      user: agent,
+      tool_name: "fetch_page",
+      arguments: { "path" => "/whoami" },
+      status: "ok",
+      duration_ms: 12,
+    }.merge(attrs))
+    Tenant.clear_thread_scope
+    log
+  end
+
+  test "human user can access the MCP tool calls list for their agent" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :success
+  end
+
+  test "MCP tool calls list shows the agent's logged calls" do
+    create_mcp_log_for(@ai_agent, tool_name: "fetch_page")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :success
+    assert_match "fetch_page", response.body
+  end
+
+  test "MCP tool calls list surfaces path, action, and intention" do
+    create_mcp_log_for(@ai_agent,
+                       tool_name: "execute_action",
+                       arguments: { "path" => "/collectives/team/n/abc123", "action" => "add_comment" },
+                       context: { "intention" => "Reply to Dan on the doc thread", "visibility" => "shared" })
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :success
+    assert_match "/collectives/team/n/abc123", response.body
+    assert_match "add_comment", response.body
+    assert_match "Reply to Dan on the doc thread", response.body
+  end
+
+  test "MCP tool calls list renders markdown" do
+    create_mcp_log_for(@ai_agent)
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.content_type, "text/markdown"
+    assert_match "MCP Tool Calls", response.body
+  end
+
+  test "unauthenticated user is redirected from MCP tool calls list" do
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :redirect
+    assert_match %r{/login}, response.location
+  end
+
+  test "MCP tool calls list returns 404 for non-existent agent" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/non-existent-handle/mcp-tool-calls"
+    assert_response :not_found
+  end
+
+  test "user cannot view another user's agent MCP tool calls" do
+    other_user = create_user
+    @tenant.add_user!(other_user)
+    sign_in_as(other_user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :not_found
+  end
+
+  test "MCP tool calls list is forbidden when AI agents feature is disabled" do
+    @tenant.set_feature_flag!("internal_ai_agents", false)
+    @tenant.set_feature_flag!("external_ai_agents", false)
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls"
+    assert_response :forbidden
+  end
+
+  test "human user can view a single MCP tool call detail" do
+    log = create_mcp_log_for(@ai_agent, tool_name: "execute_action",
+                                        arguments: { "path" => "/x", "action" => "add_comment" },
+                                        request_id: "req-xyz")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
+    assert_response :success
+    assert_match "execute_action", response.body
+  end
+
+  def attach_resource_to_log(log, display_path:)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    note = create_note(tenant: @tenant, collective: @collective, created_by: @ai_agent)
+    McpToolCallResource.create!(
+      tenant: @tenant,
+      mcp_tool_call_log: log,
+      resource: note,
+      resource_collective: @collective,
+      action_name: "create_note",
+      display_path: display_path,
+    )
+  ensure
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  test "MCP tool call detail renders a safe stored display_path as a link" do
+    log = create_mcp_log_for(@ai_agent, tool_name: "execute_action", arguments: {})
+    safe_path = "/collectives/#{@collective.handle}/n/abc123"
+    attach_resource_to_log(log, display_path: safe_path)
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
+    assert_response :success
+    assert_match %r{<a[^>]+href="#{Regexp.escape(safe_path)}"}, response.body
+  end
+
+  # Regression guard for the show_mcp_tool_call.html.erb review finding
+  # (Harmonic PR #308): a stored `display_path` is only ever rendered as an
+  # `href` when it's a same-origin relative path. Server-side path computation
+  # can't produce a scheme, but if one ever reached the column it must render
+  # as inert text, never as an executable javascript: link.
+  test "MCP tool call detail renders a hostile stored display_path as inert text, not an href" do
+    log = create_mcp_log_for(@ai_agent, tool_name: "execute_action", arguments: {})
+    attach_resource_to_log(log, display_path: "javascript:alert(document.cookie)")
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
+    assert_response :success
+    # The value is still shown to the human operator ...
+    assert_match "javascript:alert(document.cookie)", response.body
+    # ... but never as a clickable link that would execute it.
+    assert_no_match %r{href=["']\s*javascript:}i, response.body
+  end
+
+  test "MCP tool call detail returns 404 for an unknown log id" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/00000000-0000-0000-0000-000000000000"
+    assert_response :not_found
+  end
+
+  test "MCP tool call detail returns 404 for a log belonging to a different agent" do
+    other_agent = create_ai_agent(parent: @user, name: "Other Agent")
+    @tenant.add_user!(other_agent)
+    log = create_mcp_log_for(other_agent, tool_name: "search", arguments: {})
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
+    assert_response :not_found
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
