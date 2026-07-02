@@ -167,6 +167,8 @@ Manual: subscribe on phone, trigger a comment, see notification; tap action butt
 - **Audience**: human users only. AI agents stay on webhooks.
 - **Chat messages**: included, pushed per-message; in-app dedup unchanged.
 
+- **Subscription lifetime = device-trust lifetime**: push survives routine session expiry (its whole point is reaching users who aren't in the app; delivery is server-to-endpoint and never consults the session), and ends when device trust ends — explicit logout on the device, or admin `account_security_reset` (revoke reason `admin`). Never revoke on session timeout. RefreshToken and WebPushSubscription rows have no linkage; remote per-device revocation is via the push device list on settings.
+
 ## Out of scope
 
 - Lock-screen content privacy preference (show generic vs. full content) — surface later as a user setting if requested.
