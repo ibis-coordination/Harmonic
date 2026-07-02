@@ -74,6 +74,72 @@ fake place. The rail follows the same discipline: **no rail entry is active
 on these pages**, and no "everything else" rail entry should be invented for
 them. They belong to the you-layer and are reached from the header.
 
+## Feeds are queries (issue #352)
+
+Every content feed in the app is conceptually **search results with a fixed
+page-level filter** (the page's *scope*), which the user can refine with
+additional filters using the same syntax as `/search`. This is the GitHub
+Issues / Linear pattern: pages are named queries.
+
+| Page | Fixed scope | Also a place? |
+|---|---|---|
+| Public space | `collective:main` | Yes (the eye) |
+| Collective page | `collective:x` | Yes (a square) |
+| Workspace | `collective:x` (private) | Yes (not in the left rail) |
+| Profile `/u/:handle` | `creator:handle` | No — you-level, no rail state |
+| `/search` | *(none)* | No — the only unscoped feed |
+
+Note the asymmetry: **every place has a fixed scope, but not every
+fixed-scope page is a place.** Profiles have a scope and no chrome claim.
+
+This completes the model's account of the main content column, and it means
+the same fact is projected three ways for three audiences:
+
+- **The rail** is the spatial projection of the scope lattice (clicking a
+  square applies a fixed filter).
+- **The search syntax** is the linguistic projection (typing
+  `collective:x` applies the same filter).
+- **Markdown frontmatter** gets a scope attribute — the agent projection.
+  Agents learn one navigation calculus: `search(scope + refinements)`.
+
+The pieces largely exist: `SearchQueryParser` already supports `creator:`,
+`type:`/`subtype:`, `status:`, `cycle:`, date and count filters, and
+`group:collective` (the notifications grouping as query vocabulary);
+`FeedBuilder` already renders home, pulse, profile, and list feeds. The gaps
+are a `collective:` operator, routing collective-page feeds through the same
+builder, and the frontmatter scope attribute.
+
+### Guardrails
+
+1. **Places must not dissolve into search results.** Zulip is built on this
+   model ("narrows") and disorients newcomers because refining a filter
+   feels like leaving. GitHub avoids it because the repo remains an
+   unmistakable place — only the list within it is a query. Therefore:
+   **chrome binds to the URL prefix, never to the query.** The rail,
+   sidebar, and header are fixed by where you are; the query only shapes
+   the feed. The fixed scope is not removable in-page — on
+   `/collectives/x` you cannot delete `collective:x` from the filter bar;
+   broadening means going to `/search`, a deliberate act of leaving.
+2. **Visibility is enforcement, not a filter term.** Queries are the
+   *rendering* model, never the *access* model. Zone boundaries stay
+   structural (default scopes, thread tenancy, membership checks); the
+   filter string is a presentation of the boundary, not its implementation.
+   The feed is not "one giant tenant feed" — it is one
+   accessible-universe-per-viewer, and queries only ever carve *down* from
+   it. If removing a filter could ever widen access, the design is wrong.
+3. **Notifications stay out.** `/notifications` is recipient-state
+   (deliveries, read/dismissed), not a content query. Forcing it into the
+   feed model would corrupt both models; the nil-bucket discipline above
+   is unchanged.
+4. **Naming.** The search DSL renamed its `scope:` operator to
+   `visibility:` (old key kept as an alias). The page-level fixed filter is
+   a different concept; call it **page scope** consistently and do not
+   reintroduce a `scope:` operator meaning something else.
+5. **Performance.** Fixed scopes are indexable; user-composed refinements
+   make every feed page search-shaped. Feed pages inherit search's
+   pagination/cursor machinery rather than bespoke cheaper queries — accept
+   this deliberately, page by page.
+
 ## Private zone (out of scope here, but load-bearing)
 
 The private workspace needs to be *more* accessible than it is today, but not
@@ -116,6 +182,13 @@ will one day hold workspace entries.
    The second keeps the rail 100% places and matches the zone model, but it
    changes what `/` means. Decide before investing in the cycles-as-channels
    sidebar work, which assumes every rail destination has a sidebar.
+
+   The feeds-are-queries model sharpens this: today's `/` is
+   `collective:main` *plus a personal filter* (tuned-in authors) — a
+   **personal saved query**, which is you-layer by definition — while the
+   true public space is `collective:main` unfiltered. Written in query
+   vocabulary, the two pages are plainly different things, which weighs
+   toward the second resolution.
 2. **Chat placement.** Chat collectives are excluded from the rail but chat
    is a place by the route model. Discord precedent: a pinned entry in the
    rail (the "DMs" slot). Alternatively chat stays header/you-level. Unresolved.
