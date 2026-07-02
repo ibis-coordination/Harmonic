@@ -8,19 +8,39 @@
 #
 # Usage:
 #   docker compose -f docker-compose.test.yml build
-#   docker compose -f docker-compose.test.yml run --rm test                                   # full suite
-#   docker compose -f docker-compose.test.yml run --rm test bundle exec rails test test/models  # a subset
-#   docker compose -f docker-compose.test.yml down -v                                         # tear down + drop the db volume
+#   docker compose -f docker-compose.test.yml run --rm test                                          # full suite
+#   docker compose -f docker-compose.test.yml run --rm test bash -c "bin/rails db:create && bin/rails db:schema:load && bundle exec rails test test/models"  # a subset
+#   docker compose -f docker-compose.test.yml down -v                                                # tear down + drop the db volume
 #
 # The image bakes the app code, gems, node_modules and built JS assets (see
-# Dockerfile), so there is no source bind-mount: rebuild after changing code.
+# Dockerfile), so app code is NOT bind-mounted: rebuild after changing app code.
+#
+# The one exception is `test/`: the production .dockerignore excludes test/ (and
+# spec/, docs/) so those never ship in prod images — which also means the built
+# image has no test files to run. We bind-mount ./test:/app/test at runtime to
+# supply them. It overlays only the missing directory, so nothing baked (gems,
+# node_modules, built assets) is hidden. Edit a test and re-run — no rebuild.
+#
+# NOTE on subsets: a subset must still create + load the DB first, so pass the
+# whole `bin/rails db:create && db:schema:load && rails test <path>` chain (see
+# the subset example above). Overriding the command with a bare
+# `rails test test/models` skips DB setup and will fail.
 
 services:
   test:
     build: .
+    # Overlay the host test suite: the prod image excludes test/ via .dockerignore
+    # (see header note). This adds the missing dir without hiding baked app/gems.
+    volumes:
+      - ./test:/app/test
+    # db:prepare (not create + schema:load) so re-runs against the persistent
+    # pg_data_test volume are idempotent. The schema loads from db/structure.sql
+    # (SQL format), which is NOT re-runnable: a bare `db:schema:load` on an
+    # already-loaded DB aborts with "function ... already exists". db:prepare
+    # creates the DB + loads the schema on first run, then no-ops on later runs.
+    # CI gets a fresh DB each time so it never hit this; a local volume does.
     command: >
-      bash -c "bin/rails db:create &&
-               bin/rails db:schema:load &&
+      bash -c "bin/rails db:prepare &&
                bundle exec rails test"
     depends_on:
       db:
