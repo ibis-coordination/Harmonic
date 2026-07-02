@@ -8,6 +8,6 @@
 <%= form_with url: post_url, method: :post, class: "pulse-form" do %>
   <%= render 'shared/notification_preferences_fields', tenant_user: tenant_user, simple: false %>
   <div class="pulse-form-actions">
-    <%= submit_tag "Save notification preferences", class: "pulse-action-btn-primary" %>
+    <%= submit_tag "Save notification preferences", class: "pulse-action-btn pulse-action-btn-primary" %>
   </div>
 <% end %>
