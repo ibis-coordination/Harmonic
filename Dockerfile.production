@@ -93,6 +93,13 @@ RUN mkdir -p tmp/pids tmp/cache log && chown -R harmonic:harmonic tmp log
 # Switch to non-root user
 USER harmonic
 
+# Deploy identifier for the service worker's CACHE_VERSION and the Sentry
+# release tag (config/initializers/git_sha.rb). The image has no .git to
+# fall back on, so CI passes the commit SHA in; without it, per-deploy SW
+# cache invalidation silently never happens.
+ARG GIT_SHA=""
+ENV GIT_SHA=$GIT_SHA
+
 EXPOSE 3000
 
 # Health check
