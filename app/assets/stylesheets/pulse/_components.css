@@ -859,7 +859,10 @@
   font-size: 12px;
   color: var(--color-fg-muted);
   background: transparent;
-  border: none;
+  /* Transparent border keeps every state the same box size, so the primary
+     (unconfirmed) variant below can add a visible border without shifting
+     layout relative to the confirmed/display states. */
+  border: 1px solid transparent;
   cursor: pointer;
   border-radius: 4px;
 }
@@ -868,9 +871,19 @@
   cursor: default;
 }
 
+/* Unconfirmed: the clickable read-confirm control takes the primary (filled)
+   button color to invite the confirmation, matching the Confirm Read button
+   on feed item notes (#335). */
+.pulse-comment-confirm-btn:not(.is-confirmed) {
+  color: var(--color-canvas-default);
+  background: var(--color-fg-default);
+  border-color: var(--color-fg-default);
+}
+
 .pulse-comment-confirm-btn:hover:not(.is-confirmed) {
   color: var(--color-fg-default);
-  background: var(--color-canvas-subtle);
+  background: var(--color-canvas-default);
+  border-color: var(--color-border-default);
 }
 
 .pulse-comment-confirm-btn.is-confirmed {
