@@ -227,36 +227,35 @@ will one day hold workspace entries.
 - **Rail styling follows app tokens** (6px avatar radius matching
   `.pulse-collective-avatar`, monochrome active treatment, canvas-default
   background). The rail is chrome, not a themed island.
+- **`/` unifies home and the public space.** Fixed scope
+  `visibility:public` with `list:tuned_in` as a default *removable* chip:
+  the default view is the personal tuned-in feed, and "see everything" is
+  removing one chip. The eye points at `/` and is honest. (This resolves
+  the former eye/home open question via the feeds-are-queries model.)
+- **The collective feed is a separate page from the cycle dashboard.**
+  The dashboard (`pulse#show`) keeps its structure and heartbeat ritual for
+  now; a query-backed collective feed page ships alongside it, and
+  eventually replaces it — decided together with the cycles-as-channels
+  sidebar question.
+- **The heartbeat gate is page-level ritual, not an access rule.** Viewing
+  past cycles on the dashboard requires a heartbeat; queries (including
+  `cycle:` refinements on feed pages and `/search`) cross cycles freely.
 
 ## Open questions
 
-1. **What is the eye, really?** It is labeled "Public space" but points at
-   `/`, and `home#index` is the *personalized* feed (tuned-in authors,
-   no sidebar). So the eye claims to be a place but delivers a you-page —
-   the one genuine incoherence in the current model. Two resolutions:
-   - *Home is home*: rename/re-icon the eye as Home and accept the hybrid.
-   - *Public space is a real place*: the eye goes to a true main-collective
-     page (all public activity, with a sidebar like any collective), and the
-     personal feed becomes a you-level page reached from the header.
-
-   The second keeps the rail 100% places and matches the zone model, but it
-   changes what `/` means. Decide before investing in the cycles-as-channels
-   sidebar work, which assumes every rail destination has a sidebar.
-
-   The feeds-are-queries model sharpens this: today's `/` is literally
-   expressible in the existing DSL as `visibility:public list:tuned_in` — a
-   **personal saved query**, which is you-layer by definition — while the
-   true public space is `visibility:public` unfiltered. Written in query
-   vocabulary, the two pages are plainly different things, which weighs
-   toward the second resolution.
-2. **Chat placement.** Chat collectives are excluded from the rail but chat
+1. **Chat placement.** Chat collectives are excluded from the rail but chat
    is a place by the route model. Discord precedent: a pinned entry in the
    rail (the "DMs" slot). Alternatively chat stays header/you-level. Unresolved.
-3. **Sidebar contents per place** (issue #337's "cycles as channels").
-   Depends on question 1.
-4. **Mobile.** A permanent 60px column on a 375px screen spends ~16% of the
+2. **Sidebar contents per place** (issue #337's "cycles as channels").
+   Decide together with the eventual dashboard-to-feed replacement.
+3. **Mobile.** A permanent 60px column on a 375px screen spends ~16% of the
    viewport on place-switching. Likely end state: rail collapses into a
    drawer or merges with the sidebar. Accepted gap for now.
+
+(The former "what is the eye?" question is resolved — see Decided: `/`
+unifies home and the public space via the default `list:tuned_in` chip.
+Today's `/` was already expressible as `visibility:public list:tuned_in`;
+the unification makes the default view a *default*, not a separate page.)
 
 ## Planned next steps (rough order)
 
