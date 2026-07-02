@@ -15,7 +15,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 0;
-  background: var(--color-canvas-subtle);
+  background: var(--color-canvas-default);
   border-right: 1px solid var(--color-border-default);
   overflow-y: auto;
 }
@@ -38,7 +38,7 @@
   left: -12px;
   width: 4px;
   height: 0;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 var(--border-radius-default) var(--border-radius-default) 0;
   background: var(--color-fg-default);
   transition: height 0.15s ease;
 }
@@ -51,18 +51,13 @@
   height: 36px;
 }
 
-/* Square profile icons for collectives. */
+/* Square profile icons for collectives — same shape as the sidebar's
+   .pulse-collective-avatar. */
 .pulse-rail-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: var(--border-radius-lg);
   object-fit: cover;
-  transition: border-radius 0.15s ease;
-}
-
-.pulse-rail-item:hover .pulse-rail-avatar,
-.pulse-rail-item.active .pulse-rail-avatar {
-  border-radius: 10px;
 }
 
 /* Span-based fallback avatars (initials) also need to fill the square. */
@@ -80,7 +75,7 @@
 
 .pulse-rail-public:hover,
 .pulse-rail-public.active {
-  color: var(--color-accent-fg);
+  color: var(--color-fg-default);
 }
 
 .pulse-rail-public .octicon {
