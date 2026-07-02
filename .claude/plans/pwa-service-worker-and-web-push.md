@@ -17,7 +17,7 @@ Instant cold opens, offline fallback page, and the runtime substrate for Web Pus
 
 Per-origin means per-tenant-subdomain: registration, caches, and (later) push subscriptions are all scoped to the tenant subdomain, the same way `manifest.json.erb` already documents per-subdomain install. Tenant cache isolation comes free.
 
-On `activate`, the SW deletes any cache whose name doesn't match the current `CACHE_VERSION`. Clients pick up the new SW on the next navigation after deploy.
+On `activate`, the SW deletes any cache whose name doesn't match the current `CACHE_VERSION`. Clients pick up the new SW on the next navigation after deploy — `skipWaiting()` on install plus `clients.claim()` on activate; without them the updated SW would sit in "waiting" until every tab for the origin closed.
 
 ### Caching strategy
 

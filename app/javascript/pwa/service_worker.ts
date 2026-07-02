@@ -17,6 +17,7 @@ interface ServiceWorkerScope {
   CACHE_VERSION?: string
   location: Location
   navigator?: { setAppBadge?: (count?: number) => Promise<void> }
+  skipWaiting(): Promise<void>
   registration: { showNotification(title: string, options?: object): Promise<void> }
   clients: {
     claim(): Promise<void>
@@ -58,7 +59,13 @@ function toRequestSummary(request: Request): RequestSummary {
 }
 
 sw.addEventListener("install", (event: ExtendableEventLike) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.add(OFFLINE_PATH)))
+  // Take over on the next navigation instead of sitting in "waiting" until
+  // every tab closes (pinned tabs would run a stale SW for weeks). Safe with
+  // an old page still open: caches are version-keyed, assets fingerprinted,
+  // and activate's clients.claim() pairs with this.
+  event.waitUntil(
+    Promise.all([sw.skipWaiting(), caches.open(CACHE).then((cache) => cache.add(OFFLINE_PATH))]),
+  )
 })
 
 sw.addEventListener("activate", (event: ExtendableEventLike) => {
