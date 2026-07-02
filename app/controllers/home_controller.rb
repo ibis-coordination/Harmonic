@@ -5,6 +5,7 @@ class HomeController < ApplicationController
 
   def index
     @page_title = 'Home'
+    @page_scope = "visibility:public list:tuned_in"
     @sidebar_mode = 'none'
     @hide_breadcrumb = true
 

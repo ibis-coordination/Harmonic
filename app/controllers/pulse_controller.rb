@@ -19,6 +19,11 @@ class PulseController < ApplicationController
 
   def show
     @page_title = @current_collective.name
+    @page_scope = if @current_collective.private_workspace?
+                    "visibility:private"
+                  else
+                    "collective:#{@current_collective.handle}"
+                  end
 
     # Cycle data - use param if provided, otherwise default to tempo-based cycle
     @cycle = cycle_from_param || current_cycle

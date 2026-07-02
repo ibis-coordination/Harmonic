@@ -37,6 +37,7 @@ class UsersController < ApplicationController
 
     @showing_user = tu.user
     @showing_user.tenant_user = tu
+    @page_scope = "visibility:public creator:@#{tu.handle}"
     @page_title = @showing_user.display_name
     @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
 

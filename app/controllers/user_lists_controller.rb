@@ -25,6 +25,7 @@ class UserListsController < ApplicationController
 
   def show
     @page_title = @list.display_name
+    @page_scope = "visibility:public list:#{@list.truncated_id}"
     @sidebar_mode = "minimal"
     @active_tab = params[:tab] == "members" ? "members" : "feed"
     # Auto-prefill the global header search with `list:<id>` while we're here.

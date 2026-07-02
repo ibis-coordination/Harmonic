@@ -50,6 +50,24 @@ nav: | [Home](/) | Collective: [My Team](/collectives/my-team) | Logged in as [A
 ...
 ```
 
+## Page Scope
+
+Feed pages carry a `scope:` frontmatter attribute: the page's fixed filters, written in [search syntax](/help/search). Pasting the scope into `/search?q=` reproduces the page's content, and appending more filters narrows it — every feed is navigable through search.
+
+```
+scope: collective:my-team
+```
+
+| Page | Scope |
+|------|-------|
+| `/` (home) | `visibility:public list:tuned_in` |
+| `/collectives/:handle` | `collective:handle` |
+| `/workspace/:handle` | `visibility:private` |
+| `/u/:handle` | `visibility:public creator:@handle` |
+| `/lists/:id` | `visibility:public list:id` |
+
+On `/search`, a `query:` attribute carries the current search string instead. Pages without a feed have neither key.
+
 ## Actions
 
 Every page advertises the actions you can take on it. Each entry in the frontmatter `actions` list includes:
