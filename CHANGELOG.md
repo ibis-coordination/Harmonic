@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.37.0] - 2026-07-02
+
+### Added
+
+- **Service worker with offline support** (#347) — cached asset loads, an offline fallback page for failed navigations, and per-deploy cache busting. Per-tenant `service_worker` feature flag doubles as the kill switch: flag off serves a self-unregistering stub that cleans up field installs.
+- **Web Push notifications** (#347) — mentions, replies, reminders, and chat messages on the lock screen. Opt-in via a dismissible banner on the notifications page or "Enable on this device" in settings; per-device list with revocation; `Push` column in the notification-preference matrix. Subscriptions survive session timeouts and end on explicit logout or admin account-security reset; no banners while the app is open and focused. Off by default behind the `web_push` tenant flag; requires `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`. iOS needs a home-screen install (16.4+).
+- **Auto-hiding header** (#342, fixes #338) — the top header is sticky, slides away on scroll-down, and returns on scroll-up.
+
+### Changed
+
+- **Note Edit action moved into the kebab menu** (#332, fixes #325) — Edit (and table Settings) no longer clutter the primary action row.
+
+### Fixed
+
+- **New collectives default to API enabled** (#333, fixes #323) — the collective-local `api` flag started false, so API access was off per collective even under an API-enabled tenant. The tenant flag still gates access.
+- **Emails send from "Harmonic \<address\>"** (#331, fixes #329) — inboxes showed a bare "noreply" as the sender name; display name overridable via `MAILER_FROM_NAME`.
+- **Feed timestamps update live** (#330, fixes #301) — "X ago" on feed items froze at render time; now kept current client-side.
+
+### Infrastructure
+
+- **Production images bake in the commit SHA** (#347) — `GIT_SHA` is now a build arg, fixing the empty Sentry release tag and making the service worker's per-deploy cache invalidation actually fire (it previously resolved to `"dev"` in production).
+
 ## [1.36.0] - 2026-07-01
 
 ### Added
