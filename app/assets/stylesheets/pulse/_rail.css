@@ -9,7 +9,7 @@
 
 .pulse-rail {
   flex-shrink: 0;
-  width: 72px;
+  width: var(--pulse-rail-width);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -96,8 +96,10 @@
 }
 
 @media (max-width: 768px) {
-  /* Keep the rail visible but slimmer on narrow viewports. */
-  .pulse-rail {
-    width: 60px;
+  /* Keep the rail visible but slimmer on narrow viewports. Redefining the
+     variable (rather than the width directly) keeps the footer's
+     border-continuation line in _layout.css aligned. */
+  :root {
+    --pulse-rail-width: 60px;
   }
 }

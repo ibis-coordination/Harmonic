@@ -1,24 +1,22 @@
 <nav class="pulse-rail" aria-label="Collectives">
   <% if @main_collective %>
-    <a href="/"
-       class="pulse-rail-item pulse-rail-public<%= ' active' if public_space_active? %>"
-       title="Public space"
-       aria-label="Public space"
-       aria-current="<%= 'page' if public_space_active? %>">
+    <%= tag.a href: "/",
+              class: ["pulse-rail-item", "pulse-rail-public", ("active" if public_space_active?)],
+              title: "Public space",
+              aria: { label: "Public space", current: ("page" if public_space_active?) } do %>
       <span class="pulse-rail-indicator"></span>
-      <span class="pulse-rail-eye"><%= helpers.octicon 'eye', height: 22 %></span>
-    </a>
+      <span class="pulse-rail-eye"><%= helpers.octicon "eye", height: 22 %></span>
+    <% end %>
     <div class="pulse-rail-divider"></div>
   <% end %>
 
   <% @collectives.each do |collective| %>
-    <a href="<%= collective.path %>"
-       class="pulse-rail-item<%= ' active' if active?(collective) %>"
-       title="<%= collective.name %>"
-       aria-label="<%= collective.name %>"
-       aria-current="<%= 'page' if active?(collective) %>">
+    <%= tag.a href: collective.path,
+              class: ["pulse-rail-item", ("active" if active?(collective))],
+              title: collective.name,
+              aria: { label: collective.name, current: ("page" if active?(collective)) } do %>
       <span class="pulse-rail-indicator"></span>
       <%= helpers.inline_avatar(collective, css_class: "pulse-rail-avatar", variant: :icon) %>
-    </a>
+    <% end %>
   <% end %>
 </nav>

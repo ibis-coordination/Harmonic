@@ -87,7 +87,7 @@
         <%= render CollectiveRailComponent.new(
           main_collective: @current_tenant&.main_collective,
           collectives: rail_collectives,
-          current_collective: @current_collective,
+          current_path: request.path,
         ) %>
       <% end %>
       <%= render SidebarComponent.new(requested_mode: @sidebar_mode || "full", collective: @current_collective) do %>

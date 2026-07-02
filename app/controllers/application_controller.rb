@@ -788,17 +788,18 @@ class ApplicationController < ActionController::Base
   helper_method :current_actor
 
   # Collectives shown as square icons in the persistent left rail (issue #337):
-  # the viewer's standard collectives in the current tenant, minus the main
-  # collective (which the rail renders separately as the public-space eye).
-  # Empty for anonymous viewers. Collective is tenant-scoped, so this is
-  # already limited to the current tenant.
+  # the viewer's standard collectives, minus the main collective (which the
+  # rail renders separately as the public-space eye). Empty for anonymous
+  # viewers. Collective is tenant-scoped, so this is already limited to the
+  # current tenant. Avatar attachments are preloaded because the rail renders
+  # on every page.
   def rail_collectives
     return @rail_collectives if defined?(@rail_collectives)
-    return (@rail_collectives = []) if @current_user.nil? || @current_tenant.nil?
+    return (@rail_collectives = []) if @current_user.nil?
 
-    @rail_collectives = @current_user.collectives
-      .where(collective_type: "standard")
-      .where.not(id: @current_tenant.main_collective_id)
+    @rail_collectives = @current_user.collectives_minus_main
+      .standard
+      .includes(image_attachment: :blob)
       .order(:name)
       .to_a
   end

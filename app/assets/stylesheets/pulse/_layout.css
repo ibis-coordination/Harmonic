@@ -2,6 +2,14 @@
  * Container, sidebar structure, main content area, header, footer
  */
 
+/* Layout dimensions. The footer's border-continuation lines below are
+   derived from these — keep dependent rules in calc() form so they follow
+   any future width change. */
+:root {
+  --pulse-sidebar-width: 280px;
+  --pulse-rail-width: 72px;
+}
+
 /* App Shell: persistent collective rail + the rest of the app */
 .pulse-app-shell {
   display: flex;
@@ -18,7 +26,7 @@
 
 /* Sidebar */
 .pulse-sidebar {
-  width: 280px;
+  width: var(--pulse-sidebar-width);
   border-right: 1px solid var(--color-border-default);
   display: flex;
   flex-direction: column;
@@ -332,17 +340,17 @@
 .pulse-motto-footer::before {
   content: '';
   position: absolute;
-  left: 279px;
+  left: calc(var(--pulse-sidebar-width) - 1px);
   top: 0;
   bottom: 0;
   width: 1px;
   background: var(--color-border-default);
 }
 
-/* When the collective rail (72px) is present, the sidebar's right edge shifts
+/* When the collective rail is present, the sidebar's right edge shifts
    right by the rail width, so the footer's continuation line follows it. */
 .pulse-app-shell:has(.pulse-rail) + .pulse-motto-footer::before {
-  left: 351px;
+  left: calc(var(--pulse-sidebar-width) - 1px + var(--pulse-rail-width));
 }
 
 /* Hide sidebar border line when no sidebar */
