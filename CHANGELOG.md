@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Current device shows "Active now" in the device list** (fixes #346) — a device's "last used" only advances when its refresh token rotates (a silent re-auth), so the device you're currently on showed a stale time ("7 hours ago") while plainly in use. The current device now reads "Active now"; other devices keep the last-used estimate.
+
 ## [1.37.0] - 2026-07-02
 
 ### Added

@@ -234,7 +234,15 @@
               <% end %>
             </div>
             <div class="pulse-form-hint" style="font-size:12px;">
-              Last used <%= time_ago_in_words(device.last_used_at) %> ago
+              <%# last_used_at only advances when the refresh token rotates (a
+                  silent re-auth). While a session is live no rotation happens,
+                  so the device you're on would otherwise show a stale time —
+                  but it's in use right now by definition (#346). %>
+              <% if is_current %>
+                Active now
+              <% else %>
+                Last used <%= time_ago_in_words(device.last_used_at) %> ago
+              <% end %>
             </div>
           </div>
           <% if is_current && other_devices_count >= 2 %>
