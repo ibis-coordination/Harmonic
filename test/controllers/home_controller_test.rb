@@ -36,13 +36,14 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     other_main.add_user!(@user) unless other_main.user_is_member?(@user)
     Tenant.scope_thread_to_tenant(subdomain: other_tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: other_tenant.subdomain, handle: other_main.handle)
-    Note.create!(
+    canary = Note.create!(
       tenant: other_tenant,
       collective: other_main,
       created_by: @user,
       text: "CROSS_TENANT_LEAK_CANARY",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(canary)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -65,6 +66,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
       text: "A public note visible on the homepage",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(note)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -100,6 +102,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
       event_type: "reminder",
       happened_at: Time.current,
     )
+    SearchIndexer.reindex(note)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -120,11 +123,12 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
     @user.primary_user_list_in!(@tenant).user_list_members.create!(added_by: @user, user: other)
-    Note.create!(
+    note = Note.create!(
       tenant: @tenant, collective: main_collective, created_by: other,
       text: "post by someone I tune in to",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(note)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -142,11 +146,12 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
-    Note.create!(
+    note = Note.create!(
       tenant: @tenant, collective: main_collective, created_by: other,
       text: "post by a stranger",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(note)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -169,11 +174,12 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     main_collective = Collective.find(@tenant.main_collective_id)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
-    Note.create!(
+    note = Note.create!(
       tenant: @tenant, collective: main_collective, created_by: @user,
       text: "my own post",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(note)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
@@ -191,11 +197,12 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
-    Note.create!(
+    note = Note.create!(
       tenant: @tenant, collective: main_collective, created_by: other,
       text: "post by blocked stale-tune-in user",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(note)
     # Create the block first (cleanup callback runs but no membership to clean
     # yet). Then bypass validation to insert a stale tune-in across the block,
     # simulating data left behind from before the cleanup callback shipped.
@@ -233,11 +240,97 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
       text: "A private note only for collective members",
       deadline: Time.current + 1.week,
     )
+    SearchIndexer.reindex(note)
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
     get "/"
     assert_response :success
     assert_not_includes response.body, "A private note only for collective members"
+  end
+
+  # Feeds-are-queries behaviors (docs/NAVIGATION_DESIGN.md): the home feed
+  # is a search with fixed scope visibility:public and default query
+  # list:tuned_in. ?q absent applies the default; ?q present (even empty)
+  # is the user's own refinement.
+
+  def create_indexed_main_note(created_by:, text:)
+    main_collective = Collective.find(@tenant.main_collective_id)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    note = Note.create!(
+      tenant: @tenant, collective: main_collective, created_by: created_by,
+      text: text, deadline: Time.current + 1.week,
+    )
+    SearchIndexer.reindex(note)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    note
+  end
+
+  test "explicitly empty ?q= broadens the feed to everything public" do
+    other = create_user(email: "broadened-#{SecureRandom.hex(4)}@example.com", name: "Broadened")
+    @tenant.add_user!(other)
+    Collective.find(@tenant.main_collective_id).add_user!(other)
+    create_indexed_main_note(created_by: other, text: "post by a stranger, broadened")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_not_includes response.body, "post by a stranger, broadened"
+
+    get "/", params: { q: "" }
+    assert_response :success
+    assert_includes response.body, "post by a stranger, broadened"
+  end
+
+  test "query refinement filters the home feed" do
+    create_indexed_main_note(created_by: @user, text: "refineme note body")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/", params: { q: "type:decision" }
+    assert_response :success
+    assert_not_includes response.body, "refineme note body"
+
+    get "/", params: { q: "type:note refineme" }
+    assert_includes response.body, "refineme note body"
+  end
+
+  test "the home feed's visibility cannot be widened by the query" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/", params: { q: "visibility:private" }
+    assert_response :success
+    assert_select ".pulse-feed-bar-warning", text: /visibility:private ignored/
+  end
+
+  test "home feed bar shows the fixed scope chip and the editable default query" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_select ".pulse-feed-bar-scope code", text: "visibility:public"
+    assert_select "input[name='q'][value='list:tuned_in']"
+  end
+
+  test "reminders interleave on the default view but not on refined queries" do
+    main_collective = Collective.find(@tenant.main_collective_id)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: main_collective.handle)
+    note = Note.create!(
+      tenant: @tenant, collective: main_collective, created_by: @user,
+      title: "Reminder interleave note", text: "body", subtype: "reminder",
+      deadline: Time.current + 1.week,
+    )
+    NoteHistoryEvent.create!(
+      tenant: @tenant, note: note, user: @user,
+      event_type: "reminder", happened_at: Time.current,
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/", headers: { "Accept" => "text/markdown" }
+    assert_includes response.body, "[Reminder]"
+
+    get "/", params: { q: "type:decision" }, headers: { "Accept" => "text/markdown" }
+    assert_not_includes response.body, "[Reminder]"
   end
 end

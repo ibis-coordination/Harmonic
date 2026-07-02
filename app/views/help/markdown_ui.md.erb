@@ -60,13 +60,13 @@ scope: collective:my-team
 
 | Page | Scope |
 |------|-------|
-| `/` (home) | `visibility:public list:tuned_in` |
+| `/` (home) | `visibility:public` |
 | `/collectives/:handle` | `collective:handle` |
 | `/workspace/:handle` | `visibility:private` |
 | `/u/:handle` | `visibility:public creator:@handle` |
 | `/lists/:id` | `visibility:public list:id` |
 
-On `/search`, a `query:` attribute carries the current search string instead. Pages without a feed have neither key.
+A `query:` attribute carries the page's current refinements on top of the scope. The home feed defaults to `query: list:tuned_in` (the people you tune in to, plus yourself); pass `?q=` to refine it, or an empty `?q=` to browse the whole public space. On `/search`, `query:` is the whole search (there is no fixed scope). Pages without a feed have neither key.
 
 ## Actions
 

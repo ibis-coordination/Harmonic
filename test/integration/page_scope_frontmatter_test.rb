@@ -29,10 +29,20 @@ class PageScopeFrontmatterTest < ActionDispatch::IntegrationTest
     body[/\A.*?^---$(.*?)^---$/m, 1] || ""
   end
 
-  test "home feed declares its fixed scope" do
+  test "home feed declares its fixed scope and default query" do
     get "/", headers: @headers
     assert_response :success
-    assert_includes frontmatter(response.body), "\nscope: visibility:public list:tuned_in\n"
+    fm = frontmatter(response.body)
+    assert_includes fm, "\nscope: visibility:public\n"
+    assert_includes fm, "\nquery: list:tuned_in\n"
+  end
+
+  test "home feed query reflects the viewer's refinement" do
+    get "/", params: { q: "type:note" }, headers: @headers
+    assert_response :success
+    fm = frontmatter(response.body)
+    assert_includes fm, "\nscope: visibility:public\n"
+    assert_includes fm, "\nquery: type:note\n"
   end
 
   test "search page declares the current query and no scope" do

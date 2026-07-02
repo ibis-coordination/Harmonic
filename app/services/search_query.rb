@@ -24,15 +24,20 @@ class SearchQuery
       current_user: T.nilable(User),
       collective: T.nilable(Collective),
       params: T::Hash[T.any(String, Symbol), T.untyped],
-      raw_query: T.nilable(String)
+      raw_query: T.nilable(String),
+      fixed_params: T::Hash[Symbol, T.untyped]
     ).void
   end
-  def initialize(tenant:, current_user:, collective: nil, params: {}, raw_query: nil)
+  def initialize(tenant:, current_user:, collective: nil, params: {}, raw_query: nil, fixed_params: {}) # rubocop:disable Metrics/ParameterLists
     @tenant = tenant
     @collective = collective
     @current_user = current_user
     @raw_query = raw_query
+    @fixed_params = fixed_params
     @params = build_params(params)
+
+    # Page scope: fixed params win over anything the query says, loudly.
+    apply_fixed_params(fixed_params)
 
     # Resolve collective from collective: handle
     resolve_collective_from_handle
@@ -58,12 +63,31 @@ class SearchQuery
 
   public
 
-  # Parse warnings (e.g. a known operator with an invalid value). Rendered
-  # by the feed search bar; empty for queries with no DSL issues.
+  # Parse warnings (e.g. a known operator with an invalid value) plus
+  # fixed-param conflicts. Rendered by the feed search bar; empty for
+  # queries with no issues.
   sig { returns(T::Array[String]) }
   def warnings
     @warnings || []
   end
+
+  private
+
+  # A feed page's fixed scope is enforced structurally — the user's query
+  # can never widen it. Conflicting query terms are overridden and reported
+  # rather than silently producing confusing results.
+  sig { params(fixed_params: T::Hash[Symbol, T.untyped]).void }
+  def apply_fixed_params(fixed_params)
+    fixed_params.each do |key, value|
+      user_value = @params[key]
+      if user_value.present? && user_value != value
+        @warnings = warnings + ["#{key}:#{user_value} ignored: this page is fixed to #{key}:#{value}"]
+      end
+      @params[key] = value
+    end
+  end
+
+  public
 
   # Main query methods
 
@@ -433,17 +457,23 @@ class SearchQuery
     value = @params[:list_id_or_alias].to_s.presence
     return @list_filter_user_ids = nil if value.nil?
 
-    @list_filter_user_ids = case value
+    ids = case value
     when "mutuals"
       @current_user ? @current_user.mutual_user_ids_in(@tenant) : []
     when "tuned_in"
-      @current_user ? UserListMember
-        .joins(:user_list)
-        .where(user_lists: {
-          tenant_id: @tenant.id, owner_id: @current_user.id,
-          is_primary: true, deleted_at: nil,
-        })
-        .pluck(:user_id) : []
+      if @current_user
+        # The viewer is always part of their own tuned-in feed: you cannot
+        # tune in to yourself, so the alias adds you to the list members.
+        UserListMember
+          .joins(:user_list)
+          .where(user_lists: {
+            tenant_id: @tenant.id, owner_id: @current_user.id,
+            is_primary: true, deleted_at: nil,
+          })
+          .pluck(:user_id) + [@current_user.id]
+      else
+        []
+      end
     else
       list = UserList
         .tenant_scoped_only(@tenant.id)
@@ -451,6 +481,21 @@ class SearchQuery
         .find_by(truncated_id: value)
       list && list.visible_to?(@current_user) ? list.user_list_members.pluck(:user_id) : []
     end
+
+    # Defense in depth: block callbacks remove primary-list memberships at
+    # block time, but stale memberships must not resurface blocked authors.
+    @list_filter_user_ids = (ids - block_related_user_ids_for_list_filter).uniq
+  end
+
+  sig { returns(T::Array[String]) }
+  def block_related_user_ids_for_list_filter
+    return [] unless @current_user
+
+    @block_related_user_ids_for_list_filter ||= UserBlock
+      .where("blocker_id = :uid OR blocked_id = :uid", uid: T.must(@current_user).id)
+      .pluck(:blocker_id, :blocked_id)
+      .flatten
+      .uniq - [T.must(@current_user).id]
   end
 
   sig { void }
@@ -472,8 +517,10 @@ class SearchQuery
 
   sig { returns(ActiveRecord::Relation) }
   def build_query
-    # Require a query to show results - empty search page shows nothing
-    return SearchIndex.none if @raw_query.blank?
+    # Require a query to show results - empty search page shows nothing.
+    # Feed pages (a fixed page scope is what makes a page a feed) browse
+    # instead: a blank query shows everything in scope.
+    return SearchIndex.none if @raw_query.blank? && @fixed_params.blank?
 
     # Use tenant_scoped_only to bypass collective scope while keeping tenant scope
     # We handle collective filtering explicitly below with accessible_collective_ids

@@ -983,4 +983,115 @@ class SearchQueryTest < ActiveSupport::TestCase
     # No results because access control prevents it
     assert_empty search.results.pluck(:item_id)
   end
+
+  # list:tuned_in — the home-feed alias
+
+  test "list:tuned_in includes the viewer's own content" do
+    # Your own writing stays on your home view: you cannot tune in to
+    # yourself, so the alias adds the viewer to the primary-list members.
+    @tenant.update!(main_collective: @collective)
+    @user.primary_user_list_in!(@tenant)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "list:tuned_in cycle:all"
+    )
+    assert_includes search.results.pluck(:item_id), @note.id
+  end
+
+  test "list:tuned_in includes tuned-in members and excludes strangers" do
+    @tenant.update!(main_collective: @collective)
+    member = create_user(email: "tuned_member@example.com", name: "Tuned Member")
+    stranger = create_user(email: "stranger@example.com", name: "Stranger")
+    [member, stranger].each do |u|
+      @tenant.add_user!(u)
+      @collective.add_user!(u)
+    end
+    list = @user.primary_user_list_in!(@tenant)
+    UserListMember.create!(
+      tenant: @tenant, collective: @collective,
+      user_list: list, user: member, added_by: @user
+    )
+    member_note = create_note(tenant: @tenant, collective: @collective, created_by: member, title: "Member note")
+    stranger_note = create_note(tenant: @tenant, collective: @collective, created_by: stranger, title: "Stranger note")
+    [member_note, stranger_note].each { |n| SearchIndexer.reindex(n) }
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "list:tuned_in cycle:all"
+    )
+    ids = search.results.pluck(:item_id)
+    assert_includes ids, member_note.id
+    assert_not_includes ids, stranger_note.id
+  end
+
+  test "list filters exclude blocked authors even with stale list membership" do
+    # The UserBlock callback removes primary-list memberships at block time,
+    # but memberships that predate the callback could linger. The list
+    # filter itself must drop block-related authors (same defense the home
+    # feed applied before it moved to search).
+    @tenant.update!(main_collective: @collective)
+    member = create_user(email: "blocked_member@example.com", name: "Blocked Member")
+    @tenant.add_user!(member)
+    @collective.add_user!(member)
+    list = @user.primary_user_list_in!(@tenant)
+    UserBlock.create!(tenant: @tenant, blocker: @user, blocked: member)
+    # Simulate a stale membership that predates the block validation and
+    # callback (both would prevent this today) by skipping validations.
+    stale = UserListMember.new(
+      tenant: @tenant, collective: @collective,
+      user_list: list, user: member, added_by: @user
+    )
+    stale.save!(validate: false)
+    blocked_note = create_note(tenant: @tenant, collective: @collective, created_by: member, title: "Blocked author note")
+    SearchIndexer.reindex(blocked_note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "list:tuned_in cycle:all"
+    )
+    assert_not_includes search.results.pluck(:item_id), blocked_note.id
+  end
+
+  # Fixed params — structural page scope enforcement
+
+  test "fixed params override conflicting query terms and warn" do
+    @tenant.update!(main_collective: @collective)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "budget visibility:private cycle:all",
+      fixed_params: { visibility: "public" }
+    )
+
+    warning = search.warnings.find { |w| w.include?("visibility:private") }
+    assert warning, "expected a conflict warning, got: #{search.warnings.inspect}"
+    assert_includes warning, "visibility:public"
+    # Enforced structurally: results are main-collective (public) content.
+    assert_not_empty search.results
+    assert search.results.all? { |r| r.collective_id == @collective.id }
+  end
+
+  test "a blank query with a fixed scope browses everything in scope" do
+    @tenant.update!(main_collective: @collective)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "",
+      fixed_params: { visibility: "public" }
+    )
+    assert_includes search.results.pluck(:item_id), @note.id
+  end
+
+  test "a blank query with no fixed scope returns nothing" do
+    search = SearchQuery.new(tenant: @tenant, current_user: @user, raw_query: "")
+    assert_empty search.results
+  end
+
+  test "fixed params do not warn when the query does not conflict" do
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "budget cycle:all",
+      fixed_params: { visibility: "public" }
+    )
+    assert_empty search.warnings
+  end
 end
