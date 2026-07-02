@@ -255,10 +255,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Posts tab shows only post-subtype notes" do
-    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post")
-    post_note.update!(subtype: "post")
-    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder")
-    reminder_note.update!(subtype: "reminder")
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post", subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder", subtype: "reminder")
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}?tab=posts"
     assert_response :success
@@ -268,10 +266,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Activity tab excludes post-subtype notes; surfaces non-post notes" do
-    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post")
-    post_note.update!(subtype: "post")
-    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder")
-    reminder_note.update!(subtype: "reminder")
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post", subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder", subtype: "reminder")
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}?tab=activity"
     assert_response :success
@@ -282,10 +278,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   test "Posts and Activity partition the legacy feed (union equals baseline, no overlap)" do
     main = @tenant.main_collective
-    post = create_note(tenant: @tenant, collective: main, created_by: @user, title: "P")
-    post.update!(subtype: "post")
-    reminder = create_note(tenant: @tenant, collective: main, created_by: @user, title: "R")
-    reminder.update!(subtype: "reminder")
+    post = create_note(tenant: @tenant, collective: main, created_by: @user, title: "P", subtype: "post")
+    reminder = create_note(tenant: @tenant, collective: main, created_by: @user, title: "R", subtype: "reminder")
     decision = create_decision(tenant: @tenant, collective: main, created_by: @user, question: "D?")
     commitment = create_commitment(tenant: @tenant, collective: main, created_by: @user, title: "C")
 
@@ -334,10 +328,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "markdown profile renders both Posts and Activity sections inline" do
-    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost")
-    post_note.update!(subtype: "post")
-    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdReminder")
-    reminder_note.update!(subtype: "reminder")
+    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost", subtype: "post")
+    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdReminder", subtype: "reminder")
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
