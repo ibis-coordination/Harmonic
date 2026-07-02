@@ -567,6 +567,31 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_not recipient2.reload.read?
   end
 
+  test "mark_read_for_subject only marks notifications about that subject" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+    other_note = create_note(tenant: tenant, collective: collective, created_by: user)
+
+    note_event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user, subject: note)
+    note_notification = Notification.create!(tenant: tenant, event: note_event, notification_type: "mention", title: "Mentioned in note")
+    note_recipient = NotificationRecipient.create!(notification: note_notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    other_event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user, subject: other_note)
+    other_notification = Notification.create!(tenant: tenant, event: other_event, notification_type: "mention", title: "Mentioned elsewhere")
+    other_recipient = NotificationRecipient.create!(
+      notification: other_notification, user: user, channel: "in_app", status: "pending", tenant: tenant
+    )
+
+    count = NotificationService.mark_read_for_subject(user, tenant: tenant, subject: note)
+
+    assert_equal 1, count
+    assert note_recipient.reload.read?
+    assert_not other_recipient.reload.read?
+  end
+
   test "mark_all_read_reminders only marks due reminders without events" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

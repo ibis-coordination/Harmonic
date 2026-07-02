@@ -543,6 +543,8 @@ class ApiHelper
     ActiveRecord::Base.transaction do
       check_not_blocked_for_comment!(note) if note.created_by
       history_event = note.confirm_read!(current_user)
+      # Confirming read also clears the notification that pointed the user here.
+      NotificationService.mark_read_for_subject(current_user, tenant: current_tenant, subject: note)
       track_task_run_resource(history_event, action_type: "confirm")
       if current_representation_session
         current_representation_session.record_event!(

@@ -242,6 +242,18 @@ class NotificationService
       .update_all(read_at: Time.current)
   end
 
+  # Mark a user's in-app notifications about a specific resource (the event
+  # subject, e.g. a Note being confirmed-read) as read. Used so that confirming
+  # read on a note also clears the notification that pointed the user there.
+  sig { params(user: User, tenant: Tenant, subject: ApplicationRecord).returns(Integer) }
+  def self.mark_read_for_subject(user, tenant:, subject:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .where(notification_id: notification_ids_for_subject(tenant, subject))
+      .in_app.unread.not_scheduled
+      .update_all(read_at: Time.current)
+  end
+
   sig { params(user: User, tenant: Tenant).returns(Integer) }
   def self.mark_all_read_reminders(user, tenant:)
     # Mark all notifications without an event (i.e., reminders that have become due)
@@ -265,6 +277,12 @@ class NotificationService
   sig { params(tenant: Tenant, collective_id: String).returns(T::Array[String]) }
   def self.notification_ids_for_collective(tenant, collective_id)
     event_ids = Event.tenant_scoped_only(tenant.id).where(collective_id: collective_id).pluck(:id)
+    Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
+  end
+
+  sig { params(tenant: Tenant, subject: ApplicationRecord).returns(T::Array[String]) }
+  def self.notification_ids_for_subject(tenant, subject)
+    event_ids = Event.tenant_scoped_only(tenant.id).for_subject(subject).pluck(:id)
     Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
   end
 
