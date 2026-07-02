@@ -14,6 +14,7 @@ class Collective < ApplicationRecord
   belongs_to :trio_user, class_name: "User", optional: true
   before_validation :create_identity_user!
   before_create :set_defaults
+  after_update :sync_identity_user_handle!, if: :saved_change_to_handle?
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
     "collectives", "api_tokens", "oauth_identities",
@@ -102,9 +103,15 @@ class Collective < ApplicationRecord
   def self.handle_available?(handle)
     return false if RESERVED_HANDLES.include?(handle.to_s.downcase)
 
-    # `handle` is citext, so this count is case-insensitive: "Foo" is taken
+    # Collective and user handles share one per-tenant namespace (Goal 2 of
+    # handle-model-unification): creating a collective also seeds an identity
+    # user that claims the collective's handle. Treat a handle as available only
+    # when neither a collective nor a user already holds it, so the new
+    # collective's identity user can take the identical handle instead of a
+    # suffixed fallback (@foo-team ↔ /collectives/foo-team stay in sync). Both
+    # columns are citext, so the lookups are case-insensitive: "Foo" is taken
     # once "foo" exists.
-    Collective.where(handle: handle).count == 0
+    !Collective.where(handle: handle).exists? && !TenantUser.where(handle: handle).exists?
   end
 
   sig { void }
@@ -643,6 +650,10 @@ class Collective < ApplicationRecord
     return if private_workspace?
     return if chat?
     return if identity_user
+    # The identity shares the collective's handle; without one there's nothing
+    # to share, so defer to `handle_is_valid` to surface the blank-handle error
+    # rather than minting an orphan identity user with a placeholder handle.
+    return if handle.blank?
 
     identity = User.create!(
       name: name,
@@ -653,10 +664,29 @@ class Collective < ApplicationRecord
       tenant: tenant,
       user: identity,
       display_name: identity.name,
-      handle: SecureRandom.hex(16)
+      handle: TenantUser.identity_handle_for(tenant_id: T.must(tenant).id, base: T.must(handle))
     )
     self.identity_user = identity
     save!
+  end
+
+  # Keep the identity user's handle in lockstep when the collective is renamed,
+  # so `@new-handle` keeps resolving to the same identity. Suffixes on collision
+  # exactly like creation (excluding the identity's own row from the check).
+  sig { void }
+  def sync_identity_user_handle!
+    return unless identity_user
+    return if handle.blank?
+
+    tenant_user = TenantUser.tenant_scoped_only(T.must(tenant_id)).find_by(user_id: identity_user_id)
+    return unless tenant_user
+
+    desired = TenantUser.identity_handle_for(
+      tenant_id: T.must(tenant_id),
+      base: T.must(handle),
+      except_user_id: identity_user_id,
+    )
+    tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
   end
 
   sig { params(time_window: ActiveSupport::Duration).returns(ActiveRecord::Relation) }

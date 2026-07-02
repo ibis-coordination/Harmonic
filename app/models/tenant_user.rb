@@ -106,6 +106,27 @@ class TenantUser < ApplicationRecord
   end
   private :generated_default_handle
 
+  # Pick a tenant-unique handle for a collective's identity user, sharing the
+  # collective's own handle so `@foo-team` and `/collectives/foo-team` resolve
+  # to one identity. Case is preserved (`preserve_case: true`) so the identity
+  # displays the case the collective chose. Falls back to a numeric suffix
+  # (`foo-team-XX`) when the desired handle is already held by another user in
+  # the tenant (legacy data where a human grabbed it first) or is a reserved
+  # handle the identity can't claim — matching the suffix policy used for human
+  # handles in `default_handle_for`. `except_user_id` lets a rename skip the
+  # identity's own current row so it isn't treated as a self-collision.
+  sig { params(tenant_id: String, base: String, except_user_id: T.nilable(String)).returns(String) }
+  def self.identity_handle_for(tenant_id:, base:, except_user_id: nil)
+    root = base.to_s.parameterize(preserve_case: true).presence || "collective"
+    scope = tenant_scoped_only(tenant_id)
+    scope = scope.where.not(user_id: except_user_id) if except_user_id.present?
+    candidate = root
+    # Identity users never carry a system_role, so any reserved key is off-limits.
+    candidate = "#{root}-#{SecureRandom.hex(2)}" if RESERVED_HANDLES.key?(root.downcase)
+    candidate = "#{root}-#{SecureRandom.hex(2)}" while scope.exists?(handle: candidate)
+    candidate
+  end
+
   sig { returns(User) }
   def user
     @user ||= super
