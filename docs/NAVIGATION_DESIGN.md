@@ -83,14 +83,18 @@ Issues / Linear pattern: pages are named queries.
 
 | Page | Fixed scope | Also a place? |
 |---|---|---|
-| Public space | `collective:main` | Yes (the eye) |
+| Public space | `visibility:public` | Yes (the eye) |
 | Collective page | `collective:x` | Yes (a square) |
-| Workspace | `collective:x` (private) | Yes (not in the left rail) |
+| Workspace | `visibility:private` | Yes (not in the left rail) |
 | Profile `/u/:handle` | `creator:handle` | No — you-level, no rail state |
+| List activity `/u/:h/lists/:id` | `list:id` | No — you-level |
 | `/search` | *(none)* | No — the only unscoped feed |
 
-Note the asymmetry: **every place has a fixed scope, but not every
-fixed-scope page is a place.** Profiles have a scope and no chrome claim.
+The `visibility:` operator's values — public, shared, private — are exactly
+the visibility zones: the zone model and the search DSL already share
+vocabulary. Note the asymmetry: **every place has a fixed scope, but not
+every fixed-scope page is a place.** Profiles have a scope and no chrome
+claim.
 
 This completes the model's account of the main content column, and it means
 the same fact is projected three ways for three audiences:
@@ -102,12 +106,13 @@ the same fact is projected three ways for three audiences:
 - **Markdown frontmatter** gets a scope attribute — the agent projection.
   Agents learn one navigation calculus: `search(scope + refinements)`.
 
-The pieces largely exist: `SearchQueryParser` already supports `creator:`,
-`type:`/`subtype:`, `status:`, `cycle:`, date and count filters, and
-`group:collective` (the notifications grouping as query vocabulary);
-`FeedBuilder` already renders home, pulse, profile, and list feeds. The gaps
-are a `collective:` operator, routing collective-page feeds through the same
-builder, and the frontmatter scope attribute.
+The pieces largely exist: `SearchQueryParser` already supports
+`collective:`, `list:` (including `list:tuned_in` / `list:mutuals`),
+`visibility:`, `creator:`, `type:`/`subtype:`, `status:`, `cycle:`, date and
+count filters, and `group:collective` (the notifications grouping as query
+vocabulary); `FeedBuilder` already renders home, pulse, profile, and list
+feeds. The gaps are routing collective-page feeds through the same engine,
+the frontmatter scope attribute, and the feed search bar UI below.
 
 ### Guardrails
 
@@ -131,14 +136,69 @@ builder, and the frontmatter scope attribute.
    (deliveries, read/dismissed), not a content query. Forcing it into the
    feed model would corrupt both models; the nil-bucket discipline above
    is unchanged.
-4. **Naming.** The search DSL renamed its `scope:` operator to
-   `visibility:` (old key kept as an alias). The page-level fixed filter is
-   a different concept; call it **page scope** consistently and do not
-   reintroduce a `scope:` operator meaning something else.
+4. **Naming.** "Scope" means exactly one thing: a page's fixed filters.
+   The search DSL's old `scope:` alias for `visibility:` has been removed
+   (clean break — `scope:x` now falls through to plain search text). Do not
+   reintroduce a `scope:` operator.
 5. **Performance.** Fixed scopes are indexable; user-composed refinements
    make every feed page search-shaped. Feed pages inherit search's
    pagination/cursor machinery rather than bespoke cheaper queries — accept
    this deliberately, page by page.
+
+### The feed search bar (UI direction)
+
+Every feed page gets a search bar at the top of the feed column:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ [🔒 collective:my-team]  [cycle:this-week ×]  filter or search…│
+└──────────────────────────────────────────────────────────────┘
+```
+
+Filters come in three tiers, and the UI must make the tier visible:
+
+| Tier | Example | Rendering | Editable? |
+|---|---|---|---|
+| **Fixed** (the page scope) | `collective:my-team` on `/collectives/my-team` | Locked chip: muted, lock glyph, no × | No — it *is* the page |
+| **Default** | `cycle:this-week` on a collective home | Ordinary chip with × | Yes — remove or replace freely |
+| **User** | anything typed | Text/chips in the input | Yes |
+
+Decisions and rationale:
+
+- **Fixed chips are outside the input.** The scope is not text the user
+  owns; it is a statement of where they are. Rendering it inside an
+  editable input (GitHub's approach) invites deleting it, and deleting it
+  is undefined here — broadening means leaving for `/search`.
+- **Defaults are real query text, owned by the user.** A page may ship
+  defaults (`cycle:this-week` keeps a collective home focused on the
+  current cycle, echoing the sidebar's Current Cycle emphasis); once the
+  page loads, defaults are indistinguishable from user filters. This
+  requires distinguishing *no query param* (apply defaults) from *empty
+  query param* (user cleared everything): `?q=` present-but-empty means
+  "no refinements", absent means "defaults". GitHub Issues has exactly
+  this distinction; copy it.
+- **Refinements live in the URL** (`/collectives/x?q=type:decision`), so
+  filtered views are shareable and the back button works. The canonical
+  page URL (no `q`) always shows the default view. Markdown frontmatter
+  carries `scope:` (fixed) and `query:` (current refinements) separately,
+  so agents see the same three-tier structure humans do.
+- **Conflicts resolve structurally, loudly.** If a user types
+  `collective:other` on a page fixed to `collective:x`, the fixed scope
+  wins because it is enforced as a server-side condition, never by string
+  concatenation — and the UI says so ("`collective:other` ignored: this
+  page is fixed to collective:x") rather than silently returning
+  confusing results. Same for `visibility:` terms that exceed the page's
+  zone.
+- **Two search affordances, two jobs.** The header search field is global:
+  it *leaves* (goes to `/search`). The feed bar *stays*: it refines the
+  current page. This is the GitHub pattern (global search vs. the issues
+  filter bar). Style them differently; never merge them.
+- **Empty results state** offers one-click "clear filters" (restore
+  defaults), since dead-end refinements are the most common failure mode.
+- Later, not now: operator autocomplete in the bar; saved refinements
+  (do not call them "lists" — that word is taken by people-lists);
+  `sort:`/`group:` controls rendered as UI affordances that read/write
+  the same query.
 
 ## Private zone (out of scope here, but load-bearing)
 
@@ -183,10 +243,10 @@ will one day hold workspace entries.
    changes what `/` means. Decide before investing in the cycles-as-channels
    sidebar work, which assumes every rail destination has a sidebar.
 
-   The feeds-are-queries model sharpens this: today's `/` is
-   `collective:main` *plus a personal filter* (tuned-in authors) — a
+   The feeds-are-queries model sharpens this: today's `/` is literally
+   expressible in the existing DSL as `visibility:public list:tuned_in` — a
    **personal saved query**, which is you-layer by definition — while the
-   true public space is `collective:main` unfiltered. Written in query
+   true public space is `visibility:public` unfiltered. Written in query
    vocabulary, the two pages are plainly different things, which weighs
    toward the second resolution.
 2. **Chat placement.** Chat collectives are excluded from the rail but chat
