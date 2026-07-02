@@ -145,6 +145,19 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not Collective.handle_available?("existing-handle")
   end
 
+  test "Collective.handle_available? returns false when a user already holds the handle" do
+    tenant = create_tenant
+    user = create_user
+    TenantUser.create!(tenant: tenant, user: user, display_name: "Squatter", handle: "shared-name")
+
+    # Collective and user handles are one namespace (Goal 2): if a user already
+    # holds "shared-name", the new-collective form must report it as taken so a
+    # collective's identity user gets the identical handle rather than a suffixed
+    # fallback. citext makes the cross-namespace check case-insensitive too.
+    assert_not Collective.handle_available?("shared-name")
+    assert_not Collective.handle_available?("SHARED-NAME"), "cross-namespace check must be case-insensitive"
+  end
+
   test "Collective.create_identity_user! creates an identity user" do
     tenant = create_tenant
     user = create_user

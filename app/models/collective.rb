@@ -103,9 +103,15 @@ class Collective < ApplicationRecord
   def self.handle_available?(handle)
     return false if RESERVED_HANDLES.include?(handle.to_s.downcase)
 
-    # `handle` is citext, so this count is case-insensitive: "Foo" is taken
+    # Collective and user handles share one per-tenant namespace (Goal 2 of
+    # handle-model-unification): creating a collective also seeds an identity
+    # user that claims the collective's handle. Treat a handle as available only
+    # when neither a collective nor a user already holds it, so the new
+    # collective's identity user can take the identical handle instead of a
+    # suffixed fallback (@foo-team ↔ /collectives/foo-team stay in sync). Both
+    # columns are citext, so the lookups are case-insensitive: "Foo" is taken
     # once "foo" exists.
-    Collective.where(handle: handle).count == 0
+    !Collective.where(handle: handle).exists? && !TenantUser.where(handle: handle).exists?
   end
 
   sig { void }
