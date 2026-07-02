@@ -55,6 +55,46 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_match(/handle is reserved/i, error.message)
   end
 
+  test "Collective rejects a cased variant of the reserved handle 'main'" do
+    tenant = create_tenant
+    user = create_user
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Collective.create!(tenant: tenant, created_by: user, name: "Main Collective", handle: "Main")
+    end
+    assert_match(/handle is reserved/i, error.message)
+  end
+
+  test "Collective handle keeps the case the creator chose" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "Foo-Team")
+    assert_equal "Foo-Team", collective.handle, "display case must be preserved, not lowercased"
+  end
+
+  test "Collective handle uniqueness is case-insensitive within a tenant" do
+    tenant = create_tenant
+    user = create_user
+    Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+
+    # Collective handle uniqueness is enforced by the DB unique index, not a
+    # model validation; with the citext column it now rejects cased variants.
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      Collective.create!(tenant: tenant, created_by: user, name: "Foo Team Two", handle: "Foo-Team")
+    end
+    assert_not Collective.handle_available?("FOO-TEAM"), "availability check must be case-insensitive"
+  end
+
+  test "Collective is found regardless of the case its handle is looked up by" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "Foo-Team")
+
+    %w[foo-team FOO-TEAM Foo-Team].each do |variant|
+      assert_equal collective.id, tenant.collectives.find_by(handle: variant)&.id,
+                   "/collectives/#{variant} should resolve to the same collective"
+    end
+  end
+
   test "Collective.creator_is_not_collective_identity validation" do
     tenant = create_tenant
     identity_user = create_user(user_type: "collective_identity")

@@ -21,9 +21,13 @@ class TenantUser < ApplicationRecord
   LOCATION_MAX_LENGTH = 100
 
   # One normalization for every handle writer (signup confirmation, settings
-  # rename, add_user!): free text like "Jane Smith" becomes jane-smith, and
-  # blank input becomes nil so auto-generation kicks in.
-  normalizes :handle, with: ->(h) { h.to_s.parameterize.presence }
+  # rename, add_user!): free text like "Jane Smith" becomes "Jane-Smith", and
+  # blank input becomes nil so auto-generation kicks in. Case is PRESERVED
+  # (`preserve_case: true`) so the display form remembers the case the user
+  # chose ("Linus" stays "Linus"); the `handle` column is `citext`, so lookup
+  # and the (tenant_id, handle) uniqueness index are case-insensitive
+  # regardless ("Linus" and "linus" resolve to and collide with each other).
+  normalizes :handle, with: ->(h) { h.to_s.parameterize(preserve_case: true).presence }
 
   validate :reserved_handle_requires_matching_system_role
   # allow_nil: on create, auto-generated handles are filled in set_defaults
@@ -62,7 +66,11 @@ class TenantUser < ApplicationRecord
 
   sig { void }
   def reserved_handle_requires_matching_system_role
-    required_role = RESERVED_HANDLES[handle]
+    # Reserved keys are lowercase; fold the (now case-preserving) handle so
+    # "Trio"/"TRIO" can't slip past the system-role gate.
+    return if handle.blank?
+
+    required_role = RESERVED_HANDLES[handle.downcase]
     return unless required_role
     return if T.must(user).system_role == required_role
 
