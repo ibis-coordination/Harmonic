@@ -5,12 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- **Settings page primary buttons render styled** (fixes #344) — "Save Changes", "Change Email", the workspace-Trio "Save", and "Save notification preferences" used `pulse-action-btn-primary` on its own. That class is only a modifier (no standalone rule), so those buttons fell back to unstyled browser defaults. Paired them with the base `pulse-action-btn`.
-
 ## [1.37.0] - 2026-07-02
 
 ### Added
