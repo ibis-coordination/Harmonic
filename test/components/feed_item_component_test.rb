@@ -265,6 +265,24 @@ class FeedItemComponentTest < ViewComponent::TestCase
     assert_selector "button", text: /Confirm read/
   end
 
+  test "renders the confirmed-reads count block hidden until the first confirmation" do
+    note = build_note(text: "Read me")
+    user = build_user(display_name: "Alice")
+    current_user = build_user(display_name: "Viewer", handle: "viewer")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 1.hour.ago,
+                    current_user: current_user
+                  ))
+    # No reads yet: the count block and the viewer's avatar render hidden inside
+    # the pulse-action controller, ready to be revealed on a successful confirm.
+    assert_selector "[data-controller='pulse-action'] .pulse-confirmed-reads[hidden]", visible: :hidden
+    assert_selector "[data-pulse-action-target='count']", text: "0 confirmed", visible: :hidden
+    assert_selector "[data-pulse-action-target='selfAvatar']", visible: :hidden
+  end
+
   test "renders confirmed button when already read" do
     note = build_note(text: "Read me")
     note.define_singleton_method(:user_has_read?) { |_u| true }
