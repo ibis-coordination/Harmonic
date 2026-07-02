@@ -23,12 +23,21 @@ class SearchableTest < ActiveSupport::TestCase
   end
 
   test "creating an item does not also enqueue a redundant reindex job" do
-    # A Decision creates no invalidating side-records (a Note's author
-    # read-confirmation legitimately enqueues one), so Searchable's own
+    # Decisions and commitments create no invalidating side-records (a
+    # Note's author read-confirmation legitimately enqueues one — joining
+    # a commitment is a separate explicit action), so Searchable's own
     # create path must be the only indexer — and it runs synchronously.
     assert_no_enqueued_jobs(only: ReindexSearchJob) do
       create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+      create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     end
+  end
+
+  test "commitments index synchronously on create" do
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user, title: "Sync commitment")
+    row = SearchIndex.tenant_scoped_only(@tenant.id).find_by(item_type: "Commitment", item_id: commitment.id)
+    assert row
+    assert_includes row.searchable_text, "Sync commitment"
   end
 
   test "updates reindex asynchronously" do
