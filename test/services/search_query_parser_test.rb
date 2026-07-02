@@ -636,17 +636,14 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "note", result[:type]
   end
 
-  # Backward-compatible `scope:` alias for `visibility:`
+  # `scope` is reserved to mean a page's fixed filters, not a search
+  # operator. It is deliberately NOT an alias for `visibility:`.
 
-  test "scope: alias maps to visibility" do
+  test "scope: is not an operator and falls through to search text" do
     result = SearchQueryParser.new("scope:private").parse
-    assert_equal "private", result[:visibility]
-  end
-
-  test "-scope: alias maps to exclude_visibility" do
-    result = SearchQueryParser.new("-scope:private").parse
-    assert_equal "private", result[:exclude_visibility]
+    assert_equal "scope:private", result[:q]
     assert_nil result[:visibility]
+    assert_nil result[:exclude_visibility]
   end
 
   test "invalid collective: value is treated as search text" do

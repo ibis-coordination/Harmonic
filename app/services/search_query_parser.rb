@@ -84,12 +84,9 @@ class SearchQueryParser
     "sort" => { "new" => "newest", "old" => "oldest" },
   }.freeze, T::Hash[String, T::Hash[String, String]])
 
-  # Backward-compatible operator key aliases. `scope:` was renamed to
-  # `visibility:` to match the visibility term used in markdown/MCP actions;
-  # the old key is still accepted so existing links and saved queries keep working.
-  OPERATOR_ALIASES = T.let({
-    "scope" => "visibility",
-  }.freeze, T::Hash[String, String])
+  # NOTE: `scope` is deliberately not an operator (nor an alias for
+  # `visibility:`). The term is reserved for a page's fixed filters — see
+  # docs/NAVIGATION_DESIGN.md "Feeds are queries".
 
   # Map DSL sort values to SearchQuery sort_by format
   SORT_MAPPING = T.let({
@@ -172,7 +169,6 @@ class SearchQueryParser
 
       if match_data
         key = T.must(match_data[1]).downcase
-        key = OPERATOR_ALIASES.fetch(key, key)
         value = match_data[2]
 
         if valid_operator?(key, T.must(value))
