@@ -18,6 +18,13 @@ class SearchQuery
   # 0.3 is a good balance - matches partial words but filters noise
   WORD_SIMILARITY_THRESHOLD = 0.3
 
+  # Fixed-param key → the search operator users type, for warning messages.
+  FIXED_PARAM_OPERATORS = T.let({
+    collective_handle: "collective",
+    creator_handles: "creator",
+    list_id_or_alias: "list",
+  }.freeze, T::Hash[Symbol, String])
+
   sig do
     params(
       tenant: Tenant,
@@ -81,7 +88,10 @@ class SearchQuery
     fixed_params.each do |key, value|
       user_value = @params[key]
       if user_value.present? && user_value != value
-        @warnings = warnings + ["#{key}:#{user_value} ignored: this page is fixed to #{key}:#{value}"]
+        op = FIXED_PARAM_OPERATORS.fetch(key, key.to_s)
+        @warnings = warnings + [
+          "#{op}:#{Array(user_value).join(",")} ignored: this page is fixed to #{op}:#{Array(value).join(",")}",
+        ]
       end
       @params[key] = value
     end
@@ -112,19 +122,8 @@ class SearchQuery
   # users have no concept of status/type/subtype/voter/etc. The presence
   # of any of these suppresses the People section entirely; the viewer's
   # query string is clearly looking for content.
-  PEOPLE_INCOMPATIBLE_PARAM_KEYS = %i[
-    type exclude_types subtypes exclude_subtypes status
-    creator_handles exclude_creator_handles
-    read_by_handles exclude_read_by_handles
-    voter_handles exclude_voter_handles
-    participant_handles exclude_participant_handles
-    mentions_handles exclude_mentions_handles
-    replying_to_handles exclude_replying_to_handles
-    critical_mass_achieved
-    min_links max_links min_backlinks max_backlinks min_comments max_comments
-    min_readers max_readers min_voters max_voters min_participants max_participants
-    after_date before_date
-    visibility exclude_visibility
+  PEOPLE_INCOMPATIBLE_PARAM_KEYS = [
+    :type, :exclude_types, :subtypes, :exclude_subtypes, :status, :creator_handles, :exclude_creator_handles, :read_by_handles, :exclude_read_by_handles, :voter_handles, :exclude_voter_handles, :participant_handles, :exclude_participant_handles, :mentions_handles, :exclude_mentions_handles, :replying_to_handles, :exclude_replying_to_handles, :critical_mass_achieved, :min_links, :max_links, :min_backlinks, :max_backlinks, :min_comments, :max_comments, :min_readers, :max_readers, :min_voters, :max_voters, :min_participants, :max_participants, :after_date, :before_date, :visibility, :exclude_visibility,
   ].freeze
 
   sig { returns(T::Array[User]) }
@@ -154,7 +153,7 @@ class SearchQuery
         UserBlock
           .where("blocker_id = :uid OR blocked_id = :uid", uid: @current_user.id)
           .pluck(:blocker_id, :blocked_id)
-          .flatten,
+          .flatten
       )
     end
 
@@ -164,7 +163,7 @@ class SearchQuery
       .where(tenant_users: { tenant_id: @tenant.id, archived_at: nil })
       .where(
         "tenant_users.handle = ? OR tenant_users.handle ILIKE ? OR LOWER(tenant_users.display_name) LIKE LOWER(?)",
-        q, like, like,
+        q, like, like
       )
       .where.not(user_id: excluded_ids.uniq)
       .where(users: { suspended_at: nil })
@@ -183,7 +182,7 @@ class SearchQuery
       return [] unless accessible_collective_ids.include?(@collective.id)
 
       scope = scope.where(
-        user_id: CollectiveMember.where(collective_id: @collective.id).select(:user_id),
+        user_id: CollectiveMember.where(collective_id: @collective.id).select(:user_id)
       )
     end
 
@@ -458,29 +457,29 @@ class SearchQuery
     return @list_filter_user_ids = nil if value.nil?
 
     ids = case value
-    when "mutuals"
-      @current_user ? @current_user.mutual_user_ids_in(@tenant) : []
-    when "tuned_in"
-      if @current_user
-        # The viewer is always part of their own tuned-in feed: you cannot
-        # tune in to yourself, so the alias adds you to the list members.
-        UserListMember
-          .joins(:user_list)
-          .where(user_lists: {
-            tenant_id: @tenant.id, owner_id: @current_user.id,
-            is_primary: true, deleted_at: nil,
-          })
-          .pluck(:user_id) + [@current_user.id]
-      else
-        []
-      end
-    else
-      list = UserList
-        .tenant_scoped_only(@tenant.id)
-        .where(deleted_at: nil)
-        .find_by(truncated_id: value)
-      list && list.visible_to?(@current_user) ? list.user_list_members.pluck(:user_id) : []
-    end
+          when "mutuals"
+            @current_user ? @current_user.mutual_user_ids_in(@tenant) : []
+          when "tuned_in"
+            if @current_user
+              # The viewer is always part of their own tuned-in feed: you cannot
+              # tune in to yourself, so the alias adds you to the list members.
+              UserListMember
+                .joins(:user_list)
+                .where(user_lists: {
+                         tenant_id: @tenant.id, owner_id: @current_user.id,
+                         is_primary: true, deleted_at: nil,
+                       })
+                .pluck(:user_id) + [@current_user.id]
+            else
+              []
+            end
+          else
+            list = UserList
+              .tenant_scoped_only(@tenant.id)
+              .where(deleted_at: nil)
+              .find_by(truncated_id: value)
+            list && list.visible_to?(@current_user) ? list.user_list_members.pluck(:user_id) : []
+          end
 
     # Defense in depth: block callbacks remove primary-list memberships at
     # block time, but stale memberships must not resurface blocked authors.
@@ -507,12 +506,12 @@ class SearchQuery
     return if handle.blank?
 
     # "main" is a reserved handle that resolves to the tenant's main collective
-    if handle == "main"
-      @collective = @tenant.main_collective
-    else
-      # Look up collective by handle within the tenant
-      @collective = @tenant.collectives.find_by(handle: handle)
-    end
+    @collective = if handle == "main"
+                    @tenant.main_collective
+                  else
+                    # Look up collective by handle within the tenant
+                    @tenant.collectives.find_by(handle: handle)
+                  end
   end
 
   sig { returns(ActiveRecord::Relation) }
@@ -574,15 +573,15 @@ class SearchQuery
 
       # Apply visibility filter
       ids = case visibility
-      when "public"
-        [main_id].compact
-      when "shared"
-        member_ids - [main_id].compact - workspace_ids
-      when "private"
-        workspace_ids
-      else
-        member_ids
-      end
+            when "public"
+              [main_id].compact
+            when "shared"
+              member_ids - [main_id].compact - workspace_ids
+            when "private"
+              workspace_ids
+            else
+              member_ids
+            end
 
       # Apply negated visibility filter
       case exclude_visibility
@@ -1098,7 +1097,11 @@ class SearchQuery
   def parse_cursor_field_value(field, value_str)
     case field
     when "created_at", "updated_at", "deadline"
-      Time.zone.parse(value_str) rescue Time.current
+      begin
+        Time.zone.parse(value_str)
+      rescue StandardError
+        Time.current
+      end
     when "backlink_count", "link_count", "participant_count", "voter_count", "reader_count"
       value_str.to_i
     when "relevance"

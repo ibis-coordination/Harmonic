@@ -104,4 +104,78 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_no_selector ".pulse-feed-item[data-item-type='Reminder']" rescue nil
     # Alternative: just verify the page loads without errors
   end
+
+  # Collective feed page (docs/NAVIGATION_DESIGN.md "Feeds are queries"):
+  # fixed scope collective:handle, default query cycle:this-week.
+
+  test "collective feed shows indexed content with the fixed token and default query" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "collective feed probe")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "#{@collective.path}/feed"
+    assert_response :success
+    assert_select ".pulse-feed-bar-scope code", text: "collective:#{@collective.handle}"
+    assert_select "input[name='q'][value='cycle:this-week']"
+    assert_includes response.body, "collective feed probe"
+  end
+
+  test "collective feed defaults to this week; cleared query shows all time" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    old_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "ancient collective post")
+    # Genuinely past: cycles contain items ACTIVE in the window
+    # (deadline > cycle start), so the deadline must be old too.
+    old_note.update_columns(created_at: 8.weeks.ago, deadline: 7.weeks.ago)
+    SearchIndexer.reindex(old_note)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "#{@collective.path}/feed"
+    assert_response :success
+    assert_not_includes response.body, "ancient collective post"
+
+    get "#{@collective.path}/feed", params: { q: "" }
+    assert_includes response.body, "ancient collective post"
+  end
+
+  test "collective feed cannot be pointed at another collective" do
+    sign_in_as(@user, tenant: @tenant)
+    get "#{@collective.path}/feed", params: { q: "collective:someplace-else" }
+    assert_response :success
+    assert_select ".pulse-feed-bar-warning",
+                  text: /collective:someplace-else ignored: this page is fixed to collective:#{@collective.handle}/
+  end
+
+  test "collective feed markdown declares scope and query frontmatter" do
+    sign_in_as(@user, tenant: @tenant)
+    get "#{@collective.path}/feed", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "scope: collective:#{@collective.handle}"
+    assert_includes response.body, "query: cycle:this-week"
+  end
+
+  test "workspace feed is scoped to the private zone" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace = Collective.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Feed Test Workspace", handle: "feed-ws-#{SecureRandom.hex(4)}",
+      collective_type: "private_workspace",
+    )
+    workspace.add_user!(@user)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: workspace.handle)
+    create_note(tenant: @tenant, collective: workspace, created_by: @user, text: "private workspace feed probe")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "#{workspace.path}/feed"
+    assert_response :success
+    assert_select ".pulse-feed-bar-scope code", text: "visibility:private"
+    assert_includes response.body, "private workspace feed probe"
+  end
 end

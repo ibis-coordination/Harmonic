@@ -511,6 +511,7 @@ Rails.application.routes.draw do
   ['collectives', 'workspace'].each do |scope_prefix|
     prefix = "#{scope_prefix}/:collective_handle"
     get "#{prefix}" => 'pulse#show'
+    get "#{prefix}/feed" => 'pulse#feed'
     get "#{prefix}/actions" => 'pulse#actions_index'
     get "#{prefix}/actions/send_heartbeat" => 'collectives#describe_send_heartbeat'
     post "#{prefix}/actions/send_heartbeat" => 'collectives#send_heartbeat'

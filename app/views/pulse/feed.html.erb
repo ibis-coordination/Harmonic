@@ -1,0 +1,40 @@
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <h1 class="pulse-resource-title" style="display: flex; align-items: center; gap: 0.5rem;">
+        <%= octicon 'rows', height: 20 %>
+        Feed
+      </h1>
+      <%= link_to "Dashboard", @current_collective.path, class: "pulse-action-btn pulse-action-btn-secondary" %>
+    </div>
+  </header>
+
+  <div class="pulse-resource-body">
+    <%= render FeedSearchBarComponent.new(
+      action: "#{@current_collective.path}/feed",
+      query: @feed_query,
+      scope_filters: [@page_scope],
+      warnings: @search.warnings,
+    ) %>
+
+    <% if @feed_items.present? %>
+      <div class="pulse-feed" style="padding: 0;">
+        <% @feed_items.each do |feed_item| %>
+          <%= render 'pulse/feed_item', feed_item: feed_item %>
+        <% end %>
+      </div>
+    <% elsif default_feed_view? %>
+      <div class="pulse-feed-empty">
+        <p>Nothing here this week.</p>
+        <p class="pulse-body-text-muted">
+          <%= link_to "Show all time", "#{@current_collective.path}/feed?q=" %>
+        </p>
+      </div>
+    <% else %>
+      <div class="pulse-feed-empty">
+        <p>No results match your filters.</p>
+        <p class="pulse-body-text-muted"><%= link_to "Clear filters", "#{@current_collective.path}/feed" %></p>
+      </div>
+    <% end %>
+  </div>
+</article>
