@@ -420,6 +420,28 @@ class TenantUserTest < ActiveSupport::TestCase
     refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
   end
 
+  test "stored preferences that predate a channel fall back to that channel's default" do
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+    tenant_user = user.tenant_user
+
+    # Simulate prefs saved before web_push existed: per-type hashes without
+    # the key. A missing key must inherit the default (true), not read as off.
+    tenant_user.settings["notification_preferences"] = {
+      "mention" => { "in_app" => true, "email" => true },
+      "tune_in" => { "in_app" => true, "email" => false },
+    }
+    tenant_user.save!
+
+    assert_includes tenant_user.notification_channels_for("mention"), "web_push"
+    assert_includes tenant_user.notification_channels_for("tune_in"), "web_push"
+    assert tenant_user.notification_enabled?("mention", "web_push"),
+           "the settings form must render the default state for channels missing from stored prefs"
+    # Explicitly stored values still win over defaults.
+    refute tenant_user.notification_enabled?("tune_in", "email")
+  end
+
   test "update_notification_preferences! accepts the web_push channel" do
     tenant, _collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!(:web_push)

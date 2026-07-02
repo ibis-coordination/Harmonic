@@ -191,7 +191,14 @@ class TenantUser < ApplicationRecord
     prefs = settings_hash["notification_preferences"]
     return DEFAULT_NOTIFICATION_PREFERENCES.deep_dup unless prefs.is_a?(Hash)
 
-    T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])
+    # Stored values win, but merged over the defaults: prefs saved before a
+    # channel existed have no key for it, and a missing key must mean "the
+    # default for that channel", not "off". Without this, adding a channel
+    # silently disables it for every user who ever saved preferences.
+    T.cast(
+      DEFAULT_NOTIFICATION_PREFERENCES.deep_merge(T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])),
+      T::Hash[String, T::Hash[String, T::Boolean]]
+    )
   end
 
   sig { params(notification_type: String).returns(T::Array[String]) }
