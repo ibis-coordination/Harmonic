@@ -25,8 +25,11 @@ class PulseController < ApplicationController
     @search = build_feed_search(fixed_params: fixed, params_extra: { cycle: "all" })
     @feed_items = SearchFeedItems.build(@search.paginated_results)
 
-    # Same sidebar as the dashboard, minus the activity type filters
-    # (their counts are dashboard state; without them the nav is hidden).
+    # Same sidebar as the dashboard, minus the dashboard-only sections:
+    # activity type filters (their counts are dashboard state), the cycle
+    # box, and recent cycles. @cycle is still needed for the heartbeat
+    # banner and heartbeats box.
+    @hide_cycle_sidebar = true
     @cycle = current_cycle
     load_collective_sidebar_data
   end
@@ -61,6 +64,14 @@ class PulseController < ApplicationController
 
     load_collective_sidebar_data
 
+    # Cycle navigation state — dashboard-only sidebar sections key off it.
+    @default_cycle = current_cycle
+    @is_viewing_current_cycle = @cycle.is_current_cycle?
+    @recent_cycle_summaries = Cycle.recent_summaries(
+      collective: @current_collective,
+      tenant: current_tenant
+    )
+
     # Content scoped to current cycle
     @unread_notes = @cycle.unread_notes(@current_user) if @current_user
     @read_notes = @cycle.read_notes(@current_user) if @current_user
@@ -80,18 +91,14 @@ class PulseController < ApplicationController
 
   private
 
-  # Everything the collective sidebar renders (cycle box, heartbeats,
-  # pinned items, recent cycles). Expects @cycle to be set.
+  # The collective sidebar sections shared by the feed and the dashboard
+  # (heartbeats, pinned items). Expects @cycle to be set. The dashboard
+  # additionally sets cycle-navigation state (@default_cycle etc.), which
+  # the cycle box and recent-cycles sections key off.
   def load_collective_sidebar_data
-    @default_cycle = current_cycle
-    @is_viewing_current_cycle = @cycle.is_current_cycle?
     @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
     @pinned_items = @current_collective.pinned_items
-    @recent_cycle_summaries = Cycle.recent_summaries(
-      collective: @current_collective,
-      tenant: current_tenant
-    )
   end
 
   def cycle_from_param

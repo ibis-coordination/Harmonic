@@ -179,27 +179,43 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "private workspace feed probe"
   end
 
-  test "the dashboard sidebar shows activity filters; the feed sidebar does not" do
+  test "dashboard-only sidebar sections hide on the feed" do
     sign_in_as(@user, tenant: @tenant)
 
     get "#{@collective.path}/dashboard"
     assert_response :success
     assert_select ".pulse-nav .pulse-nav-item", minimum: 3
+    assert_select ".pulse-cycle-box", minimum: 1
 
     get @collective.path.to_s
     assert_response :success
     assert_select ".pulse-nav .pulse-nav-item", count: 0
-    # But the rest of the dashboard sidebar is present on the feed.
-    assert_select ".pulse-cycle-box, .pulse-sidebar [class*='cycle']", minimum: 1
+    assert_select ".pulse-cycle-box", count: 0
+    assert_select ".pulse-recent-cycle-item", count: 0
+    # But the shared sidebar sections are present on the feed.
+    assert_select ".pulse-heartbeat-box, .pulse-sidebar [class*='heartbeat']", minimum: 1
   end
 
   test "cycle navigation links target the dashboard" do
     sign_in_as(@user, tenant: @tenant)
-    get @collective.path.to_s
+    get "#{@collective.path}/dashboard"
     assert_response :success
     # Without a heartbeat the previous-cycle arrow renders disabled with a
     # data-href; either form must point at the dashboard.
     assert_select "[data-href*='/dashboard?cycle='], a.pulse-cycle-nav-arrow[href*='/dashboard?cycle=']",
                   minimum: 1
+  end
+
+  test "the feed bar says Filter; /search keeps Search" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get @collective.path.to_s
+    assert_response :success
+    assert_select "input[type=submit][value=Filter]"
+    assert_select "input[name='q'][placeholder=Filter]"
+
+    get "/search"
+    assert_response :success
+    assert_select "input[type=submit][value=Search]"
   end
 end

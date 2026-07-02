@@ -14,15 +14,19 @@ class FeedSearchBarComponent < ViewComponent::Base
       query: T.nilable(String),
       scope_filters: T::Array[String],
       warnings: T::Array[String],
-      placeholder: String
+      placeholder: String,
+      submit_label: String
     ).void
   end
-  def initialize(action:, query: nil, scope_filters: [], warnings: [], placeholder: "Search")
+  # Feed pages say "Filter" — the term "search" is reserved for /search,
+  # which passes its own labels.
+  def initialize(action:, query: nil, scope_filters: [], warnings: [], placeholder: "Filter", submit_label: "Filter")
     super()
     @action = action
     @query = query
     @scope_filters = scope_filters
     @warnings = warnings
     @placeholder = placeholder
+    @submit_label = submit_label
   end
 end

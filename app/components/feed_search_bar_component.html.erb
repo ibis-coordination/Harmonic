@@ -10,7 +10,7 @@
           placeholder: @placeholder,
           autocomplete: "off" %>
     </label>
-    <%= form.submit "Search", class: "pulse-action-btn", name: nil %>
+    <%= form.submit @submit_label, class: "pulse-action-btn", name: nil %>
   <% end %>
   <% @warnings.each do |warning| %>
     <p class="pulse-feed-bar-warning"><%= helpers.octicon "alert", height: 12 %> <%= warning %></p>
