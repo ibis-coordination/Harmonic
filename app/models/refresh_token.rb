@@ -28,6 +28,14 @@ class RefreshToken < ApplicationRecord
   # refresh to skip the 2FA re-prompt.
   TWO_FACTOR_TRUST_WINDOW = 30.days
 
+  # How stale `last_used_at` must be before ordinary request activity refreshes
+  # it. Rotation stamps `last_used_at` exactly, but a live session never
+  # rotates, so between rotations the device you're actively on would show a
+  # stale time in the device list (#346). Touching on activity keeps every
+  # device's row current; the throttle keeps it to at most one write per window
+  # instead of a write on every request.
+  ACTIVITY_TOUCH_THROTTLE = 5.minutes
+
   VALID_REVOKE_REASONS = [
     "user_logout",
     "rotation_replay",
@@ -171,6 +179,20 @@ class RefreshToken < ApplicationRecord
       )
     end
     T.must(successor)
+  end
+
+  # Mark this device active as of now, unless a recent touch already did so
+  # within ACTIVITY_TOUCH_THROTTLE. Called on ordinary request activity so a
+  # live session's device row stays current between rotations (#346). Uses
+  # update_column to skip validations/callbacks — this is a cheap heartbeat,
+  # not a state change, and must not fire on a revoked/rotated token via any
+  # side effect. No-op once revoked or expired.
+  sig { void }
+  def touch_last_used!
+    return unless active?
+    return if last_used_at && last_used_at > ACTIVITY_TOUCH_THROTTLE.ago
+
+    update_column(:last_used_at, Time.current)
   end
 
   sig { params(reason: String).void }
