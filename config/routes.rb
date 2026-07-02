@@ -510,8 +510,8 @@ Rails.application.routes.draw do
   # the same controllers — private workspaces use /workspace/ while standard collectives use /collectives/.
   ['collectives', 'workspace'].each do |scope_prefix|
     prefix = "#{scope_prefix}/:collective_handle"
-    get "#{prefix}" => 'pulse#show'
-    get "#{prefix}/feed" => 'pulse#feed'
+    get "#{prefix}" => 'pulse#feed'
+    get "#{prefix}/dashboard" => 'pulse#show'
     get "#{prefix}/actions" => 'pulse#actions_index'
     get "#{prefix}/actions/send_heartbeat" => 'collectives#describe_send_heartbeat'
     post "#{prefix}/actions/send_heartbeat" => 'collectives#send_heartbeat'

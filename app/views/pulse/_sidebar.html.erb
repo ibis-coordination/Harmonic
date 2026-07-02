@@ -8,6 +8,8 @@
   <% unless @current_collective&.private_workspace? %>
     <%= render 'pulse/sidebar_heartbeats' %>
   <% end %>
-  <%= render 'pulse/sidebar_nav' %>
+  <%# The activity type filters act on the dashboard's client-side
+      pulse-filter; pages without the counts (e.g. the feed) hide them. %>
+  <%= render 'pulse/sidebar_nav' if @notes_count %>
   <%= render 'pulse/sidebar_links' %>
 </aside>

@@ -30,7 +30,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
       happened_at: Time.current,
     )
 
-    get "/collectives/#{@collective.handle}"
+    get "/collectives/#{@collective.handle}/dashboard"
     assert_response :success
     assert_includes response.body, "Reminder"
     assert_includes response.body, "Remember to check on deployment"
@@ -67,7 +67,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "/collectives/#{main_collective.handle}", headers: { "Accept" => "text/markdown" }
+    get "/collectives/#{main_collective.handle}/dashboard", headers: { "Accept" => "text/markdown" }
     assert_response :success
     # The "**Reminder**:" prefix is the markdown type label produced for a
     # fired reminder event — distinct from the word "Reminder" appearing
@@ -97,7 +97,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
       happened_at: 1.year.ago,
     )
 
-    get "/collectives/#{@collective.handle}"
+    get "/collectives/#{@collective.handle}/dashboard"
     assert_response :success
     # The note itself may appear, but the old reminder event should not render as a "Reminder" feed item
     # We check that the reminder event's "clock" icon doesn't appear from the ReminderFeedItemComponent
@@ -116,7 +116,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "#{@collective.path}/feed"
+    get "#{@collective.path}"
     assert_response :success
     assert_select ".pulse-feed-bar-scope code", text: "collective:#{@collective.handle}"
     assert_select "input[name='q'][value='cycle:this-week']"
@@ -135,17 +135,17 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
-    get "#{@collective.path}/feed"
+    get "#{@collective.path}"
     assert_response :success
     assert_not_includes response.body, "ancient collective post"
 
-    get "#{@collective.path}/feed", params: { q: "" }
+    get "#{@collective.path}", params: { q: "" }
     assert_includes response.body, "ancient collective post"
   end
 
   test "collective feed cannot be pointed at another collective" do
     sign_in_as(@user, tenant: @tenant)
-    get "#{@collective.path}/feed", params: { q: "collective:someplace-else" }
+    get "#{@collective.path}", params: { q: "collective:someplace-else" }
     assert_response :success
     assert_select ".pulse-feed-bar-warning",
                   text: /collective:someplace-else ignored: this page is fixed to collective:#{@collective.handle}/
@@ -153,7 +153,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
 
   test "collective feed markdown declares scope and query frontmatter" do
     sign_in_as(@user, tenant: @tenant)
-    get "#{@collective.path}/feed", headers: { "Accept" => "text/markdown" }
+    get "#{@collective.path}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "scope: collective:#{@collective.handle}"
     assert_includes response.body, "query: cycle:this-week"
@@ -173,9 +173,33 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)
-    get "#{workspace.path}/feed"
+    get workspace.path.to_s
     assert_response :success
     assert_select ".pulse-feed-bar-scope code", text: "visibility:private"
     assert_includes response.body, "private workspace feed probe"
+  end
+
+  test "the dashboard sidebar shows activity filters; the feed sidebar does not" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{@collective.path}/dashboard"
+    assert_response :success
+    assert_select ".pulse-nav .pulse-nav-item", minimum: 3
+
+    get @collective.path.to_s
+    assert_response :success
+    assert_select ".pulse-nav .pulse-nav-item", count: 0
+    # But the rest of the dashboard sidebar is present on the feed.
+    assert_select ".pulse-cycle-box, .pulse-sidebar [class*='cycle']", minimum: 1
+  end
+
+  test "cycle navigation links target the dashboard" do
+    sign_in_as(@user, tenant: @tenant)
+    get @collective.path.to_s
+    assert_response :success
+    # Without a heartbeat the previous-cycle arrow renders disabled with a
+    # data-href; either form must point at the dashboard.
+    assert_select "[data-href*='/dashboard?cycle='], a.pulse-cycle-nav-arrow[href*='/dashboard?cycle=']",
+                  minimum: 1
   end
 end

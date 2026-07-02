@@ -61,10 +61,10 @@ scope: collective:my-team
 | Page | Scope | Default query |
 |------|-------|---------------|
 | `/` (home) | `visibility:public` | `list:tuned_in` |
-| `/collectives/:handle` | `collective:handle` | — |
-| `/collectives/:handle/feed` | `collective:handle` | `cycle:this-week` |
-| `/workspace/:handle` | `visibility:private` | — |
-| `/workspace/:handle/feed` | `visibility:private` | `cycle:this-week` |
+| `/collectives/:handle` (feed) | `collective:handle` | `cycle:this-week` |
+| `/collectives/:handle/dashboard` | `collective:handle` | — |
+| `/workspace/:handle` (feed) | `visibility:private` | `cycle:this-week` |
+| `/workspace/:handle/dashboard` | `visibility:private` | — |
 | `/u/:handle` | `visibility:public creator:@handle` | — |
 | `/lists/:id` | `visibility:public list:id` | — |
 
