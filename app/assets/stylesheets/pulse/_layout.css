@@ -67,6 +67,23 @@
   background: var(--color-canvas-default);
   min-height: 56px;
   box-sizing: border-box;
+  /* Auto-hiding header: pinned to the top, translated out of view on
+   * scroll-down and revealed on scroll-up by the auto-hide-header controller. */
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  transition: transform 0.25s ease;
+  will-change: transform;
+}
+
+.pulse-top-header--hidden {
+  transform: translateY(-100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-top-header {
+    transition: none;
+  }
 }
 
 .pulse-top-header .pulse-logo {
