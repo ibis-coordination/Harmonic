@@ -652,4 +652,38 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "has", result[:collective_handle]
     assert_equal "spaces", result[:q]
   end
+
+  # Warnings: a KNOWN operator with an invalid value silently degrading to
+  # search text is confusing — the parser reports it. Unknown operators stay
+  # silent (they are legitimately searchable text like "re:invoice").
+
+  test "invalid value for a values operator warns and names the valid values" do
+    result = SearchQueryParser.new("visibility:invalid").parse
+    assert_equal 1, result[:warnings].size
+    warning = result[:warnings].first
+    assert_includes warning, "visibility:invalid"
+    assert_includes warning, "public, shared, private"
+  end
+
+  test "invalid value for a pattern operator warns" do
+    result = SearchQueryParser.new("after:not-a-date").parse
+    assert_equal 1, result[:warnings].size
+    assert_includes result[:warnings].first, "after:not-a-date"
+  end
+
+  test "unknown operators do not warn" do
+    result = SearchQueryParser.new("re:invoice foo:bar").parse
+    assert_empty result[:warnings]
+  end
+
+  test "valid queries do not warn" do
+    result = SearchQueryParser.new("budget type:note visibility:public").parse
+    assert_empty result[:warnings]
+  end
+
+  test "negated invalid values warn too" do
+    result = SearchQueryParser.new("-status:maybe").parse
+    assert_equal 1, result[:warnings].size
+    assert_includes result[:warnings].first, "status:maybe"
+  end
 end

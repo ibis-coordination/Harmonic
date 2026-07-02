@@ -47,6 +47,8 @@ class SearchQuery
     # If raw_query is provided, parse DSL and merge
     if @raw_query.present?
       parsed = SearchQueryParser.new(@raw_query).parse
+      # Warnings are commentary, not query params — extract before merging.
+      @warnings = parsed.delete(:warnings)
       # Parsed values override base params (DSL takes precedence)
       base_params.merge!(parsed.compact)
     end
@@ -55,6 +57,13 @@ class SearchQuery
   end
 
   public
+
+  # Parse warnings (e.g. a known operator with an invalid value). Rendered
+  # by the feed search bar; empty for queries with no DSL issues.
+  sig { returns(T::Array[String]) }
+  def warnings
+    @warnings || []
+  end
 
   # Main query methods
 

@@ -1,0 +1,70 @@
+/* Pulse Feed Search Bar
+ *
+ * Every feed page is search results with a fixed page scope
+ * (docs/NAVIGATION_DESIGN.md "The feed search bar"). The fixed scope
+ * renders as locked chips OUTSIDE the editable input; refinements are
+ * typed in /search syntax. Parse warnings render below the form.
+ */
+
+.pulse-feed-bar-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Locked page-scope chip: not editable, not dismissable. */
+.pulse-feed-bar-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--color-canvas-subtle);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--border-radius-lg);
+  color: var(--color-fg-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pulse-feed-bar-scope .octicon {
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.pulse-feed-bar-scope code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.pulse-feed-bar-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--color-fg-default);
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--border-radius-lg);
+}
+
+.pulse-feed-bar-input:focus {
+  outline: none;
+  border-color: var(--color-accent-emphasis);
+}
+
+.pulse-feed-bar-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--color-attention-fg);
+  font-size: 13px;
+}
+
+.pulse-feed-bar-warning .octicon {
+  fill: currentColor;
+  flex-shrink: 0;
+}
