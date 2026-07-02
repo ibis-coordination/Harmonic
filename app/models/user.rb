@@ -645,6 +645,9 @@ class User < ApplicationRecord
     # Revoke refresh tokens too — otherwise a stolen refresh cookie could
     # silently restore the session right after this method finishes.
     RefreshToken.revoke_all_for_user!(id, reason: "admin")
+    # And push subscriptions — a compromised device must also stop receiving
+    # the user's notifications.
+    WebPushSubscription.revoke_all_for_user!(id, reason: "admin")
   end
 
   sig { params(by: User, reason: String, skip_billing_sync: T::Boolean).void }

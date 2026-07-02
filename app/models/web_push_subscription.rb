@@ -63,6 +63,17 @@ class WebPushSubscription < ApplicationRecord
     revoked_at.nil?
   end
 
+  # Revoke every active subscription for the user. Used when device trust
+  # ends everywhere at once — admin account security reset. Mirrors
+  # RefreshToken.revoke_all_for_user!.
+  sig { params(user_id: String, reason: String).void }
+  def self.revoke_all_for_user!(user_id, reason:)
+    raise ArgumentError, "invalid reason" unless VALID_REVOKE_REASONS.include?(reason)
+
+    active.where(user_id: user_id)
+      .update_all(revoked_at: Time.current, revoked_reason: reason)
+  end
+
   sig { params(reason: String).void }
   def revoke!(reason:)
     raise ArgumentError, "invalid reason" unless VALID_REVOKE_REASONS.include?(reason)

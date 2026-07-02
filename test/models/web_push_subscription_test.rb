@@ -104,6 +104,34 @@ class WebPushSubscriptionTest < ActiveSupport::TestCase
     assert_not_includes WebPushSubscription.active, revoked
   end
 
+  test "revoke_all_for_user! revokes every active subscription for the user" do
+    laptop = subscribe!
+    phone = subscribe!(endpoint: "https://push.example.com/send/phone")
+    other_user = create_user
+    other_users_device = subscribe!(user: other_user)
+
+    WebPushSubscription.revoke_all_for_user!(@user.id, reason: "admin")
+
+    assert_equal "admin", laptop.reload.revoked_reason
+    assert_equal "admin", phone.reload.revoked_reason
+    assert other_users_device.reload.active?, "another user's subscription must be untouched"
+  end
+
+  test "revoke_all_for_user! leaves already-revoked rows and their reasons untouched" do
+    gone = subscribe!
+    gone.revoke!(reason: "gone")
+    revoked_at = gone.revoked_at
+
+    WebPushSubscription.revoke_all_for_user!(@user.id, reason: "admin")
+
+    assert_equal "gone", gone.reload.revoked_reason
+    assert_equal revoked_at, gone.revoked_at
+  end
+
+  test "revoke_all_for_user! rejects unknown reasons" do
+    assert_raises(ArgumentError) { WebPushSubscription.revoke_all_for_user!(@user.id, reason: "whatever") }
+  end
+
   test "record_error! stamps the error fields without revoking" do
     subscription = subscribe!
     subscription.record_error!("Forbidden")

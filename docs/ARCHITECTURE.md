@@ -536,6 +536,15 @@ form actually rendered (`Tenant#editable_notification_channels`). This is
 what lets a channel launch later without users having been silently opted
 out by earlier form saves.
 
+**Subscription lifetime is device-trust lifetime.** Push subscriptions
+survive session timeouts (delivery is server-to-endpoint and never consults
+the session — reaching users who aren't in the app is the point). They end
+when device trust ends: explicit logout on the device (the logout form's
+Stimulus controller unsubscribes browser-side and reports the endpoint so
+the server revokes the row, reason `user`) or an admin account security
+reset (`User#revoke_all_sessions!` revokes all of the user's subscriptions,
+reason `admin`). Never revoke on session expiry.
+
 ## Automation System
 
 Harmonic includes an IFTTT/Zapier-style automation system for triggering actions based on events, schedules, or webhooks.

@@ -99,7 +99,9 @@
         </li>
         <li>
           <%= octicon 'sign-out' %>
-          <%= button_to "Sign Out", logout_path, method: :delete, style: "display:inline;" %>
+          <%= button_to "Sign Out", logout_path, method: :delete, style: "display:inline;",
+                params: { push_endpoint: "" },
+                form: { data: { controller: "logout", action: "submit->logout#prepare" } } %>
         </li>
       </ul>
     </div>
