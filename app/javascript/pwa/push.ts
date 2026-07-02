@@ -46,6 +46,33 @@ export function notificationOptions(payload: PushPayload): PushNotificationOptio
   }
 }
 
+// Decide whether an incoming push should surface an OS notification, given
+// the open windows on this origin. When the user has a window focused they
+// are actively in the app, and the in-app channel (bell badge, chat view) is
+// already showing the content — a banner on top of that is noise, worst for
+// chat, which pushes per message. Chrome's userVisibleOnly requirement has an
+// explicit carve-out for skipping the notification while a window is focused.
+//
+// Cross-origin targets always show: delivery is origin-agnostic, so another
+// tenant's notification can arrive at this service worker, and a focused
+// window here says nothing about whether the user can see that content.
+// Url-less payloads originate from this origin's server, so they follow the
+// same-origin rule.
+export function shouldShowNotification(
+  targetUrl: string | undefined,
+  clients: { focused: boolean }[],
+  origin: string,
+): boolean {
+  if (!clients.some((client) => client.focused)) return true
+  if (!targetUrl) return false
+
+  try {
+    return new URL(targetUrl).origin !== origin
+  } catch {
+    return false
+  }
+}
+
 export type ClickAction =
   | { type: "focus"; index: number }
   | { type: "focus-navigate"; index: number }

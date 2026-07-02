@@ -166,6 +166,7 @@ Manual: subscribe on phone, trigger a comment, see notification; tap action butt
 - **Subscription scope**: subscriptions are per-user (device registrations, cross-tenant); *whether* a tenant's notifications push is the per-tenant channel preference on `TenantUser` — the same split email already uses.
 - **Audience**: human users only. AI agents stay on webhooks.
 - **Chat messages**: included, pushed per-message; in-app dedup unchanged.
+- **Foreground suppression**: no banner while a same-origin window is focused — the in-app channel is already showing the content (worst offender otherwise: per-message chat pushes during an active conversation). The app badge still updates. Cross-origin targets always show (delivery is origin-agnostic; a focused tenant-A window says nothing about tenant B's content). Chrome's userVisibleOnly rule has an explicit carve-out for this.
 
 - **Subscription lifetime = device-trust lifetime**: push survives routine session expiry (its whole point is reaching users who aren't in the app; delivery is server-to-endpoint and never consults the session), and ends when device trust ends — explicit logout on the device, or admin `account_security_reset` (revoke reason `admin`). Never revoke on session timeout. RefreshToken and WebPushSubscription rows have no linkage; remote per-device revocation is via the push device list on settings.
 

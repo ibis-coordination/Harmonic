@@ -545,6 +545,11 @@ the server revokes the row, reason `user`) or an admin account security
 reset (`User#revoke_all_sessions!` revokes all of the user's subscriptions,
 reason `admin`). Never revoke on session expiry.
 
+The service worker suppresses the notification banner while a same-origin
+window is focused (`shouldShowNotification` in `app/javascript/pwa/push.ts`)
+— the in-app channel is already showing the content. The app badge still
+updates, and cross-origin (cross-tenant) notifications always show.
+
 ## Automation System
 
 Harmonic includes an IFTTT/Zapier-style automation system for triggering actions based on events, schedules, or webhooks.

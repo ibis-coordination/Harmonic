@@ -3,11 +3,12 @@
 // `self.CACHE_VERSION = "<git sha>"` line — per-deploy cache busting.
 
 import { respondCacheFirst, respondNetworkFirst } from "./handlers"
-import { clickAction, notificationOptions, parsePayload } from "./push"
+import { clickAction, notificationOptions, parsePayload, shouldShowNotification } from "./push"
 import { cacheName, classify, OFFLINE_PATH, staleCacheNames, type RequestSummary } from "./strategies"
 
 interface WindowClientLike {
   url: string
+  focused: boolean
   focus(): Promise<unknown>
   navigate(url: string): Promise<unknown>
 }
@@ -81,8 +82,12 @@ sw.addEventListener("push", (event: PushEventLike) => {
 
   event.waitUntil(
     (async () => {
-      await sw.registration.showNotification(payload.title, notificationOptions(payload))
-      // iOS surfaces the app badge on the home-screen icon; harmless no-op elsewhere.
+      const clients = await sw.clients.matchAll({ type: "window", includeUncontrolled: true })
+      if (shouldShowNotification(payload.url, clients, sw.location.origin)) {
+        await sw.registration.showNotification(payload.title, notificationOptions(payload))
+      }
+      // iOS surfaces the app badge on the home-screen icon; harmless no-op
+      // elsewhere. Badge even when the banner is suppressed.
       await sw.navigator?.setAppBadge?.().catch(() => undefined)
     })(),
   )
