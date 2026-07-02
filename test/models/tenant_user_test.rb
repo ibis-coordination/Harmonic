@@ -382,7 +382,7 @@ class TenantUserTest < ActiveSupport::TestCase
 
   test "notification_channels_for includes web_push when flag on, pref on, and an active subscription exists" do
     tenant, _collective, user = create_tenant_collective_user
-    tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(tenant)
     subscribe_to_push!(user)
 
     channels = user.tenant_user.notification_channels_for("mention")
@@ -401,7 +401,7 @@ class TenantUserTest < ActiveSupport::TestCase
 
   test "notification_channels_for excludes web_push without an active subscription" do
     tenant, _collective, user = create_tenant_collective_user
-    tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(tenant)
 
     refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
 
@@ -413,7 +413,7 @@ class TenantUserTest < ActiveSupport::TestCase
 
   test "notification_channels_for excludes web_push when the pref is off" do
     tenant, _collective, user = create_tenant_collective_user
-    tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(tenant)
     subscribe_to_push!(user)
     user.tenant_user.set_notification_preference!("mention", "web_push", false)
 
@@ -422,7 +422,7 @@ class TenantUserTest < ActiveSupport::TestCase
 
   test "stored preferences that predate a channel fall back to that channel's default" do
     tenant, _collective, user = create_tenant_collective_user
-    tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(tenant)
     subscribe_to_push!(user)
     tenant_user = user.tenant_user
 
@@ -442,9 +442,32 @@ class TenantUserTest < ActiveSupport::TestCase
     refute tenant_user.notification_enabled?("tune_in", "email")
   end
 
-  test "update_notification_preferences! accepts the web_push channel" do
+  test "notification_channels_for excludes web_push when the service_worker flag is off" do
+    # Push physically requires the service worker (the push event fires inside
+    # it, and unregistering it destroys the subscription), so web_push alone
+    # must not light the channel up.
     tenant, _collective, user = create_tenant_collective_user
     tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when VAPID keys are not configured" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    old_key = ENV["VAPID_PUBLIC_KEY"]
+    ENV["VAPID_PUBLIC_KEY"] = nil
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  ensure
+    ENV["VAPID_PUBLIC_KEY"] = old_key
+  end
+
+  test "update_notification_preferences! accepts the web_push channel" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
     subscribe_to_push!(user)
 
     user.tenant_user.update_notification_preferences!("comment" => { "web_push" => false })

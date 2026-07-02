@@ -556,7 +556,9 @@ class UsersController < ApplicationController
     settings_user = tu.user
     return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
 
-    tu.update_notification_preferences!(notification_preferences_from_params(complete: true))
+    tu.update_notification_preferences!(
+      notification_preferences_from_params(complete: true, channels: current_tenant.editable_notification_channels)
+    )
 
     flash[:notice] = "Notification preferences updated"
     redirect_to "#{settings_user.path}/settings"

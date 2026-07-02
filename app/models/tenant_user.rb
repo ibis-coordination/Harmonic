@@ -221,8 +221,7 @@ class TenantUser < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def web_push_available?
-    FeatureFlagService.enabled?("web_push", tenant: T.must(tenant)) &&
-      user.web_push_subscriptions.active.exists?
+    T.must(tenant).web_push_available? && user.web_push_subscriptions.active.exists?
   end
 
   sig { params(notification_type: String, channel: String).returns(T::Boolean) }
@@ -235,7 +234,11 @@ class TenantUser < ApplicationRecord
   def set_notification_preference!(notification_type, channel, enabled)
     self.settings ||= {}
     settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    # Seed empty, not the defaults matrix: notification_preferences merges
+    # stored values over DEFAULT_NOTIFICATION_PREFERENCES at read time, so
+    # only explicit choices belong in settings. Copying the defaults in
+    # would freeze today's defaults (and today's channel list) forever.
+    settings_hash["notification_preferences"] ||= {}
     notification_prefs = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
     notification_prefs[notification_type] ||= {}
     T.must(notification_prefs[notification_type])[channel] = enabled
@@ -251,7 +254,9 @@ class TenantUser < ApplicationRecord
   def update_notification_preferences!(preferences)
     self.settings ||= {}
     settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    # Empty seed for the same reason as set_notification_preference!: stored
+    # prefs hold only explicit choices; defaults are merged in at read time.
+    settings_hash["notification_preferences"] ||= {}
     current = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
 
     preferences.each do |type, channels|

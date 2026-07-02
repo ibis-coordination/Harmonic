@@ -84,13 +84,15 @@ class ReminderService
       raise ReminderLimitExceeded, "Maximum #{MAX_REMINDERS_PER_USER} scheduled reminders allowed"
     end
 
-    # Check creation rate
+    # Check creation rate. Distinct notifications, not recipient rows — a
+    # reminder creates one row per delivery channel (in_app, web_push, ...),
+    # and the quota is about reminders.
     recent_count = NotificationRecipient
       .joins(:notification)
       .where(user: user)
       .where(notifications: { notification_type: "reminder" })
       .where("notification_recipients.created_at > ?", 1.hour.ago)
-      .count
+      .select(:notification_id).distinct.count
     if recent_count >= MAX_REMINDERS_PER_HOUR
       raise ReminderRateLimitExceeded, "Maximum #{MAX_REMINDERS_PER_HOUR} reminders per hour"
     end

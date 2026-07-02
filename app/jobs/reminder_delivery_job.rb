@@ -56,13 +56,16 @@ class ReminderDeliveryJob < SystemJob
     # 2. Concurrent execution for the same user is unlikely
     # 3. The consequence (a few extra deliveries) is minor
     # If this becomes an issue, consider Redis-based distributed rate limiting.
+    # Distinct notifications, not recipient rows: a reminder delivers one row
+    # per channel, and the cap is about how many reminders can ping a user
+    # per minute, not how many transports carried them.
     recent_deliveries = NotificationRecipient.unscoped_for_system_job
       .joins(:notification)
       .where(user: user)
       .where(notifications: { notification_type: "reminder" })
       .where(status: "delivered")
       .where("notification_recipients.delivered_at > ?", 1.minute.ago)
-      .count
+      .select(:notification_id).distinct.count
 
     if recent_deliveries >= MAX_DELIVERIES_PER_USER_PER_MINUTE
       Rails.logger.warn("Reminder loop detected for user #{user.id}, rate limiting batch of #{reminders.size}")
@@ -101,7 +104,9 @@ class ReminderDeliveryJob < SystemJob
         actor: user,
         subject: notification,
         metadata: {
-          "reminders" => reminders.filter_map do |nr|
+          # One entry per reminder, not per channel row — the batch contains
+          # a row per delivery channel for the same notification.
+          "reminders" => reminders.uniq(&:notification_id).filter_map do |nr|
             notif = nr.notification
             next unless notif
 
@@ -112,7 +117,7 @@ class ReminderDeliveryJob < SystemJob
               "scheduled_for" => nr.scheduled_for&.iso8601,
             }
           end,
-          "count" => reminders.size,
+          "count" => reminders.map(&:notification_id).uniq.size,
         }
       )
 

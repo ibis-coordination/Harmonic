@@ -85,7 +85,15 @@ export default class WebPushController extends Controller<HTMLElement> {
     }
 
     this.buttonTarget.disabled = true
-    const registration = await navigator.serviceWorker.ready
+    // Not serviceWorker.ready — that promise never settles when no service
+    // worker is registered (e.g. registration failed), which would leave the
+    // button disabled forever with no feedback.
+    const registration = await navigator.serviceWorker.getRegistration()
+    if (!registration) {
+      this.buttonTarget.disabled = false
+      this.showStatus("Push isn't available right now — the service worker isn't installed. Reload the page and try again.")
+      return
+    }
 
     const result = await subscribeToPush({
       vapidPublicKey,

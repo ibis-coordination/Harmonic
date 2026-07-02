@@ -255,7 +255,7 @@
     <% end %>
   <% end %>
 
-  <% if @settings_user.human? && is_own_settings && FeatureFlagService.enabled?("web_push", tenant: @current_tenant) %>
+  <% if @settings_user.human? && is_own_settings && @current_tenant.web_push_available? %>
     <%= render 'shared/pulse_accordion', title: 'Push notifications', count: @push_subscriptions.size.positive? ? @push_subscriptions.size : nil do %>
       <%# The controller element wraps the device rows too: their "This
           device" badge targets are matched against this browser's

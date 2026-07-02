@@ -98,6 +98,19 @@ class WebPushDeliveryJobTest < ActiveSupport::TestCase
     assert_not @subscription.reload.active?
   end
 
+  test "revokes the subscription when the push service rejects the VAPID signature" do
+    # 401/403 means our keys don't match the subscription's applicationServerKey
+    # (e.g. after a VAPID rotation) — that subscription can never deliver again,
+    # so it must be revoked to unblock the client-side re-subscribe repair path.
+    WebPush.stub(:payload_send, ->(**) { raise response_error(WebPush::Unauthorized) }) do
+      WebPushDeliveryJob.perform_now(@recipient.id, @subscription.id)
+    end
+
+    @subscription.reload
+    assert_not @subscription.active?
+    assert_equal "unauthorized", @subscription.revoked_reason
+  end
+
   test "retries on rate limiting" do
     WebPush.stub(:payload_send, ->(**) { raise response_error(WebPush::TooManyRequests) }) do
       WebPushDeliveryJob.perform_now(@recipient.id, @subscription.id)

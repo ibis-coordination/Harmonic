@@ -12,7 +12,7 @@
     <% if @current_tenant && FeatureFlagService.enabled?("service_worker", tenant: @current_tenant) %>
       <meta name="service-worker-enabled" content="true">
     <% end %>
-    <% if @current_tenant && ENV["VAPID_PUBLIC_KEY"].present? && FeatureFlagService.enabled?("web_push", tenant: @current_tenant) %>
+    <% if @current_tenant&.web_push_available? %>
       <meta name="vapid-public-key" content="<%= ENV["VAPID_PUBLIC_KEY"] %>">
     <% end %>
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">

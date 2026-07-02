@@ -46,7 +46,7 @@ class WebPushSubscriptionsController < ApplicationController
 
   sig { void }
   def require_web_push_enabled
-    head :not_found unless FeatureFlagService.enabled?("web_push", tenant: current_tenant)
+    head :not_found unless current_tenant.web_push_available?
   end
 
   sig { void }

@@ -45,6 +45,13 @@ class WebPushDeliveryJob < TenantScopedJob
     # The push service no longer knows this endpoint — the browser rotated or
     # dropped the subscription. Revoke; a live device will re-subscribe.
     subscription.revoke!(reason: "gone")
+  rescue WebPush::Unauthorized
+    # Our VAPID signature doesn't match the key the subscription was minted
+    # with (key rotation). The subscription can never deliver with the
+    # current keys; revoking it lets the client-side repair path run — the
+    # settings page stops claiming "enabled" and re-subscribing mints a
+    # fresh subscription against the new key.
+    subscription.revoke!(reason: "unauthorized")
   rescue WebPush::TooManyRequests, WebPush::PushServiceError
     raise # handled by retry_on
   rescue WebPush::ResponseError => e

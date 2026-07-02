@@ -39,6 +39,20 @@ describe("respondCacheFirst", () => {
     expect(cache.putCalls).toEqual([[REQ, clone]])
   })
 
+  it("returns the network response even when caching it fails", async () => {
+    // Safari private mode / storage pressure: put rejects with QuotaExceededError.
+    const fresh = fakeResponse()
+    const clone = fakeResponse()
+    ;(fresh as unknown as { clone: () => Response }).clone = () => clone
+    const cache = fakeCache()
+    cache.put = async () => {
+      throw new DOMException("quota", "QuotaExceededError")
+    }
+    const fetchFn = vi.fn(async () => fresh)
+
+    expect(await respondCacheFirst(cache, REQ, fetchFn)).toBe(fresh)
+  })
+
   it("does not cache non-200 responses", async () => {
     const cache = fakeCache()
     const fetchFn = vi.fn(async () => fakeResponse(404))

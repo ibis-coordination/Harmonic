@@ -15,7 +15,9 @@ export async function respondCacheFirst(cache: CacheLike, request: Request | str
 
   const response = await fetchFn(request)
   if (response.status === 200) {
-    await cache.put(request, response.clone())
+    // Best-effort: a failed write (quota, private browsing) must not turn a
+    // successful fetch into a network error.
+    await cache.put(request, response.clone()).catch(() => undefined)
   }
   return response
 }

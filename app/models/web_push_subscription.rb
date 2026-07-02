@@ -17,7 +17,7 @@
 class WebPushSubscription < ApplicationRecord
   extend T::Sig
 
-  VALID_REVOKE_REASONS = ["gone", "user", "admin"].freeze
+  VALID_REVOKE_REASONS = ["gone", "unauthorized", "user", "admin"].freeze
 
   belongs_to :user
 

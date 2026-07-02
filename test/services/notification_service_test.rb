@@ -120,7 +120,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
 
   test "notify_chat_message! creates a web_push recipient per message even when in-app dedups" do
     tenant, _collective, sender = create_tenant_collective_user
-    tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(tenant)
     recipient = create_user(name: "Recipient")
     tenant.add_user!(recipient)
     WebPushSubscription.upsert_for!(
@@ -149,7 +149,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
 
   test "notify_chat_message! creates no web_push recipient when the recipient has no subscription" do
     tenant, _collective, sender = create_tenant_collective_user
-    tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(tenant)
     recipient = create_user(name: "Recipient")
     tenant.add_user!(recipient)
 

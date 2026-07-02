@@ -403,6 +403,37 @@ class Tenant < ApplicationRecord
     end
   end
 
+  # Whether Web Push can work on this tenant. Requires BOTH feature flags:
+  # push physically depends on the service worker — the push event fires
+  # inside it, the PushSubscription belongs to its registration, and turning
+  # service_worker off serves an unregister stub that destroys existing
+  # subscriptions. The flags stay separate because they answer different
+  # questions (service_worker = client-infrastructure kill switch, web_push =
+  # tenant policy on sending member content through third-party push
+  # services), but web_push can never outrank its substrate. VAPID keys are
+  # server deployment config; without them the subscribe flow can't run.
+  #
+  # Every push surface (layout meta, opt-in banner, settings section,
+  # preference matrix column, subscription endpoints, channel resolution)
+  # gates on this one predicate so they can't drift.
+  sig { returns(T::Boolean) }
+  def web_push_available?
+    FeatureFlagService.enabled?("web_push", tenant: self) &&
+      FeatureFlagService.enabled?("service_worker", tenant: self) &&
+      ENV["VAPID_PUBLIC_KEY"].present? && ENV["VAPID_PRIVATE_KEY"].present?
+  end
+
+  # The channels the notification-preference matrix offers on this tenant —
+  # exactly the columns the settings form renders. Form parsing must use the
+  # same list (see NotificationPreferencesParams): recording an absent
+  # checkbox as "off" is only valid for a checkbox that was on screen.
+  sig { returns(T::Array[String]) }
+  def editable_notification_channels
+    channels = TenantUser::NOTIFICATION_CHANNELS.dup
+    channels -= ["web_push"] unless web_push_available?
+    channels
+  end
+
   sig { returns(T::Boolean) }
   def archived?
     archived_at.present?

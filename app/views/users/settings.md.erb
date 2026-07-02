@@ -12,10 +12,16 @@ Handle: `<%= @settings_user.handle %>`
 
 How each notification type is delivered. Update with the `update_notification_preferences` action (POST `<%= @settings_user.path %>/settings/actions/update_notification_preferences`), passing a `notifications` object such as `{ "comment": { "email": true } }`.
 
-| Type | In-app | Email |
-|------|--------|-------|
+<%# Columns derive from the tenant's editable channels — the same list the
+    HTML matrix renders and the form parser accepts — so a new channel (e.g.
+    web_push) appears here the moment it's available instead of being
+    writable-but-invisible on this surface. %>
+<% channels = @current_tenant.editable_notification_channels %>
+<% channel_label = { "in_app" => "In-app", "email" => "Email", "web_push" => "Push" } %>
+| Type | <%= channels.map { |c| channel_label.fetch(c) }.join(" | ") %> |
+|------|<%= "--------|" * channels.size %>
 <% TenantUser::NOTIFICATION_TYPE_LABELS.each do |type, label| %>
-| <%= label %> (`<%= type %>`) | <%= @settings_user.tenant_user.notification_enabled?(type, "in_app") ? "on" : "off" %> | <%= @settings_user.tenant_user.notification_enabled?(type, "email") ? "on" : "off" %> |
+| <%= label %> (`<%= type %>`) | <%= channels.map { |c| @settings_user.tenant_user.notification_enabled?(type, c) ? "on" : "off" }.join(" | ") %> |
 <% end %>
 <% end %>
 

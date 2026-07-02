@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
 import { subscribeToPush, urlBase64ToUint8Array, type SubscribeDeps } from "./subscribe"
 
-function fakeSubscription() {
+function fakeSubscription(overrides: { applicationServerKey?: Uint8Array; unsubscribe?: () => Promise<boolean> } = {}) {
   return {
     toJSON: () => ({ endpoint: "https://push.example.com/send/abc", keys: { p256dh: "k", auth: "a" } }),
+    options: overrides.applicationServerKey ? { applicationServerKey: overrides.applicationServerKey.buffer } : {},
+    unsubscribe: overrides.unsubscribe ?? (async () => true),
   } as unknown as PushSubscription
 }
 
@@ -49,15 +51,42 @@ describe("subscribeToPush", () => {
     })
   })
 
-  it("reuses an existing subscription instead of creating a new one", async () => {
+  it("reuses an existing subscription minted with the current key", async () => {
     const subscribeFn = vi.fn()
-    const d = deps({ getSubscription: async () => fakeSubscription(), subscribe: subscribeFn })
+    const d = deps({})
+    const currentKey = urlBase64ToUint8Array(d.vapidPublicKey)
+    d.getSubscription = async () => fakeSubscription({ applicationServerKey: currentKey })
+    d.subscribe = subscribeFn
 
     const result = await subscribeToPush(d)
 
     expect(result).toBe("subscribed")
     expect(subscribeFn).not.toHaveBeenCalled()
     expect(d.posts).toHaveLength(1)
+  })
+
+  it("replaces a subscription minted with a different (rotated) VAPID key", async () => {
+    const unsubscribe = vi.fn(async () => true)
+    const d = deps({})
+    d.getSubscription = async () => fakeSubscription({ applicationServerKey: new Uint8Array([9, 9, 9]), unsubscribe })
+    const subscribeFn = vi.fn(async () => fakeSubscription())
+    d.subscribe = subscribeFn
+
+    const result = await subscribeToPush(d)
+
+    expect(result).toBe("subscribed")
+    expect(unsubscribe).toHaveBeenCalledOnce()
+    expect(subscribeFn).toHaveBeenCalledOnce()
+    expect(d.posts).toHaveLength(1)
+  })
+
+  it("keeps an existing subscription whose key cannot be read", async () => {
+    // No options.applicationServerKey exposed (older browsers) — don't churn.
+    const subscribeFn = vi.fn()
+    const d = deps({ getSubscription: async () => fakeSubscription(), subscribe: subscribeFn })
+
+    expect(await subscribeToPush(d)).toBe("subscribed")
+    expect(subscribeFn).not.toHaveBeenCalled()
   })
 
   it("reports denied permission without subscribing", async () => {

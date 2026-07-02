@@ -581,7 +581,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   # === Push opt-in banner ===
 
   test "index shows the push opt-in banner when eligible" do
-    @tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(@tenant)
     sign_in_as(@user, tenant: @tenant)
 
     get "/notifications"
@@ -601,7 +601,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "index hides the banner when the user already has an active subscription" do
-    @tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(@tenant)
     WebPushSubscription.upsert_for!(
       user: @user, endpoint: "https://push.example.com/send/here", p256dh_key: "k", auth_key: "a"
     )
@@ -613,7 +613,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "index hides the banner after the user dismisses it" do
-    @tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(@tenant)
     sign_in_as(@user, tenant: @tenant)
 
     post "/notifications/dismiss-push-banner"
@@ -625,7 +625,7 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "dismiss-push-banner records the notice on the tenant_user" do
-    @tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(@tenant)
     sign_in_as(@user, tenant: @tenant)
 
     post "/notifications/dismiss-push-banner"

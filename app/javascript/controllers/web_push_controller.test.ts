@@ -18,18 +18,21 @@ describe("WebPushController", () => {
     delete (window as unknown as Record<string, unknown>).Notification
   })
 
-  function stubPushSupport(subscription: { endpoint: string } | null): void {
+  function stubPushSupport(subscription: { endpoint: string } | null, { registered = true } = {}): void {
     const registration = {
       pushManager: {
         getSubscription: async () => subscription,
       },
     }
     Object.defineProperty(window.navigator, "serviceWorker", {
-      value: { getRegistration: async () => registration },
+      value: { getRegistration: async () => (registered ? registration : undefined) },
       configurable: true,
     })
     ;(window as unknown as Record<string, unknown>).PushManager = function PushManager() {}
-    ;(window as unknown as Record<string, unknown>).Notification = { permission: "default" }
+    ;(window as unknown as Record<string, unknown>).Notification = {
+      permission: "default",
+      requestPermission: async () => "granted",
+    }
   }
 
   // The hidden attribute is defeated by Pulse's explicit display rules
@@ -38,7 +41,7 @@ describe("WebPushController", () => {
   async function mount(): Promise<{ button: HTMLButtonElement; status: HTMLElement; badges: HTMLElement[] }> {
     document.body.innerHTML = `
       <div data-controller="web-push" data-web-push-url-value="/u/ada/settings/push-subscriptions">
-        <button data-web-push-target="button">Enable on this device</button>
+        <button data-web-push-target="button" data-action="click->web-push#subscribe">Enable on this device</button>
         <p data-web-push-target="status" hidden></p>
         <span data-web-push-target="badge" data-endpoint="https://push.example.com/send/this-one" style="display: none;">This device</span>
         <span data-web-push-target="badge" data-endpoint="https://push.example.com/send/other" style="display: none;">This device</span>
@@ -86,6 +89,23 @@ describe("WebPushController", () => {
     expect(button.style.display).not.toBe("none")
     expect(status.hidden).toBe(true)
     expect(badges.every((badge) => badge.style.display === "none")).toBe(true)
+  })
+
+  it("shows an error instead of hanging when no service worker is registered", async () => {
+    // web_push offered but no SW registration (e.g. registration failed).
+    // subscribe() must not await a promise that never settles.
+    document.head.innerHTML = '<meta name="vapid-public-key" content="AQID">'
+    stubPushSupport(null, { registered: false })
+
+    const { button, status } = await mount()
+    button.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(button.disabled).toBe(false)
+    expect(status.hidden).toBe(false)
+    expect(status.textContent).toMatch(/service worker/i)
+    document.head.innerHTML = ""
   })
 
   it("hides the button and shows guidance when push is unsupported", async () => {

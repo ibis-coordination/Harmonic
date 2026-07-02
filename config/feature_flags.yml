@@ -93,9 +93,14 @@ feature_flags:
     default_collective: false
     collective_level: false
 
+  # service_worker and web_push are separate flags because they answer
+  # different questions (client-infrastructure kill switch vs. push policy),
+  # but push physically depends on the service worker — web push is only
+  # available when BOTH are on. See Tenant#web_push_available? and
+  # docs/ARCHITECTURE.md "Service worker & Web Push".
   service_worker:
     name: "Service Worker"
-    description: "Installs a service worker for instant cold opens and an offline fallback page. Turning this off makes installed service workers uninstall themselves on their next update check."
+    description: "Installs a service worker for instant cold opens and an offline fallback page. Doubles as the kill switch: turning this off makes installed service workers uninstall themselves on their next update check — which also destroys their push subscriptions, so this flag off means Web Push off."
     app_enabled: true
     default_tenant: false
     default_collective: false
@@ -103,7 +108,7 @@ feature_flags:
 
   web_push:
     name: "Web Push Notifications"
-    description: "Delivers notifications to users' devices via Web Push. Users opt in per device from their settings page; per-type channel preferences control which notifications push."
+    description: "Delivers notifications to users' devices via Web Push (through third-party push services: FCM, Mozilla, Apple). Users opt in per device from their settings page; per-type channel preferences control which notifications push. Requires the Service Worker flag (push runs inside the service worker) and server VAPID keys."
     app_enabled: true
     default_tenant: false
     default_collective: false

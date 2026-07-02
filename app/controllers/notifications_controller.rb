@@ -346,7 +346,7 @@ class NotificationsController < ApplicationController
   # no registered device and haven't dismissed it. A subscription on ANY
   # device hides it everywhere — they know the feature exists; don't nag.
   def show_push_banner?
-    return false unless FeatureFlagService.enabled?("web_push", tenant: @current_tenant)
+    return false unless @current_tenant.web_push_available?
     return false unless current_user.human?
 
     tenant_user = current_user.tenant_user

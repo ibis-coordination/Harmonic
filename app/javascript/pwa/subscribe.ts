@@ -20,17 +20,29 @@ export function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return bytes
 }
 
+// A subscription minted against a different VAPID key can never deliver with
+// the current one (sends come back 401 Unauthorized). An unreadable key
+// (older browsers expose no options.applicationServerKey) is kept — churning
+// a working subscription is worse than trusting it.
+function mintedWithKey(subscription: PushSubscription, key: Uint8Array): boolean {
+  const existing = subscription.options?.applicationServerKey
+  if (!existing) return true
+  const bytes = new Uint8Array(existing)
+  return bytes.length === key.length && bytes.every((byte, i) => byte === key[i])
+}
+
 export async function subscribeToPush(deps: SubscribeDeps): Promise<SubscribeResult> {
   try {
     const permission = await deps.requestPermission()
     if (permission !== "granted") return "permission-denied"
 
-    const subscription =
-      (await deps.getSubscription()) ||
-      (await deps.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(deps.vapidPublicKey),
-      }))
+    const currentKey = urlBase64ToUint8Array(deps.vapidPublicKey)
+    let subscription = await deps.getSubscription()
+    if (subscription && !mintedWithKey(subscription, currentKey)) {
+      await subscription.unsubscribe()
+      subscription = null
+    }
+    subscription ||= await deps.subscribe({ userVisibleOnly: true, applicationServerKey: currentKey })
 
     const posted = await deps.post(deps.postUrl, { subscription: subscription.toJSON() })
     return posted ? "subscribed" : "error"

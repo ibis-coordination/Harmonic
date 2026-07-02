@@ -6,7 +6,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant
     @user = @global_user
-    @tenant.enable_feature_flag!(:web_push)
+    enable_web_push!(@tenant)
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     @handle = @tenant.tenant_users.find_by(user: @user).handle
   end
