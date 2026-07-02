@@ -10,14 +10,15 @@ class FeedSearchBarComponentTest < ViewComponent::TestCase
     assert_selector "input[name='q'][value='type:note budget']"
   end
 
-  test "renders fixed scope filters as locked chips outside the input" do
+  test "renders fixed scope filters as non-editable tokens inside the query field" do
     render_inline(FeedSearchBarComponent.new(action: "/collectives/my-team/feed", scope_filters: ["collective:my-team"]))
 
-    assert_selector ".pulse-feed-bar-scope", count: 1
-    assert_selector ".pulse-feed-bar-scope code", text: "collective:my-team"
-    assert_selector ".pulse-feed-bar-scope .octicon-lock"
-    # The fixed scope is not part of the editable input.
+    # The fixed filter is part of the query visually — inside the same
+    # field as the text input — but not part of the editable text.
+    assert_selector ".pulse-feed-bar-field .pulse-feed-bar-scope code", text: "collective:my-team"
+    assert_selector ".pulse-feed-bar-field input[name='q']"
     assert_no_selector "input[value*='collective:my-team']"
+    assert_no_selector ".octicon-lock"
   end
 
   test "renders no chips when there is no fixed scope" do
