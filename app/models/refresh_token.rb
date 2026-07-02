@@ -190,7 +190,8 @@ class RefreshToken < ApplicationRecord
   sig { void }
   def touch_last_used!
     return unless active?
-    return if last_used_at && last_used_at > ACTIVITY_TOUCH_THROTTLE.ago
+    # last_used_at is NOT NULL, so it's always present here.
+    return if last_used_at > ACTIVITY_TOUCH_THROTTLE.ago
 
     update_column(:last_used_at, Time.current)
   end
