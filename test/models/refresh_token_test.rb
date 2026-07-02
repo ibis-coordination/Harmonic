@@ -215,6 +215,41 @@ class RefreshTokenTest < ActiveSupport::TestCase
     assert_raises(RefreshToken::NotRotatable) { token.rotate! }
   end
 
+  # === Activity touch (#346) ===
+
+  test "touch_last_used! advances last_used_at when it is stale" do
+    token = RefreshToken.issue!(user: @user)
+    token.update_column(:last_used_at, 1.hour.ago)
+    token.touch_last_used!
+    assert_in_delta Time.current, token.reload.last_used_at, 2.seconds
+  end
+
+  test "touch_last_used! is a no-op within the throttle window (no write)" do
+    token = RefreshToken.issue!(user: @user)
+    fresh = 30.seconds.ago
+    token.update_column(:last_used_at, fresh)
+    token.touch_last_used!
+    assert_in_delta fresh.to_i, token.reload.last_used_at.to_i, 1,
+                    "a recent touch within ACTIVITY_TOUCH_THROTTLE must not write"
+  end
+
+  test "touch_last_used! does nothing to a revoked token" do
+    token = RefreshToken.issue!(user: @user)
+    token.update_column(:last_used_at, 1.hour.ago)
+    token.revoke!(reason: "user_logout")
+    was = token.reload.last_used_at
+    token.touch_last_used!
+    assert_equal was.to_i, token.reload.last_used_at.to_i
+  end
+
+  test "touch_last_used! does nothing to an expired token" do
+    token = RefreshToken.issue!(user: @user)
+    token.update_columns(last_used_at: 1.hour.ago, expires_at: 1.minute.ago)
+    was = token.reload.last_used_at
+    token.touch_last_used!
+    assert_equal was.to_i, token.reload.last_used_at.to_i
+  end
+
   # === Family revocation ===
 
   test "revoke_family! revokes every non-revoked token in the family" do

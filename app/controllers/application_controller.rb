@@ -30,6 +30,7 @@ class ApplicationController < ActionController::Base
   # the session here on the very next request, rather than waiting for the
   # session to time out naturally. See enforce_refresh_token_revocation.
   before_action :enforce_refresh_token_revocation
+  before_action :touch_current_device_activity
   before_action :check_user_suspension
   before_action :check_activation_gate
   before_action :check_stripe_billing_gate
@@ -1144,6 +1145,22 @@ class ApplicationController < ActionController::Base
     delete_refresh_cookie
     logout_user!
     redirect_to "/login"
+  end
+
+  # Keep the current device's refresh-token row current on ordinary activity.
+  # A live session never rotates its refresh token, so without this the device
+  # you're actively using shows a stale "last used" in the device list (#346).
+  # The model throttles the write to at most once per window. Same skip
+  # conditions as enforce_refresh_token_revocation — no refresh-cookie
+  # semantics on auth controllers, API-token requests, or the auth subdomain.
+  # Runs after enforce_refresh_token_revocation, so a revoked token has already
+  # redirected and halted the chain before we'd touch it.
+  def touch_current_device_activity
+    return if is_auth_controller?
+    return if api_token_present?
+    return if request.subdomain == auth_subdomain
+
+    current_refresh_token&.touch_last_used!
   end
 
   # The refresh token currently in the cookie, if any. Memoized so the
