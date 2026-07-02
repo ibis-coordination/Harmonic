@@ -1852,6 +1852,21 @@ class UserTest < ActiveSupport::TestCase
     assert_equal "admin", a.revoked_reason
   end
 
+  test "revoke_all_sessions! revokes all of the user's push subscriptions" do
+    user = create_user
+    subscription = WebPushSubscription.upsert_for!(
+      user: user,
+      endpoint: "https://push.example.com/send/reset-me",
+      p256dh_key: "k",
+      auth_key: "a"
+    )
+
+    user.revoke_all_sessions!
+
+    assert_not subscription.reload.active?, "a compromised device must stop receiving the user's notifications"
+    assert_equal "admin", subscription.revoked_reason
+  end
+
   # =========================================================================
   # Private Workspace tests
   # =========================================================================

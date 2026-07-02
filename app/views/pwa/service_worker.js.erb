@@ -1,0 +1,6 @@
+<%# The compiled service worker (app/javascript/pwa/service_worker.ts, built
+    by esbuild) inlined below a per-deploy cache version. Served at
+    /service-worker.js by PwaController so the SW gets root scope. %>
+self.CACHE_VERSION = <%= raw Rails.application.config.x.git_sha.to_json %>;
+<% bundle = Rails.root.join("app/assets/builds/pwa/service_worker.js") %>
+<%= raw(bundle.exist? ? bundle.read : "/* service worker bundle missing — run npm run build */") %>

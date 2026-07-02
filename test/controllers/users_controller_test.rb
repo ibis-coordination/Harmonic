@@ -791,6 +791,68 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert tu.notification_enabled?("mention", "in_app")
   end
 
+  test "form save does not record web_push:false when push is unavailable on the tenant" do
+    # The form omits the Push column when push isn't available, so the
+    # complete-matrix write must not treat those absent boxes as unchecked —
+    # otherwise one save permanently opts the user out before push ever
+    # launches on the tenant.
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/u/#{@user.handle}/settings/notifications",
+      params: { notifications: { mention: { in_app: "true", email: "true" } } }
+
+    assert_response :redirect
+    tu = @user.tenant_users.find_by(tenant: @tenant)
+    stored = tu.settings["notification_preferences"]
+    refute stored.values.any? { |channels| channels.key?("web_push") },
+           "web_push must not be written while the column isn't rendered"
+
+    # Once push becomes available and a device is registered, the default
+    # (on) must still apply.
+    enable_web_push!(@tenant)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/later", p256dh_key: "k", auth_key: "a"
+    )
+    assert_includes tu.reload.notification_channels_for("mention"), "web_push"
+  end
+
+  test "form save records unchecked web_push boxes when push is available" do
+    sign_in_as(@user, tenant: @tenant)
+    enable_web_push!(@tenant)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/here", p256dh_key: "k", auth_key: "a"
+    )
+
+    # Full form submit with the Push column rendered but mention/web_push unchecked.
+    post "/u/#{@user.handle}/settings/notifications",
+      params: { notifications: { mention: { in_app: "true", email: "true" } } }
+
+    tu = @user.tenant_users.find_by(tenant: @tenant)
+    refute_includes tu.notification_channels_for("mention"), "web_push",
+                    "an unchecked Push box on a push-enabled tenant is a real opt-out"
+  end
+
+  test "markdown settings shows the Push column when push is available" do
+    sign_in_as(@user, tenant: @tenant)
+    enable_web_push!(@tenant)
+
+    get "/u/#{@user.handle}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/\| Type \| In-app \| Email \| Push \|/, response.body,
+                 "agents must be able to read the web_push state they can write")
+  end
+
+  test "markdown settings omits the Push column when push is unavailable" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/u/#{@user.handle}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/\| Type \| In-app \| Email \|/, response.body)
+    assert_no_match(/\| Push \|/, response.body)
+  end
+
   test "markdown action update_notification_preferences merges only supplied keys" do
     sign_in_as(@user, tenant: @tenant)
 

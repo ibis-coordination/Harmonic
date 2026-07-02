@@ -2,8 +2,8 @@
   "name": "harmonic-team",
   "private": true,
   "scripts": {
-    "build": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts",
-    "build:watch": "esbuild app/javascript/application.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts --watch=forever",
+    "build": "esbuild app/javascript/application.ts app/javascript/pwa/service_worker.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts",
+    "build:watch": "esbuild app/javascript/application.ts app/javascript/pwa/service_worker.ts --bundle --sourcemap --outdir=app/assets/builds --format=esm --loader:.ts=ts --watch=forever",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

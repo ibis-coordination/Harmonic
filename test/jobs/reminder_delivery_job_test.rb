@@ -164,6 +164,53 @@ class ReminderDeliveryJobTest < ActiveJob::TestCase
     assert rate_limited >= 0 || delivered > 0
   end
 
+  test "webhook payload lists each reminder once for push-subscribed users" do
+    enable_web_push!(@tenant)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/dedupe", p256dh_key: "k", auth_key: "a"
+    )
+
+    notification = ReminderService.create!(user: @user, title: "Push reminder", scheduled_for: 1.day.from_now)
+    assert_equal 2, notification.notification_recipients.count, "premise: reminder fans out to in_app + web_push"
+    # One shared timestamp — both channel rows must land in the same batch.
+    due_at = 1.minute.ago
+    notification.notification_recipients.each { |nr| nr.update!(scheduled_for: due_at) }
+
+    Collective.clear_thread_scope
+    ReminderDeliveryJob.perform_now
+
+    event = Event.tenant_scoped_only(@tenant.id).where(event_type: "reminders.delivered").order(:created_at).last
+    assert_equal 1, event.metadata["count"], "one reminder must not report as two"
+    assert_equal 1, event.metadata["reminders"].size
+  end
+
+  test "per-minute delivery cap counts reminders, not per-channel rows" do
+    enable_web_push!(@tenant)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/cap", p256dh_key: "k", auth_key: "a"
+    )
+
+    ReminderDeliveryJob::MAX_DELIVERIES_PER_USER_PER_MINUTE.times do |i|
+      notification = ReminderService.create!(user: @user, title: "R#{i}", scheduled_for: (i + 1).days.from_now)
+      due_at = (i + 1).minutes.ago
+      notification.notification_recipients.each { |nr| nr.update!(scheduled_for: due_at) }
+    end
+
+    Collective.clear_thread_scope
+    ReminderDeliveryJob.perform_now
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+
+    rate_limited = NotificationRecipient
+      .joins(:notification)
+      .where(user: @user)
+      .where(notifications: { notification_type: "reminder" })
+      .where(status: "rate_limited")
+      .count
+
+    assert_equal 0, rate_limited,
+                 "#{ReminderDeliveryJob::MAX_DELIVERIES_PER_USER_PER_MINUTE} reminders must fit the cap even at two rows each"
+  end
+
   test "skips users without collective membership" do
     # Create a user not in any collective
     orphan_user = create_user(name: "Orphan User")

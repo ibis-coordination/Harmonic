@@ -147,6 +147,7 @@ class SessionsController < ApplicationController
   def destroy
     SecurityAuditLog.log_logout(user: current_user, ip: request.remote_ip) if current_user
     revoke_current_refresh_token!(reason: "user_logout")
+    revoke_current_push_subscription!
     logout_user!
 
     redirect_to '/logout-success'

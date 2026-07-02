@@ -1,0 +1,26 @@
+<%# Push opt-in banner: the notifications page is the highest-intent moment
+    to offer push. Shown only to humans on push-enabled tenants with no
+    registered device who haven't dismissed it (see
+    NotificationsController#show_push_banner?). On browsers without push
+    support the web-push controller hides the button and shows guidance
+    (e.g. iOS: install to home screen first) in the status line instead. %>
+<div class="pulse-notice" id="push-optin-banner"
+     data-controller="web-push"
+     data-web-push-url-value="<%= @current_user.tenant_user.path %>/settings/push-subscriptions"
+     style="border: 1px solid var(--color-border-default); border-radius: 6px; margin-bottom: 16px; gap: 12px;">
+  <div style="flex: 1;">
+    <strong><%= octicon 'bell', height: 14 %> Get these on your lock screen</strong>
+    <div class="pulse-form-hint" style="margin-top: 2px;">
+      Push notifications reach this device even when Harmonic isn't open.
+    </div>
+    <div class="pulse-form-hint" data-web-push-target="status" hidden></div>
+  </div>
+  <button type="button" class="pulse-action-btn"
+          data-web-push-target="button"
+          data-action="click->web-push#subscribe">Enable push</button>
+  <%= button_to "×", "/notifications/dismiss-push-banner",
+        method: :post,
+        class: "pulse-dismiss-btn",
+        "aria-label": "Dismiss",
+        title: "Dismiss" %>
+</div>

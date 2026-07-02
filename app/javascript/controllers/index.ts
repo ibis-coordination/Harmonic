@@ -81,6 +81,7 @@ import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
 import WebhookTestController from "./webhook_test_controller"
+import WebPushController from "./web_push_controller"
 
 // Register all controllers
 application.register("ajax-toggle", AjaxToggleController)
@@ -153,5 +154,6 @@ application.register("summary-toggle", SummaryToggleController)
 application.register("dialog", DialogController)
 application.register("tabs", TabsController)
 application.register("webhook-test", WebhookTestController)
+application.register("web-push", WebPushController)
 
 export { application }

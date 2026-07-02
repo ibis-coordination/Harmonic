@@ -37,6 +37,10 @@ end
 ENV["RAILS_ENV"] ||= "test"
 ENV["MAILER_FROM_ADDRESS"] ||= "test@example.com"
 ENV["CADDYFILE_PATH"] ||= File.join(Dir.tmpdir, "Caddyfile.test")
+# Web push availability requires configured VAPID keys (Tenant#web_push_available?);
+# CI has no .env, so give the test env a dummy pair.
+ENV["VAPID_PUBLIC_KEY"] ||= "test-vapid-public-key"
+ENV["VAPID_PRIVATE_KEY"] ||= "test-vapid-private-key"
 ENV["AGENT_RUNNER_SECRET"] ||= "test-agent-runner-secret-not-a-real-key"
 
 # Route tests to a separate Redis DB so they don't share state with the dev
@@ -175,6 +179,13 @@ class ActiveSupport::TestCase
     TenantUser.unscoped.where(user_id: user.id).delete_all
 
     user.delete
+  end
+
+  # Web push is available on a tenant only with BOTH flags on (push runs
+  # inside the service worker) — see Tenant#web_push_available?.
+  def enable_web_push!(tenant)
+    tenant.enable_feature_flag!(:service_worker)
+    tenant.enable_feature_flag!(:web_push)
   end
 
   def create_tenant(subdomain: "test", name: "Test Tenant")

@@ -147,18 +147,21 @@ class TenantUser < ApplicationRecord
 
   # Notification Preferences
   # Default preferences for each notification type
+  # web_push defaults on for every type: the real opt-in is registering a
+  # device (no subscription → the channel is never returned), so a fresh
+  # subscription starts delivering everything and users fine-tune from there.
   DEFAULT_NOTIFICATION_PREFERENCES = T.let({
-    "mention" => { "in_app" => true, "email" => true },
-    "comment" => { "in_app" => true, "email" => false },
-    "participation" => { "in_app" => true, "email" => false },
-    "system" => { "in_app" => true, "email" => true },
-    "reminder" => { "in_app" => true, "email" => false },
-    "chat_message" => { "in_app" => true, "email" => false },
-    "trio_unavailable" => { "in_app" => true, "email" => false },
-    "tune_in" => { "in_app" => true, "email" => false },
+    "mention" => { "in_app" => true, "email" => true, "web_push" => true },
+    "comment" => { "in_app" => true, "email" => false, "web_push" => true },
+    "participation" => { "in_app" => true, "email" => false, "web_push" => true },
+    "system" => { "in_app" => true, "email" => true, "web_push" => true },
+    "reminder" => { "in_app" => true, "email" => false, "web_push" => true },
+    "chat_message" => { "in_app" => true, "email" => false, "web_push" => true },
+    "trio_unavailable" => { "in_app" => true, "email" => false, "web_push" => true },
+    "tune_in" => { "in_app" => true, "email" => false, "web_push" => true },
     # Trustee authorization lifecycle (offered/accepted/declined/revoked).
     # In-app by default, matching most types; users can opt into email.
-    "trustee_authorization" => { "in_app" => true, "email" => false },
+    "trustee_authorization" => { "in_app" => true, "email" => false, "web_push" => true },
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   # User-facing labels for each notification type, in display order. Keys must
@@ -178,7 +181,7 @@ class TenantUser < ApplicationRecord
   }.freeze, T::Hash[String, String])
 
   # Delivery channels a user can toggle per notification type.
-  NOTIFICATION_CHANNELS = T.let(%w[in_app email].freeze, T::Array[String])
+  NOTIFICATION_CHANNELS = T.let(["in_app", "email", "web_push"].freeze, T::Array[String])
 
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }
   def notification_preferences
@@ -188,7 +191,14 @@ class TenantUser < ApplicationRecord
     prefs = settings_hash["notification_preferences"]
     return DEFAULT_NOTIFICATION_PREFERENCES.deep_dup unless prefs.is_a?(Hash)
 
-    T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])
+    # Stored values win, but merged over the defaults: prefs saved before a
+    # channel existed have no key for it, and a missing key must mean "the
+    # default for that channel", not "off". Without this, adding a channel
+    # silently disables it for every user who ever saved preferences.
+    T.cast(
+      DEFAULT_NOTIFICATION_PREFERENCES.deep_merge(T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])),
+      T::Hash[String, T::Hash[String, T::Boolean]]
+    )
   end
 
   sig { params(notification_type: String).returns(T::Array[String]) }
@@ -201,7 +211,17 @@ class TenantUser < ApplicationRecord
     # prefs. Keeps every caller (dispatcher, reminder service, trustee path)
     # honest and avoids creating an email NotificationRecipient that can't deliver.
     channels << "email" if prefs["email"] && user.human?
+    # web_push requires a live device registration on top of the stored pref —
+    # a subscription is the user's real opt-in, and skipping the channel when
+    # they have no active device avoids creating NotificationRecipient rows
+    # that could never deliver.
+    channels << "web_push" if prefs["web_push"] && user.human? && web_push_available?
     channels
+  end
+
+  sig { returns(T::Boolean) }
+  def web_push_available?
+    T.must(tenant).web_push_available? && user.web_push_subscriptions.active.exists?
   end
 
   sig { params(notification_type: String, channel: String).returns(T::Boolean) }
@@ -214,7 +234,11 @@ class TenantUser < ApplicationRecord
   def set_notification_preference!(notification_type, channel, enabled)
     self.settings ||= {}
     settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    # Seed empty, not the defaults matrix: notification_preferences merges
+    # stored values over DEFAULT_NOTIFICATION_PREFERENCES at read time, so
+    # only explicit choices belong in settings. Copying the defaults in
+    # would freeze today's defaults (and today's channel list) forever.
+    settings_hash["notification_preferences"] ||= {}
     notification_prefs = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
     notification_prefs[notification_type] ||= {}
     T.must(notification_prefs[notification_type])[channel] = enabled
@@ -230,7 +254,9 @@ class TenantUser < ApplicationRecord
   def update_notification_preferences!(preferences)
     self.settings ||= {}
     settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    # Empty seed for the same reason as set_notification_preference!: stored
+    # prefs hold only explicit choices; defaults are merged in at read time.
+    settings_hash["notification_preferences"] ||= {}
     current = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
 
     preferences.each do |type, channels|
@@ -251,5 +277,4 @@ class TenantUser < ApplicationRecord
     end
     save!
   end
-
 end

@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   get 'metrics' => 'metrics#show'
   get 'robots.txt' => 'robots#show', as: :robots, defaults: { format: :txt }
   get 'manifest' => 'rails/pwa#manifest', as: :pwa_manifest, defaults: { format: 'json' }
+  get 'service-worker' => 'pwa#service_worker', as: :pwa_service_worker, defaults: { format: 'js' }
+  get 'offline' => 'pwa#offline', as: :pwa_offline
 
   # MCP (Model Context Protocol) Streamable HTTP endpoint.
   # See https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
@@ -276,6 +278,7 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
+  post 'notifications/dismiss-push-banner' => 'notifications#dismiss_push_banner'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
@@ -395,6 +398,8 @@ Rails.application.routes.draw do
     patch 'image' => 'users#update_image', on: :member
     delete 'settings/devices/:device_id' => 'devices#destroy', on: :member
     post   'settings/devices/revoke_others' => 'devices#revoke_others', on: :member
+    post   'settings/push-subscriptions' => 'web_push_subscriptions#create', on: :member
+    delete 'settings/push-subscriptions/:subscription_id' => 'web_push_subscriptions#destroy', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy] do

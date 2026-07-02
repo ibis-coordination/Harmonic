@@ -152,6 +152,49 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # === Logout Push Revocation Tests ===
+  #
+  # Push subscription lifetime is device-trust lifetime: it survives session
+  # timeouts but ends on explicit logout. The logout form's JS reports this
+  # browser's push endpoint so the server can revoke the matching row.
+
+  def push_subscription_for(user, endpoint: "https://push.example.com/send/this-device")
+    WebPushSubscription.upsert_for!(user: user, endpoint: endpoint, p256dh_key: "k", auth_key: "a")
+  end
+
+  test "logout revokes the push subscription for the reported endpoint" do
+    sign_in_as(@user, tenant: @tenant)
+    subscription = push_subscription_for(@user)
+
+    delete "/logout", params: { push_endpoint: subscription.endpoint }
+
+    assert_response :redirect
+    assert_not subscription.reload.active?, "explicit logout ends device trust, so push must stop"
+    assert_equal "user", subscription.revoked_reason
+  end
+
+  test "logout cannot revoke another user's subscription on the same endpoint" do
+    other_user = create_user(email: "other-push-#{SecureRandom.hex(4)}@example.com")
+    shared_endpoint = "https://push.example.com/send/shared-browser"
+    other_subscription = push_subscription_for(other_user, endpoint: shared_endpoint)
+
+    sign_in_as(@user, tenant: @tenant)
+    delete "/logout", params: { push_endpoint: shared_endpoint }
+
+    assert_response :redirect
+    assert other_subscription.reload.active?, "revocation must be scoped to the user logging out"
+  end
+
+  test "logout without a reported endpoint leaves push subscriptions alone" do
+    sign_in_as(@user, tenant: @tenant)
+    subscription = push_subscription_for(@user)
+
+    delete "/logout"
+
+    assert_response :redirect
+    assert subscription.reload.active?, "other devices' subscriptions survive logout on this one"
+  end
+
   # === Internal Callback Tests ===
 
   test "internal callback without token redirects to login" do

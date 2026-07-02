@@ -378,7 +378,114 @@ class TenantUserTest < ActiveSupport::TestCase
     assert tu.valid?
   end
 
+  # Web push channel
+
+  test "notification_channels_for includes web_push when flag on, pref on, and an active subscription exists" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    channels = user.tenant_user.notification_channels_for("mention")
+
+    assert_includes channels, "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when the tenant flag is off" do
+    _tenant, _collective, user = create_tenant_collective_user
+    subscribe_to_push!(user)
+
+    channels = user.tenant_user.notification_channels_for("mention")
+
+    refute_includes channels, "web_push"
+  end
+
+  test "notification_channels_for excludes web_push without an active subscription" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+
+    subscription = subscribe_to_push!(user)
+    subscription.revoke!(reason: "gone")
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when the pref is off" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+    user.tenant_user.set_notification_preference!("mention", "web_push", false)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "stored preferences that predate a channel fall back to that channel's default" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+    tenant_user = user.tenant_user
+
+    # Simulate prefs saved before web_push existed: per-type hashes without
+    # the key. A missing key must inherit the default (true), not read as off.
+    tenant_user.settings["notification_preferences"] = {
+      "mention" => { "in_app" => true, "email" => true },
+      "tune_in" => { "in_app" => true, "email" => false },
+    }
+    tenant_user.save!
+
+    assert_includes tenant_user.notification_channels_for("mention"), "web_push"
+    assert_includes tenant_user.notification_channels_for("tune_in"), "web_push"
+    assert tenant_user.notification_enabled?("mention", "web_push"),
+           "the settings form must render the default state for channels missing from stored prefs"
+    # Explicitly stored values still win over defaults.
+    refute tenant_user.notification_enabled?("tune_in", "email")
+  end
+
+  test "notification_channels_for excludes web_push when the service_worker flag is off" do
+    # Push physically requires the service worker (the push event fires inside
+    # it, and unregistering it destroys the subscription), so web_push alone
+    # must not light the channel up.
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when VAPID keys are not configured" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    old_key = ENV["VAPID_PUBLIC_KEY"]
+    ENV["VAPID_PUBLIC_KEY"] = nil
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  ensure
+    ENV["VAPID_PUBLIC_KEY"] = old_key
+  end
+
+  test "update_notification_preferences! accepts the web_push channel" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    user.tenant_user.update_notification_preferences!("comment" => { "web_push" => false })
+
+    refute_includes user.tenant_user.notification_channels_for("comment"), "web_push"
+    assert_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
   private
+
+  def subscribe_to_push!(user)
+    WebPushSubscription.upsert_for!(
+      user: user,
+      endpoint: "https://push.example.com/send/#{SecureRandom.hex(4)}",
+      p256dh_key: "p256dh-key",
+      auth_key: "auth-key"
+    )
+  end
 
   def first_tenant_user_for_validation
     tenant = create_tenant(subdomain: "fields-#{SecureRandom.hex(4)}")

@@ -118,6 +118,52 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal "chat_message", delivered.metadata["notification_type"]
   end
 
+  test "notify_chat_message! creates a web_push recipient per message even when in-app dedups" do
+    tenant, _collective, sender = create_tenant_collective_user
+    enable_web_push!(tenant)
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+    WebPushSubscription.upsert_for!(
+      user: recipient, endpoint: "https://push.example.com/send/chat", p256dh_key: "k", auth_key: "a"
+    )
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    2.times do
+      NotificationService.notify_chat_message!(
+        sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+      )
+    end
+
+    in_app = NotificationRecipient.tenant_scoped_only(tenant.id)
+      .joins(:notification)
+      .where(user_id: recipient.id, channel: "in_app", notifications: { notification_type: "chat_message" })
+    push = NotificationRecipient.tenant_scoped_only(tenant.id)
+      .joins(:notification)
+      .where(user_id: recipient.id, channel: "web_push", notifications: { notification_type: "chat_message" })
+
+    assert_equal 1, in_app.count, "in-app inbox dedups to one row per sender"
+    assert_equal 2, push.count, "every chat message pushes"
+  end
+
+  test "notify_chat_message! creates no web_push recipient when the recipient has no subscription" do
+    tenant, _collective, sender = create_tenant_collective_user
+    enable_web_push!(tenant)
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    NotificationService.notify_chat_message!(
+      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+    )
+
+    push = NotificationRecipient.tenant_scoped_only(tenant.id).where(user_id: recipient.id, channel: "web_push")
+    assert_equal 0, push.count
+  end
+
   test "notify_chat_message! dispatches the AI agent recipient's notification webhook" do
     tenant, _collective, sender = create_tenant_collective_user
     agent = create_ai_agent(parent: sender, name: "Agent", agent_configuration: { "mode" => "external" })

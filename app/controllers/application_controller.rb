@@ -1110,6 +1110,18 @@ class ApplicationController < ActionController::Base
     delete_refresh_cookie
   end
 
+  # Revoke the push subscription for the endpoint this device reported in the
+  # logout form (the browser is the only party that knows its own endpoint;
+  # the logout Stimulus controller fills it in). Explicit logout only — push
+  # subscriptions deliberately survive session timeouts. Scoped to
+  # current_user so a forged endpoint can't touch anyone else's subscription.
+  def revoke_current_push_subscription!
+    endpoint = params[:push_endpoint]
+    return if endpoint.blank? || current_user.nil?
+
+    current_user.web_push_subscriptions.active.find_by(endpoint: endpoint)&.revoke!(reason: "user")
+  end
+
   # Sign the user out on this very request if the refresh cookie's token
   # has been revoked. This is what makes "Sign out other device" actually
   # take effect on the other device — its next request carries the revoked

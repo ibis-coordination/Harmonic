@@ -112,28 +112,47 @@ class NotificationService
       .first
 
     notification = if existing
-      # In-app inbox dedups: keep the existing notification so the recipient
-      # sees one consolidated row, not a pile of unread chat pings. The join
-      # on :notification above guarantees `existing.notification` is non-nil.
-      T.must(existing.notification)
-    else
-      n = Notification.create!(
-        tenant: tenant,
-        notification_type: "chat_message",
-        title: "New message from #{sender.display_name}",
-        url: url
-      )
+                     # In-app inbox dedups: keep the existing notification so the recipient
+                     # sees one consolidated row, not a pile of unread chat pings. The join
+                     # on :notification above guarantees `existing.notification` is non-nil.
+                     T.must(existing.notification)
+                   else
+                     n = Notification.create!(
+                       tenant: tenant,
+                       notification_type: "chat_message",
+                       title: "New message from #{sender.display_name}",
+                       url: url
+                     )
 
-      NotificationRecipient.create!(
-        notification: n,
+                     NotificationRecipient.create!(
+                       notification: n,
+                       user: recipient,
+                       tenant: tenant,
+                       channel: "in_app",
+                       status: "delivered",
+                       delivered_at: Time.current
+                     )
+
+                     n
+                   end
+
+    channels = ["in_app"]
+
+    # Unlike the in-app inbox, web push is per-message: the lock-screen ping
+    # is the point of the channel, so every message gets its own recipient
+    # row (on the possibly-reused notification) while the inbox keeps its
+    # one-row-per-sender dedup.
+    tenant_user = TenantUser.tenant_scoped_only(tenant.id).find_by(user: recipient)
+    if tenant_user&.notification_channels_for("chat_message")&.include?("web_push")
+      push_recipient = NotificationRecipient.create!(
+        notification: notification,
         user: recipient,
         tenant: tenant,
-        channel: "in_app",
-        status: "delivered",
-        delivered_at: Time.current
+        channel: "web_push",
+        status: "pending"
       )
-
-      n
+      NotificationDeliveryJob.perform_later(push_recipient.id)
+      channels << "web_push"
     end
 
     # Always fire the event — every chat message is independently meaningful
@@ -146,7 +165,7 @@ class NotificationService
     fire_notifications_delivered_event(
       notification: notification,
       recipient: recipient,
-      channels: ["in_app"],
+      channels: channels,
       extra_metadata: { "original_actor_id" => sender.id }
     )
   end

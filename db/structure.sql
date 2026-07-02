@@ -2259,6 +2259,28 @@ CREATE TABLE public.votes (
 
 
 --
+-- Name: web_push_subscriptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.web_push_subscriptions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    endpoint character varying NOT NULL,
+    p256dh_key character varying NOT NULL,
+    auth_key character varying NOT NULL,
+    user_agent character varying,
+    device_label character varying,
+    last_seen_at timestamp(6) without time zone NOT NULL,
+    revoked_at timestamp(6) without time zone,
+    revoked_reason character varying,
+    last_error_at timestamp(6) without time zone,
+    last_error character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: webhook_deliveries; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3199,6 +3221,14 @@ ALTER TABLE ONLY public.user_lists
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: web_push_subscriptions web_push_subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.web_push_subscriptions
+    ADD CONSTRAINT web_push_subscriptions_pkey PRIMARY KEY (id);
 
 
 --
@@ -5181,6 +5211,20 @@ CREATE UNIQUE INDEX index_votes_on_option_id_and_decision_participant_id ON publ
 --
 
 CREATE INDEX index_votes_on_tenant_id ON public.votes USING btree (tenant_id);
+
+
+--
+-- Name: index_web_push_subscriptions_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_web_push_subscriptions_on_user_id ON public.web_push_subscriptions USING btree (user_id);
+
+
+--
+-- Name: index_web_push_subscriptions_on_user_id_and_endpoint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_web_push_subscriptions_on_user_id_and_endpoint ON public.web_push_subscriptions USING btree (user_id, endpoint);
 
 
 --
@@ -9760,6 +9804,14 @@ ALTER TABLE ONLY public.votes
 
 
 --
+-- Name: web_push_subscriptions fk_rails_b006f28dac; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.web_push_subscriptions
+    ADD CONSTRAINT fk_rails_b006f28dac FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: webhook_deliveries fk_rails_b1d1ee2779; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10238,6 +10290,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260701000000'),
 ('20260629000000'),
 ('20260628000000'),
 ('20260626000000'),

@@ -14,7 +14,12 @@ module NotificationPreferencesParams
   # complete: false — markdown action / partial update. Only the type/channel
   #   keys actually present in params are written; everything else is left
   #   untouched by the model's merge.
-  def notification_preferences_from_params(complete:)
+  # channels — the channels the submitting form actually rendered (the
+  #   tenant's editable_notification_channels for the HTML matrix). An absent
+  #   checkbox only means "off" when the box was on screen; recording
+  #   unrendered channels as false would permanently opt users out of a
+  #   channel their tenant hasn't launched yet.
+  def notification_preferences_from_params(complete:, channels: TenantUser::NOTIFICATION_CHANNELS)
     boolean = ActiveModel::Type::Boolean.new
     raw = params[:notifications]
     raw = {} unless raw.respond_to?(:key?)
@@ -24,7 +29,7 @@ module NotificationPreferencesParams
       type_params = raw[type]
       type_params = {} unless type_params.respond_to?(:key?)
 
-      TenantUser::NOTIFICATION_CHANNELS.each do |channel|
+      channels.each do |channel|
         present = type_params.key?(channel)
         next unless complete || present
 

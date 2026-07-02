@@ -50,7 +50,9 @@
     </div>
 
     <div class="pulse-form-actions" style="justify-content:center;">
-      <%= button_to 'Log out', '/logout', method: :delete, class: "pulse-action-btn" %>
+      <%= button_to 'Log out', '/logout', method: :delete, class: "pulse-action-btn",
+          params: { push_endpoint: "" },
+          form: { data: { controller: "logout", action: "submit->logout#prepare" } } %>
     </div>
   </div>
 </div>

@@ -152,6 +152,7 @@ class User
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::User).void
       ).void
@@ -162,10 +163,11 @@ class User
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::User])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -173,6 +175,7 @@ class User
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::User]).void
       ).void
@@ -183,10 +186,11 @@ class User
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::User]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -253,6 +257,7 @@ class User
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -265,11 +270,12 @@ class User
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -646,6 +652,20 @@ class User
     sig { params(value: T::Enumerable[::TrusteeGrant]).void }
     def received_trustee_grants=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def refresh_token_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def refresh_token_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :refresh_tokens`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::RefreshToken::PrivateCollectionProxy) }
+    def refresh_tokens; end
+
+    sig { params(value: T::Enumerable[::RefreshToken]).void }
+    def refresh_tokens=(value); end
+
     sig { returns(T.nilable(::StripeCustomer)) }
     def reload_billing_customer; end
 
@@ -765,6 +785,20 @@ class User
 
     sig { params(value: T::Enumerable[::Vote]).void }
     def votes=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def web_push_subscription_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def web_push_subscription_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `User` class because it declared `has_many :web_push_subscriptions`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::WebPushSubscription::PrivateCollectionProxy) }
+    def web_push_subscriptions; end
+
+    sig { params(value: T::Enumerable[::WebPushSubscription]).void }
+    def web_push_subscriptions=(value); end
   end
 
   module GeneratedAssociationRelationMethods

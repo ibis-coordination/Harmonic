@@ -108,6 +108,8 @@ Model.for_user_across_tenants(user)
 - `OauthIdentity` - OAuth provider identities
 - `OmniAuthIdentity` - OmniAuth provider identities
 - `StripeCustomer` - Billing record; attached to the human user, not a tenant (a single subscription spans all billing-enabled tenants)
+- `RefreshToken` - Trusted device for silent re-auth; valid across every tenant the user belongs to
+- `WebPushSubscription` - Push device registration; user-global like `RefreshToken` (per-tenant delivery is governed by the `web_push` channel preference on `TenantUser`)
 
 **Enforcement**:
 - Static analysis: `./scripts/check-tenant-safety.sh` detects banned `.unscoped` usage
@@ -497,6 +499,56 @@ Using **jsbundling-rails** with esbuild and **TypeScript**:
 - Compiled JS output to `app/assets/builds/`
 - CSS in `app/assets/stylesheets/`
 - Build commands: `npm run build`, `npm run typecheck`
+
+### Service worker & Web Push
+
+The service worker (`app/javascript/pwa/`, served at `/service-worker.js` by
+`PwaController`) provides cache-first asset loads, an offline fallback page,
+and the runtime for Web Push. Push delivery is a notification **channel**
+(`web_push`, alongside `in_app` and `email`): `NotificationDeliveryJob` fans
+out one `WebPushDeliveryJob` per active `WebPushSubscription` (a user-global
+device registration — see the models-without-tenant-scoping list above).
+
+**Why two feature flags.** `service_worker` and `web_push` gate the feature
+per tenant, and they are deliberately separate flags:
+
+- `service_worker` is a **kill switch** as much as a rollout gate. Installed
+  service workers live in users' browsers and intercept every request — a bad
+  one keeps breaking the site after a server rollback. When the flag is off,
+  the route serves a self-unregistering stub that removes field installs.
+- `web_push` is **tenant policy**: pushing routes member notification content
+  through third-party push services (FCM, Mozilla autopush, Apple), which a
+  tenant operator may not want, and it requires VAPID keys on the server.
+
+The dependency between them is physical, not stylistic: the push event fires
+inside the service worker, the browser's `PushSubscription` belongs to the SW
+registration, and unregistering the SW (the kill-switch stub) destroys the
+subscription. So **web push is available only when both flags are on and
+VAPID keys are configured** — encoded once in `Tenant#web_push_available?`,
+which every push surface (layout meta tags, opt-in banner, settings section,
+preference-matrix column, subscription endpoints, channel resolution) gates
+on. Don't check the raw flags for push; use the predicate.
+
+Related invariant: stored notification preferences hold only *explicit*
+choices — defaults are merged in at read time (`TenantUser#notification_preferences`),
+and form parsing only records absent checkboxes as "off" for channels the
+form actually rendered (`Tenant#editable_notification_channels`). This is
+what lets a channel launch later without users having been silently opted
+out by earlier form saves.
+
+**Subscription lifetime is device-trust lifetime.** Push subscriptions
+survive session timeouts (delivery is server-to-endpoint and never consults
+the session — reaching users who aren't in the app is the point). They end
+when device trust ends: explicit logout on the device (the logout form's
+Stimulus controller unsubscribes browser-side and reports the endpoint so
+the server revokes the row, reason `user`) or an admin account security
+reset (`User#revoke_all_sessions!` revokes all of the user's subscriptions,
+reason `admin`). Never revoke on session expiry.
+
+The service worker suppresses the notification banner while a same-origin
+window is focused (`shouldShowNotification` in `app/javascript/pwa/push.ts`)
+— the in-app channel is already showing the content. The app badge still
+updates, and cross-origin (cross-tenant) notifications always show.
 
 ## Automation System
 

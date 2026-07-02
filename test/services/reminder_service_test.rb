@@ -236,6 +236,25 @@ class ReminderServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "hourly rate limit counts reminders, not per-channel recipient rows" do
+    enable_web_push!(@tenant)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/quota", p256dh_key: "k", auth_key: "a"
+    )
+
+    # Each reminder now creates two recipient rows (in_app + web_push); the
+    # quota is about reminders, so the full allowance must still be usable.
+    assert_nothing_raised do
+      ReminderService::MAX_REMINDERS_PER_HOUR.times do |i|
+        ReminderService.create!(
+          user: @user,
+          title: "Push reminder #{i}",
+          scheduled_for: (i + 1).days.from_now,
+        )
+      end
+    end
+  end
+
   test "create! allows scheduling far in the future" do
     assert_nothing_raised do
       ReminderService.create!(
