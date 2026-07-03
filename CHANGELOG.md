@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.0] - 2026-07-02
+
+### Added
+
+- **Feeds are queries** (#358, implements #352) — every feed is a search with a fixed page scope, refinable with `/search` syntax. Feed pages declare fixed filters (rendered as non-editable tokens in the filter bar) plus editable refinements; terms that conflict with the fixed scope are overridden with a visible warning, never widened, and the parser now warns on invalid operator values instead of silently degrading to text. The home feed defaults to `list:tuned_in`, profile tabs and list feeds render through the search engine, and new notes/decisions/commitments index synchronously at commit so they appear in search-backed feeds immediately. The `scope:` operator alias for `visibility:` is removed.
+
+### Changed
+
+- **The feed is now a collective's default page** (#358) — the cycle dashboard moved to `/dashboard`. Workspace feeds are fixed to `visibility:private`; the heartbeat ritual carries over to the feed page.
+- **Handles are case-insensitive and case-preserving** (#289) — `@Linus` and `@linus` resolve to the same identity and can't coexist, while display keeps the case the user chose (Postgres `citext`; no Ruby lookup changes needed).
+- **Collectives and their identity users share one handle** (#290) — a collective's identity user now takes the collective's handle (previously a random hex string) and stays in sync on rename; the handle-availability check covers the unified namespace. Existing hex identity handles are backfilled.
+- **Confirming read clears the associated notification** (#360, fixes #351) — confirm-read on a note also marks the mention/comment/participation notification that pointed there as read, so the badge clears without a separate dismiss step.
+
+### Fixed
+
+- **Device list shows real activity** (#350, fixes #346) — `last_used_at` only updated on token rotation, so the current device could show "Last used 7 hours ago" while in use. Authenticated requests now bump it (throttled), and the current device shows "Active now".
+- **Unconfirmed comment read-confirm renders as a button** (#348, fixes #335) — the clickable read-confirm count on comments was styled like static metadata; it now gets the filled primary treatment matching the note-level Confirm Read button.
+- **Settings page buttons were unstyled** (#349, fixes #344) — four buttons applied the `pulse-action-btn-primary` modifier without the base `pulse-action-btn` class and fell back to native browser styling.
+
+### Infrastructure
+
+- **Fast local Docker test loop** (#357) — new `docker-compose.dev.yml` bind-mounts the working tree so targeted tests re-run with no image rebuild; `docker-compose.test.yml` (CI-faithful runner) fixed to actually run tests.
+
 ## [1.37.0] - 2026-07-02
 
 ### Added
