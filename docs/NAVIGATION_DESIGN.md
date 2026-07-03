@@ -337,9 +337,16 @@ chrome to reshape per form factor without forking the model.
 
 ## Open questions
 
-1. **Chat placement.** Chat collectives are excluded from the rail but chat
-   is a place by the route model. Discord precedent: a pinned entry in the
-   rail (the "DMs" slot). Alternatively chat stays header/you-level. Unresolved.
+1. **Chat placement — direction decided, design open.** Chat gets a single
+   pinned rail entry beneath the globe (the Discord "DMs" slot), not one
+   square per chat collective. The open design problem is the badge: every
+   other rail entry maps 1:1 to a collective, but the chat entry aggregates
+   many chat collectives behind one icon, so its count is a sum and a click
+   cannot land in a single place — it needs a chat index or sheet. Also
+   requires the by-collective count query to distinguish chat collectives
+   (excluded from squares today) so they roll up to the chat entry instead
+   of disappearing. Significant addition — deliberately deferred past the
+   initial rail PR (#339).
 2. **Sidebar contents per place** (issue #337's "cycles as channels").
    The route swap landed (feed is the default page, dashboard at
    `/dashboard`), but the dashboard itself hasn't converted to a query —
