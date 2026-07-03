@@ -403,8 +403,12 @@ Shipped from this list:
    Prerequisite: **reminder-notification attribution.** Reminder *notes*
    have a collective; only their notification rows are placeless
    (`event_id: nil` — an implementation artifact, not a semantic truth).
-   Attribute them and reminders flow into per-collective badges and
-   `my:notified` like everything else. The genuinely placeless residue —
+   Attribution is derived at read time through the existing
+   `notes.reminder_notification_id` link (no schema change — a
+   `collective_id`-family column on notifications would collide with
+   ApplicationRecord's collective auto-scoping, and notifications must
+   span collectives). With it, reminders flow into per-collective badges
+   and `my:notified` like everything else. The genuinely placeless residue —
    tenant-level notifications (trustee authorizations, account security)
    plus chat (which has its own entry) — is what keeps the header inbox:
    it stays, as the cross-place queue and the mobile Inbox tab, but it
