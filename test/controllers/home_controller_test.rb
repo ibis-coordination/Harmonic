@@ -39,6 +39,20 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "layout renders the places sheet and its header toggle for signed-in users" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+
+    assert_select "body[data-controller~='places-sheet']"
+    assert_select ".pulse-places-toggle[data-places-sheet-target='toggle'][aria-expanded='false']"
+    assert_select ".pulse-places-sheet[aria-hidden='true']" do
+      assert_select "a[href='/']", text: /Public space/
+      assert_select "a[href='/chat']", text: /Chat/
+      assert_select "a[href='/collectives']", text: /Create or join a collective/
+    end
+  end
+
   test "rail chat badge renders its unread count server-side on first paint" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     chat = Notification.create!(tenant: @tenant, event: nil, notification_type: "chat_message", title: "Ping", url: "/chat/somebody")

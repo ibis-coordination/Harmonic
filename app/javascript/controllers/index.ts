@@ -48,6 +48,7 @@ import MoreButtonController from "./more_button_controller"
 import NavController from "./nav_controller"
 import NotificationActionsController from "./notification_actions_controller"
 import NotificationBadgeController from "./notification_badge_controller"
+import PlacesSheetController from "./places_sheet_controller"
 import RailBadgesController from "./rail_badges_controller"
 import CsvImportController from "./csv_import_controller"
 import NoteController from "./note_controller"
@@ -126,6 +127,7 @@ application.register("more-button", MoreButtonController)
 application.register("nav", NavController)
 application.register("notification-actions", NotificationActionsController)
 application.register("notification-badge", NotificationBadgeController)
+application.register("places-sheet", PlacesSheetController)
 application.register("rail-badges", RailBadgesController)
 application.register("note", NoteController)
 application.register("note-media-uploader", NoteMediaUploaderController)

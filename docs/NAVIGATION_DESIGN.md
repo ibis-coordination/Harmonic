@@ -291,18 +291,27 @@ chrome to reshape per form factor without forking the model.
 
 ### Increments (each independently shippable, none undone by the next)
 
-1. **Ship the rail desktop-only** (hide under 768px; mobile stays as it is
-   on prod today). Unblocks PR #339 honestly. Constraint for any hide/fold,
-   here and later: collapse by redefining `--pulse-rail-width` (the motto
-   footer's border-continuation offset derives from it), not by hiding the
-   element alone.
-2. **Places-as-sheet on mobile** — the switcher list (icon + name + badge
-   + "+"), initially opened from a header toggle; built as the future
-   Places tab's content, not a throwaway drawer.
-3. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
+1. **Badge click-through** (`my:notified` + clearing affordances +
+   reminder-notification attribution — see open question 3). Comes before
+   the bar: the bar's Places/Inbox split only feels right once badges
+   drain in place.
+2. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
    down; the top bar slims to a place label.
-4. **Sidebar → place header**, paced by how much of the sidebar
+3. **Sidebar → place header**, paced by how much of the sidebar
    feeds-are-queries continues to absorb.
+
+Shipped from this list:
+
+- **Rail desktop-only** (#339): hidden under 768px by redefining
+  `--pulse-rail-width` (the motto footer's border-continuation offset
+  derives from it — keep that constraint for any future hide/fold).
+- **Places sheet on mobile**: the rail's destinations as labeled rows
+  (`PlacesSheetComponent` — globe, chat, collectives with names, "+"),
+  slid over from a mobile-only header toggle that carries an aggregate
+  unread dot. Badges reuse the rail's classes so a second rail-badges
+  controller instance keeps them fresh from the same
+  `notifications:counts` broadcast; first paint is server-rendered. Built
+  as the future Places tab's content, not a throwaway drawer.
 
 ## Decided (current iteration)
 
@@ -355,33 +364,65 @@ chrome to reshape per form factor without forking the model.
    The route swap landed (feed is the default page, dashboard at
    `/dashboard`), but the dashboard itself hasn't converted to a query —
    decide the sidebar question together with that conversion.
-3. **Badges promise more than the click delivers.** A square's unread badge
-   implies clicking will show what you're being notified about, but the
-   collective feed renders with no notification context. Candidate fix in
-   the feeds-are-queries vocabulary: a viewer-relative filter that surfaces
-   the items behind the count directly in the feed.
+3. **Badge click-through — direction resolved, unbuilt.** A square's
+   unread badge implies clicking will show what you're being notified
+   about, but the collective feed renders with no notification context.
+   The fix is a `my:` filter namespace: the DSL is already viewer-relative
+   (`list:tuned_in` resolves against the current user), but `list:*`
+   resolves to *authors* and filters on content facts, while `my:*`
+   filters on the viewer's own state per item — a different data layer
+   the prefix makes explicit.
 
-   Syntax direction: a `my:` namespace (`my:unread`, later perhaps
-   `my:bookmarks`) rather than `notifications:unread`. The DSL is already
-   viewer-relative — `list:tuned_in` resolves against the current user —
-   but `list:tuned_in` resolves to a set of *authors* and then filters on
-   content facts, while `my:*` would filter on the viewer's own
-   interaction state with each item. That is a different data layer, and
-   the `my:` prefix makes the relativity explicit in the syntax instead of
-   hiding it inside an operator's special values.
+   Harmonic has two such layers, and they get **two names** (the earlier
+   draft's "choose one meaning" fork is resolved by not blending):
 
-   Two things to pin down before building:
+   - **`my:notified`** — the delivery layer: items in scope with an
+     **undismissed** notification addressed to the viewer. This is the
+     inbox projected onto the feed. Undismissed-not-unread is deliberate
+     and matches existing precedent: the header badge counts *unread*
+     while the notifications page shows *undismissed* — the count is the
+     urgent subset, the view is the full queue. Badge click lands on the
+     place's feed at `?q=my:notified`.
+   - **`my:unread`** — the social layer: notes in scope the viewer has
+     not confirmed read. Anchored to read-confirmation (reader counts,
+     confirm-read), which is what "read" already means everywhere else
+     in the product. Fully separable from the badge system, and a
+     different query shape (a negative join against read-confirmations
+     vs. `my:notified`'s id-set resolution) — build it later,
+     independently.
 
-   - **Which "unread"?** Harmonic has two candidate meanings that do not
-     agree: notification recipient-state (what the badge counts) and
-     read-confirmation state (items the viewer hasn't confirmed-read — a
-     first-class content-adjacent feature). Read-confirmations sit more
-     comfortably with guardrail 3 (which keeps `/notifications`
-     recipient-state out of the feed model), but only the notification
-     meaning makes a badge click show exactly the items behind the badge's
-     number. Choose one meaning per filter name; do not blend.
-   - **Anonymous viewers.** `my:*` with no signed-in user should warn and
-     match nothing, same pattern as other unresolvable filters.
+   What makes the click-through actually drain the badge:
+
+   - Confirm-read already clears the pointing notification (shipped in
+     1.38.0), covering notes and reminders.
+   - Non-confirmable items (votes, tune-ins) need per-item dismiss
+     chrome in the `my:notified` view, or a "mark all read here"
+     affordance — `mark_read_for_collective` /
+     `dismiss_for_collective` already exist server-side.
+
+   Prerequisite: **reminder-notification attribution.** Reminder *notes*
+   have a collective; only their notification rows are placeless
+   (`event_id: nil` — an implementation artifact, not a semantic truth).
+   Attribute them and reminders flow into per-collective badges and
+   `my:notified` like everything else. The genuinely placeless residue —
+   tenant-level notifications (trustee authorizations, account security)
+   plus chat (which has its own entry) — is what keeps the header inbox:
+   it stays, as the cross-place queue and the mobile Inbox tab, but it
+   stops being the *only* place a badge can drain, which was the actual
+   problem. **Do not hide the inbox** to dedupe against the badges; they
+   are two projections of one state with different jobs.
+
+   Guardrail 3 is intact: `my:notified` filters *content* by
+   recipient-state; `/notifications` itself (deliveries, lifecycle) stays
+   out of the feed model.
+
+   Anonymous viewers: `my:*` with no signed-in user warns and matches
+   nothing, same pattern as other unresolvable filters.
+
+   Sequencing: reminder attribution → `my:notified` + badge click-through
+   + clearing affordances → bottom tab bar (its Places/Inbox split only
+   feels right once badges drain in place) → `my:unread` when it earns
+   its slot.
 
 (The former "what is the globe?" question is resolved — see Decided: `/`
 unifies home and the public space via the default `list:tuned_in` chip.
@@ -390,13 +431,14 @@ the unification makes the default view a *default*, not a separate page.)
 
 ## Planned next steps (rough order)
 
-1. **"+" at the rail bottom** — create/join collective (and the escape hatch
-   to browse `/collectives` when the rail overflows). Place-related, so it
-   belongs in the place layer.
-2. **Ordering/overflow**: alphabetical until it hurts; then recency or
+1. **Ordering/overflow**: alphabetical until it hurts; then recency or
    pinning. The "+"/browse entry is the overflow escape hatch.
 
 Shipped from this list:
+
+- **"+" at the rail bottom** — create/join collective, linking to
+  `/collectives` (also the escape hatch when the rail overflows). A
+  dashed hollow square: a utility, not a place; no active state.
 
 - **Sticky rail** (`position: sticky; top: 0; height: 100dvh`): pinned to
   the viewport while the document scrolls; the rail scrolls independently
