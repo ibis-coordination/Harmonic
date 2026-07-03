@@ -158,6 +158,22 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal({ @collective.id => 2, other.id => 1 }, json_response["by_collective"])
   end
 
+  test "unread_count includes the aggregated chat count for the rail's chat entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    chat = Notification.create!(tenant: @tenant, event: nil, notification_type: "chat_message", title: "Ping", url: "/chat/somebody")
+    NotificationRecipient.create!(notification: chat, user: @user, channel: "in_app", status: "delivered", tenant: @tenant)
+    Collective.clear_thread_scope
+
+    get "/notifications/unread_count", headers: { "Accept" => "application/json" }
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 1, json_response["chat"]
+    # Eventless chat pings never appear in the per-collective map.
+    assert_equal({}, json_response["by_collective"])
+  end
+
   # === Dismiss Tests ===
 
   test "dismiss dismisses notification" do

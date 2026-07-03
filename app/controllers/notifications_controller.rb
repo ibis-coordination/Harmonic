@@ -102,7 +102,8 @@ class NotificationsController < ApplicationController
   def unread_count
     count = NotificationService.unread_count_for(current_user, tenant: current_tenant)
     by_collective = NotificationService.unread_count_by_collective_for(current_user, tenant: current_tenant)
-    render json: { count: count, by_collective: by_collective }
+    chat = NotificationService.unread_chat_count_for(current_user, tenant: current_tenant)
+    render json: { count: count, by_collective: by_collective, chat: chat }
   end
 
   def actions_index

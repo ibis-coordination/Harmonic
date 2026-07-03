@@ -94,23 +94,27 @@ describe("NotificationBadgeController", () => {
     expect(afterThird).toBeGreaterThan(afterSecond)
   })
 
-  it("broadcasts per-collective counts so the rail badges can update", async () => {
+  it("broadcasts per-collective and chat counts so the rail badges can update", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ count: 3, by_collective: { "abc-123": 2, "def-456": 1 } }),
+      json: () => Promise.resolve({ count: 3, by_collective: { "abc-123": 2, "def-456": 1 }, chat: 4 }),
     })
     vi.stubGlobal("fetch", mockFetch)
 
-    const received: Array<Record<string, number>> = []
+    const received: Array<{ byCollective: Record<string, number>; chat: number }> = []
     window.addEventListener("notifications:counts", (event) => {
-      received.push((event as CustomEvent).detail.byCollective)
+      const detail = (event as CustomEvent).detail
+      received.push({ byCollective: detail.byCollective, chat: detail.chat })
     })
 
     await vi.advanceTimersByTimeAsync(5000)
 
     await vi.waitFor(() => {
       expect(received.length).toBeGreaterThan(0)
-      expect(received[received.length - 1]).toEqual({ "abc-123": 2, "def-456": 1 })
+      expect(received[received.length - 1]).toEqual({
+        byCollective: { "abc-123": 2, "def-456": 1 },
+        chat: 4,
+      })
     })
   })
 

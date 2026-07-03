@@ -338,6 +338,29 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal({ collective2.id => 1 }, counts)
   end
 
+  test "unread_chat_count_for counts only unread in-app chat_message notifications" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    # Two unread chat pings (eventless, like notify_chat_message! creates).
+    2.times do |i|
+      chat = Notification.create!(tenant: tenant, event: nil, notification_type: "chat_message", title: "Chat #{i}", url: "/chat/somebody")
+      NotificationRecipient.create!(notification: chat, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    end
+
+    # A read chat ping, an email chat row, and a non-chat notification don't count.
+    read_chat = Notification.create!(tenant: tenant, event: nil, notification_type: "chat_message", title: "Read chat", url: "/chat/somebody")
+    read_row = NotificationRecipient.create!(notification: read_chat, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    read_row.mark_read!
+    NotificationRecipient.create!(notification: read_chat, user: user, channel: "email", status: "pending", tenant: tenant)
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user)
+    mention = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Mention")
+    NotificationRecipient.create!(notification: mention, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    assert_equal 2, NotificationService.unread_chat_count_for(user, tenant: tenant)
+  end
+
   test "dismiss_all_for dismisses all in_app notifications" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

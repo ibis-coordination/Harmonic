@@ -334,19 +334,23 @@ chrome to reshape per form factor without forking the model.
   viewing past cycles on the dashboard additionally requires a heartbeat,
   while queries (including `cycle:` refinements on feed pages and
   `/search`) cross cycles freely.
+- **Chat is one aggregated rail entry beneath the globe.** A bare icon
+  (like the globe, not a square) linking to `/chat`, active on all chat
+  pages. Its badge is type-based — unread `chat_message` notifications —
+  because chat notifications carry no event and therefore no collective;
+  they never appear in the per-collective counts, so the chat badge and
+  the square badges partition the event-space cleanly. A click lands on
+  the chat index, which lists conversations.
 
 ## Open questions
 
-1. **Chat placement — direction decided, design open.** Chat gets a single
-   pinned rail entry beneath the globe (the Discord "DMs" slot), not one
-   square per chat collective. The open design problem is the badge: every
-   other rail entry maps 1:1 to a collective, but the chat entry aggregates
-   many chat collectives behind one icon, so its count is a sum and a click
-   cannot land in a single place — it needs a chat index or sheet. Also
-   requires the by-collective count query to distinguish chat collectives
-   (excluded from squares today) so they roll up to the chat entry instead
-   of disappearing. Significant addition — deliberately deferred past the
-   initial rail PR (#339).
+1. **Chat placement — resolved.** Chat is a single pinned rail entry
+   beneath the globe (the Discord "DMs" slot), not one square per chat
+   collective: a bare comment icon linking to `/chat` (the chat index is
+   the landing place for an aggregate count), active across all of
+   `/chat`. Its badge counts unread `chat_message` notifications by *type*
+   — chat notifications carry no event, so they were never in the
+   per-collective counts and the two can't double-count. See Decided.
 2. **Sidebar contents per place** (issue #337's "cycles as channels").
    The route swap landed (feed is the default page, dashboard at
    `/dashboard`), but the dashboard itself hasn't converted to a query —

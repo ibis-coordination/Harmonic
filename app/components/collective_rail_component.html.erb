@@ -9,6 +9,15 @@
       <span class="pulse-rail-badge" data-collective-id="<%= @main_collective.id %>"
             style="<%= badge_style(@main_collective) %>"><%= badge_text(@main_collective) %></span>
     <% end %>
+    <%= tag.a href: "/chat",
+              class: ["pulse-rail-item", "pulse-rail-chat", ("active" if chat_active?)],
+              title: "Chat",
+              aria: { label: "Chat", current: ("page" if chat_active?) } do %>
+      <span class="pulse-rail-indicator"></span>
+      <span class="pulse-rail-chat-icon"><%= helpers.octicon "comment-discussion", height: 22 %></span>
+      <span class="pulse-rail-badge" data-chat-badge
+            style="<%= chat_badge_style %>"><%= chat_badge_text %></span>
+    <% end %>
     <div class="pulse-rail-divider"></div>
   <% end %>
 

@@ -6,6 +6,9 @@ describe("RailBadgesController", () => {
   beforeEach(() => {
     document.body.innerHTML = `
       <nav class="pulse-rail" data-controller="rail-badges">
+        <a href="/chat">
+          <span class="pulse-rail-badge" data-chat-badge style="display: none"></span>
+        </a>
         <a href="/collectives/team-a">
           <span class="pulse-rail-badge" data-collective-id="aaa-111" style="display: none"></span>
         </a>
@@ -22,8 +25,12 @@ describe("RailBadgesController", () => {
     return document.querySelector(`.pulse-rail-badge[data-collective-id='${collectiveId}']`) as HTMLElement
   }
 
-  function broadcast(byCollective: Record<string, number>): void {
-    window.dispatchEvent(new CustomEvent("notifications:counts", { detail: { byCollective } }))
+  function broadcast(byCollective: Record<string, number>, chat = 0): void {
+    window.dispatchEvent(new CustomEvent("notifications:counts", { detail: { byCollective, chat } }))
+  }
+
+  function chatBadge(): HTMLElement {
+    return document.querySelector("[data-chat-badge]") as HTMLElement
   }
 
   it("shows counts on squares with unread notifications", async () => {
@@ -52,6 +59,19 @@ describe("RailBadgesController", () => {
 
     await vi.waitFor(() => {
       expect(badge("aaa-111").textContent).toBe("99+")
+    })
+  })
+
+  it("fills and clears the aggregated chat badge", async () => {
+    broadcast({}, 5)
+    await vi.waitFor(() => {
+      expect(chatBadge().textContent).toBe("5")
+      expect(chatBadge().style.display).toBe("")
+    })
+
+    broadcast({}, 0)
+    await vi.waitFor(() => {
+      expect(chatBadge().style.display).toBe("none")
     })
   })
 })
