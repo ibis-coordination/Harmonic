@@ -50,7 +50,7 @@ class AuthorComponentTest < ViewComponent::TestCase
     agent = build_user(display_name: "Bot", handle: "bot", user_type: "ai_agent", parent: owner)
     resource = build_note(created_by: agent, created_at: @now, updated_at: @now)
     render_inline(AuthorComponent.new(resource: resource))
-    assert_selector ".pulse-ai-agent-label", text: /managed by/
+    assert_selector ".pulse-ai-agent-label", text: /agent of/
     assert_selector "a[href='/u/owner']", text: "Owner"
   end
 
