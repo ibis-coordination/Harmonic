@@ -80,20 +80,37 @@ class SearchQuery
 
   private
 
+  # Fixed-param key → its negated-operator counterpart, where one exists.
+  FIXED_PARAM_EXCLUDE_COUNTERPARTS = T.let({ visibility: :exclude_visibility }.freeze, T::Hash[Symbol, Symbol])
+
   # A feed page's fixed scope is enforced structurally — the user's query
-  # can never widen it. Conflicting query terms are overridden and reported
-  # rather than silently producing confusing results.
+  # can never widen it. Conflicting query terms (including negations of
+  # the fixed value) are overridden and reported rather than silently
+  # producing confusing results.
   sig { params(fixed_params: T::Hash[Symbol, T.untyped]).void }
   def apply_fixed_params(fixed_params)
     fixed_params.each do |key, value|
+      op = FIXED_PARAM_OPERATORS.fetch(key, key.to_s)
       user_value = @params[key]
       if user_value.present? && user_value != value
-        op = FIXED_PARAM_OPERATORS.fetch(key, key.to_s)
         @warnings = warnings + [
           "#{op}:#{Array(user_value).join(",")} ignored: this page is fixed to #{op}:#{Array(value).join(",")}",
         ]
       end
       @params[key] = value
+
+      # Negating the fixed value would empty the feed, never widen it —
+      # drop the negation and say so.
+      exclude_key = FIXED_PARAM_EXCLUDE_COUNTERPARTS[key]
+      next unless exclude_key && Array(@params[exclude_key]).include?(value)
+
+      @warnings = warnings + ["-#{op}:#{value} ignored: this page is fixed to #{op}:#{value}"]
+      remaining = Array(@params[exclude_key]) - [value]
+      if remaining.empty?
+        @params.delete(exclude_key)
+      else
+        @params[exclude_key] = remaining
+      end
     end
   end
 

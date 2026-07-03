@@ -1086,6 +1086,20 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_empty search.results
   end
 
+  test "negating the fixed scope is ignored with a warning" do
+    @tenant.update!(main_collective: @collective)
+    search = SearchQuery.new(
+      tenant: @tenant, current_user: @user,
+      raw_query: "budget -visibility:public cycle:all",
+      fixed_params: { visibility: "public" }
+    )
+
+    warning = search.warnings.find { |w| w.include?("-visibility:public") }
+    assert warning, "expected a conflict warning, got: #{search.warnings.inspect}"
+    # The negation is dropped; the fixed scope still returns results.
+    assert_not_empty search.results
+  end
+
   test "fixed params do not warn when the query does not conflict" do
     search = SearchQuery.new(
       tenant: @tenant, current_user: @user,
