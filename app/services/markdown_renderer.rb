@@ -108,7 +108,17 @@ class MarkdownRenderer
   def self.render_inline(content)
     raw_html = build_markdown.render(content.to_s)
     sanitized_html = sanitize(raw_html)
-    sanitized_html.gsub(/<p>(.*)<\/p>/, '\1')
+    # Redcarpet wraps each paragraph in <p>…</p>. For inline display we drop
+    # those block wrappers, but simply deleting them leaves the blank line
+    # between paragraphs as bare whitespace, which the browser collapses so the
+    # lines run together (issue #359). Convert each paragraph boundary to a
+    # <br> so the author's line breaks survive, then strip any remaining
+    # wrapper tags. Matching the tags directly (rather than a <p>(.*)</p> span)
+    # also handles paragraphs that contain hard-wrap <br> newlines.
+    sanitized_html
+      .gsub(%r{</p>\s*<p>}, "<br>")
+      .gsub(%r{</?p>}, "")
+      .strip
   end
 
   private
