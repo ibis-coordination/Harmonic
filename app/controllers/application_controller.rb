@@ -789,7 +789,7 @@ class ApplicationController < ActionController::Base
 
   # Collectives shown as square icons in the persistent left rail (issue #337):
   # the viewer's standard collectives, minus the main collective (which the
-  # rail renders separately as the public-space eye). Empty for anonymous
+  # rail renders separately as the public-space globe). Empty for anonymous
   # viewers. Collective is tenant-scoped, so this is already limited to the
   # current tenant. Avatar attachments are preloaded because the rail renders
   # on every page.

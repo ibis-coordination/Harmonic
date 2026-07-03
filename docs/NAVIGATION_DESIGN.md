@@ -16,7 +16,7 @@ Everything a user touches in Harmonic lives in one of three visibility zones:
 
 | Zone | What lives there | Spatial home in the UI |
 |---|---|---|
-| **Public** | The tenant's main collective — content visible to the whole tenant (and, with anonymous read access, the web) | The eye at the top of the rail |
+| **Public** | The tenant's main collective — content visible to the whole tenant (and, with anonymous read access, the web) | The globe at the top of the rail |
 | **Shared** | Collectives the user belongs to — visible to fellow members | The squares in the rail |
 | **Private** | The user's private workspace — visible to the user (and their AI agents) only | *Not the rail.* See "Private zone" below |
 
@@ -66,7 +66,7 @@ Content routes exist under three prefixes (`config/routes.rb`):
 
 **The URL prefix is the place.** The rail is a visual projection of the URL
 prefix, which is why active states are matched on path prefix (implemented in
-`CollectiveRailComponent`): the eye is active at `/`, a square is active on
+`CollectiveRailComponent`): the globe is active at `/`, a square is active on
 that collective's pages, and nothing is active anywhere else.
 
 ### Pages with no place
@@ -88,7 +88,7 @@ Issues / Linear pattern: pages are named queries.
 
 | Page | Fixed scope | Also a place? |
 |---|---|---|
-| `/` (home / public space) | `visibility:public` | Yes (the eye) |
+| `/` (home / public space) | `visibility:public` | Yes (the globe) |
 | `/collectives/:handle` | `collective:x` | Yes (a square) |
 | `/workspace/:handle` | `visibility:private` | Yes (not in the left rail) |
 | Profile `/u/:handle` | `visibility:public creator:@handle` | No — you-level, no rail state |
@@ -244,11 +244,11 @@ strips.
 outward→inward so the bar preserves the spatial metaphor:
 
 ```
-[ Home(eye) ] [ Places ] [ Search ] [ Inbox ] [ You ]
+[ Home(globe) ] [ Places ] [ Search ] [ Inbox ] [ You ]
    public       shared               you-layer   → private
 ```
 
-- **Home** is the eye: the `/` public feed.
+- **Home** is the globe: the `/` public feed.
 - **Places** is the rail reshaped: tapping opens the collective switcher
   as a full sheet — icon + **name** + badge per row, "+" at the bottom.
   Richer than icon squares, and it fixes what the rail can never fix on
@@ -259,7 +259,7 @@ outward→inward so the bar preserves the spatial metaphor:
 - **You** is the avatar menu — and eventually the doorway to the private
   workspace. The doc reserves "private enters from the right"; on mobile,
   **the rightmost tab is the right edge**. The zone model survives the
-  translation: eye on the far left, workspace behind the far right.
+  translation: globe on the far left, workspace behind the far right.
 - **Create** takes no slot — a FAB or top-bar `+`; creation is contextual
   (create-in-this-place).
 
@@ -311,18 +311,18 @@ chrome to reshape per form factor without forking the model.
   without a handle, so it cannot distinguish "in the public space" from
   "on /billing".
 - **Rail shows standard collectives only**, alphabetical, main collective
-  excluded (it is the eye).
+  excluded (it is the globe).
 - **Rail is logged-in only** for now. Under the zone model, anonymous
   visitors have no shared zone; whether they get a public-zone-only rail is
-  tied to the eye question below.
+  tied to the globe question below.
 - **Rail styling follows app tokens** (6px avatar radius matching
   `.pulse-collective-avatar`, monochrome active treatment, canvas-default
   background). The rail is chrome, not a themed island.
 - **`/` unifies home and the public space.** Fixed scope
   `visibility:public` with `list:tuned_in` as a default *removable* chip:
   the default view is the personal tuned-in feed, and "see everything" is
-  removing one chip. The eye points at `/` and is honest. (This resolves
-  the former eye/home open question via the feeds-are-queries model.)
+  removing one chip. The globe points at `/` and is honest. (This resolves
+  the former globe/home open question via the feeds-are-queries model.)
 - **The feed is the collective's default page** (shipped in #358). The
   query-backed feed lives at `/collectives/:handle`; the cycle dashboard
   (`pulse#show`) moved to `/collectives/:handle/dashboard` and keeps its
@@ -372,7 +372,7 @@ chrome to reshape per form factor without forking the model.
    - **Anonymous viewers.** `my:*` with no signed-in user should warn and
      match nothing, same pattern as other unresolvable filters.
 
-(The former "what is the eye?" question is resolved — see Decided: `/`
+(The former "what is the globe?" question is resolved — see Decided: `/`
 unifies home and the public space via the default `list:tuned_in` chip.
 Today's `/` was already expressible as `visibility:public list:tuned_in`;
 the unification makes the default view a *default*, not a separate page.)
@@ -394,7 +394,7 @@ Shipped from this list:
   scrolling" containment model (100vh shell, per-column scrolling) remains
   deferred — it would break the auto-hide header's window-scroll listener
   and change the footer's meaning; reconsider both together.
-- **Per-square unread badges** (every entry, the eye included), keyed by
+- **Per-square unread badges** (every entry, the globe included), keyed by
   collective id. One poll feeds both the header badge and the rail: the
   header poller broadcasts a `notifications:counts` event that the
   rail-badges controller projects onto the squares. Initial state is

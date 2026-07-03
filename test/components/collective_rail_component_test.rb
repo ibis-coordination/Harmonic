@@ -20,11 +20,11 @@ class CollectiveRailComponentTest < ViewComponent::TestCase
     build_rail_collective(name: "Public", handle: "public", path: nil)
   end
 
-  test "renders the public space as a bare eye with no square avatar" do
+  test "renders the public space as a bare globe with no square avatar" do
     render_inline(CollectiveRailComponent.new(main_collective: main_collective, collectives: []))
 
     assert_selector "a.pulse-rail-public[href='/']"
-    assert_selector ".pulse-rail-public .pulse-rail-eye .octicon"
+    assert_selector ".pulse-rail-public .pulse-rail-globe .octicon-globe"
     # The public entry is the ONLY one without a square avatar.
     assert_no_selector ".pulse-rail-public .pulse-rail-avatar"
   end
@@ -48,7 +48,7 @@ class CollectiveRailComponentTest < ViewComponent::TestCase
     assert_selector "a.pulse-rail-item[href='/collectives/team-a'] .pulse-rail-badge[data-collective-id='#{a.id}']",
                     visible: :hidden
     # The public space is a place like any other — its unread count badges
-    # the eye, keyed to the main collective.
+    # the globe, keyed to the main collective.
     assert_selector ".pulse-rail-public .pulse-rail-badge[data-collective-id='#{main.id}']", visible: :hidden
   end
 

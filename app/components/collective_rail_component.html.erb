@@ -5,7 +5,7 @@
               title: "Public space",
               aria: { label: "Public space", current: ("page" if public_space_active?) } do %>
       <span class="pulse-rail-indicator"></span>
-      <span class="pulse-rail-eye"><%= helpers.octicon "eye", height: 22 %></span>
+      <span class="pulse-rail-globe"><%= helpers.octicon "globe", height: 22 %></span>
       <span class="pulse-rail-badge" data-collective-id="<%= @main_collective.id %>"
             style="<%= badge_style(@main_collective) %>"><%= badge_text(@main_collective) %></span>
     <% end %>

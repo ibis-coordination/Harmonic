@@ -1,7 +1,7 @@
 /* Pulse Collective Rail (issue #337)
  *
  * A persistent Discord/Slack-style vertical rail of collectives. The public
- * space (main collective) is the topmost entry, rendered as a bare eye icon
+ * space (main collective) is the topmost entry, rendered as a bare globe icon
  * with no square. Every other collective is a square profile icon.
  *
  * First-pass sketch — visuals will iterate.
@@ -75,8 +75,8 @@
   font-weight: 600;
 }
 
-/* The public space: an eye icon with NO square — the only bare entry. */
-.pulse-rail-public .pulse-rail-eye {
+/* The public space: a globe icon with NO square — the only bare entry. */
+.pulse-rail-public .pulse-rail-globe {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,7 +110,7 @@
   padding: 0 4px;
 }
 
-/* The eye glyph is smaller than the 48px hit area, so pull its badge in
+/* The globe glyph is smaller than the 48px hit area, so pull its badge in
    toward the icon instead of the box corner. */
 .pulse-rail-public .pulse-rail-badge {
   top: 2px;
