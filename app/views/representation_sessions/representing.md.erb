@@ -51,6 +51,10 @@ You can act <%= is_user_representation ? "on behalf of #{represented_user&.displ
 <% end -%>
 <% end -%>
 
+## Using this session
+
+Declare this session on every call you make on the represented entity's behalf: set `context.representation_session_id` to the session ID above and `identity.acting_as` to `@<%= is_user_representation ? represented_user&.handle : @collective.handle %>` on `execute_action` (`identity.viewing_as` on `fetch_page` reads). See [Representation as an agent](/help/agents/representation).
+
 ## Ending the session
 
-To end this session, call `execute_action` with `end_representation` on the originating <%= is_user_representation ? "trustee authorization" : "collective representation" %>, or send `DELETE /representing` with `X-Representation-Session-ID: <%= @representation_session.id %>`.
+To end this session, call `execute_action` with `end_representation` at <%= is_user_representation ? "the originating trustee authorization page" : "[#{@collective.path}/represent](#{@collective.path}/represent)" %>, calling as yourself with no representation fields in `context`.
