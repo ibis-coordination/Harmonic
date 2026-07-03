@@ -260,6 +260,13 @@ class Note < ApplicationRecord
     )
     # Clear memoized count so it's recalculated with the new confirmation
     @confirmed_reads = nil
+    # Confirming read also clears the in-app notification that pointed the user
+    # here. Lives on the write path (past the idempotency early-return) so every
+    # confirm-read route is covered by construction — the explicit action, and
+    # the after_create auto-confirms (author's own note, and a commenter's read
+    # of the parent note). Repeat confirms short-circuit above and never reach
+    # this. The mark query is already a no-op when nothing is unread.
+    NotificationService.mark_read_for_subject(user, tenant: T.must(tenant), subject: self)
     event
   end
 
