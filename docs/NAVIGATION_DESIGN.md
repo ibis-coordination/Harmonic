@@ -282,14 +282,30 @@ will one day hold workspace entries.
 5. **Badges promise more than the click delivers.** A square's unread badge
    implies clicking will show what you're being notified about, but the
    collective feed renders with no notification context. Candidate fix in
-   the feeds-are-queries vocabulary: a `notifications:unread` filter, so
-   the items behind the count surface directly in the feed. Note the
-   tension with guardrail 3 before building: that guardrail keeps
-   `/notifications` (recipient-state) out of the feed model, and
-   `notifications:unread` would be the first per-viewer recipient-state
-   operator in the query DSL — filtering content BY recipient-state is not
-   the same as querying notifications, but the boundary needs to be drawn
-   deliberately.
+   the feeds-are-queries vocabulary: a viewer-relative filter that surfaces
+   the items behind the count directly in the feed.
+
+   Syntax direction: a `my:` namespace (`my:unread`, later perhaps
+   `my:bookmarks`) rather than `notifications:unread`. The DSL is already
+   viewer-relative — `list:tuned_in` resolves against the current user —
+   but `list:tuned_in` resolves to a set of *authors* and then filters on
+   content facts, while `my:*` would filter on the viewer's own
+   interaction state with each item. That is a different data layer, and
+   the `my:` prefix makes the relativity explicit in the syntax instead of
+   hiding it inside an operator's special values.
+
+   Two things to pin down before building:
+
+   - **Which "unread"?** Harmonic has two candidate meanings that do not
+     agree: notification recipient-state (what the badge counts) and
+     read-confirmation state (items the viewer hasn't confirmed-read — a
+     first-class content-adjacent feature). Read-confirmations sit more
+     comfortably with guardrail 3 (which keeps `/notifications`
+     recipient-state out of the feed model), but only the notification
+     meaning makes a badge click show exactly the items behind the badge's
+     number. Choose one meaning per filter name; do not blend.
+   - **Anonymous viewers.** `my:*` with no signed-in user should warn and
+     match nothing, same pattern as other unresolvable filters.
 
 (The former "what is the eye?" question is resolved — see Decided: `/`
 unifies home and the public space via the default `list:tuned_in` chip.
