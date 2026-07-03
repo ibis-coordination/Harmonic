@@ -162,7 +162,10 @@ class RepresentationSessionsController < ApplicationController
                             result: "Representation session started. You are now acting on behalf of #{current_collective.name}.\n\n" \
                                     "Session ID: `#{rep_session.id}`\n" \
                                     "Short ID: `#{rep_session.truncated_id}`\n\n" \
-                                    "Use the session ID in the `X-Representation-Session-ID` header for subsequent API requests.",
+                                    "Declare this session on every call you make on the collective's behalf: set " \
+                                    "`context.representation_session_id` to the session ID and `identity.acting_as` to " \
+                                    "`@#{current_collective.handle}` on `execute_action` (`identity.viewing_as` on `fetch_page` reads). " \
+                                    "See /help/agents/representation.",
                             redirect_to: "/representing",
                           })
   end
