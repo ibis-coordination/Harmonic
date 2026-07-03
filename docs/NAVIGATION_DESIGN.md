@@ -5,6 +5,11 @@ collective rail). This doc records the mental model the navigation chrome is
 built on, so each iteration strengthens the model instead of accreting
 features. Update it as decisions land.
 
+The feeds-are-queries half of this doc (issue #352) **shipped in PR #358**:
+the query engine, page scopes, frontmatter, the feed bar, and the route swap
+that made the feed each collective's default page. Those sections below are
+updated to describe reality; the rail sections are still design-ahead.
+
 ## The core idea: visibility zones
 
 Everything a user touches in Harmonic lives in one of three visibility zones:
@@ -83,11 +88,11 @@ Issues / Linear pattern: pages are named queries.
 
 | Page | Fixed scope | Also a place? |
 |---|---|---|
-| Public space | `visibility:public` | Yes (the eye) |
-| Collective page | `collective:x` | Yes (a square) |
-| Workspace | `visibility:private` | Yes (not in the left rail) |
-| Profile `/u/:handle` | `creator:handle` | No — you-level, no rail state |
-| List activity `/u/:h/lists/:id` | `list:id` | No — you-level |
+| `/` (home / public space) | `visibility:public` | Yes (the eye) |
+| `/collectives/:handle` | `collective:x` | Yes (a square) |
+| `/workspace/:handle` | `visibility:private` | Yes (not in the left rail) |
+| Profile `/u/:handle` | `visibility:public creator:@handle` | No — you-level, no rail state |
+| List activity `/lists/:id` | `visibility:public list:id` | No — you-level |
 | `/search` | *(none)* | No — the only unscoped feed |
 
 The `visibility:` operator's values — public, shared, private — are exactly
@@ -106,13 +111,13 @@ the same fact is projected three ways for three audiences:
 - **Markdown frontmatter** gets a scope attribute — the agent projection.
   Agents learn one navigation calculus: `search(scope + refinements)`.
 
-The pieces largely exist: `SearchQueryParser` already supports
-`collective:`, `list:` (including `list:tuned_in` / `list:mutuals`),
-`visibility:`, `creator:`, `type:`/`subtype:`, `status:`, `cycle:`, date and
-count filters, and `group:collective` (the notifications grouping as query
-vocabulary); `FeedBuilder` already renders home, pulse, profile, and list
-feeds. The gaps are routing collective-page feeds through the same engine,
-the frontmatter scope attribute, and the feed search bar UI below.
+This shipped in PR #358. All feed pages (home, collective root, workspace,
+profile tabs, list activity) route through `SearchQuery` with structural
+`fixed_params`; markdown frontmatter emits `scope:` and `query:`; the feed
+bar renders on every feed page. `FeedBuilder` still renders the cycle
+dashboard and retires when the dashboard converts. The canonical
+scope/default-query table lives in `app/views/help/markdown_ui.md.erb`
+(the Page Scope section).
 
 ### Guardrails
 
@@ -145,38 +150,48 @@ the frontmatter scope attribute, and the feed search bar UI below.
    pagination/cursor machinery rather than bespoke cheaper queries — accept
    this deliberately, page by page.
 
-### The feed search bar (UI direction)
+### The feed bar (shipped in #358)
 
-Every feed page gets a search bar at the top of the feed column:
+Every feed page gets a filter bar at the top of the feed column
+(`FeedSearchBarComponent`):
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ [🔒 collective:my-team]  [cycle:this-week ×]  filter or search…│
+│ collective:my-team  cycle:this-week type:decision…    [Filter]│
 └──────────────────────────────────────────────────────────────┘
+   └── fixed, muted ──┘ └── editable text ──┘
 ```
 
 Filters come in three tiers, and the UI must make the tier visible:
 
 | Tier | Example | Rendering | Editable? |
 |---|---|---|---|
-| **Fixed** (the page scope) | `collective:my-team` on `/collectives/my-team` | Locked chip: muted, lock glyph, no × | No — it *is* the page |
-| **Default** | `cycle:this-week` on a collective home | Ordinary chip with × | Yes — remove or replace freely |
-| **User** | anything typed | Text/chips in the input | Yes |
+| **Fixed** (the page scope) | `collective:my-team` on `/collectives/my-team` | Muted token inside the field, not editable | No — it *is* the page |
+| **Default** | `cycle:this-week` on a collective home | Ordinary query text | Yes — remove or replace freely |
+| **User** | anything typed | Query text | Yes |
 
 Decisions and rationale:
 
-- **Fixed chips are outside the input.** The scope is not text the user
-  owns; it is a statement of where they are. Rendering it inside an
-  editable input (GitHub's approach) invites deleting it, and deleting it
-  is undefined here — broadening means leaving for `/search`.
+- **Everything renders inside one field; tier is shown by style, not
+  position.** Fixed scope tokens sit at the front of the field as muted,
+  non-editable text, followed by the editable query text — the whole thing
+  reads as one query. (An earlier draft put fixed chips outside the input
+  with a lock glyph; both were rejected in review — a lock reads as
+  *privacy*, and splitting the filters across two containers breaks the
+  one-query reading.) The fixed tokens are still not deletable: broadening
+  means leaving for `/search`.
+- **"Filter", not "search".** Feed pages say Filter (placeholder and
+  button); the word "search" is reserved for `/search`. Two affordances,
+  two verbs.
 - **Defaults are real query text, owned by the user.** A page may ship
   defaults (`cycle:this-week` keeps a collective home focused on the
-  current cycle, echoing the sidebar's Current Cycle emphasis); once the
-  page loads, defaults are indistinguishable from user filters. This
-  requires distinguishing *no query param* (apply defaults) from *empty
-  query param* (user cleared everything): `?q=` present-but-empty means
-  "no refinements", absent means "defaults". GitHub Issues has exactly
-  this distinction; copy it.
+  current cycle); once the page loads, defaults are indistinguishable from
+  user filters. This requires distinguishing *no query param* (apply
+  defaults) from *empty query param* (user cleared everything): `?q=`
+  present-but-empty means "browse everything in scope", absent means
+  "defaults". GitHub Issues has exactly this distinction. A blank query
+  with a fixed scope *browses* — the fixed scope is what makes a page a
+  feed; only `/search` keeps blank-means-empty behavior.
 - **Refinements live in the URL** (`/collectives/x?q=type:decision`), so
   filtered views are shareable and the back button works. The canonical
   page URL (no `q`) always shows the default view. Markdown frontmatter
@@ -232,14 +247,17 @@ will one day hold workspace entries.
   the default view is the personal tuned-in feed, and "see everything" is
   removing one chip. The eye points at `/` and is honest. (This resolves
   the former eye/home open question via the feeds-are-queries model.)
-- **The collective feed is a separate page from the cycle dashboard.**
-  The dashboard (`pulse#show`) keeps its structure and heartbeat ritual for
-  now; a query-backed collective feed page ships alongside it, and
-  eventually replaces it — decided together with the cycles-as-channels
-  sidebar question.
-- **The heartbeat gate is page-level ritual, not an access rule.** Viewing
-  past cycles on the dashboard requires a heartbeat; queries (including
-  `cycle:` refinements on feed pages and `/search`) cross cycles freely.
+- **The feed is the collective's default page** (shipped in #358). The
+  query-backed feed lives at `/collectives/:handle`; the cycle dashboard
+  (`pulse#show`) moved to `/collectives/:handle/dashboard` and keeps its
+  structure for now. The feed's sidebar shares the dashboard's place-level
+  sections (team, heartbeats, pinned) but drops the cycle-navigation
+  sections, which are dashboard concerns.
+- **The heartbeat gate is page-level ritual, not an access rule.** The
+  ritual lives on the collective's root (the feed) and the dashboard;
+  viewing past cycles on the dashboard additionally requires a heartbeat,
+  while queries (including `cycle:` refinements on feed pages and
+  `/search`) cross cycles freely.
 
 ## Open questions
 
@@ -247,7 +265,9 @@ will one day hold workspace entries.
    is a place by the route model. Discord precedent: a pinned entry in the
    rail (the "DMs" slot). Alternatively chat stays header/you-level. Unresolved.
 2. **Sidebar contents per place** (issue #337's "cycles as channels").
-   Decide together with the eventual dashboard-to-feed replacement.
+   The route swap landed (feed is the default page, dashboard at
+   `/dashboard`), but the dashboard itself hasn't converted to a query —
+   decide the sidebar question together with that conversion.
 3. **Mobile.** A permanent 60px column on a 375px screen spends ~16% of the
    viewport on place-switching. Likely end state: rail collapses into a
    drawer or merges with the sidebar. Accepted gap for now.
