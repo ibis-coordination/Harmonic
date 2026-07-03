@@ -51,6 +51,38 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert(response.body.include?("No results found") || response.body.include?("0 results"))
   end
 
+  test "GET search empty state offers clearing the search" do
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "nonexistentquery12345", cycle: "all" }
+    assert_response :success
+    assert_select "a[href='/search']", text: "Clear search"
+  end
+
+  test "GET search with an invalid operator value renders a parse warning" do
+    sign_in_as(@user, tenant: @tenant)
+    get search_path, params: { q: "visibility:bogus" }
+    assert_response :success
+    assert_select ".pulse-feed-bar-warning", text: /visibility:bogus/
+  end
+
+  test "GET search markdown renders parse warnings" do
+    get search_path, params: { q: "visibility:bogus" }, headers: @headers
+    assert_response :success
+    assert_match(/^> ⚠️ visibility:bogus is not a valid visibility: filter/, response.body)
+  end
+
+  test "search syntax help documents visibility: not the removed scope: operator" do
+    sign_in_as(@user, tenant: @tenant)
+    get search_path
+    assert_response :success
+    assert_includes response.body, "<code>visibility:</code>"
+    assert_not_includes response.body, "<code>scope:</code>"
+
+    get search_path, headers: @headers
+    assert_includes response.body, "`visibility:`"
+    assert_not_includes response.body, "`scope:`"
+  end
+
   # Markdown tests
 
   test "GET search with Accept text/markdown returns markdown" do

@@ -29,7 +29,9 @@ class AnonymousReadAccessMarkdownStructureTest < ActionDispatch::IntegrationTest
   # Any new layout-level key must be reviewed for per-viewer-data leakage
   # before being added here. Also indirectly covers the `actions:` key
   # (omitted because available_actions_for_current_route returns [] for anon).
-  ANON_ALLOWED_FRONTMATTER_KEYS = %w[app host path title timestamp].freeze
+  # `scope` is the page's fixed filters (search syntax) — location metadata
+  # derived from the URL, never per-viewer. See docs/NAVIGATION_DESIGN.md.
+  ANON_ALLOWED_FRONTMATTER_KEYS = %w[app host path scope title timestamp].freeze
 
   def setup
     @prior_env = ENV.fetch("ANON_READABLE_TENANT_SUBDOMAINS", nil)

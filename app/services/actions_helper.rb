@@ -1134,6 +1134,20 @@ class ActionsHelper
       ],
     },
     "/collectives/:collective_handle" => {
+      controller_actions: ["pulse#feed"],
+      actions: [],
+      conditional_actions: [
+        {
+          name: "send_heartbeat",
+          condition: lambda { |context|
+            collective = context[:collective]
+            current_heartbeat = context[:current_heartbeat]
+            collective && !collective.is_main_collective? && !collective.private_workspace? && current_heartbeat.nil?
+          },
+        },
+      ],
+    },
+    "/collectives/:collective_handle/dashboard" => {
       controller_actions: ["pulse#show"],
       actions: [],
       conditional_actions: [

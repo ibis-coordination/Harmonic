@@ -1,6 +1,8 @@
 # typed: false
 
 class UserListsController < ApplicationController
+  include FeedPage
+
   before_action :set_list, only: [
     :show, :edit, :actions_index_show,
     :describe_update_user_list, :execute_update_user_list,
@@ -25,6 +27,7 @@ class UserListsController < ApplicationController
 
   def show
     @page_title = @list.display_name
+    @page_scope = "visibility:public list:#{@list.truncated_id}"
     @sidebar_mode = "minimal"
     @active_tab = params[:tab] == "members" ? "members" : "feed"
     # Auto-prefill the global header search with `list:<id>` while we're here.
@@ -51,27 +54,21 @@ class UserListsController < ApplicationController
       tenant:     @current_tenant,
     )
 
-    # Feed of recent content authored by members of this list, scoped to the
-    # tenant's main collective (matching the home-feed shape). Members only
-    # — no self-inclusion: a custom list is "these people," not "these
-    # people + me." Defense in depth: drop any blocked authors, mirroring
-    # the home_controller filter so the markdown view (which has no
-    # render-time block filter) can't leak a stale tune-in across a block.
+    # Feed of recent content authored by members of this list (the page's
+    # fixed scope: visibility:public list:<id>). Members only — no
+    # self-inclusion: a custom list is "these people," not "these people +
+    # me." SearchQuery's list filter drops block-related authors, so a
+    # stale tune-in can't leak across a block (the markdown view has no
+    # render-time block filter).
+    search = build_feed_search(
+      query: "",
+      fixed_params: { visibility: "public", list_id_or_alias: @list.truncated_id }
+    )
     author_ids = member_user_ids - block_related_user_ids.to_a
-
-    @feed_items = if author_ids.empty?
-      []
-    else
-      FeedBuilder.new(
-        notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
-        decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
-        commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
-        reminder_events_scope: NoteHistoryEvent
-          .main_collective_scope(@current_tenant)
-          .where(event_type: "reminder")
-          .joins(:note).where(notes: { created_by_id: author_ids }),
-      ).feed_items
-    end
+    @feed_items = interleave_reminder_events(
+      SearchFeedItems.build(search.paginated_results),
+      author_ids: author_ids
+    )
 
     respond_to do |format|
       format.html

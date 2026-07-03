@@ -305,6 +305,12 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   # Heartbeat gate tests
   test "collective homepage without heartbeat shows only send_heartbeat action" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Gated feed note")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
     # Ensure no heartbeat exists for this cycle
     Heartbeat.where(collective: @collective, user: @user).delete_all
 
@@ -320,14 +326,18 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert response.body.include?("send_heartbeat"),
       "Should include send_heartbeat action"
 
-    # Should NOT show full collective content (like pinned items, team, new note/decision/commit actions)
-    refute response.body.include?("## Team"),
-      "Should NOT show Team section when heartbeat missing"
-    refute response.body.include?("[New Note]"),
-      "Should NOT show New Note action when heartbeat missing"
+    # Should NOT show the collective's feed content
+    refute response.body.include?("Gated feed note"),
+      "Should NOT show feed content when heartbeat missing"
   end
 
   test "collective homepage with heartbeat shows full content" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    create_note(tenant: @tenant, collective: @collective, created_by: @user, title: "Gated feed note")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
     # Create a heartbeat for the current cycle
     heartbeat = Heartbeat.create!(
       tenant: @tenant,
@@ -344,9 +354,9 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     refute response.body.include?("Heartbeat Required"),
       "Should NOT show heartbeat required when heartbeat exists"
 
-    # Should show full collective content
-    assert response.body.include?("## Team"),
-      "Should show Team section when heartbeat exists"
+    # Should show the collective's feed content
+    assert response.body.include?("Gated feed note"),
+      "Should show feed content when heartbeat exists"
   ensure
     heartbeat&.destroy
   end

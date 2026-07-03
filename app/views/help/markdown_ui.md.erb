@@ -50,6 +50,26 @@ nav: | [Home](/) | Collective: [My Team](/collectives/my-team) | Logged in as [A
 ...
 ```
 
+## Page Scope
+
+Feed pages carry a `scope:` frontmatter attribute: the page's fixed filters, written in [search syntax](/help/search). Pasting the scope into `/search?q=` reproduces the page's content, and appending more filters narrows it — every feed is navigable through search.
+
+```
+scope: collective:my-team
+```
+
+| Page | Scope | Default query |
+|------|-------|---------------|
+| `/` (home) | `visibility:public` | `list:tuned_in` |
+| `/collectives/:handle` (feed) | `collective:handle` | `cycle:this-week` |
+| `/collectives/:handle/dashboard` | `collective:handle` | — |
+| `/workspace/:handle` (feed) | `visibility:private` | `cycle:this-week` |
+| `/workspace/:handle/dashboard` | `visibility:private` | — |
+| `/u/:handle` | `visibility:public creator:@handle` | — |
+| `/lists/:id` | `visibility:public list:id` | — |
+
+A `query:` attribute carries the page's current refinements on top of the scope. Pages with a default query (home's `list:tuned_in` — the people you tune in to, plus yourself; the collective feed's `cycle:this-week`) apply it when `?q` is absent; pass `?q=` to refine, or an empty `?q=` to browse everything in scope. On `/search`, `query:` is the whole search (there is no fixed scope). Pages without a feed have neither key.
+
 ## Actions
 
 Every page advertises the actions you can take on it. Each entry in the frontmatter `actions` list includes:

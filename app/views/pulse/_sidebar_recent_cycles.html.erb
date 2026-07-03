@@ -18,7 +18,8 @@
         next if offset > 0
         cycle_name = ::Cycle.cycle_name_for_offset(offset, unit)
         is_current = offset.zero?
-        href = is_current ? @current_collective.path : "#{@current_collective.path}?cycle=#{cycle_name}"
+        dashboard_path = "#{@current_collective.path}/dashboard"
+        href = is_current ? dashboard_path : "#{dashboard_path}?cycle=#{cycle_name}"
       %>
       <li>
         <a href="<%= href %>"

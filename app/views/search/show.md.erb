@@ -2,6 +2,9 @@
 
 <% if @search.raw_query.present? -%>
 Query: `<%= @search.raw_query %>`
+<% @search.warnings.each do |warning| -%>
+> ⚠️ <%= warning %>
+<% end -%>
 <% if @search.collective.present? -%>
 Collective: [<%= @search.collective.name %>](<%= @search.collective.path %>)
 <% end -%>
@@ -57,7 +60,7 @@ Use operators to filter, sort, and group results. Plain text searches content. U
 
 | Operator | Values |
 |----------|--------|
-| `scope:` | public, shared, private |
+| `visibility:` | public, shared, private |
 | `collective:` | collective handle |
 | `list:` | list id, or `mutuals` / `tuned_in` (your own) |
 | `type:` | note, decision, commitment |

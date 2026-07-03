@@ -14,6 +14,12 @@ end
 app: Harmonic
 host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
 path: <%= @current_path %>
+<% if @page_scope.present? -%>
+scope: <%= yaml_escape(@page_scope) %>
+<% end -%>
+<% if @page_query.present? -%>
+query: <%= yaml_escape(@page_query) %>
+<% end -%>
 title: <%= yaml_escape(@page_title) %>
 timestamp: <%= Time.now.utc %>
 <% actions = available_actions_for_current_route -%>

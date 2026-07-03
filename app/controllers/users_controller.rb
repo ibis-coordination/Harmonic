@@ -3,6 +3,7 @@
 class UsersController < ApplicationController
   include RequiresReverification
   include NotificationPreferencesParams
+  include FeedPage
 
   allows_anonymous :show
   before_action :set_no_cache_headers, only: [:show]
@@ -37,6 +38,7 @@ class UsersController < ApplicationController
 
     @showing_user = tu.user
     @showing_user.tenant_user = tu
+    @page_scope = "visibility:public creator:@#{tu.handle}"
     @page_title = @showing_user.display_name
     @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
 
@@ -747,20 +749,28 @@ class UsersController < ApplicationController
     @showing_user_lists ||= visible_lists_owned_by_for_profile(@showing_user)
   end
 
+  # Profile tabs are named queries over the profile's fixed scope
+  # (visibility:public creator:@handle) — see docs/NAVIGATION_DESIGN.md.
+
   def load_profile_posts_data
-    @posts_feed_items = FeedBuilder.new(
-      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id, subtype: "post"),
-      decisions_scope: Decision.none,
-      commitments_scope: Commitment.none
-    ).feed_items
+    search = profile_feed_search("type:note subtype:post")
+    @posts_feed_items = SearchFeedItems.build(search.paginated_results)
   end
 
   def load_profile_activity_data
-    @activity_feed_items = FeedBuilder.new(
-      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id).where.not(subtype: "post"),
-      decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
-      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id)
-    ).feed_items
+    # Everything except top-level posts; comments stay out of feeds.
+    search = profile_feed_search("-subtype:post,comment")
+    @activity_feed_items = SearchFeedItems.build(search.paginated_results)
+  end
+
+  def profile_feed_search(query)
+    build_feed_search(
+      query: query,
+      fixed_params: {
+        visibility: "public",
+        creator_handles: [@showing_user.tenant_user.handle],
+      }
+    )
   end
 
   def resolve_active_profile_tab(requested)

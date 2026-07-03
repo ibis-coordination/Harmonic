@@ -1,0 +1,32 @@
+<%= render 'pulse/heartbeat_banner' %>
+<article class="pulse-resource-detail">
+  <div class="pulse-resource-body">
+    <%= render FeedSearchBarComponent.new(
+      action: @current_collective.path.to_s,
+      query: @feed_query,
+      scope_filters: [@page_scope],
+      warnings: @search.warnings,
+    ) %>
+
+    <%# Same heartbeat blur ritual as the dashboard: presence before content. %>
+    <div class="pulse-feed<%= ' pulse-blur-if-no-heartbeat' if @current_user && !@current_collective.private_workspace? %><%= ' no-heartbeat' if @current_user && !@current_heartbeat && !@current_collective.private_workspace? %>" style="padding: 0;">
+      <% if @feed_items.present? %>
+        <% @feed_items.each do |feed_item| %>
+          <%= render 'pulse/feed_item', feed_item: feed_item %>
+        <% end %>
+      <% elsif default_feed_view? %>
+        <div class="pulse-feed-empty">
+          <p>Nothing here this week.</p>
+          <p class="pulse-body-text-muted">
+            <%= link_to "Show all time", "#{@current_collective.path}?q=" %>
+          </p>
+        </div>
+      <% else %>
+        <div class="pulse-feed-empty">
+          <p>No results match your filters.</p>
+          <p class="pulse-body-text-muted"><%= link_to "Clear filters", @current_collective.path.to_s %></p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</article>
