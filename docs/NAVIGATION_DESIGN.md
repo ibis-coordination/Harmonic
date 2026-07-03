@@ -228,6 +228,82 @@ reserves the spatial claim: **the left rail is public + shared; private
 enters from somewhere else.** Nothing in the rail's design should assume it
 will one day hold workspace entries.
 
+## Form factors: one model, two projections
+
+The four layers and the zone metaphor are the invariants; the *surfaces*
+they project onto differ by form factor. Desktop answers with columns
+because it has horizontal space. Mobile should answer with thumb
+ergonomics: the bottom edge is the prime real estate (always visible,
+thumb-reachable), the top bar is informational (far from thumbs — labels,
+not controls), and large dynamic lists belong in sheets or screens, not
+strips.
+
+### The mobile-first target
+
+**Bottom tab bar** — the persistent destinations, ordered left→right as
+outward→inward so the bar preserves the spatial metaphor:
+
+```
+[ Home(eye) ] [ Places ] [ Search ] [ Inbox ] [ You ]
+   public       shared               you-layer   → private
+```
+
+- **Home** is the eye: the `/` public feed.
+- **Places** is the rail reshaped: tapping opens the collective switcher
+  as a full sheet — icon + **name** + badge per row, "+" at the bottom.
+  Richer than icon squares, and it fixes what the rail can never fix on
+  touch: `title` tooltips don't exist, so square-only icons are unlabeled
+  on phones. The tab itself carries an aggregate unread dot so the badges'
+  ambient value survives while the sheet is closed.
+- **Inbox** is notifications, with the count badge.
+- **You** is the avatar menu — and eventually the doorway to the private
+  workspace. The doc reserves "private enters from the right"; on mobile,
+  **the rightmost tab is the right edge**. The zone model survives the
+  translation: eye on the far left, workspace behind the far right.
+- **Create** takes no slot — a FAB or top-bar `+`; creation is contextual
+  (create-in-this-place).
+
+**Top bar** — "where am I", not "where can I go": the place name (+
+heartbeat status), tappable to open the here-layer. On mobile the top bar
+stops being a control cluster and becomes a label.
+
+**The sidebar dissolves into the place.** Feeds-are-queries already
+started this: cycle nav and type filters became query refinements, so the
+sidebar is shrinking toward place identity + team + heartbeats + pinned.
+Mobile-first, that residue is not chrome — it is a collapsible **place
+header** on the place's own screen (or a sheet behind the top-bar title).
+
+**The feed bar is already form-factor-agnostic** — it belongs to the
+content column and stays there everywhere.
+
+### Desktop is the unfolding, not the original
+
+At desktop widths the same destinations unfold: **Places unfolds into the
+rail** (a permanently-open switcher — same data, same badges), You/Search/
+Inbox relocate to the header, the place header re-columnizes into the
+sidebar. The rail and the bottom bar never coexist; they are one
+destination at two widths. "Hiding the rail" on desktop is just re-folding
+the Places destination — one mechanism at every width.
+
+None of this touches the agent surface: chrome is HTML-only, and agents
+navigate by `scope:`/`query:` frontmatter, which is what frees the human
+chrome to reshape per form factor without forking the model.
+
+### Increments (each independently shippable, none undone by the next)
+
+1. **Ship the rail desktop-only** (hide under 768px; mobile stays as it is
+   on prod today). Unblocks PR #339 honestly. Constraint for any hide/fold,
+   here and later: collapse by redefining `--pulse-rail-width` (the motto
+   footer's border-continuation offset derives from it), not by hiding the
+   element alone.
+2. **Places-as-sheet on mobile** — the switcher list (icon + name + badge
+   + "+"), initially opened from a header toggle; built as the future
+   Places tab's content, not a throwaway drawer.
+3. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
+   down; the top bar slims to a place label.
+4. **Sidebar → place header**, paced by how much of the sidebar
+   feeds-are-queries continues to absorb.
+
 ## Decided (current iteration)
 
 - **Active states are path-based**, not `current_collective`-based —
@@ -268,18 +344,7 @@ will one day hold workspace entries.
    The route swap landed (feed is the default page, dashboard at
    `/dashboard`), but the dashboard itself hasn't converted to a query —
    decide the sidebar question together with that conversion.
-3. **Mobile.** A permanent 60px column on a 375px screen spends ~16% of the
-   viewport on place-switching. Likely end state: rail collapses into a
-   drawer or merges with the sidebar. Accepted gap for now.
-4. **Hiding the rail to save screen space.** There is no way to hide or
-   collapse the rail on any viewport — desktop included. Unresolved: user
-   preference vs. per-page, and whether one collapse mechanism should serve
-   both this and the mobile drawer above. Implementation constraints when it
-   lands: collapse by redefining `--pulse-rail-width` (the motto footer's
-   border-continuation offset derives from it), not by hiding the element;
-   the sidebar's mode system (`SidebarComponent` full/minimal/chat) is
-   precedent but is server-driven per page, not a user preference.
-5. **Badges promise more than the click delivers.** A square's unread badge
+3. **Badges promise more than the click delivers.** A square's unread badge
    implies clicking will show what you're being notified about, but the
    collective feed renders with no notification context. Candidate fix in
    the feeds-are-queries vocabulary: a viewer-relative filter that surfaces

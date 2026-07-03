@@ -1,6 +1,15 @@
 import { test, expect } from "../../fixtures/test-fixtures"
 
 test.describe("Collective Rail", () => {
+  test("rail is hidden on mobile viewports", async ({ authenticatedPage }) => {
+    const page = authenticatedPage
+    await page.setViewportSize({ width: 375, height: 667 })
+
+    await page.goto("/")
+
+    await expect(page.locator(".pulse-rail")).toBeHidden()
+  })
+
   test("rail stays pinned to the viewport when the page scrolls", async ({
     authenticatedPage,
   }) => {

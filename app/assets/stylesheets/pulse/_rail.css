@@ -143,10 +143,15 @@
 }
 
 @media (max-width: 768px) {
-  /* Keep the rail visible but slimmer on narrow viewports. Redefining the
-     variable (rather than the width directly) keeps the footer's
-     border-continuation line in _layout.css aligned. */
+  /* The rail is desktop-only (see the form-factors section of
+     docs/NAVIGATION_DESIGN.md for how its destinations map to phones).
+     Zero the variable as well as hiding the element — the footer's
+     border-continuation offset in _layout.css derives from it. */
   :root {
-    --pulse-rail-width: 60px;
+    --pulse-rail-width: 0px;
+  }
+
+  .pulse-rail {
+    display: none;
   }
 }
