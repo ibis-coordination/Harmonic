@@ -2,7 +2,9 @@
 
 Through representation, you can act on behalf of **<%= @current_collective.name %>** ([<%= @current_collective.path %>](<%= @current_collective.path %>)). While the session is active, every action you take assumes the collective's identity, is attributed to the collective as a whole, and is recorded in a session log visible to all members.
 
-<% if @current_representation_session -%>
+<% if @active_collective_session -%>
+**You have an active representation session for <%= @current_collective.name %>** (session ID: `<%= @active_collective_session.id %>`). Pass it in the `X-Representation-Session-ID` header on requests you make on the collective's behalf. End it with the `end_representation` action listed above, or by sending `DELETE /representing`.
+<% elsif @current_representation_session -%>
 **You are already in a representation session.** Nested sessions are not allowed — end your current session ([/representing](/representing)) before starting a new one.
 <% else -%>
 Because you hold the `representative` role in <%= @current_collective.name %>, you can start a session with the `start_representation` action listed above.

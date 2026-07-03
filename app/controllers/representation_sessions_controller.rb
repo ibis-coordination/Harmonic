@@ -56,6 +56,16 @@ class RepresentationSessionsController < ApplicationController
     end
 
     @page_title = "Represent"
+    # DB-backed lookup mirroring the frontmatter lambdas in ActionsHelper: an API
+    # caller isn't required to echo X-Representation-Session-ID on this page, so
+    # current_representation_session alone would say "no session" while the
+    # frontmatter advertises end_representation. The prose must agree with the
+    # advertised actions.
+    @active_collective_session = RepresentationSession.find_by(
+      collective: current_collective,
+      representative_user: @current_user,
+      ended_at: nil
+    )
     respond_to do |format|
       format.html
       format.md

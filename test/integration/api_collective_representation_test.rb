@@ -72,6 +72,25 @@ class ApiCollectiveRepresentationTest < ActionDispatch::IntegrationTest
                      "represent page frontmatter should advertise start_representation"
   end
 
+  # The page body must agree with the frontmatter even when the caller does not
+  # echo X-Representation-Session-ID (nothing requires the header on this page).
+  # The frontmatter lambdas are DB-backed, so the prose must be too — otherwise
+  # an agent mid-session is told it can start while only end_representation is
+  # advertised.
+  test "represent page reflects an active session without the session header" do
+    grant_representative_role!
+    session_id = start_session!
+
+    get represent_path, headers: @headers
+
+    assert_response :success
+    assert_includes response.body, "end_representation"
+    assert_includes response.body, session_id,
+                    "page should surface the active session's ID"
+    refute_match(/you can start a session/, response.body,
+                 "page must not offer to start while a session is active")
+  end
+
   # ---------------------------------------------------------------------------
   # Start
   # ---------------------------------------------------------------------------
