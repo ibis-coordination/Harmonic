@@ -271,6 +271,25 @@ will one day hold workspace entries.
 3. **Mobile.** A permanent 60px column on a 375px screen spends ~16% of the
    viewport on place-switching. Likely end state: rail collapses into a
    drawer or merges with the sidebar. Accepted gap for now.
+4. **Hiding the rail to save screen space.** There is no way to hide or
+   collapse the rail on any viewport — desktop included. Unresolved: user
+   preference vs. per-page, and whether one collapse mechanism should serve
+   both this and the mobile drawer above. Implementation constraints when it
+   lands: collapse by redefining `--pulse-rail-width` (the motto footer's
+   border-continuation offset derives from it), not by hiding the element;
+   the sidebar's mode system (`SidebarComponent` full/minimal/chat) is
+   precedent but is server-driven per page, not a user preference.
+5. **Badges promise more than the click delivers.** A square's unread badge
+   implies clicking will show what you're being notified about, but the
+   collective feed renders with no notification context. Candidate fix in
+   the feeds-are-queries vocabulary: a `notifications:unread` filter, so
+   the items behind the count surface directly in the feed. Note the
+   tension with guardrail 3 before building: that guardrail keeps
+   `/notifications` (recipient-state) out of the feed model, and
+   `notifications:unread` would be the first per-viewer recipient-state
+   operator in the query DSL — filtering content BY recipient-state is not
+   the same as querying notifications, but the boundary needs to be drawn
+   deliberately.
 
 (The former "what is the eye?" question is resolved — see Decided: `/`
 unifies home and the public space via the default `list:tuned_in` chip.
@@ -279,23 +298,27 @@ the unification makes the default view a *default*, not a separate page.)
 
 ## Planned next steps (rough order)
 
-1. **Sticky rail** (`position: sticky; top: 0; height: 100dvh;
-   overflow-y: auto`): today the document scrolls the rail away, undermining
-   "persistent". Sticky gives independent rail scrolling only when the rail
-   itself overflows, keeps the motto footer as a document-level element, and
-   coexists with the auto-hide header. The full "app shell owns scrolling"
-   containment model (100vh shell, per-column scrolling) is deferred — it
-   would break the auto-hide header's window-scroll listener and change the
-   footer's meaning; reconsider both together.
-2. **Per-square unread badges.** Notifications already group by collective,
-   so per-collective counts exist server-side, and the header badge poller
-   already runs. This makes the rail the ambient "where is activity"
-   surface — the actual payoff of a persistent rail.
-3. **"+" at the rail bottom** — create/join collective (and the escape hatch
+1. **"+" at the rail bottom** — create/join collective (and the escape hatch
    to browse `/collectives` when the rail overflows). Place-related, so it
    belongs in the place layer.
-4. **Ordering/overflow**: alphabetical until it hurts; then recency or
+2. **Ordering/overflow**: alphabetical until it hurts; then recency or
    pinning. The "+"/browse entry is the overflow escape hatch.
+
+Shipped from this list:
+
+- **Sticky rail** (`position: sticky; top: 0; height: 100dvh`): pinned to
+  the viewport while the document scrolls; the rail scrolls independently
+  only when it overflows, the motto footer stays a document-level element,
+  and it coexists with the auto-hide header. The full "app shell owns
+  scrolling" containment model (100vh shell, per-column scrolling) remains
+  deferred — it would break the auto-hide header's window-scroll listener
+  and change the footer's meaning; reconsider both together.
+- **Per-square unread badges** (every entry, the eye included), keyed by
+  collective id. One poll feeds both the header badge and the rail: the
+  header poller broadcasts a `notifications:counts` event that the
+  rail-badges controller projects onto the squares. Initial state is
+  server-rendered so Turbo navigations never flash the badges out.
+  Reminders (no event → no collective) count toward the header total only.
 
 ## Non-goals
 
