@@ -21,6 +21,24 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "rail badges render with unread counts server-side on first paint" do
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    other = Collective.create!(tenant: @tenant, name: "Rail Badge Collective", handle: "rail-badge-collective", created_by: @user)
+    other.add_user!(@user)
+
+    event = Event.create!(tenant: @tenant, collective: other, event_type: "note.created", actor: @user)
+    notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Badge me")
+    NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "pending", tenant: @tenant)
+    Collective.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_select ".pulse-rail-badge[data-collective-id='#{other.id}']", text: "1" do |badges|
+      assert_not_includes badges.first["style"].to_s, "display: none"
+    end
+  end
+
   test "homepage hides content from tuned-in user posting in a different tenant" do
     sign_in_as(@user, tenant: @tenant)
     main = @tenant.main_collective

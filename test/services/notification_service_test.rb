@@ -292,6 +292,52 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal 2, NotificationService.unread_count_for(user, tenant: tenant)
   end
 
+  test "unread_count_by_collective_for groups unread counts by the event's collective" do
+    tenant, collective1, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+    Tenant.current_id = tenant.id
+
+    collective2 = Collective.create!(tenant: tenant, name: "Second Collective", handle: "second-collective", created_by: user)
+
+    event1 = Event.create!(tenant: tenant, collective: collective1, event_type: "note.created", actor: user)
+    notification1 = Notification.create!(tenant: tenant, event: event1, notification_type: "mention", title: "C1")
+    NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending", tenant: tenant)
+    NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+
+    event2 = Event.create!(tenant: tenant, collective: collective2, event_type: "note.created", actor: user)
+    notification2 = Notification.create!(tenant: tenant, event: event2, notification_type: "mention", title: "C2")
+    NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    # Read rows, email rows, and reminders (no event → no collective) don't count.
+    read = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    read.mark_read!
+    NotificationRecipient.create!(notification: notification1, user: user, channel: "email", status: "pending", tenant: tenant)
+    reminder = Notification.create!(tenant: tenant, event: nil, notification_type: "reminder", title: "Due reminder")
+    NotificationRecipient.create!(notification: reminder, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    counts = NotificationService.unread_count_by_collective_for(user, tenant: tenant)
+
+    assert_equal({ collective1.id => 2, collective2.id => 1 }, counts)
+  end
+
+  test "unread_count_by_collective_for sees other collectives regardless of the thread's collective scope" do
+    # The poller endpoint runs with the request's collective scope (usually
+    # the main collective); counts must still cover every collective.
+    tenant, collective1, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+    Tenant.current_id = tenant.id
+
+    collective2 = Collective.create!(tenant: tenant, name: "Second Collective", handle: "second-collective", created_by: user)
+    event = Event.create!(tenant: tenant, collective: collective2, event_type: "note.created", actor: user)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "C2")
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+    counts = NotificationService.unread_count_by_collective_for(user, tenant: tenant)
+
+    assert_equal({ collective2.id => 1 }, counts)
+  end
+
   test "dismiss_all_for dismisses all in_app notifications" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

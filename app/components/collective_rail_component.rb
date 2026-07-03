@@ -17,16 +17,18 @@ class CollectiveRailComponent < ViewComponent::Base
     params(
       main_collective: T.nilable(Collective),
       collectives: T::Array[Collective],
-      current_path: T.nilable(String)
+      current_path: T.nilable(String),
+      unread_counts: T::Hash[String, Integer]
     ).void
   end
-  def initialize(main_collective: nil, collectives: [], current_path: nil)
+  def initialize(main_collective: nil, collectives: [], current_path: nil, unread_counts: {})
     super()
     @main_collective = main_collective
     # Collective#path is nil for main collectives; an entry the rail cannot
     # link to is dropped rather than rendered with an empty href.
     @collectives = T.let(collectives.select { |c| c.path.present? }, T::Array[Collective])
     @current_path = current_path
+    @unread_counts = unread_counts
   end
 
   sig { returns(T::Boolean) }
@@ -48,5 +50,21 @@ class CollectiveRailComponent < ViewComponent::Base
   sig { returns(T::Boolean) }
   def public_space_active?
     @current_path == "/"
+  end
+
+  # Server-rendered initial badge state, so navigation never flashes the
+  # badges out. The rail-badges controller overwrites this on every poll
+  # using the same display rules — keep the two in sync.
+  sig { params(collective: Collective).returns(String) }
+  def badge_text(collective)
+    count = @unread_counts[collective.id].to_i
+    return "" if count.zero?
+
+    count > 99 ? "99+" : count.to_s
+  end
+
+  sig { params(collective: Collective).returns(T.nilable(String)) }
+  def badge_style(collective)
+    "display: none" if @unread_counts[collective.id].to_i.zero?
   end
 end

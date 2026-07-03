@@ -38,6 +38,39 @@ class CollectiveRailComponentTest < ViewComponent::TestCase
     assert_selector "a.pulse-rail-item[href='/collectives/team-b'] .pulse-rail-avatar"
   end
 
+  test "renders a hidden unread badge on each rail entry when there are no unread counts" do
+    a = build_rail_collective(name: "Team A", handle: "team-a")
+    a.id = "11111111-1111-1111-1111-111111111111"
+    main = main_collective
+    main.id = "22222222-2222-2222-2222-222222222222"
+    render_inline(CollectiveRailComponent.new(main_collective: main, collectives: [a]))
+
+    assert_selector "a.pulse-rail-item[href='/collectives/team-a'] .pulse-rail-badge[data-collective-id='#{a.id}']",
+                    visible: :hidden
+    # The public space is a place like any other — its unread count badges
+    # the eye, keyed to the main collective.
+    assert_selector ".pulse-rail-public .pulse-rail-badge[data-collective-id='#{main.id}']", visible: :hidden
+  end
+
+  test "renders unread counts into the badges server-side so navigation never flashes them out" do
+    a = build_rail_collective(name: "Team A", handle: "team-a")
+    a.id = "11111111-1111-1111-1111-111111111111"
+    b = build_rail_collective(name: "Team B", handle: "team-b")
+    b.id = "33333333-3333-3333-3333-333333333333"
+    main = main_collective
+    main.id = "22222222-2222-2222-2222-222222222222"
+
+    render_inline(CollectiveRailComponent.new(
+                    main_collective: main,
+                    collectives: [a, b],
+                    unread_counts: { a.id => 4, main.id => 150 },
+                  ))
+
+    assert_selector ".pulse-rail-badge[data-collective-id='#{a.id}']", visible: :visible, text: "4"
+    assert_selector ".pulse-rail-public .pulse-rail-badge[data-collective-id='#{main.id}']", visible: :visible, text: "99+"
+    assert_selector ".pulse-rail-badge[data-collective-id='#{b.id}']", visible: :hidden
+  end
+
   test "marks a collective active on its own page" do
     a = build_rail_collective(name: "Team A", handle: "team-a")
     b = build_rail_collective(name: "Team B", handle: "team-b")

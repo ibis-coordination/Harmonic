@@ -1,4 +1,4 @@
-<nav class="pulse-rail" aria-label="Collectives">
+<nav class="pulse-rail" aria-label="Collectives" data-controller="rail-badges">
   <% if @main_collective %>
     <%= tag.a href: "/",
               class: ["pulse-rail-item", "pulse-rail-public", ("active" if public_space_active?)],
@@ -6,6 +6,8 @@
               aria: { label: "Public space", current: ("page" if public_space_active?) } do %>
       <span class="pulse-rail-indicator"></span>
       <span class="pulse-rail-eye"><%= helpers.octicon "eye", height: 22 %></span>
+      <span class="pulse-rail-badge" data-collective-id="<%= @main_collective.id %>"
+            style="<%= badge_style(@main_collective) %>"><%= badge_text(@main_collective) %></span>
     <% end %>
     <div class="pulse-rail-divider"></div>
   <% end %>
@@ -17,6 +19,8 @@
               aria: { label: collective.name, current: ("page" if active?(collective)) } do %>
       <span class="pulse-rail-indicator"></span>
       <%= helpers.inline_avatar(collective, css_class: "pulse-rail-avatar", variant: :icon) %>
+      <span class="pulse-rail-badge" data-collective-id="<%= collective.id %>"
+            style="<%= badge_style(collective) %>"><%= badge_text(collective) %></span>
     <% end %>
   <% end %>
 </nav>

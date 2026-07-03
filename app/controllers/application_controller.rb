@@ -805,6 +805,18 @@ class ApplicationController < ActionController::Base
   end
   helper_method :rail_collectives
 
+  # Initial per-collective unread counts for the rail's badges, rendered
+  # server-side so navigation never flashes them out. The unread-count
+  # poller keeps them fresh after first paint. Lazy (called from the HTML
+  # layout only), so markdown/JSON requests never pay for the query.
+  def rail_unread_counts
+    return @rail_unread_counts if defined?(@rail_unread_counts)
+    return (@rail_unread_counts = {}) if @current_user.nil? || current_tenant.nil?
+
+    @rail_unread_counts = NotificationService.unread_count_by_collective_for(@current_user, tenant: current_tenant)
+  end
+  helper_method :rail_unread_counts
+
   # Active representation sessions owned by this caller that are not attached
   # to the current request. The markdown layout surfaces these as a warning
   # so the agent can attach or end them.

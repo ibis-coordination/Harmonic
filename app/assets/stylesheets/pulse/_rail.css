@@ -91,6 +91,32 @@
   fill: currentColor;
 }
 
+/* Per-square unread count, top-right of the avatar — same treatment as the
+   header's .notification-badge-count. Filled and shown/hidden by the
+   rail-badges controller from the shared unread-count poll. */
+.pulse-rail-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  background-color: var(--color-accent-fg);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 0 4px;
+}
+
+/* The eye glyph is smaller than the 48px hit area, so pull its badge in
+   toward the icon instead of the box corner. */
+.pulse-rail-public .pulse-rail-badge {
+  top: 2px;
+  right: 2px;
+}
+
 /* Divider between the public space and the collective squares. */
 .pulse-rail-divider {
   width: 32px;
