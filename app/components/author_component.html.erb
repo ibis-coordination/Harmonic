@@ -6,7 +6,7 @@
   <% if representation? %>
     <span class="pulse-representation-label">on behalf of <%= helpers.link_to author.display_name, author.path %></span>
   <% elsif author.ai_agent? && author.parent %>
-    <span class="pulse-ai-agent-label">(managed by <%= helpers.link_to author.parent.display_name, author.parent.path %>)</span>
+    <span class="pulse-ai-agent-label">(agent of <%= helpers.link_to author.parent.display_name, author.parent.path %>)</span>
   <% end %>
   <% if @verb.present? %>
     <span><%= @verb %></span>

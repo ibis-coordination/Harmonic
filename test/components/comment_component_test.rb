@@ -148,7 +148,7 @@ class CommentComponentTest < ViewComponent::TestCase
                     show_reply_context: false,
                     root_comment_id: "root123"
                   ))
-    assert_selector ".pulse-ai-agent-label", text: /managed by/
+    assert_selector ".pulse-ai-agent-label", text: /agent of/
   end
 
   test "renders reply context when applicable" do

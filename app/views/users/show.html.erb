@@ -124,7 +124,7 @@
 
   <% if @showing_user.ai_agent? && @showing_user.parent %>
     <div class="pulse-user-parent-info">
-      <span style="color: var(--color-fg-muted);">Managed by</span>
+      <span style="color: var(--color-fg-muted);">Agent of</span>
       <a href="<%= @showing_user.parent.path %>" class="pulse-user-parent-link">
         <%= profile_pic(@showing_user.parent, size: 20, style: 'vertical-align:middle;margin-right:4px;border-radius:50%;') %>
         <strong><%= @showing_user.parent.display_name %></strong>
