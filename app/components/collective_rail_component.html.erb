@@ -23,4 +23,11 @@
             style="<%= badge_style(collective) %>"><%= badge_text(collective) %></span>
     <% end %>
   <% end %>
+
+  <%# Utility entry, not a place: it gets no indicator and no active state,
+      and pins to the rail's bottom edge. %>
+  <a href="/collectives" class="pulse-rail-item pulse-rail-add"
+     title="Create or join a collective" aria-label="Create or join a collective">
+    <%= helpers.octicon "plus", height: 20 %>
+  </a>
 </nav>

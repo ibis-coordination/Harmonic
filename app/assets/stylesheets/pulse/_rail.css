@@ -125,6 +125,23 @@
   margin: 2px 0;
 }
 
+/* "+" utility entry: create/join a collective. A hollow square — clearly
+   not a place — pinned to the rail's bottom edge by the auto margin. */
+.pulse-rail-add {
+  margin-top: auto;
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--border-radius-lg);
+}
+
+.pulse-rail-add .octicon {
+  fill: currentColor;
+}
+
+.pulse-rail-add:hover {
+  color: var(--color-fg-default);
+  border-color: var(--color-fg-muted);
+}
+
 @media (max-width: 768px) {
   /* Keep the rail visible but slimmer on narrow viewports. Redefining the
      variable (rather than the width directly) keeps the footer's

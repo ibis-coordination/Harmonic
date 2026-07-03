@@ -131,6 +131,24 @@ class CollectiveRailComponentTest < ViewComponent::TestCase
     assert_no_selector "a[title='Team A']"
   end
 
+  test "renders a + entry at the rail bottom linking to the collectives browser" do
+    a = build_rail_collective(name: "Team A", handle: "team-a")
+    render_inline(CollectiveRailComponent.new(main_collective: main_collective, collectives: [a]))
+
+    assert_selector "a.pulse-rail-add[href='/collectives'][title='Create or join a collective']"
+    assert_selector ".pulse-rail-add .octicon"
+  end
+
+  test "the + entry never takes an active state — /collectives is not a place" do
+    render_inline(CollectiveRailComponent.new(
+                    main_collective: main_collective, collectives: [], current_path: "/collectives"
+                  ))
+
+    assert_selector "a.pulse-rail-add[href='/collectives']"
+    assert_no_selector ".pulse-rail-add.active"
+    assert_no_selector "[aria-current]"
+  end
+
   test "omits the public space entry when no main collective is given" do
     a = build_rail_collective(name: "Team A", handle: "team-a")
     render_inline(CollectiveRailComponent.new(main_collective: nil, collectives: [a]))
