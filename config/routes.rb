@@ -576,6 +576,15 @@ Rails.application.routes.draw do
     get "#{prefix}/join/actions/join_collective" => 'collectives#describe_join_collective'
     post "#{prefix}/join/actions/join_collective" => 'collectives#join_collective_action'
     get "#{prefix}/represent" => 'representation_sessions#represent'
+    # Markdown/MCP action surface for collective representation, mirroring the
+    # trustee-grant describe/execute pair (see trustee-authorizations routes above).
+    # Without these, an agent holding the representative role can't start/end a
+    # collective representation session over MCP (Harmonic#365).
+    get "#{prefix}/represent/actions" => 'representation_sessions#actions_index_represent'
+    get "#{prefix}/represent/actions/start_representation" => 'representation_sessions#describe_start_representation'
+    post "#{prefix}/represent/actions/start_representation" => 'representation_sessions#execute_start_representation'
+    get "#{prefix}/represent/actions/end_representation" => 'representation_sessions#describe_end_representation'
+    post "#{prefix}/represent/actions/end_representation" => 'representation_sessions#execute_end_representation'
     post "#{prefix}/represent" => 'representation_sessions#start_representing'
     post "#{prefix}/represent_user" => 'representation_sessions#start_representing_user'
     delete "#{prefix}/represent" => 'representation_sessions#stop_representing'

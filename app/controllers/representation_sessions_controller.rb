@@ -41,13 +41,137 @@ class RepresentationSessionsController < ApplicationController
     # User representation is initiated from the trustee authorizations settings page instead.
     @can_represent_collective = @current_user.collective_member&.can_represent?
 
-    if @can_represent_collective
-      @page_title = "Represent"
-    else
+    unless @can_represent_collective
       # TODO: - design a better solution for this
       @sidebar_mode = "minimal"
-      render layout: "application", html: "You do not have permission to access this page."
+      return respond_to do |format|
+        format.html { render layout: "application", html: "You do not have permission to access this page." }
+        format.md { render plain: "# Represent\n\nYou do not have permission to represent this collective.", status: :forbidden }
+      end
     end
+
+    @page_title = "Represent"
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  # Markdown/MCP actions index for the collective represent page.
+  # Mirrors TrusteeGrantsController#actions_index_show — evaluates the same
+  # conditional-action lambdas the markdown frontmatter uses, so discovery
+  # over /actions agrees with what fetch_page advertises.
+  def actions_index_represent
+    route_info = ActionsHelper.actions_for_route("/collectives/:collective_handle/represent")
+    static = (route_info && route_info[:actions]) || []
+    context = { collective: current_collective, user: @current_user }
+    conditional = (route_info && route_info[:conditional_actions] || []).select do |action|
+      action[:condition].call(context)
+    rescue StandardError
+      false
+    end
+    render_actions_index({ actions: static + conditional })
+  end
+
+  # =========================================================================
+  # START REPRESENTATION (Markdown/MCP action) — collective representation
+  # Mirrors TrusteeGrantsController#{describe,execute}_start_representation.
+  # =========================================================================
+
+  def describe_start_representation
+    render_action_description(ActionsHelper.action_description("start_representation", resource: current_collective))
+  end
+
+  def execute_start_representation
+    if current_representation_session
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: current_collective,
+                                   error: "Nested representation sessions are not allowed. End your current session before starting a new one.",
+                                   status: :conflict,
+                                 })
+    end
+
+    unless @current_user.can_represent?(current_collective)
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: current_collective,
+                                   error: "You do not have permission to represent this collective.",
+                                   status: :forbidden,
+                                 })
+    end
+
+    if current_collective.archived?
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: current_collective,
+                                   error: "This collective is deactivated and cannot be represented.",
+                                   status: :conflict,
+                                 })
+    end
+
+    rep_session = RepresentationSession.create!(
+      tenant: current_tenant,
+      collective: current_collective,
+      representative_user: current_user,
+      confirmed_understanding: true,
+      began_at: Time.current
+    )
+    rep_session.begin!
+
+    render_action_success({
+                            action_name: "start_representation",
+                            resource: rep_session,
+                            result: "Representation session started. You are now acting on behalf of #{current_collective.name}.\n\n" \
+                                    "Session ID: `#{rep_session.id}`\n" \
+                                    "Short ID: `#{rep_session.truncated_id}`\n\n" \
+                                    "Use the session ID in the `X-Representation-Session-ID` header for subsequent API requests.",
+                            redirect_to: "/representing",
+                          })
+  end
+
+  # =========================================================================
+  # END REPRESENTATION (Markdown/MCP action) — collective representation
+  # =========================================================================
+
+  def describe_end_representation
+    render_action_description(ActionsHelper.action_description("end_representation", resource: current_collective))
+  end
+
+  def execute_end_representation
+    # Resolve the active session by (collective, representative) rather than the
+    # request's representation context: the caller may or may not send the
+    # X-Representation-Session-ID header when ending, and this mirrors how the
+    # trustee path finds its session by grant.
+    caller_user = @api_token_user || @current_human_user || @current_user
+    rep_session = RepresentationSession.find_by(
+      collective: current_collective,
+      representative_user: caller_user,
+      ended_at: nil
+    )
+
+    unless rep_session&.active?
+      return render_action_error({
+                                   action_name: "end_representation",
+                                   resource: current_collective,
+                                   error: "No active representation session found for this collective.",
+                                   status: :not_found,
+                                 })
+    end
+
+    session_url = rep_session.url
+    rep_session.end!
+    session.delete(:representation_session_id)
+    session.delete(:representing_user)
+    session.delete(:representing_collective)
+
+    render_action_success({
+                            action_name: "end_representation",
+                            resource: current_collective,
+                            result: "Representation session ended. You are no longer acting on behalf of #{current_collective.name}.\n\n" \
+                                    "Session record: #{session_url}",
+                            redirect_to: current_collective.path,
+                          })
   end
 
   # Start a collective representation session
