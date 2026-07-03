@@ -129,4 +129,80 @@ class ApiCollectiveRepresentationTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  # ---------------------------------------------------------------------------
+  # Nested-session guard is DB-backed, not header-dependent (#365 review, #1)
+  # ---------------------------------------------------------------------------
+
+  # The header-only guard (`current_representation_session`) is bypassable: an
+  # API caller need not echo X-Representation-Session-ID on start, so a second
+  # start without the header would sail past it and create a second concurrent
+  # active session. The DB existence check must catch it.
+  test "cannot start a second collective session without echoing the session header" do
+    grant_representative_role!
+    start_session!
+
+    # Second start with NO representation header at all.
+    post "#{represent_path}/actions/start_representation", headers: @headers
+
+    assert_response :conflict
+    assert_equal 1, RepresentationSession.where(collective: @collective, ended_at: nil).count,
+                 "a duplicate concurrent session must not be created"
+  end
+
+  # ---------------------------------------------------------------------------
+  # AI-agent callers: exercise the capability layer (the actual #365 scenario).
+  # The human-token tests above never hit CapabilityCheck because restricted_user?
+  # is false for a human. (#365 review, #5)
+  # ---------------------------------------------------------------------------
+
+  # An AI agent representing @alice, added to the collective with the
+  # representative role. `capabilities: nil` means "all grantable" (the default);
+  # pass an array to restrict what the agent may do.
+  def agent_headers(capabilities:)
+    config = { "mode" => "internal" }
+    config["capabilities"] = capabilities unless capabilities.nil?
+    agent = create_ai_agent(parent: @alice, name: "Rep Agent #{SecureRandom.hex(4)}", agent_configuration: config)
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    @collective.collective_members.find_by(user: agent).add_role!("representative")
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
+    {
+      "Authorization" => "Bearer #{token.plaintext_token}",
+      "Accept" => "text/markdown",
+    }
+  end
+
+  test "agent with full capabilities can start a collective session" do
+    headers = agent_headers(capabilities: nil)
+
+    post "#{represent_path}/actions/start_representation", headers: headers
+
+    assert_response :success
+    assert_equal 1, RepresentationSession.where(collective: @collective, ended_at: nil).count
+  end
+
+  test "agent lacking start_representation capability is denied by the capability layer" do
+    headers = agent_headers(capabilities: ["create_note", "end_representation"])
+
+    post "#{represent_path}/actions/start_representation", headers: headers
+
+    assert_response :forbidden
+    assert_equal 0, RepresentationSession.where(collective: @collective).count,
+                 "capability-denied start must not create a session"
+  end
+
+  # #3: end_representation routes through the capability layer, so an agent that
+  # can start but not end would get locked into a session until expiry. Refuse
+  # the start up front instead.
+  test "agent lacking end_representation capability is refused at start to avoid a lockout" do
+    headers = agent_headers(capabilities: ["create_note", "start_representation"])
+
+    post "#{represent_path}/actions/start_representation", headers: headers
+
+    assert_response :forbidden
+    assert_match(/end_representation/, response.body,
+                 "should explain the missing end capability")
+    assert_equal 0, RepresentationSession.where(collective: @collective).count
+  end
 end

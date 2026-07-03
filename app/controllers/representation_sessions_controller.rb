@@ -8,7 +8,12 @@ class RepresentationSessionsController < ApplicationController
   include RequiresReverification
 
   before_action :set_sidebar_mode, only: [:index, :show, :represent, :representing]
-  before_action -> { require_reverification(scope: "representation") }, only: [:represent, :start_representing, :start_representing_user]
+  # execute_start_representation is included so a browser/cookie caller hitting the
+  # actions endpoint faces the same 2FA step-up as the HTML form flow. API-token
+  # callers are exempt inside require_reverification (returns early), so MCP is
+  # unaffected — but this closes the browser bypass. End is intentionally not gated
+  # on either path.
+  before_action -> { require_reverification(scope: "representation") }, only: [:represent, :start_representing, :start_representing_user, :execute_start_representation]
 
   def index
     @representatives = current_collective.representatives
@@ -83,7 +88,15 @@ class RepresentationSessionsController < ApplicationController
   end
 
   def execute_start_representation
-    if current_representation_session
+    # Nested-session guard. `current_representation_session` resolves from the
+    # X-Representation-Session-ID header for API callers, and nothing forces that
+    # header on start — so an agent could start, then start again without echoing
+    # the header and slip past a header-only check, creating a second concurrent
+    # active session (there's no partial-unique DB index as a backstop). Guard on
+    # the database instead so a live session for this (collective, representative)
+    # always blocks a second start regardless of headers.
+    if current_representation_session ||
+       RepresentationSession.exists?(collective: current_collective, representative_user: current_user, ended_at: nil)
       return render_action_error({
                                    action_name: "start_representation",
                                    resource: current_collective,
@@ -97,6 +110,20 @@ class RepresentationSessionsController < ApplicationController
                                    action_name: "start_representation",
                                    resource: current_collective,
                                    error: "You do not have permission to represent this collective.",
+                                   status: :forbidden,
+                                 })
+    end
+
+    # Don't let an agent start a session it can't end. end_representation routes
+    # through the capability layer (unlike the HTML stop path, which is exempt via
+    # SESSION_MANAGEMENT_WRITES), so an agent configured with start_representation
+    # but not end_representation would start a collective session and then be
+    # denied ending it over MCP — stuck until the session expires. Refuse up front.
+    if CapabilityCheck.missing_rep_lifecycle_capabilities(@current_user).include?("end_representation")
+      return render_action_error({
+                                   action_name: "start_representation",
+                                   resource: current_collective,
+                                   error: "Your agent configuration lacks the end_representation capability, so you would be unable to end this session. Grant end_representation before starting.",
                                    status: :forbidden,
                                  })
     end
