@@ -1108,4 +1108,97 @@ class SearchQueryTest < ActiveSupport::TestCase
     )
     assert_empty search.warnings
   end
+
+  # my: — viewer-state filters
+
+  def add_member(name)
+    member = create_user(name: name)
+    @tenant.add_user!(member)
+    @collective.add_user!(member)
+    member
+  end
+
+  def notify(user, subject:, dismissed: false, read: false, scheduled_for: nil)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.notified", actor: @user, subject: subject)
+    notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "About #{subject.class}")
+    NotificationRecipient.create!(
+      notification: notification, user: user, channel: "in_app", tenant: @tenant,
+      status: dismissed ? "dismissed" : "delivered",
+      dismissed_at: dismissed ? Time.current : nil,
+      read_at: read || dismissed ? Time.current : nil,
+      scheduled_for: scheduled_for,
+    )
+  end
+
+  def my_search(user, query)
+    SearchQuery.new(tenant: @tenant, collective: @collective, current_user: user, raw_query: "#{query} cycle:all")
+  end
+
+  test "my:unread returns notes the viewer has not confirmed read; my:read the inverse" do
+    viewer = add_member("Reader")
+
+    unread = my_search(viewer, "my:unread").results
+    assert_equal [["Note", @note.id]], unread.map { |r| [r.item_type, r.item_id] }
+
+    assert_empty my_search(viewer, "my:read").results
+
+    @note.confirm_read!(viewer)
+
+    assert_empty my_search(viewer, "my:unread").results
+    assert_equal [["Note", @note.id]], my_search(viewer, "my:read").results.map { |r| [r.item_type, r.item_id] }
+  end
+
+  test "my:unread does not include the viewer's own notes" do
+    # Authors confirm-read their own notes at creation.
+    assert_empty my_search(@user, "my:unread").results
+  end
+
+  test "my:notified returns items behind undismissed due notifications" do
+    viewer = add_member("Notified")
+
+    notify(viewer, subject: @decision, read: true) # read but undismissed still shows
+    notify(viewer, subject: @commitment, dismissed: true) # dismissed is gone
+
+    reminder_note = create_note(tenant: @tenant, collective: @collective, created_by: viewer, subtype: "reminder", text: "Due reminder note")
+    reminder = Notification.create!(tenant: @tenant, event: nil, notification_type: "reminder", title: "Due")
+    reminder_note.update!(reminder_notification_id: reminder.id)
+    NotificationRecipient.create!(notification: reminder, user: viewer, channel: "in_app", status: "delivered", tenant: @tenant)
+
+    future = Notification.create!(tenant: @tenant, event: nil, notification_type: "reminder", title: "Future")
+    future_note = create_note(tenant: @tenant, collective: @collective, created_by: viewer, subtype: "reminder", text: "Future reminder note")
+    future_note.update!(reminder_notification_id: future.id)
+    NotificationRecipient.create!(
+      notification: future, user: viewer, channel: "in_app", status: "pending", scheduled_for: 1.hour.from_now, tenant: @tenant
+    )
+
+    results = my_search(viewer, "my:notified").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Decision", @decision.id], ["Note", reminder_note.id]].sort, results.sort
+  end
+
+  test "my:notified resolves comment notifications to the thread root" do
+    viewer = add_member("Commented At")
+    comment = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user, commentable: @note, text: "A reply mentioning you"
+    )
+    notify(viewer, subject: comment)
+
+    results = my_search(viewer, "my:notified").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Note", @note.id]], results
+  end
+
+  test "my: filters warn and match nothing for anonymous viewers" do
+    search = SearchQuery.new(tenant: @tenant, collective: nil, current_user: nil, raw_query: "my:notified cycle:all")
+
+    assert_empty search.results
+    assert search.warnings.any? { |w| w.include?("my:") }, "expected a warning about my: requiring sign-in"
+  end
+
+  test "negated my:read excludes items the viewer has confirmed read" do
+    viewer = add_member("Skimmer")
+    @note.confirm_read!(viewer)
+
+    results = my_search(viewer, "-my:read").results.map { |r| [r.item_type, r.item_id] }
+    assert_not_includes results, ["Note", @note.id]
+    assert_includes results, ["Decision", @decision.id]
+  end
 end

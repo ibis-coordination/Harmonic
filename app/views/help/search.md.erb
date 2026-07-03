@@ -36,6 +36,24 @@ Use operators in your query to filter, sort, and group results.
 | `replying-to:` | @handle | `replying-to:@alice` |
 | `critical-mass-achieved:` | true, false | `critical-mass-achieved:true` |
 
+### Your State (`my:`)
+
+`my:` filters on your own relationship to each item, so results differ per
+viewer. Requires being signed in — otherwise the query warns and matches
+nothing.
+
+| Value | Meaning | Example |
+|-------|---------|---------|
+| `my:notified` | Items behind your undismissed notifications — your [inbox](/notifications) projected onto the feed | `my:notified` |
+| `my:unread` | Notes you have not confirmed read | `my:unread type:note` |
+| `my:read` | Items you have confirmed read | `my:read cycle:this-week` |
+
+Notes on semantics: `my:notified` matches the notifications page — read
+notifications stay until dismissed, so it can show more items than an
+unread-count badge. `my:unread`/`my:read` are about read *confirmations*
+(the social act), not notifications; only notes can be unread, so
+`my:unread` never matches decisions or commitments.
+
 ### Numeric Filters
 
 Use `min-` and `max-` prefixes with these fields:
