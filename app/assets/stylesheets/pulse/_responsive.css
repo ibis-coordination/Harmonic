@@ -92,10 +92,13 @@
     padding: 24px 16px;
   }
 
-  /* iOS Safari zooms the viewport on focus when input font-size < 16px. */
-  .pulse-form-input,
-  .pulse-form-textarea,
-  .pulse-form-select {
+  /* iOS Safari zooms the viewport on focus when input font-size < 16px.
+     Force every text-entry control to at least 16px on mobile so focusing
+     never triggers an autozoom. Element selectors with :not() keep enough
+     specificity to override class-based sizes like .header-search-input. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
     font-size: 16px;
   }
 }
