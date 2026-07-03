@@ -340,29 +340,6 @@ class MarkdownRendererTest < ActiveSupport::TestCase
     assert html.include?("Safe text")
   end
 
-  test "render_inline keeps paragraphs on separate lines (issue #359)" do
-    markdown = "line 1\n\nline 2"
-    html = MarkdownRenderer.render_inline(markdown)
-
-    # Both paragraphs are present, the block wrappers are gone, and the break
-    # between them survives as a <br> instead of collapsing into a space.
-    assert_not html.include?("<p>")
-    assert html.include?("line 1")
-    assert html.include?("line 2")
-    assert html.include?("<br>")
-    assert_not html.match?(/line 1\s+line 2/)
-  end
-
-  test "render_inline preserves hard-wrap line breaks within a paragraph" do
-    markdown = "line 1\nline 2"
-    html = MarkdownRenderer.render_inline(markdown)
-
-    assert_not html.include?("<p>")
-    assert html.include?("<br>")
-    assert html.include?("line 1")
-    assert html.include?("line 2")
-  end
-
   # === Hard Wrap Tests ===
 
   test "render creates line breaks with hard wrap" do

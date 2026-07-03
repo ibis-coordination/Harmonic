@@ -7,7 +7,15 @@ class CommentsListComponentTest < ViewComponent::TestCase
   include ComponentTestHelper
 
   setup do
+    # Comment bodies render as block markdown, which resolves resource links
+    # and needs tenant/collective context (see MarkdownRenderer#display_refereces).
+    Current.tenant_subdomain = "test"
+    Current.collective_handle = "test-collective"
     @user = build_user(display_name: "Alice", handle: "alice")
+  end
+
+  teardown do
+    Current.reset
   end
 
   test "renders empty state when no comments" do
