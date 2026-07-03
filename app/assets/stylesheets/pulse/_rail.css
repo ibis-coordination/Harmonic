@@ -18,6 +18,15 @@
   background: var(--color-canvas-default);
   border-right: 1px solid var(--color-border-default);
   overflow-y: auto;
+  /* Pin to the viewport while the document scrolls. The explicit height
+     overrides the flex stretch (which would otherwise make the rail as tall
+     as the whole app shell, leaving sticky nothing to do) and doubles as the
+     scroll container for rail overflow. At the very top of the document the
+     visible header pushes the rail's bottom edge below the fold; once the
+     auto-hide header retracts on scroll, the rail fits the viewport exactly. */
+  position: sticky;
+  top: 0;
+  height: 100dvh;
 }
 
 /* Each rail entry: a 48px hit area with a left-edge active indicator. */
