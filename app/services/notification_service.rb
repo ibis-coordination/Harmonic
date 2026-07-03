@@ -195,6 +195,22 @@ class NotificationService
       .in_app.unread.not_scheduled.count
   end
 
+  # Unread counts grouped by the notification event's collective, for the
+  # rail's per-collective badges. Reminders (no event) have no collective and
+  # are excluded — they only count toward the header total. String joins keep
+  # the Notification/Event default scopes (thread collective scope) out of
+  # the query: badges must cover every collective, not just the current one.
+  sig { params(user: User, tenant: Tenant).returns(T::Hash[String, Integer]) }
+  def self.unread_count_by_collective_for(user, tenant:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .in_app.unread.not_scheduled
+      .joins("INNER JOIN notifications ON notifications.id = notification_recipients.notification_id")
+      .joins("INNER JOIN events ON events.id = notifications.event_id")
+      .group("events.collective_id")
+      .count
+  end
+
   sig { params(user: User, tenant: Tenant).void }
   def self.dismiss_all_for(user, tenant:)
     # Exclude scheduled future reminders - they shouldn't be dismissed before they trigger

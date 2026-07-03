@@ -136,6 +136,28 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, json_response["count"]
   end
 
+  test "unread_count includes per-collective counts for the rail badges" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    other = Collective.create!(tenant: @tenant, name: "Other Collective", handle: "other-collective", created_by: @user)
+
+    [[@collective, 2], [other, 1]].each do |collective, n|
+      event = Event.create!(tenant: @tenant, collective: collective, event_type: "test.created")
+      notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Test")
+      n.times do
+        NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "pending")
+      end
+    end
+    Collective.clear_thread_scope
+
+    get "/notifications/unread_count", headers: { "Accept" => "application/json" }
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 3, json_response["count"]
+    assert_equal({ @collective.id => 2, other.id => 1 }, json_response["by_collective"])
+  end
+
   # === Dismiss Tests ===
 
   test "dismiss dismisses notification" do

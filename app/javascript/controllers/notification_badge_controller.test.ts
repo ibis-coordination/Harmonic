@@ -94,6 +94,46 @@ describe("NotificationBadgeController", () => {
     expect(afterThird).toBeGreaterThan(afterSecond)
   })
 
+  it("broadcasts per-collective counts so the rail badges can update", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ count: 3, by_collective: { "abc-123": 2, "def-456": 1 } }),
+    })
+    vi.stubGlobal("fetch", mockFetch)
+
+    const received: Array<Record<string, number>> = []
+    window.addEventListener("notifications:counts", (event) => {
+      received.push((event as CustomEvent).detail.byCollective)
+    })
+
+    await vi.advanceTimersByTimeAsync(5000)
+
+    await vi.waitFor(() => {
+      expect(received.length).toBeGreaterThan(0)
+      expect(received[received.length - 1]).toEqual({ "abc-123": 2, "def-456": 1 })
+    })
+  })
+
+  it("broadcasts an empty per-collective map when the payload omits it", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ count: 0 }),
+    })
+    vi.stubGlobal("fetch", mockFetch)
+
+    const received: Array<Record<string, number>> = []
+    window.addEventListener("notifications:counts", (event) => {
+      received.push((event as CustomEvent).detail.byCollective)
+    })
+
+    await vi.advanceTimersByTimeAsync(5000)
+
+    await vi.waitFor(() => {
+      expect(received.length).toBeGreaterThan(0)
+      expect(received[received.length - 1]).toEqual({})
+    })
+  })
+
   it("handles fetch errors gracefully", async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error("Network error"))
     vi.stubGlobal("fetch", mockFetch)

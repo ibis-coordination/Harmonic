@@ -394,8 +394,10 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     get "/billing"
 
     assert_response :success
-    assert_not_includes response.body, "Free Coffee Club",
-                       "free collectives should not appear on /billing"
+    # Scoped to the page content: the collective rail in the layout
+    # legitimately shows every collective the user belongs to.
+    assert_not_includes css_select("main.pulse-main").to_s, "Free Coffee Club",
+                        "free collectives should not appear in the billing list"
   end
 
   test "show lists paid-tier private workspace when subscription active" do
