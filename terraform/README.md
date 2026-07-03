@@ -1,8 +1,10 @@
 # Harmonic infrastructure (Terraform — Tier 1, provision-only)
 
-> **Status: skeleton / draft for review.** These configs have not been
-> `terraform apply`-ed against a live account. Treat resource arguments as a
-> starting point to validate with `terraform plan`, not as battle-tested.
+> **Status: skeleton / draft for review.** `terraform fmt` and
+> `terraform validate` pass (v1.9, real provider schemas), but these configs
+> have not been `terraform apply`-ed against a live account. Treat resource
+> arguments as a starting point to validate with `terraform plan`, not as
+> battle-tested.
 
 This module provisions the **cloud primitives** a Harmonic deployment needs and
 bootstraps Docker on the host. It deliberately stops there: it does **not** pull
@@ -36,9 +38,10 @@ terraform plan
 terraform apply
 
 # Then seed your secrets from outputs, into your PRIVATE store (outside this
-# repo) — one file per name in secrets/secrets.example, populated on the box
-# under secrets/run/ by your chosen adapter. Then run scripts/deploy.sh.
-terraform output -raw database_url
+# repo). Early-boot ones (POSTGRES_*, SMTP, REDIS) go into the server .env;
+# the rest are one file per name in secrets/secrets.example, populated on the
+# box under secrets/run/ by your chosen adapter. Then run scripts/deploy.sh.
+terraform output -raw postgres_password
 terraform output -raw spaces_access_key_id
 ```
 

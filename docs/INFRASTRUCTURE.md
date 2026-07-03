@@ -2,9 +2,10 @@
 
 > **Status:** draft / skeleton, posted for review on
 > [note 1cc7cc50](https://www.harmonic.social/collectives/harmonic-devs/n/1cc7cc50).
-> Nothing here has been `terraform apply`-ed or deployed yet. The repo has no
-> local test runner for this, so the Terraform and shell pieces are
-> **unvalidated** — review them as a proposal to react to, not a finished tool.
+> Statically validated (`terraform validate` against real provider schemas,
+> shellcheck, compose-merge check) — but nothing here has been
+> `terraform apply`-ed against a live account or exercised on a real deploy
+> yet. Review it as a proposal, not a battle-tested tool.
 
 This document covers how Harmonic infrastructure is provisioned and how secrets
 are handled. It accompanies the `terraform/` module, the `secrets/` directory,
@@ -53,10 +54,32 @@ secret at a time.
 This axis costs nothing and needs no new infra. `docker-compose.secrets.yml` is
 an **overlay** so the env path keeps working until the team opts in.
 
+**Scope.** Only secrets Rails reads *after* initializers run can move to the
+overlay today: Spaces secret key, Stripe keys, GitHub OAuth secret, Turnstile
+key, and the Rails-side `AGENT_RUNNER_SECRET`. The rest are pinned to the
+legacy `.env` path for now, for two mechanical reasons:
+
+- **Read too early.** `SMTP_*` and `REDIS_URL` are read in
+  `config/environments/production.rb`, and `POSTGRES_*` in `database.yml` ERB —
+  all *before* `config/initializers/*` run, so the file-secrets initializer
+  fires too late. See "Boot-ordering caveat" below.
+- **Compose interpolation.** `REDIS_PASSWORD` and agent-runner's
+  `AGENT_RUNNER_SECRET` appear as `${VAR:?…}` in
+  `docker-compose.production.yml` (redis `--requirepass`, healthcheck,
+  agent-runner env) — compose resolves those from the *host* env/`.env` at
+  `up` time; a container file mount can't satisfy them. agent-runner is Node
+  and reads `process.env` directly, so moving it also needs an entrypoint
+  export.
+
 The existing `agent-runner` service already enumerates its env vars explicitly
-(instead of `env_file: .env`) to keep its blast radius small. The overlay
-preserves that: it mounts only `AGENT_RUNNER_SECRET` and `REDIS_PASSWORD` into
-agent-runner, nothing more.
+(instead of `env_file: .env`) to keep its blast radius small; the overlay
+leaves it untouched.
+
+One compose gotcha, documented in the overlay header: when the overlay is
+enabled every declared secret file must exist (compose errors on a missing
+source). To migrate one secret at a time, create the full set and leave a file
+**empty** for any secret staying on `.env` — the initializer ignores empty
+files, so the env var still wins.
 
 ### Axis 2 — storage / root of trust
 
@@ -94,9 +117,12 @@ in a private repo — but that's our operator choice, not a repo default.
 
 ### The split we use
 
-- **Infra / third-party** secrets (`DATABASE_URL`, `REDIS_PASSWORD`, Spaces keys,
-  Stripe, SES SMTP, OAuth) → **file-mounted `/run/secrets/<NAME>`**, populated by
-  the operator's chosen adapter. Names listed in `secrets/secrets.example`.
+- **Infra / third-party** secrets that are read late enough (Spaces secret key,
+  Stripe, OAuth, Turnstile) → **file-mounted `/run/secrets/<NAME>`**, populated
+  by the operator's chosen adapter. Names listed in `secrets/secrets.example`.
+- **Early-boot / compose-interpolated** secrets (`POSTGRES_*`, `SMTP_PASSWORD`,
+  `REDIS_PASSWORD`/`REDIS_URL`) → stay in the server `.env` until an
+  entrypoint-export step exists (see the scope note above).
 - **App-internal** secrets (`SECRET_KEY_BASE`, `AGENT_RUNNER_SECRET`) → **Rails
   encrypted credentials** (`config/credentials.yml.enc`). Different owner, blast
   radius, and rotation cadence.
@@ -127,34 +153,46 @@ must generate.
 Whichever adapter you choose reduces to planting **one** bootstrap credential on
 the box. For the SOPS+age adapter that's the age private key; the example hook
 looks for it at `/opt/harmonic/secrets/age.key` (override with
-`SOPS_AGE_KEY_FILE`). cloud-init writes an **empty placeholder** there on
-purpose — user-data is itself visible to the DO API, so the real key should be
-planted out-of-band after first boot (`scp`, or your password manager's CLI).
-If you accept the key living in Terraform state, you can instead template it in
-via a sensitive variable — a deliberate trade-off, not the default. Operators
-who instead pre-place the plaintext secret files, or use an instance-profile
+`SOPS_AGE_KEY_FILE`). cloud-init creates the (0700) `/opt/harmonic/secrets/`
+directory but deliberately plants **no key material** — user-data is itself
+visible to the DO API, so the bootstrap credential should be planted
+out-of-band after first boot (`scp`, or your password manager's CLI). If you
+accept the key living in Terraform state, you can instead template it in via a
+sensitive variable — a deliberate trade-off, not the default. Operators who
+instead pre-place the plaintext secret files, or use an instance-profile
 adapter (SSM), have no long-lived bootstrap key at all.
 
 ## Boot-ordering caveat
 
-`00_file_secrets.rb` runs early (the `00_` prefix), which is fine for most
-secrets. But `SECRET_KEY_BASE` and `DATABASE_URL` are consumed very early in
-boot (key derivation, DB connection config) — possibly before initializers run.
+`00_file_secrets.rb` runs first among `config/initializers/*` (the `00_`
+prefix) — but a chunk of Rails boot happens *before* any of those run, and
+every ENV read in that window is out of the initializer's reach:
+
+- `config/environments/production.rb` — `SMTP_*` (mailer settings hash),
+  `REDIS_URL` (cache store) are read when the environment file loads.
+- `config/database.yml` ERB — `POSTGRES_HOST/PORT/DB/USER/PASSWORD` are read
+  when the database configuration is built.
+- `SECRET_KEY_BASE` — key derivation, earliest of all (kept in Rails
+  credentials anyway).
+
 If/when those move to file-secrets, export them in the **container entrypoint**
-before Rails starts rather than relying on the initializer. The current overlay
-keeps `SECRET_KEY_BASE` in Rails credentials and `DATABASE_URL` works either way
-since the connection is established lazily, but validate this on a real boot
-before trusting it.
+(read `/run/secrets/<NAME>` into the environment before `rails server` starts)
+rather than relying on the initializer. Until that entrypoint exists, the
+overlay simply doesn't list them — see the scope note under Axis 1. One
+remaining validate-on-boot item: `DO_SPACES_SECRET_ACCESS_KEY` is read via
+`config/storage.yml` ERB, which ActiveStorage evaluates lazily (post-
+initializers) — confirm on a real boot before dropping it from `.env`.
 
 ## End-to-end flow
 
 ```
 terraform apply                 # cloud primitives + Docker host
-  └─ outputs: droplet_ip, database_url, spaces keys, ...
+  └─ outputs: droplet_ip, postgres_* creds, spaces keys, ...
        │
        ▼
 (your PRIVATE store, outside this repo)   # seed secrets from outputs by BYO means
-       │
+       │                                  # early-boot ones (POSTGRES_*, SMTP, REDIS)
+       │                                  #   go into the server .env for now
        ▼  (on the droplet)
 scripts/deploy.sh --with-migrations
   ├─ populate_secrets()         # optional $SECRETS_HOOK writes secrets/run/<NAME>
@@ -162,6 +200,7 @@ scripts/deploy.sh --with-migrations
   ├─ docker compose -f prod -f secrets up -d   # overlay enabled only if populated
   │     └─ mounts /run/secrets/<NAME> → 00_file_secrets.rb → ENV
   └─ rails db:migrate
+(rollback.sh keeps the same overlay guard, so a rollback doesn't strip secrets)
 ```
 
 ## Decisions & open questions

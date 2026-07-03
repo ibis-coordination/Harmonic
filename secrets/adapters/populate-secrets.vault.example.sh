@@ -17,7 +17,7 @@
 # encrypted blob, no long-lived cloud key.
 #
 #   - Store all secrets as fields of ONE KV-v2 secret, e.g.
-#     `vault kv put secret/harmonic/prod DATABASE_URL=... SMTP_PASSWORD=...`
+#     `vault kv put secret/harmonic/prod STRIPE_API_KEY=... GITHUB_CLIENT_SECRET=...`
 #   - Each field name must match a NAME from secrets/secrets.example.
 #
 # deploy.sh calls this with $SECRETS_DIR exported; the job is to write one

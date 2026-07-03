@@ -15,8 +15,15 @@
 set -e
 cd "$(dirname "$0")/.."
 
-COMPOSE_FILE="docker-compose.production.yml"
+COMPOSE_FILES=(-f docker-compose.production.yml)
 REGISTRY="ghcr.io/ibis-coordination"
+
+# Keep the file-secrets overlay if it's in use (same guard as deploy.sh) —
+# recreating the stack without it would strip /run/secrets mid-incident.
+SECRETS_DIR="${SECRETS_DIR:-secrets/run}"
+if [ -d "$SECRETS_DIR" ] && [ -n "$(ls -A "$SECRETS_DIR" 2>/dev/null)" ]; then
+  COMPOSE_FILES+=(-f docker-compose.secrets.yml)
+fi
 
 if [ -z "$1" ]; then
   echo "Usage: $0 <image_tag>"
@@ -42,7 +49,7 @@ docker tag "$REGISTRY/harmonic:$TAG" "$REGISTRY/harmonic:latest"
 docker tag "$REGISTRY/harmonic-agent-runner:$TAG" "$REGISTRY/harmonic-agent-runner:latest"
 
 echo "Restarting containers..."
-docker compose -f "$COMPOSE_FILE" up -d
+docker compose "${COMPOSE_FILES[@]}" up -d
 
 echo ""
 echo "Rolled back to: $TAG"

@@ -13,7 +13,7 @@
 # time. No age key, no encrypted blob.
 #
 #   - Store one SecureString parameter per secret NAME under a shared path,
-#     e.g. /harmonic/prod/DATABASE_URL, /harmonic/prod/SMTP_PASSWORD, ...
+#     e.g. /harmonic/prod/STRIPE_API_KEY, /harmonic/prod/GITHUB_CLIENT_SECRET, ...
 #   - The parameter's leaf name must match a NAME from secrets/secrets.example.
 #
 # deploy.sh calls this with $SECRETS_DIR exported; the job is to write one

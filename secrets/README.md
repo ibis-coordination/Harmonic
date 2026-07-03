@@ -23,6 +23,13 @@ stays private to your deployment.
    `secrets.example` under `secrets/run/` (gitignored) — via `scp`,
    configuration management, or your password manager's CLI. No hook needed.
 
+   > When the overlay is enabled, **every** file-mounted name needs a file —
+   > compose errors on a missing source. Leave a file **empty** to keep that
+   > secret on the legacy `.env` path (the initializer ignores empty files).
+   > Not every secret can move: early-boot and compose-interpolated ones
+   > (`POSTGRES_*`, `SMTP_PASSWORD`, `REDIS_*`) stay in `.env` for now — see
+   > `secrets.example` and the infra doc's boot-ordering caveat.
+
 2. **Install a populate hook.** Point `SECRETS_HOOK` (default
    `/opt/harmonic/secrets/populate-secrets.sh`) at an executable that writes
    those files from your private source at deploy time. Example adapters live in

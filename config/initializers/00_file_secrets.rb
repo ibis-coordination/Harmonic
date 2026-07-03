@@ -14,11 +14,13 @@
 # That makes this a strict no-op on any host without /run/secrets (dev, test,
 # today's prod), and lets us migrate one secret at a time.
 #
-# The "00_" filename prefix loads this before initializers that read these
-# vars. Note: SECRET_KEY_BASE and DATABASE_URL are consumed very early in boot
-# (DB connection config, key derivation). If you move THOSE to file-secrets,
-# prefer exporting them in the container entrypoint before Rails starts — see
-# docs/INFRASTRUCTURE.md "Boot-ordering caveat". Everything else is safe here.
+# The "00_" filename prefix loads this before the other config/initializers.
+# LIMIT: anything consumed BEFORE initializers run cannot move here — that is
+# every ENV read in config/environments/*.rb (SMTP_*, REDIS_URL) and in
+# database.yml ERB (POSTGRES_*), plus SECRET_KEY_BASE (key derivation). Moving
+# those to file-secrets means exporting them in the container entrypoint before
+# Rails starts — see docs/INFRASTRUCTURE.md "Boot-ordering caveat". The
+# docker-compose.secrets.yml overlay only lists names that are read late enough.
 
 secrets_dir = ENV.fetch("SECRETS_DIR", "/run/secrets")
 
