@@ -291,18 +291,23 @@ chrome to reshape per form factor without forking the model.
 
 ### Increments (each independently shippable, none undone by the next)
 
-1. **Ship the rail desktop-only** (hide under 768px; mobile stays as it is
-   on prod today). Unblocks PR #339 honestly. Constraint for any hide/fold,
-   here and later: collapse by redefining `--pulse-rail-width` (the motto
-   footer's border-continuation offset derives from it), not by hiding the
-   element alone.
-2. **Places-as-sheet on mobile** — the switcher list (icon + name + badge
-   + "+"), initially opened from a header toggle; built as the future
-   Places tab's content, not a throwaway drawer.
-3. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
+1. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
    down; the top bar slims to a place label.
-4. **Sidebar → place header**, paced by how much of the sidebar
+2. **Sidebar → place header**, paced by how much of the sidebar
    feeds-are-queries continues to absorb.
+
+Shipped from this list:
+
+- **Rail desktop-only** (#339): hidden under 768px by redefining
+  `--pulse-rail-width` (the motto footer's border-continuation offset
+  derives from it — keep that constraint for any future hide/fold).
+- **Places sheet on mobile**: the rail's destinations as labeled rows
+  (`PlacesSheetComponent` — globe, chat, collectives with names, "+"),
+  slid over from a mobile-only header toggle that carries an aggregate
+  unread dot. Badges reuse the rail's classes so a second rail-badges
+  controller instance keeps them fresh from the same
+  `notifications:counts` broadcast; first paint is server-rendered. Built
+  as the future Places tab's content, not a throwaway drawer.
 
 ## Decided (current iteration)
 

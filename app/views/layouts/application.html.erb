@@ -33,7 +33,7 @@
     <%= stylesheet_link_tag "pulse", "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", type: "module" %>
   </head>
-  <body>
+  <body data-controller="places-sheet">
     <div id="expanding-heart">
       <%= octicon 'heart' %>
     </div>
@@ -41,6 +41,16 @@
       <header class="pulse-top-header"
               data-controller="auto-hide-header"
               data-auto-hide-header-hidden-class="pulse-top-header--hidden">
+        <% if @current_user %>
+          <button type="button" class="pulse-places-toggle"
+                  data-places-sheet-target="toggle"
+                  data-action="click->places-sheet#toggle"
+                  aria-expanded="false" aria-label="Places">
+            <%= octicon "three-bars", height: 20 %>
+            <span class="pulse-places-toggle-dot" data-places-sheet-target="dot"
+                  style="<%= 'display: none' unless rail_unread_counts.values.any?(&:positive?) || rail_chat_unread_count.positive? %>"></span>
+          </button>
+        <% end %>
         <a href="/" class="pulse-logo">
           <i class="tri-logo-icon icon-sm"></i>
           <span>Harmonic</span>
@@ -81,6 +91,15 @@
           <%= button_to "End Session", "#{@current_representation_session.collective.path}/represent", method: :delete, class: "pulse-banner-btn" %>
         <% end %>
       </div>
+    <% end %>
+    <% if @current_user %>
+      <%= render PlacesSheetComponent.new(
+        main_collective: @current_tenant&.main_collective,
+        collectives: rail_collectives,
+        current_path: request.path,
+        unread_counts: rail_unread_counts,
+        chat_unread_count: rail_chat_unread_count,
+      ) %>
     <% end %>
     <div class="pulse-app-shell">
       <% if @current_user %>
