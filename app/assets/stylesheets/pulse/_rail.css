@@ -110,9 +110,27 @@
   padding: 0 4px;
 }
 
-/* The globe glyph is smaller than the 48px hit area, so pull its badge in
-   toward the icon instead of the box corner. */
-.pulse-rail-public .pulse-rail-badge {
+/* Chat: one aggregated entry for all chat collectives — a bare icon like
+   the globe, not a square. */
+.pulse-rail-chat .pulse-rail-chat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-rail-chat:hover,
+.pulse-rail-chat.active {
+  color: var(--color-fg-default);
+}
+
+.pulse-rail-chat .octicon {
+  fill: currentColor;
+}
+
+/* The globe and chat glyphs are smaller than the 48px hit area, so pull
+   their badges in toward the icon instead of the box corner. */
+.pulse-rail-public .pulse-rail-badge,
+.pulse-rail-chat .pulse-rail-badge {
   top: 2px;
   right: 2px;
 }

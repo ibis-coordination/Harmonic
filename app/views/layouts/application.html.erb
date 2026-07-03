@@ -89,6 +89,7 @@
           collectives: rail_collectives,
           current_path: request.path,
           unread_counts: rail_unread_counts,
+          chat_unread_count: rail_chat_unread_count,
         ) %>
       <% end %>
       <%= render SidebarComponent.new(requested_mode: @sidebar_mode || "full", collective: @current_collective) do %>

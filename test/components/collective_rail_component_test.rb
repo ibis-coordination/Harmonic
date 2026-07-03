@@ -71,6 +71,39 @@ class CollectiveRailComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-rail-badge[data-collective-id='#{b.id}']", visible: :hidden
   end
 
+  test "renders a chat entry beneath the globe, above the divider" do
+    render_inline(CollectiveRailComponent.new(main_collective: main_collective, collectives: []))
+
+    assert_selector "a.pulse-rail-chat[href='/chat'][title='Chat'] .octicon-comment-discussion"
+    # Order: globe, chat, divider — chat belongs to the zone strip's top
+    # group, not to the collective squares.
+    page_html = page.native.to_html
+    assert page_html.index("pulse-rail-public") < page_html.index("pulse-rail-chat")
+    assert page_html.index("pulse-rail-chat") < page_html.index("pulse-rail-divider")
+  end
+
+  test "marks the chat entry active on chat pages" do
+    render_inline(CollectiveRailComponent.new(
+                    main_collective: main_collective, collectives: [], current_path: "/chat/somebody"
+                  ))
+    assert_selector "a.pulse-rail-chat.active[aria-current='page']"
+
+    render_inline(CollectiveRailComponent.new(
+                    main_collective: main_collective, collectives: [], current_path: "/"
+                  ))
+    assert_no_selector ".pulse-rail-chat.active"
+  end
+
+  test "renders the aggregated chat unread count server-side" do
+    render_inline(CollectiveRailComponent.new(
+                    main_collective: main_collective, collectives: [], chat_unread_count: 3
+                  ))
+    assert_selector ".pulse-rail-chat .pulse-rail-badge[data-chat-badge]", visible: :visible, text: "3"
+
+    render_inline(CollectiveRailComponent.new(main_collective: main_collective, collectives: []))
+    assert_selector ".pulse-rail-chat .pulse-rail-badge[data-chat-badge]", visible: :hidden
+  end
+
   test "marks a collective active on its own page" do
     a = build_rail_collective(name: "Team A", handle: "team-a")
     b = build_rail_collective(name: "Team B", handle: "team-b")

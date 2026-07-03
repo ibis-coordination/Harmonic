@@ -22,20 +22,28 @@ export default class RailBadgesController extends Controller<HTMLElement> {
   }
 
   private handleCounts = (event: Event): void => {
-    const byCollective: Record<string, number> =
-      (event as CustomEvent).detail?.byCollective ?? {}
+    const detail = (event as CustomEvent).detail
+    const byCollective: Record<string, number> = detail?.byCollective ?? {}
 
     this.element
       .querySelectorAll<HTMLElement>(".pulse-rail-badge[data-collective-id]")
       .forEach((badge) => {
-        const count = byCollective[badge.dataset.collectiveId ?? ""] ?? 0
-        if (count > 0) {
-          badge.textContent = count > 99 ? "99+" : count.toString()
-          badge.style.display = ""
-        } else {
-          badge.textContent = ""
-          badge.style.display = "none"
-        }
+        this.updateBadge(badge, byCollective[badge.dataset.collectiveId ?? ""] ?? 0)
       })
+
+    const chatBadge = this.element.querySelector<HTMLElement>(".pulse-rail-badge[data-chat-badge]")
+    if (chatBadge) {
+      this.updateBadge(chatBadge, detail?.chat ?? 0)
+    }
+  }
+
+  private updateBadge(badge: HTMLElement, count: number): void {
+    if (count > 0) {
+      badge.textContent = count > 99 ? "99+" : count.toString()
+      badge.style.display = ""
+    } else {
+      badge.textContent = ""
+      badge.style.display = "none"
+    }
   }
 }

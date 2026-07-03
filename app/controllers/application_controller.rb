@@ -817,6 +817,16 @@ class ApplicationController < ActionController::Base
   end
   helper_method :rail_unread_counts
 
+  # Initial count for the rail's aggregated chat entry — same lifecycle as
+  # rail_unread_counts.
+  def rail_chat_unread_count
+    return @rail_chat_unread_count if defined?(@rail_chat_unread_count)
+    return (@rail_chat_unread_count = 0) if @current_user.nil? || current_tenant.nil?
+
+    @rail_chat_unread_count = NotificationService.unread_chat_count_for(@current_user, tenant: current_tenant)
+  end
+  helper_method :rail_chat_unread_count
+
   # Active representation sessions owned by this caller that are not attached
   # to the current request. The markdown layout surfaces these as a warning
   # so the agent can attach or end them.

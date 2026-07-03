@@ -39,6 +39,20 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "rail chat badge renders its unread count server-side on first paint" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    chat = Notification.create!(tenant: @tenant, event: nil, notification_type: "chat_message", title: "Ping", url: "/chat/somebody")
+    NotificationRecipient.create!(notification: chat, user: @user, channel: "in_app", status: "delivered", tenant: @tenant)
+    Collective.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_select ".pulse-rail-chat .pulse-rail-badge[data-chat-badge]", text: "1" do |badges|
+      assert_not_includes badges.first["style"].to_s, "display: none"
+    end
+  end
+
   test "homepage hides content from tuned-in user posting in a different tenant" do
     sign_in_as(@user, tenant: @tenant)
     main = @tenant.main_collective

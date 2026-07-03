@@ -211,6 +211,20 @@ class NotificationService
       .count
   end
 
+  # Unread chat pings for the rail's aggregated chat entry. Chat-message
+  # notifications carry no event (see notify_chat_message!), so they are
+  # invisible to unread_count_by_collective_for and counted here by type —
+  # the two never overlap.
+  sig { params(user: User, tenant: Tenant).returns(Integer) }
+  def self.unread_chat_count_for(user, tenant:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .in_app.unread.not_scheduled
+      .joins("INNER JOIN notifications ON notifications.id = notification_recipients.notification_id")
+      .where(notifications: { notification_type: "chat_message" })
+      .count
+  end
+
   sig { params(user: User, tenant: Tenant).void }
   def self.dismiss_all_for(user, tenant:)
     # Exclude scheduled future reminders - they shouldn't be dismissed before they trigger

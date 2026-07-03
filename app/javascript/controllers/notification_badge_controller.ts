@@ -72,7 +72,11 @@ export default class NotificationBadgeController extends Controller<HTMLElement>
       // per-square badges without polling on its own.
       window.dispatchEvent(
         new CustomEvent("notifications:counts", {
-          detail: { count: data.count, byCollective: data.by_collective ?? {} },
+          detail: {
+            count: data.count,
+            byCollective: data.by_collective ?? {},
+            chat: data.chat ?? 0,
+          },
         }),
       )
     } catch {

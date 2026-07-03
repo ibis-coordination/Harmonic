@@ -18,10 +18,11 @@ class CollectiveRailComponent < ViewComponent::Base
       main_collective: T.nilable(Collective),
       collectives: T::Array[Collective],
       current_path: T.nilable(String),
-      unread_counts: T::Hash[String, Integer]
+      unread_counts: T::Hash[String, Integer],
+      chat_unread_count: Integer
     ).void
   end
-  def initialize(main_collective: nil, collectives: [], current_path: nil, unread_counts: {})
+  def initialize(main_collective: nil, collectives: [], current_path: nil, unread_counts: {}, chat_unread_count: 0)
     super()
     @main_collective = main_collective
     # Collective#path is nil for main collectives; an entry the rail cannot
@@ -29,6 +30,7 @@ class CollectiveRailComponent < ViewComponent::Base
     @collectives = T.let(collectives.select { |c| c.path.present? }, T::Array[Collective])
     @current_path = current_path
     @unread_counts = unread_counts
+    @chat_unread_count = chat_unread_count
   end
 
   sig { returns(T::Boolean) }
@@ -52,19 +54,49 @@ class CollectiveRailComponent < ViewComponent::Base
     @current_path == "/"
   end
 
+  # The chat entry aggregates every chat collective behind one icon, so it
+  # is active across all of /chat, and its count is type-based (unread
+  # chat_message notifications), not collective-based.
+  sig { returns(T::Boolean) }
+  def chat_active?
+    current = @current_path
+    return false if current.nil?
+
+    current == "/chat" || current.start_with?("/chat/")
+  end
+
   # Server-rendered initial badge state, so navigation never flashes the
   # badges out. The rail-badges controller overwrites this on every poll
   # using the same display rules — keep the two in sync.
   sig { params(collective: Collective).returns(String) }
   def badge_text(collective)
-    count = @unread_counts[collective.id].to_i
+    count_badge_text(@unread_counts[collective.id].to_i)
+  end
+
+  sig { params(collective: Collective).returns(T.nilable(String)) }
+  def badge_style(collective)
+    count_badge_style(@unread_counts[collective.id].to_i)
+  end
+
+  sig { returns(String) }
+  def chat_badge_text
+    count_badge_text(@chat_unread_count)
+  end
+
+  sig { returns(T.nilable(String)) }
+  def chat_badge_style
+    count_badge_style(@chat_unread_count)
+  end
+
+  sig { params(count: Integer).returns(String) }
+  def count_badge_text(count)
     return "" if count.zero?
 
     count > 99 ? "99+" : count.to_s
   end
 
-  sig { params(collective: Collective).returns(T.nilable(String)) }
-  def badge_style(collective)
-    "display: none" if @unread_counts[collective.id].to_i.zero?
+  sig { params(count: Integer).returns(T.nilable(String)) }
+  def count_badge_style(count)
+    "display: none" if count.zero?
   end
 end
