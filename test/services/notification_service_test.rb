@@ -338,6 +338,50 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal({ collective2.id => 1 }, counts)
   end
 
+  # Builds the real reminder shape: a reminder note in the collective whose
+  # notification (eventless) is linked back via notes.reminder_notification_id.
+  def create_reminder_in(collective, tenant:, user:, title:)
+    note = create_note(tenant: tenant, collective: collective, created_by: user, subtype: "reminder", title: title)
+    notification = Notification.create!(tenant: tenant, event: nil, notification_type: "reminder", title: title)
+    note.update!(reminder_notification_id: notification.id)
+    notification
+  end
+
+  test "unread_count_by_collective_for attributes reminders to their note's collective" do
+    # Reminder notifications carry no event, but the reminder note has a
+    # home — derived through notes.reminder_notification_id, it puts due
+    # reminders in the place's badge.
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    due = create_reminder_in(collective, tenant: tenant, user: user, title: "Due")
+    NotificationRecipient.create!(notification: due, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+
+    # Future-scheduled reminders still don't count until due.
+    future = create_reminder_in(collective, tenant: tenant, user: user, title: "Future")
+    NotificationRecipient.create!(
+      notification: future, user: user, channel: "in_app", status: "pending", scheduled_for: 1.hour.from_now, tenant: tenant
+    )
+
+    counts = NotificationService.unread_count_by_collective_for(user, tenant: tenant)
+    assert_equal({ collective.id => 1 }, counts)
+  end
+
+  test "dismiss_all_for_collective covers reminders homed in the collective" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    reminder = create_reminder_in(collective, tenant: tenant, user: user, title: "Due")
+    recipient = NotificationRecipient.create!(notification: reminder, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+
+    count = NotificationService.dismiss_all_for_collective(user, tenant: tenant, collective_id: collective.id)
+
+    assert_equal 1, count
+    assert_equal "dismissed", recipient.reload.status
+  end
+
   test "unread_chat_count_for counts only unread in-app chat_message notifications" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

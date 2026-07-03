@@ -48,6 +48,9 @@ class SearchQuery
 
     # Resolve collective from collective: handle
     resolve_collective_from_handle
+
+    # Viewer-state filters are meaningless without a viewer.
+    enforce_my_filters_require_user
   end
 
   private
@@ -140,7 +143,7 @@ class SearchQuery
   # of any of these suppresses the People section entirely; the viewer's
   # query string is clearly looking for content.
   PEOPLE_INCOMPATIBLE_PARAM_KEYS = [
-    :type, :exclude_types, :subtypes, :exclude_subtypes, :status, :creator_handles, :exclude_creator_handles, :read_by_handles, :exclude_read_by_handles, :voter_handles, :exclude_voter_handles, :participant_handles, :exclude_participant_handles, :mentions_handles, :exclude_mentions_handles, :replying_to_handles, :exclude_replying_to_handles, :critical_mass_achieved, :min_links, :max_links, :min_backlinks, :max_backlinks, :min_comments, :max_comments, :min_readers, :max_readers, :min_voters, :max_voters, :min_participants, :max_participants, :after_date, :before_date, :visibility, :exclude_visibility,
+    :type, :exclude_types, :subtypes, :exclude_subtypes, :status, :creator_handles, :exclude_creator_handles, :read_by_handles, :exclude_read_by_handles, :voter_handles, :exclude_voter_handles, :participant_handles, :exclude_participant_handles, :mentions_handles, :exclude_mentions_handles, :replying_to_handles, :exclude_replying_to_handles, :my_filters, :exclude_my_filters, :critical_mass_achieved, :min_links, :max_links, :min_backlinks, :max_backlinks, :min_comments, :max_comments, :min_readers, :max_readers, :min_voters, :max_voters, :min_participants, :max_participants, :after_date, :before_date, :visibility, :exclude_visibility,
   ].freeze
 
   sig { returns(T::Array[User]) }
@@ -537,6 +540,7 @@ class SearchQuery
     # Feed pages (a fixed page scope is what makes a page a feed) browse
     # instead: a blank query shows everything in scope.
     return SearchIndex.none if @raw_query.blank? && @fixed_params.blank?
+    return SearchIndex.none if @my_filters_unresolvable
 
     # Use tenant_scoped_only to bypass collective scope while keeping tenant scope
     # We handle collective filtering explicitly below with accessible_collective_ids
@@ -561,6 +565,7 @@ class SearchQuery
     apply_time_window
     apply_basic_filters
     apply_user_filters
+    apply_my_filters
     apply_list_filter
     apply_integer_filters
     apply_boolean_filters
@@ -570,6 +575,16 @@ class SearchQuery
     @relation = T.must(@relation).includes(:collective, :created_by)
 
     @relation
+  end
+
+  sig { void }
+  def enforce_my_filters_require_user
+    return if @current_user.present?
+    return if Array(@params[:my_filters]).blank? && Array(@params[:exclude_my_filters]).blank?
+
+    @warnings ||= []
+    T.must(@warnings) << "my: filters need a signed-in user — showing no results"
+    @my_filters_unresolvable = T.let(true, T.nilable(T::Boolean))
   end
 
   sig { returns(T::Array[String]) }
@@ -813,6 +828,110 @@ class SearchQuery
     apply_participant_filter
     apply_mentions_filter
     apply_replying_to_filter
+  end
+
+  # `my:<notified|unread|read>` — viewer-state filters. Each value becomes
+  # an independently composable SQL condition (EXISTS subqueries, never
+  # joins: read-by/voter already claim the unaliased user_item_status join,
+  # and my: values must combine with them and each other). Multiple values
+  # union (like other multi operators); negations intersect.
+  sig { void }
+  def apply_my_filters
+    positives = Array(@params[:my_filters])
+    negatives = Array(@params[:exclude_my_filters])
+    return if positives.blank? && negatives.blank?
+
+    if positives.present?
+      conditions = positives.map { |value| my_filter_condition(value) }
+      sql = conditions.map { |c, _| "(#{c})" }.join(" OR ")
+      @relation = T.must(@relation).where(sql, *conditions.flat_map { |_, binds| binds })
+    end
+
+    negatives.each do |value|
+      condition, binds = my_filter_condition(value)
+      @relation = T.must(@relation).where("NOT (#{condition})", *binds)
+    end
+  end
+
+  sig { params(value: String).returns([String, T::Array[T.untyped]]) }
+  def my_filter_condition(value)
+    user_id = T.must(@current_user).id
+    read_exists = <<~SQL.squish
+      EXISTS (SELECT 1 FROM user_item_status uis
+              WHERE uis.item_id = search_index.item_id
+              AND uis.item_type = search_index.item_type
+              AND uis.tenant_id = search_index.tenant_id
+              AND uis.user_id = ?
+              AND uis.has_read = true)
+    SQL
+
+    case value
+    when "read"
+      [read_exists, [user_id]]
+    when "unread"
+      # Read state is a note concept — decisions/commitments are neither
+      # read nor unread, so they are excluded rather than always-matching.
+      ["search_index.item_type = 'Note' AND NOT #{read_exists}", [user_id]]
+    when "notified"
+      notified_items_condition
+    else
+      # Parser validation makes this unreachable; fail closed if it drifts.
+      ["1=0", []]
+    end
+  end
+
+  # Items behind the viewer's undismissed, due, in-app notifications — the
+  # inbox projected onto the feed. Evented notifications resolve through
+  # their event's subject (comments climb to the thread root); reminders
+  # resolve through notes.reminder_notification_id. Placeless notifications
+  # (chat, tenant-level) have no content item and resolve to nothing.
+  sig { returns([String, T::Array[T.untyped]]) }
+  def notified_items_condition
+    items = notified_items_by_type
+    return ["1=0", []] if items.empty?
+
+    sql = items.keys.map { "(search_index.item_type = ? AND search_index.item_id IN (?))" }.join(" OR ")
+    binds = items.flat_map { |type, ids| [type, ids] }
+    [sql, binds]
+  end
+
+  sig { returns(T::Hash[String, T::Array[String]]) }
+  def notified_items_by_type
+    notification_ids = NotificationRecipient
+      .where(user: @current_user, tenant: @tenant)
+      .in_app.undismissed.not_scheduled
+      .pluck(:notification_id).uniq
+    return {} if notification_ids.empty?
+
+    items = Hash.new { |h, k| h[k] = [] }
+    notified_event_subjects(notification_ids).each { |type, id| items[type] << id }
+
+    # Reminders: the reminder note is the content item.
+    Note.tenant_scoped_only(@tenant.id)
+      .where(reminder_notification_id: notification_ids)
+      .pluck(:id).each { |id| items["Note"] << id }
+
+    items.transform_values!(&:uniq)
+    items
+  end
+
+  sig { params(notification_ids: T::Array[String]).returns(T::Array[[String, String]]) }
+  def notified_event_subjects(notification_ids)
+    event_ids = Notification.tenant_scoped_only(@tenant.id)
+      .where(id: notification_ids).where.not(event_id: nil).pluck(:event_id)
+    subject_pairs = Event.tenant_scoped_only(@tenant.id)
+      .where(id: event_ids, subject_type: ["Note", "Decision", "Commitment"])
+      .pluck(:subject_type, :subject_id)
+
+    # Comment subjects point the viewer at the thread, not the comment row
+    # (feeds exclude comment rows structurally).
+    note_ids = subject_pairs.filter_map { |type, id| id if type == "Note" }
+    resolved = Note.tenant_scoped_only(@tenant.id).where(id: note_ids).filter_map do |note|
+      root = note.subtype == "comment" ? note.root_commentable : note
+      [root.class.name, root.id] if root
+    end
+
+    resolved + subject_pairs.reject { |pair| pair.first == "Note" }
   end
 
   # `list:<id|mutuals|tuned_in>` narrows content to items authored by

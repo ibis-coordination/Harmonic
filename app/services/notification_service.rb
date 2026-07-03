@@ -195,19 +195,24 @@ class NotificationService
       .in_app.unread.not_scheduled.count
   end
 
-  # Unread counts grouped by the notification event's collective, for the
-  # rail's per-collective badges. Reminders (no event) have no collective and
-  # are excluded — they only count toward the header total. String joins keep
-  # the Notification/Event default scopes (thread collective scope) out of
-  # the query: badges must cover every collective, not just the current one.
+  # Unread counts grouped by collective, for the rail's per-collective
+  # badges. A notification's collective is its event's (mentions, comments,
+  # ...) or, for reminders — which have no event — the reminder note's,
+  # derived through notes.reminder_notification_id. Truly placeless
+  # notifications (chat, tenant-level) only count toward the header total.
+  # String joins keep the Notification/Event/Note default scopes (thread
+  # collective scope) out of the query: badges must cover every collective,
+  # not just the current one.
   sig { params(user: User, tenant: Tenant).returns(T::Hash[String, Integer]) }
   def self.unread_count_by_collective_for(user, tenant:)
     NotificationRecipient
       .where(user: user, tenant: tenant)
       .in_app.unread.not_scheduled
       .joins("INNER JOIN notifications ON notifications.id = notification_recipients.notification_id")
-      .joins("INNER JOIN events ON events.id = notifications.event_id")
-      .group("events.collective_id")
+      .joins("LEFT JOIN events ON events.id = notifications.event_id")
+      .joins("LEFT JOIN notes ON notes.reminder_notification_id = notifications.id")
+      .where("events.collective_id IS NOT NULL OR notes.collective_id IS NOT NULL")
+      .group(Arel.sql("COALESCE(events.collective_id, notes.collective_id)"))
       .count
   end
 
@@ -307,7 +312,13 @@ class NotificationService
   sig { params(tenant: Tenant, collective_id: String).returns(T::Array[String]) }
   def self.notification_ids_for_collective(tenant, collective_id)
     event_ids = Event.tenant_scoped_only(tenant.id).where(collective_id: collective_id).pluck(:id)
-    Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
+    evented = Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
+    # Reminders have no event; their home is the reminder note's collective.
+    reminders = Note.tenant_scoped_only(tenant.id)
+      .where(collective_id: collective_id)
+      .where.not(reminder_notification_id: nil)
+      .pluck(:reminder_notification_id)
+    (evented + reminders).uniq
   end
 
   sig { params(tenant: Tenant, subject: ApplicationRecord).returns(T::Array[String]) }

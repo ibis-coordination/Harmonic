@@ -686,4 +686,29 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal 1, result[:warnings].size
     assert_includes result[:warnings].first, "status:maybe"
   end
+
+  # my: — the viewer-state namespace (filters on the current user's own
+  # state per item, unlike list:/creator: which resolve to authors)
+
+  test "my: parses its known values" do
+    result = SearchQueryParser.new("my:notified").parse
+    assert_equal ["notified"], result[:my_filters]
+
+    result = SearchQueryParser.new("my:unread,read").parse
+    assert_equal ["unread", "read"], result[:my_filters]
+  end
+
+  test "negated my: values parse into the exclusion param" do
+    result = SearchQueryParser.new("-my:read").parse
+    assert_equal ["read"], result[:exclude_my_filters]
+    assert_nil result[:my_filters]
+  end
+
+  test "invalid my: value warns and names the valid values" do
+    result = SearchQueryParser.new("my:bogus").parse
+    assert_nil result[:my_filters]
+    assert_equal 1, result[:warnings].size
+    assert_includes result[:warnings].first, "my:bogus"
+    assert_includes result[:warnings].first, "notified, unread, read"
+  end
 end

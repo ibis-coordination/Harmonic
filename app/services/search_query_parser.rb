@@ -38,6 +38,12 @@ class SearchQueryParser
     "visibility" => { values: ["public", "shared", "private"], multi: true },
 
     # User filters
+    # Viewer-state filters: the viewer's own state per item (notification
+    # queue, read confirmations), unlike creator:/list: which resolve to
+    # authors. Requires a signed-in user — SearchQuery warns and matches
+    # nothing otherwise.
+    "my" => { values: ["notified", "unread", "read"], multi: true },
+
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
     "read-by" => { pattern: HANDLE_PATTERN, multi: true },
     "voter" => { pattern: HANDLE_PATTERN, multi: true },
@@ -293,6 +299,10 @@ class SearchQueryParser
     params[:exclude_mentions_handles] = build_negated_user_filter_param("mentions")
     params[:replying_to_handles] = build_user_filter_param("replying-to")
     params[:exclude_replying_to_handles] = build_negated_user_filter_param("replying-to")
+
+    # Viewer-state filters
+    params[:my_filters] = (@operators["my"] || []).uniq.presence
+    params[:exclude_my_filters] = (@negated_operators["my"] || []).uniq.presence
 
     # Boolean filters
     params[:critical_mass_achieved] = build_boolean_param("critical-mass-achieved")
