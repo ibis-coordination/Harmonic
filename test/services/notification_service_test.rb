@@ -592,6 +592,47 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_not other_recipient.reload.read?
   end
 
+  test "confirm_read! clears the in-app notification about that note" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    author = create_user
+    tenant.add_user!(author)
+    collective.add_user!(author)
+    note = create_note(tenant: tenant, collective: collective, created_by: author)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: author, subject: note)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Mentioned in note")
+    recipient = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    note.confirm_read!(user)
+
+    assert recipient.reload.read?
+  end
+
+  test "commenting on a note clears the commenter's notification about the parent" do
+    # The after_create auto-confirm path (commentable.confirm_read!) never routes
+    # through ApiHelper, so this case is only covered because the mark lives in
+    # Note#confirm_read! itself.
+    tenant, collective, author = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    commenter = create_user
+    tenant.add_user!(commenter)
+    collective.add_user!(commenter)
+    parent = create_note(tenant: tenant, collective: collective, created_by: author)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: author, subject: parent)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Mentioned in note")
+    recipient = NotificationRecipient.create!(notification: notification, user: commenter, channel: "in_app", status: "pending", tenant: tenant)
+
+    create_note(tenant: tenant, collective: collective, created_by: commenter, commentable: parent, title: "A reply")
+
+    assert recipient.reload.read?, "commenting should clear the commenter's notification about the parent note"
+  end
+
   test "mark_all_read_reminders only marks due reminders without events" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
