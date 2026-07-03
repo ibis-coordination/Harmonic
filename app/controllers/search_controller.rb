@@ -3,6 +3,7 @@
 class SearchController < ApplicationController
   def show
     @page_title = "Search"
+    @page_query = params[:q].to_s.strip.presence
     @sidebar_mode = "minimal"
 
     @search = SearchQuery.new(

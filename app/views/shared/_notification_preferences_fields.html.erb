@@ -20,8 +20,12 @@
 <%# Simple mode is a single on/off box per type, mapped to the in_app channel
     (agents have no email address); the full matrix renders every channel. Drive
     both from one channels list so the header and body never drift. %>
-<% channels = simple ? %w[in_app] : TenantUser::NOTIFICATION_CHANNELS %>
-<% channel_label = ->(channel) { channel == "in_app" ? "In-app" : "Email" } %>
+<%# editable_notification_channels drops columns that can't deliver here (e.g.
+    web_push without both flags + VAPID). The form-processing side uses the
+    same list so absent boxes are only recorded as "off" when they were
+    actually on screen. %>
+<% channels = simple ? %w[in_app] : @current_tenant.editable_notification_channels %>
+<% channel_label = ->(channel) { { "in_app" => "In-app", "email" => "Email", "web_push" => "Push" }.fetch(channel) } %>
 <table class="pulse-table">
   <thead>
     <tr>

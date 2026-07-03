@@ -1,0 +1,42 @@
+<nav class="pulse-rail" aria-label="Collectives" data-controller="rail-badges">
+  <% if @main_collective %>
+    <%= tag.a href: "/",
+              class: ["pulse-rail-item", "pulse-rail-public", ("active" if public_space_active?)],
+              title: "Public space",
+              aria: { label: "Public space", current: ("page" if public_space_active?) } do %>
+      <span class="pulse-rail-indicator"></span>
+      <span class="pulse-rail-globe"><%= helpers.octicon "globe", height: 22 %></span>
+      <span class="pulse-rail-badge" data-collective-id="<%= @main_collective.id %>"
+            style="<%= badge_style(@main_collective) %>"><%= badge_text(@main_collective) %></span>
+    <% end %>
+    <%= tag.a href: "/chat",
+              class: ["pulse-rail-item", "pulse-rail-chat", ("active" if chat_active?)],
+              title: "Chat",
+              aria: { label: "Chat", current: ("page" if chat_active?) } do %>
+      <span class="pulse-rail-indicator"></span>
+      <span class="pulse-rail-chat-icon"><%= helpers.octicon "comment-discussion", height: 22 %></span>
+      <span class="pulse-rail-badge" data-chat-badge
+            style="<%= chat_badge_style %>"><%= chat_badge_text %></span>
+    <% end %>
+    <div class="pulse-rail-divider"></div>
+  <% end %>
+
+  <% @collectives.each do |collective| %>
+    <%= tag.a href: collective.path,
+              class: ["pulse-rail-item", ("active" if active?(collective))],
+              title: collective.name,
+              aria: { label: collective.name, current: ("page" if active?(collective)) } do %>
+      <span class="pulse-rail-indicator"></span>
+      <%= helpers.inline_avatar(collective, css_class: "pulse-rail-avatar", variant: :icon) %>
+      <span class="pulse-rail-badge" data-collective-id="<%= collective.id %>"
+            style="<%= badge_style(collective) %>"><%= badge_text(collective) %></span>
+    <% end %>
+  <% end %>
+
+  <%# Utility entry, not a place: it gets no indicator and no active state,
+      and pins to the rail's bottom edge. %>
+  <a href="/collectives" class="pulse-rail-item pulse-rail-add"
+     title="Create or join a collective" aria-label="Create or join a collective">
+    <%= helpers.octicon "plus", height: 20 %>
+  </a>
+</nav>

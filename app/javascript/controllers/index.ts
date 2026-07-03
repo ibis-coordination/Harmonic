@@ -12,6 +12,7 @@ window.Stimulus = application
 
 // Import all controllers
 import AjaxToggleController from "./ajax_toggle_controller"
+import AutoHideHeaderController from "./auto_hide_header_controller"
 import ListFormController from "./list_form_controller"
 import CardExpandController from "./card_expand_controller"
 import CardNavigateController from "./card_navigate_controller"
@@ -47,6 +48,8 @@ import MoreButtonController from "./more_button_controller"
 import NavController from "./nav_controller"
 import NotificationActionsController from "./notification_actions_controller"
 import NotificationBadgeController from "./notification_badge_controller"
+import PlacesSheetController from "./places_sheet_controller"
+import RailBadgesController from "./rail_badges_controller"
 import CsvImportController from "./csv_import_controller"
 import NoteController from "./note_controller"
 import NoteMediaUploaderController from "./note_media_uploader_controller"
@@ -81,9 +84,11 @@ import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
 import TabsController from "./tabs_controller"
 import WebhookTestController from "./webhook_test_controller"
+import WebPushController from "./web_push_controller"
 
 // Register all controllers
 application.register("ajax-toggle", AjaxToggleController)
+application.register("auto-hide-header", AutoHideHeaderController)
 application.register("card-expand", CardExpandController)
 application.register("card-navigate", CardNavigateController)
 application.register("clipboard", ClipboardController)
@@ -122,6 +127,8 @@ application.register("more-button", MoreButtonController)
 application.register("nav", NavController)
 application.register("notification-actions", NotificationActionsController)
 application.register("notification-badge", NotificationBadgeController)
+application.register("places-sheet", PlacesSheetController)
+application.register("rail-badges", RailBadgesController)
 application.register("note", NoteController)
 application.register("note-media-uploader", NoteMediaUploaderController)
 application.register("note-subtype", NoteSubtypeController)
@@ -153,5 +160,6 @@ application.register("summary-toggle", SummaryToggleController)
 application.register("dialog", DialogController)
 application.register("tabs", TabsController)
 application.register("webhook-test", WebhookTestController)
+application.register("web-push", WebPushController)
 
 export { application }

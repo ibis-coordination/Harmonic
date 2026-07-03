@@ -6,7 +6,6 @@ class EmailConfirmationMailer < ApplicationMailer
     @confirm_url = confirm_email_url(raw_token, tenant)
     mail(
       to: identity.email,
-      from: ENV["MAILER_FROM_ADDRESS"] || "noreply@harmonic.social",
       subject: "Confirm your email on #{ENV['HOSTNAME']}",
     )
   end

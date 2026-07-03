@@ -313,14 +313,17 @@ class TrusteeGrantsController < ApplicationController
     rep_session = api_helper.start_user_representation_session(grant: @grant)
 
     # For API/markdown, we return success with session info (no cookies)
-    # Include both full ID and truncated_id - the X-Representation-Session-ID header accepts either
+    # Include both full ID and truncated_id - the declared session id accepts either
     render_action_success({
                             action_name: "start_representation",
                             resource: rep_session,
                             result: "Representation session started. You are now acting on behalf of #{@grant.granting_user.display_name || @grant.granting_user.handle}.\n\n" \
                                     "Session ID: `#{rep_session.id}`\n" \
                                     "Short ID: `#{rep_session.truncated_id}`\n\n" \
-                                    "Use the session ID in the `X-Representation-Session-ID` header for subsequent API requests.",
+                                    "Declare this session on every call you make on their behalf: set " \
+                                    "`context.representation_session_id` to the session ID and `identity.acting_as` to " \
+                                    "`@#{@grant.granting_user.handle}` on `execute_action` (`identity.viewing_as` on `fetch_page` reads). " \
+                                    "See /help/agents/representation.",
                             redirect_to: trustee_grant_show_path(@grant),
                           })
   rescue ArgumentError => e

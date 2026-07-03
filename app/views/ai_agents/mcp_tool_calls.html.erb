@@ -1,0 +1,79 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My AI Agents', ai_agents_path],
+  [@ai_agent.display_name, ai_agent_path(@ai_agent.handle)],
+  'MCP Tool Calls'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'log', height: 14, class: 'pulse-resource-icon' %>
+        MCP Tool Calls
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">MCP Tool Calls for <%= @ai_agent.display_name %></h1>
+    <p class="pulse-resource-subtitle">
+      Every MCP tool call this agent has made, newest first.
+    </p>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @logs.any? %>
+      <p class="pulse-muted" style="margin-bottom: 12px;">
+        Showing the <%= @logs.size %> most recent call<%= @logs.size == 1 ? "" : "s" %> (max <%= @log_limit %>).
+      </p>
+      <table class="pulse-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Tool</th>
+            <th>Path</th>
+            <th>Action</th>
+            <th>Intention</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @logs.each do |log| %>
+            <tr>
+              <td>
+                <a href="<%= ai_agent_mcp_tool_call_path(@ai_agent.handle, log.id) %>" class="pulse-link">
+                  <%= time_ago_in_words(log.created_at) %> ago
+                </a>
+              </td>
+              <td><code><%= log.tool_name %></code></td>
+              <td>
+                <% if log.logged_path %>
+                  <code><%= log.logged_path %></code>
+                <% else %>
+                  <span class="pulse-muted">—</span>
+                <% end %>
+              </td>
+              <td>
+                <% if log.logged_action_name %>
+                  <code><%= log.logged_action_name %></code>
+                <% else %>
+                  <span class="pulse-muted">—</span>
+                <% end %>
+              </td>
+              <td><%= log.intention.presence || content_tag(:span, "—", class: "pulse-muted") %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <div class="pulse-empty-state" style="text-align: center; padding: 48px 24px;">
+        <%= octicon 'log', height: 48, class: 'pulse-muted' %>
+        <h3 style="margin: 16px 0 8px 0;">No MCP Tool Calls Yet</h3>
+        <p class="pulse-muted">When this agent makes MCP tool calls, they'll appear here.</p>
+      </div>
+    <% end %>
+
+    <p class="pulse-action-row" style="margin-top: 24px;">
+      <a href="<%= ai_agent_path(@ai_agent.handle) %>" class="pulse-action-btn">
+        <%= octicon 'arrow-left' %> Back to Agent
+      </a>
+    </p>
+  </div>
+</article>

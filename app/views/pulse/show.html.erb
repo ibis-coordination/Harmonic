@@ -1,32 +1,4 @@
-<% if @current_user && @current_heartbeat.nil? && !@current_collective.private_workspace? %>
-  <div class="pulse-heartbeat-section" data-controller="heartbeat">
-    <button
-      class="pulse-heartbeat-btn"
-      data-heartbeat-target="sendButton"
-      data-url="<%= @current_collective.path %>/heartbeats"
-    >
-      <%= octicon 'heart' %>
-      <span data-heartbeat-target="sendButtonText">Send a Heartbeat</span>
-    </button>
-    <span data-heartbeat-target="fullHeart" class="pulse-heartbeat-full-heart" style="display:none;">
-      <%= octicon 'heart-fill' %>
-    </span>
-    <span data-heartbeat-target="heartbeatMessage">
-      to access <strong><%= @current_collective.name %></strong> <%= @cycle.display_name.downcase %>.
-    </span>
-    <%= render 'shared/tooltip' do %>
-      <p>Every collective has a tempo (daily, weekly, or monthly) that defines how frequently members of the collective should check in to keep everyone in sync.</p>
-      <p><strong><%= @current_collective.name %></strong>'s tempo is set to <code><%= @current_collective.tempo %></code>.</p>
-      <p style="margin-bottom:0;">Sending a heartbeat each <%= @cycle.unit %> signals your continuing presence to the group.</p>
-    <% end %>
-    <button data-heartbeat-target="dismissButton" class="pulse-heartbeat-dismiss" style="display:none;" title="Dismiss">
-      <%= octicon 'x' %>
-    </button>
-    <span data-heartbeat-target="heartbeatsIndexLink" style="display:none;">
-      <a href="<%= @current_collective.path %>/heartbeats">View all heartbeats</a>.
-    </span>
-  </div>
-<% end %>
+<%= render 'pulse/heartbeat_banner' %>
 
 <div class="pulse-filter-indicator" data-pulse-filter-target="indicator" style="display: none;">
   <span>Showing: <strong data-pulse-filter-target="indicatorLabel"></strong></span>

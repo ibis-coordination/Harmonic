@@ -31,6 +31,20 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Sign out/i, response.body)
   end
 
+  test "the device list shows one row per device even after many rotations (#326)" do
+    current = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    4.times { current = current.rotate! }
+    cookies[REFRESH_COOKIE] = T.must(current.plaintext_token)
+    RefreshToken.issue!(user: @user, two_factor_at: Time.current) # one genuinely-other device
+
+    get "/u/#{@user.handle}/settings"
+
+    assert_response :success
+    # One "Last used … ago" hint is rendered per listed device: the rotated
+    # predecessors of the current device must not each appear as their own row.
+    assert_equal 2, response.body.scan(/Last used .*? ago/).size
+  end
+
   # === destroy ===
 
   test "DELETE /settings/devices/:id revokes the specified device" do
@@ -73,7 +87,7 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     refute others_device.reload.revoked?, "must not be able to revoke another user's device through your own settings"
   end
 
-  test "DELETE with a revoked id is a graceful no-op (the listing scope is .active only)" do
+  test "DELETE with a revoked id is a graceful no-op (the listing scope is .live only)" do
     revoked = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
     revoked.revoke!(reason: "user_logout")
     original_time = revoked.revoked_at
@@ -110,6 +124,22 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     assert b.reload.revoked?
   end
 
+  test "rotated predecessors don't count as separate devices in revoke_others (#326)" do
+    # One physical device that has silently refreshed many times. Each refresh
+    # rotates the token, leaving a rotated-but-not-revoked predecessor behind.
+    current = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    5.times { current = current.rotate! }
+    cookies[REFRESH_COOKIE] = T.must(current.plaintext_token)
+    other = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+
+    post "/u/#{@user.handle}/settings/devices/revoke_others"
+
+    assert other.reload.revoked?, "the one genuinely-other device is signed out"
+    refute current.reload.revoked?, "the current device stays signed in"
+    assert_equal "Signed out of 1 other device.", flash[:notice],
+                 "count reflects live devices, not the rotation chain"
+  end
+
   test "revoke_others does not touch other users' devices" do
     current = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
     cookies[REFRESH_COOKIE] = T.must(current.plaintext_token)
@@ -119,6 +149,47 @@ class DevicesControllerTest < ActionDispatch::IntegrationTest
     post "/u/#{@user.handle}/settings/devices/revoke_others"
 
     refute others_device.reload.revoked?
+  end
+
+  # === signing out revokes the whole token family, not just the live tail ===
+  # A device is a token family (login + every silent rotation). Rotated
+  # predecessors keep revoked_at nil so replay detection can still find them;
+  # if "Sign out" revoked only the tail, a predecessor presented inside its
+  # REPLAY_GRACE_WINDOW could re-establish a session on a just-signed-out
+  # device. So both actions revoke by family.
+
+  test "DELETE signs out the whole token family, including rotated predecessors" do
+    device = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    successor = device.rotate! # `device` is now a rotated-but-not-revoked predecessor
+    # The device list shows the live tail; that's the id the Sign-out button targets.
+    delete "/u/#{@user.handle}/settings/devices/#{successor.id}"
+
+    assert successor.reload.revoked?, "the live tail is signed out"
+    assert device.reload.revoked?,
+           "the rotated predecessor must also be revoked so it can't re-establish a session in its grace window"
+    assert_equal "user_logout", device.revoked_reason
+  end
+
+  test "revoke_others signs out other families whole, but never the current family's predecessors" do
+    # Current device that just silently refreshed: the cookie holds the live
+    # tail, and `current` is its in-flight rotated predecessor.
+    current = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    current_tail = current.rotate!
+    cookies[REFRESH_COOKIE] = T.must(current_tail.plaintext_token)
+
+    # A genuinely-other device that has also rotated.
+    other = RefreshToken.issue!(user: @user, two_factor_at: Time.current)
+    other_tail = other.rotate!
+
+    post "/u/#{@user.handle}/settings/devices/revoke_others"
+
+    assert other.reload.revoked?, "the other family's rotated predecessor is revoked"
+    assert other_tail.reload.revoked?, "the other family's live tail is revoked"
+    refute current_tail.reload.revoked?, "the current device stays signed in"
+    refute current.reload.revoked?,
+           "the current family's rotated predecessor must survive — a sibling tab may present it mid-race"
+    assert_equal "Signed out of 1 other device.", flash[:notice],
+                 "count reflects live devices (families), not tokens"
   end
 
   # === actual sign-out enforcement on revoked tokens ===

@@ -123,6 +123,69 @@ class McpToolCallLogTest < ActiveSupport::TestCase
     assert_equal task_run, log.ai_agent_task_run
   end
 
+  test "recent scope orders newest first" do
+    older = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "search", status: "ok", duration_ms: 1, created_at: 2.hours.ago
+    )
+    newer = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "fetch_page", status: "ok", duration_ms: 1, created_at: 1.minute.ago
+    )
+
+    assert_equal [newer, older], McpToolCallLog.recent.to_a
+  end
+
+  test "internal? and source_label reflect the ai_agent_task_run association" do
+    external = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "search", status: "ok", duration_ms: 1
+    )
+    assert_not external.internal?
+    assert_equal "External client", external.source_label
+
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @agent, initiated_by: @user,
+      task: "test", max_steps: 5, status: "running"
+    )
+    internal = McpToolCallLog.create!(
+      tenant: @tenant, user: @agent, api_token: @token,
+      tool_name: "search", status: "ok", duration_ms: 1, ai_agent_task_run: task_run
+    )
+    assert internal.internal?
+    assert_equal "Internal task run", internal.source_label
+  end
+
+  test "logged_path returns the path argument, or nil when absent" do
+    with_path = McpToolCallLog.new(arguments: { "path" => "/collectives/team/n/abc123", "action" => "add_comment" })
+    assert_equal "/collectives/team/n/abc123", with_path.logged_path
+
+    without_path = McpToolCallLog.new(arguments: { "query" => "budget" })
+    assert_nil without_path.logged_path
+
+    assert_nil McpToolCallLog.new(arguments: nil).logged_path
+    assert_nil McpToolCallLog.new(arguments: { "path" => "" }).logged_path
+  end
+
+  test "logged_action_name returns the action for execute_action, nil otherwise" do
+    action_call = McpToolCallLog.new(arguments: { "path" => "/x", "action" => "update_row" })
+    assert_equal "update_row", action_call.logged_action_name
+
+    fetch_call = McpToolCallLog.new(arguments: { "path" => "/x" })
+    assert_nil fetch_call.logged_action_name
+
+    assert_nil McpToolCallLog.new(arguments: nil).logged_action_name
+  end
+
+  test "intention returns the context intention, or nil when absent" do
+    with_intention = McpToolCallLog.new(context: { "intention" => "Reply to Dan on the thread", "visibility" => "shared" })
+    assert_equal "Reply to Dan on the thread", with_intention.intention
+
+    assert_nil McpToolCallLog.new(context: { "visibility" => "shared" }).intention
+    assert_nil McpToolCallLog.new(context: nil).intention
+    assert_nil McpToolCallLog.new(context: { "intention" => "" }).intention
+  end
+
   test "destroying the api_token nullifies the log's api_token_id (audit row survives)" do
     # Task-scoped internal tokens are destroyed on task completion. Logs
     # written during the task must survive that destroy — the audit trail

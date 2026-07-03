@@ -8,20 +8,13 @@
 
   <div class="pulse-resource-body">
     <section class="pulse-settings-section">
-      <%= form_with url: "/search", method: :get, local: true, class: 'pulse-form pulse-filters-form' do |form| %>
-        <div class="pulse-form-row">
-          <div class="pulse-form-group pulse-form-group-wide">
-            <%= form.text_field :q,
-                value: params[:q],
-                class: 'pulse-form-input',
-                placeholder: 'Search',
-                style: 'font-family: monospace;' %>
-          </div>
-          <div class="pulse-form-group pulse-form-group-submit">
-            <%= form.submit 'Search', class: 'pulse-action-btn', name: nil %>
-          </div>
-        </div>
-      <% end %>
+      <%= render FeedSearchBarComponent.new(
+        action: "/search",
+        query: params[:q],
+        warnings: @search.warnings,
+        placeholder: "Search",
+        submit_label: "Search",
+      ) %>
     </section>
 
     <% if @search.raw_query.present? && @people_results.present? %>
@@ -60,7 +53,10 @@
 
       <section class="pulse-settings-section">
         <% if @grouped_results.empty? && @people_results.empty? %>
-          <p class="pulse-empty-content"><em>No results found.</em></p>
+          <p class="pulse-empty-content">
+            <em>No results found.</em>
+            <%= link_to "Clear search", "/search" %>
+          </p>
         <% elsif @grouped_results.empty? %>
           <%# People matched but no content — say nothing here; the People section above stands on its own. %>
         <% else %>
@@ -117,7 +113,7 @@
           <tr><th>Operator</th><th>Values</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>scope:</code></td><td>public, shared, private</td></tr>
+          <tr><td><code>visibility:</code></td><td>public, shared, private</td></tr>
           <tr><td><code>collective:</code></td><td>collective handle</td></tr>
           <tr><td><code>list:</code></td><td>list id, or <code>mutuals</code> / <code>tuned_in</code> (your own)</td></tr>
           <tr><td><code>type:</code></td><td>note, decision, commitment</td></tr>

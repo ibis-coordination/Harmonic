@@ -7,6 +7,10 @@ class CommentComponentTest < ViewComponent::TestCase
   include ComponentTestHelper
 
   setup do
+    # Block markdown rendering resolves resource links, which needs tenant/
+    # collective context (see MarkdownRenderer#display_refereces).
+    Current.tenant_subdomain = "test"
+    Current.collective_handle = "test-collective"
     @user = build_user(display_name: "Alice", handle: "alice")
     @comment = build_note(
       truncated_id: "abc12345",
@@ -16,6 +20,10 @@ class CommentComponentTest < ViewComponent::TestCase
     )
     @comment.define_singleton_method(:commentable_type) { "Decision" }
     @comment.define_singleton_method(:commentable) { nil }
+  end
+
+  teardown do
+    Current.reset
   end
 
   test "renders comment with author" do
@@ -44,6 +52,28 @@ class CommentComponentTest < ViewComponent::TestCase
                     root_comment_id: "root123"
                   ))
     assert_text "Hello world"
+  end
+
+  test "renders multi-paragraph comment body as separate paragraphs (issue #359)" do
+    comment = build_note(
+      truncated_id: "multi123",
+      text: "line 1\n\nline 2",
+      created_at: 1.hour.ago,
+      created_by: @user
+    )
+    comment.define_singleton_method(:commentable_type) { "Decision" }
+    comment.define_singleton_method(:commentable) { nil }
+
+    render_inline(CommentComponent.new(
+                    comment: comment,
+                    show_reply_context: false,
+                    root_comment_id: "root123"
+                  ))
+    # Block rendering keeps each paragraph in its own <p>, so the author's
+    # blank line survives instead of collapsing "line 1" and "line 2" together.
+    assert_selector ".pulse-comment-body p", count: 2
+    assert_selector ".pulse-comment-body p", text: "line 1"
+    assert_selector ".pulse-comment-body p", text: "line 2"
   end
 
   test "renders timestamp link" do
@@ -148,7 +178,7 @@ class CommentComponentTest < ViewComponent::TestCase
                     show_reply_context: false,
                     root_comment_id: "root123"
                   ))
-    assert_selector ".pulse-ai-agent-label", text: /managed by/
+    assert_selector ".pulse-ai-agent-label", text: /agent of/
   end
 
   test "renders reply context when applicable" do

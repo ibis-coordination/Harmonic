@@ -120,6 +120,8 @@ gem 'omniauth-identity', '~> 3.1'
 gem 'rotp', '~> 6.3'      # Time-based One-Time Password implementation
 gem 'rqrcode', '~> 2.2'   # QR code generation for 2FA setup
 
+gem 'web-push', '~> 3.0' # Web Push notification delivery (VAPID)
+
 gem 'rubyzip', '~> 2.3' # ZIP archive creation for data exports
 gem 'redcarpet'
 gem 'octicons_helper'

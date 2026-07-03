@@ -8,6 +8,8 @@
     <h1 class="pulse-page-title"><%= octicon 'inbox', height: 20 %> Notifications</h1>
   </header>
 
+  <%= render 'push_optin_banner' if @show_push_banner %>
+
   <div data-controller="notification-actions">
     <% if @notification_recipients.empty? %>
       <div class="pulse-notifications-empty">

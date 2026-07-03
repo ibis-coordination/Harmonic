@@ -1376,6 +1376,475 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
                  "untrusted return_to must fall through to the default settings redirect")
   end
 
+  # === Member Management Tests (issue #316) ===
+  #
+  # Member management runs through the standard action pipeline:
+  #   POST /collectives/:handle/members/actions/{update_member_roles,remove_member}
+  # The markdown (action API) contract returns real HTTP status codes, so the
+  # behavioral tests drive the endpoints with an `Accept: text/markdown` header.
+
+  MEMBER_MGMT_MD = { "Accept" => "text/markdown" }.freeze
+
+  def add_member(name:, roles: [])
+    user = create_user(name: name)
+    @tenant.add_user!(user)
+    @collective.add_user!(user, roles: roles)
+    user
+  end
+
+  # The member-management actions identify their target by handle (the id the
+  # markdown/agent interface exposes), not the internal numeric user id.
+  def handle_for(user)
+    user.tenant_users.find_by(tenant_id: @tenant.id).handle
+  end
+
+  def update_roles_path(collective = @collective)
+    "/collectives/#{collective.handle}/members/actions/update_member_roles"
+  end
+
+  def remove_member_path(collective = @collective)
+    "/collectives/#{collective.handle}/members/actions/remove_member"
+  end
+
+  # Mint a write-scoped API token for an agent — agents authenticate via Bearer
+  # token, not browser sessions (those are redirected), so the elevation-of-
+  # privilege tests below drive the action endpoints the way an agent actually
+  # would.
+  def agent_api_token(agent)
+    # Bearer-token auth is gated on the tenant (and the collective) having API
+    # access enabled — otherwise the request is rejected with a 403 "API not
+    # enabled for this tenant" before it ever reaches the action.
+    @tenant.enable_api!
+    @collective.enable_api!
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def agent_md_headers(agent)
+    { "Authorization" => "Bearer #{agent_api_token(agent).plaintext_token}", "Accept" => "text/markdown" }
+  end
+
+  test "members page shows management controls for admins" do
+    add_member(name: "Regular Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    # Admins get a per-member kebab menu whose items POST to the action endpoints.
+    assert_select "details.pulse-member-menu", minimum: 1
+    assert_select "form.pulse-member-menu-form[action$=?]", "/members/actions/update_member_roles", minimum: 1
+  end
+
+  test "members page hides management controls from non-admins" do
+    member = add_member(name: "Regular Member")
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    # No kebab menu and no action forms for non-admins.
+    assert_select "details.pulse-member-menu", count: 0
+    assert_select "form.pulse-member-menu-form", count: 0
+  end
+
+  test "admin can grant a role to a member" do
+    member = add_member(name: "Future Rep")
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(member), role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: member)
+    assert cm.has_role?("representative"), "expected the representative role to be granted"
+  end
+
+  test "admin can revoke a role from a member" do
+    member = add_member(name: "Demoted Rep", roles: ["representative"])
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(member), role: "representative", grant: "false" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: member)
+    assert_not cm.has_role?("representative"), "expected the representative role to be revoked"
+  end
+
+  test "non-admin cannot update member roles" do
+    actor = add_member(name: "Not An Admin")
+    target = add_member(name: "Target")
+    sign_in_as(actor, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative")
+  end
+
+  test "rejects an invalid role" do
+    member = add_member(name: "Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(member), role: "superuser", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+  end
+
+  test "cannot remove the admin role from the last admin" do
+    # @user is the only admin of @collective (set in setup).
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(@user), role: "admin", grant: "false" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: @user)
+    assert cm.has_role?("admin"), "the last admin must retain the admin role"
+  end
+
+  test "cannot revoke the admin role from the collective owner" do
+    # A second admin exists, so this is blocked by the owner guard rather than
+    # the last-admin guard.
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(@user), role: "admin", grant: "false" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: @user)
+    assert cm.has_role?("admin"), "the collective owner must remain an admin"
+  end
+
+  test "members page shows the owner admin as a pill, not a role toggle" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    # The owner's admin surfaces as a (non-revocable) pill…
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", @user.id.to_s, "admin"
+    # …and is never rendered as a revocable role-toggle form.
+    assert_select "form.pulse-member-menu-form[data-member-id=?][data-role=?]", @user.id.to_s, "admin", count: 0
+  end
+
+  test "members page renders a per-member kebab menu with add-role and remove items" do
+    member = add_member(name: "Regular Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # Each manageable member gets a kebab <details> menu for adding/removing
+    # roles (the role pills themselves are covered separately below).
+    assert_select "details.pulse-member-menu", minimum: 1
+    # A role the member lacks is offered as an "Add role" action whose form
+    # carries grant=true so the click adds the role.
+    assert_select "form.pulse-member-menu-form[data-member-id=?][data-role=?]", member.id.to_s, "representative" do
+      assert_select "input[name=?][value=?]", "grant", "true"
+    end
+    assert_match(/Add role representative/, response.body)
+    # …and the destructive action posts to the remove endpoint at the bottom.
+    assert_select "form.pulse-member-menu-form[action$=?] button.pulse-member-menu-item-danger",
+                  "/members/actions/remove_member"
+    assert_match(/Remove from collective/, response.body)
+  end
+
+  test "members page renders role pills for the roles a member holds" do
+    member = add_member(name: "Sitting Rep", roles: ["representative"])
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # The pill row shows the roles the member currently holds, so admins can see
+    # who has which roles at a glance.
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", member.id.to_s, "representative"
+    # A role the member does not hold gets no pill.
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", member.id.to_s, "summarizer", count: 0
+  end
+
+  test "members page renders the owner's admin as a pill" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # The owner always holds admin; it surfaces as a (non-revocable) pill.
+    assert_select "[data-role-pills-for=?] span[data-role-pill=?]", @user.id.to_s, "admin"
+  end
+
+  test "members page shows an already-held role as a 'Remove role' menu item" do
+    member = add_member(name: "Sitting Rep", roles: ["representative"])
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # A held role's form carries grant=false so the click revokes it.
+    assert_select "form.pulse-member-menu-form[data-member-id=?][data-role=?]", member.id.to_s, "representative" do
+      assert_select "input[name=?][value=?]", "grant", "false"
+    end
+    assert_match(/Remove role representative/, response.body)
+  end
+
+  test "members page does not offer a remove-from-collective item for the acting admin" do
+    # A second admin manages the page; they must not see a self-removal control
+    # (Leave handles that), though they can still toggle their own roles.
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+
+    # No remove form targeting the acting admin themselves.
+    assert_select "form.pulse-member-menu-form[action$=?] input[name=?][value=?]",
+                  "/members/actions/remove_member", "user_handle", handle_for(other_admin), count: 0
+  end
+
+  test "admin can revoke admin role when another admin remains" do
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(other_admin), role: "admin", grant: "false" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: other_admin)
+    assert_not cm.has_role?("admin")
+  end
+
+  test "admin can remove a member from the collective" do
+    member = add_member(name: "Leaving Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(member) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: member)
+    assert cm.archived?, "expected the membership to be archived"
+  end
+
+  test "cannot remove the collective owner" do
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(@user) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: @user)
+    assert_not cm.archived?, "the owner must not be removable"
+  end
+
+  test "admin cannot remove themselves via the member management UI" do
+    other_admin = add_member(name: "Second Admin", roles: ["admin"])
+    sign_in_as(other_admin, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(other_admin) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: other_admin)
+    assert_not cm.archived?, "self-removal must be blocked"
+  end
+
+  test "non-admin cannot remove a member" do
+    actor = add_member(name: "Not An Admin")
+    target = add_member(name: "Target")
+    sign_in_as(actor, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(target) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.archived?
+  end
+
+  test "removing a non-member returns 404" do
+    stranger = create_user(name: "Stranger")
+    @tenant.add_user!(stranger)
+    sign_in_as(@user, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(stranger) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :not_found
+  end
+
+  test "a non-member of the collective cannot update member roles" do
+    # The actor belongs to the tenant but is NOT a member of @collective. A
+    # non-member is stopped at the collective-membership boundary itself: the
+    # request is bounced to the collective's /join page before it ever reaches
+    # the member-management authz. That redirect *is* the denial — the mutation
+    # never runs — which is a strictly stronger guarantee than a 403 from the
+    # action.
+    outsider = create_user(name: "Tenant Outsider")
+    @tenant.add_user!(outsider)
+    target = add_member(name: "Target")
+    sign_in_as(outsider, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_redirected_to "#{@collective.path}/join"
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative"), "a non-member must not be able to grant roles"
+  end
+
+  test "a non-member of the collective cannot remove a member" do
+    # As above: a non-member is bounced to /join at the collective boundary
+    # before reaching the action, so the removal never runs.
+    outsider = create_user(name: "Tenant Outsider")
+    @tenant.add_user!(outsider)
+    target = add_member(name: "Target")
+    sign_in_as(outsider, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(target) },
+         headers: MEMBER_MGMT_MD
+
+    assert_redirected_to "#{@collective.path}/join"
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.archived?, "a non-member must not be able to remove members"
+  end
+
+  test "member roles cannot be managed on a private workspace even by its admin" do
+    # Every user is the admin of their own private workspace, so this passes the
+    # admin check and exercises the collective-type guard specifically: member
+    # management is forbidden on private workspaces (and the main collective).
+    sign_in_as(@user, tenant: @tenant)
+    workspace = Collective.unscoped.find_by(
+      tenant_id: @tenant.id,
+      created_by_id: @user.id,
+      collective_type: "private_workspace",
+    )
+    assert_not_nil workspace, "expected @user to own a private workspace"
+
+    post update_roles_path(workspace),
+         params: { user_handle: handle_for(@user), role: "representative", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :forbidden
+    assert_match(/cannot be managed/i, response.body)
+  end
+
+  test "members cannot be removed from a private workspace even by its admin" do
+    sign_in_as(@user, tenant: @tenant)
+    workspace = Collective.unscoped.find_by(
+      tenant_id: @tenant.id,
+      created_by_id: @user.id,
+      collective_type: "private_workspace",
+    )
+    assert_not_nil workspace, "expected @user to own a private workspace"
+
+    post remove_member_path(workspace),
+         params: { user_handle: handle_for(@user) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :forbidden
+    assert_match(/cannot be managed/i, response.body)
+  end
+
+  test "the describe endpoint documents the update_member_roles params" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get update_roles_path, headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    assert_match(/update_member_roles/, response.body)
+    assert_match(/user_handle/, response.body)
+    assert_match(/role/, response.body)
+    assert_match(/grant/, response.body)
+  end
+
+  # Member management is a two-key elevation-of-privilege surface for AI agents:
+  # the agent needs BOTH the owner-granted capability (here: default config, so
+  # all grantable actions are allowed) AND collective-admin standing. An agent
+  # that a human has deliberately made a collective admin can act.
+  test "an AI-agent admin with the capability can update member roles" do
+    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post update_roles_path,
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
+         headers: agent_md_headers(agent)
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: target)
+    assert cm.has_role?("representative"), "an admin AI agent with the capability should grant the role"
+  end
+
+  test "an AI-agent admin with the capability can remove members" do
+    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post remove_member_path,
+         params: { user_handle: handle_for(target) },
+         headers: agent_md_headers(agent)
+
+    assert_response :success
+    cm = @collective.collective_members.find_by(user: target)
+    assert cm.archived?, "an admin AI agent with the capability should remove the member"
+  end
+
+  # First key: the owner-granted capability. An agent whose capabilities are
+  # narrowed to exclude member management is denied by the capability layer even
+  # if it is a collective admin.
+  test "an AI-agent admin without the member-management capability is denied" do
+    agent = create_ai_agent(
+      parent: @user, name: "Scoped Bot",
+      agent_configuration: { "mode" => "internal", "capabilities" => ["create_note"] },
+    )
+    @collective.add_user!(agent, roles: ["admin"])
+    target = add_member(name: "Target")
+
+    post update_roles_path,
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
+         headers: agent_md_headers(agent)
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative"), "an agent lacking the capability must not grant roles"
+  end
+
+  # Second key: collective-admin standing. An agent with the capability but no
+  # admin role is rejected by the action's :collective_admin authorization.
+  test "an AI-agent non-admin with the capability is denied by authorization" do
+    agent = create_ai_agent(parent: @user, name: "Member Bot")
+    @collective.add_user!(agent) # no admin role
+    target = add_member(name: "Target")
+
+    post update_roles_path,
+         params: { user_handle: handle_for(target), role: "representative", grant: "true" },
+         headers: agent_md_headers(agent)
+
+    assert_response :forbidden
+    cm = @collective.collective_members.find_by(user: target)
+    assert_not cm.has_role?("representative"), "a non-admin agent must not grant roles"
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

@@ -7,7 +7,7 @@ class NotificationRecipient < ApplicationRecord
   belongs_to :notification
   belongs_to :user
 
-  validates :channel, presence: true, inclusion: { in: ["in_app", "email"] }
+  validates :channel, presence: true, inclusion: { in: ["in_app", "email", "web_push"] }
   validates :status, presence: true, inclusion: { in: ["pending", "delivered", "dismissed", "rate_limited"] }
   validate :tenant_matches_notification_tenant
 
@@ -25,7 +25,7 @@ class NotificationRecipient < ApplicationRecord
   scope :immediate, -> { where(scheduled_for: nil) }
   # All notifications that are not scheduled for the future (immediate + due reminders).
   # Columns are qualified because callers often join :notification, which also has `scheduled_for`.
-  scope :not_scheduled, -> {
+  scope :not_scheduled, lambda {
     where(notification_recipients: { scheduled_for: nil })
       .or(where("notification_recipients.scheduled_for <= ?", Time.current))
   }

@@ -23,11 +23,12 @@ To send a heartbeat, navigate to the collective home page and use the `send_hear
 
 ## Navigating Cycles
 
-Each collective page shows the current cycle by default. You can browse previous cycles to see past activity.
+The collective's dashboard shows the current cycle by default. You can browse previous cycles to see past activity. (The collective's home page is a feed defaulting to `cycle:this-week` — refine or clear its filters to cross cycles.)
 
 ## URL Pattern
 
-- Current cycle: `{collective}` (default view)
+- Current cycle: `{collective}/dashboard`
+- Past cycle: `{collective}/dashboard?cycle={cycle-name}`
 - All cycles: `{collective}/cycles`
 - Specific cycle: `{collective}/cycles/{cycle-name}`
 

@@ -1,0 +1,18 @@
+<div class="pulse-feed-bar">
+  <%= form_with url: @action, method: :get, local: true, class: "pulse-feed-bar-form" do |form| %>
+    <label class="pulse-feed-bar-field">
+      <% @scope_filters.each do |filter| %>
+        <span class="pulse-feed-bar-scope" title="Fixed for this page"><code><%= filter %></code></span>
+      <% end %>
+      <%= form.text_field :q,
+          value: @query,
+          class: "pulse-feed-bar-input",
+          placeholder: @placeholder,
+          autocomplete: "off" %>
+    </label>
+    <%= form.submit @submit_label, class: "pulse-action-btn", name: nil %>
+  <% end %>
+  <% @warnings.each do |warning| %>
+    <p class="pulse-feed-bar-warning"><%= helpers.octicon "alert", height: 12 %> <%= warning %></p>
+  <% end %>
+</div>

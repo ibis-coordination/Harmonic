@@ -28,6 +28,14 @@ class RefreshToken < ApplicationRecord
   # refresh to skip the 2FA re-prompt.
   TWO_FACTOR_TRUST_WINDOW = 30.days
 
+  # How stale `last_used_at` must be before ordinary request activity refreshes
+  # it. Rotation stamps `last_used_at` exactly, but a live session never
+  # rotates, so between rotations the device you're actively on would show a
+  # stale time in the device list (#346). Touching on activity keeps every
+  # device's row current; the throttle keeps it to at most one write per window
+  # instead of a write on every request.
+  ACTIVITY_TOUCH_THROTTLE = 5.minutes
+
   VALID_REVOKE_REASONS = [
     "user_logout",
     "rotation_replay",
@@ -43,6 +51,18 @@ class RefreshToken < ApplicationRecord
   belongs_to :user
 
   scope :active, -> { where(revoked_at: nil).where("expires_at > ?", Time.current) }
+
+  # One row per distinct signed-in device. A successful silent refresh rotates
+  # the token — the predecessor keeps `revoked_at` nil (it stays queryable so
+  # replay detection can distinguish an in-flight race from an attack), so it
+  # still satisfies `active`. Only the un-rotated tail of each family is a live
+  # device; without the `rotated_at: nil` filter the device list grows by one
+  # every refresh, all sharing the successor-inherited label (#326).
+  #
+  # Conditions are inlined rather than chained off `active` so this typed: true
+  # file doesn't depend on the `active` scope being present in the generated
+  # RBI (it currently isn't).
+  scope :live, -> { where(revoked_at: nil, rotated_at: nil).where("expires_at > ?", Time.current) }
 
   # Plaintext is only available immediately after issuance; never stored.
   attr_accessor :plaintext_token
@@ -161,6 +181,21 @@ class RefreshToken < ApplicationRecord
     T.must(successor)
   end
 
+  # Mark this device active as of now, unless a recent touch already did so
+  # within ACTIVITY_TOUCH_THROTTLE. Called on ordinary request activity so a
+  # live session's device row stays current between rotations (#346). Uses
+  # update_column to skip validations/callbacks — this is a cheap heartbeat,
+  # not a state change, and must not fire on a revoked/rotated token via any
+  # side effect. No-op once revoked or expired.
+  sig { void }
+  def touch_last_used!
+    return unless active?
+    # last_used_at is NOT NULL, so it's always present here.
+    return if last_used_at > ACTIVITY_TOUCH_THROTTLE.ago
+
+    update_column(:last_used_at, Time.current)
+  end
+
   sig { params(reason: String).void }
   def revoke!(reason:)
     raise ArgumentError, "invalid reason" unless VALID_REVOKE_REASONS.include?(reason)
@@ -198,35 +233,7 @@ class RefreshToken < ApplicationRecord
 
   sig { params(ua: T.nilable(String)).returns(String) }
   private_class_method def self.parse_device_label(ua)
-    return "Unknown device" if ua.blank?
-
-    parts = [parse_platform(ua), parse_browser(ua)].compact
-    parts.empty? ? "Unknown device" : parts.join(" · ")
-  end
-
-  sig { params(ua: String).returns(T.nilable(String)) }
-  private_class_method def self.parse_platform(ua)
-    case ua
-    when /iPhone/i then "iPhone"
-    when /iPad/i then "iPad"
-    when /Android/i then "Android"
-    when /Macintosh|Mac OS X/i then "Mac"
-    when /Windows/i then "Windows PC"
-    when /Linux/i then "Linux"
-    end
-  end
-
-  # Order matters: Edge UA contains "Chrome", Opera UA contains "Chrome",
-  # Chrome UA contains "Safari" — narrowest matches first.
-  sig { params(ua: String).returns(T.nilable(String)) }
-  private_class_method def self.parse_browser(ua)
-    case ua
-    when /Edg\//i then "Edge"
-    when /OPR\//i then "Opera"
-    when /Firefox\//i then "Firefox"
-    when /Chrome\//i then "Chrome"
-    when /Safari\//i then "Safari"
-    end
+    DeviceLabel.parse(ua)
   end
 
   private

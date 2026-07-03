@@ -1,0 +1,92 @@
+# docker-compose.dev.yml — fast local "edit code, re-run a targeted test" loop.
+#
+# This is the day-to-day iteration stack. Unlike docker-compose.test.yml (which
+# bakes the code into the image to mirror CI exactly), this bind-mounts the
+# working tree over /app, so you change a .rb file and re-run a targeted test
+# with NO rebuild. CI still runs the full suite from the Dockerfile; this exists
+# only to iterate quickly on subsets locally. Do not run the whole suite here —
+# run targeted files/dirs and let CI cover the rest.
+#
+# How the mount stays correct:
+#   - Source is live-mounted (.:/app), so edits are visible immediately.
+#   - Gems live at /gems (BUNDLE_PATH), OUTSIDE /app, so the mount can't hide them.
+#   - node_modules and app/assets/builds DO live under /app, and the host tree
+#     doesn't have them, so a plain mount would blank them out. Named volumes mask
+#     those two paths, preserving the copies baked into the image.
+#   - Runs as uid 1002:1002 to match the host checkout owner, so the container can
+#     write log/, tmp/, and any generated files back to the working tree.
+#
+# One-time setup (db + redis stay up across runs):
+#   docker compose -f docker-compose.dev.yml up -d db redis
+#   docker compose -f docker-compose.dev.yml run --rm dev bin/rails db:prepare
+#
+# Iterate — edit code, then run a targeted subset (no rebuild, no db:prepare):
+#   docker compose -f docker-compose.dev.yml run --rm dev bin/rails test test/models/user_test.rb
+#   docker compose -f docker-compose.dev.yml run --rm dev bin/rails test test/models -n /handle/
+#   docker compose -f docker-compose.dev.yml run --rm dev bash        # a shell in the stack
+#
+# Rebuild ONLY when Gemfile.lock or package.json changes (new gems / npm deps):
+#   docker compose -f docker-compose.dev.yml build
+#   docker compose -f docker-compose.dev.yml down -v   # drops the dep + db volumes so they repopulate
+#
+# The named volumes populate from the image the first time they're used, then
+# persist. After a rebuild that changes deps, `down -v` clears them so the fresh
+# image contents get copied in.
+
+name: harmonic-dev
+
+services:
+  dev:
+    build: .
+    # Match the host checkout owner (uid 1002 = bridge) so bind-mounted writes
+    # (log/, tmp/, generated files) succeed. The image's own uid 1000 can't.
+    user: "1002:1002"
+    volumes:
+      - .:/app
+      # Mask the two under-/app paths the host tree lacks; keep the baked copies.
+      - node_modules:/app/node_modules
+      - asset_builds:/app/app/assets/builds
+    environment:
+      # uid 1002 has no passwd entry, so give bundler/rails a writable HOME.
+      HOME: /tmp
+      RAILS_ENV: test
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      AUTH_MODE: oauth
+      HOSTNAME: harmonic.localhost
+      PRIMARY_SUBDOMAIN: app
+      AUTH_SUBDOMAIN: auth
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Default to a shell when run with no command.
+    command: bash
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: decisiveteam
+      POSTGRES_PASSWORD: decisiveteam
+      POSTGRES_DB: decisive_team_test
+    volumes:
+      - pg_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decisiveteam -d decisive_team_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:6.2-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  node_modules:
+  asset_builds:
+  pg_data_dev:

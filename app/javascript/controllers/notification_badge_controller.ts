@@ -68,6 +68,17 @@ export default class NotificationBadgeController extends Controller<HTMLElement>
 
       const data = await response.json()
       this.updateBadge(data.count)
+      // Let the collective rail (a separate DOM subtree) update its
+      // per-square badges without polling on its own.
+      window.dispatchEvent(
+        new CustomEvent("notifications:counts", {
+          detail: {
+            count: data.count,
+            byCollective: data.by_collective ?? {},
+            chat: data.chat ?? 0,
+          },
+        }),
+      )
     } catch {
       // Silently fail - network errors shouldn't disrupt the user
     }

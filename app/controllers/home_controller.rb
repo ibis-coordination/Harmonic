@@ -1,38 +1,25 @@
 # typed: false
 
 class HomeController < ApplicationController
+  include FeedPage
+
   before_action :redirect_representing
 
   def index
     @page_title = 'Home'
+    @page_scope = "visibility:public"
     @sidebar_mode = 'none'
     @hide_breadcrumb = true
+    return if @current_user.nil?
 
-    # Main-collective content authored by the people the viewer tunes in
-    # to, plus the viewer themselves (so your own writing stays on your
-    # own home view — you can't tune in to yourself).
-    primary_list = @current_user.primary_user_list_in!(@current_tenant)
-    member_ids = primary_list.user_list_members.pluck(:user_id)
-    @tuned_in_count = member_ids.size
-    # Defense in depth: drop any blocked users from the author scope. The
-    # UserBlock after_create callback removes both directions of primary-
-    # list memberships at block-time, but pre-existing memberships from
-    # before that callback shipped could otherwise leak content here —
-    # especially in markdown, which has no render-time block filter.
-    author_ids = (member_ids - block_related_user_ids.to_a) << @current_user.id
+    # The home feed is a search: fixed scope visibility:public, default
+    # query list:tuned_in (the people you tune in to, plus yourself).
+    resolve_feed_query("list:tuned_in")
+    @search = build_feed_search(fixed_params: { visibility: "public" })
+    @feed_items = SearchFeedItems.build(@search.paginated_results)
+    @feed_items = interleave_reminder_events(@feed_items, author_ids: home_reminder_author_ids) if default_feed_view?
 
-    # Chronological only. Engagement-based proximity scoring against the
-    # full tenant doesn't fit the now-filtered author set; revisit when
-    # proximity is refactored to be primary-list-based.
-    @feed_items = FeedBuilder.new(
-      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
-      decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
-      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: author_ids),
-      reminder_events_scope: NoteHistoryEvent
-        .main_collective_scope(@current_tenant)
-        .where(event_type: "reminder")
-        .joins(:note).where(notes: { created_by_id: author_ids }),
-    ).feed_items
+    @tuned_in_count = @current_user.primary_user_list_in!(@current_tenant).user_list_members.count
   end
 
   def subdomains
@@ -78,4 +65,10 @@ class HomeController < ApplicationController
     end
   end
 
+  # The default home view's reminder authors: the tuned-in list plus the
+  # viewer, minus block-related users.
+  def home_reminder_author_ids
+    member_ids = @current_user.primary_user_list_in!(@current_tenant).user_list_members.pluck(:user_id)
+    (member_ids - block_related_user_ids.to_a) << @current_user.id
+  end
 end

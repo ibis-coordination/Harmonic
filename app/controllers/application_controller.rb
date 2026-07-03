@@ -4,7 +4,14 @@ class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
   include PendingInviteStash
-  # Session timeout configuration (in seconds)
+  # Session timeout configuration (in seconds). These checks in
+  # check_session_timeout are the sole authority on session expiry — they emit
+  # the user-facing flash and the SecurityAuditLog logout event. NOTE:
+  # SESSION_ABSOLUTE_TIMEOUT is mirrored by config/initializers/session_store.rb,
+  # which sets the session cookie's `expire_after` to *twice* it so the cookie
+  # persists past the absolute cap and these checks always fire before the cookie
+  # itself expires (an expired cookie would blank the session silently, skipping
+  # the flash and audit log). Keep the two SESSION_ABSOLUTE_TIMEOUT defaults in sync.
   SESSION_ABSOLUTE_TIMEOUT = (ENV["SESSION_ABSOLUTE_TIMEOUT"]&.to_i || 24.hours).seconds
   SESSION_IDLE_TIMEOUT = (ENV["SESSION_IDLE_TIMEOUT"]&.to_i || 2.hours).seconds
 
@@ -23,6 +30,7 @@ class ApplicationController < ActionController::Base
   # the session here on the very next request, rather than waiting for the
   # session to time out naturally. See enforce_refresh_token_revocation.
   before_action :enforce_refresh_token_revocation
+  before_action :touch_current_device_activity
   before_action :check_user_suspension
   before_action :check_activation_gate
   before_action :check_stripe_billing_gate
@@ -779,6 +787,46 @@ class ApplicationController < ActionController::Base
   end
   helper_method :current_actor
 
+  # Collectives shown as square icons in the persistent left rail (issue #337):
+  # the viewer's standard collectives, minus the main collective (which the
+  # rail renders separately as the public-space globe). Empty for anonymous
+  # viewers. Collective is tenant-scoped, so this is already limited to the
+  # current tenant. Avatar attachments are preloaded because the rail renders
+  # on every page.
+  def rail_collectives
+    return @rail_collectives if defined?(@rail_collectives)
+    return (@rail_collectives = []) if @current_user.nil?
+
+    @rail_collectives = @current_user.collectives_minus_main
+      .standard
+      .includes(image_attachment: :blob)
+      .order(:name)
+      .to_a
+  end
+  helper_method :rail_collectives
+
+  # Initial per-collective unread counts for the rail's badges, rendered
+  # server-side so navigation never flashes them out. The unread-count
+  # poller keeps them fresh after first paint. Lazy (called from the HTML
+  # layout only), so markdown/JSON requests never pay for the query.
+  def rail_unread_counts
+    return @rail_unread_counts if defined?(@rail_unread_counts)
+    return (@rail_unread_counts = {}) if @current_user.nil? || current_tenant.nil?
+
+    @rail_unread_counts = NotificationService.unread_count_by_collective_for(@current_user, tenant: current_tenant)
+  end
+  helper_method :rail_unread_counts
+
+  # Initial count for the rail's aggregated chat entry — same lifecycle as
+  # rail_unread_counts.
+  def rail_chat_unread_count
+    return @rail_chat_unread_count if defined?(@rail_chat_unread_count)
+    return (@rail_chat_unread_count = 0) if @current_user.nil? || current_tenant.nil?
+
+    @rail_chat_unread_count = NotificationService.unread_chat_count_for(@current_user, tenant: current_tenant)
+  end
+  helper_method :rail_chat_unread_count
+
   # Active representation sessions owned by this caller that are not attached
   # to the current request. The markdown layout surfaces these as a warning
   # so the agent can attach or end them.
@@ -1103,6 +1151,18 @@ class ApplicationController < ActionController::Base
     delete_refresh_cookie
   end
 
+  # Revoke the push subscription for the endpoint this device reported in the
+  # logout form (the browser is the only party that knows its own endpoint;
+  # the logout Stimulus controller fills it in). Explicit logout only — push
+  # subscriptions deliberately survive session timeouts. Scoped to
+  # current_user so a forged endpoint can't touch anyone else's subscription.
+  def revoke_current_push_subscription!
+    endpoint = params[:push_endpoint]
+    return if endpoint.blank? || current_user.nil?
+
+    current_user.web_push_subscriptions.active.find_by(endpoint: endpoint)&.revoke!(reason: "user")
+  end
+
   # Sign the user out on this very request if the refresh cookie's token
   # has been revoked. This is what makes "Sign out other device" actually
   # take effect on the other device — its next request carries the revoked
@@ -1125,6 +1185,22 @@ class ApplicationController < ActionController::Base
     delete_refresh_cookie
     logout_user!
     redirect_to "/login"
+  end
+
+  # Keep the current device's refresh-token row current on ordinary activity.
+  # A live session never rotates its refresh token, so without this the device
+  # you're actively using shows a stale "last used" in the device list (#346).
+  # The model throttles the write to at most once per window. Same skip
+  # conditions as enforce_refresh_token_revocation — no refresh-cookie
+  # semantics on auth controllers, API-token requests, or the auth subdomain.
+  # Runs after enforce_refresh_token_revocation, so a revoked token has already
+  # redirected and halted the chain before we'd touch it.
+  def touch_current_device_activity
+    return if is_auth_controller?
+    return if api_token_present?
+    return if request.subdomain == auth_subdomain
+
+    current_refresh_token&.touch_last_used!
   end
 
   # The refresh token currently in the cookie, if any. Memoized so the

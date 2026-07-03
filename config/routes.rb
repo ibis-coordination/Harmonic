@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   get 'metrics' => 'metrics#show'
   get 'robots.txt' => 'robots#show', as: :robots, defaults: { format: :txt }
   get 'manifest' => 'rails/pwa#manifest', as: :pwa_manifest, defaults: { format: 'json' }
+  get 'service-worker' => 'pwa#service_worker', as: :pwa_service_worker, defaults: { format: 'js' }
+  get 'offline' => 'pwa#offline', as: :pwa_offline
 
   # MCP (Model Context Protocol) Streamable HTTP endpoint.
   # See https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
@@ -68,6 +70,9 @@ Rails.application.routes.draw do
   get 'ai-agents/:handle/runs' => 'ai_agents#runs', as: 'ai_agent_runs'
   get 'ai-agents/:handle/runs/:run_id' => 'ai_agents#show_run', as: 'ai_agent_run'
   post 'ai-agents/:handle/runs/:run_id/cancel' => 'ai_agents#cancel_run', as: 'cancel_ai_agent_run'
+  # MCP tool-call log — principal-facing inspection of an agent's MCP calls
+  get 'ai-agents/:handle/mcp-tool-calls' => 'ai_agents#mcp_tool_calls', as: 'ai_agent_mcp_tool_calls'
+  get 'ai-agents/:handle/mcp-tool-calls/:log_id' => 'ai_agents#show_mcp_tool_call', as: 'ai_agent_mcp_tool_call'
   # AI Agent automations
   get 'ai-agents/:handle/automations' => 'agent_automations#index', as: 'ai_agent_automations'
   get 'ai-agents/:handle/automations/new' => 'agent_automations#new', as: 'new_ai_agent_automation'
@@ -273,6 +278,7 @@ Rails.application.routes.draw do
 
   # Notifications
   get 'notifications' => 'notifications#index'
+  post 'notifications/dismiss-push-banner' => 'notifications#dismiss_push_banner'
   get 'notifications/unread_count' => 'notifications#unread_count'
   get 'notifications/actions' => 'notifications#actions_index'
   get 'notifications/actions/dismiss' => 'notifications#describe_dismiss'
@@ -392,6 +398,8 @@ Rails.application.routes.draw do
     patch 'image' => 'users#update_image', on: :member
     delete 'settings/devices/:device_id' => 'devices#destroy', on: :member
     post   'settings/devices/revoke_others' => 'devices#revoke_others', on: :member
+    post   'settings/push-subscriptions' => 'web_push_subscriptions#create', on: :member
+    delete 'settings/push-subscriptions/:subscription_id' => 'web_push_subscriptions#destroy', on: :member
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy] do
@@ -502,7 +510,8 @@ Rails.application.routes.draw do
   # the same controllers — private workspaces use /workspace/ while standard collectives use /collectives/.
   ['collectives', 'workspace'].each do |scope_prefix|
     prefix = "#{scope_prefix}/:collective_handle"
-    get "#{prefix}" => 'pulse#show'
+    get "#{prefix}" => 'pulse#feed'
+    get "#{prefix}/dashboard" => 'pulse#show'
     get "#{prefix}/actions" => 'pulse#actions_index'
     get "#{prefix}/actions/send_heartbeat" => 'collectives#describe_send_heartbeat'
     post "#{prefix}/actions/send_heartbeat" => 'collectives#send_heartbeat'
@@ -516,6 +525,11 @@ Rails.application.routes.draw do
     get "#{prefix}/views" => 'collectives#views'
     get "#{prefix}/view" => 'collectives#view'
     get "#{prefix}/members" => 'collectives#members'
+    get "#{prefix}/members/actions" => 'collectives#actions_index_members'
+    get "#{prefix}/members/actions/update_member_roles" => 'collectives#describe_update_member_roles'
+    post "#{prefix}/members/actions/update_member_roles" => 'collectives#execute_update_member_roles'
+    get "#{prefix}/members/actions/remove_member" => 'collectives#describe_remove_member'
+    post "#{prefix}/members/actions/remove_member" => 'collectives#execute_remove_member'
     get "#{prefix}/settings" => 'collectives#settings'
     post "#{prefix}/settings" => 'collectives#update_settings'
     get "#{prefix}/upgrade" => 'collectives#upgrade_preview'
@@ -562,6 +576,15 @@ Rails.application.routes.draw do
     get "#{prefix}/join/actions/join_collective" => 'collectives#describe_join_collective'
     post "#{prefix}/join/actions/join_collective" => 'collectives#join_collective_action'
     get "#{prefix}/represent" => 'representation_sessions#represent'
+    # Markdown/MCP action surface for collective representation, mirroring the
+    # trustee-grant describe/execute pair (see trustee-authorizations routes above).
+    # Without these, an agent holding the representative role can't start/end a
+    # collective representation session over MCP (Harmonic#365).
+    get "#{prefix}/represent/actions" => 'representation_sessions#actions_index_represent'
+    get "#{prefix}/represent/actions/start_representation" => 'representation_sessions#describe_start_representation'
+    post "#{prefix}/represent/actions/start_representation" => 'representation_sessions#execute_start_representation'
+    get "#{prefix}/represent/actions/end_representation" => 'representation_sessions#describe_end_representation'
+    post "#{prefix}/represent/actions/end_representation" => 'representation_sessions#execute_end_representation'
     post "#{prefix}/represent" => 'representation_sessions#start_representing'
     post "#{prefix}/represent_user" => 'representation_sessions#start_representing_user'
     delete "#{prefix}/represent" => 'representation_sessions#stop_representing'

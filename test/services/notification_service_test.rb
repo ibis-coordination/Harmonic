@@ -118,6 +118,52 @@ class NotificationServiceTest < ActiveSupport::TestCase
     assert_equal "chat_message", delivered.metadata["notification_type"]
   end
 
+  test "notify_chat_message! creates a web_push recipient per message even when in-app dedups" do
+    tenant, _collective, sender = create_tenant_collective_user
+    enable_web_push!(tenant)
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+    WebPushSubscription.upsert_for!(
+      user: recipient, endpoint: "https://push.example.com/send/chat", p256dh_key: "k", auth_key: "a"
+    )
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    2.times do
+      NotificationService.notify_chat_message!(
+        sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+      )
+    end
+
+    in_app = NotificationRecipient.tenant_scoped_only(tenant.id)
+      .joins(:notification)
+      .where(user_id: recipient.id, channel: "in_app", notifications: { notification_type: "chat_message" })
+    push = NotificationRecipient.tenant_scoped_only(tenant.id)
+      .joins(:notification)
+      .where(user_id: recipient.id, channel: "web_push", notifications: { notification_type: "chat_message" })
+
+    assert_equal 1, in_app.count, "in-app inbox dedups to one row per sender"
+    assert_equal 2, push.count, "every chat message pushes"
+  end
+
+  test "notify_chat_message! creates no web_push recipient when the recipient has no subscription" do
+    tenant, _collective, sender = create_tenant_collective_user
+    enable_web_push!(tenant)
+    recipient = create_user(name: "Recipient")
+    tenant.add_user!(recipient)
+
+    chat_session = ChatSession.find_or_create_between(user_a: sender, user_b: recipient, tenant: tenant)
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: chat_session.collective.handle)
+
+    NotificationService.notify_chat_message!(
+      sender: sender, recipient: recipient, tenant: tenant, url: "/chat/#{sender.id}",
+    )
+
+    push = NotificationRecipient.tenant_scoped_only(tenant.id).where(user_id: recipient.id, channel: "web_push")
+    assert_equal 0, push.count
+  end
+
   test "notify_chat_message! dispatches the AI agent recipient's notification webhook" do
     tenant, _collective, sender = create_tenant_collective_user
     agent = create_ai_agent(parent: sender, name: "Agent", agent_configuration: { "mode" => "external" })
@@ -244,6 +290,75 @@ class NotificationServiceTest < ActiveSupport::TestCase
     NotificationRecipient.create!(notification: notification1, user: user, channel: "email", status: "pending")
 
     assert_equal 2, NotificationService.unread_count_for(user, tenant: tenant)
+  end
+
+  test "unread_count_by_collective_for groups unread counts by the event's collective" do
+    tenant, collective1, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+    Tenant.current_id = tenant.id
+
+    collective2 = Collective.create!(tenant: tenant, name: "Second Collective", handle: "second-collective", created_by: user)
+
+    event1 = Event.create!(tenant: tenant, collective: collective1, event_type: "note.created", actor: user)
+    notification1 = Notification.create!(tenant: tenant, event: event1, notification_type: "mention", title: "C1")
+    NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "pending", tenant: tenant)
+    NotificationRecipient.create!(notification: notification1, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+
+    event2 = Event.create!(tenant: tenant, collective: collective2, event_type: "note.created", actor: user)
+    notification2 = Notification.create!(tenant: tenant, event: event2, notification_type: "mention", title: "C2")
+    NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    # Read rows, email rows, and reminders (no event → no collective) don't count.
+    read = NotificationRecipient.create!(notification: notification2, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    read.mark_read!
+    NotificationRecipient.create!(notification: notification1, user: user, channel: "email", status: "pending", tenant: tenant)
+    reminder = Notification.create!(tenant: tenant, event: nil, notification_type: "reminder", title: "Due reminder")
+    NotificationRecipient.create!(notification: reminder, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    counts = NotificationService.unread_count_by_collective_for(user, tenant: tenant)
+
+    assert_equal({ collective1.id => 2, collective2.id => 1 }, counts)
+  end
+
+  test "unread_count_by_collective_for sees other collectives regardless of the thread's collective scope" do
+    # The poller endpoint runs with the request's collective scope (usually
+    # the main collective); counts must still cover every collective.
+    tenant, collective1, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+    Tenant.current_id = tenant.id
+
+    collective2 = Collective.create!(tenant: tenant, name: "Second Collective", handle: "second-collective", created_by: user)
+    event = Event.create!(tenant: tenant, collective: collective2, event_type: "note.created", actor: user)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "C2")
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective1.handle)
+    counts = NotificationService.unread_count_by_collective_for(user, tenant: tenant)
+
+    assert_equal({ collective2.id => 1 }, counts)
+  end
+
+  test "unread_chat_count_for counts only unread in-app chat_message notifications" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    # Two unread chat pings (eventless, like notify_chat_message! creates).
+    2.times do |i|
+      chat = Notification.create!(tenant: tenant, event: nil, notification_type: "chat_message", title: "Chat #{i}", url: "/chat/somebody")
+      NotificationRecipient.create!(notification: chat, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    end
+
+    # A read chat ping, an email chat row, and a non-chat notification don't count.
+    read_chat = Notification.create!(tenant: tenant, event: nil, notification_type: "chat_message", title: "Read chat", url: "/chat/somebody")
+    read_row = NotificationRecipient.create!(notification: read_chat, user: user, channel: "in_app", status: "delivered", tenant: tenant)
+    read_row.mark_read!
+    NotificationRecipient.create!(notification: read_chat, user: user, channel: "email", status: "pending", tenant: tenant)
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user)
+    mention = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Mention")
+    NotificationRecipient.create!(notification: mention, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    assert_equal 2, NotificationService.unread_chat_count_for(user, tenant: tenant)
   end
 
   test "dismiss_all_for dismisses all in_app notifications" do
@@ -519,6 +634,72 @@ class NotificationServiceTest < ActiveSupport::TestCase
 
     assert recipient1.reload.read?
     assert_not recipient2.reload.read?
+  end
+
+  test "mark_read_for_subject only marks notifications about that subject" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    note = create_note(tenant: tenant, collective: collective, created_by: user)
+    other_note = create_note(tenant: tenant, collective: collective, created_by: user)
+
+    note_event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user, subject: note)
+    note_notification = Notification.create!(tenant: tenant, event: note_event, notification_type: "mention", title: "Mentioned in note")
+    note_recipient = NotificationRecipient.create!(notification: note_notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    other_event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: user, subject: other_note)
+    other_notification = Notification.create!(tenant: tenant, event: other_event, notification_type: "mention", title: "Mentioned elsewhere")
+    other_recipient = NotificationRecipient.create!(
+      notification: other_notification, user: user, channel: "in_app", status: "pending", tenant: tenant
+    )
+
+    count = NotificationService.mark_read_for_subject(user, tenant: tenant, subject: note)
+
+    assert_equal 1, count
+    assert note_recipient.reload.read?
+    assert_not other_recipient.reload.read?
+  end
+
+  test "confirm_read! clears the in-app notification about that note" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    author = create_user
+    tenant.add_user!(author)
+    collective.add_user!(author)
+    note = create_note(tenant: tenant, collective: collective, created_by: author)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: author, subject: note)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Mentioned in note")
+    recipient = NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "pending", tenant: tenant)
+
+    note.confirm_read!(user)
+
+    assert recipient.reload.read?
+  end
+
+  test "commenting on a note clears the commenter's notification about the parent" do
+    # The after_create auto-confirm path (commentable.confirm_read!) never routes
+    # through ApiHelper, so this case is only covered because the mark lives in
+    # Note#confirm_read! itself.
+    tenant, collective, author = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    Tenant.current_id = tenant.id
+
+    commenter = create_user
+    tenant.add_user!(commenter)
+    collective.add_user!(commenter)
+    parent = create_note(tenant: tenant, collective: collective, created_by: author)
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created", actor: author, subject: parent)
+    notification = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Mentioned in note")
+    recipient = NotificationRecipient.create!(notification: notification, user: commenter, channel: "in_app", status: "pending", tenant: tenant)
+
+    create_note(tenant: tenant, collective: collective, created_by: commenter, commentable: parent, title: "A reply")
+
+    assert recipient.reload.read?, "commenting should clear the commenter's notification about the parent note"
   end
 
   test "mark_all_read_reminders only marks due reminders without events" do

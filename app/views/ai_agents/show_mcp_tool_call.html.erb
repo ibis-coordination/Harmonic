@@ -1,0 +1,83 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My AI Agents', ai_agents_path],
+  [@ai_agent.display_name, ai_agent_path(@ai_agent.handle)],
+  ['MCP Tool Calls', ai_agent_mcp_tool_calls_path(@ai_agent.handle)],
+  @log.tool_name
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'log', height: 14, class: 'pulse-resource-icon' %>
+        MCP Tool Call
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><code><%= @log.tool_name %></code></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <table class="pulse-table" style="width: auto;">
+      <tbody>
+        <tr><th style="text-align: left; padding-right: 24px;">Status</th><td><%= @log.status %></td></tr>
+        <tr><th style="text-align: left; padding-right: 24px;">Duration</th><td><%= @log.duration_ms %> ms</td></tr>
+        <tr><th style="text-align: left; padding-right: 24px;">Source</th><td><%= @log.source_label %></td></tr>
+        <tr><th style="text-align: left; padding-right: 24px;">Time</th><td><%= @log.created_at.utc.iso8601 %></td></tr>
+        <tr><th style="text-align: left; padding-right: 24px;">Request ID</th><td><code><%= @log.request_id.presence || "—" %></code></td></tr>
+        <% if @log.ai_agent_task_run_id.present? %>
+          <tr>
+            <th style="text-align: left; padding-right: 24px;">Task Run</th>
+            <td><a href="<%= ai_agent_run_path(@ai_agent.handle, @log.ai_agent_task_run_id) %>" class="pulse-link"><%= @log.ai_agent_task_run_id %></a></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <section class="pulse-settings-section">
+      <h3>Arguments</h3>
+      <pre class="pulse-code-block"><code><%= JSON.pretty_generate(@log.arguments || {}) %></code></pre>
+    </section>
+
+    <% if @log.context.present? %>
+      <section class="pulse-settings-section">
+        <h3>Context</h3>
+        <pre class="pulse-code-block"><code><%= JSON.pretty_generate(@log.context) %></code></pre>
+      </section>
+    <% end %>
+
+    <% if @resources.any? %>
+      <section class="pulse-settings-section">
+        <h3>Resources touched (<%= @resources.size %>)</h3>
+        <table class="pulse-table">
+          <thead>
+            <tr><th>Action</th><th>Resource</th><th>Path</th></tr>
+          </thead>
+          <tbody>
+            <% @resources.each do |res| %>
+              <tr>
+                <td><%= res.action_name %></td>
+                <td><%= res.resource_type %></td>
+                <td>
+                  <% if safe_internal_path?(res.display_path) %>
+                    <a href="<%= res.display_path %>" class="pulse-link"><%= res.display_path %></a>
+                  <% elsif res.display_path.present? %>
+                    <%= res.display_path %>
+                  <% else %>
+                    —
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </section>
+    <% end %>
+
+    <p class="pulse-action-row" style="margin-top: 24px;">
+      <a href="<%= ai_agent_mcp_tool_calls_path(@ai_agent.handle) %>" class="pulse-action-btn">
+        <%= octicon 'arrow-left' %> Back to Tool Calls
+      </a>
+    </p>
+  </div>
+</article>

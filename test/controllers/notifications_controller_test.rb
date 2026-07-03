@@ -136,6 +136,44 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, json_response["count"]
   end
 
+  test "unread_count includes per-collective counts for the rail badges" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    other = Collective.create!(tenant: @tenant, name: "Other Collective", handle: "other-collective", created_by: @user)
+
+    [[@collective, 2], [other, 1]].each do |collective, n|
+      event = Event.create!(tenant: @tenant, collective: collective, event_type: "test.created")
+      notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "Test")
+      n.times do
+        NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "pending")
+      end
+    end
+    Collective.clear_thread_scope
+
+    get "/notifications/unread_count", headers: { "Accept" => "application/json" }
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 3, json_response["count"]
+    assert_equal({ @collective.id => 2, other.id => 1 }, json_response["by_collective"])
+  end
+
+  test "unread_count includes the aggregated chat count for the rail's chat entry" do
+    sign_in_as(@user, tenant: @tenant)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    chat = Notification.create!(tenant: @tenant, event: nil, notification_type: "chat_message", title: "Ping", url: "/chat/somebody")
+    NotificationRecipient.create!(notification: chat, user: @user, channel: "in_app", status: "delivered", tenant: @tenant)
+    Collective.clear_thread_scope
+
+    get "/notifications/unread_count", headers: { "Accept" => "application/json" }
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 1, json_response["chat"]
+    # Eventless chat pings never appear in the per-collective map.
+    assert_equal({}, json_response["by_collective"])
+  end
+
   # === Dismiss Tests ===
 
   test "dismiss dismisses notification" do
@@ -576,5 +614,69 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     )
     Collective.clear_thread_scope
     recipient
+  end
+
+  # === Push opt-in banner ===
+
+  test "index shows the push opt-in banner when eligible" do
+    enable_web_push!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+
+    assert_response :success
+    assert_match "push-optin-banner", response.body
+    assert_match "lock screen", response.body
+  end
+
+  test "index hides the banner when the web_push flag is off" do
+    @tenant.disable_feature_flag!(:web_push)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+
+    assert_no_match(/push-optin-banner/, response.body)
+  end
+
+  test "index hides the banner when the user already has an active subscription" do
+    enable_web_push!(@tenant)
+    WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/here", p256dh_key: "k", auth_key: "a"
+    )
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/notifications"
+
+    assert_no_match(/push-optin-banner/, response.body)
+  end
+
+  test "index hides the banner after the user dismisses it" do
+    enable_web_push!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/dismiss-push-banner"
+    assert_response :redirect
+
+    get "/notifications"
+
+    assert_no_match(/push-optin-banner/, response.body)
+  end
+
+  test "dismiss-push-banner records the notice on the tenant_user" do
+    enable_web_push!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/notifications/dismiss-push-banner"
+
+    tenant_user = @tenant.tenant_users.find_by(user: @user)
+    assert_includes tenant_user.dismissed_notices, "push-optin-banner"
+  end
+
+  test "dismiss-push-banner requires authentication" do
+    post "/notifications/dismiss-push-banner"
+
+    assert_response :redirect
+    tenant_user = @tenant.tenant_users.find_by(user: @user)
+    assert_not_includes tenant_user.dismissed_notices, "push-optin-banner"
   end
 end

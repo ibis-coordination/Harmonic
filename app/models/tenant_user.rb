@@ -21,9 +21,13 @@ class TenantUser < ApplicationRecord
   LOCATION_MAX_LENGTH = 100
 
   # One normalization for every handle writer (signup confirmation, settings
-  # rename, add_user!): free text like "Jane Smith" becomes jane-smith, and
-  # blank input becomes nil so auto-generation kicks in.
-  normalizes :handle, with: ->(h) { h.to_s.parameterize.presence }
+  # rename, add_user!): free text like "Jane Smith" becomes "Jane-Smith", and
+  # blank input becomes nil so auto-generation kicks in. Case is PRESERVED
+  # (`preserve_case: true`) so the display form remembers the case the user
+  # chose ("Linus" stays "Linus"); the `handle` column is `citext`, so lookup
+  # and the (tenant_id, handle) uniqueness index are case-insensitive
+  # regardless ("Linus" and "linus" resolve to and collide with each other).
+  normalizes :handle, with: ->(h) { h.to_s.parameterize(preserve_case: true).presence }
 
   validate :reserved_handle_requires_matching_system_role
   # allow_nil: on create, auto-generated handles are filled in set_defaults
@@ -62,7 +66,11 @@ class TenantUser < ApplicationRecord
 
   sig { void }
   def reserved_handle_requires_matching_system_role
-    required_role = RESERVED_HANDLES[handle]
+    # Reserved keys are lowercase; fold the (now case-preserving) handle so
+    # "Trio"/"TRIO" can't slip past the system-role gate.
+    return if handle.blank?
+
+    required_role = RESERVED_HANDLES[handle.downcase]
     return unless required_role
     return if T.must(user).system_role == required_role
 
@@ -97,6 +105,27 @@ class TenantUser < ApplicationRecord
     self.class.default_handle_for(tenant_id: T.must(tenant_id), user: user)
   end
   private :generated_default_handle
+
+  # Pick a tenant-unique handle for a collective's identity user, sharing the
+  # collective's own handle so `@foo-team` and `/collectives/foo-team` resolve
+  # to one identity. Case is preserved (`preserve_case: true`) so the identity
+  # displays the case the collective chose. Falls back to a numeric suffix
+  # (`foo-team-XX`) when the desired handle is already held by another user in
+  # the tenant (legacy data where a human grabbed it first) or is a reserved
+  # handle the identity can't claim — matching the suffix policy used for human
+  # handles in `default_handle_for`. `except_user_id` lets a rename skip the
+  # identity's own current row so it isn't treated as a self-collision.
+  sig { params(tenant_id: String, base: String, except_user_id: T.nilable(String)).returns(String) }
+  def self.identity_handle_for(tenant_id:, base:, except_user_id: nil)
+    root = base.to_s.parameterize(preserve_case: true).presence || "collective"
+    scope = tenant_scoped_only(tenant_id)
+    scope = scope.where.not(user_id: except_user_id) if except_user_id.present?
+    candidate = root
+    # Identity users never carry a system_role, so any reserved key is off-limits.
+    candidate = "#{root}-#{SecureRandom.hex(2)}" if RESERVED_HANDLES.key?(root.downcase)
+    candidate = "#{root}-#{SecureRandom.hex(2)}" while scope.exists?(handle: candidate)
+    candidate
+  end
 
   sig { returns(User) }
   def user
@@ -147,18 +176,21 @@ class TenantUser < ApplicationRecord
 
   # Notification Preferences
   # Default preferences for each notification type
+  # web_push defaults on for every type: the real opt-in is registering a
+  # device (no subscription → the channel is never returned), so a fresh
+  # subscription starts delivering everything and users fine-tune from there.
   DEFAULT_NOTIFICATION_PREFERENCES = T.let({
-    "mention" => { "in_app" => true, "email" => true },
-    "comment" => { "in_app" => true, "email" => false },
-    "participation" => { "in_app" => true, "email" => false },
-    "system" => { "in_app" => true, "email" => true },
-    "reminder" => { "in_app" => true, "email" => false },
-    "chat_message" => { "in_app" => true, "email" => false },
-    "trio_unavailable" => { "in_app" => true, "email" => false },
-    "tune_in" => { "in_app" => true, "email" => false },
+    "mention" => { "in_app" => true, "email" => true, "web_push" => true },
+    "comment" => { "in_app" => true, "email" => false, "web_push" => true },
+    "participation" => { "in_app" => true, "email" => false, "web_push" => true },
+    "system" => { "in_app" => true, "email" => true, "web_push" => true },
+    "reminder" => { "in_app" => true, "email" => false, "web_push" => true },
+    "chat_message" => { "in_app" => true, "email" => false, "web_push" => true },
+    "trio_unavailable" => { "in_app" => true, "email" => false, "web_push" => true },
+    "tune_in" => { "in_app" => true, "email" => false, "web_push" => true },
     # Trustee authorization lifecycle (offered/accepted/declined/revoked).
     # In-app by default, matching most types; users can opt into email.
-    "trustee_authorization" => { "in_app" => true, "email" => false },
+    "trustee_authorization" => { "in_app" => true, "email" => false, "web_push" => true },
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   # User-facing labels for each notification type, in display order. Keys must
@@ -178,7 +210,7 @@ class TenantUser < ApplicationRecord
   }.freeze, T::Hash[String, String])
 
   # Delivery channels a user can toggle per notification type.
-  NOTIFICATION_CHANNELS = T.let(%w[in_app email].freeze, T::Array[String])
+  NOTIFICATION_CHANNELS = T.let(["in_app", "email", "web_push"].freeze, T::Array[String])
 
   sig { returns(T::Hash[String, T::Hash[String, T::Boolean]]) }
   def notification_preferences
@@ -188,7 +220,14 @@ class TenantUser < ApplicationRecord
     prefs = settings_hash["notification_preferences"]
     return DEFAULT_NOTIFICATION_PREFERENCES.deep_dup unless prefs.is_a?(Hash)
 
-    T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])
+    # Stored values win, but merged over the defaults: prefs saved before a
+    # channel existed have no key for it, and a missing key must mean "the
+    # default for that channel", not "off". Without this, adding a channel
+    # silently disables it for every user who ever saved preferences.
+    T.cast(
+      DEFAULT_NOTIFICATION_PREFERENCES.deep_merge(T.cast(prefs, T::Hash[String, T::Hash[String, T::Boolean]])),
+      T::Hash[String, T::Hash[String, T::Boolean]]
+    )
   end
 
   sig { params(notification_type: String).returns(T::Array[String]) }
@@ -201,7 +240,17 @@ class TenantUser < ApplicationRecord
     # prefs. Keeps every caller (dispatcher, reminder service, trustee path)
     # honest and avoids creating an email NotificationRecipient that can't deliver.
     channels << "email" if prefs["email"] && user.human?
+    # web_push requires a live device registration on top of the stored pref —
+    # a subscription is the user's real opt-in, and skipping the channel when
+    # they have no active device avoids creating NotificationRecipient rows
+    # that could never deliver.
+    channels << "web_push" if prefs["web_push"] && user.human? && web_push_available?
     channels
+  end
+
+  sig { returns(T::Boolean) }
+  def web_push_available?
+    T.must(tenant).web_push_available? && user.web_push_subscriptions.active.exists?
   end
 
   sig { params(notification_type: String, channel: String).returns(T::Boolean) }
@@ -214,7 +263,11 @@ class TenantUser < ApplicationRecord
   def set_notification_preference!(notification_type, channel, enabled)
     self.settings ||= {}
     settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    # Seed empty, not the defaults matrix: notification_preferences merges
+    # stored values over DEFAULT_NOTIFICATION_PREFERENCES at read time, so
+    # only explicit choices belong in settings. Copying the defaults in
+    # would freeze today's defaults (and today's channel list) forever.
+    settings_hash["notification_preferences"] ||= {}
     notification_prefs = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
     notification_prefs[notification_type] ||= {}
     T.must(notification_prefs[notification_type])[channel] = enabled
@@ -230,7 +283,9 @@ class TenantUser < ApplicationRecord
   def update_notification_preferences!(preferences)
     self.settings ||= {}
     settings_hash = T.cast(settings, T::Hash[String, T.untyped])
-    settings_hash["notification_preferences"] ||= DEFAULT_NOTIFICATION_PREFERENCES.deep_dup
+    # Empty seed for the same reason as set_notification_preference!: stored
+    # prefs hold only explicit choices; defaults are merged in at read time.
+    settings_hash["notification_preferences"] ||= {}
     current = T.cast(settings_hash["notification_preferences"], T::Hash[String, T::Hash[String, T::Boolean]])
 
     preferences.each do |type, channels|
@@ -251,5 +306,4 @@ class TenantUser < ApplicationRecord
     end
     save!
   end
-
 end

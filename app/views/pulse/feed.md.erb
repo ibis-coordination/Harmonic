@@ -1,0 +1,25 @@
+# <%= @current_collective.name %>
+<% if !@current_collective.is_main_collective? && !@current_collective.private_workspace? && @current_user && @current_heartbeat.nil? -%>
+
+## Heartbeat Required
+
+You must send a heartbeat to access this collective for the current cycle.
+<% else -%>
+<% @search.warnings.each do |warning| -%>
+> ⚠️ <%= warning %>
+<% end -%>
+<% if @feed_items.present? %>
+
+<% @feed_items.each do |feed_item| -%>
+* [<%= feed_item[:type] %>] **<%= feed_item[:item].title %>** by <%= feed_item[:created_by]&.display_name || 'Anonymous' %> (<%= time_ago_in_words(feed_item[:created_at]) %> ago) - [View](<%= feed_item[:item].path %>)
+<% end -%>
+<% elsif default_feed_view? %>
+
+Nothing here this week. Pass `?q=` (empty) to browse all time, or refine with [filters](/help/search).
+<% else %>
+
+No results match the current query. The canonical URL (no `q` param) restores the default view.
+<% end %>
+<% end %>
+
+[Dashboard](<%= @current_collective.path %>/dashboard)

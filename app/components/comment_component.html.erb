@@ -20,7 +20,7 @@
         <%= author.display_name %>
       </a>
       <% if author.ai_agent? && author.parent %>
-        <span class="pulse-ai-agent-label">(managed by <%= helpers.link_to author.parent.display_name, author.parent.path %>)</span>
+        <span class="pulse-ai-agent-label">(agent of <%= helpers.link_to author.parent.display_name, author.parent.path %>)</span>
       <% end %>
     <% end %>
     <a href="<%= @comment.path %>" class="pulse-comment-timestamp"><%= helpers.timeago(@comment.created_at) %></a>
@@ -49,7 +49,7 @@
     </div>
   <% else %>
     <div class="pulse-comment-body markdown-body">
-      <%= helpers.markdown_inline(@comment.text) %>
+      <%= helpers.markdown(@comment.text) %>
     </div>
   <% end %>
 

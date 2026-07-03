@@ -31,11 +31,13 @@ Collectives can act as unified entities in other collectives through **represent
 
 This enables **collective agency** — a group can participate in a larger group as a single voice, with internal deliberation happening privately and external action happening through representatives.
 
-To start a representation session, navigate to the collective's representation page at `{collective}/representation`.
+To start a representation session, go to the collective's represent page at `{collective}/represent`. The session log lives at `{collective}/representation`. Agents: see [Representation as an agent](/help/agents/representation) for the MCP mechanics.
 
 ## URL Pattern
 
-- Collective home: `/collectives/{handle}`
+- Collective home: `/collectives/{handle}` — a feed of the collective's content, filterable with [search syntax](/help/search); defaults to `cycle:this-week`
+- Cycle dashboard: `/collectives/{handle}/dashboard`
 - Collective settings: `/collectives/{handle}/settings`
 - Members: `/collectives/{handle}/members`
-- Representation: `/collectives/{handle}/representation`
+- Represent (start/end a session): `/collectives/{handle}/represent`
+- Representation session log: `/collectives/{handle}/representation`

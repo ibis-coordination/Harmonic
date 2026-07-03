@@ -8,7 +8,6 @@ class PasswordResetMailer < ApplicationMailer
     @reset_url = password_reset_url(token: raw_token)
     mail(
       to: @identity.email,
-      from: ENV['MAILER_FROM_ADDRESS'] || 'noreply@harmonic.social',
       subject: "Reset your password on #{ENV['HOSTNAME']}"
     )
   end

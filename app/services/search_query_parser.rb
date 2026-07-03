@@ -84,12 +84,9 @@ class SearchQueryParser
     "sort" => { "new" => "newest", "old" => "oldest" },
   }.freeze, T::Hash[String, T::Hash[String, String]])
 
-  # Backward-compatible operator key aliases. `scope:` was renamed to
-  # `visibility:` to match the visibility term used in markdown/MCP actions;
-  # the old key is still accepted so existing links and saved queries keep working.
-  OPERATOR_ALIASES = T.let({
-    "scope" => "visibility",
-  }.freeze, T::Hash[String, String])
+  # NOTE: `scope` is deliberately not an operator (nor an alias for
+  # `visibility:`). The term is reserved for a page's fixed filters — see
+  # docs/NAVIGATION_DESIGN.md "Feeds are queries".
 
   # Map DSL sort values to SearchQuery sort_by format
   SORT_MAPPING = T.let({
@@ -130,6 +127,7 @@ class SearchQueryParser
     @fuzzy_terms = T.let([], T::Array[String])       # Regular trigram matching
     @exact_phrases = T.let([], T::Array[String])     # Quoted phrases - exact substring match
     @excluded_terms = T.let([], T::Array[String])    # Negated terms - must NOT contain
+    @warnings = T.let([], T::Array[String])          # Known operator, invalid value
   end
 
   sig { returns(T::Hash[Symbol, T.untyped]) }
@@ -172,7 +170,6 @@ class SearchQueryParser
 
       if match_data
         key = T.must(match_data[1]).downcase
-        key = OPERATOR_ALIASES.fetch(key, key)
         value = match_data[2]
 
         if valid_operator?(key, T.must(value))
@@ -185,12 +182,25 @@ class SearchQueryParser
           end
         else
           # Invalid operator - treat as search text
+          warn_invalid_operator(text, key)
           add_search_term(text, quoted: token.quoted, negated: token.negated)
         end
       else
         add_search_term(text, quoted: token.quoted, negated: token.negated)
       end
     end
+  end
+
+  # A KNOWN operator with a bad value warns — silent degradation to search
+  # text is confusing. Unknown keys stay silent; they are legitimately
+  # searchable text ("re:invoice").
+  sig { params(text: String, key: String).void }
+  def warn_invalid_operator(text, key)
+    return unless OPERATORS.key?(key)
+
+    expected = OPERATORS.dig(key, :values)&.join(", ")
+    @warnings << "#{text} is not a valid #{key}: filter" \
+                 "#{expected ? " (expected: #{expected})" : ""}; treated as search text"
   end
 
   sig { params(text: String, quoted: T::Boolean, negated: T::Boolean).void }
@@ -247,6 +257,10 @@ class SearchQueryParser
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def build_params
     params = {}
+
+    # Parse warnings (not a filter — consumers must extract this before
+    # treating the rest as query params)
+    params[:warnings] = @warnings
 
     # Search terms - fuzzy matching (q for backwards compatibility)
     params[:q] = @fuzzy_terms.join(" ").presence

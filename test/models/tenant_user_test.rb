@@ -243,8 +243,43 @@ class TenantUserTest < ActiveSupport::TestCase
 
     tu.update!(handle: "Renamed Handle")
 
-    assert_equal "renamed-handle", tu.reload.handle,
-                 "settings renames must normalize the same way signup does"
+    assert_equal "Renamed-Handle", tu.reload.handle,
+                 "settings renames slugify whitespace but preserve the chosen case"
+  end
+
+  test "explicit handle preserves the case the user chose" do
+    tenant = create_tenant(subdomain: "hcase-#{SecureRandom.hex(4)}")
+    user = create_user(email: "case-#{SecureRandom.hex(4)}@example.com", name: "Case User")
+    tu = tenant.add_user!(user)
+
+    tu.update!(handle: "Linus")
+
+    assert_equal "Linus", tu.reload.handle, "display case must be remembered, not lowercased"
+  end
+
+  test "handle uniqueness is case-insensitive within a tenant" do
+    tenant = create_tenant(subdomain: "hci-#{SecureRandom.hex(4)}")
+    first = create_user(email: "ci1-#{SecureRandom.hex(4)}@example.com", name: "First")
+    second = create_user(email: "ci2-#{SecureRandom.hex(4)}@example.com", name: "Second")
+    tenant.add_user!(first).update!(handle: "linus")
+
+    second_tu = tenant.add_user!(second)
+    second_tu.handle = "Linus"
+
+    assert_not second_tu.valid?, "\"Linus\" must collide with an existing \"linus\""
+    assert_includes second_tu.errors[:handle].to_s.downcase, "taken"
+  end
+
+  test "a handle resolves regardless of the case it is looked up by" do
+    tenant = create_tenant(subdomain: "hlk-#{SecureRandom.hex(4)}")
+    user = create_user(email: "lk-#{SecureRandom.hex(4)}@example.com", name: "Lookup User")
+    tenant.add_user!(user).update!(handle: "Linus")
+
+    %w[linus LINUS Linus].each do |variant|
+      assert_equal user.id,
+                   tenant.tenant_users.find_by(handle: variant)&.user_id,
+                   "@#{variant} should resolve to the same identity"
+    end
   end
 
   test "an explicit duplicate handle fails validation instead of crashing on the DB constraint" do
@@ -287,6 +322,16 @@ class TenantUserTest < ActiveSupport::TestCase
     tenant = create_tenant
     user = create_user
     tu = TenantUser.new(tenant: tenant, user: user, handle: "trio", display_name: user.name)
+    assert_not tu.valid?
+    assert_includes tu.errors[:handle].to_s.downcase, "reserved"
+  end
+
+  test "a cased variant of a reserved handle is still rejected for a human user" do
+    # Case preservation must not let "Trio"/"TRIO" slip past the reserved-handle
+    # gate, since the citext column treats them as the same handle anyway.
+    tenant = create_tenant
+    user = create_user
+    tu = TenantUser.new(tenant: tenant, user: user, handle: "Trio", display_name: user.name)
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
@@ -378,7 +423,114 @@ class TenantUserTest < ActiveSupport::TestCase
     assert tu.valid?
   end
 
+  # Web push channel
+
+  test "notification_channels_for includes web_push when flag on, pref on, and an active subscription exists" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    channels = user.tenant_user.notification_channels_for("mention")
+
+    assert_includes channels, "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when the tenant flag is off" do
+    _tenant, _collective, user = create_tenant_collective_user
+    subscribe_to_push!(user)
+
+    channels = user.tenant_user.notification_channels_for("mention")
+
+    refute_includes channels, "web_push"
+  end
+
+  test "notification_channels_for excludes web_push without an active subscription" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+
+    subscription = subscribe_to_push!(user)
+    subscription.revoke!(reason: "gone")
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when the pref is off" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+    user.tenant_user.set_notification_preference!("mention", "web_push", false)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "stored preferences that predate a channel fall back to that channel's default" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+    tenant_user = user.tenant_user
+
+    # Simulate prefs saved before web_push existed: per-type hashes without
+    # the key. A missing key must inherit the default (true), not read as off.
+    tenant_user.settings["notification_preferences"] = {
+      "mention" => { "in_app" => true, "email" => true },
+      "tune_in" => { "in_app" => true, "email" => false },
+    }
+    tenant_user.save!
+
+    assert_includes tenant_user.notification_channels_for("mention"), "web_push"
+    assert_includes tenant_user.notification_channels_for("tune_in"), "web_push"
+    assert tenant_user.notification_enabled?("mention", "web_push"),
+           "the settings form must render the default state for channels missing from stored prefs"
+    # Explicitly stored values still win over defaults.
+    refute tenant_user.notification_enabled?("tune_in", "email")
+  end
+
+  test "notification_channels_for excludes web_push when the service_worker flag is off" do
+    # Push physically requires the service worker (the push event fires inside
+    # it, and unregistering it destroys the subscription), so web_push alone
+    # must not light the channel up.
+    tenant, _collective, user = create_tenant_collective_user
+    tenant.enable_feature_flag!(:web_push)
+    subscribe_to_push!(user)
+
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
+  test "notification_channels_for excludes web_push when VAPID keys are not configured" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    old_key = ENV["VAPID_PUBLIC_KEY"]
+    ENV["VAPID_PUBLIC_KEY"] = nil
+    refute_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  ensure
+    ENV["VAPID_PUBLIC_KEY"] = old_key
+  end
+
+  test "update_notification_preferences! accepts the web_push channel" do
+    tenant, _collective, user = create_tenant_collective_user
+    enable_web_push!(tenant)
+    subscribe_to_push!(user)
+
+    user.tenant_user.update_notification_preferences!("comment" => { "web_push" => false })
+
+    refute_includes user.tenant_user.notification_channels_for("comment"), "web_push"
+    assert_includes user.tenant_user.notification_channels_for("mention"), "web_push"
+  end
+
   private
+
+  def subscribe_to_push!(user)
+    WebPushSubscription.upsert_for!(
+      user: user,
+      endpoint: "https://push.example.com/send/#{SecureRandom.hex(4)}",
+      p256dh_key: "p256dh-key",
+      auth_key: "auth-key"
+    )
+  end
 
   def first_tenant_user_for_validation
     tenant = create_tenant(subdomain: "fields-#{SecureRandom.hex(4)}")

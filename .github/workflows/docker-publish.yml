@@ -45,6 +45,8 @@ jobs:
           file: ./Dockerfile.production
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:amd64-${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=rails-amd64
           cache-to: type=gha,mode=max,scope=rails-amd64
           platforms: linux/amd64
@@ -86,6 +88,8 @@ jobs:
           file: ./Dockerfile.production
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=rails-arm64
           cache-to: type=gha,mode=max,scope=rails-arm64
           platforms: linux/arm64

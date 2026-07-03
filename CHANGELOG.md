@@ -5,6 +5,78 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.38.0] - 2026-07-02
+
+### Added
+
+- **Feeds are queries** (#358, implements #352) — every feed is a search with a fixed page scope, refinable with `/search` syntax. Feed pages declare fixed filters (rendered as non-editable tokens in the filter bar) plus editable refinements; terms that conflict with the fixed scope are overridden with a visible warning, never widened, and the parser now warns on invalid operator values instead of silently degrading to text. The home feed defaults to `list:tuned_in`, profile tabs and list feeds render through the search engine, and new notes/decisions/commitments index synchronously at commit so they appear in search-backed feeds immediately. The `scope:` operator alias for `visibility:` is removed.
+
+### Changed
+
+- **The feed is now a collective's default page** (#358) — the cycle dashboard moved to `/dashboard`. Workspace feeds are fixed to `visibility:private`; the heartbeat ritual carries over to the feed page.
+- **Handles are case-insensitive and case-preserving** (#289) — `@Linus` and `@linus` resolve to the same identity and can't coexist, while display keeps the case the user chose (Postgres `citext`; no Ruby lookup changes needed).
+- **Collectives and their identity users share one handle** (#290) — a collective's identity user now takes the collective's handle (previously a random hex string) and stays in sync on rename; the handle-availability check covers the unified namespace. Existing hex identity handles are backfilled.
+- **Confirming read clears the associated notification** (#360, fixes #351) — confirm-read on a note also marks the mention/comment/participation notification that pointed there as read, so the badge clears without a separate dismiss step.
+
+### Fixed
+
+- **Device list shows real activity** (#350, fixes #346) — `last_used_at` only updated on token rotation, so the current device could show "Last used 7 hours ago" while in use. Authenticated requests now bump it (throttled), and the current device shows "Active now".
+- **Unconfirmed comment read-confirm renders as a button** (#348, fixes #335) — the clickable read-confirm count on comments was styled like static metadata; it now gets the filled primary treatment matching the note-level Confirm Read button.
+- **Settings page buttons were unstyled** (#349, fixes #344) — four buttons applied the `pulse-action-btn-primary` modifier without the base `pulse-action-btn` class and fell back to native browser styling.
+
+### Infrastructure
+
+- **Fast local Docker test loop** (#357) — new `docker-compose.dev.yml` bind-mounts the working tree so targeted tests re-run with no image rebuild; `docker-compose.test.yml` (CI-faithful runner) fixed to actually run tests.
+
+## [1.37.0] - 2026-07-02
+
+### Added
+
+- **Service worker with offline support** (#347) — cached asset loads, an offline fallback page for failed navigations, and per-deploy cache busting. Per-tenant `service_worker` feature flag doubles as the kill switch: flag off serves a self-unregistering stub that cleans up field installs.
+- **Web Push notifications** (#347) — mentions, replies, reminders, and chat messages on the lock screen. Opt-in via a dismissible banner on the notifications page or "Enable on this device" in settings; per-device list with revocation; `Push` column in the notification-preference matrix. Subscriptions survive session timeouts and end on explicit logout or admin account-security reset; no banners while the app is open and focused. Off by default behind the `web_push` tenant flag; requires `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`. iOS needs a home-screen install (16.4+).
+- **Auto-hiding header** (#342, fixes #338) — the top header is sticky, slides away on scroll-down, and returns on scroll-up.
+
+### Changed
+
+- **Note Edit action moved into the kebab menu** (#332, fixes #325) — Edit (and table Settings) no longer clutter the primary action row.
+
+### Fixed
+
+- **New collectives default to API enabled** (#333, fixes #323) — the collective-local `api` flag started false, so API access was off per collective even under an API-enabled tenant. The tenant flag still gates access.
+- **Emails send from "Harmonic \<address\>"** (#331, fixes #329) — inboxes showed a bare "noreply" as the sender name; display name overridable via `MAILER_FROM_NAME`.
+- **Feed timestamps update live** (#330, fixes #301) — "X ago" on feed items froze at render time; now kept current client-side.
+
+### Infrastructure
+
+- **Production images bake in the commit SHA** (#347) — `GIT_SHA` is now a build arg, fixing the empty Sentry release tag and making the service worker's per-deploy cache invalidation actually fire (it previously resolved to `"dev"` in production).
+
+## [1.36.0] - 2026-07-01
+
+### Added
+
+- **Collective member management UI** (#317) — per-member kebab menu on the members page for role changes (member/admin) and removal, routed through the action pattern so agents with admin can manage members too. Owner's admin role is protected.
+- **MCP tool-call log** (#270, #308) — agent principals get a page listing their recent MCP tool calls with path, action, and intention.
+
+### Fixed
+
+- **Rotated refresh tokens inflated the device list** (#326, PR #327) — each silent refresh appeared as a new device. Rotation churn killed at the source and revocation now walks the token family; session-timeout regression from the cookie-persistence change also fixed.
+
+## [1.35.0] - 2026-06-30
+
+### Added
+
+- **Silent re-authentication via refresh tokens** (#312) — expired sessions no longer bounce users to the login page. Login (with 2FA) issues a rotated, HttpOnly refresh cookie per device; a missing session cookie is silently exchanged for a fresh one. New **Devices** accordion on settings lists active devices ("Mac · Chrome", "iPhone · Safari") with per-device "Sign out" and "Sign out other devices"; revoked devices are kicked out on their next request. Refresh tokens are also revoked on logout, password change, 2FA disable, and the admin account-security panic button.
+- **PWA manifest and mobile-friendly meta** (#309, #310) — `/manifest.json` served per-subdomain (each tenant installs as its own home-screen entry), 192/512 icons, apple-touch-icon, theme-color, mobile-web-app meta. Inputs bumped to 16px on mobile to block iOS focus zoom, plus tap-highlight / overscroll / `img max-width` cleanups.
+
+### Fixed
+
+- **@-mentions inside indented code blocks still notified** (#306, fixes #299) — the regex-based stripper missed 4-space/tab-indented blocks. Replaced with a `Redcarpet::Render::StripDown` subclass so the notification path uses the same tokenizer as the HTML renderer.
+
+### Infrastructure
+
+- **Local docker-compose test environment** (#311) — new `docker-compose.test.yml` runs the suite against an isolated Postgres/Redis pair; `docs/TESTING.md` documents it.
+- **Bump yard 0.9.43 → 0.9.44** (#314).
+
 ## [1.34.1] - 2026-06-30
 
 ### Fixed

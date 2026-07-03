@@ -2,6 +2,11 @@
   <div class="pulse-section-label">Explore</div>
   <ul class="pulse-links-list">
     <li>
+      <a href="<%= @current_collective.path %>/dashboard">
+        <%= octicon 'meter', height: 14 %> Dashboard
+      </a>
+    </li>
+    <li>
       <a href="<%= @current_collective.path %>/cycles">
         <%= octicon 'iterations', height: 14 %> Cycles
       </a>

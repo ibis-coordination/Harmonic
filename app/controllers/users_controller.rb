@@ -3,6 +3,7 @@
 class UsersController < ApplicationController
   include RequiresReverification
   include NotificationPreferencesParams
+  include FeedPage
 
   allows_anonymous :show
   before_action :set_no_cache_headers, only: [:show]
@@ -27,7 +28,7 @@ class UsersController < ApplicationController
     redirect_to "#{current_user.path}/settings/webhooks"
   end
 
-  AVAILABLE_PROFILE_TABS = %w[posts activity lists common_collectives].freeze
+  AVAILABLE_PROFILE_TABS = ["posts", "activity", "lists", "common_collectives"].freeze
   DEFAULT_PROFILE_TAB = "posts"
 
   def show
@@ -37,6 +38,7 @@ class UsersController < ApplicationController
 
     @showing_user = tu.user
     @showing_user.tenant_user = tu
+    @page_scope = "visibility:public creator:@#{tu.handle}"
     @page_title = @showing_user.display_name
     @page_description = "#{@showing_user.display_name} on #{@current_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
 
@@ -110,9 +112,9 @@ class UsersController < ApplicationController
     @show_tune_in_on_mutuals = @current_user.present? && @current_user.id != @showing_user.id
     @tune_in_state = if @show_tune_in_on_mutuals
                        TuneInState.compute(
-                         viewer:     @current_user,
+                         viewer: @current_user,
                          target_ids: @mutuals.map(&:id),
-                         tenant:     @current_tenant,
+                         tenant: @current_tenant
                        )
                      end
 
@@ -150,11 +152,14 @@ class UsersController < ApplicationController
 
     @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@settings_user).first
 
-    # Active refresh tokens = trusted devices. Sorted with the current
-    # device first (so the user sees themselves at the top), then by most
-    # recently used.
-    @active_devices = @settings_user.refresh_tokens.active.order(last_used_at: :desc).to_a
+    # Live refresh tokens = trusted devices (one per family; rotated
+    # predecessors are excluded, see RefreshToken.live). Sorted with the
+    # current device first (so the user sees themselves at the top), then by
+    # most recently used.
+    @active_devices = @settings_user.refresh_tokens.live.order(last_used_at: :desc).to_a
     @active_devices.sort_by! { |d| [current_refresh_token&.id == d.id ? 0 : 1, -d.last_used_at.to_i] }
+
+    @push_subscriptions = @settings_user.web_push_subscriptions.active.order(last_seen_at: :desc).to_a
 
     respond_to do |format|
       format.html
@@ -247,7 +252,7 @@ class UsersController < ApplicationController
     # Bio / location / website are per-tenant — write straight to the
     # TenantUser. Use `key?` so a deliberate empty string clears the field
     # but not submitting the field at all leaves it untouched.
-    %i[bio location website].each do |field|
+    [:bio, :location, :website].each do |field|
       tu[field] = params[field].to_s.strip.presence if params.key?(field)
     end
     tu.save!
@@ -553,7 +558,9 @@ class UsersController < ApplicationController
     settings_user = tu.user
     return render plain: "403 Unauthorized", status: :forbidden unless current_user.can_edit?(settings_user)
 
-    tu.update_notification_preferences!(notification_preferences_from_params(complete: true))
+    tu.update_notification_preferences!(
+      notification_preferences_from_params(complete: true, channels: current_tenant.editable_notification_channels)
+    )
 
     flash[:notice] = "Notification preferences updated"
     redirect_to "#{settings_user.path}/settings"
@@ -742,20 +749,28 @@ class UsersController < ApplicationController
     @showing_user_lists ||= visible_lists_owned_by_for_profile(@showing_user)
   end
 
+  # Profile tabs are named queries over the profile's fixed scope
+  # (visibility:public creator:@handle) — see docs/NAVIGATION_DESIGN.md.
+
   def load_profile_posts_data
-    @posts_feed_items = FeedBuilder.new(
-      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id, subtype: "post"),
-      decisions_scope: Decision.none,
-      commitments_scope: Commitment.none,
-    ).feed_items
+    search = profile_feed_search("type:note subtype:post")
+    @posts_feed_items = SearchFeedItems.build(search.paginated_results)
   end
 
   def load_profile_activity_data
-    @activity_feed_items = FeedBuilder.new(
-      notes_scope: Note.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id).where.not(subtype: "post"),
-      decisions_scope: Decision.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
-      commitments_scope: Commitment.main_collective_scope(@current_tenant).where(created_by_id: @showing_user.id),
-    ).feed_items
+    # Everything except top-level posts; comments stay out of feeds.
+    search = profile_feed_search("-subtype:post,comment")
+    @activity_feed_items = SearchFeedItems.build(search.paginated_results)
+  end
+
+  def profile_feed_search(query)
+    build_feed_search(
+      query: query,
+      fixed_params: {
+        visibility: "public",
+        creator_handles: [@showing_user.tenant_user.handle],
+      }
+    )
   end
 
   def resolve_active_profile_tab(requested)
@@ -808,5 +823,4 @@ class UsersController < ApplicationController
   def token_authenticated_action?
     action_name == "confirm_email"
   end
-
 end

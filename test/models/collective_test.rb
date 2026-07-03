@@ -55,6 +55,46 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_match(/handle is reserved/i, error.message)
   end
 
+  test "Collective rejects a cased variant of the reserved handle 'main'" do
+    tenant = create_tenant
+    user = create_user
+    error = assert_raises(ActiveRecord::RecordInvalid) do
+      Collective.create!(tenant: tenant, created_by: user, name: "Main Collective", handle: "Main")
+    end
+    assert_match(/handle is reserved/i, error.message)
+  end
+
+  test "Collective handle keeps the case the creator chose" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "Foo-Team")
+    assert_equal "Foo-Team", collective.handle, "display case must be preserved, not lowercased"
+  end
+
+  test "Collective handle uniqueness is case-insensitive within a tenant" do
+    tenant = create_tenant
+    user = create_user
+    Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+
+    # Collective handle uniqueness is enforced by the DB unique index, not a
+    # model validation; with the citext column it now rejects cased variants.
+    assert_raises(ActiveRecord::RecordNotUnique) do
+      Collective.create!(tenant: tenant, created_by: user, name: "Foo Team Two", handle: "Foo-Team")
+    end
+    assert_not Collective.handle_available?("FOO-TEAM"), "availability check must be case-insensitive"
+  end
+
+  test "Collective is found regardless of the case its handle is looked up by" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "Foo-Team")
+
+    %w[foo-team FOO-TEAM Foo-Team].each do |variant|
+      assert_equal collective.id, tenant.collectives.find_by(handle: variant)&.id,
+                   "/collectives/#{variant} should resolve to the same collective"
+    end
+  end
+
   test "Collective.creator_is_not_collective_identity validation" do
     tenant = create_tenant
     identity_user = create_user(user_type: "collective_identity")
@@ -105,6 +145,19 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not Collective.handle_available?("existing-handle")
   end
 
+  test "Collective.handle_available? returns false when a user already holds the handle" do
+    tenant = create_tenant
+    user = create_user
+    TenantUser.create!(tenant: tenant, user: user, display_name: "Squatter", handle: "shared-name")
+
+    # Collective and user handles are one namespace (Goal 2): if a user already
+    # holds "shared-name", the new-collective form must report it as taken so a
+    # collective's identity user gets the identical handle rather than a suffixed
+    # fallback. citext makes the cross-namespace check case-insensitive too.
+    assert_not Collective.handle_available?("shared-name")
+    assert_not Collective.handle_available?("SHARED-NAME"), "cross-namespace check must be case-insensitive"
+  end
+
   test "Collective.create_identity_user! creates an identity user" do
     tenant = create_tenant
     user = create_user
@@ -116,6 +169,42 @@ class CollectiveTest < ActiveSupport::TestCase
     )
     assert collective.identity_user.present?
     assert_equal "collective_identity", collective.identity_user.user_type
+  end
+
+  # Goal 2 of handle-model-unification: the identity user shares the collective's
+  # own handle so @foo-team and /collectives/foo-team resolve to one identity.
+  test "identity user shares the collective's handle" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "Foo-Team")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_equal "Foo-Team", identity_tu.handle
+  end
+
+  test "identity user handle is suffixed when a user already holds the collective handle" do
+    tenant = create_tenant
+    user = create_user
+    TenantUser.create!(tenant: tenant, user: create_user, display_name: "Squatter", handle: "foo-team")
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_match(/\Afoo-team-[0-9a-f]{4}\z/, identity_tu.handle)
+  end
+
+  test "identity user handle is suffixed when the collective handle is reserved for system agents" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Trio", handle: "trio")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_match(/\Atrio-[0-9a-f]{4}\z/, identity_tu.handle)
+  end
+
+  test "renaming the collective syncs the identity user handle" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+    collective.update!(handle: "bar-team")
+    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
+    assert_equal "bar-team", identity_tu.handle
   end
 
   test "Collective#trio_user is nil by default and links to a User when set" do
@@ -316,7 +405,7 @@ class CollectiveTest < ActiveSupport::TestCase
     assert main_collective.api_enabled?
   end
 
-  test "Collective.api_enabled? returns false by default for non-main collective" do
+  test "Collective.api_enabled? returns false for non-main collective when tenant API is disabled" do
     tenant = create_tenant
     user = create_user
     collective = Collective.create!(
@@ -326,7 +415,26 @@ class CollectiveTest < ActiveSupport::TestCase
       handle: "api-test-collective"
     )
 
+    # Tenant API flag is off by default, which gates the collective regardless
+    # of the collective-local default.
     assert_not collective.api_enabled?
+  end
+
+  test "Collective.api_enabled? is true by default for a new collective under an API-enabled tenant" do
+    # Regression for #323: new collectives should inherit their tenant's
+    # API-enabled posture rather than defaulting API off.
+    tenant = create_tenant
+    user = create_user
+    tenant.set_feature_flag!("api", true)
+
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Inherited API Collective",
+      handle: "inherited-api-collective"
+    )
+
+    assert collective.api_enabled?, "New collective should default to API enabled when the tenant has API enabled"
   end
 
   test "Collective.enable_api! enables API for collective" do

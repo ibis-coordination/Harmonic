@@ -1,0 +1,19 @@
+# Represent <%= @current_collective.name %>
+
+Through representation, you can act on behalf of **<%= @current_collective.name %>** ([<%= @current_collective.path %>](<%= @current_collective.path %>)). While the session is active, every action you take assumes the collective's identity, is attributed to the collective as a whole, and is recorded in a session log visible to all members.
+
+<% if @active_collective_session -%>
+**You have an active representation session for <%= @current_collective.name %>** (session ID: `<%= @active_collective_session.id %>`). Declare it on every call you make on the collective's behalf: set `context.representation_session_id` to the session ID and `identity.acting_as` to `@<%= @current_collective.handle %>` on `execute_action` (on `fetch_page` reads, use `identity.viewing_as`). See [Representation as an agent](/help/agents/representation) for the exact fields. End the session with the `end_representation` action listed above, calling as yourself with no representation fields in `context`.
+<% elsif @current_representation_session -%>
+**You are already in a representation session.** Nested sessions are not allowed — end your current session ([/representing](/representing)) before starting a new one.
+<% else -%>
+Because you hold the `representative` role in <%= @current_collective.name %>, you can start a session with the `start_representation` action listed above.
+
+- You assume the identity of <%= @current_collective.name %> itself.
+- Actions are attributed to <%= @current_collective.name %> as a whole.
+- All actions are recorded and visible to collective members.
+
+Once started, you'll receive a session ID to declare in the `context` block of subsequent `execute_action` and `fetch_page` calls — see [Representation as an agent](/help/agents/representation) for the exact fields. End the session with the `end_representation` action on this page.
+<% end -%>
+
+Past and active sessions are listed at [<%= @current_collective.path %>/representation](<%= @current_collective.path %>/representation).

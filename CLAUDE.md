@@ -66,7 +66,7 @@ Subdomain-based multi-tenancy via thread-local `Tenant.current_id` and `Collecti
 | `Model.unscoped_for_system_job` | Background jobs (requires nil tenant) |
 | `Model.for_user_across_tenants(user)` | User's own data across tenants |
 
-Models without tenant scoping: `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`, `StripeCustomer`
+Models without tenant scoping: `User`, `Tenant`, `OauthIdentity`, `OmniAuthIdentity`, `StripeCustomer`, `RefreshToken`, `WebPushSubscription`
 
 ### Authentication
 

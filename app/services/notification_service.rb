@@ -112,28 +112,47 @@ class NotificationService
       .first
 
     notification = if existing
-      # In-app inbox dedups: keep the existing notification so the recipient
-      # sees one consolidated row, not a pile of unread chat pings. The join
-      # on :notification above guarantees `existing.notification` is non-nil.
-      T.must(existing.notification)
-    else
-      n = Notification.create!(
-        tenant: tenant,
-        notification_type: "chat_message",
-        title: "New message from #{sender.display_name}",
-        url: url
-      )
+                     # In-app inbox dedups: keep the existing notification so the recipient
+                     # sees one consolidated row, not a pile of unread chat pings. The join
+                     # on :notification above guarantees `existing.notification` is non-nil.
+                     T.must(existing.notification)
+                   else
+                     n = Notification.create!(
+                       tenant: tenant,
+                       notification_type: "chat_message",
+                       title: "New message from #{sender.display_name}",
+                       url: url
+                     )
 
-      NotificationRecipient.create!(
-        notification: n,
+                     NotificationRecipient.create!(
+                       notification: n,
+                       user: recipient,
+                       tenant: tenant,
+                       channel: "in_app",
+                       status: "delivered",
+                       delivered_at: Time.current
+                     )
+
+                     n
+                   end
+
+    channels = ["in_app"]
+
+    # Unlike the in-app inbox, web push is per-message: the lock-screen ping
+    # is the point of the channel, so every message gets its own recipient
+    # row (on the possibly-reused notification) while the inbox keeps its
+    # one-row-per-sender dedup.
+    tenant_user = TenantUser.tenant_scoped_only(tenant.id).find_by(user: recipient)
+    if tenant_user&.notification_channels_for("chat_message")&.include?("web_push")
+      push_recipient = NotificationRecipient.create!(
+        notification: notification,
         user: recipient,
         tenant: tenant,
-        channel: "in_app",
-        status: "delivered",
-        delivered_at: Time.current
+        channel: "web_push",
+        status: "pending"
       )
-
-      n
+      NotificationDeliveryJob.perform_later(push_recipient.id)
+      channels << "web_push"
     end
 
     # Always fire the event — every chat message is independently meaningful
@@ -146,7 +165,7 @@ class NotificationService
     fire_notifications_delivered_event(
       notification: notification,
       recipient: recipient,
-      channels: ["in_app"],
+      channels: channels,
       extra_metadata: { "original_actor_id" => sender.id }
     )
   end
@@ -174,6 +193,36 @@ class NotificationService
     NotificationRecipient
       .where(user: user, tenant: tenant)
       .in_app.unread.not_scheduled.count
+  end
+
+  # Unread counts grouped by the notification event's collective, for the
+  # rail's per-collective badges. Reminders (no event) have no collective and
+  # are excluded — they only count toward the header total. String joins keep
+  # the Notification/Event default scopes (thread collective scope) out of
+  # the query: badges must cover every collective, not just the current one.
+  sig { params(user: User, tenant: Tenant).returns(T::Hash[String, Integer]) }
+  def self.unread_count_by_collective_for(user, tenant:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .in_app.unread.not_scheduled
+      .joins("INNER JOIN notifications ON notifications.id = notification_recipients.notification_id")
+      .joins("INNER JOIN events ON events.id = notifications.event_id")
+      .group("events.collective_id")
+      .count
+  end
+
+  # Unread chat pings for the rail's aggregated chat entry. Chat-message
+  # notifications carry no event (see notify_chat_message!), so they are
+  # invisible to unread_count_by_collective_for and counted here by type —
+  # the two never overlap.
+  sig { params(user: User, tenant: Tenant).returns(Integer) }
+  def self.unread_chat_count_for(user, tenant:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .in_app.unread.not_scheduled
+      .joins("INNER JOIN notifications ON notifications.id = notification_recipients.notification_id")
+      .where(notifications: { notification_type: "chat_message" })
+      .count
   end
 
   sig { params(user: User, tenant: Tenant).void }
@@ -223,6 +272,18 @@ class NotificationService
       .update_all(read_at: Time.current)
   end
 
+  # Mark a user's in-app notifications about a specific resource (the event
+  # subject, e.g. a Note being confirmed-read) as read. Used so that confirming
+  # read on a note also clears the notification that pointed the user there.
+  sig { params(user: User, tenant: Tenant, subject: ApplicationRecord).returns(Integer) }
+  def self.mark_read_for_subject(user, tenant:, subject:)
+    NotificationRecipient
+      .where(user: user, tenant: tenant)
+      .where(notification_id: notification_ids_for_subject(tenant, subject))
+      .in_app.unread.not_scheduled
+      .update_all(read_at: Time.current)
+  end
+
   sig { params(user: User, tenant: Tenant).returns(Integer) }
   def self.mark_all_read_reminders(user, tenant:)
     # Mark all notifications without an event (i.e., reminders that have become due)
@@ -246,6 +307,12 @@ class NotificationService
   sig { params(tenant: Tenant, collective_id: String).returns(T::Array[String]) }
   def self.notification_ids_for_collective(tenant, collective_id)
     event_ids = Event.tenant_scoped_only(tenant.id).where(collective_id: collective_id).pluck(:id)
+    Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
+  end
+
+  sig { params(tenant: Tenant, subject: ApplicationRecord).returns(T::Array[String]) }
+  def self.notification_ids_for_subject(tenant, subject)
+    event_ids = Event.tenant_scoped_only(tenant.id).for_subject(subject).pluck(:id)
     Notification.tenant_scoped_only(tenant.id).where(event_id: event_ids).pluck(:id)
   end
 

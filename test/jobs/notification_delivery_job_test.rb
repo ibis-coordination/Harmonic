@@ -1,6 +1,41 @@
 require "test_helper"
 
 class NotificationDeliveryJobTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
+  test "perform fans out web_push recipient to one delivery job per active subscription" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    live_a = WebPushSubscription.upsert_for!(
+      user: user, endpoint: "https://push.example.com/send/a", p256dh_key: "k", auth_key: "a"
+    )
+    live_b = WebPushSubscription.upsert_for!(
+      user: user, endpoint: "https://push.example.com/send/b", p256dh_key: "k", auth_key: "a"
+    )
+    revoked = WebPushSubscription.upsert_for!(
+      user: user, endpoint: "https://push.example.com/send/c", p256dh_key: "k", auth_key: "a"
+    )
+    revoked.revoke!(reason: "gone")
+
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
+    notification = Notification.create!(
+      tenant: tenant, event: event, notification_type: "mention", title: "Test",
+    )
+    recipient = NotificationRecipient.create!(
+      notification: notification, user: user, channel: "web_push", status: "pending",
+    )
+
+    NotificationDeliveryJob.perform_now(recipient.id)
+
+    assert_enqueued_with(job: WebPushDeliveryJob, args: [recipient.id, live_a.id])
+    assert_enqueued_with(job: WebPushDeliveryJob, args: [recipient.id, live_b.id])
+    assert_enqueued_jobs 2, only: WebPushDeliveryJob
+
+    recipient.reload
+    assert_equal "delivered", recipient.status
+  end
+
   test "perform marks in_app recipient as delivered" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

@@ -1,0 +1,79 @@
+/* Pulse Feed Search Bar
+ *
+ * Every feed page is search results with a fixed page scope
+ * (docs/NAVIGATION_DESIGN.md "The feed search bar"). All filters — fixed
+ * and editable — appear inside the query field, since they are all part of
+ * the query. Fixed filters render as muted non-editable tokens; the rest
+ * is editable text. Parse warnings render below the form.
+ */
+
+.pulse-feed-bar-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The query field: one visual input holding fixed tokens + editable text.
+   A <label> so clicking anywhere in it focuses the text input. */
+.pulse-feed-bar-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--border-radius-lg);
+  cursor: text;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.pulse-feed-bar-field:focus-within {
+  border-color: var(--color-accent-emphasis);
+}
+
+/* Fixed page-scope token: part of the query, not part of the editable text. */
+.pulse-feed-bar-scope {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: var(--color-canvas-subtle);
+  border-radius: var(--border-radius-default);
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+.pulse-feed-bar-scope code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.pulse-feed-bar-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--color-fg-default);
+}
+
+.pulse-feed-bar-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  color: var(--color-attention-fg);
+  font-size: 13px;
+}
+
+.pulse-feed-bar-warning .octicon {
+  fill: currentColor;
+  flex-shrink: 0;
+}

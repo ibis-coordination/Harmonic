@@ -1,0 +1,159 @@
+/* Pulse Places Sheet
+ *
+ * The mobile place switcher: the rail's destinations as labeled rows in a
+ * slide-over panel, opened from a header toggle. Desktop widths hide both
+ * (the rail is the desktop projection of the same destinations — see the
+ * form-factors section of docs/NAVIGATION_DESIGN.md).
+ */
+
+.pulse-places-toggle {
+  display: none;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--color-fg-muted);
+  cursor: pointer;
+}
+
+.pulse-places-toggle .octicon {
+  fill: currentColor;
+}
+
+/* Aggregate unread dot: any place has activity. */
+.pulse-places-toggle-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-fg);
+}
+
+.pulse-places-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay-backdrop);
+  z-index: 200;
+}
+
+.pulse-places-sheet {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(320px, 85vw);
+  background: var(--color-canvas-default);
+  border-right: 1px solid var(--color-border-default);
+  z-index: 201;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  overflow-y: auto;
+  visibility: hidden;
+}
+
+.pulse-places-sheet.open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.pulse-places-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px;
+  gap: 2px;
+}
+
+.pulse-places-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--border-radius-default);
+  color: var(--color-fg-default);
+  text-decoration: none;
+}
+
+.pulse-places-row {
+  position: relative;
+}
+
+.pulse-places-row:hover {
+  background: var(--color-canvas-subtle);
+}
+
+/* Current place: the rail's left-edge indicator pill, verbatim — same
+   element and rules, repositioned to hug the sheet's edge (the nav has
+   8px side padding). */
+.pulse-places-row .pulse-rail-indicator {
+  left: -8px;
+}
+
+.pulse-places-row:hover .pulse-rail-indicator {
+  height: 20px;
+}
+
+.pulse-places-row.active .pulse-rail-indicator {
+  height: 32px;
+}
+
+.pulse-places-row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: var(--color-fg-muted);
+}
+
+.pulse-places-row-icon .octicon {
+  fill: currentColor;
+}
+
+.pulse-places-row-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--border-radius-default);
+  object-fit: cover;
+}
+
+.pulse-places-row-avatar.inline-avatar {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pulse-places-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Row badges reuse .pulse-rail-badge display rules but sit in-flow at the
+   row's right edge rather than absolutely over an icon. */
+.pulse-places-row-badge {
+  position: static;
+  flex-shrink: 0;
+}
+
+.pulse-places-row-add {
+  color: var(--color-fg-muted);
+}
+
+.pulse-places-divider {
+  height: 1px;
+  background: var(--color-border-default);
+  margin: 6px 12px;
+}
+
+@media (max-width: 768px) {
+  .pulse-places-toggle {
+    display: flex;
+  }
+}
