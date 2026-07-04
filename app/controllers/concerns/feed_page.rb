@@ -28,12 +28,16 @@ module FeedPage
     @feed_query.strip == @feed_default_query
   end
 
+  # No hidden filters: a feed's comment exclusion lives in its visible
+  # default query (`-subtype:comment`), where the viewer can see it and
+  # remove it. A viewer-supplied query gets raw search semantics, same as
+  # /search.
   def build_feed_search(fixed_params:, params_extra: {}, query: @feed_query)
     SearchQuery.new(
       tenant: @current_tenant,
       current_user: @current_user,
       raw_query: query,
-      params: { exclude_subtypes: ["comment"], per_page: FEED_LIMIT }.merge(params_extra),
+      params: { per_page: FEED_LIMIT }.merge(params_extra),
       fixed_params: fixed_params
     )
   end

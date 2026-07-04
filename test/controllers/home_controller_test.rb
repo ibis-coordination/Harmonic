@@ -21,6 +21,19 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "the home my:notified view offers mark-all-read scoped to the main collective" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/", params: { q: "my:notified" }
+    assert_response :success
+    main = Collective.find(@tenant.main_collective_id)
+    assert_select "button[data-action='click->notification-actions#markReadForCollective'][data-collective-id='#{main.id}']"
+
+    get "/"
+    assert_response :success
+    assert_select "button[data-action='click->notification-actions#markReadForCollective']", count: 0
+  end
+
   test "rail badges render with unread counts server-side on first paint" do
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     other = Collective.create!(tenant: @tenant, name: "Rail Badge Collective", handle: "rail-badge-collective", created_by: @user)
@@ -353,7 +366,9 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     get "/"
     assert_response :success
     assert_select ".pulse-feed-bar-scope code", text: "visibility:public"
-    assert_select "input[name='q'][value='list:tuned_in']"
+    # The comment exclusion is part of the visible default query — the
+    # viewer can see it and remove it, not a hidden structural filter.
+    assert_select "textarea[name='q']", text: "list:tuned_in -subtype:comment"
   end
 
   test "reminders interleave on the default view but not on refined queries" do

@@ -45,5 +45,18 @@ export default class RailBadgesController extends Controller<HTMLElement> {
       badge.textContent = ""
       badge.style.display = "none"
     }
+    this.updateEntryHref(badge, count)
+  }
+
+  // A badged place entry links to its feed filtered to what the viewer was
+  // notified about; unbadged it links plainly. Entries without a
+  // data-place-path (chat — not a feed) never swap. Mirrors
+  // UnreadBadgeDisplay#place_entry_href — keep the two in sync.
+  private updateEntryHref(badge: HTMLElement, count: number): void {
+    const anchor = badge.closest<HTMLAnchorElement>("a[data-place-path]")
+    if (!anchor) return
+
+    const basePath = anchor.dataset.placePath ?? ""
+    anchor.setAttribute("href", count > 0 ? `${basePath}?q=my:notified` : basePath)
   }
 }

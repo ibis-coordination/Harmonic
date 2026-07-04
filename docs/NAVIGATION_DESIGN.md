@@ -167,7 +167,7 @@ Filters come in three tiers, and the UI must make the tier visible:
 | Tier | Example | Rendering | Editable? |
 |---|---|---|---|
 | **Fixed** (the page scope) | `collective:my-team` on `/collectives/my-team` | Muted token inside the field, not editable | No — it *is* the page |
-| **Default** | `cycle:this-week` on a collective home | Ordinary query text | Yes — remove or replace freely |
+| **Default** | `cycle:this-week -subtype:comment` on a collective home | Ordinary query text | Yes — remove or replace freely |
 | **User** | anything typed | Query text | Yes |
 
 Decisions and rationale:
@@ -192,6 +192,16 @@ Decisions and rationale:
   "defaults". GitHub Issues has exactly this distinction. A blank query
   with a fixed scope *browses* — the fixed scope is what makes a page a
   feed; only `/search` keeps blank-means-empty behavior.
+- **No hidden filters — the comment exclusion is default query text.**
+  Feed defaults read `… -subtype:comment` in the input, visible and
+  removable, instead of a structural `exclude_subtypes` param silently
+  ANDed onto whatever the viewer types. A viewer-supplied `?q` therefore
+  gets raw search semantics, comments included — the same universe as
+  `/search`. Fixed internal feeds that want no comments say so in their
+  own query (list activity; the profile Posts/Activity tabs already
+  did). An earlier draft special-cased `my:notified` to lift a hidden
+  exclusion; rejected — defaults carry the curation, queries carry
+  nothing invisible.
 - **Refinements live in the URL** (`/collectives/x?q=type:decision`), so
   filtered views are shareable and the back button works. The canonical
   page URL (no `q`) always shows the default view. Markdown frontmatter
@@ -291,16 +301,25 @@ chrome to reshape per form factor without forking the model.
 
 ### Increments (each independently shippable, none undone by the next)
 
-1. **Badge click-through** (`my:notified` + clearing affordances +
-   reminder-notification attribution — see open question 3). Comes before
-   the bar: the bar's Places/Inbox split only feels right once badges
-   drain in place.
-2. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
+1. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
    down; the top bar slims to a place label.
-3. **Sidebar → place header**, paced by how much of the sidebar
+2. **Sidebar → place header**, paced by how much of the sidebar
    feeds-are-queries continues to absorb.
 
 Shipped from this list:
+
+- **Badge click-through + clearing affordance** (open question 3, built):
+  reminder-notification attribution, the `my:` filter namespace
+  (`my:notified`, `my:unread`, `my:read`), badged rail/sheet entries
+  linking to the place's feed at `?q=my:notified`, and a mark-all-read
+  affordance on that view. Deliberately sequenced before the bar so
+  badges drain in place. The click target is the **whole entry**, not the
+  badge: a nested anchor is invalid HTML and the badge is too small a tap
+  target, so a badged entry's href swaps to the filtered view and swaps
+  back when the count drains (`UnreadBadgeDisplay#place_entry_href`
+  server-side, mirrored by the rail-badges controller via
+  `data-place-path`). Chat never swaps — it is not a feed; `/chat` is
+  already its queue.
 
 - **Rail desktop-only** (#339): hidden under 768px by redefining
   `--pulse-rail-width` (the motto footer's border-continuation offset
@@ -343,6 +362,14 @@ Shipped from this list:
   viewing past cycles on the dashboard additionally requires a heartbeat,
   while queries (including `cycle:` refinements on feed pages and
   `/search`) cross cycles freely.
+- **Comment notifications surface as the comment.** `my:notified`
+  resolves a comment notification to the comment itself (an earlier
+  build climbed to the thread root because feeds hid comment rows — the
+  root then appeared with no sign it was about a comment). Feed cards
+  for notes navigate via `display_path`, so a comment card opens its
+  thread at `?comment_id=` — the same URL the notification carries —
+  where the comment scrolls into view highlighted. Action endpoints
+  keep building from `path`, the canonical bare resource URL.
 - **Chat is one aggregated rail entry beneath the globe.** A bare icon
   (like the globe, not a square) linking to `/chat`, active on all chat
   pages. Its badge is type-based — unread `chat_message` notifications —
@@ -364,10 +391,10 @@ Shipped from this list:
    The route swap landed (feed is the default page, dashboard at
    `/dashboard`), but the dashboard itself hasn't converted to a query —
    decide the sidebar question together with that conversion.
-3. **Badge click-through — direction resolved, unbuilt.** A square's
-   unread badge implies clicking will show what you're being notified
-   about, but the collective feed renders with no notification context.
-   The fix is a `my:` filter namespace: the DSL is already viewer-relative
+3. **Badge click-through — resolved, shipped.** A square's unread badge
+   implies clicking will show what you're being notified about, but the
+   collective feed rendered with no notification context. The fix is a
+   `my:` filter namespace: the DSL is already viewer-relative
    (`list:tuned_in` resolves against the current user), but `list:*`
    resolves to *authors* and filters on content facts, while `my:*`
    filters on the viewer's own state per item — a different data layer
@@ -388,17 +415,19 @@ Shipped from this list:
      confirm-read), which is what "read" already means everywhere else
      in the product. Fully separable from the badge system, and a
      different query shape (a negative join against read-confirmations
-     vs. `my:notified`'s id-set resolution) — build it later,
-     independently.
+     vs. `my:notified`'s id-set resolution) — shipped alongside it as
+     part of the same filter engine.
 
    What makes the click-through actually drain the badge:
 
    - Confirm-read already clears the pointing notification (shipped in
      1.38.0), covering notes and reminders.
-   - Non-confirmable items (votes, tune-ins) need per-item dismiss
-     chrome in the `my:notified` view, or a "mark all read here"
-     affordance — `mark_read_for_collective` /
-     `dismiss_for_collective` already exist server-side.
+   - Non-confirmable items (votes, tune-ins) drain via the mark-all-read
+     affordance on the `my:notified` view, wired to the inbox's existing
+     per-collective action (`mark_read_for_collective`, which reaches
+     reminders through read-time attribution). Marked-read items stay in
+     the view — `my:notified` shows the undismissed queue; the badge
+     counts its unread subset. Dismissal stays on `/notifications`.
 
    Prerequisite: **reminder-notification attribution.** Reminder *notes*
    have a collective; only their notification rows are placeless
@@ -423,10 +452,10 @@ Shipped from this list:
    Anonymous viewers: `my:*` with no signed-in user warns and matches
    nothing, same pattern as other unresolvable filters.
 
-   Sequencing: reminder attribution → `my:notified` + badge click-through
-   + clearing affordances → bottom tab bar (its Places/Inbox split only
-   feels right once badges drain in place) → `my:unread` when it earns
-   its slot.
+   Sequencing: everything through the clearing affordance has shipped.
+   Next is the bottom tab bar — its Places/Inbox split only feels right
+   now that badges drain in place. Dedicated `my:unread` UX (beyond the
+   filter itself) waits until it earns its slot.
 
 (The former "what is the globe?" question is resolved — see Decided: `/`
 unifies home and the public space via the default `list:tuned_in` chip.

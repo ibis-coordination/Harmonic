@@ -22,6 +22,7 @@
   gap: 6px;
   flex-wrap: wrap;
   padding: 4px 8px;
+  margin-bottom: 8px;
   background: var(--color-canvas-default);
   border: 1px solid var(--color-border-default);
   border-radius: var(--border-radius-lg);
@@ -52,6 +53,9 @@
   font-size: inherit;
 }
 
+/* A one-row textarea that grows with its content (feed-bar-input
+   controller) — long queries wrap instead of hiding behind horizontal
+   scroll. */
 .pulse-feed-bar-input {
   flex: 1;
   min-width: 120px;
@@ -62,6 +66,21 @@
   font-family: monospace;
   font-size: 13px;
   color: var(--color-fg-default);
+  resize: none;
+  overflow: hidden;
+  line-height: 1.5;
+}
+
+/* The my:notified view's clearing affordance: a slim row between the bar
+   and the feed items. */
+.pulse-feed-bar-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 0;
+  color: var(--color-fg-muted);
+  font-size: 13px;
 }
 
 .pulse-feed-bar-warning {

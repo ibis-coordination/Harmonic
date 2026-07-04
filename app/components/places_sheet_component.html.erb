@@ -3,8 +3,9 @@
 <div class="pulse-places-sheet" data-places-sheet-target="panel" aria-hidden="true">
   <nav class="pulse-places-nav" aria-label="Places" data-controller="rail-badges">
     <% if @main_collective %>
-      <%= tag.a href: "/",
+      <%= tag.a href: place_entry_href("/", unread_count_for(@main_collective)),
                 class: ["pulse-places-row", ("active" if public_space_active?)],
+                data: { place_path: "/" },
                 aria: { current: ("page" if public_space_active?) } do %>
         <span class="pulse-rail-indicator"></span>
         <span class="pulse-places-row-icon"><%= helpers.octicon "globe", height: 20 %></span>
@@ -25,8 +26,9 @@
     <% end %>
 
     <% @collectives.each do |collective| %>
-      <%= tag.a href: collective.path,
+      <%= tag.a href: place_entry_href(collective.path, unread_count_for(collective)),
                 class: ["pulse-places-row", ("active" if active?(collective))],
+                data: { place_path: collective.path },
                 aria: { current: ("page" if active?(collective)) } do %>
         <span class="pulse-rail-indicator"></span>
         <span class="pulse-places-row-icon">

@@ -1,0 +1,16 @@
+<%# Clearing affordance for the my:notified view (docs/NAVIGATION_DESIGN.md
+    "Badge click-through"). Confirm-read clears note and reminder
+    notifications one by one; this drains the rest (votes, tune-ins) in one
+    tap. Items stay in the view — my:notified shows the undismissed queue,
+    the badge counts its unread subset. %>
+<% if @current_user && collective && @search&.my_filter?("notified") %>
+  <div class="pulse-feed-bar-notice" data-controller="notification-actions">
+    <span>Showing items you've been notified about here.</span>
+    <button type="button"
+            class="pulse-action-btn-secondary"
+            data-action="click->notification-actions#markReadForCollective"
+            data-collective-id="<%= collective.id %>">
+      Mark all read
+    </button>
+  </div>
+<% end %>

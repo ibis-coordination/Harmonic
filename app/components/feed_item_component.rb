@@ -34,6 +34,16 @@ class FeedItemComponent < ViewComponent::Base
 
   private
 
+  # Where clicking the card (or its title) lands. Notes use display_path so
+  # a comment opens its thread with the comment marked (?comment_id=) —
+  # the same URL its notification links to — rather than the isolated
+  # comment page. Action endpoints keep building from @item.path, the
+  # canonical bare resource URL.
+  sig { returns(T.nilable(String)) }
+  def navigate_path
+    @item.is_a?(Note) ? @item.display_path : @item.path
+  end
+
   sig { returns(T::Boolean) }
   def author_blocked?
     @created_by.present? && @blocked_user_ids.include?(@created_by.id)

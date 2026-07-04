@@ -13,6 +13,9 @@
       warnings: @search.warnings,
     ) %>
 
+    <%# The globe's badge counts the main collective — home is its feed. %>
+    <%= render "shared/notified_feed_banner", collective: @current_tenant.main_collective %>
+
     <% if @feed_items.present? %>
       <div class="pulse-feed" style="padding: 0;">
         <% @feed_items.each do |feed_item| %>

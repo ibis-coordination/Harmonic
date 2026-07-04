@@ -4,11 +4,19 @@
       <% @scope_filters.each do |filter| %>
         <span class="pulse-feed-bar-scope" title="Fixed for this page"><code><%= filter %></code></span>
       <% end %>
-      <%= form.text_field :q,
+      <%# A textarea, not an <input>: long queries wrap and the field grows
+          instead of hiding overflow behind horizontal scroll. The
+          controller keeps Enter as submit. %>
+      <%= form.text_area :q,
           value: @query,
+          rows: 1,
           class: "pulse-feed-bar-input",
           placeholder: @placeholder,
-          autocomplete: "off" %>
+          autocomplete: "off",
+          data: {
+            controller: "feed-bar-input",
+            action: "input->feed-bar-input#resize keydown->feed-bar-input#keydown resize@window->feed-bar-input#resize",
+          } %>
     </label>
     <%= form.submit @submit_label, class: "pulse-action-btn", name: nil %>
   <% end %>

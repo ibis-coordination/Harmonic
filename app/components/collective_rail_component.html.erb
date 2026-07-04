@@ -1,8 +1,9 @@
 <nav class="pulse-rail" aria-label="Collectives" data-controller="rail-badges">
   <% if @main_collective %>
-    <%= tag.a href: "/",
+    <%= tag.a href: place_entry_href("/", unread_count_for(@main_collective)),
               class: ["pulse-rail-item", "pulse-rail-public", ("active" if public_space_active?)],
               title: "Public space",
+              data: { place_path: "/" },
               aria: { label: "Public space", current: ("page" if public_space_active?) } do %>
       <span class="pulse-rail-indicator"></span>
       <span class="pulse-rail-globe"><%= helpers.octicon "globe", height: 22 %></span>
@@ -22,9 +23,10 @@
   <% end %>
 
   <% @collectives.each do |collective| %>
-    <%= tag.a href: collective.path,
+    <%= tag.a href: place_entry_href(collective.path, unread_count_for(collective)),
               class: ["pulse-rail-item", ("active" if active?(collective))],
               title: collective.name,
+              data: { place_path: collective.path },
               aria: { label: collective.name, current: ("page" if active?(collective)) } do %>
       <span class="pulse-rail-indicator"></span>
       <%= helpers.inline_avatar(collective, css_class: "pulse-rail-avatar", variant: :icon) %>

@@ -61,7 +61,7 @@ class UserListsController < ApplicationController
     # stale tune-in can't leak across a block (the markdown view has no
     # render-time block filter).
     search = build_feed_search(
-      query: "",
+      query: "-subtype:comment",
       fixed_params: { visibility: "public", list_id_or_alias: @list.truncated_id }
     )
     author_ids = member_user_ids - block_related_user_ids.to_a

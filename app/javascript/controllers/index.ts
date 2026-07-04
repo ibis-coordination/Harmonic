@@ -31,6 +31,7 @@ import DecisionController from "./decision_controller"
 import DecisionResultsController from "./decision_results_controller"
 import FormTrackerController from "./form_tracker_controller"
 import DecisionVotersController from "./decision_voters_controller"
+import FeedBarInputController from "./feed_bar_input_controller"
 import HeaderSearchController from "./header_search_controller"
 import HandleAvailabilityController from "./handle_availability_controller"
 import HeartbeatController from "./heartbeat_controller"
@@ -108,6 +109,7 @@ application.register("commitment-subtype", CommitmentSubtypeController)
 application.register("decision-subtype", DecisionSubtypeController)
 application.register("decision-results", DecisionResultsController)
 application.register("form-tracker", FormTrackerController)
+application.register("feed-bar-input", FeedBarInputController)
 application.register("decision-voters", DecisionVotersController)
 application.register("header-search", HeaderSearchController)
 application.register("handle-availability", HandleAvailabilityController)

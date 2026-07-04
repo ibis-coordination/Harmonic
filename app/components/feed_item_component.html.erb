@@ -3,7 +3,7 @@
          data-pulse-filter-target="feedItem"
          data-item-type="<%= @type %>"
          data-controller="card-navigate"
-         data-card-navigate-url-value="<%= @item.path %>"
+         data-card-navigate-url-value="<%= navigate_path %>"
          data-action="click->card-navigate#navigate auxclick->card-navigate#navigate keydown->card-navigate#keydown"
          role="link"
          tabindex="0"
@@ -58,7 +58,7 @@
     <% end %>
     <% if show_title? %>
       <div class="pulse-feed-item-title">
-        <a href="<%= @item.path %>"><%= helpers.strip_tags(helpers.markdown(item_title)).presence || "(Untitled)" %></a>
+        <a href="<%= navigate_path %>"><%= helpers.strip_tags(helpers.markdown(item_title)).presence || "(Untitled)" %></a>
       </div>
     <% end %>
     <% if item_content.present? %>

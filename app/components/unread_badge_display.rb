@@ -17,4 +17,13 @@ module UnreadBadgeDisplay
   def count_badge_style(count)
     "display: none" if count.zero?
   end
+
+  # A badged place entry links to its feed filtered to what the viewer was
+  # notified about; unbadged it links plainly (docs/NAVIGATION_DESIGN.md
+  # "Badge click-through"). Applies to feed-backed places only — chat has
+  # no feed, so its entry never swaps.
+  sig { params(path: String, count: Integer).returns(String) }
+  def place_entry_href(path, count)
+    count.positive? ? "#{path}?q=my:notified" : path
+  end
 end

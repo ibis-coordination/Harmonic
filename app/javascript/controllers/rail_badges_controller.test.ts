@@ -9,10 +9,10 @@ describe("RailBadgesController", () => {
         <a href="/chat">
           <span class="pulse-rail-badge" data-chat-badge style="display: none"></span>
         </a>
-        <a href="/collectives/team-a">
+        <a href="/collectives/team-a" data-place-path="/collectives/team-a">
           <span class="pulse-rail-badge" data-collective-id="aaa-111" style="display: none"></span>
         </a>
-        <a href="/collectives/team-b">
+        <a href="/collectives/team-b" data-place-path="/collectives/team-b">
           <span class="pulse-rail-badge" data-collective-id="bbb-222" style="display: none"></span>
         </a>
       </nav>
@@ -31,6 +31,10 @@ describe("RailBadgesController", () => {
 
   function chatBadge(): HTMLElement {
     return document.querySelector("[data-chat-badge]") as HTMLElement
+  }
+
+  function anchor(collectiveId: string): HTMLAnchorElement {
+    return badge(collectiveId).closest("a") as HTMLAnchorElement
   }
 
   it("shows counts on squares with unread notifications", async () => {
@@ -60,6 +64,28 @@ describe("RailBadgesController", () => {
     await vi.waitFor(() => {
       expect(badge("aaa-111").textContent).toBe("99+")
     })
+  })
+
+  it("points a badged entry at the my:notified view, and back when it drains", async () => {
+    broadcast({ "aaa-111": 4 })
+
+    await vi.waitFor(() => {
+      expect(anchor("aaa-111").getAttribute("href")).toBe("/collectives/team-a?q=my:notified")
+      expect(anchor("bbb-222").getAttribute("href")).toBe("/collectives/team-b")
+    })
+
+    broadcast({})
+
+    await vi.waitFor(() => {
+      expect(anchor("aaa-111").getAttribute("href")).toBe("/collectives/team-a")
+    })
+  })
+
+  it("never rewrites the chat link — chat is not a feed", async () => {
+    broadcast({}, 5)
+
+    await vi.waitFor(() => expect(chatBadge().textContent).toBe("5"))
+    expect(chatBadge().closest("a")?.getAttribute("href")).toBe("/chat")
   })
 
   it("fills and clears the aggregated chat badge", async () => {

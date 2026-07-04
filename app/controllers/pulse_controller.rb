@@ -17,7 +17,7 @@ class PulseController < ApplicationController
     workspace = @current_collective.private_workspace?
     @page_scope = workspace ? "visibility:private" : "collective:#{@current_collective.handle}"
 
-    resolve_feed_query("cycle:this-week")
+    resolve_feed_query("cycle:this-week -subtype:comment")
     fixed = { collective_handle: @current_collective.handle }
     fixed[:visibility] = "private" if workspace
     # cycle "all" as the base: a cleared query means all time, not the
