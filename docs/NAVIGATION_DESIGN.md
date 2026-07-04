@@ -301,12 +301,26 @@ chrome to reshape per form factor without forking the model.
 
 ### Increments (each independently shippable, none undone by the next)
 
-1. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
-   down; the top bar slims to a place label.
-2. **Sidebar → place header**, paced by how much of the sidebar
-   feeds-are-queries continues to absorb.
+1. **Sidebar → place header**, paced by how much of the sidebar
+   feeds-are-queries continues to absorb. This also owes the top bar its
+   place label — with the control cluster gone on mobile, the slimmed
+   bar still shows the logo, not "where am I".
 
 Shipped from this list:
+
+- **Bottom tab bar** (built): `[Home(globe)][Places][Search][Inbox][You]`
+  under 768px, the rail's mirror — CSS shows exactly one of the two per
+  width (`--pulse-tab-bar-height` is the layout hook, 0 on desktop).
+  Places carries the aggregate dot and toggles the sheet (the header
+  toggle is gone); Inbox carries the total count (`[data-total-badge]`,
+  fed by the same `notifications:counts` broadcast); You opens the
+  avatar menu upward (shared `layouts/_user_menu` partial, rendered in
+  both the header dropdown and the bar — the You-menu positioning is
+  pure CSS because measuring a `display:none` menu's offsetParent
+  resolves to `<body>` and breaks on scrolled pages). On mobile the
+  header hides search/inbox/avatar (they stay in the DOM — the
+  notification poller lives in the header cluster) and keeps the
+  contextual `+`; creation takes no tab.
 
 - **Badge click-through + clearing affordance** (open question 3, built):
   reminder-notification attribution, the `my:` filter namespace

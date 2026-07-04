@@ -1,38 +1,10 @@
 /* Pulse Places Sheet
  *
  * The mobile place switcher: the rail's destinations as labeled rows in a
- * slide-over panel, opened from a header toggle. Desktop widths hide both
- * (the rail is the desktop projection of the same destinations — see the
- * form-factors section of docs/NAVIGATION_DESIGN.md).
+ * slide-over panel, opened from the tab bar's Places tab. Desktop widths
+ * hide both (the rail is the desktop projection of the same destinations
+ * — see the form-factors section of docs/NAVIGATION_DESIGN.md).
  */
-
-.pulse-places-toggle {
-  display: none;
-  position: relative;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: none;
-  color: var(--color-fg-muted);
-  cursor: pointer;
-}
-
-.pulse-places-toggle .octicon {
-  fill: currentColor;
-}
-
-/* Aggregate unread dot: any place has activity. */
-.pulse-places-toggle-dot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent-fg);
-}
 
 .pulse-places-backdrop {
   position: fixed;
@@ -150,10 +122,4 @@
   height: 1px;
   background: var(--color-border-default);
   margin: 6px 12px;
-}
-
-@media (max-width: 768px) {
-  .pulse-places-toggle {
-    display: flex;
-  }
 }

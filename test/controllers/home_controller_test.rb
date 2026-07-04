@@ -52,18 +52,61 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "layout renders the places sheet and its header toggle for signed-in users" do
+  test "layout renders the places sheet, toggled from the tab bar's Places tab" do
     sign_in_as(@user, tenant: @tenant)
     get "/"
     assert_response :success
 
     assert_select "body[data-controller~='places-sheet']"
-    assert_select ".pulse-places-toggle[data-places-sheet-target='toggle'][aria-expanded='false']"
+    # The sheet's toggle lives in the bottom tab bar now; the old header
+    # toggle is gone.
+    assert_select ".pulse-places-toggle", false
+    assert_select ".pulse-tab-bar button[data-places-sheet-target='toggle'][aria-expanded='false']" do
+      assert_select "[data-places-sheet-target='dot']"
+    end
     assert_select ".pulse-places-sheet[aria-hidden='true']" do
       assert_select "a[href='/']", text: /Public space/
       assert_select "a[href='/chat']", text: /Chat/
       assert_select "a[href='/collectives']", text: /Create or join a collective/
     end
+  end
+
+  test "layout renders the bottom tab bar with its five destinations for signed-in users" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+
+    assert_select ".pulse-tab-bar" do
+      # Outward → inward: globe, places, search, inbox, you.
+      assert_select "a[href='/'] .octicon-globe"
+      assert_select "button[data-action*='places-sheet#toggle']", text: /Places/
+      assert_select "a[href='/search']"
+      assert_select "a[href='/notifications'] .pulse-tab-bar-badge"
+      # You: the avatar menu, same items as the header menu.
+      assert_select "[data-controller='top-right-menu']" do
+        assert_select "a[href='#{@user.path}']", text: "Profile"
+        assert_select "button[type=submit]", text: "Sign Out"
+      end
+    end
+  end
+
+  test "the tab bar's inbox badge renders the unread count server-side" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    notification = Notification.create!(tenant: @tenant, event: nil, notification_type: "reminder", title: "Badge probe")
+    NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "delivered", tenant: @tenant)
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+    assert_select ".pulse-tab-bar a[href='/notifications'] .pulse-tab-bar-badge[data-total-badge]", text: "1"
+  end
+
+  test "anonymous pages render no tab bar" do
+    get "/login"
+    follow_redirect!
+    assert_response :success
+    assert_select ".pulse-tab-bar", false
   end
 
   test "rail chat badge renders its unread count server-side on first paint" do

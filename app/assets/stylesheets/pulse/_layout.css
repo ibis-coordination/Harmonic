@@ -8,6 +8,9 @@
 :root {
   --pulse-sidebar-width: 280px;
   --pulse-rail-width: 72px;
+  /* The mobile bottom tab bar's height — 0 on desktop, set by
+     _tab_bar.css under its mobile media query. */
+  --pulse-tab-bar-height: 0px;
 }
 
 /* App Shell: persistent collective rail + the rest of the app */

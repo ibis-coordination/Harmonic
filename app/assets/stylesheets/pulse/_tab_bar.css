@@ -1,0 +1,142 @@
+/* Mobile bottom tab bar
+ *
+ * The persistent destinations at phone widths, ordered outward→inward:
+ * globe, places, search, inbox, you (docs/NAVIGATION_DESIGN.md "Form
+ * factors"). Desktop unfolds the same set into the rail and header — CSS
+ * shows exactly one projection per width, so the bar and the rail never
+ * coexist. --pulse-tab-bar-height is 0 on desktop (set in _layout.css)
+ * and real height here; content clearance derives from the variable.
+ */
+
+.pulse-tab-bar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --pulse-tab-bar-height: 56px;
+  }
+
+  .pulse-tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--pulse-tab-bar-height) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--color-canvas-default);
+    border-top: 1px solid var(--color-border-default);
+    /* Below the places sheet backdrop (200) so the open sheet covers it. */
+    z-index: 150;
+  }
+
+  .pulse-tab-bar-item {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-fg-muted);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .pulse-tab-bar-item .octicon {
+    fill: currentColor;
+  }
+
+  .pulse-tab-bar-item.active {
+    color: var(--color-fg-default);
+  }
+
+  .pulse-tab-bar-label {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  /* The You tab: a positioned wrapper so its menu can anchor above it. */
+  .pulse-tab-bar-you {
+    justify-content: stretch;
+  }
+
+  /* The You menu opens upward, CSS-anchored to the tab (the controller's
+     openUp mode skips its JS positioning). */
+  .pulse-tab-bar-you .top-menu {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    top: auto;
+    right: 4px;
+  }
+
+  .pulse-tab-bar-you-button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .pulse-tab-bar-you-button .profile-pic,
+  .pulse-tab-bar-you-button img {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+  }
+
+  /* Same pill as the rail badges, anchored to the tab icon's corner. */
+  .pulse-tab-bar-badge {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 4px);
+    background-color: var(--color-accent-fg);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 8px;
+    padding: 0 4px;
+  }
+
+  /* Aggregate unread dot on the Places tab. */
+  .pulse-tab-bar-dot {
+    position: absolute;
+    top: 6px;
+    left: calc(50% + 8px);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-accent-fg);
+  }
+
+  /* Content clears the fixed bar. */
+  .pulse-app-shell,
+  .pulse-motto-footer {
+    margin-bottom: calc(var(--pulse-tab-bar-height) + env(safe-area-inset-bottom));
+  }
+
+  /* The header slims: search, inbox, and the avatar menu live in the bar
+     now. They stay in the DOM (the notification poller runs from the
+     header cluster) — only hidden. The contextual "+" create button
+     keeps its top-bar slot (creation takes no tab). */
+  .top-right-display > .header-search-wrapper,
+  .top-right-display > div:has(> .notification-icon),
+  .top-right-display > div[data-controller="top-right-menu"] {
+    display: none;
+  }
+}
