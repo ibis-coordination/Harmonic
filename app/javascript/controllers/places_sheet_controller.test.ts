@@ -83,4 +83,45 @@ describe("PlacesSheetController", () => {
     )
     await vi.waitFor(() => expect(el("dot").style.display).toBe(""))
   })
+
+  // Two toggles coexist: the header button (desktop) and the tab bar's
+  // Places tab (mobile). Only one is visible per width, but both must stay
+  // in sync — aria-expanded and the aggregate dot.
+  it("keeps both toggles and dots in sync when the header and tab bar each have one", async () => {
+    document.body.innerHTML = `
+      <div data-controller="places-sheet">
+        <button id="header-toggle" data-places-sheet-target="toggle"
+                data-action="click->places-sheet#toggle" aria-expanded="false">
+          <span id="header-dot" data-places-sheet-target="dot" style="display: none"></span>
+        </button>
+        <button id="bar-toggle" data-places-sheet-target="toggle"
+                data-action="click->places-sheet#toggle" aria-expanded="false">
+          <span id="bar-dot" data-places-sheet-target="dot" style="display: none"></span>
+        </button>
+        <div data-places-sheet-target="backdrop" data-action="click->places-sheet#close" hidden></div>
+        <div class="pulse-places-sheet" data-places-sheet-target="panel" aria-hidden="true"></div>
+      </div>
+    `
+    const byId = (id: string) => document.getElementById(id) as HTMLElement
+
+    await vi.waitFor(() => {
+      byId("bar-toggle").click()
+      expect(el("panel").classList.contains("open")).toBe(true)
+    })
+    expect(byId("header-toggle").getAttribute("aria-expanded")).toBe("true")
+    expect(byId("bar-toggle").getAttribute("aria-expanded")).toBe("true")
+
+    byId("header-toggle").click()
+    await vi.waitFor(() => expect(el("panel").classList.contains("open")).toBe(false))
+    expect(byId("header-toggle").getAttribute("aria-expanded")).toBe("false")
+    expect(byId("bar-toggle").getAttribute("aria-expanded")).toBe("false")
+
+    window.dispatchEvent(
+      new CustomEvent("notifications:counts", {
+        detail: { byCollective: { "aaa-111": 2 }, chat: 0 },
+      }),
+    )
+    await vi.waitFor(() => expect(byId("header-dot").style.display).toBe(""))
+    expect(byId("bar-dot").style.display).toBe("")
+  })
 })

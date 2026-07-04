@@ -34,7 +34,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "button[data-action='click->notification-actions#markReadForCollective']", count: 0
   end
 
-  test "rail badges render with unread counts server-side on first paint" do
+  test "places sheet badges render with unread counts server-side on first paint" do
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     other = Collective.create!(tenant: @tenant, name: "Rail Badge Collective", handle: "rail-badge-collective", created_by: @user)
     other.add_user!(@user)
@@ -47,20 +47,23 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/"
     assert_response :success
-    assert_select ".pulse-rail-badge[data-collective-id='#{other.id}']", text: "1" do |badges|
+    assert_select ".pulse-places-sheet .pulse-rail-badge[data-collective-id='#{other.id}']", text: "1" do |badges|
       assert_not_includes badges.first["style"].to_s, "display: none"
     end
   end
 
-  test "layout renders the places sheet, toggled from the tab bar's Places tab" do
+  test "layout renders the places sheet with a toggle in the header and in the tab bar" do
     sign_in_as(@user, tenant: @tenant)
     get "/"
     assert_response :success
 
     assert_select "body[data-controller~='places-sheet']"
-    # The sheet's toggle lives in the bottom tab bar now; the old header
-    # toggle is gone.
-    assert_select ".pulse-places-toggle", false
+    # The sheet is the place switcher at every width: the header toggle
+    # opens it on desktop, the tab bar's Places tab on mobile. No rail.
+    assert_select ".pulse-rail", false
+    assert_select ".pulse-top-header button.pulse-places-toggle[data-places-sheet-target='toggle'][aria-expanded='false']" do
+      assert_select "[data-places-sheet-target='dot']"
+    end
     assert_select ".pulse-tab-bar button[data-places-sheet-target='toggle'][aria-expanded='false']" do
       assert_select "[data-places-sheet-target='dot']"
     end
@@ -122,7 +125,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-tab-bar", false
   end
 
-  test "rail chat badge renders its unread count server-side on first paint" do
+  test "places sheet chat badge renders its unread count server-side on first paint" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     chat = Notification.create!(tenant: @tenant, event: nil, notification_type: "chat_message", title: "Ping", url: "/chat/somebody")
     NotificationRecipient.create!(notification: chat, user: @user, channel: "in_app", status: "delivered", tenant: @tenant)
@@ -131,7 +134,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/"
     assert_response :success
-    assert_select ".pulse-rail-chat .pulse-rail-badge[data-chat-badge]", text: "1" do |badges|
+    assert_select ".pulse-places-sheet .pulse-rail-badge[data-chat-badge]", text: "1" do |badges|
       assert_not_includes badges.first["style"].to_s, "display: none"
     end
   end

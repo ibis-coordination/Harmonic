@@ -1,10 +1,51 @@
 /* Pulse Places Sheet
  *
- * The mobile place switcher: the rail's destinations as labeled rows in a
- * slide-over panel, opened from the tab bar's Places tab. Desktop widths
- * hide both (the rail is the desktop projection of the same destinations
- * — see the form-factors section of docs/NAVIGATION_DESIGN.md).
+ * The place switcher at every width: destinations as labeled rows in a
+ * slide-over panel, opened from the header's places toggle on desktop and
+ * the tab bar's Places tab on mobile (see the form-factors section of
+ * docs/NAVIGATION_DESIGN.md).
  */
+
+/* Header toggle (desktop) — the tab bar's Places tab covers mobile. */
+.pulse-places-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-default);
+  color: var(--color-fg-default);
+  cursor: pointer;
+}
+
+.pulse-places-toggle:hover {
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-places-toggle .octicon {
+  fill: currentColor;
+}
+
+/* Aggregate unread dot, lit by the places-sheet controller from the shared
+   notifications:counts broadcast. */
+.pulse-places-toggle-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-fg);
+}
+
+@media (max-width: 768px) {
+  .pulse-places-toggle {
+    display: none;
+  }
+}
 
 .pulse-places-backdrop {
   position: fixed;
@@ -58,11 +99,16 @@
   background: var(--color-canvas-subtle);
 }
 
-/* Current place: the rail's left-edge indicator pill, verbatim — same
-   element and rules, repositioned to hug the sheet's edge (the nav has
-   8px side padding). */
-.pulse-places-row .pulse-rail-indicator {
+/* Current place: a left-edge indicator pill hugging the sheet's edge
+   (the nav has 8px side padding). */
+.pulse-rail-indicator {
+  position: absolute;
   left: -8px;
+  width: 4px;
+  height: 0;
+  border-radius: 0 var(--border-radius-default) var(--border-radius-default) 0;
+  background: var(--color-fg-default);
+  transition: height 0.15s ease;
 }
 
 .pulse-places-row:hover .pulse-rail-indicator {
@@ -107,8 +153,23 @@
   white-space: nowrap;
 }
 
-/* Row badges reuse .pulse-rail-badge display rules but sit in-flow at the
-   row's right edge rather than absolutely over an icon. */
+/* Per-row unread count pill, in-flow at the row's right edge — same
+   treatment as the header's .notification-badge-count. Filled and
+   shown/hidden by the rail-badges controller from the shared
+   unread-count poll. */
+.pulse-rail-badge {
+  background-color: var(--color-accent-fg);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 8px;
+  padding: 0 4px;
+}
+
 .pulse-places-row-badge {
   position: static;
   flex-shrink: 0;
