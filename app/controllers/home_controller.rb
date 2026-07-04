@@ -13,8 +13,9 @@ class HomeController < ApplicationController
     return if @current_user.nil?
 
     # The home feed is a search: fixed scope visibility:public, default
-    # query list:tuned_in (the people you tune in to, plus yourself).
-    resolve_feed_query("list:tuned_in")
+    # query list:tuned_in (the people you tune in to, plus yourself) minus
+    # comments — both visible and removable in the query input.
+    resolve_feed_query("list:tuned_in -subtype:comment")
     @search = build_feed_search(fixed_params: { visibility: "public" })
     @feed_items = SearchFeedItems.build(@search.paginated_results)
     @feed_items = interleave_reminder_events(@feed_items, author_ids: home_reminder_author_ids) if default_feed_view?

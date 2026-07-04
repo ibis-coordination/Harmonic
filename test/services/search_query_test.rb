@@ -1175,15 +1175,16 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_equal [["Decision", @decision.id], ["Note", reminder_note.id]].sort, results.sort
   end
 
-  test "my:notified resolves comment notifications to the thread root" do
+  test "my:notified resolves comment notifications to the comment itself, not the thread root" do
     viewer = add_member("Commented At")
     comment = create_note(
       tenant: @tenant, collective: @collective, created_by: @user, commentable: @note, text: "A reply mentioning you"
     )
+    SearchIndexer.reindex(comment)
     notify(viewer, subject: comment)
 
     results = my_search(viewer, "my:notified").results.map { |r| [r.item_type, r.item_id] }
-    assert_equal [["Note", @note.id]], results
+    assert_equal [["Note", comment.id]], results
   end
 
   test "my: filters warn and match nothing for anonymous viewers" do

@@ -164,6 +164,28 @@ class UserListsShowTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "markdown feed note from a member"
   end
 
+  test "show markdown activity section excludes members' comments" do
+    list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
+    list.user_list_members.create!(added_by: @user, user: @other)
+
+    root = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @other,
+      text: "top-level list feed note",
+      deadline: Time.current + 1.week,
+    )
+    Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @other,
+      text: "a comment that stays out of the list feed",
+      subtype: "comment", commentable: root,
+      deadline: Time.current + 1.week,
+    )
+
+    get "/lists/#{list.truncated_id}", headers: @headers
+    assert_response :success
+    assert_includes response.body, "top-level list feed note"
+    assert_not_includes response.body, "a comment that stays out of the list feed"
+  end
+
   test "show markdown activity section excludes content from blocked members" do
     list = UserList.create!(creator: @user, owner: @user, name: "Feedy")
     list.user_list_members.create!(added_by: @user, user: @other)

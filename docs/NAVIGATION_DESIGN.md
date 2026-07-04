@@ -167,7 +167,7 @@ Filters come in three tiers, and the UI must make the tier visible:
 | Tier | Example | Rendering | Editable? |
 |---|---|---|---|
 | **Fixed** (the page scope) | `collective:my-team` on `/collectives/my-team` | Muted token inside the field, not editable | No — it *is* the page |
-| **Default** | `cycle:this-week` on a collective home | Ordinary query text | Yes — remove or replace freely |
+| **Default** | `cycle:this-week -subtype:comment` on a collective home | Ordinary query text | Yes — remove or replace freely |
 | **User** | anything typed | Query text | Yes |
 
 Decisions and rationale:
@@ -192,6 +192,16 @@ Decisions and rationale:
   "defaults". GitHub Issues has exactly this distinction. A blank query
   with a fixed scope *browses* — the fixed scope is what makes a page a
   feed; only `/search` keeps blank-means-empty behavior.
+- **No hidden filters — the comment exclusion is default query text.**
+  Feed defaults read `… -subtype:comment` in the input, visible and
+  removable, instead of a structural `exclude_subtypes` param silently
+  ANDed onto whatever the viewer types. A viewer-supplied `?q` therefore
+  gets raw search semantics, comments included — the same universe as
+  `/search`. Fixed internal feeds that want no comments say so in their
+  own query (list activity; the profile Posts/Activity tabs already
+  did). An earlier draft special-cased `my:notified` to lift a hidden
+  exclusion; rejected — defaults carry the curation, queries carry
+  nothing invisible.
 - **Refinements live in the URL** (`/collectives/x?q=type:decision`), so
   filtered views are shareable and the back button works. The canonical
   page URL (no `q`) always shows the default view. Markdown frontmatter
@@ -352,6 +362,14 @@ Shipped from this list:
   viewing past cycles on the dashboard additionally requires a heartbeat,
   while queries (including `cycle:` refinements on feed pages and
   `/search`) cross cycles freely.
+- **Comment notifications surface as the comment.** `my:notified`
+  resolves a comment notification to the comment itself (an earlier
+  build climbed to the thread root because feeds hid comment rows — the
+  root then appeared with no sign it was about a comment). Feed cards
+  for notes navigate via `display_path`, so a comment card opens its
+  thread at `?comment_id=` — the same URL the notification carries —
+  where the comment scrolls into view highlighted. Action endpoints
+  keep building from `path`, the canonical bare resource URL.
 - **Chat is one aggregated rail entry beneath the globe.** A bare icon
   (like the globe, not a square) linking to `/chat`, active on all chat
   pages. Its badge is type-based — unread `chat_message` notifications —

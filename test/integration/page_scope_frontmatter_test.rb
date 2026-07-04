@@ -34,7 +34,7 @@ class PageScopeFrontmatterTest < ActionDispatch::IntegrationTest
     assert_response :success
     fm = frontmatter(response.body)
     assert_includes fm, "\nscope: visibility:public\n"
-    assert_includes fm, "\nquery: list:tuned_in\n"
+    assert_includes fm, "\nquery: list:tuned_in -subtype:comment\n"
   end
 
   test "home feed query reflects the viewer's refinement" do

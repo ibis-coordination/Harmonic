@@ -119,8 +119,33 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     get "#{@collective.path}"
     assert_response :success
     assert_select ".pulse-feed-bar-scope code", text: "collective:#{@collective.handle}"
-    assert_select "input[name='q'][value='cycle:this-week']"
+    # The comment exclusion is part of the visible default query — the
+    # viewer can see it and remove it, not a hidden structural filter.
+    assert_select "input[name='q'][value='cycle:this-week -subtype:comment']"
     assert_includes response.body, "collective feed probe"
+  end
+
+  test "the default feed hides comments; a viewer's own query includes them" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    root = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "Root for comment default test")
+    comment = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user, commentable: root, text: "A default-hidden comment"
+    )
+    SearchIndexer.reindex(comment)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "#{@collective.path}"
+    assert_response :success
+    assert_not_includes response.body, "A default-hidden comment"
+
+    # ?q present — even empty — is the viewer's own query: raw search
+    # semantics, same as /search, comments included.
+    get "#{@collective.path}", params: { q: "" }
+    assert_response :success
+    assert_includes response.body, "A default-hidden comment"
   end
 
   test "collective feed defaults to this week; cleared query shows all time" do
@@ -161,6 +186,30 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a notified comment surfaces in the my:notified view as the comment, linking into its thread" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    root = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "Thread root note")
+    comment = create_note(
+      tenant: @tenant, collective: @collective, created_by: @user, commentable: root, text: "A reply about you"
+    )
+    SearchIndexer.reindex(comment)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "note.created", actor: @user, subject: comment)
+    notification = Notification.create!(tenant: @tenant, event: event, notification_type: "mention", title: "You were mentioned")
+    NotificationRecipient.create!(notification: notification, user: @user, channel: "in_app", status: "delivered", tenant: @tenant)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    get "#{@collective.path}", params: { q: "my:notified" }
+    assert_response :success
+    # The comment itself renders (feeds normally exclude comment rows), and
+    # its card points into the thread with the comment marked — the same
+    # URL the notification links to.
+    assert_includes response.body, "A reply about you"
+    assert_select ".pulse-feed-item[data-card-navigate-url-value='#{root.path}?comment_id=#{comment.truncated_id}']"
+  end
+
   test "feed views without my:notified render no mark-all-read chrome" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -179,7 +228,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     get "#{@collective.path}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "scope: collective:#{@collective.handle}"
-    assert_includes response.body, "query: cycle:this-week"
+    assert_includes response.body, "query: cycle:this-week -subtype:comment"
   end
 
   test "workspace feed is scoped to the private zone" do

@@ -366,7 +366,9 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     get "/"
     assert_response :success
     assert_select ".pulse-feed-bar-scope code", text: "visibility:public"
-    assert_select "input[name='q'][value='list:tuned_in']"
+    # The comment exclusion is part of the visible default query — the
+    # viewer can see it and remove it, not a hidden structural filter.
+    assert_select "input[name='q'][value='list:tuned_in -subtype:comment']"
   end
 
   test "reminders interleave on the default view but not on refined queries" do

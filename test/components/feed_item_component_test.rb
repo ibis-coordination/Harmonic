@@ -49,6 +49,20 @@ class FeedItemComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-feed-item-type span", text: "Comment"
   end
 
+  test "comment cards navigate to the thread with the comment marked, not the isolated comment page" do
+    commentable = build_note(truncated_id: "parent01", title: "Parent Note", text: "Parent text")
+    note = build_note(truncated_id: "comment05", text: "A reply", is_comment: true, commentable: commentable,
+                      commentable_type: "Note", commentable_id: "11111111-1111-1111-1111-111111111111")
+    user = build_user(display_name: "Bob")
+    render_inline(FeedItemComponent.new(
+                    item: note,
+                    type: "Note",
+                    created_by: user,
+                    created_at: 30.minutes.ago
+                  ))
+    assert_selector ".pulse-feed-item[data-card-navigate-url-value='/n/parent01?comment_id=comment05']"
+  end
+
   test "renders reply indicator with commentable link" do
     commentable = build_note(truncated_id: "parent01", title: "Parent Note", text: "Parent text")
     note = build_note(text: "A reply", is_comment: true, commentable: commentable)

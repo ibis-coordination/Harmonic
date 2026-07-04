@@ -891,9 +891,12 @@ class SearchQuery
 
   # Items behind the viewer's undismissed, due, in-app notifications — the
   # inbox projected onto the feed. Evented notifications resolve through
-  # their event's subject (comments climb to the thread root); reminders
-  # resolve through notes.reminder_notification_id. Placeless notifications
-  # (chat, tenant-level) have no content item and resolve to nothing.
+  # their event's subject: a comment surfaces as the comment itself, so
+  # the viewer sees what they were actually notified about (feeds only
+  # exclude comments through their default query, which a my:notified
+  # query replaces). Reminders resolve through
+  # notes.reminder_notification_id. Placeless notifications (chat,
+  # tenant-level) have no content item and resolve to nothing.
   sig { returns([String, T::Array[T.untyped]]) }
   def notified_items_condition
     items = notified_items_by_type
@@ -928,19 +931,9 @@ class SearchQuery
   def notified_event_subjects(notification_ids)
     event_ids = Notification.tenant_scoped_only(@tenant.id)
       .where(id: notification_ids).where.not(event_id: nil).pluck(:event_id)
-    subject_pairs = Event.tenant_scoped_only(@tenant.id)
+    Event.tenant_scoped_only(@tenant.id)
       .where(id: event_ids, subject_type: ["Note", "Decision", "Commitment"])
       .pluck(:subject_type, :subject_id)
-
-    # Comment subjects point the viewer at the thread, not the comment row
-    # (feeds exclude comment rows structurally).
-    note_ids = subject_pairs.filter_map { |type, id| id if type == "Note" }
-    resolved = Note.tenant_scoped_only(@tenant.id).where(id: note_ids).filter_map do |note|
-      root = note.subtype == "comment" ? note.root_commentable : note
-      [root.class.name, root.id] if root
-    end
-
-    resolved + subject_pairs.reject { |pair| pair.first == "Note" }
   end
 
   # `list:<id|mutuals|tuned_in>` narrows content to items authored by
