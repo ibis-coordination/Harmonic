@@ -57,6 +57,29 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-places-sheet [data-controller~='rail-badges']", visible: :all
   end
 
+  test "a badged row links to the place's feed filtered to what you were notified about" do
+    a = build_sheet_collective(name: "Team A", handle: "team-a")
+    a.id = "11111111-1111-1111-1111-111111111111"
+    main = main_collective
+    main.id = "22222222-2222-2222-2222-222222222222"
+
+    render_inline(PlacesSheetComponent.new(
+                    main_collective: main,
+                    collectives: [a],
+                    unread_counts: { a.id => 4 },
+                    chat_unread_count: 2,
+                  ))
+
+    assert_selector ".pulse-places-sheet a[href='/collectives/team-a?q=my:notified'][data-place-path='/collectives/team-a']",
+                    visible: :all
+    # The globe has no unread here, so it links plainly — but still carries
+    # the base path for live href swaps.
+    assert_selector ".pulse-places-sheet a[href='/'][data-place-path='/']", visible: :all
+    # Chat is not a feed — badge or not, its link never swaps.
+    assert_selector ".pulse-places-sheet a[href='/chat']", visible: :all
+    assert_no_selector ".pulse-places-sheet a[href='/chat'][data-place-path]", visible: :all
+  end
+
   test "marks the current place active, same rules as the rail" do
     a = build_sheet_collective(name: "Team A", handle: "team-a")
     b = build_sheet_collective(name: "Team B", handle: "team-b")

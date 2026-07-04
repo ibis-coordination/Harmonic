@@ -64,6 +64,18 @@
   color: var(--color-fg-default);
 }
 
+/* The my:notified view's clearing affordance: a slim row between the bar
+   and the feed items. */
+.pulse-feed-bar-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 0;
+  color: var(--color-fg-muted);
+  font-size: 13px;
+}
+
 .pulse-feed-bar-warning {
   display: flex;
   align-items: center;

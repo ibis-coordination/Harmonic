@@ -45,14 +45,19 @@ class CollectiveRailComponent < ViewComponent::Base
   # Server-rendered initial badge state, so navigation never flashes the
   # badges out. The rail-badges controller overwrites this on every poll
   # using the same display rules — keep the two in sync.
+  sig { params(collective: Collective).returns(Integer) }
+  def unread_count_for(collective)
+    @unread_counts[collective.id].to_i
+  end
+
   sig { params(collective: Collective).returns(String) }
   def badge_text(collective)
-    count_badge_text(@unread_counts[collective.id].to_i)
+    count_badge_text(unread_count_for(collective))
   end
 
   sig { params(collective: Collective).returns(T.nilable(String)) }
   def badge_style(collective)
-    count_badge_style(@unread_counts[collective.id].to_i)
+    count_badge_style(unread_count_for(collective))
   end
 
   sig { returns(String) }

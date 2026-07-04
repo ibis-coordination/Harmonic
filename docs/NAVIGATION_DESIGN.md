@@ -291,16 +291,25 @@ chrome to reshape per form factor without forking the model.
 
 ### Increments (each independently shippable, none undone by the next)
 
-1. **Badge click-through** (`my:notified` + clearing affordances +
-   reminder-notification attribution — see open question 3). Comes before
-   the bar: the bar's Places/Inbox split only feels right once badges
-   drain in place.
-2. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
+1. **Bottom tab bar** — the sheet gets its tab; Inbox/Search/You move
    down; the top bar slims to a place label.
-3. **Sidebar → place header**, paced by how much of the sidebar
+2. **Sidebar → place header**, paced by how much of the sidebar
    feeds-are-queries continues to absorb.
 
 Shipped from this list:
+
+- **Badge click-through + clearing affordance** (open question 3, built):
+  reminder-notification attribution, the `my:` filter namespace
+  (`my:notified`, `my:unread`, `my:read`), badged rail/sheet entries
+  linking to the place's feed at `?q=my:notified`, and a mark-all-read
+  affordance on that view. Deliberately sequenced before the bar so
+  badges drain in place. The click target is the **whole entry**, not the
+  badge: a nested anchor is invalid HTML and the badge is too small a tap
+  target, so a badged entry's href swaps to the filtered view and swaps
+  back when the count drains (`UnreadBadgeDisplay#place_entry_href`
+  server-side, mirrored by the rail-badges controller via
+  `data-place-path`). Chat never swaps — it is not a feed; `/chat` is
+  already its queue.
 
 - **Rail desktop-only** (#339): hidden under 768px by redefining
   `--pulse-rail-width` (the motto footer's border-continuation offset
@@ -364,10 +373,10 @@ Shipped from this list:
    The route swap landed (feed is the default page, dashboard at
    `/dashboard`), but the dashboard itself hasn't converted to a query —
    decide the sidebar question together with that conversion.
-3. **Badge click-through — direction resolved, unbuilt.** A square's
-   unread badge implies clicking will show what you're being notified
-   about, but the collective feed renders with no notification context.
-   The fix is a `my:` filter namespace: the DSL is already viewer-relative
+3. **Badge click-through — resolved, shipped.** A square's unread badge
+   implies clicking will show what you're being notified about, but the
+   collective feed rendered with no notification context. The fix is a
+   `my:` filter namespace: the DSL is already viewer-relative
    (`list:tuned_in` resolves against the current user), but `list:*`
    resolves to *authors* and filters on content facts, while `my:*`
    filters on the viewer's own state per item — a different data layer
@@ -388,17 +397,19 @@ Shipped from this list:
      confirm-read), which is what "read" already means everywhere else
      in the product. Fully separable from the badge system, and a
      different query shape (a negative join against read-confirmations
-     vs. `my:notified`'s id-set resolution) — build it later,
-     independently.
+     vs. `my:notified`'s id-set resolution) — shipped alongside it as
+     part of the same filter engine.
 
    What makes the click-through actually drain the badge:
 
    - Confirm-read already clears the pointing notification (shipped in
      1.38.0), covering notes and reminders.
-   - Non-confirmable items (votes, tune-ins) need per-item dismiss
-     chrome in the `my:notified` view, or a "mark all read here"
-     affordance — `mark_read_for_collective` /
-     `dismiss_for_collective` already exist server-side.
+   - Non-confirmable items (votes, tune-ins) drain via the mark-all-read
+     affordance on the `my:notified` view, wired to the inbox's existing
+     per-collective action (`mark_read_for_collective`, which reaches
+     reminders through read-time attribution). Marked-read items stay in
+     the view — `my:notified` shows the undismissed queue; the badge
+     counts its unread subset. Dismissal stays on `/notifications`.
 
    Prerequisite: **reminder-notification attribution.** Reminder *notes*
    have a collective; only their notification rows are placeless
@@ -423,10 +434,10 @@ Shipped from this list:
    Anonymous viewers: `my:*` with no signed-in user warns and matches
    nothing, same pattern as other unresolvable filters.
 
-   Sequencing: reminder attribution → `my:notified` + badge click-through
-   + clearing affordances → bottom tab bar (its Places/Inbox split only
-   feels right once badges drain in place) → `my:unread` when it earns
-   its slot.
+   Sequencing: everything through the clearing affordance has shipped.
+   Next is the bottom tab bar — its Places/Inbox split only feels right
+   now that badges drain in place. Dedicated `my:unread` UX (beyond the
+   filter itself) waits until it earns its slot.
 
 (The former "what is the globe?" question is resolved — see Decided: `/`
 unifies home and the public space via the default `list:tuned_in` chip.

@@ -17,7 +17,9 @@ test.describe("Places Sheet", () => {
 
     await toggle.click()
     await expect(sheet).toBeVisible()
-    await expect(sheet.locator("a[href='/']")).toContainText("Public space")
+    // data-place-path, not href: a badged entry's href swaps to the
+    // my:notified view, and the e2e user may have main-collective unread.
+    await expect(sheet.locator("a[data-place-path='/']")).toContainText("Public space")
     await expect(sheet.locator("a[href='/chat']")).toContainText("Chat")
     await expect(sheet.locator("a[href='/collectives']")).toContainText(
       "Create or join a collective",

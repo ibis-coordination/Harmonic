@@ -151,6 +151,29 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
                   text: /collective:someplace-else ignored: this page is fixed to collective:#{@collective.handle}/
   end
 
+  test "the my:notified view offers mark-all-read chrome to drain the badge" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{@collective.path}", params: { q: "my:notified" }
+    assert_response :success
+    assert_select "[data-controller='notification-actions']" do
+      assert_select "button[data-action='click->notification-actions#markReadForCollective'][data-collective-id='#{@collective.id}']"
+    end
+  end
+
+  test "feed views without my:notified render no mark-all-read chrome" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{@collective.path}"
+    assert_response :success
+    assert_select "button[data-action='click->notification-actions#markReadForCollective']", count: 0
+
+    # Negating my:notified is not viewing your notifications.
+    get "#{@collective.path}", params: { q: "-my:notified" }
+    assert_response :success
+    assert_select "button[data-action='click->notification-actions#markReadForCollective']", count: 0
+  end
+
   test "collective feed markdown declares scope and query frontmatter" do
     sign_in_as(@user, tenant: @tenant)
     get "#{@collective.path}", headers: { "Accept" => "text/markdown" }

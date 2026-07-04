@@ -1193,6 +1193,15 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert search.warnings.any? { |w| w.include?("my:") }, "expected a warning about my: requiring sign-in"
   end
 
+  test "my_filter? reports positive my: filters so feed chrome can key off them" do
+    viewer = add_member("Chrome")
+
+    assert my_search(viewer, "my:notified").my_filter?("notified")
+    assert_not my_search(viewer, "my:notified").my_filter?("unread")
+    assert_not my_search(viewer, "-my:notified").my_filter?("notified")
+    assert_not my_search(viewer, "budget").my_filter?("notified")
+  end
+
   test "negated my:read excludes items the viewer has confirmed read" do
     viewer = add_member("Skimmer")
     @note.confirm_read!(viewer)

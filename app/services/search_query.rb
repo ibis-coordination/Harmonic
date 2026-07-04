@@ -81,6 +81,15 @@ class SearchQuery
     @warnings || []
   end
 
+  # Whether a positive my: filter is active in this query. Feed chrome keys
+  # off this (e.g. the my:notified view's mark-all-read affordance);
+  # negations don't count — excluding your notifications is not viewing
+  # them.
+  sig { params(value: String).returns(T::Boolean) }
+  def my_filter?(value)
+    Array(@params[:my_filters]).include?(value)
+  end
+
   private
 
   # Fixed-param key → its negated-operator counterpart, where one exists.

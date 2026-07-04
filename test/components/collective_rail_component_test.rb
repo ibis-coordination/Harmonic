@@ -71,6 +71,32 @@ class CollectiveRailComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-rail-badge[data-collective-id='#{b.id}']", visible: :hidden
   end
 
+  test "a badged entry links to the place's feed filtered to what you were notified about" do
+    a = build_rail_collective(name: "Team A", handle: "team-a")
+    a.id = "11111111-1111-1111-1111-111111111111"
+    b = build_rail_collective(name: "Team B", handle: "team-b")
+    b.id = "33333333-3333-3333-3333-333333333333"
+    main = main_collective
+    main.id = "22222222-2222-2222-2222-222222222222"
+
+    render_inline(CollectiveRailComponent.new(
+                    main_collective: main,
+                    collectives: [a, b],
+                    unread_counts: { a.id => 4, main.id => 2 },
+                    chat_unread_count: 7,
+                  ))
+
+    # Badged entries carry the my:notified refinement; the base path rides
+    # along so the rail-badges controller can swap the href as counts change.
+    assert_selector "a.pulse-rail-item[href='/collectives/team-a?q=my:notified'][data-place-path='/collectives/team-a']"
+    assert_selector "a.pulse-rail-public[href='/?q=my:notified'][data-place-path='/']"
+    # Unbadged entries link plainly.
+    assert_selector "a.pulse-rail-item[href='/collectives/team-b'][data-place-path='/collectives/team-b']"
+    # Chat is not a feed — its link never swaps, badge or not.
+    assert_selector "a.pulse-rail-chat[href='/chat']"
+    assert_no_selector "a.pulse-rail-chat[data-place-path]"
+  end
+
   test "renders a chat entry beneath the globe, above the divider" do
     render_inline(CollectiveRailComponent.new(main_collective: main_collective, collectives: []))
 
