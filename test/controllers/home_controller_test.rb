@@ -52,6 +52,16 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "layout viewport meta opts into safe-area insets" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/"
+    assert_response :success
+
+    # Without viewport-fit=cover, iOS reports every env(safe-area-inset-*)
+    # as 0 and the tab bar's home-indicator clearance evaluates to nothing.
+    assert_select "meta[name='viewport'][content*='viewport-fit=cover']"
+  end
+
   test "layout renders the places sheet with a toggle in the header and in the tab bar" do
     sign_in_as(@user, tenant: @tenant)
     get "/"

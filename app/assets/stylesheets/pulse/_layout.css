@@ -12,7 +12,7 @@
   --pulse-tab-bar-height: 0px;
 }
 
-/* App Shell: persistent collective rail + the rest of the app */
+/* App Shell */
 .pulse-app-shell {
   display: flex;
   flex: 1;
