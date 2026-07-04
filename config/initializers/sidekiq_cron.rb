@@ -25,6 +25,11 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "DeadlineEventJob",
     "description" => "Fire events when decision/commitment deadlines pass",
   },
+  "calendar_event_starting" => {
+    "cron" => "* * * * *", # Every minute
+    "class" => "CalendarEventStartingJob",
+    "description" => "Fire events when calendar events are about to start",
+  },
   "orphaned_task_sweep" => {
     "cron" => "*/10 * * * *", # Every 10 minutes
     "class" => "OrphanedTaskSweepJob",
