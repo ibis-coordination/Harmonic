@@ -53,8 +53,12 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
     get "/whoami"
     assert_response :success
     workspace = @alice.private_workspace
-    # The workspace name appears in "Your Workspace" section but NOT in "Your Collectives"
-    collectives_section = response.body.split("Your Collectives").last
+    # The workspace name appears in "Your Workspace" section but NOT in
+    # "Your Collectives". Scope to the page content — the layout chrome
+    # (the user menu in the header and tab bar) intentionally links to
+    # your own workspace on every page.
+    main_content = response.body[%r{<main.*</main>}m].to_s
+    collectives_section = main_content.split("Your Collectives").last
     refute_includes collectives_section, workspace.handle
   end
 
@@ -230,10 +234,14 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     workspace = @alice.private_workspace
-    refute_includes response.body, workspace.handle,
+    # The index listing must not include the workspace. The layout chrome
+    # (the user menu in the header and tab bar) intentionally links to
+    # your own workspace on every page, so scope to the page content.
+    main_content = response.body[%r{<main.*</main>}m].to_s
+    refute_includes main_content, workspace.handle,
       "Collectives index should not include private workspace"
     # But should show the regular collective
-    assert_includes response.body, @collective.name
+    assert_includes main_content, @collective.name
   end
 
   # =========================================================================
