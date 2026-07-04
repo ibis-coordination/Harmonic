@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.40.0] - 2026-07-04
+
+### Added
+
+- **`my:` aliases in the search DSL** (#396, part of #373) — `my:mentions`, `my:notes`, `my:decisions`, `my:commitments`, `my:posts`, `my:voted`, `my:committed`, `my:rsvps`, and `my:mutuals`: pure sugar that expands to existing operators scoped to your own handle, composing (and being clamped by fixed page scopes) exactly as if you had typed them. Documented in `/help/search`.
+
+### Changed
+
+- **The collective rail is removed; the places sheet switches places at every width** (#398) — the rail's bare icons couldn't be labeled or dismissed, so desktop now opens the same places sheet the tab bar's Places tab opens on mobile, from a toggle at the left of the header. The logo is centered relative to the window on desktop.
+
+### Fixed
+
+- **Push notifications no longer silently die on iOS** (#399, fixes #397) — the service worker suppressed the notification banner while an app window reported itself focused; iOS counts each suppressed push as a silent-push strike and revokes the subscription after three, and suspended iOS PWAs can keep reporting focused from the app switcher. Every push now shows its notification, and a new page-load resync keeps the server's device row honest ("last seen" no longer freezes at subscribe time) and silently re-subscribes when permission is still granted but the platform dropped the subscription. A resync never revives an explicitly disabled device.
+- **The bottom tab bar clears the iOS home indicator** (#400, fixes #395) — the safe-area padding was already there, but without `viewport-fit=cover` iOS reports every inset as zero. The elements the meta newly extends under hardware edges (body content, tab bar, places sheet) carry their own insets for the landscape notch.
+- **iOS no longer autozooms into the feed bar's query field** (#394, fixes #392) — the mobile 16px minimum on text-entry controls is now an invariant (`!important`): the bare-element guard was losing to any class-based font size, which the feed bar's 13px query field did after 1.39.0.
+
 ## [1.39.0] - 2026-07-04
 
 ### Added
