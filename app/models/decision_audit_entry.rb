@@ -6,7 +6,7 @@ class DecisionAuditEntry < ApplicationRecord
   include CollectiveIdMatchesParent
 
   ACTIONS = %w[decision_created decision_updated option_added option_removed option_updated vote_cast vote_updated decision_closed beacon_drawn].freeze
-  CURRENT_SCHEMA_VERSION = 2
+  CURRENT_SCHEMA_VERSION = 3
 
   self.implicit_order_column = "sequence_number"
 
@@ -16,7 +16,8 @@ class DecisionAuditEntry < ApplicationRecord
   collective_id_matches :decision
 
   validates :action, inclusion: { in: ACTIONS }
-  validates :schema_version, inclusion: { in: [1, 2] }
+  validates :schema_version, inclusion: { in: [1, 2, 3] }
+  validates :representation_kind, inclusion: { in: %w[user collective] }, allow_nil: true
   validates :sequence_number, presence: true
   validates :entry_hash, presence: true
 

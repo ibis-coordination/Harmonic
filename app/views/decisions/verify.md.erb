@@ -29,9 +29,9 @@ Every action on this <%= @decision.is_lottery? ? 'lottery' : 'decision' %> is cr
   - <%= error %>
 <% end -%>
 <% else -%>
-<% inconsistent = @verification_result[:chain][:binding_inconsistent_count].to_i -%>
+<% inconsistent = @verification_result[:chain][:binding_inconsistent_count].to_i + @verification_result[:chain][:representative_binding_inconsistent_count].to_i -%>
 
-- **Chain integrity**: FAIL — <%= inconsistent %> <%= inconsistent == 1 ? "entry's" : "entries'" %> actor identity does not match the recorded identity token. This means the displayed actor for those entries may have been altered after the fact, or that PII scrubbing was performed inconsistently. The hash chain itself is intact, but you should not trust the displayed actor information until this is investigated.
+- **Chain integrity**: FAIL — <%= inconsistent %> <%= inconsistent == 1 ? "entry's" : "entries'" %> recorded identity (actor or representative) does not match its identity token. This means the displayed identity for those entries may have been altered after the fact, or that PII scrubbing was performed inconsistently. The hash chain itself is intact, but you should not trust the displayed identity information until this is investigated.
 <% end -%>
 <% if @verification_result[:vote_tallies][:skipped] -%>
 
@@ -133,10 +133,12 @@ Beyond the cryptographic checks above, practical mechanisms can strengthen trust
 **Audit chain hash formula:** each entry's hash is `SHA256` of its fields joined by `|`. PII is decoupled from the hashed content so identity fields can be scrubbed on account closure without invalidating the chain:
 
 ```
-"v2" | previous_hash | sequence_number | action | actor_token | NFC(option_title) | accepted | preferred | metadata | created_at
+"v3" | previous_hash | sequence_number | action | actor_token | representative_token | representation_kind | NFC(option_title) | accepted | preferred | metadata | created_at
 ```
 
 **Actor token derivation:** `actor_token = SHA256(decision_id | actor_id | actor_handle | actor_token_salt)`. The salt is stored alongside the entry and destroyed on PII scrub; without it, the binding from token to identity is computationally infeasible to recover, but the hash chain itself stays intact.
+
+**Represented actions:** when someone acts on another's behalf (a trustee, or a collective's representative), the entry records both parties: the actor stays the principal — the person the action counts for — and `representative_token` (same derivation and scrub semantics as the actor token, with its own salt) identifies who actually performed it. `representation_kind` is `user` or `collective`; both fields are empty for direct actions. Entries recorded under earlier schema versions (`v1`/`v2`) predate this and cannot distinguish a represented action from a direct one.
 <% end -%>
 <% if @decision.beacon_drawn? -%>
 

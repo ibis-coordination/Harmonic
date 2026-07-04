@@ -7,7 +7,7 @@ This page shows all audited actions by **<%= @actor_display %>** on this <%= @de
 ## Audit entries
 
 <% @entries.each do |entry| -%>
-- **#<%= entry.sequence_number %>** `<%= entry.action %>`<%= " — #{entry.option_title}" if entry.option_title.present? %><%= " ✅" if entry.accepted == 1 %><%= " ⭐" if entry.preferred == 1 %> — `<%= entry.entry_hash[0, 8] %>...` — <%= entry.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %>
+- **#<%= entry.sequence_number %>** `<%= entry.action %>`<%= " — #{entry.option_title}" if entry.option_title.present? %><%= " ✅" if entry.accepted == 1 %><%= " ⭐" if entry.preferred == 1 %><%= " — by #{entry.representative_handle.presence || '[unknown]'} on behalf of #{@actor_display}" if entry.representative_token.present? %> — `<%= entry.entry_hash[0, 8] %>...` — <%= entry.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %>
 <% end -%>
 
 Receipt: `<%= @receipt_hash %>`

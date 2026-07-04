@@ -33,7 +33,12 @@
         <% @entries.each do |entry| %>
           <tr style="border-bottom: 1px solid var(--color-border-muted);">
             <td style="padding: 8px 12px;"><%= entry.sequence_number %></td>
-            <td style="padding: 8px 12px;"><code><%= entry.action %></code></td>
+            <td style="padding: 8px 12px;">
+              <code><%= entry.action %></code>
+              <% if entry.representative_token.present? %>
+                <br><span class="pulse-body-text-muted" style="font-size: 0.85em;">by <%= entry.representative_handle.presence || "[unknown]" %> on behalf of <%= @actor_display %></span>
+              <% end %>
+            </td>
             <td style="padding: 8px 12px;"><%= entry.option_title.present? ? markdown_inline(entry.option_title) : "" %></td>
             <td style="padding: 8px 12px;"><%= entry.accepted.present? ? (entry.accepted == 1 ? "✅" : "—") : "" %></td>
             <td style="padding: 8px 12px;"><%= entry.preferred.present? ? (entry.preferred == 1 ? "⭐" : "—") : "" %></td>

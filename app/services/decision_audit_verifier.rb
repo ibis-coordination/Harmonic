@@ -8,6 +8,7 @@ class DecisionAuditVerifier
     entries = DecisionAuditEntry.where(decision_id: decision.id).order(:sequence_number).to_a
     errors = []
     binding_statuses = T.let({}, T::Hash[Integer, Symbol])
+    representative_binding_statuses = T.let({}, T::Hash[Integer, Symbol])
     previous_hash = T.let(nil, T.nilable(String))
 
     entries.each_with_index do |entry, index|
@@ -27,9 +28,12 @@ class DecisionAuditVerifier
         errors << "Entry ##{entry.sequence_number}: hash mismatch (stored: #{entry.entry_hash[0..7]}..., computed: #{recomputed[0..7]}...)"
       end
 
-      # Per-entry actor-identity binding status (v2 only).
+      # Per-entry actor-identity binding status (v2+).
       # :verified / :unattributable / :tamper_or_scrub_inconsistent / :no_actor / :v1_chain_only
       binding_statuses[entry.sequence_number] = verify_actor_binding(entry)
+
+      # Per-entry representative binding status (v3+).
+      representative_binding_statuses[entry.sequence_number] = verify_representative_binding(entry)
 
       previous_hash = entry.entry_hash
     end
@@ -45,9 +49,10 @@ class DecisionAuditVerifier
     # integrity. Scrubbed and imported entries are expected and shouldn't
     # fail the chain — only :tamper_or_scrub_inconsistent is a failure.
     binding_inconsistent = binding_statuses.values.count(:tamper_or_scrub_inconsistent)
+    representative_binding_inconsistent = representative_binding_statuses.values.count(:tamper_or_scrub_inconsistent)
 
     {
-      valid: errors.empty? && binding_inconsistent.zero?,
+      valid: errors.empty? && binding_inconsistent.zero? && representative_binding_inconsistent.zero?,
       entry_count: entries.size,
       errors: errors,
       last_hash: entries.last&.entry_hash,
@@ -55,6 +60,10 @@ class DecisionAuditVerifier
       binding_inconsistent_count: binding_inconsistent,
       scrubbed_count: binding_statuses.values.count(:unattributable),
       imported_count: binding_statuses.values.count(:imported),
+      representative_binding_statuses: representative_binding_statuses,
+      representative_binding_inconsistent_count: representative_binding_inconsistent,
+      represented_count: representative_binding_statuses.values.count { |s| s != :not_represented && s != :pre_v3 },
+      representative_scrubbed_count: representative_binding_statuses.values.count(:unattributable),
     }
   end
 
@@ -92,7 +101,7 @@ class DecisionAuditVerifier
   #                                     token, so the binding check doesn't apply
   sig { params(entry: DecisionAuditEntry).returns(Symbol) }
   def self.verify_actor_binding(entry)
-    return :v1_chain_only if entry.schema_version != 2
+    return :v1_chain_only if entry.schema_version < 2
     return :no_actor if entry.actor_token.blank?
     if entry.actor_id.blank? || entry.actor_token_salt.blank?
       # Distinguish cross-instance imports from PII scrub. CollectiveImportService
@@ -108,6 +117,34 @@ class DecisionAuditVerifier
       "#{entry.decision_id}|#{entry.actor_id}|#{entry.actor_handle}|#{entry.actor_token_salt}"
     )
     expected == entry.actor_token ? :verified : :tamper_or_scrub_inconsistent
+  end
+
+  # Representative binding check, symmetric with verify_actor_binding, for the
+  # v3 representation dimension. The chain hash pins representative_token and
+  # representation_kind; this check confirms the token actually binds to the
+  # stored representative identity.
+  #
+  # Outcomes:
+  #   :verified                     — token matches the recomputed derivation
+  #   :unattributable               — representative_id or salt is NULL (PII scrubbed)
+  #   :imported                     — cross-instance import; salt was dropped by design
+  #   :tamper_or_scrub_inconsistent — derivation doesn't match the stored token
+  #   :not_represented              — v3 entry for a direct (non-represented) action
+  #   :pre_v3                       — v1/v2 entry; representation wasn't recorded
+  #                                   in the chain before schema v3
+  sig { params(entry: DecisionAuditEntry).returns(Symbol) }
+  def self.verify_representative_binding(entry)
+    return :pre_v3 if entry.schema_version < 3
+    return :not_represented if entry.representative_token.blank?
+    if entry.representative_id.blank? || entry.representative_token_salt.blank?
+      return :imported if imported_entry?(entry)
+      return :unattributable
+    end
+
+    expected = Digest::SHA256.hexdigest(
+      "#{entry.decision_id}|#{entry.representative_id}|#{entry.representative_handle}|#{entry.representative_token_salt}"
+    )
+    expected == entry.representative_token ? :verified : :tamper_or_scrub_inconsistent
   end
 
   sig { params(entry: DecisionAuditEntry).returns(T::Boolean) }
@@ -148,11 +185,13 @@ class DecisionAuditVerifier
       .to_a
 
     # Replay votes: keep latest per (actor, option_title) pair.
-    # For v2 entries, dedupe by actor_token (actor_id may be NULL post-scrub).
+    # For v2+ entries, dedupe by actor_token (actor_id may be NULL post-scrub).
+    # The actor is always the principal — a represented vote and a direct vote
+    # by the same principal share an actor_token and dedupe to one voter.
     # For v1, dedupe by actor_id.
     votes = T.let({}, T::Hash[[String, String], { accepted: Integer, preferred: Integer }])
     entries.each do |entry|
-      actor_key = entry.schema_version == 2 ? (entry.actor_token || "") : (entry.actor_id || "")
+      actor_key = entry.schema_version >= 2 ? (entry.actor_token || "") : (entry.actor_id || "")
       votes[[actor_key, entry.option_title || ""]] = {
         accepted: entry.accepted || 0,
         preferred: entry.preferred || 0,

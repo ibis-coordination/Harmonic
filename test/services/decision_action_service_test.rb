@@ -44,6 +44,48 @@ class DecisionActionServiceTest < ActiveSupport::TestCase
     assert_equal 2, DecisionAuditEntry.where(decision: @decision).count
   end
 
+  test "cast_vote! forwards the representation session to the audit entry" do
+    trustee = create_user(name: "Trustee")
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @user, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+
+    vote = Vote.new(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: @participant,
+      accepted: 1, preferred: 0,
+    )
+    result = DecisionActionService.cast_vote!(
+      decision: @decision, vote: vote, actor: @user, representation_session: session,
+    )
+
+    entry = result[:audit_entry]
+    assert_equal @user.id, entry.actor_id
+    assert_equal trustee.id, entry.representative_id
+    assert_equal "user", entry.representation_kind
+  end
+
+  test "add_option! forwards the representation session to the audit entry" do
+    trustee = create_user(name: "Option Trustee")
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @user, trustee_user: trustee,
+      permissions: { "add_options" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+
+    new_option = Option.new(decision: @decision, decision_participant: @participant, title: "Option R")
+    result = DecisionActionService.add_option!(
+      decision: @decision, option: new_option, actor: @user, representation_session: session,
+    )
+    assert_equal trustee.id, result[:audit_entry].representative_id
+  end
+
   # --- add_option! ---
 
   test "add_option! saves option and creates audit entry" do

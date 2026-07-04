@@ -6,6 +6,11 @@ export interface AuditEntry {
   actor_handle: string
   actor_token: string
   actor_token_salt: string
+  representative_id?: string
+  representative_handle?: string
+  representative_token?: string
+  representative_token_salt?: string
+  representation_kind?: string
   option_title: string
   accepted: string
   preferred: string
@@ -21,6 +26,14 @@ export type ActorBindingStatus =
   | "imported"
   | "tamper_or_scrub_inconsistent"
   | "no_actor"
+
+export type RepresentativeBindingStatus =
+  | "verified"
+  | "unattributable"
+  | "imported"
+  | "tamper_or_scrub_inconsistent"
+  | "not_represented"
+  | "pre_v3"
 
 export interface DecisionMeta {
   id: string
@@ -63,6 +76,9 @@ export interface ChainResult {
   bindingInconsistentCount: number
   scrubbedCount: number
   importedCount: number
+  representativeBindingStatuses: Record<number, RepresentativeBindingStatus>
+  representativeBindingInconsistentCount: number
+  representedCount: number
 }
 
 export interface VoteTalliesResult {

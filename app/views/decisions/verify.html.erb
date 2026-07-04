@@ -117,9 +117,12 @@
       <p style="line-height: 1.6; margin-bottom: 8px;">
         <strong>Audit chain hash formula:</strong> each entry's hash is <code>SHA256</code> of its fields joined by <code>|</code>. PII is decoupled from the hashed content so identity fields can be scrubbed on account closure without invalidating the chain:
       </p>
-      <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>"v2" | previous_hash | sequence_number | action | actor_token | NFC(option_title) | accepted | preferred | metadata | created_at</code></pre>
+      <pre style="background: var(--color-canvas-subtle); padding: 12px; border-radius: 6px; overflow-x: auto; margin-bottom: 16px;"><code>"v3" | previous_hash | sequence_number | action | actor_token | representative_token | representation_kind | NFC(option_title) | accepted | preferred | metadata | created_at</code></pre>
       <p style="line-height: 1.6; margin-bottom: 8px;">
         <strong>Actor token derivation:</strong> <code>actor_token = SHA256(decision_id | actor_id | actor_handle | actor_token_salt)</code>. The salt is stored alongside the entry and destroyed on PII scrub; without it, the binding from token to identity is computationally infeasible to recover, but the hash chain itself stays intact.
+      </p>
+      <p style="line-height: 1.6; margin-bottom: 8px;">
+        <strong>Represented actions:</strong> when someone acts on another's behalf (a trustee, or a collective's representative), the entry records both parties: the actor stays the principal — the person the action counts for — and <code>representative_token</code> (same derivation and scrub semantics as the actor token, with its own salt) identifies who actually performed it. <code>representation_kind</code> is <code>user</code> or <code>collective</code>; both fields are empty for direct actions. Entries recorded under earlier schema versions (<code>v1</code>/<code>v2</code>, visible as <code>schema_version</code> in the download) predate this and cannot distinguish a represented action from a direct one.
       </p>
     <% end %>
 

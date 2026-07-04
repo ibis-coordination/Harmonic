@@ -459,6 +459,119 @@ class DecisionAuditVerifierTest < ActiveSupport::TestCase
     end
   end
 
+  # === verify_representative_binding (v3) ===
+
+  def create_represented_entry(action: "option_added")
+    trustee = create_user(name: "Trustee")
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @user, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: action,
+      representation_session: session,
+    )
+    [entry, trustee]
+  end
+
+  test "verify_representative_binding returns :verified for an intact represented entry" do
+    entry, _trustee = create_represented_entry
+    assert_equal :verified, DecisionAuditVerifier.verify_representative_binding(entry)
+  end
+
+  test "verify_representative_binding returns :not_represented for direct v3 entries" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    assert_equal :not_represented, DecisionAuditVerifier.verify_representative_binding(entry)
+  end
+
+  test "verify_representative_binding returns :pre_v3 for v1/v2 entries" do
+    entry = DecisionAuditEntry.new(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      sequence_number: 1, schema_version: 2, action: "option_added",
+      actor_id: @user.id, actor_handle: @user.handle, actor_token: "tok",
+      option_title: "Option A",
+      created_at: Time.current.change(usec: 0),
+      entry_hash: "abc",
+    )
+    assert_equal :pre_v3, DecisionAuditVerifier.verify_representative_binding(entry)
+  end
+
+  test "verify_representative_binding returns :unattributable after representative PII scrub" do
+    entry, _trustee = create_represented_entry
+    entry.update_columns(representative_id: nil, representative_handle: "[deleted account]", representative_token_salt: nil)
+    assert_equal :unattributable, DecisionAuditVerifier.verify_representative_binding(entry)
+  end
+
+  test "verify_representative_binding returns :tamper_or_scrub_inconsistent when representative identity is swapped" do
+    entry, _trustee = create_represented_entry
+    other_user = create_user(name: "Imposter")
+    entry.update_columns(representative_id: other_user.id, representative_handle: other_user.handle)
+    assert_equal :tamper_or_scrub_inconsistent, DecisionAuditVerifier.verify_representative_binding(entry)
+  end
+
+  test "verify_chain reports representative binding statuses and fails on representative tamper" do
+    entry, _trustee = create_represented_entry
+    DecisionAuditService.record_close!(decision: @decision, actor: @user)
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert result[:valid], "intact represented chain must verify: #{result[:errors].inspect}"
+    assert_equal :verified, result[:representative_binding_statuses][1]
+    assert_equal :not_represented, result[:representative_binding_statuses][2]
+
+    imposter = create_user(name: "Imposter Two")
+    entry.update_columns(representative_id: imposter.id, representative_handle: imposter.handle)
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    refute result[:valid], "chain with tampered representative identity must be invalid"
+    assert_equal 1, result[:representative_binding_inconsistent_count]
+  end
+
+  test "chain verifies after symmetric PII scrub of actor and representative" do
+    create_represented_entry
+    DecisionAuditEntry.where(decision_id: @decision.id).find_each do |e|
+      e.update_columns(
+        actor_id: nil, actor_handle: "[deleted account]", actor_token_salt: nil,
+        representative_id: nil, representative_handle: "[deleted account]", representative_token_salt: nil,
+      )
+    end
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert result[:valid], "chain must verify after symmetric scrub: #{result[:errors].inspect}"
+    assert_equal :unattributable, DecisionAuditVerifier.verify_representative_binding(
+      DecisionAuditEntry.where(decision_id: @decision.id).first,
+    )
+  end
+
+  test "verify_vote_tallies dedupes a represented vote_cast and a direct vote_updated by the same principal" do
+    trustee = create_user(name: "Tally Trustee")
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @user, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: participant, accepted: 1, preferred: 0,
+    )
+    DecisionAuditService.record_vote!(
+      decision: @decision, vote: vote, actor: @user, representation_session: session,
+    )
+    vote.update_columns(accepted: 0)
+    DecisionAuditService.record_vote!(decision: @decision, vote: vote, actor: @user, is_update: true)
+
+    result = DecisionAuditVerifier.verify_vote_tallies(@decision)
+    assert result[:valid],
+           "represented and direct votes by the same principal must dedupe to one voter: #{result[:errors].inspect}"
+  end
+
   test "verify_all returns combined results for all checks" do
     DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",

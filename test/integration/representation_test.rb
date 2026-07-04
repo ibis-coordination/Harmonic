@@ -262,6 +262,42 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert_not_nil participant, "Represented user (ai_agent) should have a participant record"
   end
 
+  test "voting while representing records both principal and representative in the audit chain" do
+    sign_in_as(@parent, tenant: @tenant)
+
+    decision = Decision.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @parent,
+      question: "Audited represented vote?",
+      description: "The audit chain must capture both parties",
+      deadline: Time.current + 1.week,
+      options_open: true,
+    )
+    option = Option.create!(
+      tenant: @tenant,
+      collective: @collective,
+      decision: decision,
+      decision_participant: DecisionParticipantManager.new(decision: decision, user: @parent).find_or_create_participant,
+      title: "Option A",
+    )
+
+    start_representing
+
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/vote", params: {
+      votes: [{ option_title: option.title, accept: true, prefer: false }],
+    }
+
+    entry = DecisionAuditEntry.where(decision_id: decision.id, action: "vote_cast").order(:sequence_number).last
+    assert_not_nil entry, "represented vote must produce an audit entry"
+    assert_equal @effective_user.id, entry.actor_id, "actor stays the principal (represented user)"
+    assert_equal @parent.id, entry.representative_id, "representative is the user who actually voted"
+    assert_equal @parent.handle, entry.representative_handle
+    assert entry.representative_token.present?
+    assert_equal "user", entry.representation_kind
+    assert_equal :verified, DecisionAuditVerifier.verify_representative_binding(entry)
+  end
+
   # ====================
   # Stopping Representation
   # ====================

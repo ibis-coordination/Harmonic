@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest"
-import { verifyChain, verifyVoteTallies, verifyBeacon, verifyAll, computeEntryHash, verifyActorBinding } from "./audit_chain_verifier"
+import { verifyChain, verifyVoteTallies, verifyBeacon, verifyAll, computeEntryHash, verifyActorBinding, verifyRepresentativeBinding } from "./audit_chain_verifier"
 import type { VerifyData, AuditEntry } from "./audit_chain_types"
 
 const DECISION_ID = "d1"
 const SALT = "deadbeef".repeat(8) // 64-hex placeholder
+const REP_SALT = "cafef00d".repeat(8) // representative salt placeholder
 
 async function sha256hex(input: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -21,6 +22,11 @@ async function makeEntry(opts: {
   actorId?: string
   actorHandle?: string
   actorTokenSalt?: string
+  schemaVersion?: number
+  representativeId?: string
+  representativeHandle?: string
+  representativeTokenSalt?: string
+  representationKind?: string
   optionTitle?: string
   accepted?: string
   preferred?: string
@@ -35,14 +41,25 @@ async function makeEntry(opts: {
   const actorToken = actorId
     ? await sha256hex(`${decisionId}|${actorId}|${actorHandle}|${salt}`)
     : ""
+  const representativeId = opts.representativeId ?? ""
+  const representativeHandle = opts.representativeHandle ?? ""
+  const repSalt = opts.representativeTokenSalt ?? (representativeId ? REP_SALT : "")
+  const representativeToken = representativeId
+    ? await sha256hex(`${decisionId}|${representativeId}|${representativeHandle}|${repSalt}`)
+    : ""
   const entry: AuditEntry = {
-    schema_version: 2,
+    schema_version: opts.schemaVersion ?? 2,
     sequence_number: opts.sequenceNumber,
     action: opts.action,
     actor_id: actorId,
     actor_handle: actorHandle,
     actor_token: actorToken,
     actor_token_salt: salt,
+    representative_id: representativeId,
+    representative_handle: representativeHandle,
+    representative_token: representativeToken,
+    representative_token_salt: repSalt,
+    representation_kind: opts.representationKind ?? (representativeId ? "user" : ""),
     option_title: opts.optionTitle ?? "",
     accepted: opts.accepted ?? "",
     preferred: opts.preferred ?? "",
@@ -487,6 +504,202 @@ describe("cross-implementation hash consistency", () => {
     const hashNFC = await computeEntryHash({ ...baseEntry, option_title: "é" }) // precomposed é (U+00E9)
     const hashNFD = await computeEntryHash({ ...baseEntry, option_title: "é" }) // decomposed e + combining acute (U+0065 U+0301)
     expect(hashNFC).toBe(hashNFD)
+  })
+})
+
+
+describe("schema v3 (representation)", () => {
+  it("computes the documented v3 hash for a represented entry (cross-implementation)", async () => {
+    // Digest::SHA256.hexdigest("v3||1|vote_cast|tok|reptok|user|Option A|1|0||2026-05-05T12:00:00Z")
+    const entry: AuditEntry = {
+      schema_version: 3,
+      sequence_number: 1,
+      action: "vote_cast",
+      actor_id: "",
+      actor_handle: "",
+      actor_token: "tok",
+      actor_token_salt: "",
+      representative_id: "",
+      representative_handle: "",
+      representative_token: "reptok",
+      representative_token_salt: "",
+      representation_kind: "user",
+      option_title: "Option A",
+      accepted: "1",
+      preferred: "0",
+      metadata: "",
+      previous_hash: "",
+      entry_hash: "",
+      created_at: "2026-05-05T12:00:00Z",
+    }
+    expect(await computeEntryHash(entry)).toBe(
+      "2179097d3275c7df153ecf7d6d39594aa5a7233eb42419b25ff076a86a3f7a81",
+    )
+  })
+
+  it("computes the documented v3 hash for a direct entry (empty representative fields)", async () => {
+    // Digest::SHA256.hexdigest("v3||1|vote_cast|tok|||Option A|1|0||2026-05-05T12:00:00Z")
+    const entry: AuditEntry = {
+      schema_version: 3,
+      sequence_number: 1,
+      action: "vote_cast",
+      actor_id: "",
+      actor_handle: "",
+      actor_token: "tok",
+      actor_token_salt: "",
+      option_title: "Option A",
+      accepted: "1",
+      preferred: "0",
+      metadata: "",
+      previous_hash: "",
+      entry_hash: "",
+      created_at: "2026-05-05T12:00:00Z",
+    }
+    expect(await computeEntryHash(entry)).toBe(
+      "bed0da76ee6daec5f0b6e3a0932684217920c364d0d28178d91582da4e0b1b50",
+    )
+  })
+
+  it("verifyRepresentativeBinding returns verified for an intact represented entry", async () => {
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      representativeId: "user-2",
+      representativeHandle: "bob",
+      optionTitle: "Option A",
+      accepted: "1",
+      preferred: "0",
+    })
+    expect(await verifyRepresentativeBinding(entry, DECISION_ID)).toBe("verified")
+  })
+
+  it("verifyRepresentativeBinding returns not_represented for direct v3 entries", async () => {
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      optionTitle: "Option A",
+    })
+    expect(await verifyRepresentativeBinding(entry, DECISION_ID)).toBe("not_represented")
+  })
+
+  it("verifyRepresentativeBinding returns pre_v3 for v2 entries", async () => {
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      actorId: "user-1",
+      actorHandle: "alice",
+    })
+    expect(await verifyRepresentativeBinding(entry, DECISION_ID)).toBe("pre_v3")
+  })
+
+  it("verifyRepresentativeBinding returns unattributable after representative PII scrub", async () => {
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      representativeId: "user-2",
+      representativeHandle: "bob",
+    })
+    entry.representative_id = ""
+    entry.representative_handle = "[deleted account]"
+    entry.representative_token_salt = ""
+    expect(await verifyRepresentativeBinding(entry, DECISION_ID)).toBe("unattributable")
+  })
+
+  it("verifyRepresentativeBinding detects a swapped representative identity", async () => {
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      representativeId: "user-2",
+      representativeHandle: "bob",
+    })
+    entry.representative_id = "user-3"
+    entry.representative_handle = "mallory"
+    expect(await verifyRepresentativeBinding(entry, DECISION_ID)).toBe(
+      "tamper_or_scrub_inconsistent",
+    )
+  })
+
+  it("verifyChain reports representative binding statuses and fails on representative tamper", async () => {
+    const represented = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      representativeId: "user-2",
+      representativeHandle: "bob",
+      optionTitle: "Option A",
+      accepted: "1",
+      preferred: "0",
+    })
+    const direct = await makeEntry({
+      sequenceNumber: 2,
+      action: "option_added",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      optionTitle: "Option B",
+      previousHash: represented.entry_hash,
+      createdAt: "2026-05-05T12:01:00Z",
+    })
+    const data: VerifyData = {
+      decision: { ...baseDecision },
+      audit_chain: [represented, direct],
+    }
+
+    let result = await verifyChain(data)
+    expect(result.valid).toBe(true)
+    expect(result.representativeBindingStatuses[1]).toBe("verified")
+    expect(result.representativeBindingStatuses[2]).toBe("not_represented")
+    expect(result.representedCount).toBe(1)
+
+    represented.representative_id = "user-9"
+    represented.representative_handle = "mallory"
+    result = await verifyChain(data)
+    expect(result.valid).toBe(false)
+    expect(result.representativeBindingInconsistentCount).toBe(1)
+  })
+
+  it("chain still verifies after symmetric PII scrub of actor and representative", async () => {
+    const entry = await makeEntry({
+      sequenceNumber: 1,
+      action: "vote_cast",
+      schemaVersion: 3,
+      actorId: "user-1",
+      actorHandle: "alice",
+      representativeId: "user-2",
+      representativeHandle: "bob",
+      optionTitle: "Option A",
+      accepted: "1",
+      preferred: "0",
+    })
+    entry.actor_id = ""
+    entry.actor_handle = "[deleted account]"
+    entry.actor_token_salt = ""
+    entry.representative_id = ""
+    entry.representative_handle = "[deleted account]"
+    entry.representative_token_salt = ""
+
+    const data: VerifyData = {
+      decision: { ...baseDecision },
+      audit_chain: [entry],
+    }
+    const result = await verifyChain(data)
+    expect(result.valid).toBe(true)
+    expect(result.bindingStatuses[1]).toBe("unattributable")
+    expect(result.representativeBindingStatuses[1]).toBe("unattributable")
   })
 })
 
