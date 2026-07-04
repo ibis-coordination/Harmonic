@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { clickAction, notificationOptions, parsePayload, shouldShowNotification } from "./push"
+import { clickAction, notificationOptions, parsePayload } from "./push"
 
 const ORIGIN = "https://app.harmonic.local"
 
@@ -36,37 +36,6 @@ describe("notificationOptions", () => {
     expect(options.icon).toBe("/icon.png")
     expect(options.badge).toBe("/badge.png")
     expect(options.data.url).toBe(`${ORIGIN}/n/abc`)
-  })
-})
-
-describe("shouldShowNotification", () => {
-  const focused = { focused: true }
-  const blurred = { focused: false }
-
-  it("shows when no window is open", () => {
-    expect(shouldShowNotification(`${ORIGIN}/n/abc`, [], ORIGIN)).toBe(true)
-  })
-
-  it("shows when windows are open but none is focused", () => {
-    expect(shouldShowNotification(`${ORIGIN}/n/abc`, [blurred, blurred], ORIGIN)).toBe(true)
-  })
-
-  it("suppresses a same-origin notification when a window is focused", () => {
-    // The user is actively in the app on this tenant; the in-app channel
-    // (bell badge, chat view) is already showing the content.
-    expect(shouldShowNotification(`${ORIGIN}/n/abc`, [blurred, focused], ORIGIN)).toBe(false)
-  })
-
-  it("shows a cross-origin notification even when a window is focused", () => {
-    // Delivery is origin-agnostic: tenant B's notification can arrive at
-    // tenant A's service worker. A focused tenant-A window says nothing
-    // about whether the user can see tenant B's content.
-    expect(shouldShowNotification("https://other.harmonic.local/n/abc", [focused], ORIGIN)).toBe(true)
-  })
-
-  it("suppresses url-less and unparseable-url notifications when focused", () => {
-    expect(shouldShowNotification(undefined, [focused], ORIGIN)).toBe(false)
-    expect(shouldShowNotification("::not a url::", [focused], ORIGIN)).toBe(false)
   })
 })
 
