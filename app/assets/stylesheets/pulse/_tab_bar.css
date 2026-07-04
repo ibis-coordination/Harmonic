@@ -29,6 +29,20 @@
     border-top: 1px solid var(--color-border-default);
     /* Below the places sheet backdrop (200) so the open sheet covers it. */
     z-index: 150;
+    /* Auto-hide in lockstep with the top header (same controller and
+       timing, opposite direction). */
+    transition: transform 0.25s ease;
+    will-change: transform;
+  }
+
+  .pulse-tab-bar--hidden {
+    transform: translateY(100%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-tab-bar {
+      transition: none;
+    }
   }
 
   .pulse-tab-bar-item {

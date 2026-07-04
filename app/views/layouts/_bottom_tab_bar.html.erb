@@ -2,7 +2,11 @@
     the persistent destinations, ordered left→right as outward→inward —
     globe, places, search, inbox, you. Desktop unfolds this same set into
     the rail and header; CSS shows exactly one projection per width. %>
-<nav class="pulse-tab-bar" aria-label="Primary" data-controller="rail-badges">
+<%# Hides on scroll-down / reveals on scroll-up in lockstep with the top
+    header — same controller, same threshold, opposite translate. %>
+<nav class="pulse-tab-bar" aria-label="Primary"
+     data-controller="rail-badges auto-hide-header"
+     data-auto-hide-header-hidden-class="pulse-tab-bar--hidden">
   <a href="/" class="pulse-tab-bar-item<%= ' active' if request.path == '/' %>" aria-label="Home"
      <% if request.path == "/" %>aria-current="page"<% end %>>
     <%= octicon "globe", height: 22 %>
