@@ -2,9 +2,9 @@
  *
  * The persistent destinations at phone widths, ordered outward→inward:
  * globe, places, search, inbox, you (docs/NAVIGATION_DESIGN.md "Form
- * factors"). Desktop unfolds the same set into the rail and header — CSS
- * shows exactly one projection per width, so the bar and the rail never
- * coexist. --pulse-tab-bar-height is 0 on desktop (set in _layout.css)
+ * factors"). Desktop folds the same set into the header — CSS shows
+ * exactly one projection per width, so the bar and the header controls
+ * never coexist. --pulse-tab-bar-height is 0 on desktop (set in _layout.css)
  * and real height here; content clearance derives from the variable.
  */
 
@@ -101,7 +101,7 @@
     border-radius: 50%;
   }
 
-  /* Same pill as the rail badges, anchored to the tab icon's corner. */
+  /* Same pill as the places-sheet badges, anchored to the tab icon's corner. */
   .pulse-tab-bar-badge {
     position: absolute;
     top: 8px;
