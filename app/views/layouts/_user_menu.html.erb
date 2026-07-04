@@ -6,16 +6,16 @@
     <%= octicon 'person' %>
     <a href="<%= @current_user.path %>">Profile</a>
   </li>
-  <li>
-    <%= octicon 'list-unordered' %>
-    <a href="<%= @current_user.path %>/lists">Your lists</a>
-  </li>
   <% if @current_tenant&.any_ai_agents_enabled? %>
     <li>
       <%= octicon 'command-palette' %>
       <a href="/ai-agents">AI Agents</a>
     </li>
   <% end %>
+  <li>
+    <%= octicon 'list-unordered' %>
+    <a href="<%= @current_user.path %>/lists">Lists</a>
+  </li>
   <li>
     <%= octicon 'globe' %>
     <a href="/subdomains">Subdomains</a>
