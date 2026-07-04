@@ -77,9 +77,10 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_select ".pulse-tab-bar" do
-      # Outward → inward: globe, places, search, inbox, you.
+      # Outward → inward: globe, places, search, inbox, you. Bare icons —
+      # aria-labels carry the names.
       assert_select "a[href='/'] .octicon-globe"
-      assert_select "button[data-action*='places-sheet#toggle']", text: /Places/
+      assert_select "button[data-action*='places-sheet#toggle'][aria-label='Places']"
       assert_select "a[href='/search']"
       assert_select "a[href='/notifications'] .pulse-tab-bar-badge"
       # You: the avatar menu, same items as the header menu.

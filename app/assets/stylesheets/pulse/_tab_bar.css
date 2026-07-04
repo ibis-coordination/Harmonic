@@ -42,22 +42,13 @@
     padding: 0;
     border: none;
     background: none;
-    color: var(--color-fg-muted);
+    color: var(--color-fg-default);
     text-decoration: none;
     cursor: pointer;
   }
 
   .pulse-tab-bar-item .octicon {
     fill: currentColor;
-  }
-
-  .pulse-tab-bar-item.active {
-    color: var(--color-fg-default);
-  }
-
-  .pulse-tab-bar-label {
-    font-size: 10px;
-    line-height: 1;
   }
 
   /* The You tab: a positioned wrapper so its menu can anchor above it. */
@@ -99,7 +90,7 @@
   /* Same pill as the rail badges, anchored to the tab icon's corner. */
   .pulse-tab-bar-badge {
     position: absolute;
-    top: 4px;
+    top: 8px;
     left: calc(50% + 4px);
     background-color: var(--color-accent-fg);
     color: white;
@@ -116,7 +107,7 @@
   /* Aggregate unread dot on the Places tab. */
   .pulse-tab-bar-dot {
     position: absolute;
-    top: 6px;
+    top: 12px;
     left: calc(50% + 8px);
     width: 8px;
     height: 8px;
