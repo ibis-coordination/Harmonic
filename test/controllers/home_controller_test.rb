@@ -47,7 +47,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/"
     assert_response :success
-    assert_select ".pulse-places-sheet .pulse-rail-badge[data-collective-id='#{other.id}']", text: "1" do |badges|
+    assert_select ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{other.id}']", text: "1" do |badges|
       assert_not_includes badges.first["style"].to_s, "display: none"
     end
   end
@@ -134,7 +134,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/"
     assert_response :success
-    assert_select ".pulse-places-sheet .pulse-rail-badge[data-chat-badge]", text: "1" do |badges|
+    assert_select ".pulse-places-sheet .pulse-places-badge[data-chat-badge]", text: "1" do |badges|
       assert_not_includes badges.first["style"].to_s, "display: none"
     end
   end

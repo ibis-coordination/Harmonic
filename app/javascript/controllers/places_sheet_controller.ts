@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus"
  * PlacesSheetController opens/closes the mobile place-switcher sheet and
  * lights the toggle's aggregate unread dot from the shared
  * "notifications:counts" broadcast (the badges inside the sheet are kept
- * fresh separately, by the sheet's own rail-badges controller).
+ * fresh separately, by the sheet's own places-badges controller).
  *
  * Registered on an ancestor of both the header toggle and the sheet
  * (the layout wraps them), since they live in different DOM subtrees.

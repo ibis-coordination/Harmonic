@@ -1,18 +1,18 @@
 import { Controller } from "@hotwired/stimulus"
 
 /**
- * RailBadgesController fills the collective rail's per-square unread badges.
- * It does no fetching of its own: NotificationBadgeController polls
+ * PlacesBadgesController fills the places sheet's and tab bar's unread
+ * badges. It does no fetching of its own: NotificationBadgeController polls
  * /notifications/unread_count and broadcasts "notifications:counts" with the
  * per-collective breakdown; this controller just projects that onto the
- * .pulse-rail-badge elements.
+ * .pulse-places-badge elements.
  *
  * Usage:
- * <nav class="pulse-rail" data-controller="rail-badges">
- *   <span class="pulse-rail-badge" data-collective-id="..." style="display: none"></span>
+ * <nav class="pulse-places-nav" data-controller="places-badges">
+ *   <span class="pulse-places-badge" data-collective-id="..." style="display: none"></span>
  * </nav>
  */
-export default class RailBadgesController extends Controller<HTMLElement> {
+export default class PlacesBadgesController extends Controller<HTMLElement> {
   connect(): void {
     window.addEventListener("notifications:counts", this.handleCounts)
   }
@@ -26,12 +26,12 @@ export default class RailBadgesController extends Controller<HTMLElement> {
     const byCollective: Record<string, number> = detail?.byCollective ?? {}
 
     this.element
-      .querySelectorAll<HTMLElement>(".pulse-rail-badge[data-collective-id]")
+      .querySelectorAll<HTMLElement>(".pulse-places-badge[data-collective-id]")
       .forEach((badge) => {
         this.updateBadge(badge, byCollective[badge.dataset.collectiveId ?? ""] ?? 0)
       })
 
-    const chatBadge = this.element.querySelector<HTMLElement>(".pulse-rail-badge[data-chat-badge]")
+    const chatBadge = this.element.querySelector<HTMLElement>(".pulse-places-badge[data-chat-badge]")
     if (chatBadge) {
       this.updateBadge(chatBadge, detail?.chat ?? 0)
     }

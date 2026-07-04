@@ -1,11 +1,11 @@
 <%# Mobile bottom tab bar (docs/NAVIGATION_DESIGN.md "Form factors"):
     the persistent destinations, ordered left→right as outward→inward —
-    globe, places, search, inbox, you. Desktop unfolds this same set into
-    the rail and header; CSS shows exactly one projection per width. %>
+    globe, places, search, inbox, you. Desktop folds this same set into
+    the header; CSS shows exactly one projection per width. %>
 <%# Hides on scroll-down / reveals on scroll-up in lockstep with the top
     header — same controller, same threshold, opposite translate. %>
 <nav class="pulse-tab-bar" aria-label="Primary"
-     data-controller="rail-badges auto-hide-header"
+     data-controller="places-badges auto-hide-header"
      data-auto-hide-header-hidden-class="pulse-tab-bar--hidden">
   <a href="/" class="pulse-tab-bar-item<%= ' active' if request.path == '/' %>" aria-label="Home"
      <% if request.path == "/" %>aria-current="page"<% end %>>
@@ -18,7 +18,7 @@
           aria-expanded="false" aria-label="Places">
     <%= octicon "apps", height: 22 %>
     <span class="pulse-tab-bar-dot" data-places-sheet-target="dot"
-          style="<%= 'display: none' unless rail_unread_counts.values.any?(&:positive?) || rail_chat_unread_count.positive? %>"></span>
+          style="<%= 'display: none' unless places_unread_counts.values.any?(&:positive?) || places_chat_unread_count.positive? %>"></span>
   </button>
 
   <a href="/search" class="pulse-tab-bar-item<%= ' active' if request.path.start_with?('/search') %>" aria-label="Search"

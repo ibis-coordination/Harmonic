@@ -94,7 +94,7 @@ describe("NotificationBadgeController", () => {
     expect(afterThird).toBeGreaterThan(afterSecond)
   })
 
-  it("broadcasts per-collective and chat counts so the rail badges can update", async () => {
+  it("broadcasts per-collective and chat counts so the places badges can update", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ count: 3, by_collective: { "abc-123": 2, "def-456": 1 }, chat: 4 }),

@@ -11,7 +11,7 @@ import { Controller } from "@hotwired/stimulus"
 //           data-controller="auto-hide-header"
 //           data-auto-hide-header-hidden-class="pulse-top-header--hidden">
 //   <nav class="pulse-tab-bar"
-//        data-controller="rail-badges auto-hide-header"
+//        data-controller="places-badges auto-hide-header"
 //        data-auto-hide-header-hidden-class="pulse-tab-bar--hidden">
 //
 // The reveal-on-scroll-up behaviour keeps the chrome one flick away without it

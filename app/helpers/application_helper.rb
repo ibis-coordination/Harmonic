@@ -1,9 +1,9 @@
 # typed: false
 
 module ApplicationHelper
-  # Badge display rules shared with the rail/sheet components — the tab
+  # Badge display rules shared with the places sheet component — the tab
   # bar's inbox badge renders with the same text/style contract the
-  # rail-badges controller maintains client-side.
+  # places-badges controller maintains client-side.
   include UnreadBadgeDisplay
 
   # Generate consistent avatar initials from a name

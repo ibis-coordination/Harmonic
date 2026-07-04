@@ -101,7 +101,7 @@
 
 /* Current place: a left-edge indicator pill hugging the sheet's edge
    (the nav has 8px side padding). */
-.pulse-rail-indicator {
+.pulse-places-indicator {
   position: absolute;
   left: -8px;
   width: 4px;
@@ -111,11 +111,11 @@
   transition: height 0.15s ease;
 }
 
-.pulse-places-row:hover .pulse-rail-indicator {
+.pulse-places-row:hover .pulse-places-indicator {
   height: 20px;
 }
 
-.pulse-places-row.active .pulse-rail-indicator {
+.pulse-places-row.active .pulse-places-indicator {
   height: 32px;
 }
 
@@ -155,9 +155,9 @@
 
 /* Per-row unread count pill, in-flow at the row's right edge — same
    treatment as the header's .notification-badge-count. Filled and
-   shown/hidden by the rail-badges controller from the shared
+   shown/hidden by the places-badges controller from the shared
    unread-count poll. */
-.pulse-rail-badge {
+.pulse-places-badge {
   background-color: var(--color-accent-fg);
   color: white;
   font-size: 10px;

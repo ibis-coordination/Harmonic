@@ -50,7 +50,7 @@
                   aria-expanded="false" aria-label="Places">
             <%= octicon "apps", height: 18 %>
             <span class="pulse-places-toggle-dot" data-places-sheet-target="dot"
-                  style="<%= 'display: none' unless rail_unread_counts.values.any?(&:positive?) || rail_chat_unread_count.positive? %>"></span>
+                  style="<%= 'display: none' unless places_unread_counts.values.any?(&:positive?) || places_chat_unread_count.positive? %>"></span>
           </button>
         <% end %>
         <a href="/" class="pulse-logo">
@@ -97,10 +97,10 @@
     <% if @current_user %>
       <%= render PlacesSheetComponent.new(
         main_collective: @current_tenant&.main_collective,
-        collectives: rail_collectives,
+        collectives: places_collectives,
         current_path: request.path,
-        unread_counts: rail_unread_counts,
-        chat_unread_count: rail_chat_unread_count,
+        unread_counts: places_unread_counts,
+        chat_unread_count: places_chat_unread_count,
       ) %>
     <% end %>
     <div class="pulse-app-shell">

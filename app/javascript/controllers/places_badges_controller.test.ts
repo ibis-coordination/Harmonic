@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
-import RailBadgesController from "./rail_badges_controller"
+import PlacesBadgesController from "./places_badges_controller"
 
-describe("RailBadgesController", () => {
+describe("PlacesBadgesController", () => {
   beforeEach(() => {
     document.body.innerHTML = `
-      <nav class="pulse-rail" data-controller="rail-badges">
+      <nav class="pulse-places-nav" data-controller="places-badges">
         <a href="/chat">
-          <span class="pulse-rail-badge" data-chat-badge style="display: none"></span>
+          <span class="pulse-places-badge" data-chat-badge style="display: none"></span>
         </a>
         <a href="/collectives/team-a" data-place-path="/collectives/team-a">
-          <span class="pulse-rail-badge" data-collective-id="aaa-111" style="display: none"></span>
+          <span class="pulse-places-badge" data-collective-id="aaa-111" style="display: none"></span>
         </a>
         <a href="/collectives/team-b" data-place-path="/collectives/team-b">
-          <span class="pulse-rail-badge" data-collective-id="bbb-222" style="display: none"></span>
+          <span class="pulse-places-badge" data-collective-id="bbb-222" style="display: none"></span>
         </a>
         <a href="/notifications">
           <span class="pulse-tab-bar-badge" data-total-badge style="display: none"></span>
@@ -21,11 +21,11 @@ describe("RailBadgesController", () => {
       </nav>
     `
     const application = Application.start()
-    application.register("rail-badges", RailBadgesController)
+    application.register("places-badges", PlacesBadgesController)
   })
 
   function badge(collectiveId: string): HTMLElement {
-    return document.querySelector(`.pulse-rail-badge[data-collective-id='${collectiveId}']`) as HTMLElement
+    return document.querySelector(`.pulse-places-badge[data-collective-id='${collectiveId}']`) as HTMLElement
   }
 
   function broadcast(byCollective: Record<string, number>, chat = 0): void {

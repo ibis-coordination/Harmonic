@@ -1,10 +1,11 @@
 # typed: true
 
-# The mobile place switcher: the rail's destinations (globe, chat,
-# collectives, create/join) as labeled rows in a slide-over sheet. Rows
-# carry names because touch has no tooltips. Opened/closed by the
-# places-sheet Stimulus controller; badges stay fresh via a rail-badges
-# controller instance listening to the shared unread-count broadcast.
+# The place switcher at every width: destinations (globe, chat,
+# collectives, create/join) as labeled rows in a slide-over sheet, opened
+# from the header's places toggle on desktop and the tab bar's Places tab
+# on mobile. Opened/closed by the places-sheet Stimulus controller; badges
+# stay fresh via a places-badges controller instance listening to the
+# shared unread-count broadcast.
 class PlacesSheetComponent < ViewComponent::Base
   extend T::Sig
   include UnreadBadgeDisplay

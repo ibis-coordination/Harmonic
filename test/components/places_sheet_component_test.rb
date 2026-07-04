@@ -18,7 +18,7 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     build_sheet_collective(name: "Public", handle: "public", path: nil)
   end
 
-  test "renders the same destinations as the rail, as labeled rows" do
+  test "renders every place destination as a labeled row" do
     a = build_sheet_collective(name: "Team A", handle: "team-a")
     render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: [a]))
 
@@ -50,11 +50,11 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
                     chat_unread_count: 2,
                   ))
 
-    assert_selector ".pulse-places-sheet .pulse-rail-badge[data-collective-id='#{a.id}']", text: "4", visible: :all
-    assert_selector ".pulse-places-sheet .pulse-rail-badge[data-chat-badge]", text: "2", visible: :all
-    assert_selector ".pulse-places-sheet .pulse-rail-badge[data-collective-id='#{main.id}']", text: "", visible: :all
-    # A second rail-badges controller instance keeps these fresh after polls.
-    assert_selector ".pulse-places-sheet [data-controller~='rail-badges']", visible: :all
+    assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{a.id}']", text: "4", visible: :all
+    assert_selector ".pulse-places-sheet .pulse-places-badge[data-chat-badge]", text: "2", visible: :all
+    assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{main.id}']", text: "", visible: :all
+    # A second places-badges controller instance keeps these fresh after polls.
+    assert_selector ".pulse-places-sheet [data-controller~='places-badges']", visible: :all
   end
 
   test "a badged row links to the place's feed filtered to what you were notified about" do
@@ -80,7 +80,7 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_no_selector ".pulse-places-sheet a[href='/chat'][data-place-path]", visible: :all
   end
 
-  test "marks the current place active, same rules as the rail" do
+  test "marks the current place active" do
     a = build_sheet_collective(name: "Team A", handle: "team-a")
     b = build_sheet_collective(name: "Team B", handle: "team-b")
 
