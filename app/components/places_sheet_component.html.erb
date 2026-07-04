@@ -1,25 +1,25 @@
 <div class="pulse-places-backdrop" data-places-sheet-target="backdrop"
      data-action="click->places-sheet#close" hidden></div>
 <div class="pulse-places-sheet" data-places-sheet-target="panel" aria-hidden="true">
-  <nav class="pulse-places-nav" aria-label="Places" data-controller="rail-badges">
+  <nav class="pulse-places-nav" aria-label="Places" data-controller="places-badges">
     <% if @main_collective %>
       <%= tag.a href: place_entry_href("/", unread_count_for(@main_collective)),
                 class: ["pulse-places-row", ("active" if public_space_active?)],
                 data: { place_path: "/" },
                 aria: { current: ("page" if public_space_active?) } do %>
-        <span class="pulse-rail-indicator"></span>
+        <span class="pulse-places-indicator"></span>
         <span class="pulse-places-row-icon"><%= helpers.octicon "globe", height: 20 %></span>
         <span class="pulse-places-row-name">Public space</span>
-        <span class="pulse-rail-badge pulse-places-row-badge" data-collective-id="<%= @main_collective.id %>"
+        <span class="pulse-places-badge pulse-places-row-badge" data-collective-id="<%= @main_collective.id %>"
               style="<%= count_badge_style(unread_count_for(@main_collective)) %>"><%= count_badge_text(unread_count_for(@main_collective)) %></span>
       <% end %>
       <%= tag.a href: "/chat",
                 class: ["pulse-places-row", ("active" if chat_active?)],
                 aria: { current: ("page" if chat_active?) } do %>
-        <span class="pulse-rail-indicator"></span>
+        <span class="pulse-places-indicator"></span>
         <span class="pulse-places-row-icon"><%= helpers.octicon "comment-discussion", height: 20 %></span>
         <span class="pulse-places-row-name">Chat</span>
-        <span class="pulse-rail-badge pulse-places-row-badge" data-chat-badge
+        <span class="pulse-places-badge pulse-places-row-badge" data-chat-badge
               style="<%= count_badge_style(@chat_unread_count) %>"><%= count_badge_text(@chat_unread_count) %></span>
       <% end %>
       <div class="pulse-places-divider"></div>
@@ -30,12 +30,12 @@
                 class: ["pulse-places-row", ("active" if active?(collective))],
                 data: { place_path: collective.path },
                 aria: { current: ("page" if active?(collective)) } do %>
-        <span class="pulse-rail-indicator"></span>
+        <span class="pulse-places-indicator"></span>
         <span class="pulse-places-row-icon">
           <%= helpers.inline_avatar(collective, css_class: "pulse-places-row-avatar", variant: :icon) %>
         </span>
         <span class="pulse-places-row-name"><%= collective.name %></span>
-        <span class="pulse-rail-badge pulse-places-row-badge" data-collective-id="<%= collective.id %>"
+        <span class="pulse-places-badge pulse-places-row-badge" data-collective-id="<%= collective.id %>"
               style="<%= count_badge_style(unread_count_for(collective)) %>"><%= count_badge_text(unread_count_for(collective)) %></span>
       <% end %>
     <% end %>

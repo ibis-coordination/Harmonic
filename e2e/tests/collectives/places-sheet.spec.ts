@@ -29,7 +29,7 @@ test.describe("Places Sheet", () => {
     await expect(sheet).toBeHidden()
   })
 
-  test("the tab bar is hidden on desktop where the rail serves instead", async ({
+  test("on desktop the tab bar is hidden and the header toggle opens the sheet", async ({
     authenticatedPage,
   }) => {
     const page = authenticatedPage
@@ -37,10 +37,21 @@ test.describe("Places Sheet", () => {
     await page.goto("/")
 
     await expect(page.locator(".pulse-tab-bar")).toBeHidden()
-    await expect(page.locator(".pulse-rail")).toBeVisible()
+
+    const toggle = page.locator(".pulse-places-toggle")
+    await expect(toggle).toBeVisible()
+
+    const sheet = page.locator(".pulse-places-sheet")
+    await expect(sheet).toBeHidden()
+    await toggle.click()
+    await expect(sheet).toBeVisible()
+    await expect(sheet.locator("a[data-place-path='/']")).toContainText("Public space")
+
+    await page.keyboard.press("Escape")
+    await expect(sheet).toBeHidden()
   })
 
-  test("the tab bar shows its five destinations on mobile and the rail hides", async ({
+  test("the tab bar shows its five destinations on mobile and the header toggle hides", async ({
     authenticatedPage,
   }) => {
     const page = authenticatedPage
@@ -50,7 +61,7 @@ test.describe("Places Sheet", () => {
 
     const bar = page.locator(".pulse-tab-bar")
     await expect(bar).toBeVisible()
-    await expect(page.locator(".pulse-rail")).toBeHidden()
+    await expect(page.locator(".pulse-places-toggle")).toBeHidden()
     await expect(bar.locator("a[href='/']")).toBeVisible()
     await expect(bar.locator(".pulse-tab-bar-places")).toBeVisible()
     await expect(bar.locator("a[href='/search']")).toBeVisible()

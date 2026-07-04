@@ -1,7 +1,7 @@
 # typed: true
 
-# Shared display rules for the unread count pills on the rail and the
-# places sheet. The rail-badges Stimulus controller reimplements the same
+# Shared display rules for the unread count pills on the places sheet and
+# the tab bar. The places-badges Stimulus controller reimplements the same
 # rules for post-poll updates — keep the two in sync.
 module UnreadBadgeDisplay
   extend T::Sig

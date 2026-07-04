@@ -1,14 +1,17 @@
-# Navigation Design: Visibility Zones and the Collective Rail
+# Navigation Design: Visibility Zones and the Places Switcher
 
-**Status: draft, iterating.** Written alongside issue #337 / PR #339 (the
-collective rail). This doc records the mental model the navigation chrome is
-built on, so each iteration strengthens the model instead of accreting
-features. Update it as decisions land.
+**Status: draft, iterating.** Started alongside issue #337 / PR #339. This
+doc records the mental model the navigation chrome is built on, so each
+iteration strengthens the model instead of accreting features. Update it as
+decisions land.
 
 The feeds-are-queries half of this doc (issue #352) **shipped in PR #358**:
 the query engine, page scopes, frontmatter, the feed bar, and the route swap
-that made the feed each collective's default page. Those sections below are
-updated to describe reality; the rail sections are still design-ahead.
+that made the feed each collective's default page. The place switcher began
+as a persistent left rail (#339); the rail was later removed in favor of the
+**places sheet** at every width — same destinations, labeled rows, opened
+from the header's places toggle on desktop and the tab bar's Places tab on
+mobile.
 
 ## The core idea: visibility zones
 
@@ -16,19 +19,19 @@ Everything a user touches in Harmonic lives in one of three visibility zones:
 
 | Zone | What lives there | Spatial home in the UI |
 |---|---|---|
-| **Public** | The tenant's main collective — content visible to the whole tenant (and, with anonymous read access, the web) | The globe at the top of the rail |
-| **Shared** | Collectives the user belongs to — visible to fellow members | The squares in the rail |
-| **Private** | The user's private workspace — visible to the user (and their AI agents) only | *Not the rail.* See "Private zone" below |
+| **Public** | The tenant's main collective — content visible to the whole tenant (and, with anonymous read access, the web) | The globe at the top of the places sheet |
+| **Shared** | Collectives the user belongs to — visible to fellow members | The collective rows in the places sheet |
+| **Private** | The user's private workspace — visible to the user (and their AI agents) only | *Not the places sheet.* See "Private zone" below |
 
 The navigation should make the zone boundary **legible at a glance**: a user
 should always know which zone they're standing in, because the zone is the
 answer to "who can see this?" — the single most important question when
 writing anything.
 
-The left rail is the **public + shared zone selector**. It deliberately
-excludes the private zone: the left edge of the page is social space. Putting
-private and shared entries in the same strip would make the most
-consequential boundary in the app invisible.
+The places sheet is the **public + shared zone selector**, sliding over from
+the left edge. It deliberately excludes the private zone: the left edge of
+the page is social space. Putting private and shared entries in the same
+list would make the most consequential boundary in the app invisible.
 
 ## Layered chrome
 
@@ -37,22 +40,20 @@ The UI has four layers, each with its own chrome and its own question:
 | Layer | Chrome | Question it answers |
 |---|---|---|
 | **You** (tenant-global) | Top header: search, create (+), notifications, avatar menu | "What concerns me, everywhere?" |
-| **Place** | The rail | "Where am I?" |
+| **Place** | The places sheet (and its toggles) | "Where am I?" |
 | **Here** | Sidebar (second column) | "What's in this place?" |
 | **Thing** | Main content | "What am I looking at?" |
 
 Rules that follow from the layering:
 
-- The header sits **above** the rail (full width). The header is you/tenant
-  scoped; switching places doesn't change it, and the layout should say so.
-  (Practical reinforcement: the auto-hide header would leave a dead notch in
-  a full-height rail, and the logo would fight the rail for the corner.)
-- You-level pages are reached from the **header**, never from the rail.
-  No gear icon in the rail: profile/settings/sign-out live in the avatar
-  menu, and duplicating them in a second chrome location dilutes the rail's
-  "places" semantics.
-- Tenant switching (`/subdomains`) is **not** a rail concern. The rail is
-  within-tenant. Do not evolve it into a tenant switcher.
+- The header is you/tenant scoped; switching places doesn't change it, and
+  the layout should say so.
+- You-level pages are reached from the **header**, never from the places
+  sheet. No gear icon in the sheet: profile/settings/sign-out live in the
+  avatar menu, and duplicating them in a second chrome location dilutes the
+  sheet's "places" semantics.
+- Tenant switching (`/subdomains`) is **not** a places-sheet concern. The
+  sheet is within-tenant. Do not evolve it into a tenant switcher.
 
 ## Routes are the model
 
@@ -64,10 +65,11 @@ Content routes exist under three prefixes (`config/routes.rb`):
 | `/collectives/:handle` | That collective | Shared |
 | `/workspace/:handle` | Private workspace | Private |
 
-**The URL prefix is the place.** The rail is a visual projection of the URL
-prefix, which is why active states are matched on path prefix (implemented in
-`CollectiveRailComponent`): the globe is active at `/`, a square is active on
-that collective's pages, and nothing is active anywhere else.
+**The URL prefix is the place.** The places sheet is a visual projection of
+the URL prefix, which is why active states are matched on path prefix
+(implemented in `PlaceActiveStates`): the globe is active at `/`, a
+collective's row is active on that collective's pages, and nothing is active
+anywhere else.
 
 ### Pages with no place
 
@@ -75,9 +77,10 @@ that collective's pages, and nothing is active anywhere else.
 `/ai-agents`, admin pages: these are you-level aggregators, not places. The
 notifications page already models this correctly — it groups by collective
 with an explicit nil bucket ("Other") rather than forcing everything into a
-fake place. The rail follows the same discipline: **no rail entry is active
-on these pages**, and no "everything else" rail entry should be invented for
-them. They belong to the you-layer and are reached from the header.
+fake place. The places sheet follows the same discipline: **no sheet entry
+is active on these pages**, and no "everything else" entry should be
+invented for them. They belong to the you-layer and are reached from the
+header.
 
 ## Feeds are queries (issue #352)
 
@@ -90,8 +93,8 @@ Issues / Linear pattern: pages are named queries.
 |---|---|---|
 | `/` (home / public space) | `visibility:public` | Yes (the globe) |
 | `/collectives/:handle` | `collective:x` | Yes (a square) |
-| `/workspace/:handle` | `visibility:private` | Yes (not in the left rail) |
-| Profile `/u/:handle` | `visibility:public creator:@handle` | No — you-level, no rail state |
+| `/workspace/:handle` | `visibility:private` | Yes (not in the places sheet) |
+| Profile `/u/:handle` | `visibility:public creator:@handle` | No — you-level, no place state |
 | List activity `/lists/:id` | `visibility:public list:id` | No — you-level |
 | `/search` | *(none)* | No — the only unscoped feed |
 
@@ -104,8 +107,8 @@ claim.
 This completes the model's account of the main content column, and it means
 the same fact is projected three ways for three audiences:
 
-- **The rail** is the spatial projection of the scope lattice (clicking a
-  square applies a fixed filter).
+- **The places sheet** is the spatial projection of the scope lattice
+  (clicking a place applies a fixed filter).
 - **The search syntax** is the linguistic projection (typing
   `collective:x` applies the same filter).
 - **Markdown frontmatter** gets a scope attribute — the agent projection.
@@ -125,9 +128,9 @@ scope/default-query table lives in `app/views/help/markdown_ui.md.erb`
    model ("narrows") and disorients newcomers because refining a filter
    feels like leaving. GitHub avoids it because the repo remains an
    unmistakable place — only the list within it is a query. Therefore:
-   **chrome binds to the URL prefix, never to the query.** The rail,
-   sidebar, and header are fixed by where you are; the query only shapes
-   the feed. The fixed scope is not removable in-page — on
+   **chrome binds to the URL prefix, never to the query.** The places
+   sheet, sidebar, and header are fixed by where you are; the query only
+   shapes the feed. The fixed scope is not removable in-page — on
    `/collectives/x` you cannot delete `collective:x` from the filter bar;
    broadening means going to `/search`, a deliberate act of leaving.
 2. **Visibility is enforcement, not a filter term.** Queries are the
@@ -229,16 +232,17 @@ Decisions and rationale:
 
 ## Private zone (out of scope here, but load-bearing)
 
-The private workspace needs to be *more* accessible than it is today, but not
-via the left rail. Direction worth exploring: the **right side of the page**
-as the private edge — a mirror of the spatial metaphor (left edge = outward /
-social, right edge = inward / personal). That could take the form of a
-persistent right-side affordance, a slide-over panel, or a right rail.
+The private workspace needs to be *more* accessible than it is today, but
+not via the places sheet. Direction worth exploring: the **right side of the
+page** as the private edge — a mirror of the spatial metaphor (left edge =
+outward / social, right edge = inward / personal). That could take the form
+of a persistent right-side affordance or a slide-over panel. (Interim
+doorway: the Workspace link in the You menu.)
 
 Private workspace UX needs its own design strategy and doc; this doc only
-reserves the spatial claim: **the left rail is public + shared; private
-enters from somewhere else.** Nothing in the rail's design should assume it
-will one day hold workspace entries.
+reserves the spatial claim: **the left edge is public + shared; private
+enters from somewhere else.** Nothing in the places sheet's design should
+assume it will one day hold workspace entries.
 
 ## Form factors: one model, two projections
 
@@ -261,12 +265,12 @@ outward→inward so the bar preserves the spatial metaphor:
 ```
 
 - **Home** is the globe: the `/` public feed.
-- **Places** is the rail reshaped: tapping opens the collective switcher
-  as a full sheet — icon + **name** + badge per row, "+" at the bottom.
-  Richer than icon squares, and it fixes what the rail can never fix on
-  touch: `title` tooltips don't exist, so square-only icons are unlabeled
-  on phones. The tab itself carries an aggregate unread dot so the badges'
-  ambient value survives while the sheet is closed.
+- **Places** opens the collective switcher as a full sheet — icon +
+  **name** + badge per row, "+" at the bottom. Labeled rows rather than
+  bare icon squares: `title` tooltips don't exist on touch, so icon-only
+  entries would be unlabeled on phones. The tab itself carries an
+  aggregate unread dot so the badges' ambient value survives while the
+  sheet is closed.
 - **Inbox** is notifications, with the count badge.
 - **You** is the avatar menu — and eventually the doorway to the private
   workspace. The doc reserves "private enters from the right"; on mobile,
@@ -288,14 +292,16 @@ header** on the place's own screen (or a sheet behind the top-bar title).
 **The feed bar is already form-factor-agnostic** — it belongs to the
 content column and stays there everywhere.
 
-### Desktop is the unfolding, not the original
+### Desktop is the refolding, not the original
 
-At desktop widths the same destinations unfold: **Places unfolds into the
-rail** (a permanently-open switcher — same data, same badges), You/Search/
-Inbox relocate to the header, the place header re-columnizes into the
-sidebar. The rail and the bottom bar never coexist; they are one
-destination at two widths. "Hiding the rail" on desktop is just re-folding
-the Places destination — one mechanism at every width.
+At desktop widths the same destinations refold into the header:
+You/Search/Inbox relocate there, the places toggle (left of the logo, with
+the aggregate dot) opens the **same sheet**, and the place header
+re-columnizes into the sidebar. One switcher at every width, two toggles —
+only one visible per width. (An earlier iteration unfolded Places into a
+permanently-open left rail on desktop; it was removed — icon-only squares
+carried less information than the sheet's labeled rows, and a
+permanently-open strip can't be dismissed.)
 
 None of this touches the agent surface: chrome is HTML-only, and agents
 navigate by `scope:`/`query:` frontmatter, which is what frees the human
@@ -310,11 +316,22 @@ chrome to reshape per form factor without forking the model.
 
 Shipped from this list:
 
+- **Rail removed — places sheet at every width**: the desktop rail
+  (#339) was replaced by the same sheet mobile uses, opened from a
+  header toggle left of the logo (aggregate dot, CSS-hidden under
+  768px where the tab bar's Places tab takes over). The places-sheet
+  controller keeps both toggles' aria-expanded and dots in sync via
+  plural targets. The logo, no longer at the left edge, centers
+  relative to the window on desktop. The rail's badge/indicator rules
+  and identifiers were renamed into the places-* namespace
+  (places-badges controller, `pulse-places-badge`/`-indicator`,
+  `places_collectives` helpers).
+
 - **Bottom tab bar** (built): `[Home(globe)][Places][Search][Inbox][You]`
-  under 768px, the rail's mirror — CSS shows exactly one of the two per
-  width (`--pulse-tab-bar-height` is the layout hook, 0 on desktop).
-  Places carries the aggregate dot and toggles the sheet (the header
-  toggle is gone); Inbox carries the total count (`[data-total-badge]`,
+  under 768px — CSS shows the bar or the header toggle per width
+  (`--pulse-tab-bar-height` is the layout hook, 0 on desktop).
+  Places carries the aggregate dot and toggles the sheet; Inbox
+  carries the total count (`[data-total-badge]`,
   fed by the same `notifications:counts` broadcast); You opens the
   avatar menu upward (shared `layouts/_user_menu` partial, rendered in
   both the header dropdown and the bar — the You-menu positioning is
@@ -326,27 +343,22 @@ Shipped from this list:
 
 - **Badge click-through + clearing affordance** (open question 3, built):
   reminder-notification attribution, the `my:` filter namespace
-  (`my:notified`, `my:unread`, `my:read`), badged rail/sheet entries
+  (`my:notified`, `my:unread`, `my:read`), badged place entries
   linking to the place's feed at `?q=my:notified`, and a mark-all-read
   affordance on that view. Deliberately sequenced before the bar so
   badges drain in place. The click target is the **whole entry**, not the
   badge: a nested anchor is invalid HTML and the badge is too small a tap
   target, so a badged entry's href swaps to the filtered view and swaps
   back when the count drains (`UnreadBadgeDisplay#place_entry_href`
-  server-side, mirrored by the rail-badges controller via
+  server-side, mirrored by the places-badges controller via
   `data-place-path`). Chat never swaps — it is not a feed; `/chat` is
   already its queue.
 
-- **Rail desktop-only** (#339): hidden under 768px by redefining
-  `--pulse-rail-width` (the motto footer's border-continuation offset
-  derives from it — keep that constraint for any future hide/fold).
-- **Places sheet on mobile**: the rail's destinations as labeled rows
-  (`PlacesSheetComponent` — globe, chat, collectives with names, "+"),
-  slid over from a mobile-only header toggle that carries an aggregate
-  unread dot. Badges reuse the rail's classes so a second rail-badges
-  controller instance keeps them fresh from the same
-  `notifications:counts` broadcast; first paint is server-rendered. Built
-  as the future Places tab's content, not a throwaway drawer.
+- **Places sheet**: the place destinations as labeled rows
+  (`PlacesSheetComponent` — globe, chat, collectives with names, "+").
+  Badges stay fresh via places-badges controller instances (one in the
+  sheet, one in the tab bar) listening to the same
+  `notifications:counts` broadcast; first paint is server-rendered.
 
 ## Decided (current iteration)
 
@@ -354,14 +366,11 @@ Shipped from this list:
   `current_collective` falls back to the main collective on every route
   without a handle, so it cannot distinguish "in the public space" from
   "on /billing".
-- **Rail shows standard collectives only**, alphabetical, main collective
-  excluded (it is the globe).
-- **Rail is logged-in only** for now. Under the zone model, anonymous
-  visitors have no shared zone; whether they get a public-zone-only rail is
-  tied to the globe question below.
-- **Rail styling follows app tokens** (6px avatar radius matching
-  `.pulse-collective-avatar`, monochrome active treatment, canvas-default
-  background). The rail is chrome, not a themed island.
+- **The places sheet shows standard collectives only**, alphabetical, main
+  collective excluded (it is the globe).
+- **The places sheet is logged-in only** for now. Under the zone model,
+  anonymous visitors have no shared zone; whether they get a
+  public-zone-only switcher is tied to the globe question below.
 - **`/` unifies home and the public space.** Fixed scope
   `visibility:public` with `list:tuned_in` as a default *removable* chip:
   the default view is the personal tuned-in feed, and "see everything" is
@@ -386,19 +395,19 @@ Shipped from this list:
   thread at `?comment_id=` — the same URL the notification carries —
   where the comment scrolls into view highlighted. Action endpoints
   keep building from `path`, the canonical bare resource URL.
-- **Chat is one aggregated rail entry beneath the globe.** A bare icon
-  (like the globe, not a square) linking to `/chat`, active on all chat
-  pages. Its badge is type-based — unread `chat_message` notifications —
-  because chat notifications carry no event and therefore no collective;
-  they never appear in the per-collective counts, so the chat badge and
-  the square badges partition the event-space cleanly. A click lands on
-  the chat index, which lists conversations.
+- **Chat is one aggregated places-sheet entry beneath the globe.** A row
+  linking to `/chat`, active on all chat pages. Its badge is type-based —
+  unread `chat_message` notifications — because chat notifications carry
+  no event and therefore no collective; they never appear in the
+  per-collective counts, so the chat badge and the per-collective badges
+  partition the event-space cleanly. A click lands on the chat index,
+  which lists conversations.
 
 ## Open questions
 
-1. **Chat placement — resolved.** Chat is a single pinned rail entry
-   beneath the globe (the Discord "DMs" slot), not one square per chat
-   collective: a bare comment icon linking to `/chat` (the chat index is
+1. **Chat placement — resolved.** Chat is a single pinned places-sheet
+   entry beneath the globe (the Discord "DMs" slot), not one entry per
+   chat collective: a comment icon linking to `/chat` (the chat index is
    the landing place for an aggregate count), active across all of
    `/chat`. Its badge counts unread `chat_message` notifications by *type*
    — chat notifications carry no event, so they were never in the
@@ -485,27 +494,19 @@ the unification makes the default view a *default*, not a separate page.)
 
 Shipped from this list:
 
-- **"+" at the rail bottom** — create/join collective, linking to
-  `/collectives` (also the escape hatch when the rail overflows). A
-  dashed hollow square: a utility, not a place; no active state.
-
-- **Sticky rail** (`position: sticky; top: 0; height: 100dvh`): pinned to
-  the viewport while the document scrolls; the rail scrolls independently
-  only when it overflows, the motto footer stays a document-level element,
-  and it coexists with the auto-hide header. The full "app shell owns
-  scrolling" containment model (100vh shell, per-column scrolling) remains
-  deferred — it would break the auto-hide header's window-scroll listener
-  and change the footer's meaning; reconsider both together.
-- **Per-square unread badges** (every entry, the globe included), keyed by
-  collective id. One poll feeds both the header badge and the rail: the
-  header poller broadcasts a `notifications:counts` event that the
-  rail-badges controller projects onto the squares. Initial state is
-  server-rendered so Turbo navigations never flash the badges out.
+- **"+" at the sheet bottom** — create/join collective, linking to
+  `/collectives` (also the escape hatch when the place list overflows).
+  A utility, not a place; no active state.
+- **Per-place unread badges** (every entry, the globe included), keyed by
+  collective id. One poll feeds every badge surface: the header poller
+  broadcasts a `notifications:counts` event that the places-badges
+  controller projects onto the sheet rows and the tab bar. Initial state
+  is server-rendered so Turbo navigations never flash the badges out.
   Reminders (no event → no collective) count toward the header total only.
 
 ## Non-goals
 
-- The rail does not switch tenants.
-- The rail does not hold user settings, notifications, or any you-level
-  destination.
-- The rail does not hold private workspaces (see "Private zone").
+- The places sheet does not switch tenants.
+- The places sheet does not hold user settings, notifications, or any
+  you-level destination.
+- The places sheet does not hold private workspaces (see "Private zone").

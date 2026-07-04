@@ -7,7 +7,6 @@
    any future width change. */
 :root {
   --pulse-sidebar-width: 280px;
-  --pulse-rail-width: 72px;
   /* The mobile bottom tab bar's height — 0 on desktop, set by
      _tab_bar.css under its mobile media query. */
   --pulse-tab-bar-height: 0px;
@@ -107,6 +106,18 @@
 
 .pulse-top-header .pulse-logo {
   font-size: 16px;
+}
+
+/* Desktop: center the logo relative to the window. space-between would
+   center it between the places toggle and the right cluster, which reads
+   as off-center against the full width. */
+@media (min-width: 769px) {
+  .pulse-top-header .pulse-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 
 /* Logo uses .tri-logo-icon.icon-sm (28px) - see _components.css */
@@ -348,12 +359,6 @@
   bottom: 0;
   width: 1px;
   background: var(--color-border-default);
-}
-
-/* When the collective rail is present, the sidebar's right edge shifts
-   right by the rail width, so the footer's continuation line follows it. */
-.pulse-app-shell:has(.pulse-rail) + .pulse-motto-footer::before {
-  left: calc(var(--pulse-sidebar-width) - 1px + var(--pulse-rail-width));
 }
 
 /* Hide sidebar border line when no sidebar */

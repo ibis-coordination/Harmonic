@@ -41,6 +41,18 @@
       <header class="pulse-top-header"
               data-controller="auto-hide-header"
               data-auto-hide-header-hidden-class="pulse-top-header--hidden">
+        <% if @current_user %>
+          <%# Desktop trigger for the places sheet — the tab bar's Places
+              tab covers mobile, so this one is CSS-hidden under 768px. %>
+          <button type="button" class="pulse-places-toggle"
+                  data-places-sheet-target="toggle"
+                  data-action="click->places-sheet#toggle"
+                  aria-expanded="false" aria-label="Places">
+            <%= octicon "apps", height: 18 %>
+            <span class="pulse-places-toggle-dot" data-places-sheet-target="dot"
+                  style="<%= 'display: none' unless places_unread_counts.values.any?(&:positive?) || places_chat_unread_count.positive? %>"></span>
+          </button>
+        <% end %>
         <a href="/" class="pulse-logo">
           <i class="tri-logo-icon icon-sm"></i>
           <span>Harmonic</span>
@@ -85,22 +97,13 @@
     <% if @current_user %>
       <%= render PlacesSheetComponent.new(
         main_collective: @current_tenant&.main_collective,
-        collectives: rail_collectives,
+        collectives: places_collectives,
         current_path: request.path,
-        unread_counts: rail_unread_counts,
-        chat_unread_count: rail_chat_unread_count,
+        unread_counts: places_unread_counts,
+        chat_unread_count: places_chat_unread_count,
       ) %>
     <% end %>
     <div class="pulse-app-shell">
-      <% if @current_user %>
-        <%= render CollectiveRailComponent.new(
-          main_collective: @current_tenant&.main_collective,
-          collectives: rail_collectives,
-          current_path: request.path,
-          unread_counts: rail_unread_counts,
-          chat_unread_count: rail_chat_unread_count,
-        ) %>
-      <% end %>
       <%= render SidebarComponent.new(requested_mode: @sidebar_mode || "full", collective: @current_collective) do %>
         <main class="pulse-main">
           <%= yield %>

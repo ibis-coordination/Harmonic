@@ -1,8 +1,7 @@
 # typed: true
 
-# Shared "where am I" rules for the rail and the places sheet — both are
-# projections of the same destinations, so a place must light up (or not)
-# identically in each. Path-based, never current_collective-based: the
+# "Where am I" rules for the places sheet's active states. Path-based,
+# never current_collective-based: the
 # current-collective fallback would activate the public space on every
 # handle-less route (/billing, /settings, ...). Expects the including
 # component to set @current_path.
