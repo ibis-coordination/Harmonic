@@ -6,6 +6,12 @@
     <%= octicon 'person' %>
     <a href="<%= @current_user.path %>">Profile</a>
   </li>
+  <% if (workspace = @current_user.private_workspace) %>
+    <li>
+      <%= octicon 'lock' %>
+      <a href="<%= workspace.path %>">Workspace</a>
+    </li>
+  <% end %>
   <% if @current_tenant&.any_ai_agents_enabled? %>
     <li>
       <%= octicon 'command-palette' %>

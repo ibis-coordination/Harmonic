@@ -91,6 +91,18 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the user menu links to the user's private workspace" do
+    sign_in_as(@user, tenant: @tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace = @user.private_workspace
+    Tenant.clear_thread_scope
+    assert workspace, "expected add_user! to have created a private workspace"
+
+    get "/"
+    assert_response :success
+    assert_select ".pulse-tab-bar [data-controller='top-right-menu'] a[href='#{workspace.path}']", text: "Workspace"
+  end
+
   test "the tab bar's inbox badge renders the unread count server-side" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     notification = Notification.create!(tenant: @tenant, event: nil, notification_type: "reminder", title: "Badge probe")

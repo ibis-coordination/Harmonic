@@ -20,10 +20,15 @@
         <% end %>
       <% elsif default_feed_view? %>
         <div class="pulse-feed-empty">
-          <p>Nothing here this week.</p>
-          <p class="pulse-body-text-muted">
-            <%= link_to "Show all time", "#{@current_collective.path}?q=" %>
-          </p>
+          <% if @feed_default_query.present? %>
+            <p>Nothing here this week.</p>
+            <p class="pulse-body-text-muted">
+              <%= link_to "Show all time", "#{@current_collective.path}?q=" %>
+            </p>
+          <% else %>
+            <%# Workspaces: no default query, so the default view IS all time. %>
+            <p>Nothing here yet.</p>
+          <% end %>
         </div>
       <% else %>
         <div class="pulse-feed-empty">

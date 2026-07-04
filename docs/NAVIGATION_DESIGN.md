@@ -201,7 +201,9 @@ Decisions and rationale:
   own query (list activity; the profile Posts/Activity tabs already
   did). An earlier draft special-cased `my:notified` to lift a hidden
   exclusion; rejected — defaults carry the curation, queries carry
-  nothing invisible.
+  nothing invisible. **Private workspaces have no default query at
+  all**: `visibility:private` is the only filter — there is no curation
+  layer over your own space.
 - **Refinements live in the URL** (`/collectives/x?q=type:decision`), so
   filtered views are shareable and the back button works. The canonical
   page URL (no `q`) always shows the default view. Markdown frontmatter

@@ -249,6 +249,11 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".pulse-feed-bar-scope code", text: "visibility:private"
     assert_includes response.body, "private workspace feed probe"
+    # Workspaces get no default query — the private zone is the only
+    # filter; there is no curation layer over your own space.
+    assert_select "textarea[name='q']" do |fields|
+      assert_equal "", fields.first.text.strip
+    end
   end
 
   test "dashboard-only sidebar sections hide on the feed" do
