@@ -25,6 +25,10 @@
     right: 0;
     height: calc(var(--pulse-tab-bar-height) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
+    /* Fixed elements ignore the body's ear padding — clear the notch
+       ourselves in landscape. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
     background: var(--color-canvas-default);
     border-top: 1px solid var(--color-border-default);
     /* Below the places sheet backdrop (200) so the open sheet covers it. */

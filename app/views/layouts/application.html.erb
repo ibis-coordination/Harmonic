@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <title><%= @page_title || 'Harmonic' %></title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%# viewport-fit=cover: without it iOS reports every safe-area inset as 0,
+        so the tab bar's env(safe-area-inset-bottom) clearance above the home
+        indicator evaluates to nothing (#395). %>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta charset="UTF-8">
     <link rel="icon" type="image/png" href="/<%= @current_app %>-favicon-32x32.png" sizes="32x32">
     <link rel="icon" type="image/png" href="/<%= @current_app %>-favicon-16x16.png" sizes="16x16">

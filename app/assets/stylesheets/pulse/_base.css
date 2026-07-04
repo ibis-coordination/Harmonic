@@ -20,6 +20,10 @@ body {
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: contain;
+  /* viewport-fit=cover extends the page under the notch in landscape;
+     keep in-flow content out of the ears. Zero in portrait. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 img {
