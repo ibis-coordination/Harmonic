@@ -94,11 +94,12 @@
 
   /* iOS Safari zooms the viewport on focus when input font-size < 16px.
      Force every text-entry control to at least 16px on mobile so focusing
-     never triggers an autozoom. Element selectors with :not() keep enough
-     specificity to override class-based sizes like .header-search-input. */
+     never triggers an autozoom. !important because this is an invariant,
+     not a default: any class-based size (e.g. a 13px query field) outranks
+     bare element selectors and would silently reintroduce the zoom. */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
   textarea,
   select {
-    font-size: 16px;
+    font-size: 16px !important;
   }
 }
