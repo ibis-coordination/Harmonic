@@ -277,6 +277,24 @@ class CommitmentsController < ApplicationController
       critical_mass: model_params[:critical_mass],
       deadline: deadline_from_params,
     }
+    if @commitment.is_calendar_event?
+      # Same timezone handling as create: DatetimeInputComponent submits a
+      # per-input timezone alongside each datetime-local value.
+      collective_tz = current_collective.timezone&.name
+      if model_params[:starts_at].present?
+        helper_params[:starts_at] = parse_scheduled_time(
+          model_params[:starts_at],
+          timezone: model_params[:starts_at_timezone].presence || collective_tz,
+        )
+      end
+      if model_params[:ends_at].present?
+        helper_params[:ends_at] = parse_scheduled_time(
+          model_params[:ends_at],
+          timezone: model_params[:ends_at_timezone].presence || collective_tz,
+        )
+      end
+      helper_params[:location] = model_params[:location] if model_params.key?(:location)
+    end
     @commitment = api_helper(params: helper_params).update_commitment_settings
     # Handle close_at_critical_mass option (HTML form specific)
     if params[:deadline_option] == "close_at_critical_mass"
@@ -285,6 +303,8 @@ class CommitmentsController < ApplicationController
       @commitment.save!
     end
     redirect_to @commitment.path
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to "#{current_commitment.path}/settings", alert: e.record.errors.full_messages.join(", ")
   end
 
   def actions_index_settings
