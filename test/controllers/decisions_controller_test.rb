@@ -2256,7 +2256,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
       headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/Chain integrity.*FAIL/i, response.body)
-    assert_match(/actor identity does not match/i, response.body)
+    assert_match(/recorded identity \(actor or representative\) does not match/i, response.body)
     assert_match(/altered after the fact/i, response.body)
     assert_match(/hash chain itself is intact/i, response.body)
   end
