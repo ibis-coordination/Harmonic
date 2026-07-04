@@ -36,6 +36,37 @@ async function fire(listeners: Map<string, Listener>, type: string): Promise<voi
   await Promise.all(waits)
 }
 
+describe("push", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  it("shows the notification even when a window is focused", async () => {
+    // iOS counts a push that produces no visible notification as a strike
+    // and silently revokes the subscription after three (issue #397). A
+    // focused-window carve-out is never safe there — suspended PWA clients
+    // can keep reporting focused: true — so every push shows.
+    const { scope, listeners } = stubScope()
+    scope.clients.matchAll = vi.fn(async () => [
+      { url: "https://app.harmonic.local/", focused: true },
+    ]) as never
+    await import("./service_worker")
+
+    const waits: Promise<unknown>[] = []
+    listeners.get("push")!({
+      waitUntil: (promise: Promise<unknown>) => waits.push(promise),
+      data: { json: () => ({ title: "Ping", url: "https://app.harmonic.local/n/abc" }) },
+    })
+    await Promise.all(waits)
+
+    expect(scope.registration.showNotification).toHaveBeenCalledWith(
+      "Ping",
+      expect.objectContaining({ data: { url: "https://app.harmonic.local/n/abc" } }),
+    )
+  })
+})
+
 describe("service worker lifecycle", () => {
   afterEach(() => {
     vi.unstubAllGlobals()

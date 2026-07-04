@@ -3,7 +3,7 @@
 // `self.CACHE_VERSION = "<git sha>"` line — per-deploy cache busting.
 
 import { respondCacheFirst, respondNetworkFirst } from "./handlers"
-import { clickAction, notificationOptions, parsePayload, shouldShowNotification } from "./push"
+import { clickAction, notificationOptions, parsePayload } from "./push"
 import { cacheName, classify, OFFLINE_PATH, staleCacheNames, type RequestSummary } from "./strategies"
 
 interface WindowClientLike {
@@ -89,12 +89,14 @@ sw.addEventListener("push", (event: PushEventLike) => {
 
   event.waitUntil(
     (async () => {
-      const clients = await sw.clients.matchAll({ type: "window", includeUncontrolled: true })
-      if (shouldShowNotification(payload.url, clients, sw.location.origin)) {
-        await sw.registration.showNotification(payload.title, notificationOptions(payload))
-      }
+      // Always show — no focused-window carve-out. iOS counts a push that
+      // produces no visible notification as a strike and silently revokes
+      // the subscription after three, and suspended iOS PWA clients can
+      // keep reporting focused: true, so any suppression path eventually
+      // kills push delivery on the device (issue #397).
+      await sw.registration.showNotification(payload.title, notificationOptions(payload))
       // iOS surfaces the app badge on the home-screen icon; harmless no-op
-      // elsewhere. Badge even when the banner is suppressed.
+      // elsewhere.
       await sw.navigator?.setAppBadge?.().catch(() => undefined)
     })(),
   )
