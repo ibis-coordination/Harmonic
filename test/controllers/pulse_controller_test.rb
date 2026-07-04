@@ -121,7 +121,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-feed-bar-scope code", text: "collective:#{@collective.handle}"
     # The comment exclusion is part of the visible default query — the
     # viewer can see it and remove it, not a hidden structural filter.
-    assert_select "input[name='q'][value='cycle:this-week -subtype:comment']"
+    assert_select "textarea[name='q']", text: "cycle:this-week -subtype:comment"
     assert_includes response.body, "collective feed probe"
   end
 
@@ -284,10 +284,21 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     get @collective.path.to_s
     assert_response :success
     assert_select "input[type=submit][value=Filter]"
-    assert_select "input[name='q'][placeholder=Filter]"
+    assert_select "textarea[name='q'][placeholder=Filter]"
 
     get "/search"
     assert_response :success
     assert_select "input[type=submit][value=Search]"
+  end
+
+  test "the heartbeat gate blurs the filter bar along with the feed" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{@collective.path}"
+    assert_response :success
+    # The whole content column sits behind the ritual — the filter bar and
+    # any feed chrome included, not just the items.
+    assert_select ".pulse-blur-if-no-heartbeat .pulse-feed-bar"
+    assert_select ".pulse-blur-if-no-heartbeat .pulse-feed"
   end
 end

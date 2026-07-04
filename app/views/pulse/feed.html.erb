@@ -1,6 +1,9 @@
 <%= render 'pulse/heartbeat_banner' %>
 <article class="pulse-resource-detail">
-  <div class="pulse-resource-body">
+  <%# Same heartbeat blur ritual as the dashboard: presence before content.
+      The blur wraps the whole content column — filter bar and feed chrome
+      included, not just the items. %>
+  <div class="pulse-resource-body<%= ' pulse-blur-if-no-heartbeat' if @current_user && !@current_collective.private_workspace? %><%= ' no-heartbeat' if @current_user && !@current_heartbeat && !@current_collective.private_workspace? %>">
     <%= render FeedSearchBarComponent.new(
       action: @current_collective.path.to_s,
       query: @feed_query,
@@ -10,8 +13,7 @@
 
     <%= render "shared/notified_feed_banner", collective: @current_collective %>
 
-    <%# Same heartbeat blur ritual as the dashboard: presence before content. %>
-    <div class="pulse-feed<%= ' pulse-blur-if-no-heartbeat' if @current_user && !@current_collective.private_workspace? %><%= ' no-heartbeat' if @current_user && !@current_heartbeat && !@current_collective.private_workspace? %>" style="padding: 0;">
+    <div class="pulse-feed" style="padding: 0;">
       <% if @feed_items.present? %>
         <% @feed_items.each do |feed_item| %>
           <%= render 'pulse/feed_item', feed_item: feed_item %>
