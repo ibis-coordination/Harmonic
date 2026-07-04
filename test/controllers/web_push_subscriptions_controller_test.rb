@@ -72,6 +72,52 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, WebPushSubscription.count
   end
 
+  test "resync refreshes an active subscription's last_seen_at" do
+    sign_in_as(@user, tenant: @tenant)
+    subscription = WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/abc123", p256dh_key: "k", auth_key: "a"
+    )
+    subscription.update!(last_seen_at: 2.days.ago)
+
+    post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
+
+    assert_response :success
+    assert_in_delta Time.current, subscription.reload.last_seen_at, 5.seconds
+  end
+
+  test "resync registers an endpoint the server has never seen" do
+    # The browser can hold a subscription the server doesn't know about
+    # (push-service rotation, self-heal after iOS dropped the old one).
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_difference -> { WebPushSubscription.where(user: @user).count }, 1 do
+      post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
+    end
+    assert_response :success
+  end
+
+  test "resync does not revive a revoked subscription" do
+    sign_in_as(@user, tenant: @tenant)
+    subscription = WebPushSubscription.upsert_for!(
+      user: @user, endpoint: "https://push.example.com/send/abc123", p256dh_key: "k", auth_key: "a"
+    )
+    subscription.revoke!(reason: "user")
+
+    post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
+
+    assert_response :no_content
+    assert_not subscription.reload.active?
+  end
+
+  test "the layout advertises the resync endpoint to the client" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/"
+
+    assert_response :success
+    assert_select "meta[name='push-subscription-url'][content='/u/#{@handle}/settings/push-subscriptions']", count: 1
+  end
+
   test "destroy revokes the subscription" do
     sign_in_as(@user, tenant: @tenant)
     subscription = WebPushSubscription.upsert_for!(

@@ -58,6 +58,27 @@ class WebPushSubscription < ApplicationRecord
     subscription
   end
 
+  # Like upsert_for!, but for the background resync on page load: stamps
+  # last_seen_at (and any rotated keys) on the row this browser holds, and
+  # registers an endpoint the server has never seen. Unlike upsert_for! it
+  # never revives a revoked row — re-enabling is an explicit user action,
+  # and the resync must not undo a revocation. Returns nil in that case.
+  sig do
+    params(
+      user: User,
+      endpoint: String,
+      p256dh_key: String,
+      auth_key: String,
+      request: T.untyped
+    ).returns(T.nilable(WebPushSubscription))
+  end
+  def self.refresh_for!(user:, endpoint:, p256dh_key:, auth_key:, request: nil)
+    existing = find_by(user: user, endpoint: endpoint)
+    return nil if existing && !existing.active?
+
+    upsert_for!(user: user, endpoint: endpoint, p256dh_key: p256dh_key, auth_key: auth_key, request: request)
+  end
+
   sig { returns(T::Boolean) }
   def active?
     revoked_at.nil?

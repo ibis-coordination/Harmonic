@@ -24,7 +24,7 @@ export function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 // the current one (sends come back 401 Unauthorized). An unreadable key
 // (older browsers expose no options.applicationServerKey) is kept — churning
 // a working subscription is worse than trusting it.
-function mintedWithKey(subscription: PushSubscription, key: Uint8Array): boolean {
+export function mintedWithKey(subscription: PushSubscription, key: Uint8Array): boolean {
   const existing = subscription.options?.applicationServerKey
   if (!existing) return true
   const bytes = new Uint8Array(existing)

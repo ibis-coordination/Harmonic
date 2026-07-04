@@ -19,15 +19,26 @@ class WebPushSubscriptionsController < ApplicationController
     return head :forbidden unless current_user.human?
 
     subscription_params = params.require(:subscription)
-    subscription = WebPushSubscription.upsert_for!(
+    attrs = {
       user: current_user,
       endpoint: subscription_params.require(:endpoint),
       p256dh_key: subscription_params.require(:keys).require(:p256dh),
       auth_key: subscription_params.require(:keys).require(:auth),
-      request: request
-    )
+      request: request,
+    }
 
-    render json: { id: subscription.id, device_label: subscription.device_label }, status: :created
+    # resync = the page-load background refresh, not a user action: it keeps
+    # last_seen_at honest and registers rotated endpoints, but must not
+    # revive a revoked subscription (that takes an explicit re-enable).
+    if params[:resync].present?
+      subscription = WebPushSubscription.refresh_for!(**attrs)
+      return head :no_content if subscription.nil?
+
+      render json: { id: subscription.id, device_label: subscription.device_label }, status: :ok
+    else
+      subscription = WebPushSubscription.upsert_for!(**attrs)
+      render json: { id: subscription.id, device_label: subscription.device_label }, status: :created
+    end
   end
 
   # DELETE /u/:handle/settings/push-subscriptions/:subscription_id

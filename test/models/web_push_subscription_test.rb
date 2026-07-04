@@ -51,6 +51,43 @@ class WebPushSubscriptionTest < ActiveSupport::TestCase
     assert_nil resubscribed.revoked_reason
   end
 
+  test "refresh_for! stamps last_seen_at and keys on an active row" do
+    subscription = subscribe!
+    subscription.update!(last_seen_at: 2.days.ago)
+
+    refreshed = WebPushSubscription.refresh_for!(
+      user: @user, endpoint: ENDPOINT, p256dh_key: "rotated-p256dh", auth_key: "rotated-auth"
+    )
+
+    assert_equal subscription.id, refreshed.id
+    assert_in_delta Time.current, refreshed.last_seen_at, 5.seconds
+    assert_equal "rotated-p256dh", refreshed.p256dh_key
+  end
+
+  test "refresh_for! creates a row for an endpoint the server has never seen" do
+    refreshed = WebPushSubscription.refresh_for!(
+      user: @user, endpoint: ENDPOINT, p256dh_key: "p256dh-key", auth_key: "auth-key"
+    )
+
+    assert refreshed.active?
+    assert_equal 1, WebPushSubscription.where(user: @user).count
+  end
+
+  test "refresh_for! never revives a revoked row" do
+    # Re-enabling is an explicit user action (the settings button →
+    # upsert_for!); the background resync must not undo a revocation.
+    subscription = subscribe!
+    subscription.revoke!(reason: "user")
+
+    result = WebPushSubscription.refresh_for!(
+      user: @user, endpoint: ENDPOINT, p256dh_key: "p256dh-key", auth_key: "auth-key"
+    )
+
+    assert_nil result
+    assert_not subscription.reload.active?
+    assert_equal "user", subscription.revoked_reason
+  end
+
   test "the same endpoint can belong to multiple users" do
     other_user = create_user
 
