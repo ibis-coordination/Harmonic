@@ -10,20 +10,12 @@
     <%= octicon 'list-unordered' %>
     <a href="<%= @current_user.path %>/lists">Your lists</a>
   </li>
-  <li>
-    <%= octicon 'comment-discussion' %>
-    <a href="/chat">Chat</a>
-  </li>
   <% if @current_tenant&.any_ai_agents_enabled? %>
     <li>
       <%= octicon 'command-palette' %>
       <a href="/ai-agents">AI Agents</a>
     </li>
   <% end %>
-  <li>
-    <%= octicon 'people' %>
-    <a href="/collectives">Collectives</a>
-  </li>
   <li>
     <%= octicon 'globe' %>
     <a href="/subdomains">Subdomains</a>
