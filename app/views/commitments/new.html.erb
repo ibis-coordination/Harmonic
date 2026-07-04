@@ -64,23 +64,37 @@
           default_timezone: @current_collective.timezone.name,
         ) %>
       </div>
-      <div class="pulse-form-group">
-        <label class="pulse-form-label">Duration</label>
-        <%
-          duration_options = [
-            ["30 minutes", 30],
-            ["1 hour", 60],
-            ["1.5 hours", 90],
-            ["2 hours", 120],
-            ["3 hours", 180],
-            ["4 hours", 240],
-            ["8 hours", 480],
-            ["1 day", 1440],
-          ]
-        %>
-        <%= select_tag "duration_minutes",
-          options_for_select(duration_options, 60),
-          class: "pulse-form-input pulse-form-input-inline" %>
+      <div data-controller="duration-select">
+        <div class="pulse-form-group">
+          <label class="pulse-form-label">Duration</label>
+          <%
+            duration_options = [
+              ["30 minutes", 30],
+              ["1 hour", 60],
+              ["1.5 hours", 90],
+              ["2 hours", 120],
+              ["3 hours", 180],
+              ["4 hours", 240],
+              ["8 hours", 480],
+              ["1 day", 1440],
+              ["Custom end time (multi-day)", ""],
+            ]
+          %>
+          <%= select_tag "duration_minutes",
+            options_for_select(duration_options, 60),
+            class: "pulse-form-input pulse-form-input-inline",
+            data: { duration_select_target: "select", action: "change->duration-select#toggle" } %>
+        </div>
+        <div class="pulse-form-group" data-duration-select-target="customFields" style="display: none;">
+          <label class="pulse-form-label">Ends</label>
+          <%= render DatetimeInputComponent.new(
+            field_name: "ends_at",
+            timezone_field_name: "ends_at_timezone",
+            default_offset: "8d",
+            require_future: true,
+            default_timezone: @current_collective.timezone.name,
+          ) %>
+        </div>
       </div>
       <div class="pulse-form-group">
         <label class="pulse-form-label">Location <span class="pulse-form-label-optional">(optional)</span></label>

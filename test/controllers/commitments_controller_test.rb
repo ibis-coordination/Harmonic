@@ -272,6 +272,32 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Room C", commitment.location
   end
 
+  # The "Custom end time (multi-day)" duration option submits a blank
+  # duration_minutes plus an explicit ends_at, which is how the form creates
+  # events spanning more than a day.
+  test "create multi-day calendar event with custom end time (form path)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    starts = 1.week.from_now.change(min: 0, sec: 0)
+    ends = starts + 3.days
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Multi-day retreat",
+      subtype: "calendar_event",
+      critical_mass: 1,
+      starts_at: starts.strftime("%Y-%m-%dT%H:%M"),
+      starts_at_timezone: "UTC",
+      duration_minutes: "",
+      ends_at: ends.strftime("%Y-%m-%dT%H:%M"),
+      ends_at_timezone: "UTC",
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Multi-day retreat", collective: @collective)
+    assert_not_nil commitment, "Expected event to be created. Flash: #{flash.inspect}"
+    assert_in_delta 3.days.to_f, commitment.ends_at - commitment.starts_at, 1.0
+  end
+
   test "create calendar event commitment with form-shaped params" do
     sign_in_as(@user, tenant: @tenant)
 
