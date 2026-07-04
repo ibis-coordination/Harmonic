@@ -54,6 +54,26 @@ unread-count badge. `my:unread`/`my:read` are about read *confirmations*
 (the social act), not notifications; only notes can be unread, so
 `my:unread` never matches decisions or commitments.
 
+The rest of the namespace is shorthand: each value expands to an existing
+operator scoped to you, so it composes with everything else the same way.
+
+| Value | Expands to | Meaning |
+|-------|-----------|---------|
+| `my:notes` | `creator:@you type:note` | Notes you created |
+| `my:decisions` | `creator:@you type:decision` | Decisions you created |
+| `my:commitments` | `creator:@you type:commitment` | Commitments you created |
+| `my:posts` | `creator:@you subtype:post` | Posts you created |
+| `my:voted` | `voter:@you` | Decisions you voted on |
+| `my:committed` | `participant:@you` | Commitments you joined |
+| `my:rsvps` | `participant:@you subtype:calendar_event` | Calendar events you're attending |
+| `my:mentions` | `mentions:@you` | Items that mention you |
+| `my:mutuals` | `list:mutuals` | Items from people you're mutuals with |
+
+Because these are pure aliases, they compose like their underlying
+operators (which combine with AND): `my:voted my:committed` matches items
+that are *both*, not either. Aliases can't be negated — write the
+underlying operator (e.g. `-creator:@you`) instead.
+
 ### Numeric Filters
 
 Use `min-` and `max-` prefixes with these fields:

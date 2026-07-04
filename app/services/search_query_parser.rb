@@ -38,11 +38,21 @@ class SearchQueryParser
     "visibility" => { values: ["public", "shared", "private"], multi: true },
 
     # User filters
-    # Viewer-state filters: the viewer's own state per item (notification
-    # queue, read confirmations), unlike creator:/list: which resolve to
-    # authors. Requires a signed-in user — SearchQuery warns and matches
+    # The my: namespace filters on the current user's own relationship to
+    # items. Two kinds of value share the one prefix for discoverability:
+    #   - Viewer-state filters (notified/unread/read): the viewer's own
+    #     state per item (notification queue, read confirmations), unlike
+    #     creator:/list: which resolve to authors. These carry their own
+    #     query logic — see SearchQuery#apply_my_filters.
+    #   - Pure aliases (the rest): sugar that SearchQuery expands into
+    #     existing operators scoped to the viewer's handle, so those
+    #     operators stay the single implementation (issue #373).
+    # Either way requires a signed-in user — SearchQuery warns and matches
     # nothing otherwise.
-    "my" => { values: ["notified", "unread", "read"], multi: true },
+    "my" => {
+      values: %w[notified unread read mentions notes decisions commitments posts voted committed rsvps mutuals],
+      multi: true,
+    },
 
     "creator" => { pattern: HANDLE_PATTERN, multi: true },
     "read-by" => { pattern: HANDLE_PATTERN, multi: true },
