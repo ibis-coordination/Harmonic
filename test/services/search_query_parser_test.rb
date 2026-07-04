@@ -698,6 +698,13 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal ["unread", "read"], result[:my_filters]
   end
 
+  test "my: parses the pure-alias values" do
+    # Parsing only collects the raw values under my_filters; SearchQuery is
+    # what expands aliases into the underlying operators (issue #373).
+    result = SearchQueryParser.new("my:notes,voted,mutuals").parse
+    assert_equal ["notes", "voted", "mutuals"], result[:my_filters]
+  end
+
   test "negated my: values parse into the exclusion param" do
     result = SearchQueryParser.new("-my:read").parse
     assert_equal ["read"], result[:exclude_my_filters]
@@ -710,5 +717,6 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal 1, result[:warnings].size
     assert_includes result[:warnings].first, "my:bogus"
     assert_includes result[:warnings].first, "notified, unread, read"
+    assert_includes result[:warnings].first, "notes, decisions, commitments"
   end
 end

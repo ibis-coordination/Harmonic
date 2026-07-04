@@ -1211,4 +1211,143 @@ class SearchQueryTest < ActiveSupport::TestCase
     assert_not_includes results, ["Note", @note.id]
     assert_includes results, ["Decision", @decision.id]
   end
+
+  # my: — pure aliases that expand into existing operators scoped to the
+  # viewer's own handle (issue #373).
+
+  def set_status(user, item, **flags)
+    status = UserItemStatus.find_or_initialize_for(
+      tenant_id: @tenant.id, user_id: user.id,
+      item_type: item.class.name, item_id: item.id
+    )
+    status.update!(**flags)
+  end
+
+  test "my:notes returns the viewer's notes and nothing else" do
+    author = add_member("Author")
+    my_note = create_note(tenant: @tenant, collective: @collective, created_by: author, text: "Author note")
+    other_note = create_note(tenant: @tenant, collective: @collective, created_by: @user, text: "Someone else note")
+    [my_note, other_note].each { |n| SearchIndexer.reindex(n) }
+
+    results = my_search(author, "my:notes").results.map { |r| [r.item_type, r.item_id] }
+    assert_includes results, ["Note", my_note.id]
+    assert_not_includes results, ["Note", other_note.id]
+    # Author's own decisions/commitments are excluded — my:notes is type-scoped.
+    assert results.all? { |type, _| type == "Note" }
+  end
+
+  test "my:decisions and my:commitments are type-scoped to the viewer's items" do
+    author = add_member("Maker")
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: author, question: "Author decision?")
+    commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: author, title: "Author commitment")
+    [decision, commitment].each { |i| SearchIndexer.reindex(i) }
+
+    decisions = my_search(author, "my:decisions").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Decision", decision.id]], decisions
+
+    commitments = my_search(author, "my:commitments").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Commitment", commitment.id]], commitments
+  end
+
+  test "my:posts narrows to the viewer's post-subtype notes" do
+    author = add_member("Poster")
+    # Notes default to the "post" subtype; use a non-post note as the contrast.
+    post = create_note(tenant: @tenant, collective: @collective, created_by: author, subtype: "post", text: "A post")
+    reminder = create_note(tenant: @tenant, collective: @collective, created_by: author, subtype: "reminder", text: "Not a post")
+    [post, reminder].each { |n| SearchIndexer.reindex(n) }
+
+    results = my_search(author, "my:posts").results.map(&:item_id)
+    assert_includes results, post.id
+    assert_not_includes results, reminder.id
+  end
+
+  test "my:voted expands to voter:@self" do
+    voter = add_member("Voter")
+    set_status(voter, @decision, has_voted: true, voted_at: Time.current)
+
+    results = my_search(voter, "my:voted").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Decision", @decision.id]], results
+    # Equivalent to the underlying operator.
+    handle = @tenant.tenant_users.find_by(user_id: voter.id).handle
+    equivalent = my_search(voter, "voter:@#{handle}").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal equivalent, results
+  end
+
+  test "my:committed expands to participant:@self" do
+    participant = add_member("Joiner")
+    set_status(participant, @commitment, is_participating: true, participated_at: Time.current)
+
+    results = my_search(participant, "my:committed").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Commitment", @commitment.id]], results
+  end
+
+  test "my:rsvps narrows participation to calendar events" do
+    attendee = add_member("Attendee")
+    event = create_commitment(tenant: @tenant, collective: @collective, created_by: @user, title: "Launch party")
+    event.update!(subtype: "calendar_event", starts_at: 1.day.from_now, ends_at: 2.days.from_now)
+    SearchIndexer.reindex(event)
+    set_status(attendee, event, is_participating: true, participated_at: Time.current)
+    set_status(attendee, @commitment, is_participating: true, participated_at: Time.current)
+
+    results = my_search(attendee, "my:rsvps").results.map(&:item_id)
+    assert_includes results, event.id
+    # The plain (non-calendar) commitment is excluded by subtype.
+    assert_not_includes results, @commitment.id
+  end
+
+  test "my:mentions expands to mentions:@self" do
+    mentioned = add_member("Mentioned")
+    set_status(mentioned, @note, is_mentioned: true)
+
+    results = my_search(mentioned, "my:mentions").results.map { |r| [r.item_type, r.item_id] }
+    assert_equal [["Note", @note.id]], results
+  end
+
+  test "my:mutuals expands to list:mutuals" do
+    @tenant.update!(main_collective: @collective)
+    mutual = add_member("Mutual")
+    stranger = add_member("Stranger")
+    # Reciprocal tune-in makes `mutual` a mutual of @user.
+    UserListMember.create!(
+      tenant: @tenant, collective: @collective,
+      user_list: @user.primary_user_list_in!(@tenant), user: mutual, added_by: @user
+    )
+    UserListMember.create!(
+      tenant: @tenant, collective: @collective,
+      user_list: mutual.primary_user_list_in!(@tenant), user: @user, added_by: mutual
+    )
+    mutual_note = create_note(tenant: @tenant, collective: @collective, created_by: mutual, text: "Mutual note")
+    stranger_note = create_note(tenant: @tenant, collective: @collective, created_by: stranger, text: "Stranger note")
+    [mutual_note, stranger_note].each { |n| SearchIndexer.reindex(n) }
+
+    ids = SearchQuery.new(tenant: @tenant, current_user: @user, raw_query: "my:mutuals cycle:all").results.pluck(:item_id)
+    assert_includes ids, mutual_note.id
+    assert_not_includes ids, stranger_note.id
+  end
+
+  test "a my: alias composes with a remaining viewer-state value" do
+    author = add_member("Mixed")
+    unread_note = create_note(tenant: @tenant, collective: @collective, created_by: author, text: "Unread by reader")
+    SearchIndexer.reindex(unread_note)
+    # `my:notes` scopes to the author; `my:unread` keeps notes they haven't
+    # confirmed read. The author confirm-reads their own notes on create, so
+    # the combination is empty for the author's own notes.
+    assert_empty my_search(author, "my:notes my:unread").results
+  end
+
+  test "my: aliases warn and match nothing for anonymous viewers" do
+    search = SearchQuery.new(tenant: @tenant, collective: nil, current_user: nil, raw_query: "my:notes cycle:all")
+
+    assert_empty search.results
+    assert search.warnings.any? { |w| w.include?("signed-in user") }
+  end
+
+  test "negated my: aliases warn and are ignored" do
+    viewer = add_member("Negator")
+
+    search = my_search(viewer, "-my:notes")
+    assert search.warnings.any? { |w| w.include?("-my:notes") && w.include?("can't be negated") }
+    # Ignored, not applied: results are not narrowed to exclude the viewer's notes.
+    assert search.results.any?
+  end
 end

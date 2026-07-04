@@ -41,7 +41,14 @@ class SearchQuery
     @current_user = current_user
     @raw_query = raw_query
     @fixed_params = fixed_params
+    @my_filters_unresolvable = T.let(false, T::Boolean)
     @params = build_params(params)
+
+    # Pure my: aliases (my:notes, my:voted, …) are sugar over existing
+    # operators scoped to the viewer. Expand them first so they behave
+    # exactly as if the viewer had typed the underlying operators —
+    # including being clamped by a page's fixed scope below.
+    expand_my_aliases
 
     # Page scope: fixed params win over anything the query says, loudly.
     apply_fixed_params(fixed_params)
@@ -591,9 +598,131 @@ class SearchQuery
     return if @current_user.present?
     return if Array(@params[:my_filters]).blank? && Array(@params[:exclude_my_filters]).blank?
 
+    warn_my_requires_user
+    @my_filters_unresolvable = true
+  end
+
+  # The shared "no viewer → no results" warning, deduped so a query mixing
+  # viewer-state values and aliases only reports it once.
+  sig { void }
+  def warn_my_requires_user
     @warnings ||= []
-    T.must(@warnings) << "my: filters need a signed-in user — showing no results"
-    @my_filters_unresolvable = T.let(true, T.nilable(T::Boolean))
+    msg = "my: filters need a signed-in user — showing no results"
+    T.must(@warnings) << msg unless T.must(@warnings).include?(msg)
+  end
+
+  # my: values that carry their own query logic (see apply_my_filters).
+  # Everything else in the namespace is a pure alias handled below.
+  MY_VIEWER_STATE_VALUES = T.let(%w[notified unread read].freeze, T::Array[String])
+
+  # Pure my: aliases expand into the params of existing operators, scoped
+  # to the viewer's own handle — so creator:/type:/subtype:/voter:/
+  # participant:/mentions:/list: remain the single implementation and the
+  # my: prefix is just a discoverable, viewer-relative shorthand (#373).
+  # Values that carry real logic (notified/unread/read) are left in
+  # my_filters for apply_my_filters.
+  sig { void }
+  def expand_my_aliases
+    warn_negated_my_aliases
+
+    aliases = Array(@params[:my_filters]) - MY_VIEWER_STATE_VALUES
+    return if aliases.blank?
+
+    # Keep only the viewer-state values under my_filters; the rest expand
+    # into other params below.
+    remaining = Array(@params[:my_filters]) & MY_VIEWER_STATE_VALUES
+    if remaining.present?
+      @params[:my_filters] = remaining
+    else
+      @params.delete(:my_filters)
+    end
+
+    handle = viewer_handle
+    # Without a viewer handle (anonymous, or no handle in this tenant) the
+    # aliases can't be scoped to anyone. Fail closed rather than dropping
+    # the viewer constraint and leaking everyone's items.
+    if handle.blank?
+      warn_my_requires_user
+      @my_filters_unresolvable = true
+      return
+    end
+
+    aliases.each { |value| apply_my_alias(value, handle) }
+  end
+
+  # Negating a compound alias (-my:notes = NOT(creator:me AND type:note))
+  # isn't a pure expansion, so aliases can't be negated. Warn and drop them
+  # rather than silently matching everything.
+  sig { void }
+  def warn_negated_my_aliases
+    negated_aliases = Array(@params[:exclude_my_filters]) - MY_VIEWER_STATE_VALUES
+    return if negated_aliases.blank?
+
+    @warnings ||= []
+    negated_aliases.each do |value|
+      T.must(@warnings) << "-my:#{value} is not supported (my: aliases can't be negated); ignored"
+    end
+    remaining = Array(@params[:exclude_my_filters]) & MY_VIEWER_STATE_VALUES
+    if remaining.present?
+      @params[:exclude_my_filters] = remaining
+    else
+      @params.delete(:exclude_my_filters)
+    end
+  end
+
+  sig { params(value: String, handle: String).void }
+  def apply_my_alias(value, handle)
+    case value
+    when "mentions"
+      merge_handle_param(:mentions_handles, handle)
+    when "notes"
+      merge_handle_param(:creator_handles, handle)
+      merge_type("note")
+    when "decisions"
+      merge_handle_param(:creator_handles, handle)
+      merge_type("decision")
+    when "commitments"
+      merge_handle_param(:creator_handles, handle)
+      merge_type("commitment")
+    when "posts"
+      merge_handle_param(:creator_handles, handle)
+      merge_subtype("post")
+    when "voted"
+      merge_handle_param(:voter_handles, handle)
+    when "committed"
+      merge_handle_param(:participant_handles, handle)
+    when "rsvps"
+      merge_handle_param(:participant_handles, handle)
+      merge_subtype("calendar_event")
+    when "mutuals"
+      # list: is single-valued (last wins); don't clobber an explicit list:.
+      @params[:list_id_or_alias] ||= "mutuals"
+    end
+  end
+
+  sig { params(key: Symbol, handle: String).void }
+  def merge_handle_param(key, handle)
+    @params[key] = (Array(@params[key]) + [handle]).uniq
+  end
+
+  sig { params(subtype: String).void }
+  def merge_subtype(subtype)
+    @params[:subtypes] = (Array(@params[:subtypes]) + [subtype]).uniq
+  end
+
+  # @params[:type] is a comma-joined string (see the parser's type param).
+  sig { params(type: String).void }
+  def merge_type(type)
+    existing = @params[:type].to_s.split(",").map(&:strip).compact_blank
+    @params[:type] = (existing + [type]).uniq.join(",")
+  end
+
+  sig { returns(T.nilable(String)) }
+  def viewer_handle
+    return @viewer_handle if defined?(@viewer_handle)
+
+    handle = @current_user && @tenant.tenant_users.find_by(user_id: T.must(@current_user).id)&.handle
+    @viewer_handle = T.let(handle, T.nilable(String))
   end
 
   sig { returns(T::Array[String]) }
