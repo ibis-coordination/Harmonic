@@ -75,19 +75,25 @@
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Critical Mass</h2>
         <div class="pulse-notice">
-          <p>
-            <% if @commitment.participant_count > 0 %>
-              <strong>Lowering</strong> critical mass is no longer allowed because the current participant count (<%= @commitment.participant_count %>) is greater than zero.
-            <% else %>
-              <strong>Lowering</strong> critical mass below <%= @commitment.critical_mass %> is only allowed if the current participant count is zero.
-            <% end %>
-          </p>
-          <p>
-            <strong>Raising</strong> critical mass is always allowed but <strong>cannot be undone</strong> if the participant count is above zero.
-          </p>
+          <% if @commitment.has_critical_mass? %>
+            <p>
+              <% if @commitment.participant_count > 0 %>
+                <strong>Lowering or removing</strong> critical mass is no longer allowed because the current participant count (<%= @commitment.participant_count %>) is greater than zero.
+              <% else %>
+                <strong>Lowering</strong> critical mass below <%= @commitment.critical_mass %> — or removing it by leaving the field blank — is only allowed if the current participant count is zero.
+              <% end %>
+            </p>
+            <p>
+              <strong>Raising</strong> critical mass is always allowed but <strong>cannot be undone</strong> if the participant count is above zero.
+            </p>
+          <% else %>
+            <p>
+              This commitment has <strong>no critical mass</strong> — it takes effect regardless of how many join. Enter a number to require a minimum.
+            </p>
+          <% end %>
         </div>
         <p class="pulse-form-row">
-          At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, class: "pulse-form-input", style: 'width:64px;' %> participant(s) required for this commitment to take effect.
+          At least <%= form.number_field :critical_mass, value: @commitment.critical_mass, min: 1, class: "pulse-form-input", style: 'width:64px;' %> participant(s) required for this commitment to take effect.
         </p>
       </section>
       <% end %>

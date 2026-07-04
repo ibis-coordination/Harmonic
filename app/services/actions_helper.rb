@@ -467,12 +467,12 @@ class ActionsHelper
     # Commitment actions
     "create_commitment" => {
       description: "Create a new commitment (action, calendar_event, or policy)",
-      params_string: "(title, description, critical_mass, [deadline, subtype, starts_at, ends_at, location])",
+      params_string: "(title, description, [critical_mass, deadline, subtype, starts_at, ends_at, location])",
       params: [
         { name: "title", type: "string", description: "The title of the commitment" },
         { name: "description", type: "string", description: "Additional context for the commitment" },
-        { name: "critical_mass", type: "integer",
-          description: "Minimum participants/attendees/signatories needed for the commitment to take effect", },
+        { name: "critical_mass", type: "integer", required: false,
+          description: "Minimum participants/attendees/signatories needed for the commitment to take effect. Optional — omit when a minimum isn't relevant.", },
         { name: "deadline", type: "datetime", required: false,
           description: "When the commitment closes (RSVP deadline for calendar events). Optional — omit it to close manually; for calendar events it defaults to the event start. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
         { name: "subtype", type: "string", required: false,
@@ -495,7 +495,7 @@ class ActionsHelper
         { name: "description", type: "string", required: false,
           description: "Additional context for the commitment", },
         { name: "critical_mass", type: "integer", required: false,
-          description: "Minimum participants/attendees/signatories needed for the commitment to take effect", },
+          description: "Minimum participants/attendees/signatories needed for the commitment to take effect. Pass 'none' to remove (only while no one has joined).", },
         { name: "deadline", type: "datetime", required: false,
           description: "When the commitment closes (RSVP deadline for calendar events). Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
         { name: "starts_at", type: "datetime", required: false,
