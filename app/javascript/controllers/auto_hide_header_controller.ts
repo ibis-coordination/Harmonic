@@ -1,16 +1,20 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Auto-hiding top header.
+// Auto-hiding chrome bars.
 //
-// Hides the app header (translated off-screen via a CSS class) when the user
+// Hides the element (translated off-screen via a CSS class) when the user
 // scrolls down, and reveals it again when they scroll up or return to the top
-// of the page. Attaches to <header class="pulse-top-header"> in the layout.
+// of the page. Drives both the top header and the mobile bottom tab bar —
+// one instance each, so they move in lockstep:
 //
 //   <header class="pulse-top-header"
 //           data-controller="auto-hide-header"
 //           data-auto-hide-header-hidden-class="pulse-top-header--hidden">
+//   <nav class="pulse-tab-bar"
+//        data-controller="rail-badges auto-hide-header"
+//        data-auto-hide-header-hidden-class="pulse-tab-bar--hidden">
 //
-// The reveal-on-scroll-up behaviour keeps the header one flick away without it
+// The reveal-on-scroll-up behaviour keeps the chrome one flick away without it
 // eating vertical space while reading, which matters most on small screens.
 export default class AutoHideHeaderController extends Controller<HTMLElement> {
   static classes = ["hidden"]

@@ -1,0 +1,51 @@
+<%# Mobile bottom tab bar (docs/NAVIGATION_DESIGN.md "Form factors"):
+    the persistent destinations, ordered left→right as outward→inward —
+    globe, places, search, inbox, you. Desktop unfolds this same set into
+    the rail and header; CSS shows exactly one projection per width. %>
+<%# Hides on scroll-down / reveals on scroll-up in lockstep with the top
+    header — same controller, same threshold, opposite translate. %>
+<nav class="pulse-tab-bar" aria-label="Primary"
+     data-controller="rail-badges auto-hide-header"
+     data-auto-hide-header-hidden-class="pulse-tab-bar--hidden">
+  <a href="/" class="pulse-tab-bar-item<%= ' active' if request.path == '/' %>" aria-label="Home"
+     <% if request.path == "/" %>aria-current="page"<% end %>>
+    <%= octicon "globe", height: 22 %>
+  </a>
+
+  <button type="button" class="pulse-tab-bar-item pulse-tab-bar-places"
+          data-places-sheet-target="toggle"
+          data-action="click->places-sheet#toggle"
+          aria-expanded="false" aria-label="Places">
+    <%= octicon "apps", height: 22 %>
+    <span class="pulse-tab-bar-dot" data-places-sheet-target="dot"
+          style="<%= 'display: none' unless rail_unread_counts.values.any?(&:positive?) || rail_chat_unread_count.positive? %>"></span>
+  </button>
+
+  <a href="/search" class="pulse-tab-bar-item<%= ' active' if request.path.start_with?('/search') %>" aria-label="Search"
+     <% if request.path.start_with?("/search") %>aria-current="page"<% end %>>
+    <%= octicon "search", height: 22 %>
+  </a>
+
+  <a href="/notifications" class="pulse-tab-bar-item<%= ' active' if request.path.start_with?('/notifications') %>" aria-label="Inbox"
+     <% if request.path.start_with?("/notifications") %>aria-current="page"<% end %>>
+    <%= octicon "inbox", height: 22 %>
+    <span class="pulse-tab-bar-badge" data-total-badge
+          style="<%= count_badge_style(@unread_notification_count.to_i) %>"><%= count_badge_text(@unread_notification_count.to_i) %></span>
+  </a>
+
+  <% unless @current_representation_session %>
+    <div class="pulse-tab-bar-item pulse-tab-bar-you"
+         data-controller="top-right-menu"
+         data-top-right-menu-open-up-value="true">
+      <button type="button" class="pulse-tab-bar-you-button"
+              data-top-right-menu-target="button"
+              data-action="click->top-right-menu#toggleMenu"
+              aria-haspopup="menu" aria-label="You">
+        <%= profile_pic(@current_user) %>
+      </button>
+      <div data-top-right-menu-target="menu" class="top-menu" style="display:none;">
+        <%= render "layouts/user_menu" %>
+      </div>
+    </div>
+  <% end %>
+</nav>

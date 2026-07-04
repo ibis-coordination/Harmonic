@@ -15,6 +15,9 @@ describe("RailBadgesController", () => {
         <a href="/collectives/team-b" data-place-path="/collectives/team-b">
           <span class="pulse-rail-badge" data-collective-id="bbb-222" style="display: none"></span>
         </a>
+        <a href="/notifications">
+          <span class="pulse-tab-bar-badge" data-total-badge style="display: none"></span>
+        </a>
       </nav>
     `
     const application = Application.start()
@@ -86,6 +89,20 @@ describe("RailBadgesController", () => {
 
     await vi.waitFor(() => expect(chatBadge().textContent).toBe("5"))
     expect(chatBadge().closest("a")?.getAttribute("href")).toBe("/chat")
+  })
+
+  it("fills the total-count badge from the broadcast's count", async () => {
+    window.dispatchEvent(
+      new CustomEvent("notifications:counts", { detail: { count: 7, byCollective: {}, chat: 0 } }),
+    )
+
+    const totalBadge = document.querySelector("[data-total-badge]") as HTMLElement
+    await vi.waitFor(() => {
+      expect(totalBadge.textContent).toBe("7")
+      expect(totalBadge.style.display).toBe("")
+    })
+    // Its anchor is not a place entry — the href never swaps.
+    expect(totalBadge.closest("a")?.getAttribute("href")).toBe("/notifications")
   })
 
   it("fills and clears the aggregated chat badge", async () => {

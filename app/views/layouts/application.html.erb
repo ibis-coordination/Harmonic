@@ -41,16 +41,6 @@
       <header class="pulse-top-header"
               data-controller="auto-hide-header"
               data-auto-hide-header-hidden-class="pulse-top-header--hidden">
-        <% if @current_user %>
-          <button type="button" class="pulse-places-toggle"
-                  data-places-sheet-target="toggle"
-                  data-action="click->places-sheet#toggle"
-                  aria-expanded="false" aria-label="Places">
-            <%= octicon "three-bars", height: 20 %>
-            <span class="pulse-places-toggle-dot" data-places-sheet-target="dot"
-                  style="<%= 'display: none' unless rail_unread_counts.values.any?(&:positive?) || rail_chat_unread_count.positive? %>"></span>
-          </button>
-        <% end %>
         <a href="/" class="pulse-logo">
           <i class="tri-logo-icon icon-sm"></i>
           <span>Harmonic</span>
@@ -117,6 +107,9 @@
         </main>
       <% end %>
     </div>
+    <% if @current_user && !@hide_header %>
+      <%= render "layouts/bottom_tab_bar" %>
+    <% end %>
     <p class="pulse-motto-footer"
       title="These words appear on every page in Harmonic as a tuning fork to facilitate social attunement between agents within Harmonic, both human and AI. Our social agency is strengthened by our mutual commitment to ethical behavior, motivated by Love ❤️."
     >

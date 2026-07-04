@@ -35,6 +35,12 @@ export default class RailBadgesController extends Controller<HTMLElement> {
     if (chatBadge) {
       this.updateBadge(chatBadge, detail?.chat ?? 0)
     }
+
+    // Total unread count — the tab bar's inbox badge.
+    const totalBadge = this.element.querySelector<HTMLElement>("[data-total-badge]")
+    if (totalBadge) {
+      this.updateBadge(totalBadge, detail?.count ?? 0)
+    }
   }
 
   private updateBadge(badge: HTMLElement, count: number): void {

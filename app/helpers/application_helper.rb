@@ -1,6 +1,11 @@
 # typed: false
 
 module ApplicationHelper
+  # Badge display rules shared with the rail/sheet components — the tab
+  # bar's inbox badge renders with the same text/style contract the
+  # rail-badges controller maintains client-side.
+  include UnreadBadgeDisplay
+
   # Generate consistent avatar initials from a name
   # Returns up to 2 uppercase characters
   def avatar_initials(name)
