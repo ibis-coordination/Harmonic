@@ -84,9 +84,32 @@ Background workers (agent task execution, automation execution) have their own p
 
 How LLM usage billing turns on for a production tenant. Prerequisite: the Stripe account is enrolled in the AI Gateway preview (`llm.stripe.com`).
 
+**Restricted key permissions.** Two keys, minimal scopes. Every permission maps to a specific code path — when adding a new Stripe API call, extend the matching key's permissions and this table.
+
+`STRIPE_GATEWAY_KEY` — used exclusively as the Bearer token for `llm.stripe.com` requests (agent-runner):
+
+| Permission | Access | Used by |
+|------------|--------|---------|
+| Billing → Meter events | Write | Every gateway LLM call (the gateway records token usage as meter events) |
+
+`STRIPE_API_KEY` — all `Stripe::*` API calls from Rails:
+
+| Permission | Access | Used by |
+|------------|--------|---------|
+| Customers | Write | `find_or_create_customer` (billing setup), email sync on user email change |
+| Checkout Sessions | Write | Subscription setup, collective upgrade, credit top-up; `retrieve` on the checkout return path |
+| Subscriptions | Write | Quantity sync (`Subscription.retrieve`, `SubscriptionItem.update`), cancel-at-zero-quantity |
+| Invoices | Write | Proration invoice create/pay, upcoming-invoice preview, finalizing the final invoice on cancel |
+| Products (incl. Prices) | Write | Ad-hoc `Price.create` per credit top-up checkout |
+| Credit grants | Write | Credit grant creation on top-up completion |
+| Credit balance summary | Read | Dispatch preflight balance check, `billing:gateway_health`, billing page |
+| Customer portal | Write | `/billing/portal` session creation |
+
+Webhook verification (`/stripe/webhooks`) uses `STRIPE_WEBHOOK_SECRET` for signature checks — no key permission involved.
+
 **Enable:**
 
-1. **Create the restricted key** in the Stripe dashboard with: AI Gateway (write), Credit Grants (write), Credit Balance Summary (read), Checkout Sessions (write). Set it as `STRIPE_GATEWAY_KEY` for both Rails and the agent-runner.
+1. **Create the restricted keys** in the Stripe dashboard per the tables above. `STRIPE_GATEWAY_KEY` goes to both Rails and the agent-runner; `STRIPE_API_KEY` to Rails only.
 2. **Create the credit product** (or verify the existing one) in the Stripe dashboard and set `STRIPE_CREDIT_PRODUCT_ID`. Top-up checkout raises `KeyError` without it.
 3. **Deploy** with both vars set. No behavior changes yet — routing stays on LiteLLM until a tenant qualifies.
 4. **Verify health:** `rails billing:gateway_health` should show both vars present and list active customers with balances.
