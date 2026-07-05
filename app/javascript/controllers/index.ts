@@ -83,6 +83,7 @@ import SummaryToggleController from "./summary_toggle_controller"
 import CommitmentSubtypeController from "./commitment_subtype_controller"
 import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
+import DurationSelectController from "./duration_select_controller"
 import TabsController from "./tabs_controller"
 import WebhookTestController from "./webhook_test_controller"
 import WebPushController from "./web_push_controller"
@@ -104,6 +105,7 @@ application.register("cooldown-button", CooldownButtonController)
 application.register("countdown", CountdownController)
 application.register("datetime-input", DatetimeInputController)
 application.register("deadline-options", DeadlineOptionsController)
+application.register("duration-select", DurationSelectController)
 application.register("decision", DecisionController)
 application.register("commitment-subtype", CommitmentSubtypeController)
 application.register("decision-subtype", DecisionSubtypeController)
