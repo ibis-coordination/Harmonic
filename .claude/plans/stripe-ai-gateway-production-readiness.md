@@ -62,7 +62,9 @@ Agent-runner went through a substantial refactor in mid-June (71aabfd2 and follo
 >        "messages": [{"role": "user", "content": "..."}], "max_tokens": 20}'
 > ```
 >
-> Returns HTTP 200, OpenAI-format JSON (`choices[0].message.content`, `usage.prompt_tokens`/`completion_tokens`) — matches what LLMClient.ts parses. Anthropic served via Vertex (`msg_vrtx_` ids). Model names must be the gateway's dotted form (`anthropic/claude-haiku-4.5`). Test customer for attribution checks: `cus_UpZQeYlBN6ZYlf` ("Gateway Verification Test", test mode). Markup: supported, set as a percentage on the Dashboard pricing plan. Remaining verification (dashboard): meter events visible for the test customer, usage lands on an upcoming invoice, credit grant offsets it (the prepaid-vs-postpaid question).
+> Returns HTTP 200, OpenAI-format JSON (`choices[0].message.content`, `usage.prompt_tokens`/`completion_tokens`) — matches what LLMClient.ts parses. Anthropic served via Vertex (`msg_vrtx_` ids). Model names must be the gateway's dotted form (`anthropic/claude-haiku-4.5`). Test customer for attribution checks: `cus_UpZQeYlBN6ZYlf` ("Gateway Verification Test", test mode). Markup: supported, set as a percentage on the Dashboard pricing plan.
+>
+> **Billing-model verification (same day):** meter events only bill customers subscribed to a *pricing plan*; the plan's "included usage" is delivered as promotional credit grants on the same `metered` scope our top-up grants use, so both pool into the balance `get_credit_balance` reads. The prepaid flow survives unchanged. New work identified: subscribe billed customers to the pricing plan at billing setup (`checkout_items[0][type]=pricing_plan_subscription_item`, preview API version header — verified working with the existing `STRIPE_API_KEY`), create the production pricing plan (markup lives there), and note that balance deduction from usage is aggregated periodically, not per-request.
 
 1. Log into the Stripe dashboard for the harmonic.social account.
 2. Open Developers → API keys → Create restricted key. Confirm an "AI Gateway" permission row exists. If it doesn't, the rest of this plan parks until it does.
