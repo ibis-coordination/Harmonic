@@ -115,9 +115,11 @@ Visible at `/system-admin/agent-runner` (requires sys_admin role). Shows runner 
 | `HARMONIC_HOSTNAME` | Yes | — | Base domain for Host headers. Same value as Rails `HOSTNAME`. Agent-runner prepends the tenant subdomain (e.g., `harmonic.com` → `Host: tenant1.harmonic.com`) |
 | `HARMONIC_INTERNAL_URL` | No | `http://web:3000` | Direct TCP URL to Rails container |
 | `REDIS_URL` | No | `redis://redis:6379` | Redis connection |
-| `LLM_BASE_URL` | No | `http://litellm:4000` or `https://llm.stripe.com` | LLM API endpoint (defaults based on gateway mode) |
-| `LLM_GATEWAY_MODE` | No | `litellm` | `litellm` or `stripe_gateway` |
-| `STRIPE_GATEWAY_KEY` | No | — | Required in `stripe_gateway` mode |
+| `LITELLM_BASE_URL` | No | `http://litellm:4000` | LiteLLM endpoint |
+| `STRIPE_GATEWAY_BASE_URL` | No | `https://llm.stripe.com` | Stripe AI Gateway endpoint |
+| `LLM_BASE_URL` | No | — | Legacy override; applies to whichever route `LLM_GATEWAY_MODE` names |
+| `LLM_GATEWAY_MODE` | No | `litellm` | Fallback route for tasks whose payload predates the per-task `llm_gateway_mode` stream field. Rails decides routing per task; this only covers old queued payloads. |
+| `STRIPE_GATEWAY_KEY` | No | — | Required for any task routed through the Stripe gateway |
 | `MAX_CONCURRENT_TASKS` | No | `100` | Maximum concurrent task fibers |
 | `STREAM_MAX_LEN` | No | `10000` | Redis stream approximate max length |
 | `AGENT_TASKS_STREAM` | No | `agent_tasks` | Redis stream name |

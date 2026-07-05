@@ -18,7 +18,7 @@ The unit price is **$3/month per billable identity**. A user has one Stripe subs
 
 **Why this shape.** A non-zero cost per identity discourages bad actors that rely on free or untraceable accounts (scam accounts, spam accounts, agents-fronting-as-humans). Humans without API access can join freely so the social layer doesn't have a price gate. Self-hosting remains an unrestricted alternative.
 
-**AI agent usage billing.** A separate prepaid credit balance covers LLM token usage when `LLM_GATEWAY_MODE=stripe_gateway`. Users top up via `/billing/topup` (requires an active subscription); the agent-runner deducts per LLM call, and task dispatch is blocked when the balance is empty. This is independent of the per-identity subscription.
+**AI agent usage billing.** A separate prepaid credit balance covers LLM token usage. Routing is decided per task at dispatch: agents whose tenant has `stripe_billing` enabled and whose owner has an active billing customer run through the Stripe AI Gateway (`llm.stripe.com`, billed against the prepaid balance); all other agents (including system agents like Trio) run through LiteLLM at the operator's cost. Users top up via `/billing/topup` (requires an active subscription); Stripe deducts per LLM call, and task dispatch is blocked when the balance is empty. This is independent of the per-identity subscription. See the enablement runbook below.
 
 ## Collective Tier State Machine
 
@@ -79,6 +79,27 @@ Two layers enforce billing at request time:
 - **Collective tier gate** (`Collective#tier_unlocks_paid_features?`) — short-circuits paid-feature access whenever the collective isn't on the paid tier. Used by `trio_enabled?`, `file_attachments_enabled?`, the automation dispatcher, the automation scheduler, the incoming-webhook receiver, and the per-toggle filter in collective settings updates. Always returns true for main collectives and for tenants without `stripe_billing` (self-hosted).
 
 Background workers (agent task execution, automation execution) have their own per-resource billing checks so suspended agents and pending resources don't run.
+
+## AI Gateway Enablement Runbook
+
+How LLM usage billing turns on for a production tenant. Prerequisite: the Stripe account is enrolled in the AI Gateway preview (`llm.stripe.com`).
+
+**Enable:**
+
+1. **Create the restricted key** in the Stripe dashboard with: AI Gateway (write), Credit Grants (write), Credit Balance Summary (read), Checkout Sessions (write). Set it as `STRIPE_GATEWAY_KEY` for both Rails and the agent-runner.
+2. **Create the credit product** (or verify the existing one) in the Stripe dashboard and set `STRIPE_CREDIT_PRODUCT_ID`. Top-up checkout raises `KeyError` without it.
+3. **Deploy** with both vars set. No behavior changes yet — routing stays on LiteLLM until a tenant qualifies.
+4. **Verify health:** `rails billing:gateway_health` should show both vars present and list active customers with balances.
+5. **Enable the flag:** `tenant.enable_feature_flag!("stripe_billing")` for the target tenant. From the next dispatch, that tenant's billed agents route through the gateway.
+6. **Smoke test:** top up a small amount at `/billing/topup`, run an agent task, confirm the balance dropped (`billing:gateway_health`) and the agent-runner logged `llm_request` lines with `"gateway_mode":"stripe_gateway"`.
+
+**Model names.** Agents store LiteLLM aliases (`claude-sonnet-4`, `claude-haiku-4`, ...). At dispatch, `StripeGatewayModelMapper` translates them to the gateway's `provider/model` format; agents with no configured model get the mapper's default. Models the gateway cannot proxy (local Ollama, Arcee Trinity) fail the task at dispatch with an explanatory error — update the agent's model or route the tenant back to LiteLLM.
+
+**Rollback** (gateway outage, unexpected charges, key compromise):
+
+1. `tenant.disable_feature_flag!("stripe_billing")` — new dispatches route to LiteLLM immediately. Note the blast radius: this disables *all* billing gates for the tenant (subscriptions, paid tiers), not just gateway routing. Acceptable for an incident; restore the flag once resolved.
+2. If the key is compromised: revoke it in the Stripe dashboard and unset `STRIPE_GATEWAY_KEY`; in-flight gateway tasks fail with a clear error and can be re-run.
+3. Already-purchased credits are unaffected — they sit on the customer's Stripe balance until routing is restored.
 
 ## Design Notes
 
