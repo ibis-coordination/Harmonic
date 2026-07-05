@@ -150,18 +150,91 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   end
 
   test "stamps stripe_customer_id when billing active" do
-    enable_stripe_billing_flag!(@tenant)
-    billing_customer = StripeCustomer.create!(
-      billable: @ai_agent,
-      stripe_id: "cus_test123",
-      active: true,
-    )
-    @ai_agent.update!(stripe_customer_id: billing_customer.id)
+    setup_active_billing!
 
-    AgentRunnerDispatchService.dispatch(@task_run)
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
 
     @task_run.reload
-    assert_equal billing_customer.id, @task_run.stripe_customer_id
+    assert_equal @ai_agent.billing_customer.id, @task_run.stripe_customer_id
+  end
+
+  # === Per-task gateway routing ===
+
+  test "publishes stripe_gateway mode with mapped model when billing active" do
+    setup_active_billing!
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "claude-sonnet-4" })
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "task should be dispatched: #{@task_run.reload.error}"
+    fields = entry[1]
+    assert_equal "stripe_gateway", fields["llm_gateway_mode"]
+    assert_equal "anthropic/claude-sonnet-4-6", fields["model"]
+    assert_equal "cus_test123", fields["stripe_customer_stripe_id"]
+    redis.close
+  end
+
+  test "publishes stripe_gateway mode with default model when agent has none configured" do
+    setup_active_billing!
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "task should be dispatched: #{@task_run.reload.error}"
+    assert_equal StripeGatewayModelMapper::DEFAULT_MODEL, entry[1]["model"]
+    redis.close
+  end
+
+  test "publishes litellm mode with unmapped model when stripe_billing is off" do
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "claude-sonnet-4" })
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry
+    fields = entry[1]
+    assert_equal "litellm", fields["llm_gateway_mode"]
+    assert_equal "claude-sonnet-4", fields["model"]
+    redis.close
+  end
+
+  test "fails task when agent model cannot be mapped for the gateway" do
+    setup_active_billing!
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "llama3" })
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_includes @task_run.error, "llama3"
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_nil entry, "unmappable task must not reach the stream"
+    redis.close
+  end
+
+  test "fails task when credit balance is zero" do
+    setup_active_billing!
+
+    StripeService.stub :get_credit_balance, ->(_) { 0 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_includes @task_run.error, "Insufficient credit balance"
   end
 
   test "fails task for external agent" do
@@ -271,6 +344,16 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     tenant.enable_feature_flag!("stripe_billing")
   end
 
+  def setup_active_billing!
+    enable_stripe_billing_flag!(@tenant)
+    billing_customer = StripeCustomer.create!(
+      billable: @ai_agent,
+      stripe_id: "cus_test123",
+      active: true,
+    )
+    @ai_agent.update!(stripe_customer_id: billing_customer.id)
+  end
+
   # === System agent (Trio) billing exemption ===
 
   test "dispatches task for system agent without billing setup" do
@@ -309,7 +392,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_nil task_run.stripe_customer_id
   end
 
-  test "skips credit balance check for system agent in stripe_gateway mode" do
+  test "system agent routes through litellm and skips credit balance check" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.create_main_collective!(created_by: @user)
     trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
@@ -318,23 +401,18 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
       task: "Hello", max_steps: 10, status: "queued",
     )
 
-    previous_mode = ENV["LLM_GATEWAY_MODE"]
-    ENV["LLM_GATEWAY_MODE"] = "stripe_gateway"
-    begin
-      # StripeService.get_credit_balance must not be called for system agents.
-      # If it were, this stub would raise.
-      StripeService.stub :get_credit_balance, ->(_) { raise "should not be called for system agent" } do
-        AgentRunnerDispatchService.dispatch(task_run)
-      end
-    ensure
-      if previous_mode.nil?
-        ENV.delete("LLM_GATEWAY_MODE")
-      else
-        ENV["LLM_GATEWAY_MODE"] = previous_mode
-      end
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    # StripeService.get_credit_balance must not be called for system agents.
+    # If it were, this stub would raise.
+    StripeService.stub :get_credit_balance, ->(_) { raise "should not be called for system agent" } do
+      AgentRunnerDispatchService.dispatch(task_run)
     end
 
     task_run.reload
     assert_equal "queued", task_run.status
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == task_run.id }
+    assert_not_nil entry
+    assert_equal "litellm", entry[1]["llm_gateway_mode"]
+    redis.close
   end
 end

@@ -67,14 +67,31 @@ class AgentRunnerDispatchService
 
       # Stamp immutable billing attribution
       @task_run.update!(stripe_customer_id: billing_customer.id)
+    end
 
+    # Gateway routing is decided per task: billed agents go through the Stripe
+    # AI Gateway (prepaid credits), everyone else through LiteLLM. The runner
+    # reads this from the stream payload rather than its own env config.
+    gateway_mode = if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && billing_customer&.active?
+      "stripe_gateway"
+    else
+      "litellm"
+    end
+
+    model = ai_agent.agent_configuration&.dig("model") || ""
+    if gateway_mode == "stripe_gateway"
       # Pre-flight credit balance check
-      if ENV.fetch("LLM_GATEWAY_MODE", "litellm") == "stripe_gateway"
-        credit_balance = StripeService.get_credit_balance(billing_customer)
-        if credit_balance.nil? || credit_balance <= 0
-          fail_task!("Insufficient credit balance. Add funds at /billing before running agents.")
-          return
-        end
+      credit_balance = StripeService.get_credit_balance(T.must(billing_customer))
+      if credit_balance.nil? || credit_balance <= 0
+        fail_task!("Insufficient credit balance. Add funds at /billing before running agents.")
+        return
+      end
+
+      begin
+        model = StripeGatewayModelMapper.map(model)
+      rescue StripeGatewayModelMapper::UnmappedModelError => e
+        fail_task!(e.message)
+        return
       end
     end
 
@@ -95,7 +112,7 @@ class AgentRunnerDispatchService
 
     # Publish to Redis Stream with encrypted token
     begin
-      publish_to_stream(token, billing_customer)
+      publish_to_stream(token, billing_customer, model: model, gateway_mode: gateway_mode)
     rescue StandardError => e
       # Redis failure after token creation — clean up the token and fail the task
       # so it shows up on the admin page instead of lurking as "queued" forever.
@@ -139,8 +156,8 @@ class AgentRunnerDispatchService
     Rails.logger.error("[AgentRunnerDispatchService] Failed to broadcast chat error: #{e.message}")
   end
 
-  sig { params(token: ApiToken, billing_customer: T.nilable(StripeCustomer)).void }
-  def publish_to_stream(token, billing_customer)
+  sig { params(token: ApiToken, billing_customer: T.nilable(StripeCustomer), model: String, gateway_mode: String).void }
+  def publish_to_stream(token, billing_customer, model:, gateway_mode:)
     encrypted_token = AgentRunnerCrypto.encrypt(token.plaintext_token)
 
     redis = Redis.new(url: ENV["REDIS_URL"])
@@ -149,7 +166,8 @@ class AgentRunnerDispatchService
       encrypted_token: encrypted_token,
       task: @task_run.task,
       max_steps: @task_run.max_steps.to_s,
-      model: T.must(@task_run.ai_agent).agent_configuration&.dig("model") || "",
+      model: model,
+      llm_gateway_mode: gateway_mode,
       agent_id: T.must(@task_run.ai_agent).id,
       tenant_subdomain: T.must(@task_run.tenant).subdomain,
       stripe_customer_stripe_id: billing_customer&.stripe_id || "",
