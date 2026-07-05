@@ -149,8 +149,29 @@ ENV_LINES+=("STRIPE_PRICE_ID=$price_id")
 # --- Webhook endpoint -----------------------------------------------------
 
 section "Webhook endpoint (STRIPE_WEBHOOK_SECRET)"
-existing_webhook=$(api GET /v1/webhook_endpoints -G -d "limit=100" | json "next((w['id'] for w in d.get('data',[]) if w.get('url')=='$WEBHOOK_URL'), '')")
-if [ -n "$existing_webhook" ]; then
+webhooks_json=$(api GET /v1/webhook_endpoints -G -d "limit=100")
+list_err=$(echo "$webhooks_json" | json "d.get('error',{}).get('message','')")
+if [ -n "$list_err" ]; then
+  fail "Could not list webhook endpoints (the check needs webhook read access): $list_err"
+  MANUAL_STEPS+=("Verify the webhook endpoint manually (Dashboard → Developers → Webhooks): url $WEBHOOK_URL, events: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed. Use 'Send test event' and confirm a 200 delivery.")
+  existing_webhook="skip"
+else
+  # Match on trailing-slash-normalized URLs; surface near-misses (e.g. a
+  # different subdomain) instead of silently creating a duplicate endpoint.
+  existing_webhook=$(echo "$webhooks_json" | json "next((w['id'] for w in d.get('data',[]) if w.get('url','').rstrip('/')=='$WEBHOOK_URL'.rstrip('/')), '')")
+  if [ -z "$existing_webhook" ]; then
+    near_miss=$(echo "$webhooks_json" | json "next((f\"{w['id']} {w['url']}\" for w in d.get('data',[]) if w.get('url','').endswith('/stripe/webhooks')), '')")
+    if [ -n "$near_miss" ]; then
+      warn "No endpoint matches $WEBHOOK_URL exactly, but one exists at a different host: $near_miss"
+      warn "If that host reaches the app, it works — the route is served on every subdomain. Not creating a duplicate."
+      MANUAL_STEPS+=("Webhook URL mismatch: script expected $WEBHOOK_URL but found $near_miss. Either is fine if the host reaches the app — just ensure STRIPE_WEBHOOK_SECRET is that endpoint's signing secret, and verify with the dashboard's 'Send test event' (expect a 200 delivery).")
+      existing_webhook="skip"
+    fi
+  fi
+fi
+if [ "$existing_webhook" = "skip" ]; then
+  :
+elif [ -n "$existing_webhook" ]; then
   ok "Webhook endpoint already exists for $WEBHOOK_URL ($existing_webhook)"
   if [ -n "${STRIPE_WEBHOOK_SECRET:-}" ]; then
     ok "STRIPE_WEBHOOK_SECRET is set (cannot be verified remotely — secrets are only shown at creation)"
