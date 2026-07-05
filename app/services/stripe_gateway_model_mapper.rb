@@ -10,14 +10,16 @@ class StripeGatewayModelMapper
 
   class UnmappedModelError < StandardError; end
 
-  DEFAULT_MODEL = "anthropic/claude-sonnet-4-6"
+  DEFAULT_MODEL = "anthropic/claude-sonnet-4.6"
 
-  # LiteLLM alias => Stripe gateway provider/model. Keep in sync with
-  # config/litellm_config.yaml so agents behave the same on either route.
+  # LiteLLM alias => Stripe gateway provider/model. Gateway names use dotted
+  # versions (claude-sonnet-4.6), unlike the dashed Anthropic API ids in
+  # config/litellm_config.yaml — see the supported-models list in Stripe's
+  # token-billing integration guide.
   MODEL_MAP = T.let({
-    "claude-sonnet-4" => "anthropic/claude-sonnet-4-6",
-    "claude-haiku-4" => "anthropic/claude-haiku-4-5-20251001",
-    "claude-opus-4" => "anthropic/claude-opus-4-7",
+    "claude-sonnet-4" => "anthropic/claude-sonnet-4.6",
+    "claude-haiku-4" => "anthropic/claude-haiku-4.5",
+    "claude-opus-4" => "anthropic/claude-opus-4.7",
     "gpt-4o" => "openai/gpt-4o",
   }.freeze, T::Hash[String, String])
 

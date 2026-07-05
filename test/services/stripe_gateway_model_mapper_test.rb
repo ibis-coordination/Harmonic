@@ -3,9 +3,9 @@ require "test_helper"
 
 class StripeGatewayModelMapperTest < ActiveSupport::TestCase
   test "maps LiteLLM claude names to Stripe provider/model format" do
-    assert_equal "anthropic/claude-sonnet-4-6", StripeGatewayModelMapper.map("claude-sonnet-4")
-    assert_equal "anthropic/claude-haiku-4-5-20251001", StripeGatewayModelMapper.map("claude-haiku-4")
-    assert_equal "anthropic/claude-opus-4-7", StripeGatewayModelMapper.map("claude-opus-4")
+    assert_equal "anthropic/claude-sonnet-4.6", StripeGatewayModelMapper.map("claude-sonnet-4")
+    assert_equal "anthropic/claude-haiku-4.5", StripeGatewayModelMapper.map("claude-haiku-4")
+    assert_equal "anthropic/claude-opus-4.7", StripeGatewayModelMapper.map("claude-opus-4")
   end
 
   test "maps gpt-4o to openai provider format" do
@@ -13,13 +13,13 @@ class StripeGatewayModelMapperTest < ActiveSupport::TestCase
   end
 
   test "maps blank and default to the gateway default model" do
-    assert_equal "anthropic/claude-sonnet-4-6", StripeGatewayModelMapper.map(nil)
-    assert_equal "anthropic/claude-sonnet-4-6", StripeGatewayModelMapper.map("")
-    assert_equal "anthropic/claude-sonnet-4-6", StripeGatewayModelMapper.map("default")
+    assert_equal "anthropic/claude-sonnet-4.6", StripeGatewayModelMapper.map(nil)
+    assert_equal "anthropic/claude-sonnet-4.6", StripeGatewayModelMapper.map("")
+    assert_equal "anthropic/claude-sonnet-4.6", StripeGatewayModelMapper.map("default")
   end
 
   test "passes through names already in provider/model format" do
-    assert_equal "anthropic/claude-sonnet-4-6", StripeGatewayModelMapper.map("anthropic/claude-sonnet-4-6")
+    assert_equal "anthropic/claude-sonnet-4.6", StripeGatewayModelMapper.map("anthropic/claude-sonnet-4.6")
     assert_equal "openai/gpt-4o-mini", StripeGatewayModelMapper.map("openai/gpt-4o-mini")
   end
 

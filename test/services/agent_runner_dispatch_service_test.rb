@@ -175,7 +175,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_not_nil entry, "task should be dispatched: #{@task_run.reload.error}"
     fields = entry[1]
     assert_equal "stripe_gateway", fields["llm_gateway_mode"]
-    assert_equal "anthropic/claude-sonnet-4-6", fields["model"]
+    assert_equal "anthropic/claude-sonnet-4.6", fields["model"]
     assert_equal "cus_test123", fields["stripe_customer_stripe_id"]
     redis.close
   end
