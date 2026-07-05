@@ -3,8 +3,6 @@
 class HomeController < ApplicationController
   include FeedPage
 
-  before_action :redirect_representing
-
   def index
     @page_title = 'Home'
     @page_scope = "visibility:public"
@@ -59,12 +57,6 @@ class HomeController < ApplicationController
   end
 
   private
-
-  def redirect_representing
-    if current_representation_session
-      return redirect_to "/representing"
-    end
-  end
 
   # The default home view's reminder authors: the tuned-in list plus the
   # viewer, minus block-related users.

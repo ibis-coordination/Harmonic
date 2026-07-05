@@ -122,6 +122,20 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "can navigate the public space (home) while representing" do
+    sign_in_as(@parent, tenant: @tenant)
+    start_representing
+
+    # The public space is the main collective, served at the root prefix.
+    # Navigating to it during representation must render, not bounce back to
+    # /representing (Harmonic#383).
+    get "/"
+    assert_response :success
+
+    get "/about"
+    assert_response :success
+  end
+
   test "creating content while representing attributes it to the represented user" do
     sign_in_as(@parent, tenant: @tenant)
     start_representing

@@ -112,6 +112,21 @@ class RepresentationSessionIntegrationTest < ActionDispatch::IntegrationTest
   # Actions While Representing
   # ====================
 
+  test "can navigate the public space (home) while representing a collective" do
+    @collective.collective_members.find_by(user: @user).add_role!('representative')
+    sign_in_with_representation_reverification(@user)
+
+    post "/collectives/#{@collective.handle}/represent", params: { understand: 'true' }
+    follow_redirect!
+
+    # The public space (main collective, root prefix) must be navigable while
+    # representing the collective — posting a public announcement as the
+    # collective starts here (Harmonic#383).
+    get "/"
+    assert_response :success
+    assert_equal "/", path
+  end
+
   test "creating note while representing attributes it to identity user" do
     @collective.collective_members.find_by(user: @user).add_role!('representative')
     sign_in_with_representation_reverification(@user)
