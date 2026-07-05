@@ -51,7 +51,18 @@ Agent-runner went through a substantial refactor in mid-June (71aabfd2 and follo
 
 ### Phase 1 — Stripe-side verification (do first, blocks everything)
 
-> **Status 2026-07-05:** Access CONFIRMED — the harmonic.social Stripe account is in the LLM gateway private preview. Remaining Phase 1 items: create the restricted key (step 3), verify `STRIPE_CREDIT_PRODUCT_ID` (step 4), and make one successful raw call to `llm.stripe.com` (step 5). Also check what markup (if any) the gateway supports on passed-through token costs.
+> **Status 2026-07-05 (later): Phase 1 raw-call verification PASSED.** Test-mode `rk_test_` gateway key (Billing → Meter events: Write) accepted by `llm.stripe.com`, both with and without `X-Stripe-Customer-ID`. Exact working request:
+>
+> ```
+> curl https://llm.stripe.com/chat/completions \
+>   -H "Content-Type: application/json" \
+>   -H "Authorization: Bearer $STRIPE_GATEWAY_KEY" \
+>   -H "X-Stripe-Customer-ID: cus_UpZQeYlBN6ZYlf" \
+>   -d '{"model": "anthropic/claude-haiku-4.5",
+>        "messages": [{"role": "user", "content": "..."}], "max_tokens": 20}'
+> ```
+>
+> Returns HTTP 200, OpenAI-format JSON (`choices[0].message.content`, `usage.prompt_tokens`/`completion_tokens`) — matches what LLMClient.ts parses. Anthropic served via Vertex (`msg_vrtx_` ids). Model names must be the gateway's dotted form (`anthropic/claude-haiku-4.5`). Test customer for attribution checks: `cus_UpZQeYlBN6ZYlf` ("Gateway Verification Test", test mode). Markup: supported, set as a percentage on the Dashboard pricing plan. Remaining verification (dashboard): meter events visible for the test customer, usage lands on an upcoming invoice, credit grant offsets it (the prepaid-vs-postpaid question).
 
 1. Log into the Stripe dashboard for the harmonic.social account.
 2. Open Developers → API keys → Create restricted key. Confirm an "AI Gateway" permission row exists. If it doesn't, the rest of this plan parks until it does.
