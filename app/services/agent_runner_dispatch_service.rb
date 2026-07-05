@@ -80,6 +80,14 @@ class AgentRunnerDispatchService
 
     model = ai_agent.agent_configuration&.dig("model") || ""
     if gateway_mode == "stripe_gateway"
+      # Without a pricing-plan subscription, gateway usage is metered but never
+      # billed and credits never drain — refuse rather than give free usage.
+      # Topping up at /billing creates the subscription.
+      unless T.must(billing_customer).pricing_plan_subscription_id.present?
+        fail_task!("AI usage billing is not fully set up. Add credits at /billing to complete setup before running agents.")
+        return
+      end
+
       # Pre-flight credit balance check
       credit_balance = StripeService.get_credit_balance(T.must(billing_customer))
       if credit_balance.nil? || credit_balance <= 0

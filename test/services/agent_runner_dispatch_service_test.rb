@@ -225,6 +225,22 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
+  test "fails task when billing customer has no pricing plan subscription" do
+    setup_active_billing!(pricing_plan_subscription_id: nil)
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_includes @task_run.error, "usage billing"
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_nil entry, "task without usage billing must not reach the stream"
+    redis.close
+  end
+
   test "fails task when credit balance is zero" do
     setup_active_billing!
 
@@ -344,12 +360,13 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     tenant.enable_feature_flag!("stripe_billing")
   end
 
-  def setup_active_billing!
+  def setup_active_billing!(pricing_plan_subscription_id: "bpps_test123")
     enable_stripe_billing_flag!(@tenant)
     billing_customer = StripeCustomer.create!(
       billable: @ai_agent,
       stripe_id: "cus_test123",
       active: true,
+      pricing_plan_subscription_id: pricing_plan_subscription_id,
     )
     @ai_agent.update!(stripe_customer_id: billing_customer.id)
   end
