@@ -329,6 +329,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           task.model,
           tools,
           task.stripeCustomerStripeId,
+          task.llmGatewayMode,
         ).pipe(
           Effect.map((r) => ({ ok: true as const, response: r })),
           Effect.catchAll((err) =>
@@ -593,6 +594,7 @@ const updateScratchpad = (
       task.model,
       [], // no tools for scratchpad
       task.stripeCustomerStripeId,
+      task.llmGatewayMode,
     );
 
     const usage = { inputTokens: response.usage.inputTokens, outputTokens: response.usage.outputTokens };
