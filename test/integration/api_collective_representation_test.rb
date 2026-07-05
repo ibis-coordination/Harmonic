@@ -150,6 +150,51 @@ class ApiCollectiveRepresentationTest < ActionDispatch::IntegrationTest
   end
 
   # ---------------------------------------------------------------------------
+  # Acting under the session across collective contexts (#402)
+  #
+  # resolve_api_representation looked the session up under the collective default
+  # scope. RepresentationSession is MightNotBelongToCollective, so a *collective*
+  # session (collective_id = the represented collective) is scoped out whenever
+  # the request's Collective.current_id is anything else -> the lookup returns
+  # nil and the caller gets "Invalid representation session ID".
+  #
+  # The start/end tests above never hit this: they act on the represented
+  # collective's own /represent path, where the current-collective context
+  # matches and the default scope happens to include the row. The bug only
+  # surfaces when acting under the session on a DIFFERENT collective context
+  # (a second collective, or the public space) — exactly what an agent does when
+  # it starts a session to post an announcement somewhere other than the
+  # collective's own page.
+  # ---------------------------------------------------------------------------
+
+  test "collective session resolves when acting on a different collective's context" do
+    grant_representative_role!
+    session_id = start_session!
+
+    # A second collective forces a different Collective.current_id on the request.
+    # The acting identity (the represented collective's identity_user) is a member
+    # so the target page authorizes cleanly once representation resolves.
+    other = create_collective(tenant: @tenant, created_by: @alice,
+                              handle: "api-crep-other-#{SecureRandom.hex(4)}")
+    other.add_user!(@alice)
+    other.add_user!(@collective.identity_user)
+    other.enable_api!
+
+    get other.path, headers: @headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-Collective" => @collective.handle,
+    )
+
+    assert_response :success,
+                    "collective session must resolve regardless of the request's collective " \
+                    "context, but got #{response.status}: #{response.body[0..300]}"
+    refute_includes response.body, "Invalid representation session ID",
+                     "the session lookup must not be scoped out by the differing collective context"
+    assert_includes response.body, "acting on behalf of",
+                    "the response should reflect that the caller is acting under the collective session"
+  end
+
+  # ---------------------------------------------------------------------------
   # Nested-session guard is DB-backed, not header-dependent (#365 review, #1)
   # ---------------------------------------------------------------------------
 

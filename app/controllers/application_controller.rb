@@ -324,8 +324,15 @@ class ApplicationController < ActionController::Base
 
     # Look up the RepresentationSession by ID
     # Support both full UUID and 8-char truncated_id
+    #
+    # Bypass the collective default scope (RepresentationSession is
+    # MightNotBelongToCollective). A collective session carries the represented
+    # collective's id, so under the default scope it is filtered out whenever the
+    # request's collective context differs from that collective (e.g. acting on a
+    # public page or another collective) -> "Invalid representation session ID".
+    # tenant_scoped_only mirrors the browser path (resolve_browser_representation).
     column = session_id.length == 8 ? "truncated_id" : "id"
-    rep_session = RepresentationSession.find_by(column => session_id, tenant_id: current_tenant.id)
+    rep_session = RepresentationSession.tenant_scoped_only(current_tenant.id).find_by(column => session_id)
 
     # Validate: session exists
     unless rep_session
