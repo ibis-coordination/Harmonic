@@ -113,14 +113,22 @@ Webhook verification (`/stripe/webhooks`) uses `STRIPE_WEBHOOK_SECRET` for signa
 
 **Enable:**
 
-1. **Create the restricted keys** in the Stripe dashboard per the tables above. `STRIPE_GATEWAY_KEY` goes to both Rails and the agent-runner; `STRIPE_API_KEY` to Rails only.
-2. **Create the credit product** (or verify the existing one) in the Stripe dashboard and set `STRIPE_CREDIT_PRODUCT_ID`. Top-up checkout raises `KeyError` without it.
-3. **Create the pricing plan** (Dashboard → Pricing plans → Create → "Billing for LLM tokens" template): select the models to offer and set the markup percentage. Set its `bpp_...` id as `STRIPE_PRICING_PLAN_ID`.
-4. **Ask Stripe to enable zero-balance rejection** (token-billing-team@stripe.com) so the gateway itself refuses requests once a customer's balance is empty — our dispatch preflight checks at task start, not per LLM call, and balance deduction is aggregated periodically rather than real-time.
-5. **Deploy** with the vars set. No behavior changes yet — routing stays on LiteLLM until a tenant qualifies.
-6. **Verify health:** `rails billing:gateway_health` should show all three vars present and list active customers with balances and subscription status.
-7. **Enable the flag:** `tenant.enable_feature_flag!("stripe_billing")` for the target tenant. From the next dispatch, that tenant's billed agents route through the gateway.
-8. **Smoke test:** top up a small amount at `/billing/topup` (this also creates the pricing-plan subscription), run an agent task, confirm the balance dropped (`billing:gateway_health`) and the agent-runner logged `llm_request` lines with `"gateway_mode":"stripe_gateway"`.
+1. **Run the setup script** from any machine (never store the secret key on the server):
+
+   ```bash
+   STRIPE_SECRET_KEY=sk_live_... HOSTNAME=<prod HOSTNAME> PRIMARY_SUBDOMAIN=<prod PRIMARY_SUBDOMAIN> \
+     ./scripts/stripe-setup.sh
+   ```
+
+   `STRIPE_SECRET_KEY` is the account secret key, used only for this run — it is not an app env var and never goes on the server. The webhook URL derives from `HOSTNAME`/`PRIMARY_SUBDOMAIN` exactly as the app's own non-tenant URLs do (or pass an explicit URL as the first argument). The script idempotently creates or verifies the credit product, the $3/month identity price, and the webhook endpoint (printing `STRIPE_WEBHOOK_SECRET` on creation), verifies the pricing plan and gateway key when their env vars are provided, and prints the env-var block plus any remaining dashboard-only steps. Re-run it after each manual step until the manual-steps list is empty.
+2. **Dashboard-only steps** (the script prints these with exact instructions):
+   - Create the two restricted keys per the permission tables above (`STRIPE_GATEWAY_KEY` → Rails and agent-runner; `STRIPE_API_KEY` → Rails only).
+   - Create the pricing plan (Dashboard → Pricing plans → Create → "Billing for LLM tokens" template): select the models to offer and set the **markup percentage** — this is the pricing decision. Set its `bpp_...` id as `STRIPE_PRICING_PLAN_ID`.
+3. **Ask Stripe to enable zero-balance rejection** (token-billing-team@stripe.com) so the gateway itself refuses requests once a customer's balance is empty — our dispatch preflight checks at task start, not per LLM call, and balance deduction is aggregated periodically rather than real-time.
+4. **Deploy** with the vars set. No behavior changes yet — routing stays on LiteLLM until a tenant qualifies.
+5. **Verify health:** `rails billing:gateway_health` should show all three vars present and list active customers with balances and subscription status.
+6. **Enable the flag:** `tenant.enable_feature_flag!("stripe_billing")` for the target tenant. From the next dispatch, that tenant's billed agents route through the gateway. Before flipping it on a tenant, confirm no *other* tenant already has the flag plus active billing customers — their agents would start requiring credits too.
+7. **Smoke test:** top up a small amount at `/billing/topup` (this also creates the pricing-plan subscription), run an agent task, confirm the balance dropped (`billing:gateway_health`) and the agent-runner logged `llm_request` lines with `"gateway_mode":"stripe_gateway"`. Full checklist: `test/manual/billing/gateway_enablement.manual_test.md`.
 
 **Model names.** Agents store LiteLLM aliases (`claude-sonnet-4`, `claude-haiku-4`, ...). At dispatch, `StripeGatewayModelMapper` translates them to the gateway's `provider/model` format; agents with no configured model get the mapper's default. Models the gateway cannot proxy (local Ollama, Arcee Trinity) fail the task at dispatch with an explanatory error — update the agent's model or route the tenant back to LiteLLM.
 
