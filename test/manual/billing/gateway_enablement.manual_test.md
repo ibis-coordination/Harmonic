@@ -11,8 +11,8 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 ## Prerequisites
 
 - Stripe account enrolled in the AI Gateway preview (`llm.stripe.com`)
-- `STRIPE_GATEWAY_KEY` and `STRIPE_CREDIT_PRODUCT_ID` set on Rails and agent-runner (see docs/BILLING.md runbook)
-- `rails billing:gateway_health` shows both vars present
+- `STRIPE_GATEWAY_KEY`, `STRIPE_CREDIT_PRODUCT_ID`, and `STRIPE_PRICING_PLAN_ID` set (see docs/BILLING.md runbook)
+- `rails billing:gateway_health` shows all three vars present
 - Tenant A: `stripe_billing` enabled, a user with an active subscription and one internal AI agent
 - Tenant B: `stripe_billing` NOT enabled, with one internal AI agent (regression control)
 
@@ -27,7 +27,9 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 ### Checklist
 
 - [ ] Checkout completes and redirects back to `/billing`
-- [ ] Balance shows the granted amount (`credit_balance_cents` matches the top-up)
+- [ ] Balance shows the granted amount plus any included-usage credits from the pricing plan
+- [ ] No `[NO PRICING PLAN SUBSCRIPTION]` marker for the customer (the top-up subscribed them)
+- [ ] Stripe dashboard shows the customer subscribed to the pricing plan
 
 ## Test 2: Agent run bills the gateway
 
@@ -41,7 +43,8 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 
 - [ ] Task completes successfully
 - [ ] Log lines show `"gateway_mode":"stripe_gateway"`, `"stripe_customer_present":true`, and a `provider/model`-format model name
-- [ ] Balance dropped by roughly the expected token cost
+- [ ] Meter events for the run appear in the Stripe dashboard (Usage-based billing → Meters) within seconds
+- [ ] Balance drops by roughly the expected token cost (deduction is aggregated periodically — allow up to an hour, not instant)
 
 ## Test 3: Drain to zero fails cleanly
 
