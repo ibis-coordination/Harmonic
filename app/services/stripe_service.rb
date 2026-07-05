@@ -309,6 +309,11 @@ class StripeService
       { idempotency_key: "credit_grant:#{checkout_session_id}" },
     )
     Rails.logger.info("[StripeService] Created credit grant of #{amount_cents} cents for customer #{stripe_customer.stripe_id} (session #{checkout_session_id})")
+
+    # Credits only drain if the customer is subscribed to the LLM-tokens
+    # pricing plan; a failure here is logged and dispatch blocks gateway
+    # usage until the next top-up retries it.
+    ensure_pricing_plan_subscription!(stripe_customer)
   end
 
   # Fetch the available credit balance for a Stripe customer.
@@ -326,6 +331,122 @@ class StripeService
   rescue Stripe::StripeError => e
     Rails.logger.error("[StripeService] Failed to fetch credit balance for #{stripe_customer.stripe_id}: #{e.message}")
     nil
+  end
+
+  # Stripe's token-billing preview APIs (pricing plans, billing intents) are
+  # v2 JSON endpoints not yet wrapped by stripe-ruby resources.
+  PRICING_PLAN_API_VERSION = "2026-06-24.preview"
+
+  # Subscribe the customer to the LLM-tokens pricing plan (STRIPE_PRICING_PLAN_ID).
+  # Without this subscription, gateway usage is metered but never billed and
+  # prepaid credits never drain — so dispatch refuses gateway tasks until it exists.
+  # Idempotent via the stored pricing_plan_subscription_id. If the plan has an
+  # amount due at subscribe time, charges the customer's default payment method
+  # off-session. Returns false (logged) on missing config or Stripe errors;
+  # callers treat that as "credits granted but usage billing incomplete".
+  sig { params(stripe_customer: StripeCustomer).returns(T::Boolean) }
+  def self.ensure_pricing_plan_subscription!(stripe_customer)
+    return true if stripe_customer.pricing_plan_subscription_id.present?
+
+    plan_id = ENV["STRIPE_PRICING_PLAN_ID"]
+    if plan_id.blank?
+      Rails.logger.warn("[StripeService] STRIPE_PRICING_PLAN_ID not set; cannot subscribe #{stripe_customer.stripe_id} to the pricing plan")
+      return false
+    end
+
+    plan = v2_request(:get, "/v2/billing/pricing_plans/#{plan_id}")
+    profile = v2_request(:post, "/v2/billing/profiles", { customer: stripe_customer.stripe_id })
+    cadence = v2_request(:post, "/v2/billing/cadences", {
+      payer: { billing_profile: profile.fetch("id") },
+      billing_cycle: { type: "month", interval_count: 1 },
+    })
+    intent = v2_request(:post, "/v2/billing/intents", {
+      currency: "usd",
+      cadence: cadence.fetch("id"),
+      actions: [{
+        type: "subscribe",
+        subscribe: {
+          type: "pricing_plan_subscription_details",
+          pricing_plan_subscription_details: {
+            pricing_plan: plan_id,
+            pricing_plan_version: plan.fetch("live_version"),
+            component_configurations: [],
+          },
+        },
+      }],
+    })
+    reserved = v2_request(:post, "/v2/billing/intents/#{intent.fetch("id")}/reserve")
+
+    commit_params = {}
+    amount_due = reserved.dig("amount_details", "total").to_i
+    if amount_due.positive?
+      payment_method = default_payment_method_for(stripe_customer)
+      if payment_method.blank?
+        Rails.logger.error("[StripeService] No default payment method for #{stripe_customer.stripe_id}; cannot pay pricing plan subscription")
+        return false
+      end
+      payment_intent = Stripe::PaymentIntent.create(
+        amount: amount_due,
+        currency: "usd",
+        customer: stripe_customer.stripe_id,
+        payment_method: payment_method,
+        off_session: true,
+        confirm: true,
+      )
+      commit_params = { payment_intent: payment_intent.id }
+    end
+
+    v2_request(:post, "/v2/billing/intents/#{intent.fetch("id")}/commit", commit_params)
+
+    # The commit response doesn't reference the created subscription; find it
+    # via the cadence, which is unique to this call.
+    subscriptions = v2_request(:get, "/v2/billing/pricing_plan_subscriptions")
+    subscription = subscriptions.fetch("data", []).find { |s| s["billing_cadence"] == cadence.fetch("id") }
+    if subscription.nil?
+      Rails.logger.error("[StripeService] Committed billing intent #{intent.fetch("id")} but found no pricing plan subscription for cadence #{cadence.fetch("id")}")
+      return false
+    end
+
+    stripe_customer.update!(pricing_plan_subscription_id: subscription.fetch("id"))
+    Rails.logger.info("[StripeService] Subscribed #{stripe_customer.stripe_id} to pricing plan #{plan_id} (#{subscription.fetch("id")})")
+    true
+  rescue Stripe::StripeError => e
+    Rails.logger.error("[StripeService] Failed to subscribe #{stripe_customer.stripe_id} to pricing plan: #{e.message}")
+    false
+  end
+
+  sig { params(method: Symbol, path: String, params: T::Hash[Symbol, T.untyped]).returns(T::Hash[String, T.untyped]) }
+  def self.v2_request(method, path, params = {})
+    client = Stripe::StripeClient.new(T.must(Stripe.api_key))
+    response = client.raw_request(method, path, params: params, opts: { stripe_version: PRICING_PLAN_API_VERSION })
+    JSON.parse(response.http_body)
+  end
+  private_class_method :v2_request
+
+  sig { params(stripe_customer: StripeCustomer).returns(T.nilable(String)) }
+  def self.default_payment_method_for(stripe_customer)
+    customer = Stripe::Customer.retrieve(stripe_customer.stripe_id)
+    customer.invoice_settings&.default_payment_method
+  end
+  private_class_method :default_payment_method_for
+
+  # Operational snapshot of the AI gateway configuration and every active
+  # customer's prepaid credit balance. A nil balance means the Stripe API
+  # call failed for that customer (details in the error log).
+  sig { returns(T::Hash[Symbol, T.untyped]) }
+  def self.gateway_health
+    {
+      gateway_key_present: ENV["STRIPE_GATEWAY_KEY"].present?,
+      credit_product_configured: ENV["STRIPE_CREDIT_PRODUCT_ID"].present?,
+      pricing_plan_configured: ENV["STRIPE_PRICING_PLAN_ID"].present?,
+      active_customers: StripeCustomer.where(active: true).map do |customer|
+        {
+          stripe_id: customer.stripe_id,
+          credit_balance_cents: get_credit_balance(customer),
+          pricing_plan_subscribed: customer.pricing_plan_subscription_id.present?,
+        }
+      end,
+    }
   end
 
   # Create a Stripe Billing Portal session.

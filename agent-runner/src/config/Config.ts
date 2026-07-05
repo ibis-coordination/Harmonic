@@ -6,7 +6,9 @@ export interface AppConfig {
   readonly harmonicHostname: string;
   readonly agentRunnerSecret: string;
   readonly redisUrl: string;
-  readonly llmBaseUrl: string;
+  readonly litellmBaseUrl: string;
+  readonly stripeGatewayBaseUrl: string;
+  /** Fallback route for tasks whose payload carries no llm_gateway_mode. */
   readonly llmGatewayMode: "litellm" | "stripe_gateway";
   readonly stripeGatewayKey: string | undefined;
   readonly streamName: string;
@@ -38,9 +40,17 @@ export const ConfigLive = Layer.effect(
     const redisUrl = yield* optionalEnv("REDIS_URL", "redis://redis:6379");
     const llmGatewayMode = yield* optionalEnv("LLM_GATEWAY_MODE", "litellm");
     const harmonicInternalUrl = yield* optionalEnv("HARMONIC_INTERNAL_URL", "http://web:3000");
-    const llmBaseUrl = yield* optionalEnv(
-      "LLM_BASE_URL",
-      llmGatewayMode === "stripe_gateway" ? "https://llm.stripe.com" : "http://litellm:4000",
+    // LLM_BASE_URL historically overrode the single boot-mode endpoint; keep
+    // honoring it for whichever mode the env declares, with per-route
+    // overrides available via the explicit vars.
+    const llmBaseUrl = process.env["LLM_BASE_URL"];
+    const litellmBaseUrl = yield* optionalEnv(
+      "LITELLM_BASE_URL",
+      (llmGatewayMode === "litellm" ? llmBaseUrl : undefined) ?? "http://litellm:4000",
+    );
+    const stripeGatewayBaseUrl = yield* optionalEnv(
+      "STRIPE_GATEWAY_BASE_URL",
+      (llmGatewayMode === "stripe_gateway" ? llmBaseUrl : undefined) ?? "https://llm.stripe.com",
     );
     const stripeGatewayKey = process.env["STRIPE_GATEWAY_KEY"];
     const streamName = yield* optionalEnv("AGENT_TASKS_STREAM", "agent_tasks");
@@ -60,7 +70,8 @@ export const ConfigLive = Layer.effect(
       harmonicHostname,
       agentRunnerSecret,
       redisUrl,
-      llmBaseUrl,
+      litellmBaseUrl,
+      stripeGatewayBaseUrl,
       llmGatewayMode: llmGatewayMode as "litellm" | "stripe_gateway",
       stripeGatewayKey,
       streamName,

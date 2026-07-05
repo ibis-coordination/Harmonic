@@ -1615,6 +1615,182 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal 0, result
   end
 
+  # === ensure_pricing_plan_subscription! ===
+
+  PLAN_ID = "bpp_test_plan123"
+  PLAN_VERSION = "bppv_test_version123"
+
+  def with_pricing_plan_env
+    original = ENV["STRIPE_PRICING_PLAN_ID"]
+    ENV["STRIPE_PRICING_PLAN_ID"] = PLAN_ID
+    yield
+  ensure
+    original.nil? ? ENV.delete("STRIPE_PRICING_PLAN_ID") : ENV["STRIPE_PRICING_PLAN_ID"] = original
+  end
+
+  def stub_pricing_plan_subscription_flow(reserve_total: "0")
+    stub_request(:get, "https://api.stripe.com/v2/billing/pricing_plans/#{PLAN_ID}")
+      .to_return(status: 200, body: { id: PLAN_ID, live_version: PLAN_VERSION }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v2/billing/profiles")
+      .to_return(status: 200, body: { id: "bilp_test_1" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v2/billing/cadences")
+      .to_return(status: 200, body: { id: "bc_test_1" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v2/billing/intents")
+      .to_return(status: 200, body: { id: "bilint_test_1", status: "drafted" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v2/billing/intents/bilint_test_1/reserve")
+      .to_return(status: 200, body: { id: "bilint_test_1", status: "reserved", amount_details: { total: reserve_total } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v2/billing/intents/bilint_test_1/commit")
+      .to_return(status: 200, body: { id: "bilint_test_1", status: "committed" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, %r{https://api.stripe.com/v2/billing/pricing_plan_subscriptions.*})
+      .to_return(status: 200, body: { data: [{ id: "bpps_test_new1", billing_cadence: "bc_test_1" },
+                                             { id: "bpps_test_other", billing_cadence: "bc_test_other" }] }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+  end
+
+  test "ensure_pricing_plan_subscription! subscribes and stores the subscription id (zero due)" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_plan1", active: true)
+    stub_pricing_plan_subscription_flow(reserve_total: "0")
+
+    result = with_pricing_plan_env { StripeService.ensure_pricing_plan_subscription!(sc) }
+
+    assert result
+    assert_equal "bpps_test_new1", sc.reload.pricing_plan_subscription_id
+    assert_not_requested :post, "https://api.stripe.com/v1/payment_intents"
+    assert_requested(:post, "https://api.stripe.com/v2/billing/intents/bilint_test_1/commit") do |req|
+      !req.body.include?("payment_intent")
+    end
+  end
+
+  test "ensure_pricing_plan_subscription! charges off-session when the plan has an amount due" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_plan2", active: true)
+    stub_pricing_plan_subscription_flow(reserve_total: "300")
+    stub_request(:get, "https://api.stripe.com/v1/customers/cus_plan2")
+      .to_return(status: 200, body: { id: "cus_plan2", invoice_settings: { default_payment_method: "pm_default1" } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/payment_intents")
+      .to_return(status: 200, body: { id: "pi_test_1", status: "succeeded" }.to_json, headers: { "Content-Type" => "application/json" })
+
+    result = with_pricing_plan_env { StripeService.ensure_pricing_plan_subscription!(sc) }
+
+    assert result
+    assert_equal "bpps_test_new1", sc.reload.pricing_plan_subscription_id
+    assert_requested(:post, "https://api.stripe.com/v1/payment_intents") do |req|
+      req.body.include?("amount=300") && req.body.include?("off_session=true") && req.body.include?("pm_default1")
+    end
+    assert_requested(:post, "https://api.stripe.com/v2/billing/intents/bilint_test_1/commit") do |req|
+      req.body.include?("pi_test_1")
+    end
+  end
+
+  test "ensure_pricing_plan_subscription! is a no-op when already subscribed" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_plan3", active: true, pricing_plan_subscription_id: "bpps_existing")
+
+    result = with_pricing_plan_env { StripeService.ensure_pricing_plan_subscription!(sc) }
+
+    assert result
+    assert_equal "bpps_existing", sc.reload.pricing_plan_subscription_id
+  end
+
+  test "ensure_pricing_plan_subscription! returns false when the plan id is not configured" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_plan4", active: true)
+    original = ENV["STRIPE_PRICING_PLAN_ID"]
+    ENV.delete("STRIPE_PRICING_PLAN_ID")
+    begin
+      assert_not StripeService.ensure_pricing_plan_subscription!(sc)
+    ensure
+      ENV["STRIPE_PRICING_PLAN_ID"] = original unless original.nil?
+    end
+    assert_nil sc.reload.pricing_plan_subscription_id
+  end
+
+  test "create_credit_grant_from_checkout also subscribes the customer to the pricing plan" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_grant_plan", active: true)
+    stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")
+      .to_return(status: 200, body: { id: "credgr_test" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_pricing_plan_subscription_flow(reserve_total: "0")
+
+    with_pricing_plan_env do
+      StripeService.create_credit_grant_from_checkout(stripe_customer: sc, amount_cents: 500, checkout_session_id: "cs_plan_wire")
+    end
+
+    assert_requested(:post, "https://api.stripe.com/v1/billing/credit_grants")
+    assert_equal "bpps_test_new1", sc.reload.pricing_plan_subscription_id
+  end
+
+  test "ensure_pricing_plan_subscription! returns false on Stripe errors without storing" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_plan5", active: true)
+    stub_request(:get, "https://api.stripe.com/v2/billing/pricing_plans/#{PLAN_ID}")
+      .to_return(status: 500, body: { error: { message: "boom" } }.to_json, headers: { "Content-Type" => "application/json" })
+
+    result = with_pricing_plan_env { StripeService.ensure_pricing_plan_subscription!(sc) }
+
+    assert_not result
+    assert_nil sc.reload.pricing_plan_subscription_id
+  end
+
+  # === gateway_health ===
+
+  test "gateway_health reports config presence and per-customer balances" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_health1", active: true, pricing_plan_subscription_id: "bpps_health1")
+    inactive_user = User.create!(name: "Inactive", email: "inactive-#{SecureRandom.hex(4)}@example.com")
+    StripeCustomer.create!(billable: inactive_user, stripe_id: "cus_inactive", active: false)
+
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
+      .to_return(
+        status: 200,
+        body: {
+          object: "billing.credit_balance_summary",
+          balances: [
+            {
+              available_balance: { type: "monetary", monetary: { value: 1200, currency: "usd" } },
+              ledger_balance: { type: "monetary", monetary: { value: 1200, currency: "usd" } },
+            },
+          ],
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    original_key = ENV["STRIPE_GATEWAY_KEY"]
+    original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
+    ENV["STRIPE_GATEWAY_KEY"] = "rk_test_gateway"
+    ENV["STRIPE_CREDIT_PRODUCT_ID"] = "prod_test_credit"
+    begin
+      report = with_pricing_plan_env { StripeService.gateway_health }
+    ensure
+      original_key.nil? ? ENV.delete("STRIPE_GATEWAY_KEY") : ENV["STRIPE_GATEWAY_KEY"] = original_key
+      original_product.nil? ? ENV.delete("STRIPE_CREDIT_PRODUCT_ID") : ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product
+    end
+
+    assert report[:gateway_key_present]
+    assert report[:credit_product_configured]
+    assert report[:pricing_plan_configured]
+    customer_ids = report[:active_customers].map { |c| c[:stripe_id] }
+    assert_includes customer_ids, "cus_health1"
+    assert_not_includes customer_ids, "cus_inactive"
+    health1 = report[:active_customers].find { |c| c[:stripe_id] == "cus_health1" }
+    assert_equal 1200, health1[:credit_balance_cents]
+    assert health1[:pricing_plan_subscribed]
+  end
+
+  test "gateway_health reports missing config" do
+    original_key = ENV["STRIPE_GATEWAY_KEY"]
+    original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
+    ENV.delete("STRIPE_GATEWAY_KEY")
+    ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
+    begin
+      report = StripeService.gateway_health
+    ensure
+      ENV["STRIPE_GATEWAY_KEY"] = original_key unless original_key.nil?
+      ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product unless original_product.nil?
+    end
+
+    assert_not report[:gateway_key_present]
+    assert_not report[:credit_product_configured]
+    assert_not report[:pricing_plan_configured]
+    assert_equal [], report[:active_customers]
+  end
+
   test "get_credit_balance returns nil on Stripe error" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_balerr")
 

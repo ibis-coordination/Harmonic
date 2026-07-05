@@ -1729,7 +1729,8 @@ CREATE TABLE public.stripe_customers (
     stripe_subscription_id character varying,
     active boolean DEFAULT false NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    pricing_plan_subscription_id character varying
 );
 
 
@@ -10304,6 +10305,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260705182920'),
 ('20260702010000'),
 ('20260702000000'),
 ('20260701000000'),

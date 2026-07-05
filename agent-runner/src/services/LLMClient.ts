@@ -6,6 +6,7 @@
 import { Context, Effect, Layer } from "effect";
 import { Config } from "../config/Config.js";
 import { LLMError } from "../errors/Errors.js";
+import { log } from "./Logger.js";
 import type { Message, ToolCall } from "../core/PromptBuilder.js";
 import type { ToolDefinition } from "../core/AgentContext.js";
 
@@ -33,6 +34,7 @@ export interface LLMClientService {
     model: string | undefined,
     tools: readonly ToolDefinition[],
     stripeCustomerId: string | undefined,
+    gatewayMode?: "litellm" | "stripe_gateway",
   ) => Effect.Effect<LLMResponse, LLMError>;
 }
 
@@ -76,10 +78,12 @@ export const LLMClientLive = Layer.effect(
   Effect.gen(function* () {
     const config = yield* Config;
 
-    const chat: LLMClientService["chat"] = (messages, model, tools, stripeCustomerId) =>
+    const chat: LLMClientService["chat"] = (messages, model, tools, stripeCustomerId, gatewayMode) =>
       Effect.tryPromise({
         try: async () => {
-          const endpoint = config.llmGatewayMode === "stripe_gateway"
+          const mode = gatewayMode ?? config.llmGatewayMode;
+          const baseUrl = mode === "stripe_gateway" ? config.stripeGatewayBaseUrl : config.litellmBaseUrl;
+          const endpoint = mode === "stripe_gateway"
             ? "/chat/completions"
             : "/v1/chat/completions";
 
@@ -87,14 +91,17 @@ export const LLMClientLive = Layer.effect(
             "Content-Type": "application/json",
           };
 
-          if (config.llmGatewayMode === "stripe_gateway") {
+          if (mode === "stripe_gateway") {
             if (config.stripeGatewayKey === undefined) {
               throw new Error("STRIPE_GATEWAY_KEY is required in stripe_gateway mode");
             }
-            headers["Authorization"] = `Bearer ${config.stripeGatewayKey}`;
-            if (stripeCustomerId !== undefined) {
-              headers["X-Stripe-Customer-ID"] = stripeCustomerId;
+            if (stripeCustomerId === undefined) {
+              // Without the customer header the gateway would bill the platform
+              // account instead of the tenant — refuse rather than eat the cost.
+              throw new Error("stripe_gateway mode requires a stripe customer id for billing attribution");
             }
+            headers["Authorization"] = `Bearer ${config.stripeGatewayKey}`;
+            headers["X-Stripe-Customer-ID"] = stripeCustomerId;
           }
 
           const body = JSON.stringify({
@@ -110,16 +117,32 @@ export const LLMClientLive = Layer.effect(
             max_tokens: 4096,
           });
 
-          const url = `${config.llmBaseUrl}${endpoint}`;
+          const url = `${baseUrl}${endpoint}`;
+          const startedAt = Date.now();
           const response = await fetch(url, {
             method: "POST",
             headers,
             body,
             signal: AbortSignal.timeout(120_000),
           });
+          const durationMs = Date.now() - startedAt;
+
+          // Routing fields only — never the customer id itself.
+          const requestLogFields = {
+            gateway_mode: mode,
+            model: model ?? "default",
+            status_code: response.status,
+            duration_ms: durationMs,
+            stripe_customer_present: stripeCustomerId !== undefined,
+          };
 
           if (!response.ok) {
             const errorBody = await response.text().catch(() => "");
+            log.warn({
+              event: "llm_request_failed",
+              ...requestLogFields,
+              error_body: errorBody.slice(0, 200),
+            });
             if (response.status === 402) {
               throw new Error("Payment required. Please check your billing setup.");
             }
@@ -130,6 +153,12 @@ export const LLMClientLive = Layer.effect(
           }
 
           const data = await response.json() as CompletionResponse;
+          log.info({
+            event: "llm_request",
+            ...requestLogFields,
+            input_tokens: data.usage?.prompt_tokens ?? 0,
+            output_tokens: data.usage?.completion_tokens ?? 0,
+          });
           const choice = data.choices?.[0];
           const message = choice?.message;
 

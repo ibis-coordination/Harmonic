@@ -18,7 +18,9 @@ The unit price is **$3/month per billable identity**. A user has one Stripe subs
 
 **Why this shape.** A non-zero cost per identity discourages bad actors that rely on free or untraceable accounts (scam accounts, spam accounts, agents-fronting-as-humans). Humans without API access can join freely so the social layer doesn't have a price gate. Self-hosting remains an unrestricted alternative.
 
-**AI agent usage billing.** A separate prepaid credit balance covers LLM token usage when `LLM_GATEWAY_MODE=stripe_gateway`. Users top up via `/billing/topup` (requires an active subscription); the agent-runner deducts per LLM call, and task dispatch is blocked when the balance is empty. This is independent of the per-identity subscription.
+**AI agent usage billing.** A separate prepaid credit balance covers LLM token usage. Routing is decided per task at dispatch: agents whose tenant has `stripe_billing` enabled and whose owner has an active billing customer run through the Stripe AI Gateway (`llm.stripe.com`, billed against the prepaid balance); all other agents (including system agents like Trio) run through LiteLLM at the operator's cost. Users top up via `/billing/topup` (requires an active subscription); Stripe deducts per LLM call, and task dispatch is blocked when the balance is empty. This is independent of the per-identity subscription. See the enablement runbook below.
+
+Under the hood this uses Stripe's token billing (pricing plans + meter events): the first top-up also subscribes the customer to the LLM-tokens pricing plan (`STRIPE_PRICING_PLAN_ID`), which is what turns metered usage into billing — usage draws down credit grants (top-ups plus any included-usage credits the plan grants), and overage past the balance invoices at cycle end with the plan's markup. Dispatch refuses gateway tasks for customers without the plan subscription so usage can never run unbilled.
 
 ## Collective Tier State Machine
 
@@ -79,6 +81,54 @@ Two layers enforce billing at request time:
 - **Collective tier gate** (`Collective#tier_unlocks_paid_features?`) — short-circuits paid-feature access whenever the collective isn't on the paid tier. Used by `trio_enabled?`, `file_attachments_enabled?`, the automation dispatcher, the automation scheduler, the incoming-webhook receiver, and the per-toggle filter in collective settings updates. Always returns true for main collectives and for tenants without `stripe_billing` (self-hosted).
 
 Background workers (agent task execution, automation execution) have their own per-resource billing checks so suspended agents and pending resources don't run.
+
+## AI Gateway Enablement Runbook
+
+How LLM usage billing turns on for a production tenant. Prerequisite: the Stripe account is enrolled in the AI Gateway preview (`llm.stripe.com`).
+
+**Restricted key permissions.** Two keys, minimal scopes. Every permission maps to a specific code path — when adding a new Stripe API call, extend the matching key's permissions and this table.
+
+`STRIPE_GATEWAY_KEY` — used exclusively as the Bearer token for `llm.stripe.com` requests (agent-runner):
+
+| Permission | Access | Used by |
+|------------|--------|---------|
+| Billing → Meter events | Write | Every gateway LLM call (the gateway records token usage as meter events) |
+
+`STRIPE_API_KEY` — all `Stripe::*` API calls from Rails:
+
+| Permission | Access | Used by |
+|------------|--------|---------|
+| Customers | Write | `find_or_create_customer` (billing setup), email sync on user email change |
+| Checkout Sessions | Write | Subscription setup, collective upgrade, credit top-up; `retrieve` on the checkout return path |
+| Subscriptions | Write | Quantity sync (`Subscription.retrieve`, `SubscriptionItem.update`), cancel-at-zero-quantity |
+| Invoices | Write | Proration invoice create/pay, upcoming-invoice preview, finalizing the final invoice on cancel |
+| Products (incl. Prices) | Write | Ad-hoc `Price.create` per credit top-up checkout |
+| Credit grants | Write | Credit grant creation on top-up completion |
+| Credit balance summary | Read | Dispatch preflight balance check, `billing:gateway_health`, billing page |
+| Customer portal | Write | `/billing/portal` session creation |
+| PaymentIntents | Write | Off-session charge when the pricing-plan subscription has an amount due at subscribe time |
+| Billing (v2 preview: profiles, cadences, intents, pricing plans) | Write | `ensure_pricing_plan_subscription!` — the token-billing preview endpoints; verified working under the restricted key's Billing scopes in test mode, re-verify on the live key |
+
+Webhook verification (`/stripe/webhooks`) uses `STRIPE_WEBHOOK_SECRET` for signature checks — no key permission involved.
+
+**Enable:**
+
+1. **Create the restricted keys** in the Stripe dashboard per the tables above. `STRIPE_GATEWAY_KEY` goes to both Rails and the agent-runner; `STRIPE_API_KEY` to Rails only.
+2. **Create the credit product** (or verify the existing one) in the Stripe dashboard and set `STRIPE_CREDIT_PRODUCT_ID`. Top-up checkout raises `KeyError` without it.
+3. **Create the pricing plan** (Dashboard → Pricing plans → Create → "Billing for LLM tokens" template): select the models to offer and set the markup percentage. Set its `bpp_...` id as `STRIPE_PRICING_PLAN_ID`.
+4. **Ask Stripe to enable zero-balance rejection** (token-billing-team@stripe.com) so the gateway itself refuses requests once a customer's balance is empty — our dispatch preflight checks at task start, not per LLM call, and balance deduction is aggregated periodically rather than real-time.
+5. **Deploy** with the vars set. No behavior changes yet — routing stays on LiteLLM until a tenant qualifies.
+6. **Verify health:** `rails billing:gateway_health` should show all three vars present and list active customers with balances and subscription status.
+7. **Enable the flag:** `tenant.enable_feature_flag!("stripe_billing")` for the target tenant. From the next dispatch, that tenant's billed agents route through the gateway.
+8. **Smoke test:** top up a small amount at `/billing/topup` (this also creates the pricing-plan subscription), run an agent task, confirm the balance dropped (`billing:gateway_health`) and the agent-runner logged `llm_request` lines with `"gateway_mode":"stripe_gateway"`.
+
+**Model names.** Agents store LiteLLM aliases (`claude-sonnet-4`, `claude-haiku-4`, ...). At dispatch, `StripeGatewayModelMapper` translates them to the gateway's `provider/model` format; agents with no configured model get the mapper's default. Models the gateway cannot proxy (local Ollama, Arcee Trinity) fail the task at dispatch with an explanatory error — update the agent's model or route the tenant back to LiteLLM.
+
+**Rollback** (gateway outage, unexpected charges, key compromise):
+
+1. `tenant.disable_feature_flag!("stripe_billing")` — new dispatches route to LiteLLM immediately. Note the blast radius: this disables *all* billing gates for the tenant (subscriptions, paid tiers), not just gateway routing. Acceptable for an incident; restore the flag once resolved.
+2. If the key is compromised: revoke it in the Stripe dashboard and unset `STRIPE_GATEWAY_KEY`; in-flight gateway tasks fail with a clear error and can be re-run.
+3. Already-purchased credits are unaffected — they sit on the customer's Stripe balance until routing is restored.
 
 ## Design Notes
 

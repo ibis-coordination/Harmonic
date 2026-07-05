@@ -30,6 +30,8 @@ export interface TaskPayload {
   readonly agentId: string;
   readonly tenantSubdomain: string;
   readonly stripeCustomerStripeId: string | undefined;
+  /** Set by Rails at dispatch; undefined for payloads published before the field existed. */
+  readonly llmGatewayMode: "litellm" | "stripe_gateway" | undefined;
   readonly mode: "task" | "chat_turn";
   readonly chatSessionId: string | undefined;
 }

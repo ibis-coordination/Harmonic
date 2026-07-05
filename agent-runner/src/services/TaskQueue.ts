@@ -40,7 +40,7 @@ export interface TaskQueueService {
 
 export class TaskQueue extends Context.Tag("TaskQueue")<TaskQueue, TaskQueueService>() {}
 
-function parseStreamEntry(fields: string[]): TaskPayload | null {
+export function parseStreamEntry(fields: string[]): TaskPayload | null {
   const map = new Map<string, string>();
   for (let i = 0; i < fields.length; i += 2) {
     const key = fields[i];
@@ -71,6 +71,11 @@ function parseStreamEntry(fields: string[]): TaskPayload | null {
 
   const model = map.get("model");
   const stripeCustomerStripeId = map.get("stripe_customer_stripe_id");
+  const llmGatewayModeStr = map.get("llm_gateway_mode");
+  const llmGatewayMode =
+    llmGatewayModeStr === "stripe_gateway" || llmGatewayModeStr === "litellm"
+      ? llmGatewayModeStr
+      : undefined;
   const mode = map.get("mode");
   const chatSessionId = map.get("chat_session_id");
 
@@ -83,6 +88,7 @@ function parseStreamEntry(fields: string[]): TaskPayload | null {
     agentId,
     tenantSubdomain,
     stripeCustomerStripeId: stripeCustomerStripeId !== undefined && stripeCustomerStripeId !== "" ? stripeCustomerStripeId : undefined,
+    llmGatewayMode,
     mode: mode === "chat_turn" ? "chat_turn" : "task",
     chatSessionId: chatSessionId !== undefined && chatSessionId !== "" ? chatSessionId : undefined,
   };
