@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.41.0] - 2026-07-05
+
+### Added
+
+- **Multi-day calendar events from the create form** (#386, fixes #319) — the event form's Duration select gains a "Custom end time (multi-day)" option that reveals an explicit end datetime input. The model and API already accepted an arbitrary `ends_at`; now the HTML form can reach past its old 1-day duration cap.
+- **Billed agents route LLM usage through the Stripe AI Gateway** (#407) — dispatch decides per task: agents on a Stripe-billing tenant with an active customer run through the gateway against prepaid credits, everyone else stays on LiteLLM. Dispatch refuses gateway tasks when the customer lacks credit ("Add funds at /billing") or the LLM-tokens pricing-plan subscription, so usage can never run unbilled, and unmappable models fail fast at dispatch instead of erroring mid-request. New `billing:gateway_health` rake task and request logging for observability.
+
+### Fixed
+
+- **The public space stays navigable while representing** (#405, fixes #383) — the home controller no longer bounces every request to `/representing` during a representation session, so you can view the home feed and reach the public composer to post an announcement as the collective. Landing on `/representing` when a session starts is unchanged.
+- **Collective representation resolves across collective contexts** (#404, fixes #402) — acting under a collective representation session on a different collective or the public space no longer fails with "Invalid representation session ID"; the API path now looks the session up bypassing the collective default scope, mirroring the browser path.
+
 ## [1.40.0] - 2026-07-04
 
 ### Added
