@@ -6,6 +6,7 @@
 import { Context, Effect, Layer } from "effect";
 import { Config } from "../config/Config.js";
 import { LLMError } from "../errors/Errors.js";
+import { log } from "./Logger.js";
 import type { Message, ToolCall } from "../core/PromptBuilder.js";
 import type { ToolDefinition } from "../core/AgentContext.js";
 
@@ -117,15 +118,31 @@ export const LLMClientLive = Layer.effect(
           });
 
           const url = `${baseUrl}${endpoint}`;
+          const startedAt = Date.now();
           const response = await fetch(url, {
             method: "POST",
             headers,
             body,
             signal: AbortSignal.timeout(120_000),
           });
+          const durationMs = Date.now() - startedAt;
+
+          // Routing fields only — never the customer id itself.
+          const requestLogFields = {
+            gateway_mode: mode,
+            model: model ?? "default",
+            status_code: response.status,
+            duration_ms: durationMs,
+            stripe_customer_present: stripeCustomerId !== undefined,
+          };
 
           if (!response.ok) {
             const errorBody = await response.text().catch(() => "");
+            log.warn({
+              event: "llm_request_failed",
+              ...requestLogFields,
+              error_body: errorBody.slice(0, 200),
+            });
             if (response.status === 402) {
               throw new Error("Payment required. Please check your billing setup.");
             }
@@ -136,6 +153,12 @@ export const LLMClientLive = Layer.effect(
           }
 
           const data = await response.json() as CompletionResponse;
+          log.info({
+            event: "llm_request",
+            ...requestLogFields,
+            input_tokens: data.usage?.prompt_tokens ?? 0,
+            output_tokens: data.usage?.completion_tokens ?? 0,
+          });
           const choice = data.choices?.[0];
           const message = choice?.message;
 

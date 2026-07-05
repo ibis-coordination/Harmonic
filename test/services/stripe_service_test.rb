@@ -1615,6 +1615,65 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal 0, result
   end
 
+  # === gateway_health ===
+
+  test "gateway_health reports config presence and per-customer balances" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_health1", active: true)
+    inactive_user = User.create!(name: "Inactive", email: "inactive-#{SecureRandom.hex(4)}@example.com")
+    StripeCustomer.create!(billable: inactive_user, stripe_id: "cus_inactive", active: false)
+
+    stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
+      .to_return(
+        status: 200,
+        body: {
+          object: "billing.credit_balance_summary",
+          balances: [
+            {
+              available_balance: { type: "monetary", monetary: { value: 1200, currency: "usd" } },
+              ledger_balance: { type: "monetary", monetary: { value: 1200, currency: "usd" } },
+            },
+          ],
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    original_key = ENV["STRIPE_GATEWAY_KEY"]
+    original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
+    ENV["STRIPE_GATEWAY_KEY"] = "rk_test_gateway"
+    ENV["STRIPE_CREDIT_PRODUCT_ID"] = "prod_test_credit"
+    begin
+      report = StripeService.gateway_health
+    ensure
+      original_key.nil? ? ENV.delete("STRIPE_GATEWAY_KEY") : ENV["STRIPE_GATEWAY_KEY"] = original_key
+      original_product.nil? ? ENV.delete("STRIPE_CREDIT_PRODUCT_ID") : ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product
+    end
+
+    assert report[:gateway_key_present]
+    assert report[:credit_product_configured]
+    customer_ids = report[:active_customers].map { |c| c[:stripe_id] }
+    assert_includes customer_ids, "cus_health1"
+    assert_not_includes customer_ids, "cus_inactive"
+    balance = report[:active_customers].find { |c| c[:stripe_id] == "cus_health1" }
+    assert_equal 1200, balance[:credit_balance_cents]
+  end
+
+  test "gateway_health reports missing config" do
+    original_key = ENV["STRIPE_GATEWAY_KEY"]
+    original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
+    ENV.delete("STRIPE_GATEWAY_KEY")
+    ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
+    begin
+      report = StripeService.gateway_health
+    ensure
+      ENV["STRIPE_GATEWAY_KEY"] = original_key unless original_key.nil?
+      ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product unless original_product.nil?
+    end
+
+    assert_not report[:gateway_key_present]
+    assert_not report[:credit_product_configured]
+    assert_equal [], report[:active_customers]
+  end
+
   test "get_credit_balance returns nil on Stripe error" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_balerr")
 

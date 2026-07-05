@@ -328,6 +328,20 @@ class StripeService
     nil
   end
 
+  # Operational snapshot of the AI gateway configuration and every active
+  # customer's prepaid credit balance. A nil balance means the Stripe API
+  # call failed for that customer (details in the error log).
+  sig { returns(T::Hash[Symbol, T.untyped]) }
+  def self.gateway_health
+    {
+      gateway_key_present: ENV["STRIPE_GATEWAY_KEY"].present?,
+      credit_product_configured: ENV["STRIPE_CREDIT_PRODUCT_ID"].present?,
+      active_customers: StripeCustomer.where(active: true).map do |customer|
+        { stripe_id: customer.stripe_id, credit_balance_cents: get_credit_balance(customer) }
+      end,
+    }
+  end
+
   # Create a Stripe Billing Portal session.
   # Returns the portal URL for redirect.
   sig { params(stripe_customer: StripeCustomer, return_url: String).returns(String) }

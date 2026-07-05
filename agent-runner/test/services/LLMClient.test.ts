@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { LLMClient, LLMClientLive } from "../../src/services/LLMClient.js";
 import { Config } from "../../src/config/Config.js";
+import { log } from "../../src/services/Logger.js";
 
 const baseConfig = {
   harmonicInternalUrl: "http://test:3000",
@@ -119,9 +120,9 @@ const okBody = {
 
 function runChatWith(
   config: Partial<typeof baseConfig>,
-  opts: { customerId?: string; gatewayMode?: "litellm" | "stripe_gateway" },
+  opts: { customerId?: string; gatewayMode?: "litellm" | "stripe_gateway"; response?: Response },
 ) {
-  const fetchSpy = vi.fn(async () => jsonResponse(okBody));
+  const fetchSpy = vi.fn(async () => opts.response ?? jsonResponse(okBody));
   vi.stubGlobal("fetch", fetchSpy);
   const layer = Layer.succeed(Config, { ...baseConfig, ...config });
   const program = Effect.gen(function* () {
@@ -186,5 +187,62 @@ describe("LLMClient per-task gateway routing", () => {
     await expect(
       runChatWith({}, { customerId: "cus_abc", gatewayMode: "stripe_gateway" }),
     ).rejects.toThrow(/STRIPE_GATEWAY_KEY/);
+  });
+});
+
+describe("LLMClient request logging", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("logs a structured llm_request line without leaking the customer id", async () => {
+    const infoSpy = vi.spyOn(log, "info").mockImplementation(() => {});
+
+    await runChatWith(
+      { stripeGatewayKey: "rk_test_123" },
+      { customerId: "cus_abc", gatewayMode: "stripe_gateway" },
+    );
+
+    const entry = infoSpy.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((f) => f["event"] === "llm_request");
+    expect(entry).toMatchObject({
+      event: "llm_request",
+      gateway_mode: "stripe_gateway",
+      status_code: 200,
+      stripe_customer_present: true,
+      model: "default",
+      input_tokens: 1,
+      output_tokens: 1,
+    });
+    expect(entry?.["duration_ms"]).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(entry)).not.toContain("cus_abc");
+  });
+
+  it("logs the failure status when the gateway rejects the request", async () => {
+    const warnSpy = vi.spyOn(log, "warn").mockImplementation(() => {});
+
+    await expect(
+      runChatWith(
+        { stripeGatewayKey: "rk_test_123" },
+        {
+          customerId: "cus_abc",
+          gatewayMode: "stripe_gateway",
+          response: new Response("insufficient credit", { status: 402 }),
+        },
+      ),
+    ).rejects.toThrow(/Payment required/);
+
+    const entry = warnSpy.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((f) => f["event"] === "llm_request_failed");
+    expect(entry).toMatchObject({
+      event: "llm_request_failed",
+      gateway_mode: "stripe_gateway",
+      status_code: 402,
+      stripe_customer_present: true,
+    });
+    expect(JSON.stringify(entry)).not.toContain("cus_abc");
   });
 });
