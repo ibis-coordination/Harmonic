@@ -273,6 +273,21 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-heartbeat-box, .pulse-sidebar [class*='heartbeat']", minimum: 1
   end
 
+  test "explore nav links live in a kebab menu on the collective-info block" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get @collective.path.to_s
+    assert_response :success
+    # The standalone "Explore" section label is gone — the links moved into
+    # the kebab menu on the collective-info block.
+    assert_select ".pulse-links-section .pulse-section-label", text: "Explore", count: 0
+    assert_select "details.pulse-sidebar-menu[data-controller='kebab-menu']" do
+      assert_select "a[href=?]", "#{@collective.path}/dashboard"
+      assert_select "a[href=?]", "#{@collective.path}/cycles"
+      assert_select "a[href=?]", "#{@collective.path}/backlinks"
+    end
+  end
+
   test "cycle navigation links target the dashboard" do
     sign_in_as(@user, tenant: @tenant)
     get "#{@collective.path}/dashboard"

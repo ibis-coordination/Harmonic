@@ -23,5 +23,48 @@
       </div>
       <% end -%>
     </div>
+    <%# Explore/navigation links live in a kebab menu here on the collective
+        home + dashboard (passed show_collective_menu: true). Uses the
+        <details>-based kebab-menu controller (CSP-safe, outside-click close). %>
+    <% if local_assigns[:show_collective_menu] %>
+      <details class="pulse-sidebar-menu" data-controller="kebab-menu">
+        <summary class="pulse-sidebar-menu-toggle" title="More">
+          <%= octicon 'kebab-horizontal', height: 16 %>
+        </summary>
+        <div class="pulse-sidebar-menu-list">
+          <ul>
+            <li>
+              <a href="<%= @current_collective.path %>/dashboard">
+                <%= octicon 'meter', height: 14 %> Dashboard
+              </a>
+            </li>
+            <li>
+              <a href="<%= @current_collective.path %>/cycles">
+                <%= octicon 'iterations', height: 14 %> Cycles
+              </a>
+            </li>
+            <li>
+              <a href="<%= @current_collective.path %>/backlinks">
+                <%= octicon 'link', height: 14 %> Backlinks
+              </a>
+            </li>
+            <% unless @current_collective.private_workspace? %>
+            <li>
+              <a href="<%= @current_collective.path %>/representation">
+                <%= octicon 'people', height: 14 %> Representation
+              </a>
+            </li>
+            <% end %>
+            <% if !@current_collective.private_workspace? && @current_user&.collective_member&.can_edit_settings? %>
+            <li>
+              <a href="<%= @current_collective.path %>/settings">
+                <%= octicon 'gear', height: 14 %> Settings
+              </a>
+            </li>
+            <% end %>
+          </ul>
+        </div>
+      </details>
+    <% end %>
   </div>
 </div>
