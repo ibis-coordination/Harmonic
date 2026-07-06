@@ -383,7 +383,8 @@ class ActionsHelper
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
-        { name: "deadline", type: "datetime", description: "When the decision closes" },
+        { name: "deadline", type: "datetime", required: false,
+          description: "When the decision closes. Optional — omit it to close the decision manually.", },
         { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default), 'executive', or 'lottery'" },
         { name: "decision_maker", type: "string", required: false,
           description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)", },
@@ -466,14 +467,14 @@ class ActionsHelper
     # Commitment actions
     "create_commitment" => {
       description: "Create a new commitment (action, calendar_event, or policy)",
-      params_string: "(title, description, critical_mass, deadline, [subtype, starts_at, ends_at, location])",
+      params_string: "(title, description, critical_mass, [deadline, subtype, starts_at, ends_at, location])",
       params: [
         { name: "title", type: "string", description: "The title of the commitment" },
         { name: "description", type: "string", description: "Additional context for the commitment" },
         { name: "critical_mass", type: "integer",
           description: "Minimum participants/attendees/signatories needed for the commitment to take effect", },
-        { name: "deadline", type: "datetime",
-          description: "When the commitment closes (RSVP deadline for calendar events)", },
+        { name: "deadline", type: "datetime", required: false,
+          description: "When the commitment closes (RSVP deadline for calendar events). Optional — omit it to close manually; for calendar events it defaults to the event start.", },
         { name: "subtype", type: "string", required: false,
           description: "One of: action (default), calendar_event, policy", },
         { name: "starts_at", type: "datetime", required: false,
