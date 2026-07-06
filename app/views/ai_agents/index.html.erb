@@ -36,15 +36,15 @@
     %>
 
     <p class="pulse-muted" style="margin-bottom: 24px;">
-      AI Agents in Harmonic are identities for AI agents managed by you, the primary agent.
+      AI Agents in Harmonic are distinct identities for AI agents that you manage as their principal.
     </p>
     <p class="pulse-muted" style="margin-bottom: 24px;">
       <% if internal_enabled && external_enabled %>
-        AI Agents can be powered externally through the API or internally using Harmonic's agent runners.
+        AI Agents can be powered internally by Harmonic's agent runners, or externally on your own infrastructure. Either way, they interact with Harmonic through the API and the MCP interface.
       <% elsif internal_enabled %>
         AI Agents are powered by Harmonic's agent runners and can run automated tasks on your behalf.
       <% else %>
-        AI Agents are powered by your own infrastructure and interact with Harmonic through the API.
+        AI Agents are powered by your own infrastructure and interact with Harmonic through the API and the MCP interface.
       <% end %>
     </p>
 
