@@ -36,4 +36,31 @@ describe("HistoryBackController", () => {
     expect(backSpy).toHaveBeenCalledTimes(1)
     expect(ev.defaultPrevented).toBe(true)
   })
+
+  describe("reveal-when-history", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it("adds the revealed class when there is history to go back to", async () => {
+      vi.stubGlobal("history", { length: 2, back: () => {} })
+      await mount('data-history-back-revealed-class="is-visible"')
+      const link = document.querySelector(".btn") as HTMLAnchorElement
+      expect(link.classList.contains("is-visible")).toBe(true)
+    })
+
+    it("leaves the control hidden when there is no earlier entry", async () => {
+      vi.stubGlobal("history", { length: 1, back: () => {} })
+      await mount('data-history-back-revealed-class="is-visible"')
+      const link = document.querySelector(".btn") as HTMLAnchorElement
+      expect(link.classList.contains("is-visible")).toBe(false)
+    })
+
+    it("does not touch classes when no revealed class is configured", async () => {
+      vi.stubGlobal("history", { length: 5, back: () => {} })
+      await mount()
+      const link = document.querySelector(".btn") as HTMLAnchorElement
+      expect(link.className).toBe("btn")
+    })
+  })
 })
