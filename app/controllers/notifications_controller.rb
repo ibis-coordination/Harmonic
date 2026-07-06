@@ -22,17 +22,6 @@ class NotificationsController < ApplicationController
       .order(created_at: :desc)
       .limit(50)
 
-    # Chat messages are private to the signed-in identity — a representative
-    # must never read them via the represented user's inbox. Drop chat_message
-    # rows while a representation session is active (the /chat page itself is
-    # blocked; this closes the notifications-page path). Filter before the
-    # limit so hidden chat rows don't crowd out visible notifications.
-    if @current_representation_session
-      @notification_recipients = @notification_recipients
-        .joins(:notification)
-        .where.not(notifications: { notification_type: "chat_message" })
-    end
-
     # Manually load collectives to bypass association scoping
     # Events and Collectives are scoped to tenant and collective, but we need to load
     # collectives from all collectives for the current tenant.
@@ -114,13 +103,6 @@ class NotificationsController < ApplicationController
     count = NotificationService.unread_count_for(current_user, tenant: current_tenant)
     by_collective = NotificationService.unread_count_by_collective_for(current_user, tenant: current_tenant)
     chat = NotificationService.unread_chat_count_for(current_user, tenant: current_tenant)
-    # While representing, chat is hidden everywhere (page, places sheet, /chat).
-    # Zero it here too so the polling badge doesn't re-inflate the header total
-    # with chat pings the representative can't see.
-    if @current_representation_session
-      count -= chat
-      chat = 0
-    end
     render json: { count: count, by_collective: by_collective, chat: chat }
   end
 

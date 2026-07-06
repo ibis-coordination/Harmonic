@@ -5,14 +5,6 @@ class ChatsController < ApplicationController
   MESSAGES_PER_PAGE = 50
   CHAT_MESSAGES_PER_MINUTE = 20
 
-  # Chat is a private, person-to-person surface: the messages belong to the
-  # signed-in identity, not to whoever a representative is acting as. A
-  # representation grant never extends to reading or sending someone's DMs, so
-  # the whole controller is closed while a representation session is active
-  # (collectives have no chats to begin with). This must run first so it
-  # short-circuits before any partner/session lookup.
-  before_action :block_during_representation
-
   before_action :find_partner_and_session, only: [:show, :send_message, :poll_messages, :actions_index, :describe_send_message, :execute_send_message]
   before_action :deny_if_blocked, only: [:send_message, :execute_send_message]
   before_action :load_chat_partners, only: [:index, :show]
@@ -114,23 +106,6 @@ class ChatsController < ApplicationController
   end
 
   private
-
-  # Chat is off-limits during representation (see the before_action note).
-  # Bounce browser navigation back to /representing; answer non-HTML callers
-  # (agent/MCP action endpoints, polling) with a plain 403.
-  def block_during_representation
-    return unless @current_representation_session
-
-    respond_to do |format|
-      format.html do
-        flash[:alert] = "Chat is not available during representation."
-        redirect_to "/representing"
-      end
-      format.any do
-        head :forbidden
-      end
-    end
-  end
 
   def resource_model?
     false

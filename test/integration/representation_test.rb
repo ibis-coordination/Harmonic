@@ -157,58 +157,35 @@ class RepresentationTest < ActionDispatch::IntegrationTest
       "mobile You tab should render while representing"
   end
 
-  test "header menu hides Sign Out while representing" do
+  test "profile menu is trimmed to Profile, Lists, and Help while representing" do
     sign_in_as(@parent, tenant: @tenant)
     start_representing
 
     get "/collectives/#{@collective.handle}"
     assert_response :success
 
+    # During representation the profile menu keeps only the items that make
+    # sense while acting as someone else (Dan's spec on PR #415/#417).
+    assert_select "a[href='#{@ai_agent.path}']", { minimum: 1 },
+      "Profile link should render while representing"
+    assert_select "a[href='#{@ai_agent.path}/lists']", { minimum: 1 },
+      "Lists link should render while representing"
+    assert_select "a[href='/help']", { minimum: 1 },
+      "Help link should render while representing"
+
+    # Everything targeting the representative's own account is hidden.
+    assert_select "a[href='#{@ai_agent.path}/settings']", { count: 0 },
+      "Settings link should be hidden while representing"
+    assert_select "a[href='/subdomains']", { count: 0 },
+      "Subdomains link should be hidden while representing"
+    assert_select "a[href='/ai-agents']", { count: 0 },
+      "AI Agents link should be hidden while representing"
+    assert_select "a[href='/admin']", { count: 0 },
+      "Admin link should be hidden while representing"
     # Sign Out ends the underlying human login — the wrong exit during
     # representation (End Session, in the acting-as banner, is the right one).
     assert_select "form[action='#{logout_path}']", { count: 0 },
-      "Sign Out should not appear in the header menu while representing"
-  end
-
-  test "chat is blocked while representing" do
-    sign_in_as(@parent, tenant: @tenant)
-    start_representing
-
-    # Chat is a private person-to-person surface; a representative must not
-    # reach the represented identity's DMs. /chat bounces back to /representing.
-    get "/chat"
-    assert_redirected_to "/representing"
-
-    get "/chat/#{@parent.handle}"
-    assert_redirected_to "/representing"
-  end
-
-  test "notifications page hides chat messages while representing" do
-    # A chat ping and an ordinary notification, both for the represented user.
-    NotificationService.notify_chat_message!(
-      sender: @parent, recipient: @ai_agent, tenant: @tenant, url: "/chat/#{@parent.handle}"
-    )
-    ordinary = Notification.create!(
-      tenant: @tenant, notification_type: "mention",
-      title: "Ordinary non-chat notification", url: "/"
-    )
-    NotificationRecipient.create!(
-      notification: ordinary, user: @ai_agent, tenant: @tenant,
-      channel: "in_app", status: "delivered", delivered_at: Time.current
-    )
-
-    sign_in_as(@parent, tenant: @tenant)
-    start_representing
-
-    get "/notifications"
-    assert_response :success
-    # The chat_message row is filtered out; ordinary notifications still show.
-    assert_select "body" do
-      assert_no_match(/New message from/, response.body,
-        "chat message notifications must be hidden while representing")
-    end
-    assert_match(/Ordinary non-chat notification/, response.body,
-      "non-chat notifications should still render while representing")
+      "Sign Out should not appear in the profile menu while representing"
   end
 
   test "creating content while representing attributes it to the represented user" do
