@@ -41,4 +41,30 @@ module AiAgentsHelper
     models = model_list.filter_map { |m| m["model_name"] }
     models.presence || ["default"]
   end
+
+  # Models a user can pick for an internal agent. On a tenant that bills usage
+  # through the gateway, the rate card is the source of truth for what's
+  # available (litellm_config isn't consulted in gateway mode) — so we offer
+  # exactly the priced models, which keeps the selector and the price table in
+  # sync. Off billing (or if the catalog can't be reached), fall back to the
+  # litellm_config list so the form still works.
+  def selectable_models
+    if @current_tenant&.feature_enabled?("stripe_billing")
+      catalog = GatewayModelCatalog.prices
+      return catalog.keys.sort if catalog.any?
+    end
+
+    available_llm_models
+  end
+
+  # Per-model prices for display next to the selector — [{ name:, input:,
+  # output: }], one row per model the rate card prices, sorted to match
+  # selectable_models. Answers "how much will this model cost me?". Empty when
+  # the catalog is unavailable (Stripe error or not configured), so the view
+  # shows nothing rather than breaking.
+  def model_pricing_rows
+    GatewayModelCatalog.prices.sort_by { |name, _rate| name }.map do |name, rate|
+      { name: name, input: rate[:input_per_million], output: rate[:output_per_million] }
+    end
+  end
 end

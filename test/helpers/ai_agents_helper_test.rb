@@ -1,4 +1,5 @@
 # typed: false
+
 require "test_helper"
 
 class AiAgentsHelperTest < ActionView::TestCase
@@ -140,5 +141,68 @@ class AiAgentsHelperTest < ActionView::TestCase
     assert_includes models, "default"
     assert_includes models, "anthropic/claude-haiku-4.5"
     assert_includes models, "llama3"
+  end
+
+  # === model_pricing_rows ===
+
+  # Stands in for @current_tenant in these view-helper tests.
+  class FakeTenant
+    def initialize(stripe_billing:)
+      @stripe_billing = stripe_billing
+    end
+
+    def feature_enabled?(flag)
+      flag == "stripe_billing" ? @stripe_billing : false
+    end
+  end
+
+  test "model_pricing_rows returns a row for every catalogued model, sorted by name" do
+    catalog = {
+      "openai/gpt-5" => { input_per_million: "1.63", output_per_million: "13.00" },
+      "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" },
+    }
+    GatewayModelCatalog.stub(:prices, catalog) do
+      rows = model_pricing_rows
+
+      assert_equal(["anthropic/claude-sonnet-4.6", "openai/gpt-5"], rows.map { |r| r[:name] })
+      assert_equal "3.90", rows.first[:input]
+      assert_equal "19.50", rows.first[:output]
+    end
+  end
+
+  test "model_pricing_rows is empty when the catalog is unavailable" do
+    GatewayModelCatalog.stub(:prices, {}) do
+      assert_empty model_pricing_rows
+    end
+  end
+
+  # === selectable_models ===
+
+  test "selectable_models uses the rate card when billing is on" do
+    @current_tenant = FakeTenant.new(stripe_billing: true)
+    catalog = {
+      "openai/gpt-5" => { input_per_million: "1.63", output_per_million: "13.00" },
+      "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" },
+    }
+    GatewayModelCatalog.stub(:prices, catalog) do
+      # Exactly the priced models, sorted — matches the price table.
+      assert_equal ["anthropic/claude-sonnet-4.6", "openai/gpt-5"], selectable_models
+    end
+  end
+
+  test "selectable_models falls back to the litellm list when billing is off" do
+    @current_tenant = FakeTenant.new(stripe_billing: false)
+
+    models = selectable_models
+    assert_includes models, "default"
+    assert_includes models, "llama3"
+  end
+
+  test "selectable_models falls back to the litellm list when the catalog is unavailable" do
+    @current_tenant = FakeTenant.new(stripe_billing: true)
+
+    GatewayModelCatalog.stub(:prices, {}) do
+      assert_includes selectable_models, "default"
+    end
   end
 end
