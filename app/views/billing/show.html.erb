@@ -31,7 +31,6 @@
 
       <section class="pulse-section" style="margin-bottom: 24px;">
         <h2 class="pulse-section-title">Your Subscription</h2>
-        <p class="pulse-muted" style="margin-bottom: 12px;">Your membership is free — each AI agent and additional collective costs $3/month.</p>
         <%= render partial: "billing/inventory_table", locals: { show_prices: true, show_actions: true } %>
       </section>
 
@@ -164,10 +163,10 @@
       <%# === No subscription needed — nothing billable yet (or fully exempt) === %>
       <section class="pulse-section" style="margin-bottom: 24px;">
         <div class="pulse-notice pulse-notice-success">
-          <span><%= octicon 'shield-check', height: 16 %> <strong>Nothing to pay</strong> — you have no billable items yet.</span>
+          <span><%= octicon 'shield-check', height: 16 %> <strong>Nothing to pay</strong> — you have no billable items.</span>
         </div>
         <p class="pulse-muted" style="margin-top: 12px;">
-          Your membership is free. Each AI agent and additional collective costs <strong>$3/month</strong> — you'll set up payment when you add your first one.
+          Billable items will show up here when created. AI agents cost <strong>$3/month</strong> each.
         </p>
       </section>
 
@@ -181,7 +180,7 @@
       <section class="pulse-section" style="margin-bottom: 24px;">
         <h2 class="pulse-section-title">Subscription required</h2>
         <p style="margin-bottom: 16px;">
-          You have AI agents or additional collectives that need an active subscription. Each costs <strong>$3/month</strong>.
+          You have billable items that need an active subscription. Each costs <strong>$3/month</strong>.
         </p>
 
         <%= render partial: "billing/inventory_table", locals: { show_prices: true } %>

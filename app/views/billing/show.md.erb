@@ -7,11 +7,9 @@
 
 ## Your Subscription
 
-Membership is free — each AI agent and additional collective costs $3/month.
-
 | Item | Cost |
 |------|------|
-| <%= @current_user.display_name %> (you) | <%= @current_user.counts_self_for_paid_human_features? ? "$3/mo (programmatic access)" : "free" %> |
+| <%= @current_user.display_name %> (you) | <%= @current_user.counts_self_for_paid_human_features? ? "$3/mo (programmatic access)" : "$0/mo" %> |
 <% @active_agents&.each do |agent| %>
 | <%= agent.display_name %> (agent) | <%= agent.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
 <% end %>
@@ -81,9 +79,9 @@ To add credits, visit `/billing` in your browser and use the "Add Funds" button.
 <% elsif @billable_quantity && @billable_quantity == 0 %>
 ## Status
 
-**Nothing to pay** — no billable items yet.
+**Nothing to pay** — no billable items.
 
-Membership is free. Each AI agent and additional collective costs $3/month — payment setup happens when the first one is added.
+Billable items will show up here when created. AI agents cost $3/month each.
 
 ## Your Resources
 
@@ -104,11 +102,11 @@ Not Set Up
 
 ## Subscription required
 
-You have AI agents or additional collectives that need an active subscription. Each costs **$3/month**.
+You have billable items that need an active subscription. Each costs **$3/month**.
 
 | Item | Cost |
 |------|------|
-| <%= @current_user.display_name %> (you) | <%= @current_user.counts_self_for_paid_human_features? ? "$3/mo (programmatic access)" : "free" %> |
+| <%= @current_user.display_name %> (you) | <%= @current_user.counts_self_for_paid_human_features? ? "$3/mo (programmatic access)" : "$0/mo" %> |
 <% @active_agents&.each do |agent| %>
 | <%= agent.display_name %> (agent) | <%= agent.billing_exempt? ? "$0/mo (exempt)" : "$3/mo" %> |
 <% end %>
