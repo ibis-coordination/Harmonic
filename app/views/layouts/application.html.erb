@@ -109,6 +109,7 @@
         current_path: request.path,
         unread_counts: places_unread_counts,
         chat_unread_count: places_chat_unread_count,
+        show_chat: @current_representation_session.nil?,
       ) %>
     <% end %>
     <div class="pulse-app-shell">

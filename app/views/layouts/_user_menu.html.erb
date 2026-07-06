@@ -6,7 +6,11 @@
     <%= octicon 'person' %>
     <a href="<%= @current_user.path %>">Profile</a>
   </li>
-  <% if (workspace = @current_user.private_workspace) %>
+  <%# Never expose the represented identity's private workspace while
+      representing — the representative isn't entitled to it, and private
+      workspaces are blocked during representation anyway. Mirrors the whoami
+      template's guard. %>
+  <% if !@current_representation_session && (workspace = @current_user.private_workspace) %>
     <li>
       <%= octicon 'lock' %>
       <a href="<%= workspace.path %>">Workspace</a>
@@ -44,13 +48,18 @@
       </a>
     </li>
   <% end %>
-  <li>
-    <hr style="height:0;margin:0;border:none;border-top:1px solid var(--color-border-default);" />
-  </li>
-  <li>
-    <%= octicon 'sign-out' %>
-    <%= button_to "Sign Out", logout_path, method: :delete, style: "display:inline;",
-          params: { push_endpoint: "" },
-          form: { data: { controller: "logout", action: "submit->logout#prepare" } } %>
-  </li>
+  <%# Sign Out ends the underlying human login entirely — the wrong exit
+      during representation, where "End Session" (in the acting-as banner) is
+      the right control. Hide it (and its divider) while representing. %>
+  <% unless @current_representation_session %>
+    <li>
+      <hr style="height:0;margin:0;border:none;border-top:1px solid var(--color-border-default);" />
+    </li>
+    <li>
+      <%= octicon 'sign-out' %>
+      <%= button_to "Sign Out", logout_path, method: :delete, style: "display:inline;",
+            params: { push_endpoint: "" },
+            form: { data: { controller: "logout", action: "submit->logout#prepare" } } %>
+    </li>
+  <% end %>
 </ul>
