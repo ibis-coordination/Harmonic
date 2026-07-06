@@ -104,6 +104,32 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal "1", item["quantity"]
   end
 
+  test "create_checkout_session offers previously saved cards" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_savedpm1")
+
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .with { |req| captured_body = Rack::Utils.parse_nested_query(req.body); true }
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_test",
+          object: "checkout.session",
+          url: "https://checkout.stripe.com/session/cs_test",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    StripeService.create_checkout_session(
+      stripe_customer: sc,
+      success_url: "https://app.example.com/billing",
+      cancel_url: "https://app.example.com/billing",
+    )
+
+    filters = captured_body["saved_payment_method_options"]["allow_redisplay_filters"]
+    assert_equal ["always", "limited"], filters.values
+  end
+
   test "create_checkout_session includes checkout_session_id template in success_url" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_url789")
 
@@ -1544,6 +1570,45 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_equal "https://checkout.stripe.com/session/cs_topup123", result
     assert_equal "payment", captured_body["mode"]
     assert_equal "credit_topup", captured_body["metadata"]["type"]
+  ensure
+    ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
+  end
+
+  test "create_credit_topup_checkout offers previously saved cards and saves new ones" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_saved")
+
+    ENV["STRIPE_CREDIT_PRODUCT_ID"] = "prod_credits_test"
+
+    stub_request(:post, "https://api.stripe.com/v1/prices")
+      .to_return(
+        status: 200,
+        body: { id: "price_dynamic_456", object: "price" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .with { |req| captured_body = Rack::Utils.parse_nested_query(req.body); true }
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_topup_saved",
+          object: "checkout.session",
+          url: "https://checkout.stripe.com/session/cs_topup_saved",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    StripeService.create_credit_topup_checkout(
+      stripe_customer: sc,
+      amount_cents: 500,
+      success_url: "https://app.example.com/billing",
+      cancel_url: "https://app.example.com/billing",
+    )
+
+    opts = captured_body["saved_payment_method_options"]
+    assert_equal ["always", "limited"], opts["allow_redisplay_filters"].values
+    assert_equal "enabled", opts["payment_method_save"]
   ensure
     ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
   end
