@@ -64,9 +64,11 @@
           <span>Harmonic</span>
         </a>
         <div class="pulse-top-header-right">
-          <% unless @current_representation_session %>
-            <%= render 'layouts/top_right_menu' %>
-          <% end %>
+          <%# Kept visible during representation: the represented identity still
+              needs the add (+) button to create as the collective, plus search,
+              inbox, and the avatar menu. The session banner below carries the
+              "acting on behalf of …" context and its own End Session control. %>
+          <%= render 'layouts/top_right_menu' %>
         </div>
       </header>
     <% end %>
