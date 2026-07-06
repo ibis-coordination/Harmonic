@@ -170,7 +170,7 @@ Filters come in three tiers, and the UI must make the tier visible:
 | Tier | Example | Rendering | Editable? |
 |---|---|---|---|
 | **Fixed** (the page scope) | `collective:my-team` on `/collectives/my-team` | Muted token inside the field, not editable | No — it *is* the page |
-| **Default** | `cycle:this-week -subtype:comment` on a collective home | Ordinary query text | Yes — remove or replace freely |
+| **Default** | `-subtype:comment` on a collective home | Ordinary query text | Yes — remove or replace freely |
 | **User** | anything typed | Query text | Yes |
 
 Decisions and rationale:
@@ -187,8 +187,8 @@ Decisions and rationale:
   button); the word "search" is reserved for `/search`. Two affordances,
   two verbs.
 - **Defaults are real query text, owned by the user.** A page may ship
-  defaults (`cycle:this-week` keeps a collective home focused on the
-  current cycle); once the page loads, defaults are indistinguishable from
+  defaults (`-subtype:comment` keeps a collective home free of comment
+  clutter); once the page loads, defaults are indistinguishable from
   user filters. This requires distinguishing *no query param* (apply
   defaults) from *empty query param* (user cleared everything): `?q=`
   present-but-empty means "browse everything in scope", absent means
