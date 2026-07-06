@@ -113,6 +113,79 @@
   min-width: 0;
 }
 
+/* Kebab menu on the collective-info block (Explore/navigation links). A
+   <details> element anchors the dropdown; visibility follows the open/closed
+   state, so do NOT set `display` on the list. */
+.pulse-sidebar-menu {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.pulse-sidebar-menu-toggle {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-fg-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.pulse-sidebar-menu-toggle:hover {
+  color: var(--color-fg-default);
+  background: var(--color-canvas-subtle);
+}
+
+/* Hide the native disclosure triangle the <summary> renders by default. */
+.pulse-sidebar-menu-toggle::-webkit-details-marker {
+  display: none;
+}
+.pulse-sidebar-menu-toggle::marker {
+  content: "";
+}
+
+.pulse-sidebar-menu-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 160px;
+  margin-top: 4px;
+  padding: 6px;
+  background: var(--color-canvas-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.pulse-sidebar-menu-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pulse-sidebar-menu-list li {
+  margin: 0;
+}
+
+.pulse-sidebar-menu-list li a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  color: var(--color-fg-default);
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.pulse-sidebar-menu-list li a:hover {
+  background: var(--color-canvas-subtle);
+  text-decoration: none;
+}
+
 .pulse-member-link {
   color: var(--color-fg-muted);
   text-decoration: none;

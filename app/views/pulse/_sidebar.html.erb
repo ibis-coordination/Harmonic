@@ -1,5 +1,5 @@
 <aside class="pulse-sidebar">
-  <%= render 'pulse/sidebar_collective_info' %>
+  <%= render 'pulse/sidebar_collective_info', show_collective_menu: true %>
   <%= render 'pulse/sidebar_pinned' %>
   <%= render 'pulse/sidebar_cycle' unless @hide_cycle_sidebar %>
   <% if @recent_cycle_summaries.present? %>
