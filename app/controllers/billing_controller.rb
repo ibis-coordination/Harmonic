@@ -77,8 +77,12 @@ class BillingController < ApplicationController
 
   # POST /billing/topup
   def topup
-    unless current_user.stripe_customer&.active?
-      flash[:error] = "You need an active subscription before adding credits."
+    # Credits are a one-time payment, independent of the $3/mo subscription.
+    # Free accounts (all resources billing-exempt, no subscription) still need
+    # to buy LLM credits to power internal agents — so gate on billing being
+    # enabled, not on an active subscription.
+    unless current_tenant&.feature_enabled?("stripe_billing")
+      flash[:error] = "Billing is not enabled."
       return redirect_to billing_show_path
     end
 
@@ -95,7 +99,9 @@ class BillingController < ApplicationController
       return redirect_to billing_show_path
     end
 
-    stripe_customer = current_user.stripe_customer
+    # find_or_create so a free account with no prior subscription can still
+    # attach a one-time credit payment to a Stripe customer.
+    stripe_customer = StripeService.find_or_create_customer(current_user)
     billing_url = billing_show_url
     success_url = "#{billing_url}?checkout_session_id={CHECKOUT_SESSION_ID}"
 
@@ -297,9 +303,16 @@ class BillingController < ApplicationController
   end
 
   def load_credit_balance
-    return unless @stripe_customer&.active?
+    # Credits are decoupled from the subscription, so surface the balance
+    # whenever billing is enabled. A free account that has never set up billing
+    # has no Stripe customer yet — show $0 until their first top-up creates one.
+    return unless current_tenant&.feature_enabled?("stripe_billing")
 
-    @credit_balance_cents = StripeService.get_credit_balance(@stripe_customer)
+    @credit_balance_cents = if @stripe_customer
+      StripeService.get_credit_balance(@stripe_customer)
+    else
+      0
+    end
   end
 
   def load_billing_inventory
