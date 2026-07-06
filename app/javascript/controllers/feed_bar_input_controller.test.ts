@@ -11,7 +11,7 @@ describe("FeedBarInputController", () => {
       <form>
         <textarea name="q" rows="1"
                   data-controller="feed-bar-input"
-                  data-action="input->feed-bar-input#resize keydown->feed-bar-input#keydown">cycle:this-week -subtype:comment</textarea>
+                  data-action="input->feed-bar-input#resize keydown->feed-bar-input#keydown">-subtype:comment</textarea>
       </form>
     `
     document.querySelector("form")?.addEventListener("submit", (e) => {
