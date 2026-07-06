@@ -5,10 +5,11 @@
 # == Metadata PII constraint
 #
 # `metadata` is a free-form jsonb column on `DecisionAuditEntry`. PII scrubbing
-# only NULLs `actor_id`, `actor_handle`, and `actor_token_salt` — it does NOT
-# touch `metadata`. Therefore, **callers of record_* must not put actor-
-# identifying information into metadata**: no display names, emails, handles,
-# personal pronouns, or anything that could re-identify the actor.
+# only NULLs `actor_id`, `actor_handle`, `actor_token_salt` and their
+# `representative_*` counterparts — it does NOT touch `metadata`. Therefore,
+# **callers of record_* must not put actor- or representative-identifying
+# information into metadata**: no display names, emails, handles, personal
+# pronouns, or anything that could re-identify either party.
 #
 # Decision-content fields (question, description, option titles, deadlines)
 # ARE acceptable in metadata — they are content the actor authored about the
@@ -21,8 +22,8 @@
 class DecisionAuditService
   extend T::Sig
 
-  sig { params(decision: Decision, actor: User).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_creation!(decision:, actor:)
+  sig { params(decision: Decision, actor: User, representation_session: T.nilable(RepresentationSession)).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_creation!(decision:, actor:, representation_session: nil)
     return nil if DecisionAuditEntry.where(decision_id: decision.id, action: "decision_created").exists?
 
     initial_values = {
@@ -38,35 +39,38 @@ class DecisionAuditService
       action: "decision_created",
       actor_id: actor.id,
       actor_handle: actor.handle,
-      metadata: initial_values
+      metadata: initial_values,
+      representation_session: representation_session
     )
   end
 
-  sig { params(decision: Decision, actor: User, changes: T::Hash[T.any(String, Symbol), T.untyped]).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_update!(decision:, actor:, changes:)
+  sig { params(decision: Decision, actor: User, changes: T::Hash[T.any(String, Symbol), T.untyped], representation_session: T.nilable(RepresentationSession)).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_update!(decision:, actor:, changes:, representation_session: nil)
     record!(
       decision: decision,
       action: "decision_updated",
       actor_id: actor.id,
       actor_handle: actor.handle,
-      metadata: changes
+      metadata: changes,
+      representation_session: representation_session
     )
   end
 
-  sig { params(decision: Decision, option: Option, actor: User, old_title: String, new_title: String).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_option_update!(decision:, option:, actor:, old_title:, new_title:)
+  sig { params(decision: Decision, option: Option, actor: User, old_title: String, new_title: String, representation_session: T.nilable(RepresentationSession)).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_option_update!(decision:, option:, actor:, old_title:, new_title:, representation_session: nil)
     record!(
       decision: decision,
       action: "option_updated",
       actor_id: actor.id,
       actor_handle: actor.handle,
       option_title: new_title,
-      metadata: { old_title: old_title, new_title: new_title }
+      metadata: { old_title: old_title, new_title: new_title },
+      representation_session: representation_session
     )
   end
 
-  sig { params(decision: Decision, vote: Vote, actor: User, is_update: T::Boolean).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_vote!(decision:, vote:, actor:, is_update: false)
+  sig { params(decision: Decision, vote: Vote, actor: User, is_update: T::Boolean, representation_session: T.nilable(RepresentationSession)).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_vote!(decision:, vote:, actor:, is_update: false, representation_session: nil)
     record!(
       decision: decision,
       action: is_update ? "vote_updated" : "vote_cast",
@@ -74,30 +78,33 @@ class DecisionAuditService
       actor_handle: actor.handle,
       option_title: T.must(vote.option).title,
       accepted: vote.accepted,
-      preferred: vote.preferred
+      preferred: vote.preferred,
+      representation_session: representation_session
     )
   end
 
-  sig { params(decision: Decision, option: Option, actor: User, action: String).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_option!(decision:, option:, actor:, action:)
+  sig { params(decision: Decision, option: Option, actor: User, action: String, representation_session: T.nilable(RepresentationSession)).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_option!(decision:, option:, actor:, action:, representation_session: nil)
     record!(
       decision: decision,
       action: action,
       actor_id: actor.id,
       actor_handle: actor.handle,
-      option_title: option.title
+      option_title: option.title,
+      representation_session: representation_session
     )
   end
 
-  sig { params(decision: Decision, actor: User).returns(T.nilable(DecisionAuditEntry)) }
-  def self.record_close!(decision:, actor:)
+  sig { params(decision: Decision, actor: User, representation_session: T.nilable(RepresentationSession)).returns(T.nilable(DecisionAuditEntry)) }
+  def self.record_close!(decision:, actor:, representation_session: nil)
     return nil if DecisionAuditEntry.where(decision_id: decision.id, action: "decision_closed").exists?
 
     record!(
       decision: decision,
       action: "decision_closed",
       actor_id: actor.id,
-      actor_handle: actor.handle
+      actor_handle: actor.handle,
+      representation_session: representation_session
     )
   end
 
@@ -117,6 +124,7 @@ class DecisionAuditService
     case entry.schema_version
     when 1 then compute_hash_v1(entry)
     when 2 then compute_hash_v2(entry)
+    when 3 then compute_hash_v3(entry)
     else raise "Unknown schema version: #{entry.schema_version}"
     end
   end
@@ -126,6 +134,7 @@ class DecisionAuditService
     case entry.schema_version
     when 1 then hash_input_v1(entry)
     when 2 then hash_input_v2(entry)
+    when 3 then hash_input_v3(entry)
     else raise "Unknown schema version: #{entry.schema_version}"
     end
   end
@@ -140,6 +149,15 @@ class DecisionAuditService
     Digest::SHA256.hexdigest("#{decision_id}|#{actor_id}|#{actor_handle}|#{salt}")
   end
 
+  # Same derivation, same scrub semantics as the actor token, applied to the
+  # representative side of a represented action. The representative's salt is
+  # independent of any actor salt the same user may have in the decision, so
+  # scrubbing one identity never weakens or breaks the other.
+  sig { params(decision_id: String, representative_id: String, representative_handle: String, salt: String).returns(String) }
+  def self.derive_representative_token(decision_id:, representative_id:, representative_handle:, salt:)
+    Digest::SHA256.hexdigest("#{decision_id}|#{representative_id}|#{representative_handle}|#{salt}")
+  end
+
   sig do
     params(
       decision: Decision,
@@ -149,10 +167,11 @@ class DecisionAuditService
       option_title: T.nilable(String),
       accepted: T.nilable(Integer),
       preferred: T.nilable(Integer),
-      metadata: T.nilable(T::Hash[T.any(String, Symbol), T.untyped])
+      metadata: T.nilable(T::Hash[T.any(String, Symbol), T.untyped]),
+      representation_session: T.nilable(RepresentationSession)
     ).returns(T.nilable(DecisionAuditEntry))
   end
-  def self.record!(decision:, action:, actor_id: nil, actor_handle: nil, option_title: nil, accepted: nil, preferred: nil, metadata: nil)
+  def self.record!(decision:, action:, actor_id: nil, actor_handle: nil, option_title: nil, accepted: nil, preferred: nil, metadata: nil, representation_session: nil)
     return nil unless decision.audit_chain_enabled?
 
     retries = 0
@@ -166,7 +185,7 @@ class DecisionAuditService
 
         now = Time.current.change(usec: 0)
 
-        # For v2: derive the actor token from (decision_id, actor_id, actor_handle, salt).
+        # For v2+: derive the actor token from (decision_id, actor_id, actor_handle, salt).
         # All NULL when there's no actor (e.g., beacon_drawn).
         #
         # Both the salt AND the actor_handle are anchored to the participant's
@@ -198,6 +217,36 @@ class DecisionAuditService
           )
         end
 
+        # Representative fields (v3): only stamped when the session actually
+        # covers this action — its effective_user must be the entry's actor.
+        # A stray active session (e.g. the decision-maker auto-vote path, where
+        # the actor is the decision maker, not the represented user) records a
+        # plain direct entry.
+        representative_fields = {}
+        if representation_session && actor_id.present? &&
+           representation_session.effective_user.id == actor_id
+          representative = T.must(representation_session.representative_user)
+          prior_rep_entry = DecisionAuditEntry
+            .where(decision_id: decision.id, representative_id: representative.id)
+            .where.not(representative_token_salt: nil)
+            .order(:sequence_number)
+            .first
+          rep_salt   = prior_rep_entry&.representative_token_salt || SecureRandom.hex(32)
+          rep_handle = prior_rep_entry&.representative_handle     || representative.handle
+          representative_fields = {
+            representative_id: representative.id,
+            representative_handle: rep_handle,
+            representative_token_salt: rep_salt,
+            representative_token: derive_representative_token(
+              decision_id: decision.id,
+              representative_id: representative.id,
+              representative_handle: rep_handle.to_s,
+              salt: rep_salt
+            ),
+            representation_kind: representation_session.user_representation? ? "user" : "collective",
+          }
+        end
+
         entry = DecisionAuditEntry.new(
           tenant_id: decision.tenant_id,
           collective_id: decision.collective_id,
@@ -209,6 +258,7 @@ class DecisionAuditService
           actor_handle: anchor_handle,
           actor_token: actor_token,
           actor_token_salt: actor_token_salt,
+          **representative_fields,
           option_title: option_title,
           accepted: accepted,
           preferred: preferred,
@@ -285,5 +335,37 @@ class DecisionAuditService
     ].join("|")
   end
 
-  private_class_method :record!, :compute_hash_v1, :hash_input_v1, :compute_hash_v2, :hash_input_v2
+  # v3 extends v2 with the representation dimension: representative_token and
+  # representation_kind enter the hashed content immediately after actor_token
+  # (both empty strings for direct actions). Like the actor's, the
+  # representative's id/handle/salt stay out of the hash so they can be
+  # scrubbed without invalidating the chain.
+  sig { params(entry: DecisionAuditEntry).returns(String) }
+  def self.compute_hash_v3(entry)
+    Digest::SHA256.hexdigest(hash_input_v3(entry))
+  end
+
+  sig { params(entry: DecisionAuditEntry).returns(String) }
+  def self.hash_input_v3(entry)
+    title = entry.option_title
+    normalized_title = title.nil? ? "" : title.unicode_normalize(:nfc)
+    sorted_metadata = entry.metadata ? JSON.generate(entry.metadata.sort.to_h) : ""
+
+    [
+      "v3",
+      entry.previous_hash || "",
+      entry.sequence_number.to_s,
+      entry.action,
+      entry.actor_token || "",
+      entry.representative_token || "",
+      entry.representation_kind || "",
+      normalized_title,
+      entry.accepted.nil? ? "" : entry.accepted.to_s,
+      entry.preferred.nil? ? "" : entry.preferred.to_s,
+      sorted_metadata,
+      entry.created_at.iso8601,
+    ].join("|")
+  end
+
+  private_class_method :record!, :compute_hash_v1, :hash_input_v1, :compute_hash_v2, :hash_input_v2, :compute_hash_v3, :hash_input_v3
 end

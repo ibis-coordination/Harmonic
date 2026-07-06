@@ -185,6 +185,7 @@ class DecisionAuditEntry
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::DecisionAuditEntry).void
       ).void
@@ -195,10 +196,11 @@ class DecisionAuditEntry
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::DecisionAuditEntry])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -206,6 +208,7 @@ class DecisionAuditEntry
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::DecisionAuditEntry]).void
       ).void
@@ -216,10 +219,11 @@ class DecisionAuditEntry
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::DecisionAuditEntry]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -301,6 +305,7 @@ class DecisionAuditEntry
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -313,11 +318,12 @@ class DecisionAuditEntry
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -1378,6 +1384,231 @@ class DecisionAuditEntry
     sig { void }
     def previous_hash_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def representation_kind; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def representation_kind=(value); end
+
+    sig { returns(T::Boolean) }
+    def representation_kind?; end
+
+    sig { returns(T.nilable(::String)) }
+    def representation_kind_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def representation_kind_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def representation_kind_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representation_kind_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representation_kind_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representation_kind_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representation_kind_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representation_kind_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representation_kind_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representation_kind_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def representation_kind_was; end
+
+    sig { void }
+    def representation_kind_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_handle; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def representative_handle=(value); end
+
+    sig { returns(T::Boolean) }
+    def representative_handle?; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_handle_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def representative_handle_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def representative_handle_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_handle_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_handle_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_handle_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_handle_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_handle_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_handle_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_handle_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_handle_was; end
+
+    sig { void }
+    def representative_handle_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def representative_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def representative_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def representative_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def representative_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_id_was; end
+
+    sig { void }
+    def representative_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def representative_token=(value); end
+
+    sig { returns(T::Boolean) }
+    def representative_token?; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def representative_token_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def representative_token_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_token_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_token_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_token_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_token_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_token_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_salt; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def representative_token_salt=(value); end
+
+    sig { returns(T::Boolean) }
+    def representative_token_salt?; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_salt_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def representative_token_salt_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def representative_token_salt_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_token_salt_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_token_salt_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_token_salt_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_salt_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def representative_token_salt_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def representative_token_salt_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_salt_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_salt_was; end
+
+    sig { void }
+    def representative_token_salt_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def representative_token_was; end
+
+    sig { void }
+    def representative_token_will_change!; end
+
     sig { void }
     def restore_accepted!; end
 
@@ -1425,6 +1656,21 @@ class DecisionAuditEntry
 
     sig { void }
     def restore_previous_hash!; end
+
+    sig { void }
+    def restore_representation_kind!; end
+
+    sig { void }
+    def restore_representative_handle!; end
+
+    sig { void }
+    def restore_representative_id!; end
+
+    sig { void }
+    def restore_representative_token!; end
+
+    sig { void }
+    def restore_representative_token_salt!; end
 
     sig { void }
     def restore_schema_version!; end
@@ -1530,6 +1776,36 @@ class DecisionAuditEntry
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_previous_hash?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_representation_kind; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_representation_kind?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_representative_handle; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_representative_handle?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_representative_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_representative_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_representative_token; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_representative_token?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_representative_token_salt; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_representative_token_salt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
     def saved_change_to_schema_version; end
@@ -1731,6 +2007,21 @@ class DecisionAuditEntry
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_previous_hash?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_representation_kind?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_representative_handle?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_representative_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_representative_token?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_representative_token_salt?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_schema_version?(from: T.unsafe(nil), to: T.unsafe(nil)); end

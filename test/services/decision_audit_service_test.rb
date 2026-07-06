@@ -175,16 +175,16 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     assert_equal 3, e3.sequence_number
   end
 
-  # --- v2 entries: token + salt + schema_version ---
+  # --- current-version entries: token + salt + schema_version ---
 
-  test "new entries are written with schema_version = 2" do
+  test "new entries are written with schema_version = 3" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
     )
-    assert_equal 2, entry.schema_version
+    assert_equal 3, entry.schema_version
   end
 
-  test "v2 entries with an actor have actor_token and actor_token_salt populated" do
+  test "entries with an actor have actor_token and actor_token_salt populated" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
     )
@@ -298,18 +298,20 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     refute_equal e1.actor_token, e2.actor_token
   end
 
-  # --- v2 hash content ---
+  # --- v3 hash content ---
 
-  test "v2 entry_hash includes actor_token but not actor_id or actor_handle directly" do
+  test "v3 entry_hash includes actor_token but not actor_id or actor_handle directly" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
     )
     expected_input = [
-      "v2",
+      "v3",
       "",  # no previous_hash for first entry
       "1",
       "option_added",
       entry.actor_token,
+      "",  # representative_token is nil (direct action)
+      "",  # representation_kind is nil (direct action)
       "Option A",
       "",  # accepted is nil
       "",  # preferred is nil
@@ -320,7 +322,7 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     assert_equal expected_hash, entry.entry_hash
   end
 
-  test "v2 entry_hash is unchanged if actor_id or actor_handle change (chain integrity decoupled from PII)" do
+  test "entry_hash is unchanged if actor_id or actor_handle change (chain integrity decoupled from PII)" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
     )
@@ -331,10 +333,10 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
 
     recomputed = DecisionAuditService.compute_hash(entry)
     assert_equal original_hash, recomputed,
-                 "v2 entry_hash must not change when actor_id or actor_handle are scrubbed"
+                 "entry_hash must not change when actor_id or actor_handle are scrubbed"
   end
 
-  test "v2 entry_hash is unchanged if actor_token_salt changes (salt is not in the hash)" do
+  test "entry_hash is unchanged if actor_token_salt changes (salt is not in the hash)" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
     )
@@ -343,10 +345,10 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     entry.update_columns(actor_token_salt: SecureRandom.hex(32))
     recomputed = DecisionAuditService.compute_hash(entry)
     assert_equal original_hash, recomputed,
-                 "v2 entry_hash must not include actor_token_salt"
+                 "entry_hash must not include actor_token_salt"
   end
 
-  test "v2 entry_hash changes if actor_token changes (token IS in the hash)" do
+  test "entry_hash changes if actor_token changes (token IS in the hash)" do
     entry = DecisionAuditService.record_option!(
       decision: @decision, option: @option, actor: @user, action: "option_added",
     )
@@ -357,7 +359,215 @@ class DecisionAuditServiceTest < ActiveSupport::TestCase
     entry.actor_token = SecureRandom.hex(32)
     recomputed = DecisionAuditService.compute_hash(entry)
     refute_equal original_hash, recomputed,
-                 "v2 entry_hash must change if actor_token is altered"
+                 "entry_hash must change if actor_token is altered"
+  end
+
+  # === Representation (schema v3) ===
+  #
+  # Actions performed through a representation session must record both
+  # parties in the tamper-evident chain: actor (the principal — unchanged
+  # semantics) and representative (the user who actually performed it).
+
+  def create_trustee_member(name: "Trustee")
+    trustee = create_user(name: name)
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    trustee
+  end
+
+  def create_user_representation_session(principal:, trustee:)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: principal, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+  end
+
+  test "record_option! with a user representation session records both identities" do
+    trustee = create_trustee_member
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+      representation_session: session,
+    )
+
+    assert_equal 3, entry.schema_version
+    assert_equal @user.id, entry.actor_id
+    assert_equal trustee.id, entry.representative_id
+    assert_equal trustee.handle, entry.representative_handle
+    assert entry.representative_token.present?
+    assert entry.representative_token_salt.present?
+    assert_equal "user", entry.representation_kind
+    assert_equal entry.entry_hash, DecisionAuditService.compute_hash(entry),
+                 "represented entry must verify against the v3 hash formula"
+  end
+
+  test "record_vote! with a user representation session records the representative" do
+    trustee = create_trustee_member
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+    participant = DecisionParticipantManager.new(decision: @decision, user: @user).find_or_create_participant
+    vote = Vote.create!(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      option: @option, decision_participant: participant,
+      accepted: 1, preferred: 0,
+    )
+
+    entry = DecisionAuditService.record_vote!(
+      decision: @decision, vote: vote, actor: @user, representation_session: session,
+    )
+    assert_equal @user.id, entry.actor_id
+    assert_equal trustee.id, entry.representative_id
+    assert_equal "user", entry.representation_kind
+  end
+
+  test "collective representation records kind collective and the representative" do
+    identity = @collective.identity_user
+    assert identity.present?, "test collective must have an identity user"
+    session = create_representation_session(
+      tenant: @tenant, collective: @collective, representative: @user,
+    )
+
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: identity, action: "option_added",
+      representation_session: session,
+    )
+    assert_equal identity.id, entry.actor_id
+    assert_equal @user.id, entry.representative_id
+    assert_equal "collective", entry.representation_kind
+  end
+
+  test "direct actions leave all representative fields nil" do
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+    )
+    assert_nil entry.representative_id
+    assert_nil entry.representative_handle
+    assert_nil entry.representative_token
+    assert_nil entry.representative_token_salt
+    assert_nil entry.representation_kind
+  end
+
+  test "representative_token is SHA256(decision_id || representative_id || representative_handle || salt)" do
+    trustee = create_trustee_member
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+      representation_session: session,
+    )
+
+    expected = Digest::SHA256.hexdigest(
+      "#{entry.decision_id}|#{entry.representative_id}|#{entry.representative_handle}|#{entry.representative_token_salt}",
+    )
+    assert_equal expected, entry.representative_token
+  end
+
+  test "representative token and salt anchor to the representative's first represented entry" do
+    trustee = create_trustee_member
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+    first = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+      representation_session: session,
+    )
+
+    trustee.handle = "renamed-#{SecureRandom.hex(4)}"
+    second = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_removed",
+      representation_session: session,
+    )
+
+    assert_equal first.representative_token_salt, second.representative_token_salt,
+                 "salt must be reused per (decision, representative)"
+    assert_equal first.representative_token, second.representative_token,
+                 "token must stay stable across a representative rename"
+    assert_equal first.representative_handle, second.representative_handle,
+                 "stored handle is the anchor handle, not the current one"
+  end
+
+  test "representative anchoring is independent of entries where the same user was the actor" do
+    trustee = create_trustee_member
+    direct = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: trustee, action: "option_added",
+    )
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+    represented = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_removed",
+      representation_session: session,
+    )
+
+    refute_equal direct.actor_token_salt, represented.representative_token_salt,
+                 "representative salt must not reuse the user's actor salt"
+  end
+
+  test "representation is ignored when the session's effective_user is not the actor" do
+    trustee = create_trustee_member
+    other = create_trustee_member(name: "Bystander")
+    # Session represents @user, but the recorded action belongs to other.
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: other, action: "option_added",
+      representation_session: session,
+    )
+    assert_equal other.id, entry.actor_id
+    assert_nil entry.representative_id
+    assert_nil entry.representation_kind
+  end
+
+  test "v3 hash input includes representative token and kind after the actor token" do
+    trustee = create_trustee_member
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+      representation_session: session,
+    )
+
+    input = DecisionAuditService.hash_input(entry)
+    assert input.start_with?("v3|")
+    assert_includes input, "|#{entry.actor_token}|#{entry.representative_token}|user|"
+  end
+
+  test "entry_hash is unchanged when representative PII is scrubbed (id, handle, salt are not in the hash)" do
+    trustee = create_trustee_member
+    session = create_user_representation_session(principal: @user, trustee: trustee)
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: @option, actor: @user, action: "option_added",
+      representation_session: session,
+    )
+    original_hash = entry.entry_hash
+
+    entry.update_columns(representative_id: nil, representative_handle: "[deleted account]", representative_token_salt: nil)
+    assert_equal original_hash, DecisionAuditService.compute_hash(entry),
+                 "entry_hash must not change when representative PII is scrubbed"
+  end
+
+  # --- v2 backward compatibility ---
+
+  test "v2 hash function still works for legacy entries" do
+    v2_entry = DecisionAuditEntry.new(
+      tenant: @tenant, collective: @collective, decision: @decision,
+      sequence_number: 1, schema_version: 2, action: "option_added",
+      actor_id: @user.id, actor_handle: @user.handle,
+      actor_token: "abc123token",
+      option_title: "Option A",
+      created_at: Time.zone.parse("2026-01-01T12:00:00Z"),
+    )
+
+    expected_input = [
+      "v2",
+      "",
+      "1",
+      "option_added",
+      "abc123token",
+      "Option A",
+      "",
+      "",
+      "",
+      v2_entry.created_at.iso8601,
+    ].join("|")
+    expected_hash = Digest::SHA256.hexdigest(expected_input)
+
+    assert_equal expected_hash, DecisionAuditService.compute_hash(v2_entry)
   end
 
   # --- v1 backward compatibility ---

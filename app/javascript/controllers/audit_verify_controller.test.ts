@@ -384,7 +384,7 @@ describe("AuditVerifyController", () => {
 
     const text = resultsText()
     expect(text).toMatch(/Chain integrity:.*FAIL/)
-    expect(text).toContain("actor identity does not match")
+    expect(text).toContain("recorded identity (actor or representative) does not match")
     expect(text).toContain("altered after the fact")
 
     const html = resultsHtml()

@@ -507,7 +507,8 @@ class CollectiveImportService
     data.each do |e|
       # Insert directly to avoid immutability triggers and preserve the original hash chain
       # Preserve actor_token verbatim from source for forensic traceability.
-      # Drop actor_token_salt: the salt was the secret that allowed the source
+      # Drop actor_token_salt (and representative_token_salt, same reasoning):
+      # the salt was the secret that allowed the source
       # instance's binding check to recompute. Carrying it across an import
       # would be misleading — the binding can't validate against remapped
       # target IDs anyway, and dropping the salt makes verify_actor_binding
@@ -525,6 +526,11 @@ class CollectiveImportService
                                    actor_handle: e["actor_handle"],
                                    actor_token: e["actor_token"],
                                    actor_token_salt: nil,
+                                   representative_id: map_id(e["source_representative_id"]),
+                                   representative_handle: e["representative_handle"],
+                                   representative_token: e["representative_token"],
+                                   representative_token_salt: nil,
+                                   representation_kind: e["representation_kind"],
                                    option_title: e["option_title"],
                                    accepted: e["accepted"],
                                    preferred: e["preferred"],

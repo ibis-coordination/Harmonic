@@ -21,6 +21,8 @@ class AuditChainMetadataPiiTest < ActiveSupport::TestCase
   ACTOR_PII_KEYS = %w[
     actor_id actor_handle actor_name actor_email actor_display_name
     user_id user_handle user_name user_email display_name handle email name
+    representative_id representative_handle representative_name representative_email
+    trustee_id trustee_handle
   ].freeze
 
   setup do

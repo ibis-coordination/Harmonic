@@ -141,7 +141,7 @@ class CollectiveExportServiceTest < ActiveSupport::TestCase
     assert notes_data.first["deleted_at"].present?
   end
 
-  test "exports decision audit entries with v2 fields" do
+  test "exports decision audit entries with current-version fields" do
     decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     option = create_option(decision: decision, created_by: @user, title: "Option A")
     DecisionAuditService.record_option!(decision: decision, option: option, actor: @user, action: "option_added")
@@ -155,11 +155,15 @@ class CollectiveExportServiceTest < ActiveSupport::TestCase
     assert actor_entry.present?
     assert actor_entry["entry_hash"].present?
 
-    # v2 fields must be present so a target instance can preserve them on import.
-    # actor_token and actor_token_salt are 64-char hex when an actor is present.
-    assert_equal 2, actor_entry["schema_version"]
+    # Identity fields must be present so a target instance can preserve them on
+    # import. actor_token and actor_token_salt are 64-char hex when an actor is
+    # present; representative fields ride along (nil for direct actions).
+    assert_equal 3, actor_entry["schema_version"]
     assert_match(/\A[0-9a-f]{64}\z/, actor_entry["actor_token"])
     assert_match(/\A[0-9a-f]{64}\z/, actor_entry["actor_token_salt"])
+    assert actor_entry.key?("representative_token"), "representative fields must be exported"
+    assert actor_entry.key?("representation_kind")
+    assert_nil actor_entry["representative_token"], "direct action exports nil representative_token"
   end
 
   test "exports note history events" do

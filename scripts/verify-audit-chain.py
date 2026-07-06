@@ -22,15 +22,26 @@ ok = True
 #    forming a chain. If any entry was altered, all subsequent hashes break.
 #    Identity is bound via `actor_token`, a SHA256 commitment that lets PII
 #    be scrubbed without invalidating the chain (see step 1b).
+#    v3 entries additionally commit to the representation dimension:
+#    representative_token and representation_kind sit right after actor_token
+#    (both empty for direct actions). Entries recorded before v3 do not carry
+#    representation data — for those, "who acted" and "on whose behalf" are
+#    indistinguishable in the chain.
 prev = ""
 for e in data.get("audit_chain", []):
-    computed = hashlib.sha256("|".join([
-        "v2", prev, str(e["sequence_number"]), e["action"],
+    version = e.get("schema_version", 2)
+    fields = [
+        f"v{version}", prev, str(e["sequence_number"]), e["action"],
         e["actor_token"],
+    ]
+    if version >= 3:
+        fields += [e.get("representative_token", ""), e.get("representation_kind", "")]
+    fields += [
         unicodedata.normalize("NFC", e["option_title"]),
         e["accepted"], e["preferred"], e["metadata"],
         e["created_at"],
-    ]).encode()).hexdigest()
+    ]
+    computed = hashlib.sha256("|".join(fields).encode()).hexdigest()
     if computed != e["entry_hash"]:
         print(f"FAIL: entry #{e['sequence_number']} hash mismatch")
         ok = False
@@ -64,6 +75,23 @@ for e in data.get("audit_chain", []):
     ).hexdigest()
     if expected_token != e["actor_token"]:
         print(f"FAIL: entry #{e['sequence_number']} actor binding mismatch (token doesn't derive from stored identity)")
+        ok = False
+
+# 1c. Verify the representative token binding (v3 represented actions).
+#     Same derivation and same scrub/import caveats as the actor binding,
+#     applied to the user who performed the action on the actor's behalf.
+for e in data.get("audit_chain", []):
+    if not e.get("representative_token"):
+        continue  # direct action or pre-v3 entry — nothing to bind
+    rep_id = e.get("representative_id", "")
+    rep_salt = e.get("representative_token_salt", "")
+    if not rep_id or not rep_salt:
+        continue  # PII scrubbed or imported; binding is not expected to validate
+    expected_token = hashlib.sha256(
+        f"{decision_id}|{rep_id}|{e.get('representative_handle', '')}|{rep_salt}".encode()
+    ).hexdigest()
+    if expected_token != e["representative_token"]:
+        print(f"FAIL: entry #{e['sequence_number']} representative binding mismatch (token doesn't derive from stored identity)")
         ok = False
 
 # The decision stores the final chain hash — verify it matches the last entry

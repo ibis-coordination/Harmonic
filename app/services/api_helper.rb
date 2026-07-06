@@ -199,7 +199,7 @@ class ApiHelper
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
       create_attrs[:decision_maker] = resolve_user(decision_maker_param) if decision_maker_param.present?
       decision = Decision.new(create_attrs)
-      DecisionActionService.create_decision!(decision: decision, actor: current_user)
+      DecisionActionService.create_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
       track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
@@ -627,7 +627,7 @@ class ApiHelper
           decision_participant: current_decision_participant,
           title: title
         )
-        DecisionActionService.add_option!(decision: T.must(current_decision), option: option, actor: current_user)
+        DecisionActionService.add_option!(decision: T.must(current_decision), option: option, actor: current_user, representation_session: current_representation_session)
         track_task_run_resource(option, action_type: "add_options")
         options << option
       end
@@ -663,7 +663,7 @@ class ApiHelper
     is_update = vote.persisted?
     vote.accepted = ActiveModel::Type::Boolean.new.cast(params[:accepted]) ? 1 : 0 if params.key?(:accepted)
     vote.preferred = ActiveModel::Type::Boolean.new.cast(params[:preferred]) ? 1 : 0 if params.key?(:preferred)
-    DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update)
+    DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update, representation_session: current_representation_session)
     track_task_run_resource(vote, action_type: "vote")
 
     if current_representation_session
@@ -714,7 +714,7 @@ class ApiHelper
         # Convert boolean to integer (Vote model validates accepted/preferred as 0 or 1)
         vote.accepted = accept_value ? 1 : 0
         vote.preferred = prefer_value ? 1 : 0
-        DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update)
+        DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update, representation_session: current_representation_session)
         track_task_run_resource(vote, action_type: "vote")
         votes << vote
       end
@@ -981,7 +981,7 @@ class ApiHelper
         decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
       end
 
-      DecisionActionService.update_decision!(decision: decision, actor: current_user)
+      DecisionActionService.update_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
 
       if current_representation_session
         current_representation_session.record_event!(
@@ -1003,7 +1003,7 @@ class ApiHelper
       # For executive decisions, cast selection votes (before close, so DB trigger allows them)
       create_executive_selections!(decision) if decision.is_executive?
 
-      DecisionActionService.close_decision!(decision: decision, actor: current_user)
+      DecisionActionService.close_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
 
       create_or_update_statement!(decision, params[:final_statement]) if params[:final_statement].present?
 
@@ -1142,7 +1142,7 @@ class ApiHelper
       is_update = vote.persisted?
       vote.accepted = selected_titles.include?(option.title) ? 1 : 0
       vote.preferred = 0
-      DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: dm, is_update: is_update)
+      DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: dm, is_update: is_update, representation_session: current_representation_session)
     end
   end
 
@@ -1260,7 +1260,7 @@ class ApiHelper
   def update_option(option)
     ActiveRecord::Base.transaction do
       option.title = params[:title] if params[:title].present?
-      DecisionActionService.update_option!(option: option, actor: current_user)
+      DecisionActionService.update_option!(option: option, actor: current_user, representation_session: current_representation_session)
       if current_representation_session
         current_representation_session.record_event!(
           request: request,
@@ -1276,7 +1276,7 @@ class ApiHelper
   # Delete an option
   sig { params(option: Option).void }
   def delete_option(option)
-    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user)
+    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user, representation_session: current_representation_session)
   end
 
   # Duplicate a decision
@@ -1293,7 +1293,7 @@ class ApiHelper
         deadline: original.deadline,
         created_by: current_user
       )
-      DecisionActionService.create_decision!(decision: new_decision, actor: current_user)
+      DecisionActionService.create_decision!(decision: new_decision, actor: current_user, representation_session: current_representation_session)
       original.options.each do |opt|
         option = Option.new(
           decision: new_decision,
@@ -1303,7 +1303,7 @@ class ApiHelper
             user: current_user
           ).find_or_create_participant
         )
-        DecisionActionService.add_option!(decision: new_decision, option: option, actor: current_user)
+        DecisionActionService.add_option!(decision: new_decision, option: option, actor: current_user, representation_session: current_representation_session)
       end
       track_task_run_resource(new_decision, action_type: "create")
       if current_representation_session
