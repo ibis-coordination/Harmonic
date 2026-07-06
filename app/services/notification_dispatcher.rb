@@ -16,6 +16,8 @@ class NotificationDispatcher
       handle_commitment_join_event(event)
     when "commitment.critical_mass"
       handle_commitment_critical_mass_event(event)
+    when "commitment.starting_soon"
+      handle_commitment_starting_soon_event(event)
     when "commitment.starting"
       handle_commitment_starting_event(event)
     when "decision.created"
@@ -299,11 +301,23 @@ class NotificationDispatcher
     end
   end
 
-  # A calendar event is about to start: notify everyone attending (committed
-  # participants plus the creator, who is the event's host whether or not
-  # they RSVP'd to their own event).
+  # A calendar event is coming up (LEAD_TIME ahead of its start): give
+  # attendees a heads-up.
+  sig { params(event: Event).void }
+  def self.handle_commitment_starting_soon_event(event)
+    notify_commitment_start(event, notification_type: "event_starting_soon", title_prefix: "Starting soon")
+  end
+
+  # A calendar event's start time has arrived: notify attendees it's beginning.
   sig { params(event: Event).void }
   def self.handle_commitment_starting_event(event)
+    notify_commitment_start(event, notification_type: "event_starting", title_prefix: "Starting now")
+  end
+
+  # Notify everyone attending (committed participants plus the creator, who is
+  # the event's host whether or not they RSVP'd to their own event).
+  sig { params(event: Event, notification_type: String, title_prefix: String).void }
+  def self.notify_commitment_start(event, notification_type:, title_prefix:)
     subject = event.subject
     return unless subject.is_a?(Commitment)
 
@@ -315,8 +329,8 @@ class NotificationDispatcher
       notify_user(
         event: event,
         recipient: user,
-        notification_type: "event_starting",
-        title: "Starting soon: #{commitment.title}",
+        notification_type: notification_type,
+        title: "#{title_prefix}: #{commitment.title}",
         body: body_parts.join(" · "),
         url: commitment.display_path
       )

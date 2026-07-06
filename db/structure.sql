@@ -474,6 +474,7 @@ CREATE TABLE public.commitments (
     starts_at timestamp without time zone,
     ends_at timestamp without time zone,
     location text,
+    starting_soon_event_fired_at timestamp without time zone,
     starting_event_fired_at timestamp without time zone
 );
 

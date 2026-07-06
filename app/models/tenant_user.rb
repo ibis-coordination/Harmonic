@@ -185,7 +185,9 @@ class TenantUser < ApplicationRecord
     "participation" => { "in_app" => true, "email" => false, "web_push" => true },
     "system" => { "in_app" => true, "email" => true, "web_push" => true },
     "reminder" => { "in_app" => true, "email" => false, "web_push" => true },
-    # Heads-up that a calendar event you created or RSVP'd to starts soon.
+    # Heads-up ahead of time that a calendar event you created or RSVP'd to
+    # starts soon, and a nudge when it's actually starting.
+    "event_starting_soon" => { "in_app" => true, "email" => false, "web_push" => true },
     "event_starting" => { "in_app" => true, "email" => false, "web_push" => true },
     "chat_message" => { "in_app" => true, "email" => false, "web_push" => true },
     "trio_unavailable" => { "in_app" => true, "email" => false, "web_push" => true },
@@ -208,7 +210,8 @@ class TenantUser < ApplicationRecord
     "participation" => "Participation (votes, joins, RSVPs)",
     "system" => "System & account",
     "reminder" => "Reminders",
-    "event_starting" => "Event starting soon",
+    "event_starting_soon" => "Event starting soon",
+    "event_starting" => "Event starting",
     "chat_message" => "Chat messages",
     "trio_unavailable" => "Trio unavailable",
     "tune_in" => "Tune-ins",

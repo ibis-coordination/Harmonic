@@ -34,7 +34,7 @@ class Commitment < ApplicationRecord
   validates :starts_at, presence: true, if: :is_calendar_event?
   validates :ends_at, presence: true, if: :is_calendar_event?
   validate :ends_at_after_starts_at, if: :is_calendar_event?
-  before_save :reset_starting_event_fired_at, if: :will_save_change_to_starts_at?
+  before_save :reset_start_event_fired_at, if: :will_save_change_to_starts_at?
 
   sig { returns(T::Boolean) }
   def is_action?
@@ -304,18 +304,23 @@ class Commitment < ApplicationRecord
 
   private
 
-  # A rescheduled event should give attendees a fresh heads-up for the new
-  # start time (CalendarEventStartingJob fires once per starting_event_fired_at
-  # reset). Only reset when the new start is far enough out that the job's
-  # lead window hasn't already begun — otherwise moving an imminent event a
-  # few minutes would re-ping everyone.
+  # A rescheduled event should re-notify attendees for its new start time
+  # (CalendarEventStartingJob fires once per fired-at reset). Reset each flag
+  # only when the new start is still far enough out that that event's window
+  # hasn't already begun — otherwise nudging an imminent event a few minutes
+  # would re-ping everyone.
   sig { void }
-  def reset_starting_event_fired_at
+  def reset_start_event_fired_at
     s = starts_at
-    return unless starting_event_fired_at
-    return unless s && s > Time.current + CalendarEventStartingJob::LEAD_TIME
+    now = Time.current
 
-    self.starting_event_fired_at = nil
+    if starting_soon_event_fired_at && s && s > now + CalendarEventStartingJob::LEAD_TIME
+      self.starting_soon_event_fired_at = nil
+    end
+
+    if starting_event_fired_at && s && s > now
+      self.starting_event_fired_at = nil
+    end
   end
 
   sig { void }

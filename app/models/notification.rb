@@ -3,7 +3,7 @@
 class Notification < ApplicationRecord
   extend T::Sig
 
-  NOTIFICATION_TYPES = %w[mention comment participation system reminder event_starting chat_message trio_unavailable tune_in trustee_authorization role_change].freeze
+  NOTIFICATION_TYPES = %w[mention comment participation system reminder event_starting_soon event_starting chat_message trio_unavailable tune_in trustee_authorization role_change].freeze
 
   belongs_to :tenant
   belongs_to :event, optional: true
