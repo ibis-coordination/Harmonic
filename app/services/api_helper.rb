@@ -191,8 +191,9 @@ class ApiHelper
         options_open: params[:options_open] || true,
         # Deadline is optional. Omitting it means the decision is closed manually,
         # represented by a far-future deadline (see requires_manual_close?) — the
-        # same convention as the HTML form's "no deadline" option.
-        deadline: params[:deadline].presence || 100.years.from_now,
+        # same convention as the HTML form's "no deadline" option. When present it
+        # accepts relative shorthand (7d, 3h, 1w) via parse_datetime_param.
+        deadline: parse_datetime_param(params[:deadline]).presence || 100.years.from_now,
         created_by: current_user,
       }
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
@@ -220,13 +221,13 @@ class ApiHelper
         title: params[:title],
         description: params[:description],
         subtype: subtype,
-        deadline: params[:deadline].presence,
+        deadline: parse_datetime_param(params[:deadline]).presence,
         critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
       }
       if subtype == "calendar_event"
-        attrs[:starts_at] = params[:starts_at]
-        attrs[:ends_at] = params[:ends_at]
+        attrs[:starts_at] = parse_datetime_param(params[:starts_at])
+        attrs[:ends_at] = parse_datetime_param(params[:ends_at])
         attrs[:location] = params[:location].presence
       end
       # Deadline is optional. When omitted, calendar events fall back to their
@@ -973,7 +974,7 @@ class ApiHelper
       if params[:deadline].present?
         raise "Cannot change deadline on a closed decision" if decision.closed?
 
-        decision.deadline = params[:deadline]
+        decision.deadline = parse_datetime_param(params[:deadline])
       end
       dm_param_key = params.has_key?(:decision_maker) ? :decision_maker : :decision_maker_id
       if params.has_key?(dm_param_key)
@@ -1096,6 +1097,23 @@ class ApiHelper
     tu.user
   end
 
+  # Coerce a datetime param that may arrive as an ISO 8601 string, a Unix
+  # timestamp, a relative shorthand (7d, 3h, 1w), or a datetime-local value.
+  # This gives decision/commitment deadlines the same flexible parsing that
+  # reminder notes already accept via `scheduled_for`.
+  #
+  # Values that are already time-like pass through unchanged so internal
+  # callers (and tests) that hand us real objects keep working, and an
+  # unparseable string is returned as-is so the model's own coercion/validation
+  # produces the same error it did before.
+  sig { params(value: T.untyped).returns(T.untyped) }
+  private def parse_datetime_param(value)
+    return value if value.blank?
+    return value if value.is_a?(Time) || value.is_a?(Date) || value.is_a?(ActiveSupport::TimeWithZone)
+
+    parse_scheduled_time(value, timezone: params[:timezone]) || value
+  end
+
   private def create_executive_selections!(decision)
     selected_titles = Array(params[:selections])
     dm = decision.effective_decision_maker
@@ -1186,11 +1204,11 @@ class ApiHelper
         commitment.critical_mass = new_cm
       end
 
-      commitment.deadline = params[:deadline] if params[:deadline].present?
+      commitment.deadline = parse_datetime_param(params[:deadline]) if params[:deadline].present?
 
       if commitment.is_calendar_event?
-        commitment.starts_at = params[:starts_at] if params[:starts_at].present?
-        commitment.ends_at = params[:ends_at] if params[:ends_at].present?
+        commitment.starts_at = parse_datetime_param(params[:starts_at]) if params[:starts_at].present?
+        commitment.ends_at = parse_datetime_param(params[:ends_at]) if params[:ends_at].present?
         commitment.location = params[:location] if params.key?(:location)
       end
 
