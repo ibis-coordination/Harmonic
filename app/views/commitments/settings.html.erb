@@ -41,6 +41,36 @@
         <%= render 'shared/multi_file_select', form: form %>
       </section>
 
+      <% if @commitment.is_calendar_event? %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Schedule</h2>
+        <div class="pulse-form-group">
+          <label class="pulse-form-label">Starts</label>
+          <%= render DatetimeInputComponent.new(
+            field_name: "starts_at",
+            timezone_field_name: "starts_at_timezone",
+            require_future: false,
+            default_timezone: @current_collective.timezone.name,
+            utc_value: @commitment.starts_at&.iso8601,
+          ) %>
+        </div>
+        <div class="pulse-form-group">
+          <label class="pulse-form-label">Ends</label>
+          <%= render DatetimeInputComponent.new(
+            field_name: "ends_at",
+            timezone_field_name: "ends_at_timezone",
+            require_future: false,
+            default_timezone: @current_collective.timezone.name,
+            utc_value: @commitment.ends_at&.iso8601,
+          ) %>
+        </div>
+        <div class="pulse-form-group">
+          <label class="pulse-form-label">Location <span class="pulse-form-label-optional">(optional)</span></label>
+          <%= form.text_field :location, placeholder: "Where will this happen?", value: @commitment.location, class: "pulse-form-input" %>
+        </div>
+      </section>
+      <% end %>
+
       <% unless @current_collective.private_workspace? %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Critical Mass</h2>

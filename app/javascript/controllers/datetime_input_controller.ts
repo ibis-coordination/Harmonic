@@ -91,6 +91,11 @@ export default class DatetimeInputController extends Controller {
   }
 
   private setMinAttribute() {
+    // Only pin a floor of "now" when a future value is actually required.
+    // Edit forms pass requireFuture: false so an already-started event can
+    // still be corrected — a past prefilled value must not fall below `min`
+    // and get blocked by native browser validation.
+    if (!this.requireFutureValue) return
     this.datetimeInputTarget.min = this.formatDatetimeLocal(new Date())
   }
 
