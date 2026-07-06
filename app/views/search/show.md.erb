@@ -58,26 +58,10 @@ Enter a search query to find items.
 
 Use operators to filter, sort, and group results. Plain text searches content. Use `"quotes"` for exact phrase matching. Prefix with `-` to negate.
 
-| Operator | Values |
-|----------|--------|
-| `visibility:` | public, shared, private |
-| `collective:` | collective handle |
-| `list:` | list id, or `mutuals` / `tuned_in` (your own) |
-| `type:` | note, decision, commitment |
-| `subtype:` | post, reminder, table, comment, statement, summary, vote, lottery, executive, action, calendar_event, policy |
-| `status:` | open, closed |
-| `creator:` | @handle |
-| `read-by:` | @handle |
-| `voter:` | @handle |
-| `participant:` | @handle |
-| `mentions:` | @handle |
-| `replying-to:` | @handle |
-| `min-*/max-*:` | links, backlinks, comments, readers, voters, participants |
-| `critical-mass-achieved:` | true, false |
-| `sort:` | newest, oldest, updated, deadline, relevance |
-| `group:` | collective, creator, type, status, date, week, month, none |
-| `cycle:` | today, this-week, last-month, etc. |
-| `after:` | YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny |
-| `before:` | YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny |
-| `limit:` | 1-100 |
+<%# Rendered from SearchFilterReferenceHelper::SECTIONS — the single source %>
+<%# of truth shared with /help/search and the /search HTML syntax panel. %>
+<%= search_filter_reference_section(:filtering) -%>
+<%= search_filter_reference_section(:numeric) -%>
+<%= search_filter_reference_section(:date) -%>
+<%= search_filter_reference_section(:sorting) -%>
 
