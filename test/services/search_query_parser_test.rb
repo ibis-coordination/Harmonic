@@ -277,6 +277,17 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal "my-collective", result[:collective_handle]
   end
 
+  test "collective:@my-collective works with an optional @ prefix" do
+    result = SearchQueryParser.new("collective:@my-collective").parse
+    assert_equal "my-collective", result[:collective_handle]
+  end
+
+  test "collective:@team and collective:team parse identically" do
+    with_at = SearchQueryParser.new("collective:@team").parse
+    without_at = SearchQueryParser.new("collective:team").parse
+    assert_equal without_at[:collective_handle], with_at[:collective_handle]
+  end
+
   # sort: operator
 
   test "sort:newest maps to created_at-desc" do
