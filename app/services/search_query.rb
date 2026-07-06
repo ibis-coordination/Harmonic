@@ -159,7 +159,7 @@ class SearchQuery
   # of any of these suppresses the People section entirely; the viewer's
   # query string is clearly looking for content.
   PEOPLE_INCOMPATIBLE_PARAM_KEYS = [
-    :type, :exclude_types, :subtypes, :exclude_subtypes, :status, :creator_handles, :exclude_creator_handles, :read_by_handles, :exclude_read_by_handles, :voter_handles, :exclude_voter_handles, :participant_handles, :exclude_participant_handles, :mentions_handles, :exclude_mentions_handles, :replying_to_handles, :exclude_replying_to_handles, :my_filters, :exclude_my_filters, :critical_mass_achieved, :min_links, :max_links, :min_backlinks, :max_backlinks, :min_comments, :max_comments, :min_readers, :max_readers, :min_voters, :max_voters, :min_participants, :max_participants, :after_date, :before_date, :visibility, :exclude_visibility,
+    :type, :exclude_types, :subtypes, :exclude_subtypes, :status, :creator_handles, :exclude_creator_handles, :read_by_handles, :exclude_read_by_handles, :voter_handles, :exclude_voter_handles, :participant_handles, :exclude_participant_handles, :mentions_handles, :exclude_mentions_handles, :replying_to_handles, :exclude_replying_to_handles, :my_filters, :exclude_my_filters, :critical_mass_achieved, :min_links, :max_links, :min_backlinks, :max_backlinks, :min_comments, :max_comments, :min_readers, :max_readers, :min_voters, :max_voters, :min_participants, :max_participants, :after_date, :before_date, :visibility, :exclude_visibility, :media,
   ].freeze
 
   sig { returns(T::Array[User]) }
@@ -585,6 +585,7 @@ class SearchQuery
     apply_list_filter
     apply_integer_filters
     apply_boolean_filters
+    apply_media_filter
     apply_sorting
 
     # Eager load associations to avoid N+1 queries when grouping or displaying results
@@ -1265,6 +1266,26 @@ class SearchQuery
                   # Commitments that have NOT reached critical mass
                   T.must(@relation)
                     .where(item_type: "Commitment")
+                end
+  end
+
+  sig { void }
+  def apply_media_filter
+    # media:image     → items with at least one embedded image (MediaItem)
+    # media:text-only → items with no embedded images
+    media = @params[:media]
+    return if media.blank?
+
+    # MediaItem is polymorphic on (mediable_type, mediable_id), which line up
+    # with search_index's (item_type, item_id). The mediable index covers this.
+    exists = "SELECT 1 FROM media_items mi
+              WHERE mi.mediable_type = search_index.item_type
+              AND mi.mediable_id = search_index.item_id
+              AND mi.tenant_id = search_index.tenant_id"
+    @relation = if media == "text-only"
+                  T.must(@relation).where("NOT EXISTS (#{exists})")
+                else # "image"
+                  T.must(@relation).where("EXISTS (#{exists})")
                 end
   end
 

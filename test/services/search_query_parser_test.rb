@@ -106,6 +106,24 @@ class SearchQueryParserTest < ActiveSupport::TestCase
     assert_equal ["comment"], result[:exclude_subtypes]
   end
 
+  # media: operator
+
+  test "media:image sets media filter" do
+    result = SearchQueryParser.new("media:image").parse
+    assert_equal "image", result[:media]
+  end
+
+  test "media:text-only sets media filter" do
+    result = SearchQueryParser.new("media:text-only").parse
+    assert_equal "text-only", result[:media]
+  end
+
+  test "invalid media value treated as search text" do
+    result = SearchQueryParser.new("media:video").parse
+    assert_equal "media:video", result[:q]
+    assert_nil result[:media]
+  end
+
   # creator: operator
 
   test "creator:@alice sets creator handles" do
