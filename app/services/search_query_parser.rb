@@ -66,6 +66,11 @@ class SearchQueryParser
     "subtype" => { values: Note::SUBTYPES + Decision::SUBTYPES + Commitment::SUBTYPES, multi: true },
     "status" => { values: ["open", "closed"], multi: false },
 
+    # Content filters
+    # media:image   → items with at least one embedded image
+    # media:text-only → items with no embedded images
+    "media" => { values: ["image", "text-only"], multi: false },
+
     # Boolean filters
     "critical-mass-achieved" => { values: ["true", "false"], multi: false },
 
@@ -317,6 +322,9 @@ class SearchQueryParser
     # Boolean filters
     params[:critical_mass_achieved] = build_boolean_param("critical-mass-achieved")
 
+    # Content filters
+    params[:media] = build_media_param
+
     # Integer filters (min/max)
     params[:min_links] = build_integer_param("min-links")
     params[:max_links] = build_integer_param("max-links")
@@ -437,6 +445,15 @@ class SearchQueryParser
 
     # Last value wins
     values.last == "true"
+  end
+
+  sig { returns(T.nilable(String)) }
+  def build_media_param
+    values = @operators["media"]
+    return nil if values.blank?
+
+    # Last value wins
+    values.last
   end
 
   sig { params(key: String).returns(T.nilable(Integer)) }
