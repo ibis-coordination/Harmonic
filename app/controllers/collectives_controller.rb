@@ -689,6 +689,20 @@ class CollectivesController < ApplicationController
       return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: e.message })
     end
 
+    # Notify the member when they gain a role, so they learn about the new
+    # standing and who granted it (issue #340). Revocations are silent, and a
+    # self-grant (an admin editing their own roles) notifies no one — the
+    # dispatcher drops actor == recipient.
+    if grant
+      EventService.record!(
+        event_type: "collective_member.role_granted",
+        actor: @current_user,
+        subject: member,
+        metadata: { "role" => role },
+        collective_id: @current_collective.id
+      )
+    end
+
     render_action_success({
       action_name: 'update_member_roles',
       resource: @current_collective,

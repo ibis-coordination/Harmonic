@@ -24,8 +24,51 @@ class NotificationDispatcher
       handle_option_created_event(event)
     when "user_list_member.created"
       handle_member_added_event(event)
+    when "collective_member.role_granted"
+      handle_role_granted_event(event)
     when /^agent\./
       handle_agent_event(event)
+    end
+  end
+
+  # Notify a member that they were granted a collective role (admin,
+  # representative, or summarizer), naming who granted it (issue #340).
+  sig { params(event: Event).void }
+  def self.handle_role_granted_event(event)
+    membership = event.subject
+    return unless membership.is_a?(CollectiveMember)
+
+    recipient = membership.user
+    collective = membership.collective
+    return if collective.nil?
+    # Don't notify an admin who edited their own roles.
+    return if event.actor_id && recipient.id == event.actor_id
+
+    role = event.metadata.is_a?(Hash) ? event.metadata["role"].to_s : ""
+    return if role.blank?
+
+    granter = T.unsafe(event).actor
+    granter_name = granter&.display_name || "An admin"
+    title = "#{granter_name} made you #{role_phrase(role)} of #{collective.name}"
+
+    notify_user(
+      event: event,
+      recipient: recipient,
+      notification_type: "role_change",
+      title: title,
+      url: "#{collective.path}/members"
+    )
+  end
+
+  # "an admin" / "a representative" / "a summarizer" — falls back to a bare
+  # "the <role> role" for any future role that doesn't read well with an article.
+  sig { params(role: String).returns(String) }
+  def self.role_phrase(role)
+    case role
+    when "admin" then "an admin"
+    when "representative" then "a representative"
+    when "summarizer" then "a summarizer"
+    else "the #{role} role"
     end
   end
 
