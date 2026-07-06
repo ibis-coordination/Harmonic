@@ -147,8 +147,11 @@ class AiAgentsHelperTest < ActionView::TestCase
 
   # Stands in for @current_tenant in these view-helper tests.
   class FakeTenant
-    def initialize(stripe_billing:)
+    attr_reader :enabled_gateway_models
+
+    def initialize(stripe_billing:, enabled_gateway_models: [])
       @stripe_billing = stripe_billing
+      @enabled_gateway_models = enabled_gateway_models
     end
 
     def feature_enabled?(flag)
@@ -156,21 +159,45 @@ class AiAgentsHelperTest < ActionView::TestCase
     end
   end
 
-  test "model_pricing_rows returns a row for every catalogued model, sorted by name" do
-    catalog = {
-      "openai/gpt-5" => { input_per_million: "1.63", output_per_million: "13.00" },
-      "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" },
-    }
+  # A tenant's configured offering plus a catalog that prices the offering and
+  # one un-offered model, to prove the rows are the intersection in order.
+  OFFERING = ["anthropic/claude-sonnet-4.6", "anthropic/claude-haiku-4.5", "openai/gpt-5.1"].freeze
+
+  def billing_tenant(enabled: OFFERING)
+    FakeTenant.new(stripe_billing: true, enabled_gateway_models: enabled)
+  end
+
+  def catalog_for(models)
+    models.index_with { |_m| { input_per_million: "1.00", output_per_million: "2.00" } }
+      .merge("openai/gpt-5-nano" => { input_per_million: "0.05", output_per_million: "0.40" })
+  end
+
+  test "model_pricing_rows returns offered+priced models in the offering's order" do
+    @current_tenant = billing_tenant
+    # Price only the first two offered models, plus an un-offered one.
+    priced = OFFERING.first(2)
+    catalog = priced.index_with { |_m| { input_per_million: "3.90", output_per_million: "19.50" } }
+      .merge("openai/gpt-5-nano" => { input_per_million: "0.05", output_per_million: "0.40" })
+
     GatewayModelCatalog.stub(:prices, catalog) do
       rows = model_pricing_rows
 
-      assert_equal(["anthropic/claude-sonnet-4.6", "openai/gpt-5"], rows.map { |r| r[:name] })
+      assert_equal priced, rows.map { |r| r[:name] }, "rows follow the offering order, intersected with prices"
+      assert_not_includes rows.map { |r| r[:name] }, "openai/gpt-5-nano", "priced but not offered → excluded"
       assert_equal "3.90", rows.first[:input]
       assert_equal "19.50", rows.first[:output]
     end
   end
 
+  test "model_pricing_rows is empty when billing is off" do
+    @current_tenant = FakeTenant.new(stripe_billing: false, enabled_gateway_models: OFFERING)
+    GatewayModelCatalog.stub(:prices, catalog_for(OFFERING)) do
+      assert_empty model_pricing_rows
+    end
+  end
+
   test "model_pricing_rows is empty when the catalog is unavailable" do
+    @current_tenant = billing_tenant
     GatewayModelCatalog.stub(:prices, {}) do
       assert_empty model_pricing_rows
     end
@@ -178,15 +205,31 @@ class AiAgentsHelperTest < ActionView::TestCase
 
   # === selectable_models ===
 
-  test "selectable_models uses the rate card when billing is on" do
-    @current_tenant = FakeTenant.new(stripe_billing: true)
-    catalog = {
-      "openai/gpt-5" => { input_per_million: "1.63", output_per_million: "13.00" },
-      "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" },
-    }
+  test "selectable_models is the tenant's offering intersected with prices" do
+    @current_tenant = billing_tenant
+    GatewayModelCatalog.stub(:prices, catalog_for(OFFERING)) do
+      # Exactly the offering (all priced here), in order — and never the
+      # un-offered gpt-5-nano that the catalog also prices.
+      assert_equal OFFERING, selectable_models
+      assert_not_includes selectable_models, "openai/gpt-5-nano"
+    end
+  end
+
+  test "selectable_models matches model_pricing_rows exactly" do
+    @current_tenant = billing_tenant
+    # Price only some of the offering; the two views must still agree.
+    catalog = OFFERING.first(2).index_with { |_m| { input_per_million: "1.00", output_per_million: "2.00" } }
     GatewayModelCatalog.stub(:prices, catalog) do
-      # Exactly the priced models, sorted — matches the price table.
-      assert_equal ["anthropic/claude-sonnet-4.6", "openai/gpt-5"], selectable_models
+      assert_equal(selectable_models, model_pricing_rows.map { |r| r[:name] })
+    end
+  end
+
+  test "selectable_models defaults to the litellm gateway models when the tenant has no offering" do
+    @current_tenant = billing_tenant(enabled: [])
+    GatewayModelCatalog.stub(:prices, catalog_for(OFFERING)) do
+      # Nothing configured → default to the litellm models the rate card prices
+      # (not an empty select, and not the raw list with "default"/local models).
+      assert_equal ["anthropic/claude-sonnet-4.6", "anthropic/claude-haiku-4.5"], selectable_models
     end
   end
 
@@ -199,10 +242,15 @@ class AiAgentsHelperTest < ActionView::TestCase
   end
 
   test "selectable_models falls back to the litellm list when the catalog is unavailable" do
-    @current_tenant = FakeTenant.new(stripe_billing: true)
+    @current_tenant = billing_tenant
 
     GatewayModelCatalog.stub(:prices, {}) do
       assert_includes selectable_models, "default"
     end
+  end
+
+  test "offered_gateway_models is the tenant's configured set" do
+    @current_tenant = billing_tenant
+    assert_equal OFFERING, offered_gateway_models
   end
 end

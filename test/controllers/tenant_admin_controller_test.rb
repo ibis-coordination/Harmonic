@@ -118,6 +118,45 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     assert_equal [], @primary_tenant.allowed_attachment_categories
   end
 
+  test "settings page lists gateway models with prices when billing is on" do
+    enable_stripe_billing_flag!(@primary_tenant)
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+
+    catalog = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" } }
+    GatewayModelCatalog.stub(:prices, catalog) do
+      get "/tenant-admin/settings"
+    end
+
+    assert_response :success
+    assert_includes response.body, "AI Agent Models"
+    assert_includes response.body, "anthropic/claude-sonnet-4.6"
+    assert_includes response.body, "$3.90"
+  end
+
+  test "tenant admin can set enabled gateway models" do
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+
+    # Hidden empty marker plus the checked models.
+    post "/tenant-admin/settings", params: {
+      gateway_models: ["", "anthropic/claude-sonnet-4.6", "openai/gpt-5.1"],
+    }
+
+    assert_response :redirect
+    @primary_tenant.reload
+    assert_equal ["anthropic/claude-sonnet-4.6", "openai/gpt-5.1"], @primary_tenant.enabled_gateway_models
+  end
+
+  test "tenant admin can clear enabled gateway models" do
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    @primary_tenant.update!(settings: @primary_tenant.settings.merge("gateway_models" => ["anthropic/claude-sonnet-4.6"]))
+
+    # Hidden empty marker only — every box unchecked.
+    post "/tenant-admin/settings", params: { gateway_models: [""] }
+
+    assert_response :redirect
+    assert_empty @primary_tenant.reload.enabled_gateway_models
+  end
+
   test "tenant admin settings update ignores unknown attachment categories" do
     sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
 
@@ -478,5 +517,11 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     @temp_files ||= []
     @temp_files << path.to_s
     path.to_s
+  end
+
+  def enable_stripe_billing_flag!(tenant)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    tenant.enable_feature_flag!("stripe_billing")
   end
 end
