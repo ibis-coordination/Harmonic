@@ -139,7 +139,7 @@
 
       <%# Free accounts still buy LLM credits — the $3/mo fee is waived, but
           credits are a separate one-time top-up that powers internal agents. %>
-      <% if current_tenant&.feature_enabled?("stripe_billing") %>
+      <% if @current_tenant&.feature_enabled?("stripe_billing") %>
         <%= render "billing/credits_section" %>
       <% end %>
 
