@@ -73,6 +73,10 @@ class StripeService
           quantity: quantity,
         },
       ],
+      # Offer cards the customer already saved (e.g. via a credit top-up)
+      # instead of asking them to type the number again. "limited" includes
+      # cards Stripe saved automatically for subscription renewals.
+      saved_payment_method_options: { allow_redisplay_filters: ["always", "limited"] },
       success_url: success_url,
       cancel_url: cancel_url,
     )
@@ -275,6 +279,13 @@ class StripeService
       mode: "payment",
       line_items: [{ price: price.id, quantity: 1 }],
       metadata: { type: "credit_topup" },
+      # Offer cards saved via the identity subscription ("limited") or a prior
+      # top-up ("always"), and let the customer save a new card for next time —
+      # payment-mode checkouts don't save cards by default.
+      saved_payment_method_options: {
+        allow_redisplay_filters: ["always", "limited"],
+        payment_method_save: "enabled",
+      },
       success_url: success_url,
       cancel_url: cancel_url,
     )

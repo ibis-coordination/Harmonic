@@ -46,11 +46,11 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "show describes a fresh human as a 'Free account' with no subscription needed" do
+  test "show tells a fresh human there is nothing to pay yet" do
     # Fresh user — no AI agents, no non-main collectives.
-    fresh_tenant = create_tenant(subdomain: "billing-free-#{SecureRandom.hex(4)}")
+    fresh_tenant = create_tenant(subdomain: "billing-fresh-#{SecureRandom.hex(4)}")
     enable_stripe_billing_flag!(fresh_tenant)
-    fresh_user = create_user(email: "billing-free-#{SecureRandom.hex(4)}@example.com", name: "Billing Free")
+    fresh_user = create_user(email: "billing-fresh-#{SecureRandom.hex(4)}@example.com", name: "Billing Fresh")
     fresh_tenant.add_user!(fresh_user)
     fresh_tenant.create_main_collective!(created_by: fresh_user)
     host! "#{fresh_tenant.subdomain}.#{ENV['HOSTNAME']}"
@@ -59,8 +59,15 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     get "/billing"
 
     assert_response :success
-    assert_match(/free account/i, response.body,
-                 "expected 'Free account' framing for humans with no billable resources")
+    assert_match(/nothing to pay/i, response.body,
+                 "expected 'Nothing to pay' framing for humans with no billable resources")
+    assert_match(/billable items will show up here/i, response.body,
+                 "expected forward-looking framing instead of a plan-tier claim")
+    assert_no_match(/\bfree\b/i, response.body,
+                    "billing copy must not describe the account as free — the word invites " \
+                    "'free except when it's not' confusion")
+    assert_no_match(/collectives? cost/i, response.body,
+                    "collectives don't bill until automations are enabled — don't imply they cost money")
     assert_no_match(/Set Up Billing/, response.body,
                     "fresh humans should not see a Set Up Billing button")
   end
@@ -504,9 +511,9 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Set Up Billing"
   end
 
-  test "show displays free-account banner when no billable resources" do
+  test "show displays nothing-to-pay banner when no billable resources" do
     # Under humans-free, a user with no agents and no non-main collectives
-    # owned by them lands in the "free account" branch — same view branch
+    # owned by them lands in the "nothing to pay" branch — same view branch
     # the older billing-exempt test used to cover (now broadened beyond
     # admin-set exemption).
     @user.update!(billing_exempt: true)
@@ -516,7 +523,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     get "/billing"
 
     assert_response :success
-    assert_includes response.body, "Free account"
+    assert_includes response.body, "Nothing to pay"
   end
 
   test "show displays exempt label on individual exempt resources" do
