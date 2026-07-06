@@ -164,7 +164,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
 
   test "publishes stripe_gateway mode with mapped model when billing active" do
     setup_active_billing!
-    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "claude-sonnet-4" })
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "anthropic/claude-sonnet-4.6" })
 
     redis = Redis.new(url: ENV["REDIS_URL"])
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
@@ -195,7 +195,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   end
 
   test "publishes litellm mode with unmapped model when stripe_billing is off" do
-    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "claude-sonnet-4" })
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "anthropic/claude-sonnet-4.6" })
 
     redis = Redis.new(url: ENV["REDIS_URL"])
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -204,7 +204,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_not_nil entry
     fields = entry[1]
     assert_equal "litellm", fields["llm_gateway_mode"]
-    assert_equal "claude-sonnet-4", fields["model"]
+    assert_equal "anthropic/claude-sonnet-4.6", fields["model"]
     redis.close
   end
 

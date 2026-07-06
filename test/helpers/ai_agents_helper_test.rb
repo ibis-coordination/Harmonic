@@ -135,9 +135,10 @@ class AiAgentsHelperTest < ActionView::TestCase
   test "available_llm_models returns all configured models" do
     models = available_llm_models
 
-    # These models are defined in config/litellm_config.yaml
+    # These models are defined in config/litellm_config.yaml. Gateway-servable
+    # models use the Stripe gateway's provider/model names 1-to-1.
     assert_includes models, "default"
-    assert_includes models, "claude-haiku-4"
+    assert_includes models, "anthropic/claude-haiku-4.5"
     assert_includes models, "llama3"
   end
 end
