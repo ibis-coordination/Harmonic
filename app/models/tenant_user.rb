@@ -191,6 +191,9 @@ class TenantUser < ApplicationRecord
     # Trustee authorization lifecycle (offered/accepted/declined/revoked).
     # In-app by default, matching most types; users can opt into email.
     "trustee_authorization" => { "in_app" => true, "email" => false, "web_push" => true },
+    # Being granted a collective role (admin/representative/summarizer). A
+    # meaningful change in standing, so email defaults on like system/mention.
+    "role_change" => { "in_app" => true, "email" => true, "web_push" => true },
   }.freeze, T::Hash[String, T::Hash[String, T::Boolean]])
 
   # User-facing labels for each notification type, in display order. Keys must
@@ -207,6 +210,7 @@ class TenantUser < ApplicationRecord
     "trio_unavailable" => "Trio unavailable",
     "tune_in" => "Tune-ins",
     "trustee_authorization" => "Trustee authorizations",
+    "role_change" => "Role changes",
   }.freeze, T::Hash[String, String])
 
   # Delivery channels a user can toggle per notification type.
