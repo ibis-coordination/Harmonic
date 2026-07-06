@@ -108,33 +108,9 @@
         Use operators to filter, sort, and group results. Plain text searches content.
         Use <code>"quotes"</code> for exact phrase matching. Prefix with <code>-</code> to negate.
       </p>
-      <table class="pulse-table" style="font-size: 0.85rem;">
-        <thead>
-          <tr><th>Operator</th><th>Values</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>visibility:</code></td><td>public, shared, private</td></tr>
-          <tr><td><code>collective:</code></td><td>collective handle</td></tr>
-          <tr><td><code>list:</code></td><td>list id, or <code>mutuals</code> / <code>tuned_in</code> (your own)</td></tr>
-          <tr><td><code>type:</code></td><td>note, decision, commitment</td></tr>
-          <tr><td><code>subtype:</code></td><td>post, reminder, table, comment, statement, summary, vote, lottery, executive, action, calendar_event, policy</td></tr>
-          <tr><td><code>status:</code></td><td>open, closed</td></tr>
-          <tr><td><code>creator:</code></td><td>@handle</td></tr>
-          <tr><td><code>read-by:</code></td><td>@handle</td></tr>
-          <tr><td><code>voter:</code></td><td>@handle</td></tr>
-          <tr><td><code>participant:</code></td><td>@handle</td></tr>
-          <tr><td><code>mentions:</code></td><td>@handle</td></tr>
-          <tr><td><code>replying-to:</code></td><td>@handle</td></tr>
-          <tr><td><code>min-*/max-*:</code></td><td>links, backlinks, comments, readers, voters, participants</td></tr>
-          <tr><td><code>critical-mass-achieved:</code></td><td>true, false</td></tr>
-          <tr><td><code>sort:</code></td><td>newest, oldest, updated, deadline, relevance</td></tr>
-          <tr><td><code>group:</code></td><td>collective, creator, type, status, date, week, month, none</td></tr>
-          <tr><td><code>cycle:</code></td><td>today, this-week, last-month, etc.</td></tr>
-          <tr><td><code>after:</code></td><td>YYYY-MM-DD or -Nd/-Nw/-Nm/-Ny</td></tr>
-          <tr><td><code>before:</code></td><td>YYYY-MM-DD or +Nd/+Nw/+Nm/+Ny</td></tr>
-          <tr><td><code>limit:</code></td><td>1-100</td></tr>
-        </tbody>
-      </table>
+      <%# Reference tables are rendered from SearchFilterReferenceHelper::SECTIONS, %>
+      <%# the single source of truth shared with the /help/search page. %>
+      <%= search_filter_reference_html %>
     </section>
   </div>
 </article>

@@ -18,24 +18,7 @@ Navigate to `/search?q={query}` to search. Plain text searches content. Use `"qu
 
 Use operators in your query to filter, sort, and group results.
 
-### Filtering
-
-| Operator | Values | Example |
-|----------|--------|---------|
-| `visibility:` | public, shared, private | `visibility:shared` |
-| `collective:` | collective handle | `collective:my-team` |
-| `list:` | list id, or `mutuals` / `tuned_in` (see [Lists](/help/lists)) | `list:mutuals`, `list:tuned_in`, `list:abc12345` |
-| `type:` | note, decision, commitment | `type:note` |
-| `subtype:` | post, reminder, table, comment, statement, summary, vote, lottery, executive, action, calendar_event, policy | `subtype:reminder` |
-| `status:` | open, closed | `status:open` |
-| `media:` | image, text-only | `media:image` |
-| `creator:` | @handle | `creator:@alice` |
-| `read-by:` | @handle | `read-by:@alice` |
-| `voter:` | @handle | `voter:@alice` |
-| `participant:` | @handle | `participant:@alice` |
-| `mentions:` | @handle | `mentions:@bob` |
-| `replying-to:` | @handle | `replying-to:@alice` |
-| `critical-mass-achieved:` | true, false | `critical-mass-achieved:true` |
+<%= search_filter_reference_section(:filtering) %>
 
 ### Your State (`my:`)
 
@@ -75,34 +58,9 @@ operators (which combine with AND): `my:voted my:committed` matches items
 that are *both*, not either. Aliases can't be negated — write the
 underlying operator (e.g. `-creator:@you`) instead.
 
-### Numeric Filters
-
-Use `min-` and `max-` prefixes with these fields:
-
-| Field | Example |
-|-------|---------|
-| `links` | `min-links:3` |
-| `backlinks` | `min-backlinks:1` |
-| `comments` | `max-comments:10` |
-| `readers` | `min-readers:5` |
-| `voters` | `min-voters:3` |
-| `participants` | `min-participants:2` |
-
-### Date Filters
-
-| Operator | Values | Example |
-|----------|--------|---------|
-| `cycle:` | today, this-week, last-month, etc. | `cycle:this-week` |
-| `after:` | YYYY-MM-DD or relative (-Nd/-Nw/-Nm/-Ny) | `after:-7d` |
-| `before:` | YYYY-MM-DD or relative (+Nd/+Nw/+Nm/+Ny) | `before:2026-01-01` |
-
-### Sorting and Grouping
-
-| Operator | Values |
-|----------|--------|
-| `sort:` | newest, oldest, updated, deadline, relevance |
-| `group:` | collective, creator, type, status, date, week, month, none |
-| `limit:` | 1-100 |
+<%= search_filter_reference_section(:numeric) %>
+<%= search_filter_reference_section(:date) %>
+<%= search_filter_reference_section(:sorting) %>
 
 ## Examples
 

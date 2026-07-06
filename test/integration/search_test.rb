@@ -83,6 +83,31 @@ class SearchTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "`scope:`"
   end
 
+  test "the /search panel and /help/search render operators from the shared source of truth" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # media: previously lived only on the help page — the /search panel had
+    # drifted and omitted it. Both now derive from
+    # SearchFilterReferenceHelper::SECTIONS, so every operator in the source
+    # must appear on both surfaces.
+    operators = SearchFilterReferenceHelper::SECTIONS
+                .select { |s| s[:columns].include?(:operator) }
+                .flat_map { |s| s[:rows].map { |r| r[:operator].delete("`") } }
+    assert_includes operators, "media:"
+
+    get search_path
+    assert_response :success
+    operators.each do |op|
+      assert_includes response.body, "<code>#{op}</code>", "/search panel missing #{op}"
+    end
+
+    get "/help/search"
+    assert_response :success
+    operators.each do |op|
+      assert_includes response.body, "<code>#{op}</code>", "/help/search missing #{op}"
+    end
+  end
+
   # Markdown tests
 
   test "GET search with Accept text/markdown returns markdown" do
