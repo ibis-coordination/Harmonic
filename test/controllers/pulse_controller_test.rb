@@ -232,7 +232,8 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     get "#{@collective.path}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "scope: collective:#{@collective.handle}"
-    assert_includes response.body, "query: -subtype:comment"
+    # yaml_escape quotes a value starting with "-" so it doesn't parse as a YAML list item.
+    assert_includes response.body, "query: \"-subtype:comment\""
   end
 
   test "workspace feed is scoped to the private zone" do
