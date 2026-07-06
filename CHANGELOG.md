@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.42.0] - 2026-07-06
+
+### Added
+
+- **Tenant admins choose which gateway models agents may use, with live rates** (#421) — a tenant-admin setting selects the gateway models offered to that tenant's internal agents, and the agent model selector now shows each model's per-token rate. A new `GatewayModelCatalog` looks up rates from the Stripe rate card, and all LLM model names are unified onto the gateway's dotted naming scheme (migration renames existing agent model aliases).
+- **Mobile header back button for PWA use** (#322) — installed as a standalone PWA, Harmonic has no browser chrome and no back button; below 768px a back arrow now fills the header's upper-left slot and the logo is centered at every width. The arrow reveals only when `window.history` has an earlier entry, so no dead affordance shows on a fresh launch, on desktop, or without JS.
+- **Members are notified when granted a collective role** (#340) — granting a member the admin, representative, or summarizer role now sends a `role_change` notification naming the role and who granted it (e.g. "Dan made you a representative of Team Alpha"), linking to the members page. Email defaults on, like system notifications; self-grants and revocations stay silent.
+- **`media:` search filter** (#363) — `media:image` matches items with at least one embedded image and `media:text-only` matches items with none, across feeds and search. Implemented as an EXISTS subquery against `media_items` with no schema change or reindex. Documented in `/help/search`.
+
+### Changed
+
+- **Saved cards are reused across checkouts; billing copy no longer implies collectives cost money** (#414) — returning to checkout reuses a previously saved card instead of re-collecting it, and the free-state billing copy drops the word "free" and the implication that collectives are paid.
+- **AI agents page copy** (#406) — "primary agent" becomes "principal" to match current terminology, notes that agents can be internal (Harmonic runners) or external, and mentions the MCP interface alongside the API.
+
+### Fixed
+
+- **Header nav stays usable while representing a collective** (#417, fixes #415) — representation keeps the add + profile controls visible but closes the represented user's private surfaces (chat/settings) and trims the profile menu, so you can navigate without reaching another user's private data.
+- **The Stripe setup webhook check reports honestly** (#409) — the production setup script's webhook verification no longer treats a list failure or a near-miss endpoint URL as success; it distinguishes "couldn't list", "no match", and "matched".
+- **Decisions and commitments can be created without a deadline via MCP** (#411) — the `create_decision` / `create_commitment` MCP actions now default a blank deadline to the same far-future "close manually" sentinel the HTML forms use (calendar events fall back to their start time), instead of tripping the deadline-presence validation. Deadline is marked optional in the action definitions.
+
+### Tooling
+
+- **`stripe-setup.sh` scripts the production Stripe setup** (#408) — a repeatable script for provisioning the production Stripe configuration.
+
 ## [1.41.0] - 2026-07-05
 
 ### Added
