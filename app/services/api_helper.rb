@@ -189,7 +189,10 @@ class ApiHelper
         description: params[:description],
         subtype: params[:subtype] || "vote",
         options_open: params[:options_open] || true,
-        deadline: params[:deadline],
+        # Deadline is optional. Omitting it means the decision is closed manually,
+        # represented by a far-future deadline (see requires_manual_close?) — the
+        # same convention as the HTML form's "no deadline" option.
+        deadline: params[:deadline].presence || 100.years.from_now,
         created_by: current_user,
       }
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
@@ -217,7 +220,7 @@ class ApiHelper
         title: params[:title],
         description: params[:description],
         subtype: subtype,
-        deadline: params[:deadline],
+        deadline: params[:deadline].presence,
         critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
       }
@@ -225,6 +228,13 @@ class ApiHelper
         attrs[:starts_at] = params[:starts_at]
         attrs[:ends_at] = params[:ends_at]
         attrs[:location] = params[:location].presence
+      end
+      # Deadline is optional. When omitted, calendar events fall back to their
+      # start time (the RSVP deadline for an event), matching the HTML form;
+      # everything else gets a far-future deadline meaning "close manually"
+      # (see requires_manual_close?).
+      if attrs[:deadline].blank?
+        attrs[:deadline] = subtype == "calendar_event" ? attrs[:starts_at].presence || 100.years.from_now : 100.years.from_now
       end
       commitment = Commitment.create!(attrs)
       # Handle close_at_critical_mass option
