@@ -30,6 +30,16 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-places-sheet a[href='/collectives']", text: "Create or join a collective"
   end
 
+  test "omits the chat row when show_chat is false (representation)" do
+    a = build_sheet_collective(name: "Team A", handle: "team-a")
+    render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: [a], show_chat: false))
+
+    # Chat is hidden while representing; every other destination still renders.
+    assert_no_selector ".pulse-places-sheet a[href='/chat']"
+    assert_selector ".pulse-places-sheet a[href='/']", text: "Public space"
+    assert_selector ".pulse-places-sheet a[href='/collectives/team-a']", text: "Team A"
+  end
+
   test "is closed by default and marked as a places-sheet panel target" do
     render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: []))
 

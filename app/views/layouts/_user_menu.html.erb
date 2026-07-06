@@ -1,56 +1,71 @@
 <%# The signed-in user's menu items — rendered inside the header avatar
     dropdown (desktop) and the tab bar's You tab (mobile). Both wrap it in
     their own top-right-menu controller instance. %>
+<%# During a representation session the menu is trimmed to the items that make
+    sense while acting as someone else — Profile, Lists, Help. Everything that
+    targets the representative's own account (Workspace, AI Agents, Subdomains,
+    Settings, Admin, Sign Out) is hidden; End Session in the acting-as banner
+    is the way out. See Harmonic#415 and Dan's spec on PR #417. %>
+<% representing = @current_representation_session.present? %>
 <ul>
   <li>
     <%= octicon 'person' %>
     <a href="<%= @current_user.path %>">Profile</a>
   </li>
-  <% if (workspace = @current_user.private_workspace) %>
-    <li>
-      <%= octicon 'lock' %>
-      <a href="<%= workspace.path %>">Workspace</a>
-    </li>
-  <% end %>
-  <% if @current_tenant&.any_ai_agents_enabled? %>
-    <li>
-      <%= octicon 'command-palette' %>
-      <a href="/ai-agents">AI Agents</a>
-    </li>
+  <% unless representing %>
+    <% if (workspace = @current_user.private_workspace) %>
+      <li>
+        <%= octicon 'lock' %>
+        <a href="<%= workspace.path %>">Workspace</a>
+      </li>
+    <% end %>
+    <% if @current_tenant&.any_ai_agents_enabled? %>
+      <li>
+        <%= octicon 'command-palette' %>
+        <a href="/ai-agents">AI Agents</a>
+      </li>
+    <% end %>
   <% end %>
   <li>
     <%= octicon 'list-unordered' %>
     <a href="<%= @current_user.path %>/lists">Lists</a>
   </li>
-  <li>
-    <%= octicon 'globe' %>
-    <a href="/subdomains">Subdomains</a>
-  </li>
-  <li>
-    <%= octicon 'gear' %>
-    <a href="<%= @current_user.path %>/settings">Settings</a>
-    <% if (pending_grants = @current_user.pending_trustee_grant_requests.count) > 0 %>
-      <span class="notification-badge-count" style="position:relative;top:-2px;margin-left:4px;"><%= pending_grants %></span>
-    <% end %>
-  </li>
+  <% unless representing %>
+    <li>
+      <%= octicon 'globe' %>
+      <a href="/subdomains">Subdomains</a>
+    </li>
+    <li>
+      <%= octicon 'gear' %>
+      <a href="<%= @current_user.path %>/settings">Settings</a>
+      <% if (pending_grants = @current_user.pending_trustee_grant_requests.count) > 0 %>
+        <span class="notification-badge-count" style="position:relative;top:-2px;margin-left:4px;"><%= pending_grants %></span>
+      <% end %>
+    </li>
+  <% end %>
   <li>
     <%= octicon 'question' %>
     <a href="/help">Help</a>
   </li>
-  <% if @current_tenant.is_admin?(@current_user) %>
+  <% unless representing %>
+    <% if @current_tenant.is_admin?(@current_user) %>
+      <li>
+        <a href="/admin">
+          <%= octicon 'tools' %> Admin
+        </a>
+      </li>
+    <% end %>
+    <%# Sign Out ends the underlying human login entirely — the wrong exit
+        during representation, where "End Session" (in the acting-as banner) is
+        the right control. %>
     <li>
-      <a href="/admin">
-        <%= octicon 'tools' %> Admin
-      </a>
+      <hr style="height:0;margin:0;border:none;border-top:1px solid var(--color-border-default);" />
+    </li>
+    <li>
+      <%= octicon 'sign-out' %>
+      <%= button_to "Sign Out", logout_path, method: :delete, style: "display:inline;",
+            params: { push_endpoint: "" },
+            form: { data: { controller: "logout", action: "submit->logout#prepare" } } %>
     </li>
   <% end %>
-  <li>
-    <hr style="height:0;margin:0;border:none;border-top:1px solid var(--color-border-default);" />
-  </li>
-  <li>
-    <%= octicon 'sign-out' %>
-    <%= button_to "Sign Out", logout_path, method: :delete, style: "display:inline;",
-          params: { push_endpoint: "" },
-          form: { data: { controller: "logout", action: "submit->logout#prepare" } } %>
-  </li>
 </ul>

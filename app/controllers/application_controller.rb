@@ -829,6 +829,10 @@ class ApplicationController < ActionController::Base
   def places_chat_unread_count
     return @places_chat_unread_count if defined?(@places_chat_unread_count)
     return (@places_chat_unread_count = 0) if @current_user.nil? || current_tenant.nil?
+    # The chat row is hidden from the places sheet while representing; keep its
+    # count at zero so the places dot/badge doesn't surface (or the broadcast
+    # resurrect) a count for a row that isn't shown.
+    return (@places_chat_unread_count = 0) if @current_representation_session
 
     @places_chat_unread_count = NotificationService.unread_chat_count_for(@current_user, tenant: current_tenant)
   end

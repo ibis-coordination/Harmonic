@@ -136,6 +136,58 @@ class RepresentationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "header nav keeps the add and profile controls while representing" do
+    sign_in_as(@parent, tenant: @tenant)
+    start_representing
+
+    # Regression: representation must not strip the header's add (+) button or
+    # the avatar/profile menu — otherwise there's no way to create content as
+    # the represented identity, or reach the account menu (Harmonic#415).
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+
+    # Desktop header (top_right_menu): the collective "+" add button and the
+    # avatar menu trigger both render.
+    assert_select "div.header-plus-button", { minimum: 1 },
+      "add (+) button should render while representing"
+    assert_select "div.top-menu-button", { minimum: 1 },
+      "profile/avatar menu should render while representing"
+    # Mobile bottom tab bar: the You (profile) tab.
+    assert_select ".pulse-tab-bar-you", { minimum: 1 },
+      "mobile You tab should render while representing"
+  end
+
+  test "profile menu is trimmed to Profile, Lists, and Help while representing" do
+    sign_in_as(@parent, tenant: @tenant)
+    start_representing
+
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+
+    # During representation the profile menu keeps only the items that make
+    # sense while acting as someone else (Dan's spec on PR #415/#417).
+    assert_select "a[href='#{@ai_agent.path}']", { minimum: 1 },
+      "Profile link should render while representing"
+    assert_select "a[href='#{@ai_agent.path}/lists']", { minimum: 1 },
+      "Lists link should render while representing"
+    assert_select "a[href='/help']", { minimum: 1 },
+      "Help link should render while representing"
+
+    # Everything targeting the representative's own account is hidden.
+    assert_select "a[href='#{@ai_agent.path}/settings']", { count: 0 },
+      "Settings link should be hidden while representing"
+    assert_select "a[href='/subdomains']", { count: 0 },
+      "Subdomains link should be hidden while representing"
+    assert_select "a[href='/ai-agents']", { count: 0 },
+      "AI Agents link should be hidden while representing"
+    assert_select "a[href='/admin']", { count: 0 },
+      "Admin link should be hidden while representing"
+    # Sign Out ends the underlying human login — the wrong exit during
+    # representation (End Session, in the acting-as banner, is the right one).
+    assert_select "form[action='#{logout_path}']", { count: 0 },
+      "Sign Out should not appear in the profile menu while representing"
+  end
+
   test "creating content while representing attributes it to the represented user" do
     sign_in_as(@parent, tenant: @tenant)
     start_representing

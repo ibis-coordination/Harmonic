@@ -13,14 +13,16 @@
         <span class="pulse-places-badge pulse-places-row-badge" data-collective-id="<%= @main_collective.id %>"
               style="<%= count_badge_style(unread_count_for(@main_collective)) %>"><%= count_badge_text(unread_count_for(@main_collective)) %></span>
       <% end %>
-      <%= tag.a href: "/chat",
-                class: ["pulse-places-row", ("active" if chat_active?)],
-                aria: { current: ("page" if chat_active?) } do %>
-        <span class="pulse-places-indicator"></span>
-        <span class="pulse-places-row-icon"><%= helpers.octicon "comment-discussion", height: 20 %></span>
-        <span class="pulse-places-row-name">Chat</span>
-        <span class="pulse-places-badge pulse-places-row-badge" data-chat-badge
-              style="<%= count_badge_style(@chat_unread_count) %>"><%= count_badge_text(@chat_unread_count) %></span>
+      <% if @show_chat %>
+        <%= tag.a href: "/chat",
+                  class: ["pulse-places-row", ("active" if chat_active?)],
+                  aria: { current: ("page" if chat_active?) } do %>
+          <span class="pulse-places-indicator"></span>
+          <span class="pulse-places-row-icon"><%= helpers.octicon "comment-discussion", height: 20 %></span>
+          <span class="pulse-places-row-name">Chat</span>
+          <span class="pulse-places-badge pulse-places-row-badge" data-chat-badge
+                style="<%= count_badge_style(@chat_unread_count) %>"><%= count_badge_text(@chat_unread_count) %></span>
+        <% end %>
       <% end %>
       <div class="pulse-places-divider"></div>
     <% end %>

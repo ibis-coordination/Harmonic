@@ -17,16 +17,20 @@ class PlacesSheetComponent < ViewComponent::Base
       collectives: T::Array[Collective],
       current_path: T.nilable(String),
       unread_counts: T::Hash[String, Integer],
-      chat_unread_count: Integer
+      chat_unread_count: Integer,
+      show_chat: T::Boolean
     ).void
   end
-  def initialize(main_collective: nil, collectives: [], current_path: nil, unread_counts: {}, chat_unread_count: 0)
+  def initialize(main_collective: nil, collectives: [], current_path: nil, unread_counts: {}, chat_unread_count: 0, show_chat: true)
     super()
     @main_collective = main_collective
     @collectives = T.let(collectives.select { |c| c.path.present? }, T::Array[Collective])
     @current_path = current_path
     @unread_counts = unread_counts
     @chat_unread_count = chat_unread_count
+    # Chat is hidden while representing — the represented identity's DMs aren't
+    # the representative's to see, and /chat is blocked during representation.
+    @show_chat = show_chat
   end
 
   sig { returns(T::Boolean) }
