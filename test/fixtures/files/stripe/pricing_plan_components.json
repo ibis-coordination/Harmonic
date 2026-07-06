@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "id": "bppc_test_license",
+      "object": "v2.billing.pricing_plan_component",
+      "type": "license_fee",
+      "license_fee": { "id": "licf_test_fixture", "version": "licfv_test_fixture" }
+    },
+    {
+      "id": "bppc_test_ratecard",
+      "object": "v2.billing.pricing_plan_component",
+      "type": "rate_card",
+      "rate_card": { "id": "rcd_test_fixture", "version": "rcdv_test_fixture" }
+    }
+  ],
+  "next_page_url": null,
+  "previous_page_url": null
+}

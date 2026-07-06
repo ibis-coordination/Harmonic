@@ -16,6 +16,21 @@ class TenantTest < ActiveSupport::TestCase
     assert_equal "test", tenant.subdomain
   end
 
+  test "enabled_gateway_models defaults to empty and round-trips through settings" do
+    tenant = create_tenant(subdomain: "gw-#{SecureRandom.hex(4)}")
+    assert_empty tenant.enabled_gateway_models
+
+    tenant.enabled_gateway_models = ["anthropic/claude-sonnet-4.6", "openai/gpt-5.1"]
+    tenant.save!
+    assert_equal ["anthropic/claude-sonnet-4.6", "openai/gpt-5.1"], tenant.reload.enabled_gateway_models
+  end
+
+  test "enabled_gateway_models= trims, drops blanks, and dedups" do
+    tenant = create_tenant(subdomain: "gw-#{SecureRandom.hex(4)}")
+    tenant.enabled_gateway_models = ["  anthropic/claude-sonnet-4.6 ", "", "anthropic/claude-sonnet-4.6", "openai/gpt-5.1"]
+    assert_equal ["anthropic/claude-sonnet-4.6", "openai/gpt-5.1"], tenant.enabled_gateway_models
+  end
+
   test "Tenant.default_collective_settings are applied" do
     tenant = create_tenant
     default_settings = tenant.default_collective_settings

@@ -77,6 +77,46 @@
     <% end %>
   <% end %>
 
+  <% if @current_tenant.feature_enabled?("stripe_billing") %>
+    <% gateway_catalog = GatewayModelCatalog.prices %>
+    <% if gateway_catalog.any? %>
+      <% enabled_models = @current_tenant.enabled_gateway_models %>
+      <%= render 'shared/pulse_accordion', title: 'AI Agent Models', icon: 'cpu', count: gateway_catalog.size, open: false do %>
+        <p class="pulse-form-hint" style="margin-bottom:16px;">
+          Which models users can choose for internal AI agents. Prices are per 1M tokens (input / output), billed to your credit balance as agents run. Unchecked models are hidden from users; if none are enabled, a default set is offered.
+        </p>
+
+        <%# Hidden empty value ensures the param key is present even when no boxes are checked. %>
+        <%= hidden_field_tag "gateway_models[]", "" %>
+
+        <% gateway_catalog.keys.group_by { |model| model.split("/").first }.sort.each do |vendor, models| %>
+          <% any_enabled = models.any? { |model| enabled_models.include?(model) } %>
+          <details class="pulse-form-section" style="border-top:none;margin-top:0;padding-top:0;" data-controller="checkbox-group" <%= "open" if any_enabled %>>
+            <summary style="cursor:pointer;font-weight:600;">
+              <%= gateway_vendor_label(vendor) %> <span class="pulse-form-hint">(<%= models.count { |model| enabled_models.include?(model) } %>/<%= models.size %>)</span>
+            </summary>
+            <label class="pulse-checkbox-label" style="margin-top:8px;">
+              <%# Unnamed: a UI-only "select all", not submitted with the form. %>
+              <input type="checkbox" data-checkbox-group-target="toggle" data-action="change->checkbox-group#toggleAll">
+              <span class="pulse-form-hint">Select all <%= gateway_vendor_label(vendor) %></span>
+            </label>
+            <% models.sort.each do |model| %>
+              <label class="pulse-checkbox-label" style="margin-top:8px;">
+                <%= check_box_tag "gateway_models[]", model, enabled_models.include?(model),
+                      id: "gateway_model_#{model.parameterize}", class: 'pulse-checkbox-input',
+                      data: { "checkbox-group-target": "checkbox", action: "change->checkbox-group#syncToggle" } %>
+                <span>
+                  <%= model %>
+                  <span class="pulse-form-hint">$<%= gateway_catalog[model][:input_per_million] %> / $<%= gateway_catalog[model][:output_per_million] %></span>
+                </span>
+              </label>
+            <% end %>
+          </details>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+
   <div class="pulse-form-actions">
     <%= form.submit 'Save Settings', class: 'pulse-action-btn' %>
     <a href="/tenant-admin" class="pulse-action-btn-secondary">Cancel</a>

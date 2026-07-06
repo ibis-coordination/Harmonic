@@ -1,0 +1,29 @@
+<%# Shows what each selectable model costs, so the user can answer "how much
+    will this cost me?" Only when the tenant bills usage (stripe_billing on) and
+    the rate card is reachable — otherwise it renders nothing. %>
+<% if @current_tenant&.feature_enabled?("stripe_billing") %>
+  <% rows = model_pricing_rows %>
+  <% if rows.any? %>
+    <div class="pulse-model-pricing" style="margin-top: 12px;">
+      <p class="pulse-hint" style="margin-bottom: 6px;">Priced per 1 million tokens (~750k words). Usage is billed to your credit balance as agents run.</p>
+      <table class="pulse-table" style="max-width: 520px;">
+        <thead>
+          <tr>
+            <th style="text-align: left;">Model</th>
+            <th style="text-align: right;">Input</th>
+            <th style="text-align: right;">Output</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.each do |row| %>
+            <tr>
+              <td><%= row[:name] %></td>
+              <td style="text-align: right;">$<%= row[:input] %></td>
+              <td style="text-align: right;">$<%= row[:output] %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+<% end %>

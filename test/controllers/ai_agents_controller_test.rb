@@ -25,6 +25,15 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
+
+    # Keep model-price lookups from reaching Stripe during form renders. Tests
+    # that exercise pricing stub GatewayModelCatalog.prices directly; everything
+    # else should see an unconfigured catalog (empty), not the ambient .env value.
+    @original_pricing_plan_id = ENV.delete("STRIPE_PRICING_PLAN_ID")
+  end
+
+  teardown do
+    ENV["STRIPE_PRICING_PLAN_ID"] = @original_pricing_plan_id if @original_pricing_plan_id
   end
 
   # === Index Tests ===
@@ -420,6 +429,37 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
     get "/ai-agents/new"
     assert_response :success
+  end
+
+  test "new agent form shows per-model prices when billing is on" do
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_pricing_ok", stripe_subscription_id: "sub_pricing_ok", active: true)
+    sign_in_with_ai_agents_reverify(@user)
+
+    catalog = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" } }
+    StripeService.stub(:preview_proration, 0) do
+      GatewayModelCatalog.stub(:prices, catalog) do
+        get "/ai-agents/new"
+      end
+    end
+
+    assert_response :success
+    assert_includes response.body, "Priced per 1 million tokens"
+    assert_includes response.body, "$3.90"
+    assert_includes response.body, "$19.50"
+  end
+
+  test "new agent form omits per-model prices when billing is off" do
+    sign_in_with_ai_agents_reverify(@user)
+
+    catalog = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" } }
+    GatewayModelCatalog.stub(:prices, catalog) do
+      get "/ai-agents/new"
+    end
+
+    assert_response :success
+    assert_not_includes response.body, "Priced per 1 million tokens"
+    assert_not_includes response.body, "$3.90"
   end
 
   test "new AI agent form renders notification toggles (single on/off per type)" do

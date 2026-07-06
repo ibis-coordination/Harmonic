@@ -228,6 +228,21 @@ class Tenant < ApplicationRecord
       Array(categories).map(&:to_s) & ["images", "pdfs", "text"]
   end
 
+  # Gateway models (provider/model names) this tenant offers when a user picks
+  # a model for an internal AI agent. Configured per tenant on the tenant-admin
+  # settings page. Empty by default; the selector falls back to a sensible
+  # default until an admin enables a set.
+  sig { returns(T::Array[String]) }
+  def enabled_gateway_models
+    Array(settings["gateway_models"])
+  end
+
+  sig { params(models: T::Array[String]).void }
+  def enabled_gateway_models=(models)
+    cleaned = Array(models).map { |model| model.to_s.strip }.reject(&:blank?).uniq
+    self.settings = settings.merge("gateway_models" => cleaned)
+  end
+
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
     return if value.blank?

@@ -119,8 +119,11 @@
             <% if internal_enabled %>
               <div class="pulse-form-group" data-ai-agent-mode-target="internalOnly" style="<%= !both_modes || current_mode == 'internal' ? '' : 'display: none;' %>">
                 <label for="model" class="pulse-label">Model</label>
-                <%= select_tag :model, options_for_select(available_llm_models, @ai_agent.agent_configuration&.dig("model") || "default"), class: "pulse-form-input" %>
+                <% current_model = @ai_agent.agent_configuration&.dig("model") || "default" %>
+                <%# Always include the agent's current model, even if it's no longer offered, so editing another setting can't silently reassign it. %>
+                <%= select_tag :model, options_for_select(selectable_models | [current_model], current_model), class: "pulse-form-input" %>
                 <small class="pulse-hint">The LLM model this AI Agent will use for reasoning.</small>
+                <%= render "ai_agents/model_pricing" %>
               </div>
             <% end %>
           </section>
