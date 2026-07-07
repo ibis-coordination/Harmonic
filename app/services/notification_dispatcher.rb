@@ -140,7 +140,7 @@ class NotificationDispatcher
     handle_reply_notification(event, note) if note.is_comment?
 
     # Find mentioned users from the note text
-    mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id, collective: note.collective)
+    mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id, collective: note.collective, author: event.actor)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -313,7 +313,7 @@ class NotificationDispatcher
 
     # Parse mentions from question and description fields
     text_to_parse = [decision.question, decision.description].compact.join(" ")
-    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: decision.collective)
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: decision.collective, author: event.actor)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -346,7 +346,7 @@ class NotificationDispatcher
 
     # Parse mentions from title and description fields
     text_to_parse = [commitment.title, commitment.description].compact.join(" ")
-    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: commitment.collective)
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: commitment.collective, author: event.actor)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }
@@ -380,7 +380,7 @@ class NotificationDispatcher
 
     # Parse mentions from title and description fields
     text_to_parse = [option.title, option.description].compact.join(" ")
-    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: option.collective)
+    mentioned_users = MentionParser.parse(text_to_parse, tenant_id: event.tenant_id, collective: option.collective, author: event.actor)
 
     # Don't notify the actor (they mentioned themselves)
     mentioned_users = mentioned_users.reject { |u| u.id == event.actor_id }

@@ -16,6 +16,15 @@ Notifications keep you aware of activity that involves you across all collective
 
 Each notification links back to the content or event that triggered it.
 
+## Group Mentions
+
+Alongside mentioning an individual by their `@handle`, two special tags notify a group within the collective they're written in:
+
+- **`@admins`** — notifies the collective's admins. Any member may use it.
+- **`@everyone`** — notifies every member of the collective. Only admins can trigger an `@everyone` fan-out; written by a non-admin it's shown but notifies no one.
+
+Both resolve **collective-locally**: an `@everyone` in one collective never reaches another. These handles are reserved, so no one can register a user or collective named `everyone` or `admins`.
+
 ## Unread, Read, and Dismissed
 
 Notifications move through three states:

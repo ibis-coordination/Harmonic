@@ -11,11 +11,12 @@ class TenantUser < ApplicationRecord
   belongs_to :user
   before_create :set_defaults
 
-  # Handles claimable only by a system agent with the matching system_role.
-  # Currently: "trio" is reserved for the trio system agent (only the main
-  # collective's trio actually claims it; other per-collective trios use
-  # random hex handles to avoid the tenant-wide uniqueness collision).
-  RESERVED_HANDLES = T.let({ "trio" => "trio" }.freeze, T::Hash[String, String])
+  # Backwards-compatible alias for the agent-handle role map, now owned by the
+  # ReservedHandles registry. Kept because a historical migration references
+  # `TenantUser::RESERVED_HANDLES`. New code should call ReservedHandles
+  # directly, which also knows about the group tags (@everyone/@admins) that no
+  # user may claim regardless of system_role. (#449)
+  RESERVED_HANDLES = T.let(ReservedHandles::AGENT_ROLES, T::Hash[String, String])
 
   BIO_MAX_LENGTH      = 500
   LOCATION_MAX_LENGTH = 100
@@ -66,13 +67,11 @@ class TenantUser < ApplicationRecord
 
   sig { void }
   def reserved_handle_requires_matching_system_role
-    # Reserved keys are lowercase; fold the (now case-preserving) handle so
-    # "Trio"/"TRIO" can't slip past the system-role gate.
+    # ReservedHandles folds case internally, so "Trio"/"TRIO" and "Everyone"
+    # can't slip past. Group tags are forbidden outright; agent handles require
+    # the matching system_role.
     return if handle.blank?
-
-    required_role = RESERVED_HANDLES[handle.downcase]
-    return unless required_role
-    return if T.must(user).system_role == required_role
+    return unless ReservedHandles.forbidden_for_user?(handle, system_role: T.must(user).system_role)
 
     errors.add(:handle, "is reserved")
   end
@@ -93,9 +92,8 @@ class TenantUser < ApplicationRecord
     # Names with no parameterizable characters (e.g. CJK or emoji-only)
     # yield "" — fall back to a neutral base rather than an empty handle.
     base = "user" if base.blank?
-    required_role = RESERVED_HANDLES[base]
     candidate = base
-    candidate = "#{base}-#{SecureRandom.hex(2)}" unless required_role.nil? || user.system_role == required_role
+    candidate = "#{base}-#{SecureRandom.hex(2)}" if ReservedHandles.forbidden_for_user?(base, system_role: user.system_role)
     candidate = "#{base}-#{SecureRandom.hex(2)}" while tenant_scoped_only(tenant_id).exists?(handle: candidate)
     candidate
   end
@@ -121,8 +119,9 @@ class TenantUser < ApplicationRecord
     scope = tenant_scoped_only(tenant_id)
     scope = scope.where.not(user_id: except_user_id) if except_user_id.present?
     candidate = root
-    # Identity users never carry a system_role, so any reserved key is off-limits.
-    candidate = "#{root}-#{SecureRandom.hex(2)}" if RESERVED_HANDLES.key?(root.downcase)
+    # Identity users never carry a system_role, so any group tag or agent handle
+    # is off-limits (forbidden_for_user? with a nil role rejects both).
+    candidate = "#{root}-#{SecureRandom.hex(2)}" if ReservedHandles.forbidden_for_user?(root, system_role: nil)
     candidate = "#{root}-#{SecureRandom.hex(2)}" while scope.exists?(handle: candidate)
     candidate
   end

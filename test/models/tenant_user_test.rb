@@ -350,6 +350,29 @@ class TenantUserTest < ActiveSupport::TestCase
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
 
+  test "group tag handles are rejected for a human user" do
+    tenant = create_tenant
+    ReservedHandles::GROUP_TAGS.each do |tag|
+      user = create_user(email: "gt-#{tag}-#{SecureRandom.hex(4)}@example.com")
+      tu = TenantUser.new(tenant: tenant, user: user, handle: tag, display_name: user.name)
+      assert_not tu.valid?, "#{tag} should be reserved"
+      assert_includes tu.errors[:handle].to_s.downcase, "reserved"
+    end
+  end
+
+  test "a group tag handle is rejected even for a system agent" do
+    # Unlike @trio, group tags never name a real user, so no system_role
+    # entitles a record to claim them.
+    tenant = create_tenant
+    agent = User.create!(
+      email: "sys_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Everyone", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    tu = TenantUser.new(tenant: tenant, user: agent, handle: "everyone", display_name: "Everyone")
+    assert_not tu.valid?
+    assert_includes tu.errors[:handle].to_s.downcase, "reserved"
+  end
+
   test "handle 'trio' is rejected when set via update! on an existing TenantUser" do
     # Defense in depth: even if a caller bypasses the controller layer and
     # calls update! directly, the reserved-handle validation rejects "trio"

@@ -124,7 +124,7 @@ class Collective < ApplicationRecord
 
   sig { params(handle: String).returns(T::Boolean) }
   def self.handle_available?(handle)
-    return false if RESERVED_HANDLES.include?(handle.to_s.downcase)
+    return false if ReservedHandles.forbidden_for_collective?(handle)
 
     # Collective and user handles share one per-tenant namespace (Goal 2 of
     # handle-model-unification): creating a collective also seeds an identity
@@ -652,8 +652,6 @@ class Collective < ApplicationRecord
     paid_tier?
   end
 
-  RESERVED_HANDLES = ["main"].freeze
-
   sig { void }
   def handle_is_valid
     if handle.present?
@@ -662,7 +660,7 @@ class Collective < ApplicationRecord
       # (tenant_id, handle) uniqueness index stay case-insensitive.
       only_alphanumeric_with_dash = T.must(handle).match?(/\A[a-zA-Z0-9-]+\z/)
       errors.add(:handle, "must be alphanumeric with dashes") unless only_alphanumeric_with_dash
-      errors.add(:handle, "is reserved") if RESERVED_HANDLES.include?(T.must(handle).downcase)
+      errors.add(:handle, "is reserved") if ReservedHandles.forbidden_for_collective?(handle)
     else
       errors.add(:handle, "can't be blank")
     end
@@ -893,6 +891,25 @@ class Collective < ApplicationRecord
   sig { returns(T::Array[User]) }
   def admins
     T.unsafe(collective_members).where_has_role("admin").map(&:user)
+  end
+
+  # True when `user` holds the admin role in this collective. Gates the
+  # @everyone mention (admin-only); see MentionParser.resolve_collective_local.
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def admin?(user)
+    return false if user.nil?
+
+    T.unsafe(collective_members).where_has_role("admin").exists?(user_id: user.id)
+  end
+
+  # Every current (non-archived) member's user. Unlike #team this is uncapped —
+  # it backs the @everyone fan-out, which must reach the whole collective.
+  sig { returns(T::Array[User]) }
+  def member_users
+    collective_members
+      .where(archived_at: nil)
+      .includes(:user)
+      .map(&:user)
   end
 
   sig { returns(T::Boolean) }
