@@ -1,17 +1,26 @@
-<p>Hi <%= @user.name %>,</p>
+<div class="container">
+  <div class="header">
+    <h1>Harmonic</h1>
+  </div>
 
-<p>An email change was requested for your account on <%= ENV['HOSTNAME'] %>.</p>
+  <div class="content">
+    <h2>Email change requested</h2>
+    <p>Hi <%= @user.name %>,</p>
 
-<p>If you made this request, a confirmation email has been sent to your new address. No action is needed here.</p>
+    <p>An email change was requested for your account on <%= ENV['HOSTNAME'] %>.</p>
 
-<p>If you did <strong>not</strong> request this change:</p>
-<ol>
-  <li><a href="<%= @login_url %>">Log in to your account</a> immediately.</li>
-  <li>Go to Settings > Email and change your email back.</li>
-  <% if @has_password %>
-    <li>Change your password from the login page using "Forgot your password?"</li>
-  <% end %>
-  <% if @external_providers.any? %>
-    <li>Review your <%= @external_providers.to_sentence %> account<%= "s" if @external_providers.many? %> for unauthorized access.</li>
-  <% end %>
-</ol>
+    <p>If you made this request, a confirmation email has been sent to your new address. No action is needed here.</p>
+
+    <p>If you did <strong>not</strong> request this change:</p>
+    <ol>
+      <li><a href="<%= @login_url %>">Log in to your account</a> immediately.</li>
+      <li>Go to Settings > Email and change your email back.</li>
+      <% if @has_password %>
+        <li>Change your password from the login page using "Forgot your password?"</li>
+      <% end %>
+      <% if @external_providers.any? %>
+        <li>Review your <%= @external_providers.to_sentence %> account<%= "s" if @external_providers.many? %> for unauthorized access.</li>
+      <% end %>
+    </ol>
+  </div>
+</div>

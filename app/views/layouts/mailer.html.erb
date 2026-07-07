@@ -2,8 +2,131 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      /* Email styles need to be inline */
+      /*
+        Email styles kept consistent with the app style guide.
+        Values mirror the light-mode design tokens in
+        app/assets/stylesheets/root_variables.css (GitHub-derived palette,
+        system font stack). Email clients don't support CSS variables or
+        external stylesheets reliably, so the token values are inlined here.
+      */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f6f8fa; /* --color-canvas-subtle */
+        color: #24292f;            /* --color-fg-default */
+        line-height: 1.5;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 24px;             /* --spacing-xl */
+        background-color: #ffffff; /* --color-canvas-default */
+      }
+
+      .header {
+        border-bottom: 1px solid #d0d7de; /* --color-border-default */
+        padding-bottom: 16px;             /* --spacing-lg */
+        margin-bottom: 16px;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+        color: #24292f;
+      }
+
+      .content { margin: 16px 0; }
+      .content h2 {
+        margin: 0 0 12px 0;        /* --spacing-md */
+        font-size: 20px;
+        font-weight: 600;
+        color: #24292f;
+      }
+      .content p { margin: 0 0 16px 0; color: #24292f; }
+
+      a { color: #0969da; text-decoration: none; } /* --color-accent-fg */
+      a:hover { text-decoration: underline; }
+
+      .button {
+        display: inline-block;
+        margin: 16px 0;
+        padding: 8px 16px;          /* --button-padding-default */
+        background-color: #0969da;  /* --color-accent-emphasis */
+        color: #ffffff !important;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 6px;         /* --border-radius-lg */
+      }
+      .button:hover { background-color: #0860ca; text-decoration: none; }
+
+      .details, .meta {
+        font-size: 14px;
+        color: #57606a;            /* --color-fg-muted */
+        margin: 16px 0;
+      }
+
+      .body-text {
+        background-color: #f6f8fa;
+        padding: 16px;
+        border-radius: 6px;
+        border-left: 3px solid #0969da;
+      }
+
+      .receipt, .context {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; /* --fontStack-monospace */
+        font-size: 13px;
+        background-color: #f6f8fa;
+        padding: 12px;
+        border-radius: 6px;
+        word-break: break-all;
+        margin: 16px 0;
+      }
+      .context-title { font-weight: 600; margin-bottom: 12px; }
+
+      .link-fallback { font-size: 12px; color: #6e7781; } /* --color-fg-subtle */
+
+      .footer {
+        margin-top: 32px;          /* --spacing-2xl */
+        padding-top: 16px;
+        border-top: 1px solid #d8dee4; /* --color-border-muted */
+        font-size: 12px;
+        color: #6e7781;
+      }
+      .footer a { color: #0969da; }
+
+      /* Notification-type badges, mapped to app semantic colors */
+      .notification-type {
+        display: inline-block;
+        margin-bottom: 12px;
+        padding: 4px 8px;          /* --button-padding-sm */
+        border-radius: 2em;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .notification-type.mention       { background-color: #ddf4ff; color: #0969da; } /* accent */
+      .notification-type.comment       { background-color: #fff8c5; color: #9a6700; } /* attention */
+      .notification-type.participation { background-color: #dafbe1; color: #1a7f37; } /* success */
+      .notification-type.system        { background-color: #fbefff; color: #8250df; } /* done */
+
+      /* Critical alert (ops email) */
+      .alert-box {
+        margin: 16px 0;
+        padding: 20px;
+        border: 1px solid #cf222e;                /* --color-danger-fg */
+        border-radius: 6px;
+        background-color: rgba(207, 34, 46, 0.1); /* --color-danger-subtle */
+      }
+      .alert-header {
+        margin: 0 0 12px 0;
+        color: #cf222e;
+        font-size: 20px;
+        font-weight: 600;
+      }
     </style>
   </head>
 
