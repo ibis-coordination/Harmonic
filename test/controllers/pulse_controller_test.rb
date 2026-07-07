@@ -172,6 +172,26 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "ancient collective post"
   end
 
+  test "an empty default feed says nothing yet, not this week, and offers no all-time loop" do
+    # The default query spans all cycles now (it only hides comments), so an
+    # empty default feed is empty across all time — the stale "this week" copy
+    # and its "Show all time" link (which looped back to the same view) are gone.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    empty = Collective.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Empty Feed Collective", handle: "empty-feed-#{SecureRandom.hex(4)}",
+    )
+    empty.add_user!(@user)
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get empty.path.to_s
+    assert_response :success
+    assert_select ".pulse-feed-empty p", text: "Nothing here yet."
+    assert_not_includes response.body, "Nothing here this week."
+    assert_select "a", text: "Show all time", count: 0
+  end
+
   test "collective feed cannot be pointed at another collective" do
     sign_in_as(@user, tenant: @tenant)
     get "#{@collective.path}", params: { q: "collective:someplace-else" }

@@ -19,16 +19,11 @@
           <%= render 'pulse/feed_item', feed_item: feed_item %>
         <% end %>
       <% elsif default_feed_view? %>
+        <%# The default view spans all cycles (it only hides comments), so an
+            empty default feed is empty across all time — no "this week" window
+            to broaden past. %>
         <div class="pulse-feed-empty">
-          <% if @feed_default_query.present? %>
-            <p>Nothing here this week.</p>
-            <p class="pulse-body-text-muted">
-              <%= link_to "Show all time", "#{@current_collective.path}?q=" %>
-            </p>
-          <% else %>
-            <%# Workspaces: no default query, so the default view IS all time. %>
-            <p>Nothing here yet.</p>
-          <% end %>
+          <p>Nothing here yet.</p>
         </div>
       <% else %>
         <div class="pulse-feed-empty">
