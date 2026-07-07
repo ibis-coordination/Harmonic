@@ -588,6 +588,15 @@ class NotesController < ApplicationController
 
   private
 
+  # The execute-time authorization gate (ActionAuthorizationCheck) runs before
+  # the execute method body, where these actions load `@note`. Populate the
+  # resource from `current_note` so resource-scoped rules (reminder/table edit
+  # access, resource_owner, block checks) enforce at gate time instead of
+  # falling through permissively.
+  def authorization_context
+    super.merge(resource: current_note)
+  end
+
   def render_confirm_read_success
     render_action_success({
                             action_name: "confirm_read",

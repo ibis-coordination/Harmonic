@@ -118,7 +118,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -144,7 +144,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -196,7 +196,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -224,7 +224,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -258,7 +258,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -301,7 +301,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -319,7 +319,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -350,7 +350,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -382,7 +382,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant_a.accept!
@@ -398,7 +398,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: other_grantor,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant_b.accept!
     session_b = RepresentationSession.tenant_scoped_only(@tenant.id).create!(
@@ -433,7 +433,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant_a.accept!
 
@@ -445,7 +445,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: other_grantor,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant_b.accept!
 
@@ -482,7 +482,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -510,7 +510,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant_a.accept!
 
@@ -526,7 +526,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: other_grantor,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant_b.accept!
 
@@ -545,7 +545,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true }
+      permissions: { "create_note" => true }
     )
     grant.accept!
 
@@ -700,7 +700,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -764,7 +764,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -788,7 +788,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -813,7 +813,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -910,7 +910,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -974,7 +974,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       tenant: @tenant,
       granting_user: @alice,
       trustee_user: @bob,
-      permissions: { "create_notes" => true },
+      permissions: { "create_note" => true },
       collective_scope: { "mode" => "all" }
     )
     grant.accept!
@@ -1030,5 +1030,45 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "text/markdown; charset=utf-8", response.headers["Content-Type"]
     assert_match(/Representing|representation/i, response.body)
+  end
+
+  # The execute-time authorization gate enforces the trustee grant's action
+  # permissions — a hole that previously only closed at listing time.
+  test "execute-time gate denies an action the trustee grant does not permit" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @alice, trustee_user: @bob,
+      permissions: { "vote" => true }, collective_scope: { "mode" => "all" }, # note: no create_note
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+    headers = @headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-User" => @alice.handle,
+    )
+
+    assert_no_difference -> { Note.count } do
+      post "/collectives/#{@collective.handle}/note/actions/create_note",
+           params: { title: "Nope", text: "Body" }, headers: headers
+    end
+    assert_response :forbidden, "grant omits create_note, so the gate must deny it at execute time"
+  end
+
+  # Ending a session is exempt from the gate — a representative whose grant omits
+  # end_representation must never be trapped in a session they can't leave.
+  test "a representative can always end the session even if the grant omits end_representation" do
+    grant = TrusteeGrant.create!(
+      tenant: @tenant, granting_user: @alice, trustee_user: @bob,
+      permissions: { "vote" => true }, collective_scope: { "mode" => "all" }, # note: no end_representation
+    )
+    grant.accept!
+    session_id = start_representation_session_via_api(grant: grant)
+
+    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
+         headers: @headers.merge(
+           "X-Representation-Session-ID" => session_id,
+           "X-Representing-User" => @alice.handle,
+         )
+
+    assert_response :success, "end_representation is exempt from the gate so the representative is never trapped"
   end
 end

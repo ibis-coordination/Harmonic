@@ -3,17 +3,39 @@
 # ActionAuthorization provides declarative authorization for actions.
 #
 # This module is the single source of truth for determining whether a user
-# can see or execute an action. Both the action listing (e.g., /actions page)
-# and action execution should consult this module.
+# can see or execute an action. The model is: set `authorization:` on the
+# action's ACTION_DEFINITIONS entry; that rule is consulted for BOTH listings
+# and executions.
+#
+# - Listings: MarkdownHelper#available_actions_for_current_route and the
+#   controllers' actions_index_show endpoints call `authorized?` to decide
+#   which actions to show, passing a context built by
+#   MarkdownHelper#build_authorization_context.
+# - Execution: ActionAuthorizationCheck (an ApplicationController before_action)
+#   calls `authorized?` on every /actions/<name> POST before the controller's
+#   execute_<name> method, denying with 403 when the rule rejects. Context comes
+#   from the controller's `authorization_context` hook.
+#
+# The execute-time gate is ADDITIVE — controller authorize_* before_actions
+# still run — so it can only ADD denials, never weaken an existing guard.
 #
 # Authorization types are defined in AUTHORIZATION_CHECKS and can be:
 # - Symbols (e.g., :authenticated, :collective_member)
 # - Arrays of symbols (OR logic - any authorization suffices)
 # - Procs for custom logic
 #
+# Context keys: :collective, :resource, :target_user (the user the action is
+# about — self checks), :represented_user (the resource the caller may represent —
+# representative checks), :representation_session.
+#
+# Context-sensitive checks are PERMISSIVE when their key is absent (so listings
+# show the action to any authenticated user); when the key IS present they do a
+# strict check. At execute time the controller populates the relevant keys.
+#
 # Actions without explicit authorization are denied by default (fail-closed).
 #
 # @see ActionsHelper::ACTION_DEFINITIONS for action authorization assignments
+# @see ActionAuthorizationCheck for the execute-time enforcement
 module ActionAuthorization
   extend T::Sig
 
@@ -41,6 +63,9 @@ module ActionAuthorization
       collective = context[:collective]
       # No collective context = permissive for listing (user might be admin of some collective)
       return true unless collective
+      # The collective's own identity user (the actor behind collective automations
+      # and collective representation) acts as an admin of its own collective.
+      return true if collective.identity_user_id == user.id
 
       user.collective_members.find_by(collective_id: collective.id)&.is_admin? || false
     },
@@ -52,6 +77,9 @@ module ActionAuthorization
       collective = context[:collective]
       # No collective context = permissive for listing (user might be member of some collective)
       return true unless collective
+      # The collective's own identity user (the actor behind collective automations
+      # and collective representation) acts as a member of its own collective.
+      return true if collective.identity_user_id == user.id
 
       collective.user_is_member?(user)
     },
@@ -85,11 +113,11 @@ module ActionAuthorization
     representative: lambda { |user, context|
       return false unless user
 
-      target = context[:target]
-      # No target context = permissive for listing
-      return true unless target
+      represented_user = context[:represented_user]
+      # No represented_user context = permissive for listing
+      return true unless represented_user
 
-      user.can_represent?(target)
+      user.can_represent?(represented_user)
     },
   }.freeze, T::Hash[Symbol, T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)])
 
@@ -97,7 +125,7 @@ module ActionAuthorization
   #
   # @param action_name [String] The name of the action
   # @param user [User, nil] The user attempting the action
-  # @param context [Hash] Additional context (collective, resource, target_user, target)
+  # @param context [Hash] Additional context (collective, resource, target_user, represented_user)
   # @return [Boolean] true if authorized, false otherwise
   sig do
     params(

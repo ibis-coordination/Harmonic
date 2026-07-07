@@ -6,22 +6,25 @@
 class ActionsHelper
   extend T::Sig
 
-  # Authorization for actions restricted to "human" user types only.
-  # AI agents and trustees cannot create other AI agents or API tokens.
-  HUMAN_ONLY_AUTHORIZATION = T.let(
+  # Authorization for actions a human must initiate for themselves or someone
+  # they represent — e.g. creating AI agents or API tokens. The name is honest
+  # about both conditions it enforces: the caller must be a human user type, AND
+  # (when context is present) must be acting on themselves (target_user) or on a
+  # user they can represent (represented_user). AI agents and trustees are excluded.
+  HUMAN_SELF_OR_REPRESENTATIVE = T.let(
     lambda { |user, context|
       return false unless user
       return false unless user.user_type == "human"
 
       target_user = context[:target_user]
-      target = context[:target]
+      represented_user = context[:represented_user]
 
       # No context = permissive for listing (show to person users)
-      return true unless target_user || target
+      return true unless target_user || represented_user
 
       # With context, check self or representative
       return true if target_user && target_user.id == user.id
-      return true if target && user.can_represent?(target)
+      return true if represented_user && user.can_represent?(represented_user)
 
       false
     },
@@ -58,6 +61,23 @@ class ActionsHelper
     T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
   )
 
+  # Authorization for note-level edits (e.g. cancelling a reminder). Mirrors the
+  # controller's `note.user_can_edit?(user)` check so the rule is the single
+  # source of truth for who may edit a note.
+  NOTE_EDIT_AUTHORIZATION = T.let(
+    lambda { |user, context|
+      return false unless user
+
+      resource = context[:resource]
+      # No resource context = permissive for listing.
+      return true unless resource
+      return false unless resource.is_a?(Note)
+
+      resource.user_can_edit?(user) == true
+    },
+    T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
+  )
+
   # Authorization for table row operations — checks edit_access on the note.
   # When edit_access is "members", any collective member can edit.
   # When edit_access is "owner", only the note creator can edit.
@@ -77,14 +97,25 @@ class ActionsHelper
   # Each action has: description, params_string (for display), params (detailed param info),
   # and authorization (who can see/execute this action).
   #
+  # `authorization:` is the single source of truth for who can perform an action.
+  # It is consulted BOTH when building action listings AND at execute time: every
+  # /actions/<name> POST is gated by ActionAuthorizationCheck, which denies with
+  # 403 when the rule rejects the caller — regardless of the controller's own
+  # authorize_* before_actions. To gate an action, set this field; you do not
+  # need a bespoke controller guard for the authorization decision.
+  #
   # Authorization can be:
   # - A symbol (e.g., :authenticated, :collective_member, :app_admin)
   # - An array of symbols (OR logic - any authorization suffices)
   # - A Proc for custom logic: ->(user, context) { ... }
   #
+  # Context keys a rule may read: :collective, :resource, :target_user (self
+  # checks), :represented_user (representation checks), :representation_session.
+  #
   # Actions without authorization are denied by default (fail-closed).
   #
   # @see ActionAuthorization for the authorization checker
+  # @see ActionAuthorizationCheck for the execute-time gate
   ACTION_DEFINITIONS = {
     # Collective actions
     "create_collective" => {
@@ -225,7 +256,7 @@ class ActionsHelper
       description: "Cancel a pending reminder on this note",
       params_string: "()",
       params: [],
-      authorization: :owner,
+      authorization: NOTE_EDIT_AUTHORIZATION,
       visibility: :by_collective,
     },
     "acknowledge_reminder" => {
@@ -631,7 +662,7 @@ class ActionsHelper
         { name: "duration", type: "integer", description: "How long the token is valid" },
         { name: "duration_unit", type: "string", description: 'Unit for duration: "days", "weeks", "months", or "years"' },
       ],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :private,
     },
     "connect_harmonic_bridge" => {
@@ -643,7 +674,7 @@ class ActionsHelper
       # The bridge mints credentials with broad scopes for the agent. Only the
       # human who owns the agent should be able to initiate that — same
       # restriction `create_api_token` and `create_ai_agent` carry.
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :private,
     },
     "cancel_harmonic_bridge_setup" => {
@@ -651,7 +682,7 @@ class ActionsHelper
                    "was minted by an unfinalized redemption so no half-state remains.",
       params_string: "()",
       params: [],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :private,
     },
     "create_ai_agent" => {
@@ -666,7 +697,7 @@ class ActionsHelper
           description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose", },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
       ],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :public,
     },
 
@@ -846,7 +877,7 @@ class ActionsHelper
       params: [
         { name: "yaml_source", type: "string", required: true, description: "The YAML configuration for the automation rule" },
       ],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :shared,
     },
     "update_automation_rule" => {
@@ -855,21 +886,21 @@ class ActionsHelper
       params: [
         { name: "yaml_source", type: "string", required: true, description: "The updated YAML configuration for the automation rule" },
       ],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :shared,
     },
     "delete_automation_rule" => {
       description: "Delete an automation rule",
       params_string: "()",
       params: [],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :shared,
     },
     "toggle_automation_rule" => {
       description: "Enable or disable an automation rule",
       params_string: "()",
       params: [],
-      authorization: HUMAN_ONLY_AUTHORIZATION,
+      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :shared,
     },
 
@@ -934,8 +965,8 @@ class ActionsHelper
       authorization: lambda { |user, context|
         return false unless user
 
-        target = context[:target_user]
-        target.nil? || target.id != user.id
+        target_user = context[:target_user]
+        target_user.nil? || target_user.id != user.id
       },
       visibility: :public,
     },
@@ -946,8 +977,8 @@ class ActionsHelper
       authorization: lambda { |user, context|
         return false unless user
 
-        target = context[:target_user]
-        target.nil? || target.id != user.id
+        target_user = context[:target_user]
+        target_user.nil? || target_user.id != user.id
       },
       visibility: :public,
     },

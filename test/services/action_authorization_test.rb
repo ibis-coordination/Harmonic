@@ -123,7 +123,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
       parent_id: @user.id
     )
     @tenant.add_user!(ai_agent)
-    context = { target: ai_agent }
+    context = { represented_user: ai_agent }
 
     # Parent can represent their ai_agent
     assert ActionAuthorization.check_authorization(:representative, @user, context)
@@ -136,8 +136,8 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
 
   # Test: Array authorization (OR logic)
   test "array authorization allows if any check passes" do
-    # Provide both target_user (for :self) and target (for :representative)
-    context = { target_user: @user, target: @user }
+    # Provide both target_user (for :self) and represented_user (for :representative)
+    context = { target_user: @user, represented_user: @user }
 
     # Test with [:self, :representative]
     assert ActionAuthorization.check_authorization([:self, :representative], @user, context)
@@ -344,7 +344,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
   end
 
   test "person-only actions with context check self or representative" do
-    context = { target_user: @user, target: @user }
+    context = { target_user: @user, represented_user: @user }
 
     # Person user acting on themselves
     assert ActionAuthorization.authorized?("create_ai_agent", @user, context)
@@ -358,7 +358,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
       parent_id: @user.id
     )
     @tenant.add_user!(ai_agent)
-    ai_agent_context = { target_user: ai_agent, target: ai_agent }
+    ai_agent_context = { target_user: ai_agent, represented_user: ai_agent }
 
     # Parent (person) can create tokens/ai_agents for their ai_agent
     assert ActionAuthorization.authorized?("create_ai_agent", @user, ai_agent_context)

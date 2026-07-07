@@ -52,6 +52,10 @@ class ApplicationController < ActionController::Base
   # current_user being set, and capability denial should short-circuit before
   # context validation even runs (a 403'd write shouldn't get a 422 chaser).
   include ActionContextValidation
+  # ActionAuthorizationCheck enforces each action's declared `authorization:`
+  # rule at execute time. Included last so its append_before_action runs after
+  # the capability and context-validation gates — those short-circuit first.
+  include ActionAuthorizationCheck
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
