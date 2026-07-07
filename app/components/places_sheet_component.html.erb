@@ -46,8 +46,10 @@
             <%= helpers.octicon "heart", height: 14 %>
           </span>
         <% end %>
-        <span class="pulse-places-badge pulse-places-row-badge" data-collective-id="<%= collective.id %>"
-              style="<%= count_badge_style(unread_count_for(collective)) %>"><%= count_badge_text(unread_count_for(collective)) %></span>
+        <span class="pulse-places-badge-slot">
+          <span class="pulse-places-badge pulse-places-row-badge" data-collective-id="<%= collective.id %>"
+                style="<%= count_badge_style(unread_count_for(collective)) %>"><%= count_badge_text(unread_count_for(collective)) %></span>
+        </span>
       <% end %>
     <% end %>
 

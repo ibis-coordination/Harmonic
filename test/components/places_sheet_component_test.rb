@@ -77,6 +77,10 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{a.id}']", text: "4", visible: :all
     assert_selector ".pulse-places-sheet .pulse-places-badge[data-chat-badge]", text: "2", visible: :all
     assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{main.id}']", text: "", visible: :all
+    # The collective row's badge lives in a fixed-width slot so the heart column
+    # stays put whether or not the badge is shown (a zero count hides the badge).
+    assert_selector ".pulse-places-sheet .pulse-places-badge-slot .pulse-places-badge[data-collective-id='#{a.id}']",
+                    visible: :all
     # A second places-badges controller instance keeps these fresh after polls.
     assert_selector ".pulse-places-sheet [data-controller~='places-badges']", visible: :all
   end
