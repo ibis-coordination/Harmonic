@@ -24,6 +24,9 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     @original_price_id = ENV["STRIPE_PRICE_ID"]
     ENV["STRIPE_PRICE_ID"] = "price_test_123"
 
+    @original_credit_product_id = ENV["STRIPE_CREDIT_PRODUCT_ID"]
+    ENV["STRIPE_CREDIT_PRODUCT_ID"] = "prod_credit_test"
+
     # Stub credit balance API for all tests (load_credit_balance runs on every show)
     stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
       .to_return(
@@ -36,6 +39,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   teardown do
     Stripe.api_key = @original_stripe_key
     ENV["STRIPE_PRICE_ID"] = @original_price_id
+    ENV["STRIPE_CREDIT_PRODUCT_ID"] = @original_credit_product_id
   end
 
   # === Show ===
@@ -231,6 +235,73 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     sc.reload
     assert_not sc.active, "Should not activate billing for mismatched customer"
+  end
+
+  # === Topup (LLM credits) ===
+
+  # Regression for #433: free accounts (all resources billing-exempt, no
+  # subscription) still need to buy LLM credits to power internal agents.
+  def build_free_account
+    free_tenant = create_tenant(subdomain: "billing-credits-#{SecureRandom.hex(4)}")
+    enable_stripe_billing_flag!(free_tenant)
+    free_user = create_user(email: "billing-credits-#{SecureRandom.hex(4)}@example.com", name: "Free Admin")
+    free_tenant.add_user!(free_user)
+    free_tenant.create_main_collective!(created_by: free_user)
+    host! "#{free_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    [free_tenant, free_user]
+  end
+
+  test "billing page offers the credit top-up form to a free account" do
+    _free_tenant, free_user = build_free_account
+    sign_in_as(free_user, tenant: _free_tenant)
+
+    get "/billing"
+    assert_response :success
+    # Free account: nothing to pay, but the credits section is still offered.
+    assert_match(/nothing to pay/i, response.body)
+    assert_match(/AI Agent Credits/, response.body)
+    assert_select "form[action=?]", "/billing/topup"
+  end
+
+  test "free account can add credits without an active subscription" do
+    _free_tenant, free_user = build_free_account
+    sign_in_as(free_user, tenant: _free_tenant)
+
+    stub_request(:post, "https://api.stripe.com/v1/customers")
+      .to_return(status: 200, body: { id: "cus_credits123", object: "customer" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "https://api.stripe.com/v1/prices")
+      .to_return(status: 200, body: { id: "price_credits123", object: "price" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    checkout_stub = stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .to_return(status: 200,
+                 body: { id: "cs_credits123", object: "checkout.session",
+                         url: "https://checkout.stripe.com/session/cs_credits123" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    post "/billing/topup", params: { amount_cents: "2500" }
+
+    assert_response :redirect
+    assert_match %r{checkout\.stripe\.com}, response.location
+    assert_requested checkout_stub
+  end
+
+  test "topup is rejected when billing is not enabled" do
+    plain_tenant = create_tenant(subdomain: "billing-off-#{SecureRandom.hex(4)}")
+    plain_user = create_user(email: "billing-off-#{SecureRandom.hex(4)}@example.com", name: "No Billing")
+    plain_tenant.add_user!(plain_user)
+    plain_tenant.create_main_collective!(created_by: plain_user)
+    host! "#{plain_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as(plain_user, tenant: plain_tenant)
+
+    checkout_stub = stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+
+    post "/billing/topup", params: { amount_cents: "2500" }
+
+    # Billing is off for this tenant, so /billing itself has nothing to offer —
+    # the user is sent home, not bounced to an empty billing page.
+    assert_redirected_to root_path
+    assert_not_requested checkout_stub
   end
 
   # === Setup ===
