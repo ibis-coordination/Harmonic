@@ -30,6 +30,20 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-places-sheet a[href='/collectives']", text: "Create or join a collective"
   end
 
+  test "renders the per-cycle check-in heart on each collective row, filled when checked in" do
+    checked_in = build_sheet_collective(name: "Team A", handle: "team-a")
+    checked_in.define_singleton_method(:has_heartbeat) { true }
+    pending = build_sheet_collective(name: "Team B", handle: "team-b")
+    # pending.has_heartbeat defaults to false
+
+    render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: [checked_in, pending]))
+
+    assert_selector ".pulse-places-sheet a[href='/collectives/team-a'] .pulse-heartbeat-sent .octicon-heart-fill"
+    assert_selector ".pulse-places-sheet a[href='/collectives/team-b'] .pulse-heartbeat-pending .octicon-heart"
+    # The public-space globe is not a check-in collective — no heart there.
+    assert_no_selector ".pulse-places-sheet a[href='/'] .pulse-heartbeat-icon"
+  end
+
   test "omits the chat row when show_chat is false (representation)" do
     a = build_sheet_collective(name: "Team A", handle: "team-a")
     render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: [a], show_chat: false))
@@ -63,6 +77,11 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{a.id}']", text: "4", visible: :all
     assert_selector ".pulse-places-sheet .pulse-places-badge[data-chat-badge]", text: "2", visible: :all
     assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{main.id}']", text: "", visible: :all
+    # The badge sits to the left of the always-present heart, so a hidden badge
+    # (zero count) lets that column collapse without shifting the right-aligned
+    # heart column. Assert the heart is the badge's immediately-following sibling.
+    assert_selector ".pulse-places-sheet .pulse-places-badge[data-collective-id='#{a.id}'] + .pulse-heartbeat-icon",
+                    visible: :all
     # A second places-badges controller instance keeps these fresh after polls.
     assert_selector ".pulse-places-sheet [data-controller~='places-badges']", visible: :all
   end

@@ -179,6 +179,14 @@
   flex-shrink: 0;
 }
 
+/* Per-cycle check-in heart, mirroring the /collectives list. Always present, so
+   it's the trailing column: the unread badge sits to its left and collapses
+   (display:none) when zero, letting that column's width vary without disturbing
+   the heart's stable right-aligned column. Never shrinks. */
+.pulse-places-heartbeat {
+  flex-shrink: 0;
+}
+
 .pulse-places-row-add {
   color: var(--color-fg-muted);
 }

@@ -810,6 +810,7 @@ class ApplicationController < ActionController::Base
 
     @places_collectives = @current_user.collectives_minus_main
       .standard
+      .with_heartbeat_for(@current_user)
       .includes(image_attachment: :blob)
       .order(:name)
       .to_a
