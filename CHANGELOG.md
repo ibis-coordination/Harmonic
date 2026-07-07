@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.44.0] - 2026-07-07
+
+### Added
+
+- **Per-cycle check-in hearts in the places sheet** (#418) — the places switcher opened from the header/tab bar now shows a filled/empty heart per collective for whether you've checked in this cycle, matching `/collectives`. The heartbeat lookup is extracted into a `Collective.with_heartbeat_for` scope using an EXISTS subquery (never multiplies rows, since the sheet renders on every page), reused by both the sheet and `/collectives`. The public-space globe row stays heartless.
+
+### Removed
+
+- **Pull-to-refresh PWA feature reverted** (#446, reverts #401) — the controller broke normal scrolling in the installed PWA, so it is removed entirely pending a future re-attempt.
+
 ## [1.43.0] - 2026-07-07
 
 ### Added
