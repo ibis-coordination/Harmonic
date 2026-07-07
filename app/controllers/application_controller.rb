@@ -52,6 +52,10 @@ class ApplicationController < ActionController::Base
   # current_user being set, and capability denial should short-circuit before
   # context validation even runs (a 403'd write shouldn't get a 422 chaser).
   include ActionContextValidation
+  # ActionAuthorizationCheck enforces each action's declared `authorization:`
+  # rule at execute time. Included last so its append_before_action runs after
+  # the capability and context-validation gates — those short-circuit first.
+  include ActionAuthorizationCheck
 
   skip_before_action :verify_authenticity_token, if: :api_token_present?
 
@@ -1041,6 +1045,20 @@ class ApplicationController < ActionController::Base
     rescue ActiveRecord::RecordNotFound
       nil
     end
+  end
+
+  # The user (human or AI agent) named by the :handle path param — the subject of
+  # user-scoped actions on /u/:handle and /ai-agents/:handle routes. Resolved from
+  # params rather than an ivar so it is available to the execute-time
+  # authorization gate, which runs before the controllers that set
+  # @showing_user / @ai_agent / @target_user (see ActionAuthorizationCheck).
+  def current_handle_user
+    return @current_handle_user if defined?(@current_handle_user)
+
+    handle = params[:handle]
+    return @current_handle_user = nil if handle.blank? || @current_tenant.nil?
+
+    @current_handle_user = @current_tenant.tenant_users.find_by(handle: handle)&.user
   end
 
   def current_cycle

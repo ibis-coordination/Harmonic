@@ -57,7 +57,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "create_tenant",
     "retry_sidekiq_job",
     # Automation rule management is owner-scoped; agents should not be
-    # self-modifying their trigger graph. (HUMAN_ONLY_AUTHORIZATION already
+    # self-modifying their trigger graph. (HUMAN_SELF_OR_REPRESENTATIVE already
     # blocks these at the action-authorization layer, but listing them here
     # makes the policy explicit and test-auditable.)
     "create_automation_rule",
@@ -65,7 +65,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "delete_automation_rule",
     "toggle_automation_rule",
     # Bridge setup mints an MCP token + binds a notification webhook URL.
-    # Same operator-only category as create_api_token. HUMAN_ONLY_AUTHORIZATION
+    # Same operator-only category as create_api_token. HUMAN_SELF_OR_REPRESENTATIVE
     # already enforces this at the action layer; listing here makes the policy
     # explicit and test-auditable.
     "connect_harmonic_bridge",

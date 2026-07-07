@@ -781,6 +781,14 @@ class Collective < ApplicationRecord
     collective_members.where(user: user).count > 0
   end
 
+  # True when `user` is this collective's own identity user — the actor behind
+  # collective automations and collective representation, which acts as a
+  # member/admin of its own collective.
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def identity_user?(user)
+    !user.nil? && identity_user_id == user.id
+  end
+
   # Check if a user can access this collective.
   # Access requires either:
   # - Direct membership, OR

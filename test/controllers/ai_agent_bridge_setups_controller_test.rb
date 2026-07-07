@@ -199,19 +199,20 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil HarmonicBridgeSetup.unscoped_for_system_job.find_by(id: setup.id)
   end
 
-  test "GATE 3 — POST connect: non-parent human is blocked at authorize_target_agent" do
+  test "GATE 3 — POST connect: non-parent human is denied by the execute-time authorization gate" do
     sign_in_as(@other_human)
     post connect_action_path
-    assert_response :redirect
-    assert_match(/permission/i, flash[:alert].to_s)
+    # The execute-time gate denies first: a non-parent human cannot represent the
+    # agent (HUMAN_SELF_OR_REPRESENTATIVE), so it 403s before the controller's
+    # authorize_parent redirect.
+    assert_response :forbidden
   end
 
-  test "GATE 3 — POST cancel: non-parent human is blocked at authorize_target_agent" do
+  test "GATE 3 — POST cancel: non-parent human is denied by the execute-time authorization gate" do
     setup = make_setup
     sign_in_as(@other_human)
     post cancel_action_path(setup.public_id)
-    assert_response :redirect
-    assert_match(/permission/i, flash[:alert].to_s)
+    assert_response :forbidden
     assert_not_nil HarmonicBridgeSetup.unscoped_for_system_job.find_by(id: setup.id)
   end
 
