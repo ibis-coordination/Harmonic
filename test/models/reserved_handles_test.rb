@@ -9,7 +9,18 @@ class ReservedHandlesTest < ActiveSupport::TestCase
     assert_not ReservedHandles.group_tag?(nil)
   end
 
+  test "role_tags and group_tags are derived from the collective role list" do
+    # One pluralized tag per role, so new/custom roles reserve automatically.
+    expected = CollectiveMember.valid_roles.index_by(&:pluralize)
+    assert_equal expected, ReservedHandles.role_tags
+    # Every role's tag is a group tag, plus @everyone.
+    assert ReservedHandles.group_tag?("representatives")
+    assert ReservedHandles.group_tag?("summarizers")
+    assert_equal(["everyone"] + expected.keys, ReservedHandles.group_tags)
+  end
+
   test "collective_local? covers group tags and agent handles" do
+    assert ReservedHandles.collective_local?("representatives")
     assert ReservedHandles.collective_local?("everyone")
     assert ReservedHandles.collective_local?("admins")
     assert ReservedHandles.collective_local?("trio")

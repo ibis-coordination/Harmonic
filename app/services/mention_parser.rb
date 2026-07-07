@@ -109,12 +109,16 @@ class MentionParser
   end
 
   # Expand collective-local tags to the users they name, within `collective`:
-  #   @trio     → this collective's trio user
-  #   @admins   → this collective's admins (any member may use it)
-  #   @everyone → all members, but only when `author` is an admin. Without a
-  #               known admin author the tag expands to nobody, so it can never
-  #               fan out by accident (e.g. background/system parse paths that
-  #               don't carry an author).
+  #   @trio             → this collective's trio user
+  #   @admins /         → members holding that role (any member may use a role
+  #   @representatives /   tag). The tags come from ReservedHandles.role_tags,
+  #   @summarizers / …     which is derived from the collective role list, so a
+  #                        new/custom role's tag resolves here with no change.
+  #   @everyone         → all members, but only when `author` is an admin.
+  #                       Without a known admin author the tag expands to nobody,
+  #                       so it can never fan out by accident (e.g.
+  #                       background/system parse paths that don't carry an
+  #                       author).
   sig do
     params(
       handles: T::Array[String],
@@ -131,7 +135,9 @@ class MentionParser
       result << trio if trio
     end
 
-    result.concat(collective.admins) if wanted.include?(ReservedHandles::ADMINS)
+    ReservedHandles.role_tags.each do |tag, role|
+      result.concat(collective.users_with_role(role)) if wanted.include?(tag)
+    end
 
     if wanted.include?(ReservedHandles::EVERYONE) && author && collective.admin?(author)
       result.concat(collective.member_users)

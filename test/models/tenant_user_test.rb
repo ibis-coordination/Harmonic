@@ -352,7 +352,7 @@ class TenantUserTest < ActiveSupport::TestCase
 
   test "group tag handles are rejected for a human user" do
     tenant = create_tenant
-    ReservedHandles::GROUP_TAGS.each do |tag|
+    ReservedHandles.group_tags.each do |tag|
       user = create_user(email: "gt-#{tag}-#{SecureRandom.hex(4)}@example.com")
       tu = TenantUser.new(tenant: tenant, user: user, handle: tag, display_name: user.name)
       assert_not tu.valid?, "#{tag} should be reserved"

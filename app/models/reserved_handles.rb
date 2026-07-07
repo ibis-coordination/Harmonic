@@ -3,15 +3,21 @@
 # Single source of truth for handles that are not ordinary, user-claimable
 # handles. Two kinds live here:
 #
-#   * GROUP TAGS (@everyone, @admins) — collective-local aliases that a mention
-#     expands to a *set* of users, by membership or role. They never name a real
-#     user record, so no user (and no collective, whose identity user shares the
-#     same tenant namespace) may claim them.
+#   * GROUP TAGS (@everyone, @admins, @representatives, @summarizers, …) —
+#     collective-local aliases that a mention expands to a *set* of users, by
+#     membership or role. They never name a real user record, so no user (and
+#     no collective, whose identity user shares the same tenant namespace) may
+#     claim them.
 #   * AGENT HANDLES (@trio) — real user records that share one name across
 #     collectives while each resolves collective-locally to the local instance.
 #     Claimable only by a system agent whose system_role matches. This is also
 #     the mechanism for the cross-collective agent-identity angle (@claude/@trio
 #     → local instance).
+#
+# The role group tags are DERIVED from the collective role list
+# (CollectiveMember.valid_roles) rather than hardcoded, so adding a role — or,
+# later, a per-collective custom role — automatically reserves and resolves its
+# @<role>s tag with no change here. (#453 feedback)
 #
 # Before this registry the same facts were scattered across
 # Collective::RESERVED_HANDLES, TenantUser::RESERVED_HANDLES, and
@@ -24,11 +30,23 @@ module ReservedHandles
 
   # --- Group tags -----------------------------------------------------------
   EVERYONE = "everyone"
-  ADMINS   = "admins"
   # @here (currently-active members) is intentionally deferred to a later pass.
 
-  # Order is the fan-out order used when a mention names several tags.
-  GROUP_TAGS = T.let([EVERYONE, ADMINS].freeze, T::Array[String])
+  # Each collective role maps to its pluralized tag (admin → @admins,
+  # representative → @representatives, summarizer → @summarizers). Keyed by tag
+  # so resolution and reservation can look up the role a tag expands to. Derived
+  # from the role list, so it tracks new/custom roles automatically.
+  sig { returns(T::Hash[String, String]) }
+  def self.role_tags
+    T.unsafe(CollectiveMember).valid_roles.index_by { |role| role.pluralize }
+  end
+
+  # @everyone plus every role tag: the handles a mention expands to a *set* of
+  # users. No user or collective may claim any of them.
+  sig { returns(T::Array[String]) }
+  def self.group_tags
+    [EVERYONE] + role_tags.keys
+  end
 
   # --- Agent-identity handles ----------------------------------------------
   # handle => system_role required to claim it. Only the main collective's trio
@@ -42,21 +60,20 @@ module ReservedHandles
   # Handles with no group/agent semantics that a collective still may not take.
   COLLECTIVE_ONLY = T.let(["main"].freeze, T::Array[String])
 
-  # Handles a mention resolves *within the collective it was written in* rather
-  # than through the tenant-wide handle index: group tags plus agent handles.
-  # Resolving these locally is what stops a collective-local tag (or a shared
-  # agent name) from fanning out to whoever happens to hold the literal handle
-  # elsewhere in the tenant.
-  COLLECTIVE_LOCAL = T.let((GROUP_TAGS + AGENT_ROLES.keys).freeze, T::Array[String])
-
   sig { params(handle: T.nilable(String)).returns(T::Boolean) }
   def self.group_tag?(handle)
-    GROUP_TAGS.include?(handle.to_s.downcase)
+    group_tags.include?(handle.to_s.downcase)
   end
 
+  # True when a mention resolves `handle` *within the collective it was written
+  # in* rather than through the tenant-wide handle index: group tags plus agent
+  # handles. Resolving these locally is what stops a collective-local tag (or a
+  # shared agent name) from fanning out to whoever happens to hold the literal
+  # handle elsewhere in the tenant.
   sig { params(handle: T.nilable(String)).returns(T::Boolean) }
   def self.collective_local?(handle)
-    COLLECTIVE_LOCAL.include?(handle.to_s.downcase)
+    h = handle.to_s.downcase
+    group_tag?(h) || AGENT_ROLES.key?(h)
   end
 
   # The system_role required to claim `handle` as a user, or nil when the handle
@@ -85,6 +102,6 @@ module ReservedHandles
   sig { params(handle: T.nilable(String)).returns(T::Boolean) }
   def self.forbidden_for_collective?(handle)
     h = handle.to_s.downcase
-    COLLECTIVE_ONLY.include?(h) || GROUP_TAGS.include?(h)
+    COLLECTIVE_ONLY.include?(h) || group_tag?(h)
   end
 end

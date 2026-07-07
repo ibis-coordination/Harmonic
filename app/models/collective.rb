@@ -883,14 +883,23 @@ class Collective < ApplicationRecord
     !!(open_to_all || all_members_can_invite)
   end
 
+  # Members holding `role` (e.g. "admin", "representative", "summarizer").
+  # Backs the role group tags (@admins/@representatives/… — see
+  # MentionParser.resolve_collective_local), which are derived from the role
+  # list so this stays the single lookup for any current or future role.
+  sig { params(role: String).returns(T::Array[User]) }
+  def users_with_role(role)
+    T.unsafe(collective_members).where_has_role(role).map(&:user)
+  end
+
   sig { returns(T::Array[User]) }
   def representatives
-    T.unsafe(collective_members).where_has_role("representative").map(&:user)
+    users_with_role("representative")
   end
 
   sig { returns(T::Array[User]) }
   def admins
-    T.unsafe(collective_members).where_has_role("admin").map(&:user)
+    users_with_role("admin")
   end
 
   # True when `user` holds the admin role in this collective. Gates the

@@ -196,6 +196,30 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_not_includes result.map(&:id), member.id
   end
 
+  test "parse resolves every role tag to its role holders for any author" do
+    # The role tags are derived from CollectiveMember.valid_roles, so this
+    # covers @representatives / @summarizers as well as @admins, and any role
+    # added later. Each expands to the members holding that role.
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    rep = create_user(email: "rep@example.com", name: "Rep")
+    tenant.add_user!(rep)
+    collective.add_user!(rep, roles: ["representative"])
+
+    summarizer = create_user(email: "sum@example.com", name: "Summarizer")
+    tenant.add_user!(summarizer)
+    collective.add_user!(summarizer, roles: ["summarizer"])
+
+    # A plain member (author) with no role can still use the role tags.
+    reps = MentionParser.parse("ping @representatives", tenant_id: tenant.id, collective: collective, author: rep)
+    assert_equal [rep.id], reps.map(&:id)
+
+    sums = MentionParser.parse("ping @summarizers", tenant_id: tenant.id, collective: collective, author: rep)
+    assert_equal [summarizer.id], sums.map(&:id)
+  end
+
   test "parse resolves @everyone to all members when the author is an admin" do
     tenant, collective, admin = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

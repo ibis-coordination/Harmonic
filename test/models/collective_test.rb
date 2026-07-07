@@ -67,7 +67,7 @@ class CollectiveTest < ActiveSupport::TestCase
   test "Collective rejects group-tag handles so they can't shadow the tag" do
     tenant = create_tenant
     user = create_user
-    ReservedHandles::GROUP_TAGS.each do |tag|
+    ReservedHandles.group_tags.each do |tag|
       error = assert_raises(ActiveRecord::RecordInvalid, "#{tag} should be reserved") do
         Collective.create!(tenant: tenant, created_by: user, name: tag.capitalize, handle: tag)
       end
@@ -76,7 +76,7 @@ class CollectiveTest < ActiveSupport::TestCase
   end
 
   test "Collective.handle_available? returns false for group-tag handles" do
-    ReservedHandles::GROUP_TAGS.each do |tag|
+    ReservedHandles.group_tags.each do |tag|
       assert_not Collective.handle_available?(tag), "#{tag} must be unavailable"
       assert_not Collective.handle_available?(tag.upcase), "#{tag} check must be case-insensitive"
     end
