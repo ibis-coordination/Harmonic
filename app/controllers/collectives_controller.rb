@@ -11,12 +11,7 @@ class CollectivesController < ApplicationController
     if current_user
       all_collectives = current_user.collectives
         .listable
-        .joins(
-          "LEFT JOIN heartbeats ON heartbeats.collective_id = collectives.id AND " +
-          "heartbeats.user_id = '#{current_user.id}' AND " +
-          "heartbeats.expires_at > '#{Time.current}'"
-        )
-        .select("collectives.*, heartbeats.id IS NOT NULL AS has_heartbeat")
+        .with_heartbeat_for(current_user)
         .where.not(id: @current_tenant.main_collective_id)
         .order(:has_heartbeat, :name)
 

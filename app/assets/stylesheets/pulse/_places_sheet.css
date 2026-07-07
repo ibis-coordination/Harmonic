@@ -179,6 +179,12 @@
   flex-shrink: 0;
 }
 
+/* Per-cycle check-in heart, mirroring the /collectives list. Sits between the
+   name and the unread badge; never shrinks. */
+.pulse-places-heartbeat {
+  flex-shrink: 0;
+}
+
 .pulse-places-row-add {
   color: var(--color-fg-muted);
 }

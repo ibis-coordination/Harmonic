@@ -30,6 +30,20 @@ class PlacesSheetComponentTest < ViewComponent::TestCase
     assert_selector ".pulse-places-sheet a[href='/collectives']", text: "Create or join a collective"
   end
 
+  test "renders the per-cycle check-in heart on each collective row, filled when checked in" do
+    checked_in = build_sheet_collective(name: "Team A", handle: "team-a")
+    checked_in.define_singleton_method(:has_heartbeat) { true }
+    pending = build_sheet_collective(name: "Team B", handle: "team-b")
+    # pending.has_heartbeat defaults to false
+
+    render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: [checked_in, pending]))
+
+    assert_selector ".pulse-places-sheet a[href='/collectives/team-a'] .pulse-heartbeat-sent .octicon-heart-fill"
+    assert_selector ".pulse-places-sheet a[href='/collectives/team-b'] .pulse-heartbeat-pending .octicon-heart"
+    # The public-space globe is not a check-in collective — no heart there.
+    assert_no_selector ".pulse-places-sheet a[href='/'] .pulse-heartbeat-icon"
+  end
+
   test "omits the chat row when show_chat is false (representation)" do
     a = build_sheet_collective(name: "Team A", handle: "team-a")
     render_inline(PlacesSheetComponent.new(main_collective: main_collective, collectives: [a], show_chat: false))
