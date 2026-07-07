@@ -11,11 +11,18 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     )
   end
 
-  # Test: All actions must have authorization defined
-  test "all actions have authorization defined" do
+  # Test: All actions must have a non-nil authorization rule.
+  #
+  # A nil rule is a silent fail-open at the execute-time gate: ActionAuthorization
+  # Check does `return if rule.nil?`, falling through to whatever controller guard
+  # happens to exist. Requiring a concrete rule keeps the action definition the
+  # single source of truth for who may execute it.
+  test "all actions have a non-nil authorization rule" do
     ActionsHelper::ACTION_DEFINITIONS.each do |name, definition|
-      assert definition.key?(:authorization),
-        "Action '#{name}' must have :authorization defined"
+      assert definition.key?(:authorization), "Action '#{name}' must have :authorization defined"
+      assert_not_nil definition[:authorization],
+                     "Action '#{name}' has a nil :authorization — the execute-time gate would fall " \
+                     "through to controller guards instead of enforcing the definition"
     end
   end
 

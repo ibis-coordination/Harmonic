@@ -89,4 +89,25 @@ class ActionAuthorizationGateTest < ActionDispatch::IntegrationTest
     assert_response :success, "author should be allowed"
     assert_nil note.reload.reminder_notification_id
   end
+
+  # ---- Decision resource rule enforced via current_resource ----
+  # Coverage guard: proves the gate loads the Decision at gate time (through
+  # current_resource) and enforces its rule. If the context plumbing regressed
+  # for this resource type, resource would be nil and the rule would pass
+  # permissively — this test would then wrongly succeed.
+
+  test "gate denies close_decision for a member who is neither creator nor admin" do
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @member)
+
+    other_member = create_user(name: "Other Member")
+    @tenant.add_user!(other_member)
+    @collective.add_user!(other_member)
+    sign_in_as(other_member, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{decision.truncated_id}/actions/close_decision",
+         headers: { "Accept" => "text/markdown" }
+
+    assert_response :forbidden
+    assert_not decision.reload.closed?
+  end
 end

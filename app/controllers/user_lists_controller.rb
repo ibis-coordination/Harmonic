@@ -384,8 +384,10 @@ class UserListsController < ApplicationController
     @current_user_list = list&.visible_to?(@current_user) ? list : nil
   end
 
-  # UserList has no shared current_* loader in ApplicationController, so supply
-  # the resource here for the execute-time authorization gate.
+  # UserList intentionally stays out of `current_resource` (that accessor drives
+  # the commentable/pinnable resource family — comments, pins, summaries — which
+  # lists don't participate in). So the default authorization_context resolves no
+  # resource here; supply the list for the execute-time authorization gate only.
   def authorization_context
     super.merge(resource: current_user_list)
   end

@@ -68,20 +68,24 @@ module ActionAuthorizationCheck
 
   # Context passed to ActionAuthorization.authorized? at execute time.
   #
-  # `resource` uses the `current_*` loader methods rather than the `@note` /
-  # `@decision` / `@commitment` instance variables: this before_action is
-  # appended in ApplicationController and therefore runs BEFORE a subclass's own
+  # `resource` uses `current_resource` rather than the `@note` / `@decision` /
+  # `@commitment` instance variables: this before_action is appended in
+  # ApplicationController and therefore runs BEFORE a subclass's own
   # resource-loading before_action (e.g. `set_list`), so those ivars are not yet
-  # set at gate time. The loaders are memoized and query on demand from params,
-  # so they resolve regardless of before_action order. Controllers whose resource
-  # has no shared loader (e.g. UserList) override this to supply it.
+  # set at gate time. `current_resource` is memoized and resolves from params via
+  # `current_resource_model`, so it works regardless of before_action order.
+  #
+  # `current_resource` only covers the commentable/pinnable resource family
+  # (Note/Decision/Commitment). Controllers whose resource is outside that family
+  # (e.g. UserList, which intentionally stays out of `current_resource`) override
+  # this method to supply the resource for authorization only.
   #
   # `represented_user` is whoever the caller can represent (representative
   # checks); `target_user` is the user the action is about (self checks).
   def authorization_context
     {
       collective: @current_collective,
-      resource: current_note || current_decision || current_commitment,
+      resource: current_resource,
       target_user: @showing_user || @target_user,
       represented_user: @ai_agent || @target_agent || @grant&.target,
       representation_session: @current_representation_session,
