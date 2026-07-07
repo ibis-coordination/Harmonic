@@ -8,7 +8,6 @@
  *= require pulse/_layout
  *= require pulse/_places_sheet
  *= require pulse/_tab_bar
- *= require pulse/_pull_to_refresh
  *= require pulse/_components
  *= require pulse/_markdown_editor
  *= require pulse/_sidebar
