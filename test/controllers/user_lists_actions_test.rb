@@ -240,12 +240,14 @@ class UserListsActionsTest < ActionDispatch::IntegrationTest
     assert list.deleted?
   end
 
-  test "execute_delete_user_list refuses to delete a primary list with 422" do
+  test "execute_delete_user_list refuses to delete a primary list" do
     primary = @user.primary_user_list_in!(@tenant)
     post "/lists/#{primary.truncated_id}/actions/delete_user_list",
          params: {}.to_json,
          headers: @headers
-    assert_response :unprocessable_entity
+    # The delete_user_list rule excludes primary lists, so the execute-time gate
+    # denies it (403) — the same rule that hides the action from listings.
+    assert_response :forbidden
     assert_not primary.reload.deleted?
   end
 

@@ -66,17 +66,22 @@ module ActionAuthorizationCheck
     render_authorization_denied(action_name)
   end
 
-  # Context passed to ActionAuthorization.authorized? at execute time. Mirrors
-  # MarkdownHelper#build_authorization_context so discovery and enforcement agree,
-  # and adds `represented_user` (whoever the caller can represent) for
-  # representative checks.
+  # Context passed to ActionAuthorization.authorized? at execute time.
   #
-  # Controllers whose execute path uses different instance variables override
-  # this to supply precise context.
+  # `resource` uses the `current_*` loader methods rather than the `@note` /
+  # `@decision` / `@commitment` instance variables: this before_action is
+  # appended in ApplicationController and therefore runs BEFORE a subclass's own
+  # resource-loading before_action (e.g. `set_list`), so those ivars are not yet
+  # set at gate time. The loaders are memoized and query on demand from params,
+  # so they resolve regardless of before_action order. Controllers whose resource
+  # has no shared loader (e.g. UserList) override this to supply it.
+  #
+  # `represented_user` is whoever the caller can represent (representative
+  # checks); `target_user` is the user the action is about (self checks).
   def authorization_context
     {
       collective: @current_collective,
-      resource: @note || @decision || @commitment || @list,
+      resource: current_note || current_decision || current_commitment,
       target_user: @showing_user || @target_user,
       represented_user: @ai_agent || @target_agent || @grant&.target,
       representation_session: @current_representation_session,

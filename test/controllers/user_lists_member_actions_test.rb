@@ -433,11 +433,13 @@ class UserListsMemberActionsTest < ActionDispatch::IntegrationTest
     assert_not list.user_list_members.exists?(user_id: @other.id)
   end
 
-  test "join: already-a-member returns success with 'Already on this list.'" do
+  test "join: already-a-member is denied by the execute-time gate" do
     list = list_with(add_policy: "self_add", members: [@other])
     post "/lists/#{list.truncated_id}/actions/join_list", params: "{}", headers: @other_h
-    assert_response :success
-    assert_includes response.body, "Already on this list."
+    # The join_list rule hides the action from existing members (see the HTML
+    # listing test), and that rule is now enforced at execute time, so a
+    # redundant re-join is denied rather than treated as an idempotent no-op.
+    assert_response :forbidden
   end
 
   test "describe_join_list returns the action description" do

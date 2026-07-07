@@ -475,7 +475,18 @@ class ActionsHelper
         { name: "final_statement", type: "string", required: false, description: "Optional final statement explaining the outcome" },
         { name: "selections", type: "array", required: false, description: "For executive decisions: array of option titles to mark as selected" },
       ],
-      authorization: :resource_owner,
+      # Mirrors the controller's `decision.can_close?`: for executive decisions
+      # the decision_maker closes (not necessarily the creator); otherwise whoever
+      # can edit settings (creator or collective/app admin). `:resource_owner`
+      # would be too tight — it excludes the executive decision_maker and admins.
+      authorization: lambda { |user, context|
+        return false unless user
+
+        resource = context[:resource]
+        return true unless resource.is_a?(Decision) # permissive for listing
+
+        resource.can_close?(user)
+      },
       visibility: :by_collective,
     },
     "add_statement" => {
@@ -1031,6 +1042,9 @@ class ActionsHelper
         resource = context[:resource]
         return true unless resource.is_a?(UserList)
 
+        # Owner-only, and never a primary list. This rule now governs both
+        # discovery (delete is hidden on primary lists) and execution (the gate
+        # denies deleting a primary list), so the two agree.
         resource.owner_id == user.id && !resource.is_primary
       },
       visibility: :public, # TODO: follow the list's own visibility setting
