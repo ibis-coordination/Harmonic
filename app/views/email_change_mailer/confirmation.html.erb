@@ -1,7 +1,18 @@
-<p>Hi <%= @user.name %>,</p>
+<div class="container">
+  <div class="header">
+    <h1>Harmonic</h1>
+  </div>
 
-<p>You requested to change your email address on <%= ENV['HOSTNAME'] %>. Please confirm your new email address by clicking the link below:</p>
+  <div class="content">
+    <h2>Confirm your new email address</h2>
+    <p>Hi <%= @user.name %>,</p>
 
-<p><a href="<%= @confirm_url %>">Confirm email address</a></p>
+    <p>You requested to change your email address on <%= ENV['HOSTNAME'] %>. Please confirm your new email address by clicking the button below:</p>
 
-<p>This link will expire in 24 hours. If you did not request this change, you can ignore this email.</p>
+    <a href="<%= @confirm_url %>" class="button">Confirm email address</a>
+
+    <div class="details">
+      This link will expire in 24 hours. If you did not request this change, you can ignore this email.
+    </div>
+  </div>
+</div>
