@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.43.0] - 2026-07-07
+
+### Added
+
+- **Decision audit chain records who acted on whose behalf** (#375, schema v3) — when a trustee or collective representative acts for someone, the chain now records both the principal and the representative, tamper-evidently. Five new columns mirror the actor triple plus a `representation_kind`; the representative token enters the v3 hash and scrubs on export like the actor's. `actor` still means principal, so receipts, tallies, and dedupe are unchanged, and v1/v2 chains verify as before. Receipts and the verify page show "by X on behalf of Y".
+- **Pull-to-refresh for the installed PWA** (#401) — a standalone PWA has no browser chrome and no native overscroll refresh, so a Stimulus controller now tracks a downward drag from the top of the page and refreshes on release past the threshold (Turbo Drive when present, full reload otherwise). Active only when running standalone; inert in a normal mobile browser so it never doubles the platform gesture. Pairs with the mobile back button (#322).
+- **Free accounts can buy LLM credits without a subscription** (#433) — billing-exempt free accounts have no active Stripe subscription, but LLM credits are a separate one-time purchase; the billing page and top-up action now gate on billing being enabled rather than an active subscription, and find-or-create the Stripe customer so a free account can attach a one-time payment.
+- **Relative-time shorthand for decision/commitment datetimes via MCP** (#410) — `create`/`update` for decisions and commitments (and calendar-event `starts_at`/`ends_at`) now accept relative shorthand like `7d`/`3h`/`1w`, matching reminder notes. Already-time-like values pass through unchanged; unparseable strings fall to the model's own validation.
+
+### Changed
+
+- **Collective Explore nav links moved into a kebab menu** (#431) — Dashboard, Cycles, Backlinks, Representation, and Settings move from a standalone sidebar section into a ⋮ menu on the collective-info block, decluttering the sidebar. The Invite Member CTA stays visible. Only renders on the full pulse sidebar.
+- **Collective feed default query no longer pins to the current cycle** (#430) — the default drops `cycle:this-week`, so the feed spans all cycles and only hides comments (`-subtype:comment`).
+- **Search filter reference has a single source of truth** (#429) — the search-operator reference was hand-duplicated across `/help/search`, the `/search` syntax panel, and the markdown view, and had already drifted. All three now render from `SearchFilterReferenceHelper::SECTIONS`.
+- **`@` is optional in the `collective:` search filter** (#356) — `collective:@my-team` and `collective:my-team` now behave the same, matching the user-handle filters.
+- **Email styling aligned with the app style guide** (#439) — HTML mailers move from ad-hoc Bootstrap-ish colors and Arial to the app's design tokens (accent `#0969da`, GitHub-derived grays, system font stack). Centralized in the mailer layout, which also fixes latent double-wrapping (`layout "mailer"` around templates that rendered their own full `<html>` document).
+
+### Security
+
+- **`ACTION_DEFINITIONS` authorization is enforced at execute time** (#440) — the `authorization:` field on each action was consulted only when building markdown listings, never on execution, so an action with a tight rule but a thin controller shipped an unguarded endpoint. A new `ActionAuthorizationCheck` before-action now runs the rule on every `/actions/<name>` POST (HTML, REST, and MCP) before the controller executes, denying 403 when it rejects. The gate is additive — controller guards still run. Gate context resolves via order-independent `current_*` loaders rather than subclass-set ivars, closing a fail-open where resource- and user-target rules silently fell through. Reconciled several rules the gate surfaced (`cancel_reminder`'s undefined `:owner`, `close_decision`, trustee grant permissions, collective-identity membership).
+
+### Fixed
+
+- **Calendar event schedule is editable from commitment settings** (#321) — the settings form gained a Schedule section for `starts_at`/`ends_at`/`location` (the markdown/API path already supported these), with per-input timezone handling matching the create form. A bad edit (e.g. end before start) now redirects back with the validation message instead of a 500.
+
 ## [1.42.0] - 2026-07-06
 
 ### Added
