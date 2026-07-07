@@ -139,14 +139,42 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     # No error raised = no broadcast attempted for non-chat task
   end
 
-  test "fails task when stripe billing enabled but not active" do
+  test "fails task when stripe billing enabled but AI credits not set up" do
     enable_stripe_billing_flag!(@tenant)
 
     AgentRunnerDispatchService.dispatch(@task_run)
 
     @task_run.reload
     assert_equal "failed", @task_run.status
-    assert_includes @task_run.error, "Billing is not set up"
+    assert_includes @task_run.error, "AI usage billing is not set up"
+  end
+
+  test "dispatches for a free account (no paid subscription) that has prepaid AI credits" do
+    # Regression for #450: a free account (active: false) that bought LLM
+    # credits sets up the metered pricing-plan subscription, which is what
+    # funds agent usage. The paid workspace subscription (active?) is separate
+    # and must not gate agent dispatch.
+    enable_stripe_billing_flag!(@tenant)
+    billing_customer = StripeCustomer.create!(
+      billable: @ai_agent,
+      stripe_id: "cus_free123",
+      active: false,
+      pricing_plan_subscription_id: "bpps_free123",
+    )
+    @ai_agent.update!(stripe_customer_id: billing_customer.id)
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    refute_equal "failed", @task_run.status, "free account with credits should dispatch: #{@task_run.error}"
+    assert_equal billing_customer.id, @task_run.stripe_customer_id
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "free account with credits should reach the stream"
+    assert_equal "stripe_gateway", entry[1]["llm_gateway_mode"]
+    redis.close
   end
 
   test "stamps stripe_customer_id when billing active" do

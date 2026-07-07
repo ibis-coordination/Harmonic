@@ -289,8 +289,11 @@ module Internal
       # parallel skip in AgentRunnerDispatchService.
       if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
         billing_customer = ai_agent.billing_customer
-        unless billing_customer&.active?
-          render json: { status: "fail", reason: "Billing is not set up" }
+        # Prepaid AI credits (the metered pricing-plan subscription), not the
+        # paid workspace subscription (active?), fund agent usage — a free
+        # account with LLM credits can run agents. Mirrors the dispatch gate.
+        if billing_customer.nil? || billing_customer.pricing_plan_subscription_id.blank?
+          render json: { status: "fail", reason: "AI usage billing is not set up" }
           return
         end
 

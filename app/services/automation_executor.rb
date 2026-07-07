@@ -78,12 +78,14 @@ class AutomationExecutor
       return
     end
 
-    # Billing gate: if stripe_billing is enabled, agent must have active billing.
-    # System agents (e.g., Trio) are exempt — they have no billing_customer
-    # and run on the deployment's account, matching the same exemption in
-    # AgentRunnerDispatchService.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !ai_agent.billing_customer&.active?
-      @run.mark_failed!("Billing is not set up for this agent's billing customer. Set up billing at /billing.")
+    # Billing gate: if stripe_billing is enabled, the agent must have prepaid AI
+    # credits set up (the metered pricing-plan subscription). This is decoupled
+    # from the paid workspace subscription (active?) — a free account that has
+    # bought LLM credits can run agents. System agents (e.g., Trio) are exempt:
+    # they have no billing_customer and run on the deployment's account. Mirrors
+    # the gate in AgentRunnerDispatchService.
+    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !ai_agent.billing_customer&.pricing_plan_subscription_id.present?
+      @run.mark_failed!("AI usage billing is not set up for this agent's billing customer. Add credits at /billing.")
       return
     end
 
@@ -344,11 +346,12 @@ class AutomationExecutor
       end
     end
 
-    # Billing gate: if stripe_billing is enabled, agent must have active billing.
-    # System agents (e.g., Trio) are exempt — same as the gate above and in
-    # AgentRunnerDispatchService.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? && !agent.billing_customer&.active?
-      return { "status" => "failed", "error" => "Billing is not set up for this agent's billing customer. Set up billing at /billing." }
+    # Billing gate: if stripe_billing is enabled, the agent must have prepaid AI
+    # credits set up (the metered pricing-plan subscription), decoupled from the
+    # paid workspace subscription. System agents (e.g., Trio) are exempt — same
+    # as the gate above and in AgentRunnerDispatchService.
+    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? && !agent.billing_customer&.pricing_plan_subscription_id.present?
+      return { "status" => "failed", "error" => "AI usage billing is not set up for this agent's billing customer. Add credits at /billing." }
     end
 
     # Authorization check: can the rule creator trigger this agent?
