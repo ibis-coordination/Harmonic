@@ -179,23 +179,12 @@
   flex-shrink: 0;
 }
 
-/* Per-cycle check-in heart, mirroring the /collectives list. Sits between the
-   name and the unread badge; never shrinks. */
+/* Per-cycle check-in heart, mirroring the /collectives list. Always present, so
+   it's the trailing column: the unread badge sits to its left and collapses
+   (display:none) when zero, letting that column's width vary without disturbing
+   the heart's stable right-aligned column. Never shrinks. */
 .pulse-places-heartbeat {
   flex-shrink: 0;
-}
-
-/* Fixed-width trailing slot for the unread badge on collective rows. The badge
-   collapses (display:none) when the count is zero, so without a reserved slot
-   the heart would slide right into the badge's column on checked-in rows with
-   nothing unread. The slot keeps the heart in a stable column and right-aligns
-   the badge against the row edge whether or not it's shown. */
-.pulse-places-badge-slot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-shrink: 0;
-  width: 28px;
 }
 
 .pulse-places-row-add {
