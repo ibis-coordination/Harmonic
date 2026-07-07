@@ -298,7 +298,9 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     post "/billing/topup", params: { amount_cents: "2500" }
 
-    assert_redirected_to "/billing"
+    # Billing is off for this tenant, so /billing itself has nothing to offer —
+    # the user is sent home, not bounced to an empty billing page.
+    assert_redirected_to root_path
     assert_not_requested checkout_stub
   end
 

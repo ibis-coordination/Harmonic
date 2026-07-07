@@ -81,9 +81,15 @@ class BillingController < ApplicationController
     # Free accounts (all resources billing-exempt, no subscription) still need
     # to buy LLM credits to power internal agents — so gate on billing being
     # enabled, not on an active subscription.
+    #
+    # Every real caller reaches this action from a tenant with billing enabled
+    # (the top-up form is only rendered when the flag is on), so this is a
+    # defensive guard against a hand-crafted POST. When billing is off the
+    # billing page has nothing to show either, so send the user home rather
+    # than bounce them to an empty /billing.
     unless current_tenant&.feature_enabled?("stripe_billing")
       flash[:error] = "Billing is not enabled."
-      return redirect_to billing_show_path
+      return redirect_to root_path
     end
 
     amount_cents = params[:amount_cents].to_i
