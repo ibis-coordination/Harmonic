@@ -80,14 +80,20 @@ module ActionAuthorizationCheck
   # (e.g. UserList, which intentionally stays out of `current_resource`) override
   # this method to supply the resource for authorization only.
   #
-  # `represented_user` is whoever the caller can represent (representative
-  # checks); `target_user` is the user the action is about (self checks).
+  # `target_user` (self checks) and `represented_user` (representative checks)
+  # both resolve to the :handle-named user via `current_handle_user`. Like
+  # `current_resource`, that resolves from params so it is available at gate time
+  # — the `@showing_user` / `@ai_agent` / `@target_user` ivars are set by the
+  # subclass before_actions/execute methods that run AFTER this appended gate, so
+  # reading them here would always see nil and the self/representative rules would
+  # pass permissively (unenforced). On the user/agent-handle routes the handle
+  # names the action's subject for both the self and the represent check.
   def authorization_context
     {
       collective: @current_collective,
       resource: current_resource,
-      target_user: @showing_user || @target_user,
-      represented_user: @ai_agent || @target_agent || @grant&.target,
+      target_user: current_handle_user,
+      represented_user: current_handle_user,
       representation_session: @current_representation_session,
     }
   end
@@ -99,7 +105,11 @@ module ActionAuthorizationCheck
   def render_authorization_denied(action_name)
     error_message = "You are not authorized to perform '#{action_name}'"
 
-    if Current.mcp_action_name.present?
+    # under_mcp_execute_action? is provided by ActionContextValidation (also
+    # included in ApplicationController); reuse it rather than re-checking
+    # Current.mcp_action_name so the MCP-vs-format branch stays consistent
+    # across the three action-denial renderers.
+    if under_mcp_execute_action?
       render json: { error: error_message }, status: :forbidden
       return
     end

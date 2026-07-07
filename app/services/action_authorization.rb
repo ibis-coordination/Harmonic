@@ -63,9 +63,8 @@ module ActionAuthorization
       collective = context[:collective]
       # No collective context = permissive for listing (user might be admin of some collective)
       return true unless collective
-      # The collective's own identity user (the actor behind collective automations
-      # and collective representation) acts as an admin of its own collective.
-      return true if collective.identity_user_id == user.id
+      # The collective's own identity user acts as an admin of its own collective.
+      return true if collective.identity_user?(user)
 
       user.collective_members.find_by(collective_id: collective.id)&.is_admin? || false
     },
@@ -77,9 +76,8 @@ module ActionAuthorization
       collective = context[:collective]
       # No collective context = permissive for listing (user might be member of some collective)
       return true unless collective
-      # The collective's own identity user (the actor behind collective automations
-      # and collective representation) acts as a member of its own collective.
-      return true if collective.identity_user_id == user.id
+      # The collective's own identity user acts as a member of its own collective.
+      return true if collective.identity_user?(user)
 
       collective.user_is_member?(user)
     },

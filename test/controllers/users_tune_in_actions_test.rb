@@ -135,10 +135,12 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "execute_tune_in rejects tuning in to yourself with 422" do
+  test "execute_tune_in rejects tuning in to yourself" do
     post "/u/#{handle_of(@user)}/actions/tune_in", params: {}.to_json, headers: @headers
-    assert_response :unprocessable_entity
-    assert_includes response.body.downcase, "yourself"
+    # The tune_in rule excludes your own profile, and that rule is enforced at
+    # execute time — so the gate denies self-tune-in (403), the same rule that
+    # hides the action from your own profile in listings.
+    assert_response :forbidden
   end
 
   test "execute_tune_in rejects when actor has blocked target" do

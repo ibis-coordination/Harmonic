@@ -1047,6 +1047,20 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  # The user (human or AI agent) named by the :handle path param — the subject of
+  # user-scoped actions on /u/:handle and /ai-agents/:handle routes. Resolved from
+  # params rather than an ivar so it is available to the execute-time
+  # authorization gate, which runs before the controllers that set
+  # @showing_user / @ai_agent / @target_user (see ActionAuthorizationCheck).
+  def current_handle_user
+    return @current_handle_user if defined?(@current_handle_user)
+
+    handle = params[:handle]
+    return @current_handle_user = nil if handle.blank? || @current_tenant.nil?
+
+    @current_handle_user = @current_tenant.tenant_users.find_by(handle: handle)&.user
+  end
+
   def current_cycle
     return @current_cycle if defined?(@current_cycle)
 

@@ -354,13 +354,10 @@ class UserListsController < ApplicationController
   # from a non-existent one. Lookup unscopes the collective filter so a list
   # in any of the tenant's collectives resolves.
   def set_list
-    list = current_user_list
-
-    if list.nil? || !list.visible_to?(@current_user)
-      render "shared/404", status: :not_found
-      return
-    end
-    @list = list
+    # current_user_list already scopes to visibility, so a non-nil result is
+    # always visible — nil means missing or hidden, both of which 404.
+    @list = current_user_list
+    render "shared/404", status: :not_found if @list.nil?
   end
 
   # Memoized list lookup by :list_id, scoped to what the viewer may see. Used by
