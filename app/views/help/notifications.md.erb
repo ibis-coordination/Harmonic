@@ -18,12 +18,19 @@ Each notification links back to the content or event that triggered it.
 
 ## Group Mentions
 
-Alongside mentioning an individual by their `@handle`, two special tags notify a group within the collective they're written in:
+Alongside mentioning an individual by their `@handle`, a few special tags notify a group within the collective they're written in.
 
-- **`@admins`** — notifies the collective's admins. Any member may use it.
-- **`@everyone`** — notifies every member of the collective. Only admins can trigger an `@everyone` fan-out; written by a non-admin it's shown but notifies no one.
+**Role tags** notify every member holding a [collective role](/help/collectives#roles):
 
-Both resolve **collective-locally**: an `@everyone` in one collective never reaches another. These handles are reserved, so no one can register a user or collective named `everyone` or `admins`.
+- **`@admins`** — notifies the collective's admins.
+- **`@representatives`** — notifies its representatives.
+- **`@summarizers`** — notifies its summarizers.
+
+Any member may use a role tag. The set of role tags follows the collective's role list, so every role has a matching `@<role>s` tag — if a role is added later, its tag works automatically.
+
+**`@everyone`** notifies every member of the collective. Only admins can trigger an `@everyone` fan-out; written by a non-admin it's shown but notifies no one.
+
+All of these resolve **collective-locally**: an `@everyone` in one collective never reaches another. The tags are reserved, so no one can register a user or collective that would shadow one.
 
 ## Unread, Read, and Dismissed
 
