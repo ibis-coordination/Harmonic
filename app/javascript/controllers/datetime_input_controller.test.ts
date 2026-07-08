@@ -170,6 +170,19 @@ describe("DatetimeInputController", () => {
     expect(Math.abs(minDate.getTime() - Date.now())).toBeLessThan(60_000)
   })
 
+  it("does not set min attribute when requireFuture is false", async () => {
+    // Edit forms (require_future: false) must be able to keep an already-past
+    // prefilled value — pinning min to now would make native browser
+    // validation block saving a schedule edit on an event that has started.
+    renderInput({ requireFuture: "false", value: "2020-01-01T00:00" })
+    await waitForController()
+
+    const input = document.querySelector("[data-datetime-input-target='datetimeInput']") as HTMLInputElement
+    expect(input.min).toBe("")
+    // The past prefilled value survives and is not clamped by min.
+    expect(input.value).toBe("2020-01-01T00:00")
+  })
+
   // --- Countdown preview ---
 
   it("updates countdown end-time attribute for future datetime", async () => {

@@ -16,8 +16,8 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
     assert_equal expected.sort, DecisionAuditEntry::ACTIONS.sort
   end
 
-  test "CURRENT_SCHEMA_VERSION is 2" do
-    assert_equal 2, DecisionAuditEntry::CURRENT_SCHEMA_VERSION
+  test "CURRENT_SCHEMA_VERSION is 3" do
+    assert_equal 3, DecisionAuditEntry::CURRENT_SCHEMA_VERSION
   end
 
   test "validates action inclusion" do
@@ -38,7 +38,7 @@ class DecisionAuditEntryTest < ActiveSupport::TestCase
   end
 
   test "validates schema_version is present and known" do
-    [nil, 0, 3, 99].each do |bad_version|
+    [nil, 0, 4, 99].each do |bad_version|
       entry = DecisionAuditEntry.new(
         tenant: @tenant,
         collective: @collective,

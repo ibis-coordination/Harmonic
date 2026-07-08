@@ -19,7 +19,7 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
   # these tests break — which is the point. The hash formula is a public contract
   # documented on the verify page and implemented in the Python script.
 
-  test "v2 hash formula produces stable output for known inputs" do
+  test "v3 hash formula produces stable output for known inputs" do
     decision = Decision.new(
       tenant: @tenant, collective: @collective, created_by: @user,
       question: "Stable Hash Test", description: "", deadline: 1.week.from_now,
@@ -29,23 +29,101 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
 
     entry = DecisionAuditEntry.where(decision_id: decision.id).first
 
-    # Re-derive the expected v2 hash from the stored fields.
+    # Re-derive the expected v3 hash from the stored fields. Direct (non-
+    # represented) actions carry empty representative_token and
+    # representation_kind fields.
     raw_metadata = entry.metadata
     sorted_metadata = JSON.generate(raw_metadata.sort.to_h)
     expected_input = [
-      "v2", "", "1", "decision_created",
+      "v3", "", "1", "decision_created",
       entry.actor_token,
+      "", "",
       "", "", "", sorted_metadata,
       entry.created_at.iso8601,
     ].join("|")
     expected_hash = Digest::SHA256.hexdigest(expected_input)
 
     assert_equal expected_hash, entry.entry_hash,
-      "v2 hash formula changed! The audit chain hash is a public contract — " \
+      "v3 hash formula changed! The audit chain hash is a public contract — " \
       "changing it without bumping schema_version breaks existing chains."
   end
 
-  test "v2 actor_token is SHA256(decision_id || actor_id || actor_handle || actor_token_salt)" do
+  test "v2 hash formula still verifies legacy v2 entries" do
+    entry = DecisionAuditEntry.new(
+      tenant: @tenant, collective: @collective,
+      decision: create_decision(tenant: @tenant, collective: @collective, created_by: @user),
+      sequence_number: 1, schema_version: 2, action: "option_added",
+      actor_id: @user.id, actor_handle: @user.handle,
+      actor_token: "legacy-token",
+      option_title: "Opt",
+      created_at: Time.zone.parse("2026-05-10T12:00:00Z"),
+    )
+    expected_input = [
+      "v2", "", "1", "option_added",
+      "legacy-token",
+      "Opt", "", "", "",
+      entry.created_at.iso8601,
+    ].join("|")
+    assert_equal Digest::SHA256.hexdigest(expected_input), DecisionAuditService.compute_hash(entry),
+      "v2 hash formula changed! Existing v2 chains must keep verifying unchanged."
+  end
+
+  test "v3 hash formula includes representative_token and representation_kind for represented entries" do
+    trustee = create_user(name: "Regression Trustee")
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @user, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    entry = DecisionAuditService.record_option!(
+      decision: decision,
+      option: create_option(decision: decision, created_by: @user, title: "Rep Opt"),
+      actor: @user, action: "option_added",
+      representation_session: session,
+    )
+
+    expected_input = [
+      "v3", "", "1", "option_added",
+      entry.actor_token,
+      entry.representative_token,
+      "user",
+      "Rep Opt", "", "", "",
+      entry.created_at.iso8601,
+    ].join("|")
+    assert_equal Digest::SHA256.hexdigest(expected_input), entry.entry_hash,
+      "v3 represented-entry hash formula is a public contract"
+  end
+
+  test "representative_token is SHA256(decision_id || representative_id || representative_handle || representative_token_salt)" do
+    trustee = create_user(name: "Token Trustee")
+    @tenant.add_user!(trustee)
+    @collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @user, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+
+    decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
+    entry = DecisionAuditService.record_option!(
+      decision: decision,
+      option: create_option(decision: decision, created_by: @user, title: "Tok Opt"),
+      actor: @user, action: "option_added",
+      representation_session: session,
+    )
+
+    expected_token = Digest::SHA256.hexdigest(
+      "#{entry.decision_id}|#{entry.representative_id}|#{entry.representative_handle}|#{entry.representative_token_salt}",
+    )
+    assert_equal expected_token, entry.representative_token,
+      "representative_token derivation is a public contract — changing it breaks identity verification"
+  end
+
+  test "actor_token is SHA256(decision_id || actor_id || actor_handle || actor_token_salt)" do
     decision = Decision.new(
       tenant: @tenant, collective: @collective, created_by: @user,
       question: "Token Derivation Test", description: "", deadline: 1.week.from_now,
@@ -72,13 +150,13 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
 
     hash_input = DecisionAuditService.hash_input(entry)
     assert_match(/\|/, hash_input, "Hash input must use pipe delimiters")
-    # v2: exactly 9 pipes (10 fields). v1 had 10 pipes (11 fields) — this changed
-    # because actor_id and actor_handle (two fields) were collapsed into actor_token.
-    assert_equal 9, hash_input.count("|"),
-      "v2 hash input must have exactly 10 fields separated by 9 pipes"
+    # v3: exactly 11 pipes (12 fields) — v2's 10 fields plus representative_token
+    # and representation_kind (empty strings for direct actions).
+    assert_equal 11, hash_input.count("|"),
+      "v3 hash input must have exactly 12 fields separated by 11 pipes"
   end
 
-  test "hash input starts with version prefix v2" do
+  test "hash input starts with version prefix v3" do
     decision = Decision.new(
       tenant: @tenant, collective: @collective, created_by: @user,
       question: "Version Test", description: "", deadline: 1.week.from_now,
@@ -88,8 +166,8 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
     entry = DecisionAuditEntry.where(decision_id: decision.id).first
 
     hash_input = DecisionAuditService.hash_input(entry)
-    assert hash_input.start_with?("v2|"),
-      "v2 hash input must start with 'v2|' — changing the version prefix without bumping schema_version breaks existing chains"
+    assert hash_input.start_with?("v3|"),
+      "v3 hash input must start with 'v3|' — changing the version prefix without bumping schema_version breaks existing chains"
   end
 
   # === DB trigger existence ===
@@ -170,6 +248,9 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
     actor_id: "NULL",
     actor_handle: "'[deleted account]'",
     actor_token_salt: "NULL",
+    representative_id: "NULL",
+    representative_handle: "'[deleted account]'",
+    representative_token_salt: "NULL",
   }.each do |column, new_value|
     test "audit immutability trigger ALLOWS update to #{column} (PII scrub path)" do
       entry = setup_decision_with_audit_entry.call(self)
@@ -189,6 +270,8 @@ class AuditChainRegressionTest < ActiveSupport::TestCase
     schema_version: "schema_version = 99",
     action: "action = 'vote_cast'",
     actor_token: "actor_token = 'forged-token'",
+    representative_token: "representative_token = 'forged-token'",
+    representation_kind: "representation_kind = 'user'",
     option_title: "option_title = 'forged'",
     accepted: "accepted = 99",
     preferred: "preferred = 99",

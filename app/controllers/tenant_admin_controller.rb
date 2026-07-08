@@ -77,6 +77,13 @@ class TenantAdminController < ApplicationController
       end
     end
 
+    # Gateway models users may pick for internal AI agents. The section renders a
+    # hidden empty entry, so the key is present (and an empty selection means
+    # "none enabled") exactly when the section was shown.
+    if params.key?(:gateway_models)
+      @current_tenant.enabled_gateway_models = Array(params[:gateway_models])
+    end
+
     @current_tenant.save!
     redirect_to "/tenant-admin"
   end

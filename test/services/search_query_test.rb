@@ -1350,4 +1350,47 @@ class SearchQueryTest < ActiveSupport::TestCase
     # Ignored, not applied: results are not narrowed to exclude the viewer's notes.
     assert search.results.any?
   end
+
+  # media: filter
+
+  test "media:image returns only items with embedded images" do
+    attach_image_to(@note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "budget media:image cycle:all"
+    )
+
+    results = search.results
+    assert_equal [@note.id], results.map(&:item_id)
+  end
+
+  test "media:text-only excludes items with embedded images" do
+    attach_image_to(@note)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "budget media:text-only cycle:all"
+    )
+
+    item_ids = search.results.map(&:item_id)
+    assert_not_includes item_ids, @note.id
+    assert_includes item_ids, @decision.id
+    assert_includes item_ids, @commitment.id
+  end
+
+  # A minimal valid PNG so MediaItem's magic-byte validation passes.
+  def valid_png_bytes
+    "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82".b
+  end
+
+  def attach_image_to(note)
+    blob = ActiveStorage::Blob.create_and_upload!(
+      io: StringIO.new(valid_png_bytes), filename: "a.png", content_type: "image/png"
+    )
+    MediaItem.create!(
+      tenant: @tenant, collective: @collective, mediable: note,
+      file: blob, created_by: @user, updated_by: @user
+    )
+  end
 end

@@ -34,6 +34,29 @@ class Collective < ApplicationRecord
   scope :listable, -> { where(collective_type: "standard") }
   scope :billable_types, -> { where(collective_type: ["standard", "private_workspace"]) }
 
+  # Adds a boolean `has_heartbeat` attribute to each row: true when `user` has
+  # a live (non-expired) heartbeat on that collective this cycle. Single source
+  # for the heart indicators on both /collectives and the places sheet. Uses an
+  # EXISTS subquery rather than a LEFT JOIN so it never multiplies rows — the
+  # places sheet renders on every page, so a duplicated collective would be
+  # pervasive. `has_heartbeat` is orderable (e.g. `.order(:has_heartbeat, :name)`).
+  scope :with_heartbeat_for, ->(user) {
+    select(sanitize_sql_array([
+      "collectives.*, EXISTS(SELECT 1 FROM heartbeats WHERE heartbeats.collective_id = collectives.id " \
+      "AND heartbeats.user_id = ? AND heartbeats.expires_at > ?) AS has_heartbeat",
+      user.id, Time.current
+    ]))
+  }
+
+  # The `has_heartbeat` boolean is only present on rows loaded via
+  # `with_heartbeat_for`. Default to false elsewhere so views (the /collectives
+  # list, the places sheet) can call it unconditionally without blowing up on a
+  # plainly-loaded record.
+  sig { returns(T::Boolean) }
+  def has_heartbeat
+    read_attribute(:has_heartbeat) ? true : false
+  end
+
   VALID_COLLECTIVE_TYPES = ["standard", "private_workspace", "chat"].freeze
 
   validates :collective_type, inclusion: { in: VALID_COLLECTIVE_TYPES }
@@ -779,6 +802,14 @@ class Collective < ApplicationRecord
   sig { params(user: User).returns(T::Boolean) }
   def user_is_member?(user)
     collective_members.where(user: user).count > 0
+  end
+
+  # True when `user` is this collective's own identity user — the actor behind
+  # collective automations and collective representation, which acts as a
+  # member/admin of its own collective.
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def identity_user?(user)
+    !user.nil? && identity_user_id == user.id
   end
 
   # Check if a user can access this collective.

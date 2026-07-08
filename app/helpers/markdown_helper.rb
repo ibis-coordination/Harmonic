@@ -122,6 +122,10 @@ module MarkdownHelper
                 instance_variable_get(:@commitment) ||
                 instance_variable_get(:@list),
       target_user: instance_variable_get(:@showing_user),
+      # The profile user is the subject for both the self and the represent check,
+      # matching the execute-time gate (ActionAuthorizationCheck#authorization_context)
+      # so discovery and enforcement of :representative rules agree.
+      represented_user: instance_variable_get(:@showing_user),
       representation_session: instance_variable_get(:@current_representation_session),
     }
   end

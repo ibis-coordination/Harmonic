@@ -74,6 +74,8 @@ BEGIN
      OR NEW.schema_version IS DISTINCT FROM OLD.schema_version
      OR NEW.action IS DISTINCT FROM OLD.action
      OR NEW.actor_token IS DISTINCT FROM OLD.actor_token
+     OR NEW.representative_token IS DISTINCT FROM OLD.representative_token
+     OR NEW.representation_kind IS DISTINCT FROM OLD.representation_kind
      OR NEW.option_title IS DISTINCT FROM OLD.option_title
      OR NEW.accepted IS DISTINCT FROM OLD.accepted
      OR NEW.preferred IS DISTINCT FROM OLD.preferred
@@ -82,7 +84,7 @@ BEGIN
      OR NEW.entry_hash IS DISTINCT FROM OLD.entry_hash
      OR NEW.created_at IS DISTINCT FROM OLD.created_at
   THEN
-    RAISE EXCEPTION 'decision_audit_entries are immutable except for PII scrubbing (actor_id, actor_handle, actor_token_salt)';
+    RAISE EXCEPTION 'decision_audit_entries are immutable except for PII scrubbing (actor_id, actor_handle, actor_token_salt, representative_id, representative_handle, representative_token_salt)';
   END IF;
   RETURN NEW;
 END;
@@ -688,7 +690,12 @@ CREATE TABLE public.decision_audit_entries (
     entry_hash character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     actor_token character varying,
-    actor_token_salt character varying
+    actor_token_salt character varying,
+    representative_id uuid,
+    representative_handle character varying,
+    representative_token character varying,
+    representative_token_salt character varying,
+    representation_kind character varying
 );
 
 
@@ -10305,7 +10312,9 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260705220000'),
 ('20260705182920'),
+('20260703120000'),
 ('20260702010000'),
 ('20260702000000'),
 ('20260701000000'),

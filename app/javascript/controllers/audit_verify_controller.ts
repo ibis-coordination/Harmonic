@@ -70,17 +70,22 @@ export default class AuditVerifyController extends Controller {
   private renderResult(result: VerificationResult, hasImportedEntries: boolean): void {
     const lines: string[] = []
 
-    // Chain integrity (covers hash chain + actor-identity binding for v2 entries)
+    // Chain integrity (covers hash chain + identity binding for v2+ entries)
     if (result.chain.valid) {
       const scrubbed = result.chain.scrubbedCount
+      const represented = result.chain.representedCount
       const detail = `All ${result.chain.entryCount} entries verified — every hash is correct and links to the previous entry.` +
+        (represented > 0 ? ` ${represented} ${represented === 1 ? "action was" : "actions were"} performed on someone's behalf; both identities are recorded and verified.` : "") +
         (scrubbed > 0 ? ` ${scrubbed} ${scrubbed === 1 ? "entry has" : "entries have"} had identifying information removed (account closure); binding for ${scrubbed === 1 ? "that entry is" : "those entries are"} unattributable by design.` : "")
       lines.push(this.passLine("Chain integrity", detail))
     } else if (result.chain.errors.length > 0) {
       lines.push(this.failLine("Chain integrity", this.explainChainFailure(result.chain.errors, hasImportedEntries)))
     } else {
-      // No hash/link errors — failure is from actor-identity binding mismatch
-      lines.push(this.failLine("Chain integrity", this.explainBindingFailure(result.chain.bindingInconsistentCount)))
+      // No hash/link errors — failure is from an identity binding mismatch
+      // (actor or representative)
+      lines.push(this.failLine("Chain integrity", this.explainBindingFailure(
+        result.chain.bindingInconsistentCount + result.chain.representativeBindingInconsistentCount,
+      )))
     }
 
     // Vote tallies
@@ -152,9 +157,9 @@ export default class AuditVerifyController extends Controller {
   }
 
   private explainBindingFailure(count: number): string {
-    return `${count} ${count === 1 ? "entry's" : "entries'"} actor identity does not match the recorded identity token. ` +
-      "This means the displayed actor for those entries may have been altered after the fact, or that PII scrubbing was performed inconsistently. " +
-      "The hash chain itself is intact, but you should not trust the displayed actor information until this is investigated."
+    return `${count} ${count === 1 ? "entry's" : "entries'"} recorded identity (actor or representative) does not match its identity token. ` +
+      "This means the displayed identity for those entries may have been altered after the fact, or that PII scrubbing was performed inconsistently. " +
+      "The hash chain itself is intact, but you should not trust the displayed identity information until this is investigated."
   }
 
   private explainBeaconFailure(errors: string[]): string {

@@ -189,13 +189,17 @@ class ApiHelper
         description: params[:description],
         subtype: params[:subtype] || "vote",
         options_open: params[:options_open] || true,
-        deadline: params[:deadline],
+        # Deadline is optional. Omitting it means the decision is closed manually,
+        # represented by a far-future deadline (see requires_manual_close?) — the
+        # same convention as the HTML form's "no deadline" option. When present it
+        # accepts relative shorthand (7d, 3h, 1w) via parse_datetime_param.
+        deadline: parse_datetime_param(params[:deadline]).presence || 100.years.from_now,
         created_by: current_user,
       }
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
       create_attrs[:decision_maker] = resolve_user(decision_maker_param) if decision_maker_param.present?
       decision = Decision.new(create_attrs)
-      DecisionActionService.create_decision!(decision: decision, actor: current_user)
+      DecisionActionService.create_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
       track_task_run_resource(decision, action_type: "create")
       if current_representation_session
         current_representation_session.record_event!(
@@ -217,14 +221,21 @@ class ApiHelper
         title: params[:title],
         description: params[:description],
         subtype: subtype,
-        deadline: params[:deadline],
+        deadline: parse_datetime_param(params[:deadline]).presence,
         critical_mass: current_collective.private_workspace? ? 1 : params[:critical_mass],
         created_by: current_user,
       }
       if subtype == "calendar_event"
-        attrs[:starts_at] = params[:starts_at]
-        attrs[:ends_at] = params[:ends_at]
+        attrs[:starts_at] = parse_datetime_param(params[:starts_at])
+        attrs[:ends_at] = parse_datetime_param(params[:ends_at])
         attrs[:location] = params[:location].presence
+      end
+      # Deadline is optional. When omitted, calendar events fall back to their
+      # start time (the RSVP deadline for an event), matching the HTML form;
+      # everything else gets a far-future deadline meaning "close manually"
+      # (see requires_manual_close?).
+      if attrs[:deadline].blank?
+        attrs[:deadline] = subtype == "calendar_event" ? attrs[:starts_at].presence || 100.years.from_now : 100.years.from_now
       end
       commitment = Commitment.create!(attrs)
       # Handle close_at_critical_mass option
@@ -616,7 +627,7 @@ class ApiHelper
           decision_participant: current_decision_participant,
           title: title
         )
-        DecisionActionService.add_option!(decision: T.must(current_decision), option: option, actor: current_user)
+        DecisionActionService.add_option!(decision: T.must(current_decision), option: option, actor: current_user, representation_session: current_representation_session)
         track_task_run_resource(option, action_type: "add_options")
         options << option
       end
@@ -652,7 +663,7 @@ class ApiHelper
     is_update = vote.persisted?
     vote.accepted = ActiveModel::Type::Boolean.new.cast(params[:accepted]) ? 1 : 0 if params.key?(:accepted)
     vote.preferred = ActiveModel::Type::Boolean.new.cast(params[:preferred]) ? 1 : 0 if params.key?(:preferred)
-    DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update)
+    DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update, representation_session: current_representation_session)
     track_task_run_resource(vote, action_type: "vote")
 
     if current_representation_session
@@ -703,7 +714,7 @@ class ApiHelper
         # Convert boolean to integer (Vote model validates accepted/preferred as 0 or 1)
         vote.accepted = accept_value ? 1 : 0
         vote.preferred = prefer_value ? 1 : 0
-        DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update)
+        DecisionActionService.cast_vote!(decision: T.must(current_decision), vote: vote, actor: current_user, is_update: is_update, representation_session: current_representation_session)
         track_task_run_resource(vote, action_type: "vote")
         votes << vote
       end
@@ -963,14 +974,14 @@ class ApiHelper
       if params[:deadline].present?
         raise "Cannot change deadline on a closed decision" if decision.closed?
 
-        decision.deadline = params[:deadline]
+        decision.deadline = parse_datetime_param(params[:deadline])
       end
       dm_param_key = params.has_key?(:decision_maker) ? :decision_maker : :decision_maker_id
       if params.has_key?(dm_param_key)
         decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
       end
 
-      DecisionActionService.update_decision!(decision: decision, actor: current_user)
+      DecisionActionService.update_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
 
       if current_representation_session
         current_representation_session.record_event!(
@@ -992,7 +1003,7 @@ class ApiHelper
       # For executive decisions, cast selection votes (before close, so DB trigger allows them)
       create_executive_selections!(decision) if decision.is_executive?
 
-      DecisionActionService.close_decision!(decision: decision, actor: current_user)
+      DecisionActionService.close_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
 
       create_or_update_statement!(decision, params[:final_statement]) if params[:final_statement].present?
 
@@ -1086,6 +1097,23 @@ class ApiHelper
     tu.user
   end
 
+  # Coerce a datetime param that may arrive as an ISO 8601 string, a Unix
+  # timestamp, a relative shorthand (7d, 3h, 1w), or a datetime-local value.
+  # This gives decision/commitment deadlines the same flexible parsing that
+  # reminder notes already accept via `scheduled_for`.
+  #
+  # Values that are already time-like pass through unchanged so internal
+  # callers (and tests) that hand us real objects keep working, and an
+  # unparseable string is returned as-is so the model's own coercion/validation
+  # produces the same error it did before.
+  sig { params(value: T.untyped).returns(T.untyped) }
+  private def parse_datetime_param(value)
+    return value if value.blank?
+    return value if value.is_a?(Time) || value.is_a?(Date) || value.is_a?(ActiveSupport::TimeWithZone)
+
+    parse_scheduled_time(value, timezone: params[:timezone]) || value
+  end
+
   private def create_executive_selections!(decision)
     selected_titles = Array(params[:selections])
     dm = decision.effective_decision_maker
@@ -1114,7 +1142,7 @@ class ApiHelper
       is_update = vote.persisted?
       vote.accepted = selected_titles.include?(option.title) ? 1 : 0
       vote.preferred = 0
-      DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: dm, is_update: is_update)
+      DecisionActionService.cast_vote!(decision: decision, vote: vote, actor: dm, is_update: is_update, representation_session: current_representation_session)
     end
   end
 
@@ -1176,11 +1204,11 @@ class ApiHelper
         commitment.critical_mass = new_cm
       end
 
-      commitment.deadline = params[:deadline] if params[:deadline].present?
+      commitment.deadline = parse_datetime_param(params[:deadline]) if params[:deadline].present?
 
       if commitment.is_calendar_event?
-        commitment.starts_at = params[:starts_at] if params[:starts_at].present?
-        commitment.ends_at = params[:ends_at] if params[:ends_at].present?
+        commitment.starts_at = parse_datetime_param(params[:starts_at]) if params[:starts_at].present?
+        commitment.ends_at = parse_datetime_param(params[:ends_at]) if params[:ends_at].present?
         commitment.location = params[:location] if params.key?(:location)
       end
 
@@ -1232,7 +1260,7 @@ class ApiHelper
   def update_option(option)
     ActiveRecord::Base.transaction do
       option.title = params[:title] if params[:title].present?
-      DecisionActionService.update_option!(option: option, actor: current_user)
+      DecisionActionService.update_option!(option: option, actor: current_user, representation_session: current_representation_session)
       if current_representation_session
         current_representation_session.record_event!(
           request: request,
@@ -1248,7 +1276,7 @@ class ApiHelper
   # Delete an option
   sig { params(option: Option).void }
   def delete_option(option)
-    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user)
+    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user, representation_session: current_representation_session)
   end
 
   # Duplicate a decision
@@ -1265,7 +1293,7 @@ class ApiHelper
         deadline: original.deadline,
         created_by: current_user
       )
-      DecisionActionService.create_decision!(decision: new_decision, actor: current_user)
+      DecisionActionService.create_decision!(decision: new_decision, actor: current_user, representation_session: current_representation_session)
       original.options.each do |opt|
         option = Option.new(
           decision: new_decision,
@@ -1275,7 +1303,7 @@ class ApiHelper
             user: current_user
           ).find_or_create_participant
         )
-        DecisionActionService.add_option!(decision: new_decision, option: option, actor: current_user)
+        DecisionActionService.add_option!(decision: new_decision, option: option, actor: current_user, representation_session: current_representation_session)
       end
       track_task_run_resource(new_decision, action_type: "create")
       if current_representation_session

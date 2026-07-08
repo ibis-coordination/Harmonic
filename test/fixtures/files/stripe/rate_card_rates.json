@@ -1,0 +1,87 @@
+{
+  "data": [
+    {
+      "id": "rcdr_sonnet_input",
+      "object": "v2.billing.rate_card_rate",
+      "unit_amount": "0.00039",
+      "metadata": {
+        "markup_percentage": "30%",
+        "created_by": "Stripe Token Billing",
+        "original_price_per_million_tokens": "$3.00000000"
+      },
+      "metered_item": {
+        "display_name": "anthropic/claude-sonnet-4.6 input token tokens",
+        "meter_segment_conditions": [
+          { "dimension": "model", "value": "anthropic/claude-sonnet-4.6" },
+          { "dimension": "token_type", "value": "input" }
+        ]
+      }
+    },
+    {
+      "id": "rcdr_sonnet_output",
+      "object": "v2.billing.rate_card_rate",
+      "unit_amount": "0.00195",
+      "metadata": {
+        "markup_percentage": "30%",
+        "created_by": "Stripe Token Billing",
+        "original_price_per_million_tokens": "$15.00000000"
+      },
+      "metered_item": {
+        "display_name": "anthropic/claude-sonnet-4.6 output token tokens",
+        "meter_segment_conditions": [
+          { "dimension": "model", "value": "anthropic/claude-sonnet-4.6" },
+          { "dimension": "token_type", "value": "output" }
+        ]
+      }
+    },
+    {
+      "id": "rcdr_haiku_input",
+      "object": "v2.billing.rate_card_rate",
+      "unit_amount": "0.00013",
+      "metadata": {
+        "markup_percentage": "30%",
+        "original_price_per_million_tokens": "$1.00000000"
+      },
+      "metered_item": {
+        "display_name": "anthropic/claude-haiku-4.5 input token tokens",
+        "meter_segment_conditions": [
+          { "dimension": "model", "value": "anthropic/claude-haiku-4.5" },
+          { "dimension": "token_type", "value": "input" }
+        ]
+      }
+    },
+    {
+      "id": "rcdr_haiku_output",
+      "object": "v2.billing.rate_card_rate",
+      "unit_amount": "0.00065",
+      "metadata": {
+        "markup_percentage": "30%",
+        "original_price_per_million_tokens": "$5.00000000"
+      },
+      "metered_item": {
+        "display_name": "anthropic/claude-haiku-4.5 output token tokens",
+        "meter_segment_conditions": [
+          { "dimension": "model", "value": "anthropic/claude-haiku-4.5" },
+          { "dimension": "token_type", "value": "output" }
+        ]
+      }
+    },
+    {
+      "id": "rcdr_partial_input_only",
+      "object": "v2.billing.rate_card_rate",
+      "unit_amount": "0.00010",
+      "metadata": {
+        "original_price_per_million_tokens": "$0.77000000"
+      },
+      "metered_item": {
+        "display_name": "openai/only-input-model input token tokens",
+        "meter_segment_conditions": [
+          { "dimension": "model", "value": "openai/only-input-model" },
+          { "dimension": "token_type", "value": "input" }
+        ]
+      }
+    }
+  ],
+  "next_page_url": null,
+  "previous_page_url": null
+}

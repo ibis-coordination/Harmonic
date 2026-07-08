@@ -6,6 +6,34 @@ module ApplicationHelper
   # places-badges controller maintains client-side.
   include UnreadBadgeDisplay
 
+  # Display labels for LLM provider prefixes (the part before "/" in a gateway
+  # model name). Keyed by the lowercase slug Stripe uses; includes common
+  # spelling variants. Anything not listed falls back to a titleized slug, so an
+  # unknown/new provider still renders readably.
+  GATEWAY_VENDOR_LABELS = {
+    "anthropic" => "Anthropic",
+    "arcee" => "Arcee AI", "arcee-ai" => "Arcee AI", "arcee_ai" => "Arcee AI",
+    "cohere" => "Cohere",
+    "deepseek" => "DeepSeek",
+    "google" => "Google",
+    "inception" => "Inception",
+    "minimax" => "Minimax",
+    "mistral" => "Mistral AI", "mistralai" => "Mistral AI", "mistral-ai" => "Mistral AI",
+    "moonshot" => "Moonshot AI", "moonshotai" => "Moonshot AI", "moonshot-ai" => "Moonshot AI",
+    "morph" => "Morph",
+    "openai" => "OpenAI",
+    "perplexity" => "Perplexity",
+    "qwen" => "Qwen",
+    "xai" => "xAI", "x-ai" => "xAI",
+    "zai" => "Z.AI", "z-ai" => "Z.AI",
+  }.freeze
+
+  # Display label for an LLM provider prefix, e.g. "openai" -> "OpenAI".
+  def gateway_vendor_label(prefix)
+    key = prefix.to_s.downcase
+    GATEWAY_VENDOR_LABELS[key] || key.split(/[-_]/).map(&:capitalize).join(" ")
+  end
+
   # Generate consistent avatar initials from a name
   # Returns up to 2 uppercase characters
   def avatar_initials(name)

@@ -912,7 +912,10 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       params: { values: { "Col" => "val" } },
       headers: { "Accept" => "text/markdown" }
 
-    assert_includes response.body, "Not a table note"
+    # add_row is denied on non-table notes — the execute-time authorization gate
+    # rejects it (TABLE_CONTENT_EDIT_AUTHORIZATION requires a table note),
+    # matching discovery, which hides table actions on non-table notes.
+    assert_response :forbidden
   end
 
   # === Reminder Note Tests ===
@@ -1354,7 +1357,9 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
       headers: { "Accept" => "text/markdown" }
 
-    assert_includes response.body, "Not authorized"
+    # A non-author admin cannot edit the note, so cancel_reminder is denied by
+    # the execute-time authorization gate before the reminder is touched.
+    assert_response :forbidden
     note.reload
     assert_not_nil note.reminder_notification_id
   end
@@ -1387,8 +1392,9 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
       headers: { "Accept" => "text/markdown" }
 
-    # Should fail — not the author
-    assert_includes response.body, "Not authorized"
+    # Should fail — not authorized to edit the note (enforced by the
+    # execute-time authorization gate before the reminder is touched)
+    assert_response :forbidden
     note.reload
     assert_not_nil note.reminder_notification_id
   end

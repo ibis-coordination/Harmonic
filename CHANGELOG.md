@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.44.0] - 2026-07-07
+
+### Added
+
+- **Per-cycle check-in hearts in the places sheet** (#418) — the places switcher opened from the header/tab bar now shows a filled/empty heart per collective for whether you've checked in this cycle, matching `/collectives`. The heartbeat lookup is extracted into a `Collective.with_heartbeat_for` scope using an EXISTS subquery (never multiplies rows, since the sheet renders on every page), reused by both the sheet and `/collectives`. The public-space globe row stays heartless.
+
+### Removed
+
+- **Pull-to-refresh PWA feature reverted** (#446, reverts #401) — the controller broke normal scrolling in the installed PWA, so it is removed entirely pending a future re-attempt.
+
+## [1.43.0] - 2026-07-07
+
+### Added
+
+- **Decision audit chain records who acted on whose behalf** (#375, schema v3) — when a trustee or collective representative acts for someone, the chain now records both the principal and the representative, tamper-evidently. Five new columns mirror the actor triple plus a `representation_kind`; the representative token enters the v3 hash and scrubs on export like the actor's. `actor` still means principal, so receipts, tallies, and dedupe are unchanged, and v1/v2 chains verify as before. Receipts and the verify page show "by X on behalf of Y".
+- **Pull-to-refresh for the installed PWA** (#401) — a standalone PWA has no browser chrome and no native overscroll refresh, so a Stimulus controller now tracks a downward drag from the top of the page and refreshes on release past the threshold (Turbo Drive when present, full reload otherwise). Active only when running standalone; inert in a normal mobile browser so it never doubles the platform gesture. Pairs with the mobile back button (#322).
+- **Free accounts can buy LLM credits without a subscription** (#433) — billing-exempt free accounts have no active Stripe subscription, but LLM credits are a separate one-time purchase; the billing page and top-up action now gate on billing being enabled rather than an active subscription, and find-or-create the Stripe customer so a free account can attach a one-time payment.
+- **Relative-time shorthand for decision/commitment datetimes via MCP** (#410) — `create`/`update` for decisions and commitments (and calendar-event `starts_at`/`ends_at`) now accept relative shorthand like `7d`/`3h`/`1w`, matching reminder notes. Already-time-like values pass through unchanged; unparseable strings fall to the model's own validation.
+
+### Changed
+
+- **Collective Explore nav links moved into a kebab menu** (#431) — Dashboard, Cycles, Backlinks, Representation, and Settings move from a standalone sidebar section into a ⋮ menu on the collective-info block, decluttering the sidebar. The Invite Member CTA stays visible. Only renders on the full pulse sidebar.
+- **Collective feed default query no longer pins to the current cycle** (#430) — the default drops `cycle:this-week`, so the feed spans all cycles and only hides comments (`-subtype:comment`).
+- **Search filter reference has a single source of truth** (#429) — the search-operator reference was hand-duplicated across `/help/search`, the `/search` syntax panel, and the markdown view, and had already drifted. All three now render from `SearchFilterReferenceHelper::SECTIONS`.
+- **`@` is optional in the `collective:` search filter** (#356) — `collective:@my-team` and `collective:my-team` now behave the same, matching the user-handle filters.
+- **Email styling aligned with the app style guide** (#439) — HTML mailers move from ad-hoc Bootstrap-ish colors and Arial to the app's design tokens (accent `#0969da`, GitHub-derived grays, system font stack). Centralized in the mailer layout, which also fixes latent double-wrapping (`layout "mailer"` around templates that rendered their own full `<html>` document).
+
+### Security
+
+- **`ACTION_DEFINITIONS` authorization is enforced at execute time** (#440) — the `authorization:` field on each action was consulted only when building markdown listings, never on execution, so an action with a tight rule but a thin controller shipped an unguarded endpoint. A new `ActionAuthorizationCheck` before-action now runs the rule on every `/actions/<name>` POST (HTML, REST, and MCP) before the controller executes, denying 403 when it rejects. The gate is additive — controller guards still run. Gate context resolves via order-independent `current_*` loaders rather than subclass-set ivars, closing a fail-open where resource- and user-target rules silently fell through. Reconciled several rules the gate surfaced (`cancel_reminder`'s undefined `:owner`, `close_decision`, trustee grant permissions, collective-identity membership).
+
+### Fixed
+
+- **Calendar event schedule is editable from commitment settings** (#321) — the settings form gained a Schedule section for `starts_at`/`ends_at`/`location` (the markdown/API path already supported these), with per-input timezone handling matching the create form. A bad edit (e.g. end before start) now redirects back with the validation message instead of a 500.
+
+## [1.42.0] - 2026-07-06
+
+### Added
+
+- **Tenant admins choose which gateway models agents may use, with live rates** (#421) — a tenant-admin setting selects the gateway models offered to that tenant's internal agents, and the agent model selector now shows each model's per-token rate. A new `GatewayModelCatalog` looks up rates from the Stripe rate card, and all LLM model names are unified onto the gateway's dotted naming scheme (migration renames existing agent model aliases).
+- **Mobile header back button for PWA use** (#322) — installed as a standalone PWA, Harmonic has no browser chrome and no back button; below 768px a back arrow now fills the header's upper-left slot and the logo is centered at every width. The arrow reveals only when `window.history` has an earlier entry, so no dead affordance shows on a fresh launch, on desktop, or without JS.
+- **Members are notified when granted a collective role** (#340) — granting a member the admin, representative, or summarizer role now sends a `role_change` notification naming the role and who granted it (e.g. "Dan made you a representative of Team Alpha"), linking to the members page. Email defaults on, like system notifications; self-grants and revocations stay silent.
+- **`media:` search filter** (#363) — `media:image` matches items with at least one embedded image and `media:text-only` matches items with none, across feeds and search. Implemented as an EXISTS subquery against `media_items` with no schema change or reindex. Documented in `/help/search`.
+
+### Changed
+
+- **Saved cards are reused across checkouts; billing copy no longer implies collectives cost money** (#414) — returning to checkout reuses a previously saved card instead of re-collecting it, and the free-state billing copy drops the word "free" and the implication that collectives are paid.
+- **AI agents page copy** (#406) — "primary agent" becomes "principal" to match current terminology, notes that agents can be internal (Harmonic runners) or external, and mentions the MCP interface alongside the API.
+
+### Fixed
+
+- **Header nav stays usable while representing a collective** (#417, fixes #415) — representation keeps the add + profile controls visible but closes the represented user's private surfaces (chat/settings) and trims the profile menu, so you can navigate without reaching another user's private data.
+- **The Stripe setup webhook check reports honestly** (#409) — the production setup script's webhook verification no longer treats a list failure or a near-miss endpoint URL as success; it distinguishes "couldn't list", "no match", and "matched".
+- **Decisions and commitments can be created without a deadline via MCP** (#411) — the `create_decision` / `create_commitment` MCP actions now default a blank deadline to the same far-future "close manually" sentinel the HTML forms use (calendar events fall back to their start time), instead of tripping the deadline-presence validation. Deadline is marked optional in the action definitions.
+
+### Tooling
+
+- **`stripe-setup.sh` scripts the production Stripe setup** (#408) — a repeatable script for provisioning the production Stripe configuration.
+
 ## [1.41.0] - 2026-07-05
 
 ### Added

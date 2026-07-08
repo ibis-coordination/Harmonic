@@ -41,4 +41,46 @@ module AiAgentsHelper
     models = model_list.filter_map { |m| m["model_name"] }
     models.presence || ["default"]
   end
+
+  # The gateway models offered for internal agents, configured per tenant on
+  # the tenant-admin settings page (Tenant#enabled_gateway_models) — the rate
+  # card differs across environments, so this can't be hardcoded. Until an admin
+  # configures a set, fall back to the litellm_config list; the rate-card
+  # intersection in offered_priced_models drops anything the gateway doesn't
+  # price anyway.
+  def offered_gateway_models
+    configured = @current_tenant&.enabled_gateway_models
+    configured.presence || available_llm_models
+  end
+
+  # Offered models the rate card actually prices, in the offering's order. The
+  # single source both the selector and the price table draw from, so they can
+  # never disagree. Empty off billing or when the catalog is unreachable.
+  def offered_priced_models
+    return [] unless @current_tenant&.feature_enabled?("stripe_billing")
+
+    catalog = GatewayModelCatalog.prices
+    return [] if catalog.empty?
+
+    offered_gateway_models.select { |model| catalog.key?(model) }
+  end
+
+  # Models a user can pick for an internal agent. On a billing tenant, the
+  # curated offering (priced by the rate card); otherwise the litellm_config
+  # list, which is what LiteLLM routing can actually serve.
+  def selectable_models
+    priced = offered_priced_models
+    priced.any? ? priced : available_llm_models
+  end
+
+  # Per-model prices for display next to the selector — [{ name:, input:,
+  # output: }], one row per offered+priced model, in the same order as
+  # selectable_models. Answers "how much will this model cost me?".
+  def model_pricing_rows
+    catalog = GatewayModelCatalog.prices
+    offered_priced_models.map do |model|
+      rate = catalog[model]
+      { name: model, input: rate[:input_per_million], output: rate[:output_per_million] }
+    end
+  end
 end

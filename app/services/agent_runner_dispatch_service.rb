@@ -60,19 +60,35 @@ class AgentRunnerDispatchService
     # X-Stripe-Customer-ID header.
     billing_customer = ai_agent.billing_customer
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
-      unless billing_customer&.active?
+      # (a) The agent's identity must be paid for before we run a task — the
+      # norm, unchanged. An agent's billing_customer is its principal's Stripe
+      # customer (see AiAgentsController#assign_billing_customer!), so an active
+      # billing_customer means the principal holds an active per-identity
+      # subscription.
+      #
+      # The one exception is a free-account principal: a principal with nothing
+      # billable (e.g. an app admin, or all resources billing-exempt) owes no
+      # per-identity fee and so never opens a subscription — active? is
+      # legitimately false. It is a special case, not the norm; billable_quantity
+      # of zero is exactly "nothing to bill". Such an account still needs prepaid
+      # credits to actually run — enforced in (b) below — so the exemption only
+      # waives the per-identity fee.
+      unless billing_customer&.active? || ai_agent.parent&.billable_quantity&.zero?
         fail_task!("Billing is not set up. Please set up billing at /billing before running AI agents.")
         return
       end
 
       # Stamp immutable billing attribution
-      @task_run.update!(stripe_customer_id: billing_customer.id)
+      @task_run.update!(stripe_customer_id: billing_customer.id) if billing_customer
     end
 
-    # Gateway routing is decided per task: billed agents go through the Stripe
-    # AI Gateway (prepaid credits), everyone else through LiteLLM. The runner
-    # reads this from the stream payload rather than its own env config.
-    gateway_mode = if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && billing_customer&.active?
+    # Gateway routing is decided per task: a billed agent (stripe_billing tenant,
+    # non-system) meters its tokens against prepaid credits and so goes through
+    # the Stripe AI Gateway; everyone else (system agents, non-billing tenants)
+    # goes through LiteLLM. The runner reads this from the stream payload rather
+    # than its own env config. Routing does not depend on the per-identity
+    # subscription: a free account with credits still drains them via the gateway.
+    gateway_mode = if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
       "stripe_gateway"
     else
       "litellm"
@@ -80,11 +96,12 @@ class AgentRunnerDispatchService
 
     model = ai_agent.agent_configuration&.dig("model") || ""
     if gateway_mode == "stripe_gateway"
-      # Without a pricing-plan subscription, gateway usage is metered but never
-      # billed and credits never drain — refuse rather than give free usage.
-      # Topping up at /billing creates the subscription.
-      unless T.must(billing_customer).pricing_plan_subscription_id.present?
-        fail_task!("AI usage billing is not fully set up. Add credits at /billing to complete setup before running agents.")
+      # (b) LLM usage must be funded: a prepaid-credit (pricing-plan) subscription
+      # exists and has a positive balance. Required for every billed agent —
+      # free-account or paying alike. Topping up at /billing creates the
+      # subscription; without it, gateway usage would meter but never bill.
+      if billing_customer.nil? || billing_customer.pricing_plan_subscription_id.blank?
+        fail_task!("AI usage billing is not set up. Add credits at /billing before running AI agents.")
         return
       end
 

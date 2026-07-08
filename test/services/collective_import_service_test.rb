@@ -534,7 +534,7 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal 2, source_entries.size, "precondition: source has 2 audit entries"
     actor_entry = source_entries.find { |e| e.actor_id.present? }
     source_token = actor_entry.actor_token
-    assert_equal 2, actor_entry.schema_version
+    assert_equal 3, actor_entry.schema_version
     assert_match(/\A[0-9a-f]{64}\z/, source_token)
     assert_match(/\A[0-9a-f]{64}\z/, actor_entry.actor_token_salt)
 
@@ -545,7 +545,7 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal source_entries.size, imported_entries.size
 
     imported_actor_entry = imported_entries.find { |e| e.action == "option_added" }
-    assert_equal 2, imported_actor_entry.schema_version, "schema_version must be preserved"
+    assert_equal 3, imported_actor_entry.schema_version, "schema_version must be preserved"
     assert_equal source_token, imported_actor_entry.actor_token,
                  "actor_token must be preserved verbatim for forensic traceability"
     assert_nil imported_actor_entry.actor_token_salt,
@@ -556,6 +556,44 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     # Binding check on the imported entry returns :imported, not :tamper_or_scrub_inconsistent
     # — the chain stays valid in the target instance.
     assert_equal :imported, DecisionAuditVerifier.verify_actor_binding(imported_actor_entry)
+  end
+
+  test "imports represented audit entries: preserves representative token + kind, drops representative salt" do
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+
+    trustee = create_user(name: "Import Trustee")
+    @source_tenant.add_user!(trustee)
+    @source_collective.add_user!(trustee)
+    grant = create_trustee_authorization(
+      tenant: @source_tenant, granting_user: @source_user, trustee_user: trustee,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @source_tenant, trustee_grant: grant)
+
+    decision = Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "Represented round-trip?", deadline: 1.week.from_now, options_open: true, subtype: "vote",
+    )
+    option = create_option(decision: decision, created_by: @source_user, title: "Option R")
+    source_entry = DecisionAuditService.record_option!(
+      decision: decision, option: option, actor: @source_user, action: "option_added",
+      representation_session: session,
+    )
+    source_rep_token = source_entry.representative_token
+    assert_match(/\A[0-9a-f]{64}\z/, source_rep_token)
+
+    _data_import, imported_collective = export_and_import_source!
+
+    imported_decision = Decision.where(collective_id: imported_collective.id, question: "Represented round-trip?").first
+    imported_entry = DecisionAuditEntry.where(decision_id: imported_decision.id, action: "option_added").first
+
+    assert_equal source_rep_token, imported_entry.representative_token,
+                 "representative_token must be preserved verbatim"
+    assert_equal "user", imported_entry.representation_kind
+    assert_nil imported_entry.representative_token_salt,
+               "representative_token_salt must be NULLed on import, like the actor salt"
+    assert_equal :imported, DecisionAuditVerifier.verify_representative_binding(imported_entry)
   end
 
   test "imports decision audit entries: verify_all reports expected statuses end-to-end" do

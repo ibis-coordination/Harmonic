@@ -82,6 +82,17 @@ Two layers enforce billing at request time:
 
 Background workers (agent task execution, automation execution) have their own per-resource billing checks so suspended agents and pending resources don't run.
 
+### Agent task dispatch: two independent gates
+
+`AgentRunnerDispatchService#dispatch` enforces two separate billing gates before an agent task runs on a `stripe_billing` tenant (both skipped for system agents like Trio, which are never charged). They correspond to the two things a run costs, and a **free account** interacts with them differently — this is the distinction to keep straight:
+
+- **(a) The per-identity Harmonic fee.** The agent's identity must be paid for: `billing_customer&.active? || ai_agent.parent&.billable_quantity&.zero?`. An agent's `billing_customer` is its principal's Stripe customer, so `active?` means the principal holds an active per-identity subscription — the norm. The `billable_quantity.zero?` clause is the **free-account exception**: a principal with nothing billable (an app admin, or an account whose resources are all `billing_exempt`) owes no per-identity fee and so legitimately never opens a subscription (`active?` is false but correct). It is a special case, not a reframe of the gate.
+- **(b) LLM token funding.** Unconditional for **every** billed agent — free-account or paying alike. Requires that the principal's Stripe customer has a prepaid-credit (pricing-plan) subscription *and* a positive credit balance (`pricing_plan_subscription_id` present, `get_credit_balance > 0`). Tokens are metered through the external Stripe AI Gateway, whose price Harmonic does not set, so gate (a) being waived buys nothing here: a free account with no credits still fails at (b) with "Add credits at /billing."
+
+So: **free account = gate (a) waived (owes Harmonic nothing), gate (b) always applies (LLM tokens come from the gateway).** All Harmonic resources are free for such an account; LLM tokens never are.
+
+**What "free account" is — and is not.** There is no single "free account" boolean. The condition is emergent: `billable_quantity == 0` (see `User#billable_quantity`, which app admins hit unconditionally). Do **not** confuse this with the `billing_exempt` flag: `billing_exempt` on a human zeroes only that human's *own* `+1` personal-programmatic-access line (`counts_self_for_paid_human_features?`); their agents and collectives still bill, so a `billing_exempt` human can have `billable_quantity >= 1` and is *not* a free account. Free accounts are set by app admins (via the exemption toggles and admin status described under [Exemptions](#what-costs-money) above), never self-serve by users.
+
 ## AI Gateway Enablement Runbook
 
 How LLM usage billing turns on for a production tenant. Prerequisite: the Stripe account is enrolled in the AI Gateway preview (`llm.stripe.com`).
@@ -130,7 +141,7 @@ Webhook verification (`/stripe/webhooks`) uses `STRIPE_WEBHOOK_SECRET` for signa
 6. **Enable the flag:** `tenant.enable_feature_flag!("stripe_billing")` for the target tenant. From the next dispatch, that tenant's billed agents route through the gateway. Before flipping it on a tenant, confirm no *other* tenant already has the flag plus active billing customers — their agents would start requiring credits too.
 7. **Smoke test:** top up a small amount at `/billing/topup` (this also creates the pricing-plan subscription), run an agent task, confirm the balance dropped (`billing:gateway_health`) and the agent-runner logged `llm_request` lines with `"gateway_mode":"stripe_gateway"`. Full checklist: `test/manual/billing/gateway_enablement.manual_test.md`.
 
-**Model names.** Agents store LiteLLM aliases (`claude-sonnet-4`, `claude-haiku-4`, ...). At dispatch, `StripeGatewayModelMapper` translates them to the gateway's `provider/model` format; agents with no configured model get the mapper's default. Models the gateway cannot proxy (local Ollama, Arcee Trinity) fail the task at dispatch with an explanatory error — update the agent's model or route the tenant back to LiteLLM.
+**Model names.** Model names match the Stripe gateway's `provider/model` scheme 1-to-1, and `config/litellm_config.yaml` uses the same names, so an agent's configured model (e.g. `anthropic/claude-sonnet-4.6`) works unchanged whether it routes through the gateway or LiteLLM. `StripeGatewayModelMapper` resolves blank/`default` to its default model and passes `provider/model` names through; names the gateway cannot proxy (local Ollama, Arcee Trinity) fail the task at dispatch with an explanatory error — update the agent's model or route the tenant back to LiteLLM.
 
 **Rollback** (gateway outage, unexpected charges, key compromise):
 

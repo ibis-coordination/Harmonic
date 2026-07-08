@@ -15,7 +15,9 @@ class SearchQueryParser
   HANDLE_PATTERN = /^@?[a-zA-Z0-9_-]+$/
 
   # Collective handle pattern (alphanumeric with dashes)
-  COLLECTIVE_HANDLE_PATTERN = /^[a-zA-Z0-9-]+$/i
+  # Leading @ is optional so collective:@my-team and collective:my-team behave
+  # identically, matching the user handle filters (issue #356).
+  COLLECTIVE_HANDLE_PATTERN = /^@?[a-zA-Z0-9-]+$/i
 
   # Date pattern for after:/before: operators
   DATE_PATTERN = /^(\d{4}-\d{2}-\d{2}|[+-]\d+[dwmy])$/
@@ -65,6 +67,11 @@ class SearchQueryParser
     "type" => { values: ["note", "decision", "commitment", "n", "d", "c"], multi: true },
     "subtype" => { values: Note::SUBTYPES + Decision::SUBTYPES + Commitment::SUBTYPES, multi: true },
     "status" => { values: ["open", "closed"], multi: false },
+
+    # Content filters
+    # media:image   → items with at least one embedded image
+    # media:text-only → items with no embedded images
+    "media" => { values: ["image", "text-only"], multi: false },
 
     # Boolean filters
     "critical-mass-achieved" => { values: ["true", "false"], multi: false },
@@ -317,6 +324,9 @@ class SearchQueryParser
     # Boolean filters
     params[:critical_mass_achieved] = build_boolean_param("critical-mass-achieved")
 
+    # Content filters
+    params[:media] = build_media_param
+
     # Integer filters (min/max)
     params[:min_links] = build_integer_param("min-links")
     params[:max_links] = build_integer_param("max-links")
@@ -439,6 +449,15 @@ class SearchQueryParser
     values.last == "true"
   end
 
+  sig { returns(T.nilable(String)) }
+  def build_media_param
+    values = @operators["media"]
+    return nil if values.blank?
+
+    # Last value wins
+    values.last
+  end
+
   sig { params(key: String).returns(T.nilable(Integer)) }
   def build_integer_param(key)
     values = @operators[key]
@@ -534,8 +553,10 @@ class SearchQueryParser
     values = @operators[key]
     return nil if values.blank?
 
-    # Last value wins (value is already lowercased by expand_alias)
-    T.must(values.last)
+    # Last value wins (value is already lowercased by expand_alias). Strip an
+    # optional leading @ so collective:@team matches collective:team — stored
+    # collective handles carry no @ (issue #356).
+    T.must(values.last).delete_prefix("@")
   end
 
   ALL_VISIBILITIES = T.let(%w[public shared private].freeze, T::Array[String])

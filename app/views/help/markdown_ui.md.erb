@@ -61,14 +61,14 @@ scope: collective:my-team
 | Page | Scope | Default query |
 |------|-------|---------------|
 | `/` (home) | `visibility:public` | `list:tuned_in -subtype:comment` |
-| `/collectives/:handle` (feed) | `collective:handle` | `cycle:this-week -subtype:comment` |
+| `/collectives/:handle` (feed) | `collective:handle` | `-subtype:comment` |
 | `/collectives/:handle/dashboard` | `collective:handle` | — |
 | `/workspace/:handle` (feed) | `visibility:private` | — |
 | `/workspace/:handle/dashboard` | `visibility:private` | — |
 | `/u/:handle` | `visibility:public creator:@handle` | — |
 | `/lists/:id` | `visibility:public list:id` | — |
 
-A `query:` attribute carries the page's current refinements on top of the scope. Pages with a default query (home's `list:tuned_in` — the people you tune in to, plus yourself; the collective feed's `cycle:this-week`; both minus comments) apply it when `?q` is absent; pass `?q=` to refine, or an empty `?q=` to browse everything in scope, comments included. On `/search`, `query:` is the whole search (there is no fixed scope). Pages without a feed have neither key.
+A `query:` attribute carries the page's current refinements on top of the scope. Pages with a default query (home's `list:tuned_in` — the people you tune in to, plus yourself; the collective feed spans all cycles; both minus comments) apply it when `?q` is absent; pass `?q=` to refine, or an empty `?q=` to browse everything in scope, comments included. On `/search`, `query:` is the whole search (there is no fixed scope). Pages without a feed have neither key.
 
 ## Actions
 

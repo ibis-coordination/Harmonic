@@ -12,6 +12,24 @@ class ApplicationHelperTest < ActionView::TestCase
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
   end
 
+  # === gateway_vendor_label ===
+
+  test "gateway_vendor_label maps known provider slugs to branded labels" do
+    assert_equal "OpenAI", gateway_vendor_label("openai")
+    assert_equal "Anthropic", gateway_vendor_label("anthropic")
+    assert_equal "DeepSeek", gateway_vendor_label("deepseek")
+    assert_equal "xAI", gateway_vendor_label("xai")
+    assert_equal "Mistral AI", gateway_vendor_label("mistral")
+    assert_equal "Moonshot AI", gateway_vendor_label("moonshot")
+    assert_equal "Z.AI", gateway_vendor_label("z-ai")
+    assert_equal "Arcee AI", gateway_vendor_label("arcee-ai")
+  end
+
+  test "gateway_vendor_label titleizes an unknown provider slug" do
+    assert_equal "Some New Provider", gateway_vendor_label("some-new_provider")
+    assert_equal "Cohere", gateway_vendor_label("cohere")
+  end
+
   # === inline_avatar ===
 
   test "inline_avatar returns empty string when record is nil" do

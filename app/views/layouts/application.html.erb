@@ -47,6 +47,18 @@
       <header class="pulse-top-header"
               data-controller="auto-hide-header"
               data-auto-hide-header-hidden-class="pulse-top-header--hidden">
+        <%# Mobile back control (#322). A PWA in standalone display has no
+            browser chrome, so the header carries its own back affordance in the
+            upper-left slot the places toggle vacates below 768px. The
+            history-back controller reveals it only when there is in-app history
+            to return to, so a fresh launch shows nothing to go back to. %>
+        <button type="button" class="pulse-back-btn"
+                data-controller="history-back"
+                data-history-back-revealed-class="pulse-back-btn--visible"
+                data-action="click->history-back#back"
+                aria-label="Go back">
+          <%= octicon "arrow-left", height: 20 %>
+        </button>
         <% if @current_user %>
           <%# Desktop trigger for the places sheet — the tab bar's Places
               tab covers mobile, so this one is CSS-hidden under 768px. %>

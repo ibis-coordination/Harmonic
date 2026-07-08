@@ -165,6 +165,58 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to @commitment.path
   end
 
+  # The settings form posts top-level fields (form_with(url:), no model) with
+  # per-input timezones, same shape as the create form's event fields.
+  test "creator can update calendar event schedule via settings (form path)" do
+    sign_in_as(@user, tenant: @tenant)
+    event = create_calendar_event
+
+    post "/collectives/#{@collective.handle}/c/#{event.truncated_id}/settings", params: {
+      starts_at: "2030-06-01T18:00",
+      starts_at_timezone: "UTC",
+      ends_at: "2030-06-01T20:00",
+      ends_at_timezone: "UTC",
+      location: "The park",
+    }
+
+    event.reload
+    assert_equal Time.utc(2030, 6, 1, 18, 0), event.starts_at
+    assert_equal Time.utc(2030, 6, 1, 20, 0), event.ends_at
+    assert_equal "The park", event.location
+    assert_redirected_to event.path
+  end
+
+  test "calendar event schedule update rejects end before start" do
+    sign_in_as(@user, tenant: @tenant)
+    event = create_calendar_event
+    original_starts_at = event.reload.starts_at
+
+    post "/collectives/#{@collective.handle}/c/#{event.truncated_id}/settings", params: {
+      starts_at: "2030-06-01T18:00",
+      starts_at_timezone: "UTC",
+      ends_at: "2030-06-01T17:00",
+      ends_at_timezone: "UTC",
+    }
+
+    assert_redirected_to "#{event.path}/settings"
+    assert flash[:alert].present?
+    assert_equal original_starts_at, event.reload.starts_at
+  end
+
+  test "schedule params are ignored for non-calendar commitments" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings", params: {
+      title: "Still an action",
+      starts_at: "2030-06-01T18:00",
+      starts_at_timezone: "UTC",
+    }
+
+    @commitment.reload
+    assert_equal "Still an action", @commitment.title
+    assert_nil @commitment.starts_at
+  end
+
   # === Join Tests ===
 
   test "user can join commitment" do
@@ -413,5 +465,26 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/participants.html", params: { limit: 10 }
     assert_response :success
+  end
+
+  private
+
+  def create_calendar_event
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    Commitment.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      title: "Test Event",
+      subtype: "calendar_event",
+      critical_mass: 1,
+      deadline: 1.week.from_now,
+      starts_at: 1.week.from_now,
+      ends_at: 1.week.from_now + 1.hour
+    )
+  ensure
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
   end
 end

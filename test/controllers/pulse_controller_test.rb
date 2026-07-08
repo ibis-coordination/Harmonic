@@ -106,7 +106,8 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
   end
 
   # Collective feed page (docs/NAVIGATION_DESIGN.md "Feeds are queries"):
-  # fixed scope collective:handle, default query cycle:this-week.
+  # fixed scope collective:handle, default query -subtype:comment
+  # (spans all cycles; only comments are hidden).
 
   test "collective feed shows indexed content with the fixed token and default query" do
     sign_in_as(@user, tenant: @tenant)
@@ -121,7 +122,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-feed-bar-scope code", text: "collective:#{@collective.handle}"
     # The comment exclusion is part of the visible default query — the
     # viewer can see it and remove it, not a hidden structural filter.
-    assert_select "textarea[name='q']", text: "cycle:this-week -subtype:comment"
+    assert_select "textarea[name='q']", text: "-subtype:comment"
     assert_includes response.body, "collective feed probe"
   end
 
@@ -148,7 +149,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "A default-hidden comment"
   end
 
-  test "collective feed defaults to this week; cleared query shows all time" do
+  test "collective feed default spans all cycles; a cycle: filter narrows it" do
     sign_in_as(@user, tenant: @tenant)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -160,12 +161,35 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
+    # Default query no longer pins to the current cycle — past content shows.
     get "#{@collective.path}"
     assert_response :success
-    assert_not_includes response.body, "ancient collective post"
-
-    get "#{@collective.path}", params: { q: "" }
     assert_includes response.body, "ancient collective post"
+
+    # A cycle: filter narrows back to the current window.
+    get "#{@collective.path}", params: { q: "cycle:this-week" }
+    assert_response :success
+    assert_not_includes response.body, "ancient collective post"
+  end
+
+  test "an empty default feed says nothing yet, not this week, and offers no all-time loop" do
+    # The default query spans all cycles now (it only hides comments), so an
+    # empty default feed is empty across all time — the stale "this week" copy
+    # and its "Show all time" link (which looped back to the same view) are gone.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    empty = Collective.create!(
+      tenant: @tenant, created_by: @user,
+      name: "Empty Feed Collective", handle: "empty-feed-#{SecureRandom.hex(4)}",
+    )
+    empty.add_user!(@user)
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get empty.path.to_s
+    assert_response :success
+    assert_select ".pulse-feed-empty p", text: "Nothing here yet."
+    assert_not_includes response.body, "Nothing here this week."
+    assert_select "a", text: "Show all time", count: 0
   end
 
   test "collective feed cannot be pointed at another collective" do
@@ -228,7 +252,8 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     get "#{@collective.path}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_includes response.body, "scope: collective:#{@collective.handle}"
-    assert_includes response.body, "query: cycle:this-week -subtype:comment"
+    # yaml_escape quotes a value starting with "-" so it doesn't parse as a YAML list item.
+    assert_includes response.body, "query: \"-subtype:comment\""
   end
 
   test "workspace feed is scoped to the private zone" do
@@ -271,6 +296,21 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     assert_select ".pulse-recent-cycle-item", count: 0
     # But the shared sidebar sections are present on the feed.
     assert_select ".pulse-heartbeat-box, .pulse-sidebar [class*='heartbeat']", minimum: 1
+  end
+
+  test "explore nav links live in a kebab menu on the collective-info block" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get @collective.path.to_s
+    assert_response :success
+    # The standalone "Explore" section label is gone — the links moved into
+    # the kebab menu on the collective-info block.
+    assert_select ".pulse-links-section .pulse-section-label", text: "Explore", count: 0
+    assert_select "details.pulse-sidebar-menu[data-controller='kebab-menu']" do
+      assert_select "a[href=?]", "#{@collective.path}/dashboard"
+      assert_select "a[href=?]", "#{@collective.path}/cycles"
+      assert_select "a[href=?]", "#{@collective.path}/backlinks"
+    end
   end
 
   test "cycle navigation links target the dashboard" do

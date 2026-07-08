@@ -139,7 +139,9 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     # No error raised = no broadcast attempted for non-chat task
   end
 
-  test "fails task when stripe billing enabled but not active" do
+  test "fails task when stripe billing enabled but identity is not paid for" do
+    # Normal (non-exempt) principal with no active subscription: the per-identity
+    # fee is unpaid, so the identity gate (a) fails. This is the norm.
     enable_stripe_billing_flag!(@tenant)
 
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -147,6 +149,57 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     @task_run.reload
     assert_equal "failed", @task_run.status
     assert_includes @task_run.error, "Billing is not set up"
+  end
+
+  test "fails a free-account principal that has no prepaid credits" do
+    # A free-account principal (app admin — nothing billable) clears the
+    # identity gate (a), but agent usage is still funded by prepaid credits, so
+    # with no pricing-plan subscription the credit gate (b) fails.
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    billing_customer = StripeCustomer.create!(
+      billable: @ai_agent,
+      stripe_id: "cus_free_nocredits",
+      active: false,
+      pricing_plan_subscription_id: nil,
+    )
+    @ai_agent.update!(stripe_customer_id: billing_customer.id)
+
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_includes @task_run.error, "AI usage billing is not set up"
+  end
+
+  test "dispatches for a free-account principal that has prepaid AI credits" do
+    # Regression for #450: a free account (an app admin — nothing billable, so
+    # no per-identity subscription and active? is legitimately false) that has
+    # bought LLM credits sets up the metered pricing-plan subscription, which is
+    # what funds agent usage. The per-identity subscription is a separate
+    # concern and must not gate dispatch for such an exempt principal.
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    billing_customer = StripeCustomer.create!(
+      billable: @ai_agent,
+      stripe_id: "cus_free123",
+      active: false,
+      pricing_plan_subscription_id: "bpps_free123",
+    )
+    @ai_agent.update!(stripe_customer_id: billing_customer.id)
+
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    refute_equal "failed", @task_run.status, "free account with credits should dispatch: #{@task_run.error}"
+    assert_equal billing_customer.id, @task_run.stripe_customer_id
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "free account with credits should reach the stream"
+    assert_equal "stripe_gateway", entry[1]["llm_gateway_mode"]
+    redis.close
   end
 
   test "stamps stripe_customer_id when billing active" do
@@ -164,7 +217,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
 
   test "publishes stripe_gateway mode with mapped model when billing active" do
     setup_active_billing!
-    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "claude-sonnet-4" })
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "anthropic/claude-sonnet-4.6" })
 
     redis = Redis.new(url: ENV["REDIS_URL"])
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
@@ -195,7 +248,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   end
 
   test "publishes litellm mode with unmapped model when stripe_billing is off" do
-    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "claude-sonnet-4" })
+    @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "anthropic/claude-sonnet-4.6" })
 
     redis = Redis.new(url: ENV["REDIS_URL"])
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -204,7 +257,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_not_nil entry
     fields = entry[1]
     assert_equal "litellm", fields["llm_gateway_mode"]
-    assert_equal "claude-sonnet-4", fields["model"]
+    assert_equal "anthropic/claude-sonnet-4.6", fields["model"]
     redis.close
   end
 

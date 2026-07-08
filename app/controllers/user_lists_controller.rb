@@ -354,16 +354,39 @@ class UserListsController < ApplicationController
   # from a non-existent one. Lookup unscopes the collective filter so a list
   # in any of the tenant's collectives resolves.
   def set_list
+    # current_user_list already scopes to visibility, so a non-nil result is
+    # always visible — nil means missing or hidden, both of which 404.
+    @list = current_user_list
+    render "shared/404", status: :not_found if @list.nil?
+  end
+
+  # Memoized list lookup by :list_id, scoped to what the viewer may see. Used by
+  # set_list and by the execute-time authorization gate (authorization_context
+  # below). The gate's before_action runs before set_list, so it can't read
+  # @list — it goes through this loader, which resolves from params regardless of
+  # before_action order.
+  #
+  # Visibility is baked in so an invisible list reads as "no resource" at the
+  # gate: owner-scoped rules then fall through permissively and the controller's
+  # set_list renders the existence-hiding 404, rather than the gate leaking the
+  # list's existence with a 403.
+  def current_user_list
+    return @current_user_list if defined?(@current_user_list)
+
     list = UserList
       .tenant_scoped_only(@current_tenant.id)
       .where(deleted_at: nil)
       .find_by(truncated_id: params[:list_id])
 
-    if list.nil? || !list.visible_to?(@current_user)
-      render "shared/404", status: :not_found
-      return
-    end
-    @list = list
+    @current_user_list = list&.visible_to?(@current_user) ? list : nil
+  end
+
+  # UserList intentionally stays out of `current_resource` (that accessor drives
+  # the commentable/pinnable resource family — comments, pins, summaries — which
+  # lists don't participate in). So the default authorization_context resolves no
+  # resource here; supply the list for the execute-time authorization gate only.
+  def authorization_context
+    super.merge(resource: current_user_list)
   end
 
   def set_owner_for_index

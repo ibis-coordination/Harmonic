@@ -108,16 +108,16 @@
   font-size: 16px;
 }
 
-/* Desktop: center the logo relative to the window. space-between would
-   center it between the places toggle and the right cluster, which reads
-   as off-center against the full width. */
-@media (min-width: 769px) {
-  .pulse-top-header .pulse-logo {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
+/* Center the logo relative to the window at every width. In-flow, space-between
+   would center it between the left control and the right cluster, which reads
+   as off-center against the full width. Absolute positioning lifts it out of
+   flow so the left slot (places toggle on desktop, back button on mobile #322)
+   and the right cluster flank a truly centered logo. */
+.pulse-top-header .pulse-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* Logo uses .tri-logo-icon.icon-sm (28px) - see _components.css */
@@ -126,6 +126,41 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  /* Pin the right cluster right regardless of what occupies the left slot:
+     the logo is out of flow and the left control may be absent (no history,
+     logged out), which would otherwise let space-between pull this leftward. */
+  margin-left: auto;
+}
+
+/* Mobile back button (#322). Hidden by default at every width — the
+   history-back controller adds pulse-back-btn--visible only when there is
+   in-app history, and the reveal rule below is scoped to mobile, so it never
+   shows on desktop or without JS. */
+.pulse-back-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-default);
+  color: var(--color-fg-default);
+  cursor: pointer;
+}
+
+.pulse-back-btn:hover {
+  background: var(--color-canvas-subtle);
+}
+
+.pulse-back-btn .octicon {
+  fill: currentColor;
+}
+
+@media (max-width: 768px) {
+  .pulse-back-btn.pulse-back-btn--visible {
+    display: flex;
+  }
 }
 
 .pulse-top-header-right .pulse-action-btn {

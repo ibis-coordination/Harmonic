@@ -90,6 +90,113 @@ class ApiHelperTest < ActiveSupport::TestCase
     assert_equal @user, decision.created_by
   end
 
+  test "ApiHelper.create_decision without a deadline is closed manually" do
+    params = {
+      question: "What is the best approach?",
+      description: "No deadline supplied.",
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: Decision,
+      current_resource: nil,
+      params: params,
+      request: {}
+    )
+    decision = api_helper.create_decision
+    assert decision.persisted?
+    assert decision.requires_manual_close?, "a deadline-less decision should require manual close"
+  end
+
+  test "ApiHelper.create_decision accepts relative-time deadline shorthand" do
+    params = {
+      question: "What is the best approach?",
+      description: "Deadline given as 7d shorthand.",
+      deadline: "7d",
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: Decision,
+      current_resource: nil,
+      params: params,
+      request: {}
+    )
+    decision = api_helper.create_decision
+    assert decision.persisted?
+    assert_in_delta 7.days.from_now.to_i, decision.deadline.to_i, 120
+  end
+
+  test "ApiHelper.create_decision still accepts an ISO 8601 deadline string" do
+    deadline = (Time.current + 3.days).change(usec: 0)
+    params = {
+      question: "What is the best approach?",
+      description: "Deadline given as ISO 8601.",
+      deadline: deadline.iso8601,
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: Decision,
+      current_resource: nil,
+      params: params,
+      request: {}
+    )
+    decision = api_helper.create_decision
+    assert decision.persisted?
+    assert_equal deadline.to_i, decision.deadline.to_i
+  end
+
+  test "ApiHelper.create_commitment creates a commitment" do
+    params = {
+      title: "Ship the feature",
+      description: "Coordinate the release.",
+      critical_mass: 2,
+      deadline: Time.current + 1.week,
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: Commitment,
+      current_resource: nil,
+      params: params,
+      request: {}
+    )
+    commitment = api_helper.create_commitment
+    assert commitment.persisted?
+    assert_equal params[:title], commitment.title
+    assert_equal @user, commitment.created_by
+  end
+
+  test "ApiHelper.create_commitment without a deadline is closed manually" do
+    params = {
+      title: "Ongoing policy",
+      description: "No deadline supplied.",
+      critical_mass: 2,
+    }
+    api_helper = ApiHelper.new(
+      current_user: @user,
+      current_collective: @collective,
+      current_tenant: @tenant,
+      current_representation_session: nil,
+      current_resource_model: Commitment,
+      current_resource: nil,
+      params: params,
+      request: {}
+    )
+    commitment = api_helper.create_commitment
+    assert commitment.persisted?
+    assert commitment.requires_manual_close?, "a deadline-less commitment should require manual close"
+  end
+
   test "resolve_user normalizes handle case and @-prefix" do
     # Stored handles are parameterized (lowercase, slug). Agent-supplied
     # values can arrive as `@Alice`, `Alice`, or `alice` — all must resolve

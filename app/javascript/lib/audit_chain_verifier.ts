@@ -2,6 +2,7 @@ import type {
   VerifyData,
   AuditEntry,
   ActorBindingStatus,
+  RepresentativeBindingStatus,
   ChainResult,
   VoteTalliesResult,
   BeaconResult,
@@ -23,20 +24,28 @@ async function sha256hex(input: string): Promise<string> {
 
 // Identity is bound via actor_token = SHA256(decision_id || actor_id || actor_handle || salt).
 // The salt is destroyable on PII scrub without invalidating the chain.
+// v3 additionally commits to the representation dimension: representative_token
+// and representation_kind sit right after actor_token (empty for direct actions).
 function hashInput(entry: AuditEntry): string {
   const normalizedTitle = entry.option_title ? entry.option_title.normalize("NFC") : ""
-  return [
-    "v2",
+  const fields = [
+    `v${entry.schema_version}`,
     entry.previous_hash,
     String(entry.sequence_number),
     entry.action,
     entry.actor_token,
+  ]
+  if (entry.schema_version >= 3) {
+    fields.push(entry.representative_token ?? "", entry.representation_kind ?? "")
+  }
+  fields.push(
     normalizedTitle,
     entry.accepted,
     entry.preferred,
     entry.metadata,
     entry.created_at,
-  ].join("|")
+  )
+  return fields.join("|")
 }
 
 export async function computeEntryHash(entry: AuditEntry): Promise<string> {
@@ -79,10 +88,28 @@ export async function verifyActorBinding(
   return expected === entry.actor_token ? "verified" : "tamper_or_scrub_inconsistent"
 }
 
+// Representative binding check, symmetric with verifyActorBinding, for the v3
+// representation dimension (who performed the action on the actor's behalf).
+export async function verifyRepresentativeBinding(
+  entry: AuditEntry,
+  decisionId: string,
+): Promise<RepresentativeBindingStatus> {
+  if (entry.schema_version < 3) return "pre_v3"
+  if (!entry.representative_token) return "not_represented"
+  if (!entry.representative_id || !entry.representative_token_salt) {
+    return isImported(entry) ? "imported" : "unattributable"
+  }
+  const expected = await sha256hex(
+    `${decisionId}|${entry.representative_id}|${entry.representative_handle}|${entry.representative_token_salt}`,
+  )
+  return expected === entry.representative_token ? "verified" : "tamper_or_scrub_inconsistent"
+}
+
 export async function verifyChain(data: VerifyData): Promise<ChainResult> {
   const entries = data.audit_chain
   const errors: string[] = []
   const bindingStatuses: Record<number, ActorBindingStatus> = {}
+  const representativeBindingStatuses: Record<number, RepresentativeBindingStatus> = {}
   let previousHash = ""
 
   for (const entry of entries) {
@@ -95,6 +122,10 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
       errors.push(`Entry #${entry.sequence_number}: chain link broken`)
     }
     bindingStatuses[entry.sequence_number] = await verifyActorBinding(entry, data.decision.id)
+    representativeBindingStatuses[entry.sequence_number] = await verifyRepresentativeBinding(
+      entry,
+      data.decision.id,
+    )
     previousHash = entry.entry_hash
   }
 
@@ -111,9 +142,15 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
   ).length
   const scrubbedCount = Object.values(bindingStatuses).filter((s) => s === "unattributable").length
   const importedCount = Object.values(bindingStatuses).filter((s) => s === "imported").length
+  const representativeBindingInconsistentCount = Object.values(representativeBindingStatuses).filter(
+    (s) => s === "tamper_or_scrub_inconsistent",
+  ).length
+  const representedCount = Object.values(representativeBindingStatuses).filter(
+    (s) => s !== "not_represented" && s !== "pre_v3",
+  ).length
 
   return {
-    valid: errors.length === 0 && bindingInconsistentCount === 0,
+    valid: errors.length === 0 && bindingInconsistentCount === 0 && representativeBindingInconsistentCount === 0,
     entryCount: entries.length,
     errors,
     lastHash: entries.length > 0 ? entries[entries.length - 1].entry_hash : null,
@@ -121,6 +158,9 @@ export async function verifyChain(data: VerifyData): Promise<ChainResult> {
     bindingInconsistentCount,
     scrubbedCount,
     importedCount,
+    representativeBindingStatuses,
+    representativeBindingInconsistentCount,
+    representedCount,
   }
 }
 

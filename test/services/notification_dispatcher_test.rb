@@ -854,4 +854,47 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     event = Event.where(event_type: "commitment.deadline_reached", subject: commitment).last
     assert_nil Notification.where(event: event).last
   end
+
+  # Role-change notifications (issue #340)
+
+  test "handle_role_granted_event notifies the member and names the granter" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    member_user = create_user(email: "newrep@example.com", name: "New Rep")
+    tenant.add_user!(member_user)
+    collective.add_user!(member_user)
+    membership = CollectiveMember.find_by(collective: collective, user: member_user)
+
+    event = EventService.record!(
+      event_type: "collective_member.role_granted",
+      actor: admin,
+      subject: membership,
+      metadata: { "role" => "representative" },
+      collective_id: collective.id
+    )
+
+    notification = Notification.where(event: event).last
+    assert_not_nil notification, "Expected a role_change notification"
+    assert_equal "role_change", notification.notification_type
+    assert_includes notification.title, "a representative"
+    assert_includes notification.title, admin.display_name
+    assert_equal member_user, notification.notification_recipients.first.user
+  end
+
+  test "handle_role_granted_event does not notify on a self-grant" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    membership = CollectiveMember.find_by(collective: collective, user: admin)
+
+    assert_no_difference -> { Notification.count } do
+      EventService.record!(
+        event_type: "collective_member.role_granted",
+        actor: admin,
+        subject: membership,
+        metadata: { "role" => "admin" },
+        collective_id: collective.id
+      )
+    end
+  end
 end
