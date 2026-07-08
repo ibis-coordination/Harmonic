@@ -166,7 +166,7 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
     sign_in_as(@alice, tenant: @tenant)
 
     # Alice starts representing Bob
-    post "/u/#{@alice.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/represent"
     assert_redirected_to "/representing"
 
     # Alice tries to navigate to Bob's private workspace
@@ -192,7 +192,7 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@alice, tenant: @tenant)
 
-    post "/u/#{@alice.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/represent"
     assert_redirected_to "/representing"
     follow_redirect!
     assert_response :success

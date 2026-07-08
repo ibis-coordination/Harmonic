@@ -198,7 +198,7 @@ class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
     totp = ROTP::TOTP.new(secret)
     post two_factor_confirm_path, params: { code: totp.now }
 
-    expected_path = "/u/#{user.tenant_users.find_by(tenant_id: @tenant.id).handle}/settings"
+    expected_path = "/settings"
     assert_match(/href="#{Regexp.escape(expected_path)}"/, response.body,
                  "expected the Continue link to point to the user's settings page by default")
     assert_no_match(%r{href="/settings/two-factor/manage"}, response.body,

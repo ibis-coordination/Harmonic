@@ -4,6 +4,7 @@ class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
   include PendingInviteStash
+  include RepresentationPolicy
   # Session timeout configuration (in seconds). These checks in
   # check_session_timeout are the sole authority on session expiry — they emit
   # the user-facing flash and the SecurityAuditLog logout event. NOTE:
@@ -22,7 +23,8 @@ class ApplicationController < ActionController::Base
   # mid-2FA. See attempt_silent_refresh for details.
   before_action :attempt_silent_refresh
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_collective,
-                :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
+                :current_path, :current_user, :current_resource, :current_representation_session,
+                :enforce_representation_scope!, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
   # The refresh cookie is sent on every request. If its token has been
@@ -338,43 +340,22 @@ class ApplicationController < ActionController::Base
     column = session_id.length == 8 ? "truncated_id" : "id"
     rep_session = RepresentationSession.tenant_scoped_only(current_tenant.id).find_by(column => session_id)
 
-    # Validate: session exists
-    unless rep_session
-      render json: { error: "Invalid representation session ID" }, status: :forbidden
+    # Shared validity gate (RepresentationPolicy): every check except the
+    # representing credential, which this transport validates just below so it
+    # can keep its own distinct, tested X-Representing-* error messages.
+    # credential_valid: true defers that final check to validate_representing_headers.
+    reason = representation_rejection_reason(rep_session, user, credential_valid: true)
+    if reason
+      render json: { error: RepresentationPolicy::API_REJECTION_MESSAGES.fetch(reason) }, status: :forbidden
       return nil
     end
 
-    # Validate: session is active (not ended)
-    if rep_session.ended?
-      render json: { error: "Representation session has ended" }, status: :forbidden
-      return nil
-    end
-
-    # Validate: session is not expired
-    if rep_session.expired?
-      render json: { error: "Representation session has expired" }, status: :forbidden
-      return nil
-    end
-
-    # Validate: grant is still active (for user representation sessions)
-    if rep_session.trustee_grant && !rep_session.trustee_grant.active?
-      render json: { error: "Trustee authorization is no longer active" }, status: :forbidden
-      return nil
-    end
-
-    # Validate: token's user matches session's representative_user
-    unless rep_session.representative_user_id == user.id
-      render json: { error: "Token user is not the session's representative" }, status: :forbidden
-      return nil
-    end
-
-    # Validate representing headers (skip for session-ending DELETE requests)
+    # Validate representing headers (skip for session-ending DELETE requests).
+    # validate_representing_headers renders its own specific error on failure.
     return nil if !ending_representation_session? && !validate_representing_headers(rep_session)
 
     # All validations passed - apply representation
-    @current_representation_session = rep_session
-    RepresentationContext.set!(rep_session.representative_user)
-    @current_user = rep_session.effective_user
+    apply_representation_session!(rep_session)
     rep_session.effective_user
   end
 
@@ -465,53 +446,29 @@ class ApplicationController < ActionController::Base
     return if session[:representation_session_id].blank?
     return unless @current_human_user
 
-    # Look up the RepresentationSession (bypass collective scope)
+    # Look up the RepresentationSession (bypass collective scope; see the API
+    # resolver above for the tenant_scoped_only rationale).
     rep_session = RepresentationSession.tenant_scoped_only(current_tenant.id).find_by(
       id: session[:representation_session_id]
     )
 
-    # Validate: session exists
-    unless rep_session
-      clear_representation!
-      return
-    end
+    # The representing-cookie credential is a pure boolean, so it folds directly
+    # into the shared gate as the final check. Guard the nil case — the gate
+    # short-circuits on :not_found long before the credential matters.
+    credential_valid = rep_session.present? && validate_representing_cookies(rep_session)
 
-    # Validate: session is active (not ended)
-    if rep_session.ended?
+    # Shared validity gate (RepresentationPolicy) — the identical sequence the
+    # API resolver runs. On any rejection, clear the stale representation; two
+    # reasons additionally surface a flash.
+    reason = representation_rejection_reason(rep_session, @current_human_user, credential_valid: credential_valid)
+    if reason
       clear_representation!
-      return
-    end
-
-    # Validate: session is not expired
-    if rep_session.expired?
-      clear_representation!
-      flash[:alert] = "Representation session expired."
-      return
-    end
-
-    # Validate: grant is still active (for user representation sessions)
-    if rep_session.trustee_grant && !rep_session.trustee_grant.active?
-      clear_representation!
-      flash[:alert] = "Trustee authorization is no longer active."
-      return
-    end
-
-    # Validate: human user matches session's representative_user
-    unless rep_session.representative_user_id == @current_human_user.id
-      clear_representation!
-      return
-    end
-
-    # Validate: representing cookie matches session target
-    unless validate_representing_cookies(rep_session)
-      clear_representation!
+      flash[:alert] = RepresentationPolicy::BROWSER_REPRESENTATION_FLASH[reason] if RepresentationPolicy::BROWSER_REPRESENTATION_FLASH.key?(reason)
       return
     end
 
     # All validations passed - apply representation
-    @current_representation_session = rep_session
-    RepresentationContext.set!(rep_session.representative_user)
-    @current_user = rep_session.effective_user
+    apply_representation_session!(rep_session)
   end
 
   # Validates the representing_user or representing_collective cookie matches the session.
@@ -729,19 +686,14 @@ class ApplicationController < ActionController::Base
 
   attr_reader :current_human_user
 
+  # Memoized reader for the active representation session.
+  #
+  # For browser sessions it is set by resolve_browser_representation; for API
+  # requests by resolve_api_representation. Path/route enforcement for active
+  # sessions no longer lives here — it runs eagerly as a real before_action in
+  # RepresentationPolicy#enforce_representation_scope! so that no route can dodge
+  # it (see that module and Harmonic#419).
   def current_representation_session
-    return @current_representation_session if defined?(@current_representation_session)
-
-    # For browser sessions, @current_representation_session is set by resolve_browser_representation
-    # For API requests, it's set by resolve_api_representation
-    # This method handles path validation for active sessions
-    # Representation session should always be scoped to a collective or the /representing page.
-    # The one exception is when ending representation via DELETE /u/:handle/represent.
-    if @current_representation_session&.active? && !(request.path.starts_with?("/representing") ||
-                 request.path.starts_with?("/collectives/"))
-      ending_representation = request.path.ends_with?("/represent") && request.delete?
-      redirect_to "/representing" unless ending_representation
-    end
     @current_representation_session ||= nil
   end
 

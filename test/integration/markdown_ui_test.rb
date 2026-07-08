@@ -1193,7 +1193,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   # === User Management Actions ===
 
   test "GET /u/:handle/settings returns 200 markdown with actions in frontmatter" do
-    get "/u/#{@user.handle}/settings", headers: @headers
+    get "/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     assert has_action_in_frontmatter?("update_profile"), "Should show update_profile action in frontmatter"
@@ -1201,7 +1201,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
   test "POST update_profile action updates user name and returns 200 markdown" do
     original_name = @user.name
-    post "/u/#{@user.handle}/settings/actions/update_profile",
+    post "/settings/actions/update_profile",
       params: { name: "Updated Name" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -1217,7 +1217,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "POST update_profile action updates user handle and returns 200 markdown" do
     original_handle = @user.handle
     new_handle = "updated-#{SecureRandom.hex(4)}"
-    post "/u/#{@user.handle}/settings/actions/update_profile",
+    post "/settings/actions/update_profile",
       params: { new_handle: new_handle }.to_json,
       headers: @headers
     assert_equal 200, response.status

@@ -159,11 +159,13 @@ class TrusteeGrant < ApplicationRecord
   # Override ApplicationRecord#path - TrusteeGrant paths are user-relative, not collective-relative
   sig { override.returns(T.nilable(String)) }
   def path
-    # Use granting_user's handle since that's the primary owner of the trustee grant
-    handle = granting_user&.tenant_users&.first&.handle
-    return nil unless handle
+    # Trustee authorizations live at the handle-free /settings surface; the
+    # viewer sees the grant as themselves (set_grant admits either party).
+    # Still gate on the grant having a granting_user (a persisted grant always
+    # does — this guards malformed/unsaved rows).
+    return nil unless granting_user&.tenant_users&.first
 
-    "/u/#{handle}/settings/trustee-authorizations/#{truncated_id}"
+    "/settings/trustee-authorizations/#{truncated_id}"
   end
 
   sig { void }

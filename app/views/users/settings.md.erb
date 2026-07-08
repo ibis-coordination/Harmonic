@@ -10,7 +10,7 @@ Handle: `<%= @settings_user.handle %>`
 <% if is_own_settings %>
 ## Notification Preferences
 
-How each notification type is delivered. Update with the `update_notification_preferences` action (POST `<%= @settings_user.path %>/settings/actions/update_notification_preferences`), passing a `notifications` object such as `{ "comment": { "email": true } }`.
+How each notification type is delivered. Update with the `update_notification_preferences` action (POST `/settings/actions/update_notification_preferences`), passing a `notifications` object such as `{ "comment": { "email": true } }`.
 
 <%# Columns derive from the tenant's editable channels — the same list the
     HTML matrix renders and the form parser accepts — so a new channel (e.g.
@@ -69,6 +69,6 @@ Manage your AI agents, configure automations, and run tasks.
 **<%= pluralize(pending_count, 'pending request') %>** - Review who wants to act on your behalf.
 
 <% end %>
-* [Manage Trustee Authorizations](<%= @settings_user.path %>/settings/trustee-authorizations) - Manage who can act on your behalf
+* [Manage Trustee Authorizations](/settings/trustee-authorizations) - Manage who can act on your behalf
 <% end %>
 

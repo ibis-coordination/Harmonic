@@ -5,6 +5,9 @@
 # write actions: revoke a specific device, or revoke every device except
 # the current one.
 class DevicesController < ApplicationController
+  include SettingsSubjectDefaulting
+
+  before_action :default_settings_handle_to_current_user
   before_action :set_user
 
   # DELETE /u/:handle/settings/devices/:device_id
@@ -26,7 +29,7 @@ class DevicesController < ApplicationController
       RefreshToken.revoke_family!(device.family_id, reason: "user_logout")
       flash[:notice] = "Signed out of #{device.device_label}."
     end
-    redirect_to "#{@showing_user.path}/settings"
+    redirect_to "/settings"
   end
 
   # POST /u/:handle/settings/devices/revoke_others
@@ -41,7 +44,7 @@ class DevicesController < ApplicationController
                  .update_all(revoked_at: Time.current, revoked_reason: "user_logout")
     count = other_families.size
     flash[:notice] = "Signed out of #{count} other #{'device'.pluralize(count)}."
-    redirect_to "#{@showing_user.path}/settings"
+    redirect_to "/settings"
   end
 
   private

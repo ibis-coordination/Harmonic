@@ -24,7 +24,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference -> { WebPushSubscription.where(user: @user).count }, 1 do
-      post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params, as: :json
+      post "/settings/push-subscriptions", params: subscription_params, as: :json
     end
 
     assert_response :success
@@ -37,7 +37,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     2.times do
-      post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params, as: :json
+      post "/settings/push-subscriptions", params: subscription_params, as: :json
     end
 
     assert_equal 1, WebPushSubscription.where(user: @user).count
@@ -47,29 +47,28 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!(:web_push)
     sign_in_as(@user, tenant: @tenant)
 
-    post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params, as: :json
+    post "/settings/push-subscriptions", params: subscription_params, as: :json
 
     assert_response :not_found
     assert_equal 0, WebPushSubscription.where(user: @user).count
   end
 
   test "create requires authentication" do
-    post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params, as: :json
+    post "/settings/push-subscriptions", params: subscription_params, as: :json
 
     assert_not_equal 200, response.status
     assert_equal 0, WebPushSubscription.count
   end
 
-  test "create rejects subscribing on someone else's settings page" do
-    other = create_user
-    @tenant.add_user!(other)
-    other_handle = @tenant.tenant_users.find_by(user: other).handle
+  test "the handle-free push route subscribes the signed-in user, not any handle in the URL" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/u/#{other_handle}/settings/push-subscriptions", params: subscription_params, as: :json
+    post "/settings/push-subscriptions", params: subscription_params, as: :json
 
-    assert_response :forbidden
-    assert_equal 0, WebPushSubscription.count
+    # A subscription is minted by the requesting browser, so it belongs to the
+    # signed-in user. There is no handle in the route to point it elsewhere.
+    assert_response :success
+    assert_equal [@user.id], WebPushSubscription.pluck(:user_id).uniq
   end
 
   test "resync refreshes an active subscription's last_seen_at" do
@@ -79,7 +78,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     )
     subscription.update!(last_seen_at: 2.days.ago)
 
-    post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
+    post "/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
 
     assert_response :success
     assert_in_delta Time.current, subscription.reload.last_seen_at, 5.seconds
@@ -91,7 +90,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     assert_difference -> { WebPushSubscription.where(user: @user).count }, 1 do
-      post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
+      post "/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
     end
     assert_response :success
   end
@@ -103,7 +102,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     )
     subscription.revoke!(reason: "user")
 
-    post "/u/#{@handle}/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
+    post "/settings/push-subscriptions", params: subscription_params.merge(resync: true), as: :json
 
     assert_response :no_content
     assert_not subscription.reload.active?
@@ -115,7 +114,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     get "/"
 
     assert_response :success
-    assert_select "meta[name='push-subscription-url'][content='/u/#{@handle}/settings/push-subscriptions']", count: 1
+    assert_select "meta[name='push-subscription-url'][content='/settings/push-subscriptions']", count: 1
   end
 
   test "destroy revokes the subscription" do
@@ -124,7 +123,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
       user: @user, endpoint: "https://push.example.com/send/abc123", p256dh_key: "k", auth_key: "a"
     )
 
-    delete "/u/#{@handle}/settings/push-subscriptions/#{subscription.id}"
+    delete "/settings/push-subscriptions/#{subscription.id}"
 
     assert_response :redirect
     subscription.reload
@@ -140,7 +139,7 @@ class WebPushSubscriptionsControllerTest < ActionDispatch::IntegrationTest
     )
     sign_in_as(@user, tenant: @tenant)
 
-    delete "/u/#{@handle}/settings/push-subscriptions/#{subscription.id}"
+    delete "/settings/push-subscriptions/#{subscription.id}"
 
     assert subscription.reload.active?, "another user's subscription must not be revoked"
   end

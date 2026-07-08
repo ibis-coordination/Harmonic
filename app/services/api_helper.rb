@@ -922,7 +922,7 @@ class ApiHelper
       .first
     if existing
       end_hint = if existing.user_representation?
-                   "End it at `/u/#{current_user.handle}/settings/trustee-authorizations/" \
+                   "End it at `/settings/trustee-authorizations/" \
                      "#{T.must(existing.trustee_grant).truncated_id}` (action `end_representation`)"
                  else
                    "End it via `DELETE #{existing.path}`"

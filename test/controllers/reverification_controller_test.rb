@@ -79,7 +79,7 @@ class ReverificationControllerTest < ActionDispatch::IntegrationTest
 
     # Trigger reverification by PATCHing a protected endpoint.
     # The concern stashes the method+params, then redirects to /reverify.
-    patch "/u/#{handle}/settings/email", params: { email: "replayed@example.com" }
+    patch "/settings/email", params: { email: "replayed@example.com" }
     assert_redirected_to "/reverify"
 
     # Verify with valid TOTP

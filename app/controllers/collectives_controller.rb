@@ -156,7 +156,7 @@ class CollectivesController < ApplicationController
       return
     end
 
-    if @current_user.collective_member.is_admin?
+    if can_manage_own_collective_settings?
       @page_title = 'Collective Settings'
 
       # Proration preview no longer needed here — reactivation is managed on /billing
@@ -196,7 +196,7 @@ class CollectivesController < ApplicationController
     if @current_collective.private_workspace?
       return render status: 403, plain: 'Settings cannot be changed for workspaces.'
     end
-    if !@current_user.collective_member.is_admin?
+    if !can_manage_own_collective_settings?
       return render status: 403, plain: '403 Unauthorized'
     end
     if @current_collective.archived?
@@ -872,6 +872,22 @@ class CollectivesController < ApplicationController
   # has been granted the member-management capability. This method is the second
   # key — it enforces collective-admin standing and resolves the target member —
   # so an agent must be both capability-granted AND a collective admin to act.
+  # True when the current user may manage THIS collective's own settings.
+  #
+  # Normally that's an admin member. It is also the collective acting as
+  # itself: during a collective representation session current_user is the
+  # collective's identity user, which has no CollectiveMember row (so the plain
+  # is_admin? check would raise on nil). Representing a collective is already a
+  # role-gated, reverified, audited action, so the collective may edit its own
+  # settings / public profile as itself. Scoped to this collective's own
+  # identity — never another collective's.
+  def can_manage_own_collective_settings?
+    return false unless @current_user
+
+    @current_user.collective_member&.is_admin? ||
+      @current_collective.identity_user_id == @current_user.id
+  end
+
   def authorize_member_management(action_name)
     unless @current_user&.collective_member&.is_admin?
       render_action_error({ action_name: action_name, resource: @current_collective, error: 'You must be an admin to manage members.', status: :forbidden })

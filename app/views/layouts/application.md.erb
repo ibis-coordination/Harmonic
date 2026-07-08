@@ -52,7 +52,7 @@ nav: | [Home](/) <% if @current_collective && @current_collective != @current_te
 > - Session `<%= s.id %>` representing <%= s.user_representation? ? "**@#{represented_handle}**" : "the collective **#{represented_handle}**" %>, started <%= time_ago_in_words(s.began_at) %> ago, expires at <%= s.expires_at.iso8601 %>.
 >   - To act under it, set `representation_session_id: "<%= s.id %>"` at the top level of `context` plus `identity.acting_as: "@<%= represented_handle %>"` (writes) or `identity.viewing_as: "@<%= represented_handle %>"` (reads).
 <% if s.user_representation? -%>
->   - To end it, call `execute_action` with action `end_representation` at `/u/<%= current_actor.handle %>/settings/trustee-authorizations/<%= s.trustee_grant.truncated_id %>`.
+>   - To end it, call `execute_action` with action `end_representation` at `/settings/trustee-authorizations/<%= s.trustee_grant.truncated_id %>`. Trustee authorizations are handle-free, so this resolves to you (the actor) — you can self-act on it.
 <% else -%>
 >   - To end it, send `DELETE <%= s.path %>` (or fetch [/representing](/representing) under the session for the lifecycle controls).
 <% end -%>

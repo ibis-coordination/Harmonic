@@ -139,7 +139,7 @@ class DataExportMailerTest < ActiveSupport::TestCase
     assert_includes body, "3 notes"
     assert_includes body, "4 votes"
     handle = @user.tenant_users.find_by(tenant_id: @tenant.id).handle
-    assert_includes body, "/u/#{handle}/settings/data-export/#{user_export.id}",
+    assert_includes body, "/settings/data-export/#{user_export.id}",
                      "download URL must match the actual controller route (/u/:handle/settings/data-export/:id)"
   end
 

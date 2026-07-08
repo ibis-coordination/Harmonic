@@ -4,6 +4,23 @@ class UsersController < ApplicationController
   include RequiresReverification
   include NotificationPreferencesParams
   include FeedPage
+  include SettingsSubjectDefaulting
+
+  # The user-settings actions are reached via the handle-free /settings/* routes
+  # (their subject is always the signed-in user). Default params[:handle] to the
+  # current user for exactly those actions — NOT for show/mutuals/represent/etc.,
+  # which legitimately address other users by :handle.
+  # NOTE: confirm_email is intentionally absent — it stays handle-scoped
+  # (/u/:handle/settings/email/confirm/:token) because it is token-authenticated
+  # and must resolve the account without a session, so it reads params[:handle]
+  # directly rather than defaulting to current_user.
+  SETTINGS_ACTIONS = %i[
+    settings update_profile update_workspace_trio update_email cancel_email_change
+    actions_index describe_update_profile execute_update_profile
+    update_notification_preferences describe_update_notification_preferences
+    execute_update_notification_preferences
+  ].freeze
+  before_action :default_settings_handle_to_current_user, only: SETTINGS_ACTIONS
 
   allows_anonymous :show
   before_action :set_no_cache_headers, only: [:show]
@@ -18,14 +35,22 @@ class UsersController < ApplicationController
     @users = current_tenant.tenant_users
   end
 
-  # Redirect /settings to /u/:handle/settings
-  def redirect_to_settings
-    redirect_to "#{current_user.path}/settings"
-  end
+  # Legacy /u/:handle/settings(/*rest) → the canonical handle-free surface.
+  # Settings are self-only, so any human handle collapses to the signed-in
+  # user's own /settings; an AI agent's settings live at their dedicated
+  # /ai-agents/:handle/settings. 308 preserves method and query string.
+  def redirect_legacy_settings
+    tu = current_tenant.tenant_users.find_by(handle: params[:handle])
+    return render "404", status: :not_found if tu.nil?
 
-  # Redirect /settings/webhooks to /u/:handle/settings/webhooks
-  def redirect_to_settings_webhooks
-    redirect_to "#{current_user.path}/settings/webhooks"
+    if tu.user.ai_agent?
+      return redirect_to ai_agent_settings_path(tu.handle), status: 308
+    end
+
+    rest = params[:rest].present? ? "/#{params[:rest]}" : ""
+    target = "/settings#{rest}"
+    target = "#{target}?#{request.query_string}" if request.query_string.present?
+    redirect_to target, status: 308
   end
 
   AVAILABLE_PROFILE_TABS = ["posts", "activity", "lists", "common_collectives"].freeze
@@ -126,6 +151,16 @@ class UsersController < ApplicationController
 
   def settings
     @sidebar_mode = "minimal"
+
+    # A represented collective reaches its OWN settings, not the user-settings
+    # page. current_user is the collective's identity user here (handle-free
+    # route; see SettingsSubjectDefaulting), whose #path is the collective's
+    # /collectives/:handle — dispatch there so it can edit its public profile as
+    # itself. This preserves the behavior the old /settings doormat gave via
+    # redirect_to "#{current_user.path}/settings"; #419's user-representation
+    # case never reaches here (RepresentationPolicy blocks /settings first).
+    return redirect_to "#{current_user.path}/settings" if current_user.collective_identity?
+
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render "404", status: :not_found if tu.nil?
 
@@ -190,7 +225,7 @@ class UsersController < ApplicationController
       end
       format.html do
         flash[:notice] = "#{ai_agent.display_name} has been added to #{collective.name}"
-        redirect_to "#{current_user.path}/settings"
+        redirect_to "/settings"
       end
     end
   end
@@ -217,7 +252,7 @@ class UsersController < ApplicationController
       end
       format.html do
         flash[:notice] = "#{ai_agent.display_name} has been removed from #{collective.name}"
-        redirect_to "#{current_user.path}/settings"
+        redirect_to "/settings"
       end
     end
   end
@@ -258,15 +293,15 @@ class UsersController < ApplicationController
     tu.save!
 
     flash[:notice] = "Profile updated successfully"
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   rescue ActiveRecord::RecordInvalid => e
     flash[:alert] = e.record.errors.full_messages.to_sentence
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   rescue ActiveRecord::RecordNotUnique
     # Race backstop: the uniqueness validation passed concurrently with
     # another claim on the same handle and the DB index fired.
     flash[:alert] = "That handle is already taken."
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   end
 
   # POST /u/:handle/settings/workspace_trio
@@ -288,14 +323,14 @@ class UsersController < ApplicationController
     will_be_trio = params[:feature_trio].to_s == "true"
     if will_be_trio && !workspace.tier_unlocks_paid_features?
       flash[:error] = "Trio requires the paid plan. Upgrade the workspace first."
-      return redirect_to "#{settings_user.path}/settings"
+      return redirect_to "/settings"
     end
 
     workspace.set_feature_flag!("trio", will_be_trio)
     TrioActivator.reconcile!(workspace)
 
     flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? "enabled" : "disabled"}."
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   end
 
   # PATCH /u/:handle/settings/email
@@ -311,18 +346,18 @@ class UsersController < ApplicationController
     new_email = params[:email]&.strip&.downcase
     if new_email.blank? || !new_email.match?(URI::MailTo::EMAIL_REGEXP)
       flash[:error] = "Please enter a valid email address."
-      return redirect_to "#{settings_user.path}/settings"
+      return redirect_to "/settings"
     end
 
     if new_email == settings_user.email
       flash[:notice] = "That's already your email address."
-      return redirect_to "#{settings_user.path}/settings"
+      return redirect_to "/settings"
     end
 
     if User.where.not(id: settings_user.id).exists?(email: new_email) ||
        OmniAuthIdentity.where.not(user_id: settings_user.id).exists?(email: new_email)
       flash[:error] = "That email address is already in use."
-      return redirect_to "#{settings_user.path}/settings"
+      return redirect_to "/settings"
     end
 
     raw_token = SecureRandom.urlsafe_base64(32)
@@ -336,7 +371,7 @@ class UsersController < ApplicationController
     EmailChangeMailer.security_notice(settings_user, current_tenant).deliver_later
 
     flash[:notice] = "A confirmation email has been sent to #{new_email}. Please check your inbox."
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   end
 
   # DELETE /u/:handle/settings/email
@@ -351,7 +386,7 @@ class UsersController < ApplicationController
       settings_user.update!(pending_email: nil, email_confirmation_token: nil, email_confirmation_sent_at: nil)
       flash[:notice] = "Email change request has been cancelled."
     end
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   end
 
   # GET /u/:handle/settings/email/confirm/:token
@@ -364,7 +399,7 @@ class UsersController < ApplicationController
     # Guard: pending_email must exist (handles double-click and stale links)
     if user.pending_email.blank?
       flash[:notice] = "This email change has already been confirmed."
-      return redirect_to "#{user.path}/settings"
+      return redirect_to "/settings"
     end
 
     hashed_token = Digest::SHA256.hexdigest(params[:token])
@@ -372,14 +407,14 @@ class UsersController < ApplicationController
       SecurityAuditLog.log_event(event: "email_confirmation_failure", severity: :warn,
                                  user_id: user.id, ip: request.remote_ip, reason: "invalid_token")
       flash[:error] = "Invalid or expired confirmation link."
-      return redirect_to "#{user.path}/settings"
+      return redirect_to "/settings"
     end
 
     if user.email_confirmation_sent_at.blank? || user.email_confirmation_sent_at < EMAIL_CHANGE_TOKEN_EXPIRY.ago
       SecurityAuditLog.log_event(event: "email_confirmation_failure", severity: :warn,
                                  user_id: user.id, ip: request.remote_ip, reason: "expired_token")
       flash[:error] = "This confirmation link has expired. Please request a new email change."
-      return redirect_to "#{user.path}/settings"
+      return redirect_to "/settings"
     end
 
     new_email = user.pending_email
@@ -422,7 +457,7 @@ class UsersController < ApplicationController
       flash[:error] = "That email address has been claimed by another account since your request."
     end
 
-    redirect_to "#{user.path}/settings"
+    redirect_to "/settings"
   end
 
   # Start representing a user (typically an AI agent).
@@ -545,7 +580,7 @@ class UsersController < ApplicationController
 
     respond_to do |format|
       format.md { render "settings" }
-      format.html { redirect_to "#{@settings_user.path}/settings" }
+      format.html { redirect_to "/settings" }
     end
   end
 
@@ -563,7 +598,7 @@ class UsersController < ApplicationController
     )
 
     flash[:notice] = "Notification preferences updated"
-    redirect_to "#{settings_user.path}/settings"
+    redirect_to "/settings"
   end
 
   def describe_update_notification_preferences
@@ -591,7 +626,7 @@ class UsersController < ApplicationController
                             action_name: "update_notification_preferences",
                             resource: @settings_user,
                             result: "Notification preferences updated",
-                            redirect_to: "#{@settings_user.path}/settings",
+                            redirect_to: "/settings",
                           })
   end
 

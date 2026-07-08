@@ -34,7 +34,7 @@
       <%= render 'shared/profile_image_upload', resource: @settings_user, size: 64 %>
     </div>
 
-    <%= form_with url: "#{@settings_user.path}/settings/profile", class: 'pulse-form' do |form| %>
+    <%= form_with url: "/settings/profile", class: 'pulse-form' do |form| %>
       <div class="pulse-form-section">
         <label class="pulse-form-label" for="name">Display Name</label>
         <%= form.text_field :name, value: @settings_user.name, placeholder: 'Your name', class: 'pulse-input' %>
@@ -106,7 +106,7 @@
           </p>
         <% end %>
 
-        <%= form_with url: "/u/#{@settings_user.handle}/settings/workspace_trio", class: 'pulse-form' do |form| %>
+        <%= form_with url: "/settings/workspace_trio", class: 'pulse-form' do |form| %>
           <div class="pulse-form-section">
             <label class="pulse-checkbox-label">
               <%= form.check_box :feature_trio, { checked: trio_active, disabled: workspace_tier_locked }, "true", "false" %>
@@ -140,17 +140,17 @@
           A confirmation email has been sent to <strong><%= @settings_user.pending_email %></strong>. Please check your inbox to complete the change. The link expires in 24 hours.
         </div>
         <div style="display: flex; gap: 8px;">
-          <%= form_with url: "/u/#{@settings_user.handle}/settings/email", method: :patch, style: "display: inline;" do |form| %>
+          <%= form_with url: "/settings/email", method: :patch, style: "display: inline;" do |form| %>
             <%= form.hidden_field :email, value: @settings_user.pending_email %>
             <%= form.submit 'Resend Confirmation', class: 'pulse-action-btn' %>
           <% end %>
-          <%= form_with url: "/u/#{@settings_user.handle}/settings/email", method: :delete, style: "display: inline;" do |form| %>
+          <%= form_with url: "/settings/email", method: :delete, style: "display: inline;" do |form| %>
             <%= form.submit 'Cancel', class: 'pulse-action-btn' %>
           <% end %>
         </div>
       <% end %>
 
-      <%= form_with url: "/u/#{@settings_user.handle}/settings/email", method: :patch, class: 'pulse-form' do |form| %>
+      <%= form_with url: "/settings/email", method: :patch, class: 'pulse-form' do |form| %>
         <div class="pulse-form-section">
           <label class="pulse-form-label" for="email"><%= @settings_user.pending_email.present? ? 'Change to a Different Email' : 'New Email' %></label>
           <%= form.email_field :email, placeholder: 'Enter new email address', class: 'pulse-input' %>
@@ -239,13 +239,13 @@
           </div>
           <% if is_current && other_devices_count >= 2 %>
             <%= button_to "Sign out other devices",
-                  "#{@settings_user.path}/settings/devices/revoke_others",
+                  "/settings/devices/revoke_others",
                   method: :post,
                   class: "pulse-action-btn pulse-action-btn-danger",
                   data: { turbo_confirm: "Sign out every device except this one?" } %>
           <% elsif !is_current %>
             <%= button_to "Sign out",
-                  "#{@settings_user.path}/settings/devices/#{device.id}",
+                  "/settings/devices/#{device.id}",
                   method: :delete,
                   class: "pulse-action-btn",
                   data: { turbo_confirm: "Sign out #{device.device_label}?" } %>
@@ -260,7 +260,7 @@
       <%# The controller element wraps the device rows too: their "This
           device" badge targets are matched against this browser's
           subscription endpoint on connect. %>
-      <div data-controller="web-push" data-web-push-url-value="<%= @settings_user.path %>/settings/push-subscriptions">
+      <div data-controller="web-push" data-web-push-url-value="/settings/push-subscriptions">
       <p class="pulse-form-hint" style="margin-bottom: 16px;">
         Get notifications on a device's lock screen even when Harmonic isn't open.
         On iPhone or iPad, add Harmonic to your home screen first.
@@ -290,7 +290,7 @@
             </div>
           </div>
           <%= button_to "Disable",
-                "#{@settings_user.path}/settings/push-subscriptions/#{subscription.id}",
+                "/settings/push-subscriptions/#{subscription.id}",
                 method: :delete,
                 class: "pulse-action-btn",
                 data: { turbo_confirm: "Disable push notifications for #{subscription.device_label.presence || 'this device'}?" } %>
@@ -310,7 +310,7 @@
       </p>
       <%= render 'shared/notification_preferences',
                  tenant_user: @settings_user.tenant_user,
-                 post_url: "#{@settings_user.path}/settings/notifications" %>
+                 post_url: "/settings/notifications" %>
     <% end %>
   <% end %>
 
@@ -399,7 +399,7 @@
         </div>
       <% end %>
       <div class="pulse-form-actions">
-        <a href="<%= @settings_user.path %>/settings/trustee-authorizations" class="pulse-action-btn">
+        <a href="/settings/trustee-authorizations" class="pulse-action-btn">
           <%= octicon 'people', height: 14 %>
           Manage Trustee Authorizations
         </a>
@@ -436,7 +436,7 @@
           See the export page for what's included.
         </p>
         <div class="pulse-form-actions">
-          <a href="<%= @settings_user.path %>/settings/data-export" class="pulse-action-btn">
+          <a href="/settings/data-export" class="pulse-action-btn">
             <%= octicon 'download', height: 14 %>
             Download My Data
           </a>

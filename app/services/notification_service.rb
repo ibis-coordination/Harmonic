@@ -433,10 +433,12 @@ class NotificationService
   # forbidden from opening their own notification.
   sig { params(grant: TrusteeGrant, user: User, tenant: Tenant).returns(T.nilable(String)) }
   def self.trustee_grant_path_for(grant:, user:, tenant:)
-    handle = TenantUser.tenant_scoped_only(tenant.id).find_by(user: user)&.handle
-    return nil unless handle
+    # Handle-free /settings surface; the notified user views the grant as
+    # themselves. Keep the tenant-membership guard (returns nil for a user not
+    # in this tenant) so callers behave exactly as before.
+    return nil unless TenantUser.tenant_scoped_only(tenant.id).find_by(user: user)
 
-    "/u/#{handle}/settings/trustee-authorizations/#{grant.truncated_id}"
+    "/settings/trustee-authorizations/#{grant.truncated_id}"
   end
 
   private_class_method :dismiss_attributes, :notification_ids_for_collective,

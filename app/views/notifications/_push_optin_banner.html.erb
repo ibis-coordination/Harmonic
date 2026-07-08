@@ -6,7 +6,7 @@
     (e.g. iOS: install to home screen first) in the status line instead. %>
 <div class="pulse-notice" id="push-optin-banner"
      data-controller="web-push"
-     data-web-push-url-value="<%= @current_user.tenant_user.path %>/settings/push-subscriptions"
+     data-web-push-url-value="/settings/push-subscriptions"
      style="border: 1px solid var(--color-border-default); border-radius: 6px; margin-bottom: 16px; gap: 12px;">
   <div style="flex: 1;">
     <strong><%= octicon 'bell', height: 14 %> Get these on your lock screen</strong>

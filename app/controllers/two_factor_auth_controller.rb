@@ -163,7 +163,7 @@ class TwoFactorAuthController < ApplicationController
       RefreshToken.revoke_all_for_user!(current_user.id, reason: "two_factor_disabled")
       SecurityAuditLog.log_2fa_disabled(identity: identity, ip: request.remote_ip)
       flash[:notice] = "Two-factor authentication has been disabled."
-      redirect_to "/u/#{current_user.handle}/settings"
+      redirect_to "/settings"
     else
       flash[:alert] = "Invalid verification code. 2FA was not disabled."
       redirect_to two_factor_settings_path
@@ -215,7 +215,7 @@ class TwoFactorAuthController < ApplicationController
   def require_identity_provider
     unless current_identity
       flash[:alert] = "Two-factor authentication is only available for email/password accounts."
-      redirect_to "/u/#{current_user.handle}/settings"
+      redirect_to "/settings"
     end
   end
 
@@ -297,13 +297,13 @@ class TwoFactorAuthController < ApplicationController
   #   2. session[:activation_return_to] present — the user came via the
   #      Phase-4 activation gate. Send them through /activate so it can
   #      consume its own stash (or auto-redirect home if all items satisfied).
-  #   3. Default — /u/handle/settings (the user's settings index). Less
-  #      awkward than the old /settings/two-factor/manage default for users
-  #      who didn't navigate here specifically to manage 2FA.
+  #   3. Default — /settings (the user's settings index). Less awkward than the
+  #      old /settings/two-factor/manage default for users who didn't navigate
+  #      here specifically to manage 2FA.
   def post_2fa_setup_continue_url
     rev_to = session.delete(:reverification_return_to)
     return rev_to if rev_to.present?
     return activation_path if session[:activation_return_to].present?
-    "#{current_user.path}/settings"
+    "/settings"
   end
 end
