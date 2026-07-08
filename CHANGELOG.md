@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.45.0] - 2026-07-08
+
+### Added
+
+- **Special @-tags for group mentions** (#449) — `@everyone` (usable only by an admin author; expands to nobody otherwise, so system parse paths can't fan out by accident), `@admins`, and role tags `@representatives`/`@summarizers`. Role tags are derived from the collective role list, so any role added later reserves and resolves its `@<role>s` tag automatically. Backed by a new `ReservedHandles` registry that folds together the previously scattered reserved-handle rules and distinguishes group tags from role-gated agent handles. Deferred: `@here`, compose-time confirm for large fan-outs, mention autocomplete.
+
+### Changed
+
+- **Personal settings move to the handle-free `/settings` surface** (#420) — `/settings` is now the canonical personal-settings page (trustee authorizations move to `/settings/trustee-authorizations`); legacy `/u/:handle/settings/*` 308-redirects there (or to `/ai-agents/:handle/settings` for agents). API tokens and the email-change confirmation deep link stay handle-scoped, where the handle is load-bearing.
+
+### Security
+
+- **Representation scope is enforced as a `before_action`** (#454, fixes #419) — enforcement previously lived inside a memoized helper that returned early once a resolver had run, so navigating directly to `/chat` or `/settings` while representing rendered the representative's own private surface with the session silently active. A `RepresentationPolicy` concern now runs the scope check as a real before-action no route can dodge: user representation is bounced off personal surfaces to `/representing`, while a collective acting as itself may reach its own `/chat` and `/settings`. The browser-cookie and API/MCP-header resolvers are also unified onto a single validity gate so the two transports can't drift apart.
+
+### Fixed
+
+- **Free accounts with prepaid credits can run agents** (#450) — agent dispatch now enforces two independent gates: the per-identity Harmonic fee (waived only for a free-account principal that owes nothing billable) and LLM-usage funding (a prepaid-credit subscription with positive balance, required for every billed agent). A free account that bought credits was previously refused "Billing is not set up" and could never spend them; gateway routing no longer depends on the workspace subscription, so its credits actually drain.
+- **Stale "this week" empty-feed copy and all-time link loop** (#448) — since the default collective feed stopped pinning to the current cycle (1.43.0), the empty state still said "Nothing here this week" with a "Show all time" link that looped between two empty-state messages. An empty default feed now just says "Nothing here yet."
+
 ## [1.44.0] - 2026-07-07
 
 ### Added
