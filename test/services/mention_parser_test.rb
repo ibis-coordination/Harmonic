@@ -178,6 +178,128 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_includes result.map(&:id), trio.id
   end
 
+  # === group tags: @everyone / @admins ===
+
+  test "parse resolves @admins to the collective's admins for any author" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    member = create_user(email: "m@example.com", name: "Member")
+    tenant.add_user!(member)
+    collective.add_user!(member)
+
+    # A non-admin author still expands @admins.
+    result = MentionParser.parse("heads up @admins", tenant_id: tenant.id, collective: collective, author: member)
+
+    assert_includes result.map(&:id), admin.id
+    assert_not_includes result.map(&:id), member.id
+  end
+
+  test "parse resolves every role tag to its role holders for any author" do
+    # The role tags are derived from CollectiveMember.valid_roles, so this
+    # covers @representatives / @summarizers as well as @admins, and any role
+    # added later. Each expands to the members holding that role.
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    rep = create_user(email: "rep@example.com", name: "Rep")
+    tenant.add_user!(rep)
+    collective.add_user!(rep, roles: ["representative"])
+
+    summarizer = create_user(email: "sum@example.com", name: "Summarizer")
+    tenant.add_user!(summarizer)
+    collective.add_user!(summarizer, roles: ["summarizer"])
+
+    # A plain member (author) with no role can still use the role tags.
+    reps = MentionParser.parse("ping @representatives", tenant_id: tenant.id, collective: collective, author: rep)
+    assert_equal [rep.id], reps.map(&:id)
+
+    sums = MentionParser.parse("ping @summarizers", tenant_id: tenant.id, collective: collective, author: rep)
+    assert_equal [summarizer.id], sums.map(&:id)
+  end
+
+  test "parse resolves @everyone to all members when the author is an admin" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    member = create_user(email: "m@example.com", name: "Member")
+    tenant.add_user!(member)
+    collective.add_user!(member)
+
+    result = MentionParser.parse("@everyone please read", tenant_id: tenant.id, collective: collective, author: admin)
+
+    assert_includes result.map(&:id), admin.id
+    assert_includes result.map(&:id), member.id
+  end
+
+  test "parse does not expand @everyone when the author is not an admin" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    member = create_user(email: "m@example.com", name: "Member")
+    tenant.add_user!(member)
+    collective.add_user!(member)
+
+    result = MentionParser.parse("@everyone please read", tenant_id: tenant.id, collective: collective, author: member)
+
+    assert_equal [], result
+  end
+
+  test "parse does not expand @everyone without a known author" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    # No author kwarg → the admin-only gate can't be satisfied, so no fan-out.
+    result = MentionParser.parse("@everyone please read", tenant_id: tenant.id, collective: collective)
+
+    assert_equal [], result
+  end
+
+  test "parse ignores group tags when no collective is provided" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    result = MentionParser.parse("@everyone @admins", tenant_id: tenant.id, author: admin)
+
+    assert_equal [], result
+  end
+
+  test "parse dedupes a user named both directly and via a group tag" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+    admin.tenant_user.update!(handle: "alice")
+
+    result = MentionParser.parse("@everyone and especially @alice", tenant_id: tenant.id, collective: collective, author: admin)
+
+    assert_equal 1, result.count { |u| u.id == admin.id }
+  end
+
+  test "resolve_paths links group tags to the collective for any reader" do
+    tenant, collective, _admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    result = MentionParser.resolve_paths("@everyone and @admins", tenant_id: tenant.id, collective: collective)
+
+    assert_equal collective.path, result["everyone"]
+    assert_equal collective.path, result["admins"]
+  end
+
+  test "resolve_paths leaves group tags unresolved without a collective" do
+    tenant, collective, _admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    result = MentionParser.resolve_paths("@everyone", tenant_id: tenant.id)
+
+    assert_equal({}, result)
+  end
+
   test "parse ignores mentions that don't match users" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

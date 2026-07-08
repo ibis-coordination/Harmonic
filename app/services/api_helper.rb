@@ -412,7 +412,8 @@ class ApiHelper
     mentioned_users = MentionParser.parse_for_notification(
       note.text,
       tenant_id: current_tenant.id,
-      collective: current_collective
+      collective: current_collective,
+      author: current_user
     )
 
     begin

@@ -6,7 +6,9 @@ class MentionParser
   extend T::Sig
 
   MENTION_PATTERN = /@([a-zA-Z0-9_-]+)/
-  TRIO_HANDLE = "trio"
+  # Kept as an alias so existing references (User, autocomplete, dispatcher)
+  # keep working; the canonical value now lives in the reserved-handle registry.
+  TRIO_HANDLE = ReservedHandles::TRIO
 
   # A Redcarpet plain-text renderer that drops code while keeping every other
   # kind of text. It subclasses StripDown — which already extracts the text
@@ -49,21 +51,22 @@ class MentionParser
       text: T.nilable(String),
       tenant_id: T.nilable(String),
       collective: T.nilable(Collective),
+      author: T.nilable(User),
     ).returns(T::Array[User])
   end
-  def self.parse(text, tenant_id:, collective: nil)
+  def self.parse(text, tenant_id:, collective: nil, author: nil)
     return [] if text.blank? || tenant_id.blank?
 
     handles = extract_handles(text)
     return [] if handles.empty?
 
-    # When a collective is provided, "@trio" ALWAYS means this collective's
-    # trio. The handle index would otherwise also resolve "@trio" to the
-    # main collective's trio (which claims the literal handle "trio") even
-    # when mentioned in some other collective, fanning out the mention to a
-    # trio that isn't local to the conversation.
+    # Collective-local handles (@trio, @everyone, @admins) ALWAYS mean this
+    # collective's trio/members/admins. The tenant-wide handle index would
+    # otherwise resolve, say, "@trio" to the main collective's trio (which
+    # claims the literal handle) even when written in some other collective,
+    # fanning out the mention to a set that isn't local to the conversation.
     index_handles = if collective
-      handles - [TRIO_HANDLE]
+      handles.reject { |h| ReservedHandles.collective_local?(h) }
     else
       handles
     end
@@ -76,31 +79,73 @@ class MentionParser
       []
     end
 
-    if collective && handles.include?(TRIO_HANDLE)
-      trio = collective.trio_user
-      users << trio if trio
-    end
+    users.concat(resolve_collective_local(handles, collective: collective, author: author)) if collective
 
-    users
+    # A user can be named by more than one tag (mentioned directly and via
+    # @everyone, or in both @everyone and @admins); collapse so callers don't
+    # double-notify.
+    users.uniq(&:id)
   end
 
   # Parse mentions and filter to valid notification recipients:
   # - Must be a member of the collective
   # - Must not be the excluded user (typically the actor)
+  #
+  # `author` is the user whose text this is; it gates @everyone (admin-only).
   sig do
     params(
       text: T.nilable(String),
       tenant_id: T.nilable(String),
       collective: Collective,
       exclude_user: T.nilable(User),
+      author: T.nilable(User),
     ).returns(T::Array[User])
   end
-  def self.parse_for_notification(text, tenant_id:, collective:, exclude_user: nil)
-    users = parse(text, tenant_id: tenant_id, collective: collective)
+  def self.parse_for_notification(text, tenant_id:, collective:, exclude_user: nil, author: nil)
+    users = parse(text, tenant_id: tenant_id, collective: collective, author: author)
     users
       .reject { |u| exclude_user && u.id == exclude_user.id }
       .select { |u| collective.user_is_member?(u) }
   end
+
+  # Expand collective-local tags to the users they name, within `collective`:
+  #   @trio             → this collective's trio user
+  #   @admins /         → members holding that role (any member may use a role
+  #   @representatives /   tag). The tags come from ReservedHandles.role_tags,
+  #   @summarizers / …     which is derived from the collective role list, so a
+  #                        new/custom role's tag resolves here with no change.
+  #   @everyone         → all members, but only when `author` is an admin.
+  #                       Without a known admin author the tag expands to nobody,
+  #                       so it can never fan out by accident (e.g.
+  #                       background/system parse paths that don't carry an
+  #                       author).
+  sig do
+    params(
+      handles: T::Array[String],
+      collective: Collective,
+      author: T.nilable(User),
+    ).returns(T::Array[User])
+  end
+  def self.resolve_collective_local(handles, collective:, author:)
+    wanted = handles.map(&:downcase)
+    result = T.let([], T::Array[User])
+
+    if wanted.include?(TRIO_HANDLE)
+      trio = collective.trio_user
+      result << trio if trio
+    end
+
+    ReservedHandles.role_tags.each do |tag, role|
+      result.concat(collective.users_with_role(role)) if wanted.include?(tag)
+    end
+
+    if wanted.include?(ReservedHandles::EVERYONE) && author && collective.admin?(author)
+      result.concat(collective.member_users)
+    end
+
+    result
+  end
+  private_class_method :resolve_collective_local
 
   # Resolve mentioned handles to profile paths so @mentions can be rendered
   # as links. Returns a hash of { handle => profile_path } containing only
@@ -121,11 +166,10 @@ class MentionParser
     handles = extract_handles(text, strip: false)
     return {} if handles.empty?
 
-    # Same @trio handling as .parse: when a collective is provided, "@trio"
-    # always means this collective's trio, resolved below rather than through
-    # the tenant-wide handle index.
+    # Same collective-local handling as .parse: within a collective, @trio and
+    # the group tags resolve locally, not through the tenant-wide handle index.
     index_handles = if collective
-      handles - [TRIO_HANDLE]
+      handles.reject { |h| ReservedHandles.collective_local?(h) }
     else
       handles
     end
@@ -141,9 +185,22 @@ class MentionParser
         end
     end
 
-    if collective && handles.include?(TRIO_HANDLE)
-      trio_path = collective.trio_user&.path
-      paths[TRIO_HANDLE] = trio_path if trio_path
+    if collective
+      # Keys are the handles as written (case preserved) so the renderer, which
+      # looks up each matched substring verbatim, links them regardless of case.
+      collective_path = collective.path
+      handles.each do |handle|
+        down = handle.downcase
+        if down == TRIO_HANDLE
+          trio_path = collective.trio_user&.path
+          paths[handle] = trio_path if trio_path
+        elsif ReservedHandles.group_tag?(down)
+          # @everyone / @admins render as a link to the collective. Rendering is
+          # display only — the admin-only gate on @everyone lives on the
+          # notification path, so the tag is shown regardless of who wrote it.
+          paths[handle] = collective_path
+        end
+      end
     end
 
     paths
