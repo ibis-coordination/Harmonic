@@ -1,7 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
   [@current_user.display_name, @current_user.path],
-  ['Settings', "#{@current_user.path}/settings"],
+  ['Settings', "/settings"],
   'New AI Agent'
 ] %>
 
@@ -182,7 +182,7 @@
 
       <section class="pulse-settings-section pulse-action-row">
         <%= form.submit 'Create AI Agent', class: "pulse-action-btn pulse-action-btn-primary" %>
-        <a href="<%= @current_user.path %>/settings" class="pulse-action-btn">Cancel</a>
+        <a href="/settings" class="pulse-action-btn">Cancel</a>
       </section>
     <% end %>
     <% end %>

@@ -14,7 +14,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_feature_flag!("trio")
     sign_in_as(@user, tenant: @tenant)
 
-    get "/u/#{@user.handle}/settings"
+    get "/settings"
     assert_response :success
     assert_includes response.body, "Workspace AI Assistant"
     assert_includes response.body, "feature_trio"
@@ -24,7 +24,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("trio")
     sign_in_as(@user, tenant: @tenant)
 
-    get "/u/#{@user.handle}/settings"
+    get "/settings"
     assert_response :success
     assert_not_includes response.body, "Workspace AI Assistant"
   end
@@ -38,9 +38,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     upgrade_collective_to_paid!(workspace, owner: @user)
 
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
     assert_not_nil workspace.trio_user_id, "expected trio to be activated in workspace"
@@ -57,9 +57,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     # tier stays at free; no stripe_billing flag on the tenant
 
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
     assert_not_nil workspace.trio_user_id, "self-hosted: trio should activate on free workspace"
@@ -74,26 +74,27 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     trio_id = T.must(workspace.reload.trio_user_id)
 
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "false" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
     assert_nil workspace.trio_user_id, "expected trio to be deactivated in workspace"
     assert AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? }
   end
 
-  test "non-owner cannot toggle Trio in someone else's workspace" do
+  test "the handle-free workspace-trio route only toggles the signed-in user's workspace" do
     other_user = create_user(name: "Other User")
     @tenant.add_user!(other_user)
     @tenant.enable_feature_flag!("trio")
 
     sign_in_as(other_user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
-    assert_response :forbidden
+    # No handle in the route: the toggle applies to other_user's own workspace,
+    # so @user's workspace is structurally untouchable here.
     assert_nil T.must(@user.private_workspace).reload.trio_user_id
   end
 
@@ -106,9 +107,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     workspace.set_feature_flag!("trio", false)
 
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
     assert_nil workspace.trio_user_id, "trio should not be activated on a free workspace"
@@ -123,9 +124,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     upgrade_collective_to_paid!(workspace, owner: @user)
 
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
     assert_not_nil workspace.trio_user_id, "trio should activate when workspace is paid"
@@ -140,9 +141,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     TrioActivator.activate!(workspace)
 
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/workspace_trio",
+    post "/settings/workspace_trio",
       params: { feature_trio: "false" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/u/#{@user.handle}/settings" }
+      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
     assert_nil workspace.trio_user_id
@@ -167,7 +168,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     refute @user.system?
 
-    post "/u/#{@user.handle}/settings/profile",
+    post "/settings/profile",
       params: { name: "Renamed", system_role: "trio" }
 
     @user.reload
@@ -183,7 +184,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     # at the update! call site. What matters for security is that the handle
     # is not persisted as "trio".
     begin
-      post "/u/#{@user.handle}/settings/profile", params: { new_handle: "trio" }
+      post "/settings/profile", params: { new_handle: "trio" }
     rescue ActiveRecord::RecordInvalid
       # Expected — validation rejected the change.
     end
@@ -488,7 +489,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   test "update_profile persists bio / location / website to TenantUser" do
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/profile", params: {
+    post "/settings/profile", params: {
       bio: "Updated bio",
       location: "New York",
       website: "https://updated.example.com",
@@ -502,7 +503,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   test "update_profile rejects an invalid website scheme and redirects with an error" do
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{@user.handle}/settings/profile", params: { website: "javascript:alert(1)" }
+    post "/settings/profile", params: { website: "javascript:alert(1)" }
     assert_response :redirect
     follow_redirect!
     assert_match(/http or https/i, response.body)
@@ -512,7 +513,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   test "settings page renders the bio / location / website form fields" do
     sign_in_as(@user, tenant: @tenant)
-    get "/u/#{@user.handle}/settings"
+    get "/settings"
     assert_response :success
     assert_select "textarea[name=?]", "bio"
     assert_select "input[name=?]", "location"
@@ -713,7 +714,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       "agent settings should include profile image upload — the only thing previously unique to /u/<agent>/settings")
   end
 
-  test "POST /u/<agent>/settings/profile no longer mutates agent_configuration" do
+  test "POST /u/<agent>/settings/profile redirects to the canonical agent settings and mutates nothing" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     ai_agent = create_ai_agent(parent: @user, name: "Profile POST Test Agent")
@@ -724,6 +725,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)
+    # The user-settings profile POST is now handle-free (/settings/profile) and
+    # only ever edits the signed-in human. The legacy agent path 308-redirects to
+    # the agent's canonical settings surface; the redirect is not followed here,
+    # so nothing on the agent changes.
     post "/u/#{handle}/settings/profile", params: {
       name: "Updated Name",
       mode: "internal",
@@ -731,8 +736,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       identity_prompt: "ignored",
     }
     assert_response :redirect
+    assert_match %r{/ai-agents/#{handle}/settings}, response.headers["Location"]
     ai_agent.reload
-    assert_equal "Updated Name", ai_agent.name
+    assert_equal "Profile POST Test Agent", ai_agent.name, "agent name must be untouched"
     assert_equal "external", ai_agent.agent_configuration["mode"]
     assert_equal ["create_note"], ai_agent.agent_configuration["capabilities"]
     assert_nil ai_agent.agent_configuration["identity_prompt"]
@@ -760,7 +766,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "settings page renders the notification preferences matrix" do
     sign_in_as(@user, tenant: @tenant)
 
-    get "/u/#{@user.handle}/settings"
+    get "/settings"
 
     assert_response :success
     assert_includes response.body, "Notification preferences"
@@ -772,7 +778,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     # Submit only two boxes checked. mention/email defaults to true and is now
     # absent from the payload, so the complete-matrix write must turn it off.
-    post "/u/#{@user.handle}/settings/notifications",
+    post "/settings/notifications",
       params: { notifications: { comment: { email: "true" }, mention: { in_app: "true" } } }
 
     assert_response :redirect
@@ -790,7 +796,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     # launches on the tenant.
     sign_in_as(@user, tenant: @tenant)
 
-    post "/u/#{@user.handle}/settings/notifications",
+    post "/settings/notifications",
       params: { notifications: { mention: { in_app: "true", email: "true" } } }
 
     assert_response :redirect
@@ -816,7 +822,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     )
 
     # Full form submit with the Push column rendered but mention/web_push unchecked.
-    post "/u/#{@user.handle}/settings/notifications",
+    post "/settings/notifications",
       params: { notifications: { mention: { in_app: "true", email: "true" } } }
 
     tu = @user.tenant_users.find_by(tenant: @tenant)
@@ -828,7 +834,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     enable_web_push!(@tenant)
 
-    get "/u/#{@user.handle}/settings", headers: { "Accept" => "text/markdown" }
+    get "/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_match(/\| Type \| In-app \| Email \| Push \|/, response.body,
@@ -838,7 +844,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "markdown settings omits the Push column when push is unavailable" do
     sign_in_as(@user, tenant: @tenant)
 
-    get "/u/#{@user.handle}/settings", headers: { "Accept" => "text/markdown" }
+    get "/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_match(/\| Type \| In-app \| Email \|/, response.body)
@@ -848,7 +854,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "markdown action update_notification_preferences merges only supplied keys" do
     sign_in_as(@user, tenant: @tenant)
 
-    post "/u/#{@user.handle}/settings/actions/update_notification_preferences",
+    post "/settings/actions/update_notification_preferences",
       params: { notifications: { comment: { email: "true" } } },
       headers: { "Accept" => "text/markdown" }
 
@@ -858,14 +864,13 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert tu.notification_enabled?("mention", "email"), "untouched type keeps its default"
   end
 
-  test "cannot update another user's notification preferences" do
-    other = create_user(email: "other-#{SecureRandom.hex(4)}@example.com", name: "Other Person")
-    other_handle = @tenant.add_user!(other).handle
-
+  test "the handle-free notification-preferences route updates the signed-in user's own prefs" do
     sign_in_as(@user, tenant: @tenant)
-    post "/u/#{other_handle}/settings/notifications",
+    post "/settings/notifications",
       params: { notifications: { comment: { email: "true" } } }
 
-    assert_response :forbidden
+    # No handle to target: the update lands on @user's own preferences.
+    tu = @user.tenant_users.find_by(tenant: @tenant)
+    assert tu.notification_enabled?("comment", "email")
   end
 end

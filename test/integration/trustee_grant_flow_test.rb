@@ -388,7 +388,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Bob starts a representation session via the controller endpoint
     # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/represent"
 
     # Verify representation session started (should redirect to /representing)
     assert_redirected_to "/representing"
@@ -433,7 +433,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Bob starts a representation session via the controller endpoint
     # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/represent"
 
     # Verify representation session started
     assert_redirected_to "/representing"
@@ -468,7 +468,7 @@ class TrusteeGrantFlowTest < ActionDispatch::IntegrationTest
 
     # Bob starts a representation session via the controller endpoint
     # Note: Bob accesses the grant through HIS own URL (as trustee_user), not Alice's
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/represent"
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/represent"
 
     # Verify representation session started
     assert_redirected_to "/representing"

@@ -95,6 +95,25 @@ class RepresentationUserChatSettingsTest < ActionDispatch::IntegrationTest
       "user representation; the session stayed active (active? " \
       "=#{rep_session.reload.active?}) with the UI implying it had ended."
   end
+
+  # A query string must not smuggle a blocked surface past the guard. The
+  # enforcement matches on request.path, which Rack strips of the query string,
+  # so /settings?foo=1 blocks exactly like /settings. This pins that behavior so
+  # a future refactor that switched to fullpath (query string attached) can't
+  # silently reopen the hole. (Dan's review question on PR #420, r3546485953.)
+  test "a query string does not defeat the personal-surface guard during user representation" do
+    sign_in_as(@parent, tenant: @tenant)
+    start_representing
+
+    get "/settings?foo=1&bar=2"
+    assert_redirected_to "/representing",
+      "#419: /settings with a query string must be blocked exactly like bare " \
+      "/settings; the guard matches request.path, not the query-carrying fullpath."
+
+    get "/chat?tab=dms"
+    assert_redirected_to "/representing",
+      "#419: /chat with a query string must be blocked exactly like bare /chat."
+  end
 end
 
 # ---------------------------------------------------------------------------

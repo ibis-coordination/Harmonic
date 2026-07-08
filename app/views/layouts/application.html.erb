@@ -18,7 +18,7 @@
     <% if @current_tenant&.web_push_available? %>
       <meta name="vapid-public-key" content="<%= ENV["VAPID_PUBLIC_KEY"] %>">
       <% if @current_user&.human? %>
-        <meta name="push-subscription-url" content="<%= @current_user.path %>/settings/push-subscriptions">
+        <meta name="push-subscription-url" content="/settings/push-subscriptions">
       <% end %>
     <% end %>
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">

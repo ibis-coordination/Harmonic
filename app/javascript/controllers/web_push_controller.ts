@@ -9,7 +9,7 @@ import { subscribeToPush } from "../pwa/subscribe"
  * Usage:
  *
  *   <div data-controller="web-push"
- *        data-web-push-url-value="/u/dan/settings/push-subscriptions">
+ *        data-web-push-url-value="/settings/push-subscriptions">
  *     <button data-web-push-target="button"
  *             data-action="click->web-push#subscribe">Enable on this device</button>
  *     <p data-web-push-target="status" hidden></p>

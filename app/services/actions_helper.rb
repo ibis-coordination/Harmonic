@@ -1502,7 +1502,7 @@ class ActionsHelper
         },
       ],
     },
-    "/u/:handle/settings" => {
+    "/settings" => {
       controller_actions: ["users#settings"],
       actions: [
         { name: "update_profile", params_string: ACTION_DEFINITIONS["update_profile"][:params_string],
@@ -1676,18 +1676,18 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["test_webhook"][:description], },
       ],
     },
-    "/u/:handle/settings/trustee-authorizations" => {
+    "/settings/trustee-authorizations" => {
       controller_actions: ["trustee_grants#index"],
       actions: [],
     },
-    "/u/:handle/settings/trustee-authorizations/new" => {
+    "/settings/trustee-authorizations/new" => {
       controller_actions: ["trustee_grants#new"],
       actions: [
         { name: "create_trustee_authorization", params_string: ACTION_DEFINITIONS["create_trustee_authorization"][:params_string],
           description: ACTION_DEFINITIONS["create_trustee_authorization"][:description], },
       ],
     },
-    "/u/:handle/settings/trustee-authorizations/:grant_id" => {
+    "/settings/trustee-authorizations/:grant_id" => {
       controller_actions: ["trustee_grants#show"],
       actions: [],
       # Lifecycle actions depend on grant state and viewer role. The lambdas

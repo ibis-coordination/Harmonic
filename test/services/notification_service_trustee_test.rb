@@ -37,7 +37,7 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
 
     notification = Notification.order(:created_at).last
     assert_equal "trustee_authorization", notification.notification_type
-    assert_equal "/u/bob/settings/trustee-authorizations/#{grant.truncated_id}", notification.url
+    assert_equal "/settings/trustee-authorizations/#{grant.truncated_id}", notification.url
     assert_includes notification.title, "act on their behalf"
 
     recipient = notification.notification_recipients.first
@@ -45,7 +45,7 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
     assert_equal "in_app", recipient.channel
   end
 
-  test "accepted notifies the granting user with their own handle path" do
+  test "accepted notifies the granting user with the handle-free settings path" do
     grant = build_grant
 
     assert_difference "Notification.count", 1 do
@@ -53,7 +53,7 @@ class NotificationServiceTrusteeTest < ActiveSupport::TestCase
     end
 
     notification = Notification.order(:created_at).last
-    assert_equal "/u/alice/settings/trustee-authorizations/#{grant.truncated_id}", notification.url
+    assert_equal "/settings/trustee-authorizations/#{grant.truncated_id}", notification.url
     assert_includes notification.title, "accepted your trustee authorization"
     assert_equal @granting_user, notification.notification_recipients.first.user
   end

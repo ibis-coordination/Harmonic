@@ -1,10 +1,10 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, @current_tenant.path],
-  ['Settings', @settings_user.path + '/settings'],
+  ['Settings', '/settings'],
   'Download My Data'
 ] %>
 
-<% data_export_path = "/u/#{@settings_user.tenant_users.find_by(tenant_id: @current_tenant.id).handle}/settings/data-export" %>
+<% data_export_path = "/settings/data-export" %>
 
 <article class="pulse-resource-detail">
   <header class="pulse-resource-header">

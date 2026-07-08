@@ -349,7 +349,7 @@ class NotificationWebhooksController < ApplicationController
     if @target_user.ai_agent?
       ai_agent_settings_path(@target_handle)
     else
-      settings_user_path(@target_handle)
+      settings_path
     end
   end
   helper_method :settings_path_for_target

@@ -20,7 +20,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
   test "initiating email change stores pending_email and hashed token" do
     sign_in_and_reverify!
 
-    patch "/u/#{@handle}/settings/email", params: { email: @new_email }
+    patch "/settings/email", params: { email: @new_email }
 
     @user.reload
     assert_equal @new_email, @user.pending_email
@@ -34,7 +34,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
     sign_in_and_reverify!
 
     assert_emails 2 do
-      patch "/u/#{@handle}/settings/email", params: { email: @new_email }
+      patch "/settings/email", params: { email: @new_email }
     end
   end
 
@@ -42,7 +42,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
     other_user = create_user(email: "taken-#{SecureRandom.hex(4)}@example.com", name: "Other User")
     sign_in_and_reverify!
 
-    patch "/u/#{@handle}/settings/email", params: { email: other_user.email }
+    patch "/settings/email", params: { email: other_user.email }
 
     @user.reload
     assert_nil @user.pending_email, "Should not store pending_email for taken address"
@@ -51,7 +51,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
   test "initiating email change requires reverification" do
     sign_in_as(@user, tenant: @tenant)
 
-    patch "/u/#{@handle}/settings/email", params: { email: @new_email }
+    patch "/settings/email", params: { email: @new_email }
 
     # Should redirect to reverification, not process the change
     assert_response :redirect
@@ -157,7 +157,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     # PATCH triggers reverification (no fresh timestamp)
-    patch "/u/#{@handle}/settings/email", params: { email: @new_email }
+    patch "/settings/email", params: { email: @new_email }
     assert_redirected_to "/reverify"
     post "/reverify", params: { code: totp.now }
 
@@ -172,7 +172,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
     assert_match(@new_email, response.body)
 
     # Actually submit the replayed request (what the auto-submit JS does)
-    patch "/u/#{@handle}/settings/email", params: { email: @new_email }
+    patch "/settings/email", params: { email: @new_email }
 
     # Should succeed (redirect to settings), not raise CSRF error
     assert_response :redirect
@@ -184,7 +184,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     initiate_email_change!
 
-    delete "/u/#{@handle}/settings/email"
+    delete "/settings/email"
 
     @user.reload
     assert_nil @user.pending_email
@@ -195,7 +195,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
   test "cancel without pending email is harmless" do
     sign_in_as(@user, tenant: @tenant)
 
-    delete "/u/#{@handle}/settings/email"
+    delete "/settings/email"
 
     assert_response :redirect
     @user.reload
@@ -217,31 +217,38 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
   # Authorization
   # ====================
 
-  test "another user cannot initiate email change for someone else" do
+  # The email-change routes are handle-free (/settings/email), so they carry no
+  # target and always operate on the signed-in user. The old handle-in-URL
+  # hijack vector (POST /u/<victim>/settings/email) no longer exists by
+  # construction; these pin that another user's request can only ever touch
+  # their own account, never @user's.
+  test "the handle-free email-change route only ever affects the signed-in user" do
     other_user = create_user(email: "other-#{SecureRandom.hex(4)}@example.com", name: "Other")
     @tenant.add_user!(other_user)
     @collective.add_user!(other_user)
-    sign_in_with_reverification(other_user, tenant: @tenant, path: "/u/#{@handle}/settings/email", method: :patch)
+    sign_in_with_reverification(other_user, tenant: @tenant, path: "/settings/email", method: :patch)
 
-    patch "/u/#{@handle}/settings/email", params: { email: "hacked@example.com" }
+    patch "/settings/email", params: { email: "hacked@example.com" }
 
-    assert_response :forbidden
     @user.reload
-    assert_nil @user.pending_email
+    assert_nil @user.pending_email, "@user must be structurally untouchable from another user's settings"
+    other_user.reload
+    assert_equal "hacked@example.com", other_user.pending_email,
+      "the request changes the requester's own email, not anyone else's"
   end
 
-  test "another user cannot cancel someone else's pending email change" do
+  test "the handle-free email-cancel route only ever affects the signed-in user" do
     initiate_email_change!
     other_user = create_user(email: "other2-#{SecureRandom.hex(4)}@example.com", name: "Other2")
     @tenant.add_user!(other_user)
     @collective.add_user!(other_user)
     sign_in_as(other_user, tenant: @tenant)
 
-    delete "/u/#{@handle}/settings/email"
+    delete "/settings/email"
 
-    assert_response :forbidden
     @user.reload
-    assert_equal @new_email, @user.pending_email, "Pending email should not be cleared by another user"
+    assert_equal @new_email, @user.pending_email,
+      "another user's cancel operates on their own account and must not clear @user's pending change"
   end
 
   # ====================
@@ -251,7 +258,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
   test "invalid email format is rejected" do
     sign_in_and_reverify!
 
-    patch "/u/#{@handle}/settings/email", params: { email: "not-an-email" }
+    patch "/settings/email", params: { email: "not-an-email" }
 
     @user.reload
     assert_nil @user.pending_email
@@ -260,7 +267,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
   test "same-as-current email is rejected" do
     sign_in_and_reverify!
 
-    patch "/u/#{@handle}/settings/email", params: { email: @user.email }
+    patch "/settings/email", params: { email: @user.email }
 
     @user.reload
     assert_nil @user.pending_email
@@ -290,11 +297,11 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
     first_email = "first-#{SecureRandom.hex(4)}@example.com"
     second_email = "second-#{SecureRandom.hex(4)}@example.com"
 
-    patch "/u/#{@handle}/settings/email", params: { email: first_email }
+    patch "/settings/email", params: { email: first_email }
     @user.reload
     assert_equal first_email, @user.pending_email
 
-    patch "/u/#{@handle}/settings/email", params: { email: second_email }
+    patch "/settings/email", params: { email: second_email }
     @user.reload
     assert_equal second_email, @user.pending_email, "Second request should overwrite the first pending email"
   end
@@ -303,7 +310,7 @@ class EmailChangeTest < ActionDispatch::IntegrationTest
 
   # Sign in and complete reverification for the email change scope
   def sign_in_and_reverify!
-    sign_in_with_reverification(@user, tenant: @tenant, path: "/u/#{@handle}/settings/email", method: :patch)
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/settings/email", method: :patch)
   end
 
   # Helper: initiate an email change bypassing reverification, return the raw token

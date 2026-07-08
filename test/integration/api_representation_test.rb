@@ -72,7 +72,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
   # Helper to start a representation session via the API
   # Returns the session ID (full UUID) from the response
   def start_representation_session_via_api(grant:, headers: @headers)
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
          headers: headers
 
     assert_response :success, "Failed to start representation session: #{response.body}"
@@ -90,7 +90,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
       "X-Representation-Session-ID" => session_id,
       "X-Representing-User" => grant.granting_user.handle
     )
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
          headers: headers_with_session
 
     assert_response :success, "Failed to end representation session: #{response.body}"
@@ -373,11 +373,12 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
                     "No warning when there is no active rep session at all"
   end
 
-  test "warning end path uses the actor handle even when a rep session is attached" do
+  test "warning end path is the handle-free trustee path the actor can self-act on" do
     # Defensive: if an actor has session A attached AND session B unattached
     # (rare under singleton enforcement but possible across mixed browser/API
-    # flows), the warning for B must point the agent at THEIR own /u/<handle>
-    # path — not the represented user's path, which they can't self-act under.
+    # flows), the warning for B must point the agent at the handle-free trustee
+    # path, which resolves to THEM (the actor) so they can self-act — not at any
+    # grantor-scoped URL they couldn't act under.
     grant_a = TrusteeGrant.create!(
       tenant: @tenant,
       granting_user: @alice,
@@ -419,10 +420,12 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
                     "Warning should call out the unattached session B"
     refute_includes body, session_a_id,
                     "Warning must not list session A (the attached one)"
-    assert_includes body, "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}",
-                    "End path must use the trustee's own handle so they can self-act on it"
+    assert_includes body, "/settings/trustee-authorizations/#{grant_b.truncated_id}",
+                    "End path must be the handle-free trustee path so the actor can self-act on it"
     refute_includes body, "/u/#{other_grantor.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}",
-                    "End path must NOT point at the grantor's URL — the trustee can't self-act there"
+                    "End path must NOT embed the grantor's handle — the trustee can't self-act there"
+    refute_includes body, "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}",
+                    "End path must be handle-free, not the actor's old /u/<handle> form"
   end
 
   test "starting a new rep session while one is already active raises with the end recipe" do
@@ -454,7 +457,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     # Bob tries to start a second session (on a different grant) without
     # attaching session A. With the gate dropped this used to silently
     # create a second session — now it must error.
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}/actions/start_representation",
+    post "/settings/trustee-authorizations/#{grant_b.truncated_id}/actions/start_representation",
          headers: @headers
     refute_equal 200, response.status,
                  "Starting a second concurrent session should fail, got 200 with body: #{response.body[0..300]}"
@@ -488,7 +491,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
 
     session_a_id = start_representation_session_via_api(grant: grant)
 
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/actions/start_representation",
          headers: @headers
     refute_equal 200, response.status,
                  "Re-starting on the same grant while a session is active should fail"
@@ -530,7 +533,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     )
     grant_b.accept!
 
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant_b.truncated_id}/actions/start_representation",
+    post "/settings/trustee-authorizations/#{grant_b.truncated_id}/actions/start_representation",
          headers: @headers
     assert_response :success, "Starting a new session after the prior one ended should succeed: #{response.body[0..300]}"
   end
@@ -553,7 +556,7 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     session = RepresentationSession.find(session_id)
     assert session.active?, "session should be active before end"
 
-    end_path = "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation"
+    end_path = "/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation"
 
     post end_path, headers: @headers
     assert_response :success, "end_representation at the warning's path should succeed: #{response.body[0..300]}"

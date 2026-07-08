@@ -29,6 +29,8 @@ class EmailChangeMailer < ApplicationMailer
     hostname = ENV["HOSTNAME"]
     handle = tenant&.tenant_users&.find_by(user: user)&.handle || user.handle
 
+    # Confirmation stays handle-scoped: it is token-authenticated and must work
+    # without a session, so the handle (not current_user) identifies the account.
     "#{protocol}://#{subdomain}.#{hostname}/u/#{handle}/settings/email/confirm/#{raw_token}"
   end
 

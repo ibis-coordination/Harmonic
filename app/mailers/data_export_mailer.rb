@@ -17,8 +17,7 @@ class DataExportMailer < ApplicationMailer
     @data_export = data_export
     @user = data_export.user
     @tenant = data_export.tenant
-    handle = @user.tenant_users.find_by(tenant_id: @tenant.id)&.handle
-    @download_url = "#{@tenant.url}/u/#{handle}/settings/data-export/#{data_export.id}"
+    @download_url = "#{@tenant.url}/settings/data-export/#{data_export.id}"
 
     mail(
       to: @user.email,

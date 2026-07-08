@@ -6,6 +6,9 @@
 class WebPushSubscriptionsController < ApplicationController
   extend T::Sig
 
+  include SettingsSubjectDefaulting
+
+  before_action :default_settings_handle_to_current_user
   before_action :require_web_push_enabled
   before_action :set_user
 
@@ -50,7 +53,7 @@ class WebPushSubscriptionsController < ApplicationController
       subscription.revoke!(reason: "user")
       flash[:notice] = "Push notifications disabled for #{subscription.device_label.presence || "that device"}."
     end
-    redirect_to "#{@showing_user.path}/settings"
+    redirect_to "/settings"
   end
 
   private

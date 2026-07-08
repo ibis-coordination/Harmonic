@@ -84,7 +84,7 @@ class BillingGateTest < ActionDispatch::IntegrationTest
 
   test "user settings page is exempt from billing gate" do
     sign_in_as(@user, tenant: @tenant)
-    get "/u/#{@user.handle}/settings"
+    get "/settings"
 
     assert_response :success
   end

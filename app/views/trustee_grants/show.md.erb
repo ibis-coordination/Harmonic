@@ -1,5 +1,5 @@
 <%
-base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations/#{@grant.truncated_id}"
+base_path = "/settings/trustee-authorizations/#{@grant.truncated_id}"
 is_granting = @grant.granting_user == @target_user
 is_trustee = @grant.trustee_user == @target_user
 scope = @grant.collective_scope || { "mode" => "all" }
@@ -52,7 +52,7 @@ Sessions where **<%= @grant.trustee_user.display_name || @grant.trustee_user.han
 
 ## Navigation
 
-* [All Trustee Authorizations](/u/<%= @target_user.handle %>/settings/trustee-authorizations)
+* [All Trustee Authorizations](/settings/trustee-authorizations)
 <% if @target_user == @current_user -%>
 * [Settings](/settings)
 <% else -%>

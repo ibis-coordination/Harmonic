@@ -235,9 +235,6 @@ Rails.application.routes.draw do
   get '404' => 'home#page_not_found'
   get 'home' => 'home#index'
   get 'actions' => 'home#actions_index'
-  # Redirect /settings to user-specific settings path
-  get 'settings' => 'users#redirect_to_settings'
-
   get 'about' => 'home#about'
   get 'help' => 'help#index'
   %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents self-hosting-agents trio automations webhooks api rest-api markdown-ui mcp notifications representation billing].each do |topic|
@@ -389,17 +386,12 @@ Rails.application.routes.draw do
   get 'admin' => 'admin_chooser#index'
 
   resources :users, path: 'u', param: :handle, only: [:show] do
-    get 'settings', on: :member
-    post 'settings/profile' => 'users#update_profile', on: :member
-    post 'settings/workspace_trio' => 'users#update_workspace_trio', on: :member
-    patch 'settings/email' => 'users#update_email', on: :member
-    delete 'settings/email' => 'users#cancel_email_change', on: :member
-    get 'settings/email/confirm/:token' => 'users#confirm_email', on: :member, as: 'confirm_email'
     patch 'image' => 'users#update_image', on: :member
-    delete 'settings/devices/:device_id' => 'devices#destroy', on: :member
-    post   'settings/devices/revoke_others' => 'devices#revoke_others', on: :member
-    post   'settings/push-subscriptions' => 'web_push_subscriptions#create', on: :member
-    delete 'settings/push-subscriptions/:subscription_id' => 'web_push_subscriptions#destroy', on: :member
+    # API tokens stay hosted per-user (NOT moved to the handle-free /settings):
+    # an AI agent owns its own tokens and manages them from its
+    # /ai-agents/:handle/settings page, so the :handle here is load-bearing — it
+    # may be the signed-in human OR one of their agents. ApiTokensController
+    # resolves and authorizes the owner from it (self or own-agent).
     resources :api_tokens,
               path: 'settings/tokens',
               only: [:new, :create, :show, :destroy] do
@@ -407,6 +399,14 @@ Rails.application.routes.draw do
       # up billing as part of creating their first billable token.
       get :finalize, on: :collection
     end
+    get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
+    get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
+    post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
+    # Email-change confirmation stays handle-scoped: it is a token-authenticated
+    # deep link that must work WITHOUT a session (clicked from an email in any
+    # browser), so the :handle — not current_user — identifies whose pending
+    # email is being confirmed. The token is the proof; see users#confirm_email.
+    get 'settings/email/confirm/:token' => 'users#confirm_email', on: :member, as: 'confirm_email'
     # Representation routes
     post 'represent' => 'users#represent', on: :member
     delete 'represent' => 'users#stop_representing', on: :member
@@ -421,75 +421,109 @@ Rails.application.routes.draw do
     get  'lists'                    => 'user_lists#index',                on: :member
     # Mutuals — users who tune in to this user AND who this user tunes in to
     get  'mutuals'                  => 'users#mutuals',                   on: :member
-    # User settings actions
-    get 'settings/actions' => 'users#actions_index', on: :member
-    get 'settings/actions/update_profile' => 'users#describe_update_profile', on: :member
-    post 'settings/actions/update_profile' => 'users#execute_update_profile', on: :member
-    # Notification preferences (channel x type matrix)
-    post 'settings/notifications' => 'users#update_notification_preferences', on: :member
-    get 'settings/actions/update_notification_preferences' => 'users#describe_update_notification_preferences', on: :member
-    post 'settings/actions/update_notification_preferences' => 'users#execute_update_notification_preferences', on: :member
-    # API token actions
-    get 'settings/tokens/new/actions' => 'api_tokens#actions_index', on: :member
-    get 'settings/tokens/new/actions/create_api_token' => 'api_tokens#describe_create_api_token', on: :member
-    post 'settings/tokens/new/actions/create_api_token' => 'api_tokens#execute_create_api_token', on: :member
-    # Per-user data export
-    get  'settings/data-export'              => 'user_data_exports#index',    on: :member
-    post 'settings/data-export'              => 'user_data_exports#create',   on: :member
-    get  'settings/data-export/:export_id'   => 'user_data_exports#download', on: :member, as: :user_data_export_download
-    # Trustee authorization management (TrusteeGrant model; user-facing
-    # vocabulary is "trustee authorization"). Action names remain
-    # accept_trustee_authorization / decline_trustee_authorization / etc. — a separate
-    # follow-up renames those.
-    get 'settings/trustee-authorizations' => 'trustee_grants#index', on: :member
-    get 'settings/trustee-authorizations/actions' => 'trustee_grants#actions_index', on: :member
-    get 'settings/trustee-authorizations/new' => 'trustee_grants#new', on: :member
-    get 'settings/trustee-authorizations/new/actions' => 'trustee_grants#actions_index_new', on: :member
-    get 'settings/trustee-authorizations/new/actions/create_trustee_authorization' => 'trustee_grants#describe_create', on: :member
-    post 'settings/trustee-authorizations/new/actions/create_trustee_authorization' => 'trustee_grants#execute_create', on: :member
-    get 'settings/trustee-authorizations/:grant_id' => 'trustee_grants#show', on: :member
-    get 'settings/trustee-authorizations/:grant_id/actions' => 'trustee_grants#actions_index_show', on: :member
-    get 'settings/trustee-authorizations/:grant_id/actions/accept_trustee_authorization' => 'trustee_grants#describe_accept', on: :member
-    post 'settings/trustee-authorizations/:grant_id/actions/accept_trustee_authorization' => 'trustee_grants#execute_accept', on: :member
-    get 'settings/trustee-authorizations/:grant_id/actions/decline_trustee_authorization' => 'trustee_grants#describe_decline', on: :member
-    post 'settings/trustee-authorizations/:grant_id/actions/decline_trustee_authorization' => 'trustee_grants#execute_decline', on: :member
-    get 'settings/trustee-authorizations/:grant_id/actions/revoke_trustee_authorization' => 'trustee_grants#describe_revoke', on: :member
-    post 'settings/trustee-authorizations/:grant_id/actions/revoke_trustee_authorization' => 'trustee_grants#execute_revoke', on: :member
-    get 'settings/trustee-authorizations/:grant_id/actions/start_representation' => 'trustee_grants#describe_start_representation', on: :member
-    post 'settings/trustee-authorizations/:grant_id/actions/start_representation' => 'trustee_grants#execute_start_representation', on: :member
-    get 'settings/trustee-authorizations/:grant_id/actions/end_representation' => 'trustee_grants#describe_end_representation', on: :member
-    post 'settings/trustee-authorizations/:grant_id/actions/end_representation' => 'trustee_grants#execute_end_representation', on: :member
-    post 'settings/trustee-authorizations/:grant_id/represent' => 'trustee_grants#start_representing', on: :member
-
-    # 308 redirects from the old trustee-grants URL path. Preserves method
-    # (POSTs stay POSTs) so external integrations that haven't picked up
-    # the rename keep working. Query string preserved.
-    match 'settings/trustee-grants(/*rest)' => redirect(status: 308) { |params, req|
-      rest = params[:rest]
-      base = "/u/#{params[:handle]}/settings/trustee-authorizations"
-      target = rest.present? ? "#{base}/#{rest}" : base
-      req.query_string.present? ? "#{target}?#{req.query_string}" : target
-    }, via: :all, on: :member
-
-    # 308 redirects from the old action-name route segments. Catches agents
-    # with hardcoded old action names (e.g. accept_trustee_grant) that
-    # construct URLs against the new parent path.
-    {
-      "accept_trustee_grant" => "accept_trustee_authorization",
-      "decline_trustee_grant" => "decline_trustee_authorization",
-      "revoke_trustee_grant" => "revoke_trustee_authorization",
-    }.each do |old_action, new_action|
-      match "settings/trustee-authorizations/:grant_id/actions/#{old_action}" => redirect(status: 308) { |params, req|
-        target = "/u/#{params[:handle]}/settings/trustee-authorizations/#{params[:grant_id]}/actions/#{new_action}"
-        req.query_string.present? ? "#{target}?#{req.query_string}" : target
-      }, via: :all, on: :member
-    end
-
-    match "settings/trustee-authorizations/new/actions/create_trustee_grant" => redirect(status: 308) { |params, req|
-      target = "/u/#{params[:handle]}/settings/trustee-authorizations/new/actions/create_trustee_authorization"
-      req.query_string.present? ? "#{target}?#{req.query_string}" : target
-    }, via: :all, on: :member
   end
+
+  # ============================================================
+  # User settings — canonical at the handle-free top-level /settings.
+  # ============================================================
+  #
+  # A user's personal settings are self-only (User#can_edit? is
+  # self-or-own-agent), so the handle in /u/:handle/settings carried no
+  # information — it only created a second, unguarded copy of every personal
+  # surface, which is the representation hole #419 exposed and #420/#454 close.
+  # The subject is always the signed-in user; the settings controllers default
+  # params[:handle] to current_user (SettingsSubjectDefaulting) so their action
+  # bodies are unchanged. Blocking representation now needs only the two literal
+  # prefixes /chat and /settings (RepresentationPolicy), with no per-request
+  # handle interpolation. Legacy /u/:handle/settings(/*rest) 308-redirects here —
+  # see users#redirect_legacy_settings, defined at the end of this block.
+  #
+  # Exception: API tokens stay under /u/:handle/settings/tokens (see the users
+  # resources above) because an agent owns its own tokens — the handle there is
+  # load-bearing. That surface is can_edit?-gated, so it isn't a representation
+  # hole (a representative acting as an agent can only reach the agent's own).
+  #
+  # (Two-factor already lives here at /settings/two-factor; see the auth block.)
+  get 'settings' => 'users#settings', as: 'settings'
+  post 'settings/profile' => 'users#update_profile'
+  post 'settings/workspace_trio' => 'users#update_workspace_trio'
+  patch 'settings/email' => 'users#update_email'
+  delete 'settings/email' => 'users#cancel_email_change'
+  delete 'settings/devices/:device_id' => 'devices#destroy'
+  post   'settings/devices/revoke_others' => 'devices#revoke_others'
+  post   'settings/push-subscriptions' => 'web_push_subscriptions#create'
+  delete 'settings/push-subscriptions/:subscription_id' => 'web_push_subscriptions#destroy'
+  # User settings actions
+  get 'settings/actions' => 'users#actions_index'
+  get 'settings/actions/update_profile' => 'users#describe_update_profile'
+  post 'settings/actions/update_profile' => 'users#execute_update_profile'
+  # Notification preferences (channel x type matrix)
+  post 'settings/notifications' => 'users#update_notification_preferences'
+  get 'settings/actions/update_notification_preferences' => 'users#describe_update_notification_preferences'
+  post 'settings/actions/update_notification_preferences' => 'users#execute_update_notification_preferences'
+  # Per-user data export
+  get  'settings/data-export'              => 'user_data_exports#index'
+  post 'settings/data-export'              => 'user_data_exports#create'
+  get  'settings/data-export/:export_id'   => 'user_data_exports#download', as: :settings_data_export_download
+  # Trustee authorization management (TrusteeGrant model; user-facing
+  # vocabulary is "trustee authorization"). Action names remain
+  # accept_trustee_authorization / decline_trustee_authorization / etc. — a separate
+  # follow-up renames those.
+  get 'settings/trustee-authorizations' => 'trustee_grants#index'
+  get 'settings/trustee-authorizations/actions' => 'trustee_grants#actions_index'
+  get 'settings/trustee-authorizations/new' => 'trustee_grants#new'
+  get 'settings/trustee-authorizations/new/actions' => 'trustee_grants#actions_index_new'
+  get 'settings/trustee-authorizations/new/actions/create_trustee_authorization' => 'trustee_grants#describe_create'
+  post 'settings/trustee-authorizations/new/actions/create_trustee_authorization' => 'trustee_grants#execute_create'
+  get 'settings/trustee-authorizations/:grant_id' => 'trustee_grants#show'
+  get 'settings/trustee-authorizations/:grant_id/actions' => 'trustee_grants#actions_index_show'
+  get 'settings/trustee-authorizations/:grant_id/actions/accept_trustee_authorization' => 'trustee_grants#describe_accept'
+  post 'settings/trustee-authorizations/:grant_id/actions/accept_trustee_authorization' => 'trustee_grants#execute_accept'
+  get 'settings/trustee-authorizations/:grant_id/actions/decline_trustee_authorization' => 'trustee_grants#describe_decline'
+  post 'settings/trustee-authorizations/:grant_id/actions/decline_trustee_authorization' => 'trustee_grants#execute_decline'
+  get 'settings/trustee-authorizations/:grant_id/actions/revoke_trustee_authorization' => 'trustee_grants#describe_revoke'
+  post 'settings/trustee-authorizations/:grant_id/actions/revoke_trustee_authorization' => 'trustee_grants#execute_revoke'
+  get 'settings/trustee-authorizations/:grant_id/actions/start_representation' => 'trustee_grants#describe_start_representation'
+  post 'settings/trustee-authorizations/:grant_id/actions/start_representation' => 'trustee_grants#execute_start_representation'
+  get 'settings/trustee-authorizations/:grant_id/actions/end_representation' => 'trustee_grants#describe_end_representation'
+  post 'settings/trustee-authorizations/:grant_id/actions/end_representation' => 'trustee_grants#execute_end_representation'
+  post 'settings/trustee-authorizations/:grant_id/represent' => 'trustee_grants#start_representing'
+
+  # 308 redirects from the old trustee-grants URL path. Preserves method
+  # (POSTs stay POSTs) so external integrations that haven't picked up
+  # the rename keep working. Query string preserved.
+  match 'settings/trustee-grants(/*rest)' => redirect(status: 308) { |params, req|
+    rest = params[:rest]
+    base = "/settings/trustee-authorizations"
+    target = rest.present? ? "#{base}/#{rest}" : base
+    req.query_string.present? ? "#{target}?#{req.query_string}" : target
+  }, via: :all
+
+  # 308 redirects from the old action-name route segments. Catches agents
+  # with hardcoded old action names (e.g. accept_trustee_grant) that
+  # construct URLs against the new parent path.
+  {
+    "accept_trustee_grant" => "accept_trustee_authorization",
+    "decline_trustee_grant" => "decline_trustee_authorization",
+    "revoke_trustee_grant" => "revoke_trustee_authorization",
+  }.each do |old_action, new_action|
+    match "settings/trustee-authorizations/:grant_id/actions/#{old_action}" => redirect(status: 308) { |params, req|
+      target = "/settings/trustee-authorizations/#{params[:grant_id]}/actions/#{new_action}"
+      req.query_string.present? ? "#{target}?#{req.query_string}" : target
+    }, via: :all
+  end
+
+  match "settings/trustee-authorizations/new/actions/create_trustee_grant" => redirect(status: 308) { |params, req|
+    target = "/settings/trustee-authorizations/new/actions/create_trustee_authorization"
+    req.query_string.present? ? "#{target}?#{req.query_string}" : target
+  }, via: :all
+
+  # Legacy /u/:handle/settings(/*rest) → the canonical handle-free surface.
+  # Humans land on /settings(/*rest); an AI agent's settings live at
+  # /ai-agents/:handle/settings, so the redirect target branches on user type.
+  # 308 preserves method and query string. Keeps old links, bookmarks, and
+  # emailed URLs alive.
+  match 'u/:handle/settings(/*rest)' => 'users#redirect_legacy_settings', via: :all
 
   # Representation session routes (not scoped to a specific collective)
   get '/representing' => 'representation_sessions#representing'

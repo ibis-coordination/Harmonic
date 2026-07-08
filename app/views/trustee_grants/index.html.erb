@@ -1,11 +1,11 @@
 <%
-base_path = "/u/#{@target_user.handle}/settings/trustee-authorizations"
+base_path = "/settings/trustee-authorizations"
 %>
 
 <%= render 'shared/pulse_breadcrumb', items: [
   ['Home', '/'],
   [@target_user.display_name, "/u/#{@target_user.handle}"],
-  ['Settings', "/u/#{@target_user.handle}/settings"],
+  ['Settings', "/settings"],
   'Trustee Authorizations'
 ] %>
 

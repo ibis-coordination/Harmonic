@@ -4,7 +4,9 @@
 # or scrubbed on their account closure. See `.claude/plans/per-user-data-export.md`.
 class UserDataExportsController < ApplicationController
   include RequiresReverification
+  include SettingsSubjectDefaulting
 
+  before_action :default_settings_handle_to_current_user
   before_action :reject_api_token_auth
   before_action :require_login
   before_action :require_feature_enabled
@@ -120,6 +122,6 @@ class UserDataExportsController < ApplicationController
   end
 
   def user_data_export_path
-    "/u/#{@settings_user.tenant_users.find_by(tenant_id: @current_tenant.id).handle}/settings/data-export"
+    "/settings/data-export"
   end
 end

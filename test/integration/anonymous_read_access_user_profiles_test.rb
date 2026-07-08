@@ -224,6 +224,6 @@ class AnonymousReadAccessUserProfilesTest < ActionDispatch::IntegrationTest
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
     get "/u/#{@human_handle}"
     assert_response :success
-    assert_match(%r{/u/#{Regexp.escape(@human_handle)}/settings}, response.body)
+    assert_match(%r{/settings}, response.body)
   end
 end
