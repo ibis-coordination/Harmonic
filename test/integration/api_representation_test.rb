@@ -1066,7 +1066,9 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     grant.accept!
     session_id = start_representation_session_via_api(grant: grant)
 
-    post "/u/#{@bob.handle}/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
+    # Handle-free trustee path (#420 moved settings off /u/:handle); the actor
+    # self-acts on the grant, so no grantor/representative handle is embedded.
+    post "/settings/trustee-authorizations/#{grant.truncated_id}/actions/end_representation",
          headers: @headers.merge(
            "X-Representation-Session-ID" => session_id,
            "X-Representing-User" => @alice.handle,
