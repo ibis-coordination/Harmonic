@@ -289,9 +289,20 @@ module Internal
       # parallel skip in AgentRunnerDispatchService.
       if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
         billing_customer = ai_agent.billing_customer
-        # Prepaid AI credits (the metered pricing-plan subscription), not the
-        # paid workspace subscription (active?), fund agent usage — a free
-        # account with LLM credits can run agents. Mirrors the dispatch gate.
+
+        # (a) The agent's identity must be paid for — an active billing_customer
+        # (its principal's per-identity subscription) — unless the principal is a
+        # free account (nothing billable, e.g. an app admin), which owes no such
+        # fee. billable_quantity of zero is exactly that case. Mirrors the
+        # dispatch gate.
+        unless billing_customer&.active? || ai_agent.parent&.billable_quantity&.zero?
+          render json: { status: "fail", reason: "Billing is not set up" }
+          return
+        end
+
+        # (b) LLM usage must be funded by prepaid credits (the metered
+        # pricing-plan subscription), for free-account and paying principals
+        # alike. Topping up at /billing creates the subscription.
         if billing_customer.nil? || billing_customer.pricing_plan_subscription_id.blank?
           render json: { status: "fail", reason: "AI usage billing is not set up" }
           return

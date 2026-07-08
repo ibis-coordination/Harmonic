@@ -139,8 +139,31 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     # No error raised = no broadcast attempted for non-chat task
   end
 
-  test "fails task when stripe billing enabled but AI credits not set up" do
+  test "fails task when stripe billing enabled but identity is not paid for" do
+    # Normal (non-exempt) principal with no active subscription: the per-identity
+    # fee is unpaid, so the identity gate (a) fails. This is the norm.
     enable_stripe_billing_flag!(@tenant)
+
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_includes @task_run.error, "Billing is not set up"
+  end
+
+  test "fails a free-account principal that has no prepaid credits" do
+    # A free-account principal (app admin — nothing billable) clears the
+    # identity gate (a), but agent usage is still funded by prepaid credits, so
+    # with no pricing-plan subscription the credit gate (b) fails.
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    billing_customer = StripeCustomer.create!(
+      billable: @ai_agent,
+      stripe_id: "cus_free_nocredits",
+      active: false,
+      pricing_plan_subscription_id: nil,
+    )
+    @ai_agent.update!(stripe_customer_id: billing_customer.id)
 
     AgentRunnerDispatchService.dispatch(@task_run)
 
@@ -149,12 +172,14 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_includes @task_run.error, "AI usage billing is not set up"
   end
 
-  test "dispatches for a free account (no paid subscription) that has prepaid AI credits" do
-    # Regression for #450: a free account (active: false) that bought LLM
-    # credits sets up the metered pricing-plan subscription, which is what
-    # funds agent usage. The paid workspace subscription (active?) is separate
-    # and must not gate agent dispatch.
+  test "dispatches for a free-account principal that has prepaid AI credits" do
+    # Regression for #450: a free account (an app admin — nothing billable, so
+    # no per-identity subscription and active? is legitimately false) that has
+    # bought LLM credits sets up the metered pricing-plan subscription, which is
+    # what funds agent usage. The per-identity subscription is a separate
+    # concern and must not gate dispatch for such an exempt principal.
     enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
     billing_customer = StripeCustomer.create!(
       billable: @ai_agent,
       stripe_id: "cus_free123",

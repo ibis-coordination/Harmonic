@@ -78,14 +78,16 @@ class AutomationExecutor
       return
     end
 
-    # Billing gate: if stripe_billing is enabled, the agent must have prepaid AI
-    # credits set up (the metered pricing-plan subscription). This is decoupled
-    # from the paid workspace subscription (active?) — a free account that has
-    # bought LLM credits can run agents. System agents (e.g., Trio) are exempt:
-    # they have no billing_customer and run on the deployment's account. Mirrors
-    # the gate in AgentRunnerDispatchService.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !ai_agent.billing_customer&.pricing_plan_subscription_id.present?
-      @run.mark_failed!("AI usage billing is not set up for this agent's billing customer. Add credits at /billing.")
+    # Billing gate: if stripe_billing is enabled, the agent's identity must be
+    # paid for (an active billing_customer). The one exception is a free-account
+    # principal (nothing billable — e.g. an app admin), which owes no per-identity
+    # fee; billable_quantity of zero is exactly that case. System agents (e.g.,
+    # Trio) are exempt: they have no principal and run on the deployment's
+    # account. The prepaid-credit requirement is enforced authoritatively when
+    # the task dispatches (AgentRunnerDispatchService), which this mirrors.
+    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? &&
+       !(ai_agent.billing_customer&.active? || ai_agent.parent&.billable_quantity&.zero?)
+      @run.mark_failed!("Billing is not set up for this agent's billing customer. Set up billing at /billing.")
       return
     end
 
@@ -346,12 +348,14 @@ class AutomationExecutor
       end
     end
 
-    # Billing gate: if stripe_billing is enabled, the agent must have prepaid AI
-    # credits set up (the metered pricing-plan subscription), decoupled from the
-    # paid workspace subscription. System agents (e.g., Trio) are exempt — same
-    # as the gate above and in AgentRunnerDispatchService.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? && !agent.billing_customer&.pricing_plan_subscription_id.present?
-      return { "status" => "failed", "error" => "AI usage billing is not set up for this agent's billing customer. Add credits at /billing." }
+    # Billing gate: if stripe_billing is enabled, the agent's identity must be
+    # paid for, with the free-account principal exemption (billable_quantity of
+    # zero) — same as the gate above and in AgentRunnerDispatchService. System
+    # agents (e.g., Trio) are exempt. The prepaid-credit requirement is enforced
+    # at dispatch.
+    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? &&
+       !(agent.billing_customer&.active? || agent.parent&.billable_quantity&.zero?)
+      return { "status" => "failed", "error" => "Billing is not set up for this agent's billing customer. Set up billing at /billing." }
     end
 
     # Authorization check: can the rule creator trigger this agent?
