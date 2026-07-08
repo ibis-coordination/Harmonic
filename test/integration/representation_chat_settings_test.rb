@@ -2,37 +2,32 @@
 
 require "test_helper"
 
-# FAILING-TEST REPRO for Harmonic#419.
+# Acceptance tests for Harmonic#419 / #454 (representation policy layer).
 #
 # While a representation session is active, navigating directly to /chat or
-# /settings drops out of the represented context but leaves the session
-# *silently still active*. The representative ends up looking at a personal
+# /settings used to drop out of the represented context but leave the session
+# *silently still active*. The representative ended up looking at a personal
 # surface (or a dead-end 403 / a crash) while the collective's
-# representation-sessions list still shows the session running — the confusing
+# representation-sessions list still showed the session running — the confusing
 # "in-between" the issue flags.
 #
-# PR #417 hid the /chat and /settings *nav affordances* during representation so
-# users are far less likely to stumble into this, but intentionally did NOT
-# change controller behavior. #419 tracks the controller-level fix. Dan asked for
-# a draft PR with failing tests only, as a starting point for whenever we return
-# to it — so these tests are EXPECTED TO FAIL against current `main`.
+# Root cause: the path/route guard lived inside the *memoized*
+# ApplicationController#current_representation_session helper, so once a resolver
+# had set @current_representation_session the helper returned early and the
+# guard never ran in the browser flow. #454 moves enforcement into a real
+# before_action (RepresentationPolicy#enforce_representation_scope!) so no route
+# can dodge it.
 #
-# What they assert is the *existing* representation contract, stated in
-# ApplicationController#current_representation_session (application_controller.rb):
+# The representation contract these tests assert:
+#   * User representation confines navigation to /collectives/* and
+#     /representing; any other top-level route (/chat, /settings) bounces to
+#     /representing rather than quietly rendering a personal surface.
+#   * Collective representation routes /chat and /settings *through* the session
+#     (the collective acts as itself and can edit its public profile), instead
+#     of bouncing or crashing.
 #
-#     "Representation session should always be scoped to a collective or the
-#      /representing page."
-#
-# i.e. an active session should confine navigation to /collectives/* and
-# /representing; any other top-level route should bounce to /representing rather
-# than quietly render a personal surface. That guard is a lazily-evaluated helper
-# and never fires in the browser flow, which is the root of #419.
-#
-# NOTE ON THE EVENTUAL FIX: the issue leans toward routing /chat and /settings
-# *through* a COLLECTIVE session (act as the collective) rather than simply
-# bouncing to /representing. When that decision lands, the collective-side
-# expectations below should be revisited. The USER-representation cases
-# (chat/settings should stay blocked) are unambiguous.
+# PR #417 additionally hid the /chat and /settings nav affordances during
+# representation; this is the controller-level fix behind that.
 
 # ---------------------------------------------------------------------------
 # USER representation: a parent representing their AI-agent user.
@@ -77,9 +72,9 @@ class RepresentationUserChatSettingsTest < ActionDispatch::IntegrationTest
 
     get "/chat"
 
-    # Actual on main: 200 — the chat surface renders while the session stays
-    # silently active (Repro steps 3-4). Expected: representation keeps you
-    # scoped, bouncing to /representing.
+    # Previously (bug): 200 — the chat surface rendered while the session stayed
+    # silently active (Repro steps 3-4). Now: representation keeps you scoped,
+    # bouncing to /representing.
     assert_redirected_to "/representing",
       "#419: /chat should not render during user representation; it left the " \
       "session silently active (active?=#{rep_session.reload.active?}) while " \
@@ -92,9 +87,9 @@ class RepresentationUserChatSettingsTest < ActionDispatch::IntegrationTest
 
     get "/settings"
 
-    # Actual on main: 302 -> /u/<represented>/settings (a personal settings
-    # surface), and the redirect chain dead-ends at 403 with the session still
-    # active. Expected: scoped to /representing.
+    # Previously (bug): 302 -> /u/<represented>/settings (a personal settings
+    # surface), and the redirect chain dead-ended at 403 with the session still
+    # active. Now: scoped to /representing.
     assert_redirected_to "/representing",
       "#419: /settings should not drop to a personal settings surface during " \
       "user representation; the session stayed active (active? " \
@@ -150,11 +145,12 @@ class RepresentationCollectiveChatSettingsTest < ActionDispatch::IntegrationTest
     assert rep_session&.active?, "precondition: collective representation session is active"
 
     get "/settings"
-    # Follow the redirect chain to wherever /settings lands. On main this
-    # redirects to the collective's settings and then raises
+    # Follow the redirect chain to wherever /settings lands. Previously (bug)
+    # this redirected to the collective's settings and then raised
     # NoMethodError: undefined method `is_admin?' for nil — the collective's
-    # identity_user has no collective_member, so the collective can't actually
-    # view its own settings while being represented.
+    # identity_user has no collective_member, so the collective could not view
+    # its own settings while being represented. Now the collective, acting as
+    # itself, is authorized to reach its own settings.
     hops = 0
     while response.status.to_s.start_with?("3") && hops < 5
       begin

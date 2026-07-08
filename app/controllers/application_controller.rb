@@ -4,6 +4,7 @@ class ApplicationController < ActionController::Base
   include ParsesScheduledTime
   include RateLimits
   include PendingInviteStash
+  include RepresentationPolicy
   # Session timeout configuration (in seconds). These checks in
   # check_session_timeout are the sole authority on session expiry — they emit
   # the user-facing flash and the SecurityAuditLog logout event. NOTE:
@@ -22,7 +23,8 @@ class ApplicationController < ActionController::Base
   # mid-2FA. See attempt_silent_refresh for details.
   before_action :attempt_silent_refresh
   before_action :check_auth_subdomain, :current_app, :current_tenant, :current_collective,
-                :current_path, :current_user, :current_resource, :current_representation_session, :current_heartbeat,
+                :current_path, :current_user, :current_resource, :current_representation_session,
+                :enforce_representation_scope!, :current_heartbeat,
                 :load_unread_notification_count, :set_sentry_context
   before_action :check_session_timeout
   # The refresh cookie is sent on every request. If its token has been
@@ -725,19 +727,14 @@ class ApplicationController < ActionController::Base
 
   attr_reader :current_human_user
 
+  # Memoized reader for the active representation session.
+  #
+  # For browser sessions it is set by resolve_browser_representation; for API
+  # requests by resolve_api_representation. Path/route enforcement for active
+  # sessions no longer lives here — it runs eagerly as a real before_action in
+  # RepresentationPolicy#enforce_representation_scope! so that no route can dodge
+  # it (see that module and Harmonic#419).
   def current_representation_session
-    return @current_representation_session if defined?(@current_representation_session)
-
-    # For browser sessions, @current_representation_session is set by resolve_browser_representation
-    # For API requests, it's set by resolve_api_representation
-    # This method handles path validation for active sessions
-    # Representation session should always be scoped to a collective or the /representing page.
-    # The one exception is when ending representation via DELETE /u/:handle/represent.
-    if @current_representation_session&.active? && !(request.path.starts_with?("/representing") ||
-                 request.path.starts_with?("/collectives/"))
-      ending_representation = request.path.ends_with?("/represent") && request.delete?
-      redirect_to "/representing" unless ending_representation
-    end
     @current_representation_session ||= nil
   end
 
