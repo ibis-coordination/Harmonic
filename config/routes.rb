@@ -22,6 +22,12 @@ Rails.application.routes.draw do
     get  'chat/:chat_session_id/history' => 'agent_runner#chat_history'
   end
 
+  # Internal API for the LLM gateway service (IP-restricted + HMAC-signed).
+  # The gateway resolves the payer for a billed LLM call and reports usage.
+  scope "internal/llm-gateway", module: "internal", as: "internal_llm_gateway" do
+    post 'select-payer' => 'llm_gateway#select_payer'
+  end
+
   # Incoming webhooks - public endpoint for external automation triggers
   post 'hooks/:webhook_path' => 'incoming_webhooks#receive', as: 'incoming_webhook'
 
