@@ -65,11 +65,21 @@ class Note < ApplicationRecord
       event_type: "create",
       happened_at: created_at
     )
-    # Under representation, the represented user did not actually read the
-    # note — the representative did. Attribute the auto-read-confirmation
-    # to whoever performed the creation. Self-acting falls through to
-    # `created_by` as before.
-    reader = RepresentationContext.current_representative_user || T.must(created_by)
+    # Auto-confirm a read for whoever actually engaged with the note.
+    #
+    # Under *user* representation the represented user (created_by) did not
+    # read the note — the representative did — so attribute the read to the
+    # representative. Under *collective* representation the note is authored
+    # by the collective's identity user, and the representative read it *as*
+    # a member of that collective, so the collective itself is both author
+    # and reader — her individual identity is not a separate party (#471).
+    # Self-acting falls through to `created_by`.
+    author = T.must(created_by)
+    reader = if author.collective_identity?
+               author
+             else
+               RepresentationContext.current_representative_user || author
+             end
     confirm_read!(reader)
     commentable.confirm_read!(reader) if commentable.is_a?(Note)
   end

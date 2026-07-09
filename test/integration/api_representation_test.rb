@@ -836,6 +836,79 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "acting on behalf of"
   end
 
+  test "creating a note under collective rep auto-confirms the collective, not the representative" do
+    # Inverse of user representation (#471): under *collective* representation
+    # `created_by` is the collective's identity user, and the representative
+    # read the note *as* a member of that collective — so the collective is
+    # both author and reader. The representative's individual identity is not a
+    # separate party and must NOT get its own auto-read-confirmation.
+    @collective.collective_members.find_by(user: @bob).add_role!("representative")
+    identity_user = @collective.identity_user
+    assert identity_user, "collective should have an identity user"
+
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      collective: @collective,
+      representative_user: @bob,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+
+    post "/collectives/#{@collective.handle}/note/actions/create_note",
+         params: { title: "Collective note", text: "Posted as the collective" },
+         headers: @headers.merge(
+           "X-Representation-Session-ID" => session.id,
+           "X-Representing-Collective" => @collective.handle,
+         )
+    assert_response :success
+    note = Note.where(title: "Collective note").last
+    assert note, "note should have been created"
+    assert_equal identity_user.id, note.created_by_id, "note should be authored by the collective identity"
+
+    confirmations = NoteHistoryEvent.where(note: note, event_type: "read_confirmation")
+    assert_equal [identity_user.id], confirmations.pluck(:user_id),
+                 "Only the collective (identity user) should be auto-confirmed as reader; the representative must not be separately marked"
+  end
+
+  test "creating a comment under collective rep auto-confirms the collective on parent and comment" do
+    # Same inversion for the comment path: the collective is the reader of both
+    # the comment and the parent it replies to, not the representative.
+    @collective.collective_members.find_by(user: @bob).add_role!("representative")
+    identity_user = @collective.identity_user
+
+    parent_author = create_user(email: "parent_author_#{SecureRandom.hex(4)}@example.com", name: "Parent Author")
+    @tenant.add_user!(parent_author)
+    mark_activated!(parent_author)
+    @collective.add_user!(parent_author)
+    parent_note = create_note(tenant: @tenant, collective: @collective, created_by: parent_author, title: "Parent")
+
+    session = RepresentationSession.create!(
+      tenant: @tenant,
+      collective: @collective,
+      representative_user: @bob,
+      confirmed_understanding: true,
+      began_at: Time.current,
+    )
+
+    post "#{parent_note.path}/actions/add_comment",
+         params: { text: "Reply as the collective" },
+         headers: @headers.merge(
+           "X-Representation-Session-ID" => session.id,
+           "X-Representing-Collective" => @collective.handle,
+         )
+    assert_response :success
+    comment = Note.where(text: "Reply as the collective").last
+    assert comment, "comment should have been created"
+
+    comment_confirmations = NoteHistoryEvent.where(note: comment, event_type: "read_confirmation").pluck(:user_id)
+    assert_includes comment_confirmations, identity_user.id, "Collective should be auto-confirmed on the comment"
+    refute_includes comment_confirmations, @bob.id, "Representative must not be auto-confirmed on the comment"
+
+    parent_confirmations = NoteHistoryEvent.where(note: parent_note, event_type: "read_confirmation").pluck(:user_id)
+    assert_includes parent_confirmations, identity_user.id, "Collective should be auto-confirmed on the parent"
+    refute_includes parent_confirmations, @bob.id, "Representative must not be auto-confirmed on the parent"
+  end
+
   test "collective representation requires X-Representing-Collective header" do
     # Set up Bob as a representative for the collective
     @collective.collective_members.find_by(user: @bob).add_role!("representative")
