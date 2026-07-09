@@ -104,8 +104,16 @@ external client ──HTTPS──► llm.harmonic.social (Caddy) ──► llm-g
 
 ## The resolve contract (shared by single customer and pool)
 
-Two internal endpoints, both over the existing HMAC + IP-allowlist channel. Designed so
-the gateway is written **once** and never changes as callers or payer types are added.
+Two internal endpoints, both over the existing HMAC + IP-allowlist channel. The **relay**
+(select payer → forward to Stripe → return verbatim) is written once and never changes as
+payer types are added. The **ingress** is the part that grows per caller type: today the
+caller identifies itself with `X-Harmonic-Task-Run-Id` / `X-Harmonic-Subdomain` routing
+headers (agent-runner-specific), and stage 4's external keys will add a different identity
+handshake plus real caller auth at the gateway. The seam holds below the handler.
+
+Note the accepted trade: `select-payer` runs per LLM call, so every call costs one extra
+internal Rails round-trip (milliseconds against an LLM call's seconds). That is the price
+of per-call payer selection, which stage 2's random pick requires.
 
 ### `POST /internal/llm-gateway/select-payer` — before relaying
 
@@ -227,26 +235,30 @@ is resolved via `select-payer` rather than passed in.
 
 Tasks:
 
-1. **`llm-gateway` container** — Node/TS, internal-only on the backend network, reusing the
-   agent-runner's `HmacSigner` / `RailsHttp` / `Logger` / `Retry` to call Rails. Holds
-   `STRIPE_GATEWAY_KEY`.
-2. **Rails `Internal::LlmGatewayController#select_payer`** (inherits `Internal::BaseController`
-   — HMAC + IP allowlist). Resolves the agent-context identity → `ai_agent` → principal →
-   `stripe_customer`, verifies funding (pricing-plan subscription + balance > 0 — the gate-(b)
-   logic already in [agent_runner_dispatch_service.rb:103](../../app/services/agent_runner_dispatch_service.rb#L103)),
-   returns `{ payer_customer_id, selection_id }` or an error. Extraction of existing dispatch
-   logic, not new logic.
-3. **Agent-runner rewire** — `stripe_gateway` mode calls the gateway (passing the
-   task-run / chat-session identity, **not** a customer id); litellm mode unchanged. Remove
-   `stripe_customer_stripe_id` from the dispatch stream and task plumbing
-   ([TaskQueue.ts:73-91](../../agent-runner/src/services/TaskQueue.ts#L73), PromptBuilder,
-   AgentLoop, crypto) — attribution now lives in the gateway, so the passed-through customer
-   id becomes dead data.
-4. **Wiring** — docker-compose `llm-gateway` service, env, Rails route for
-   `/internal/llm-gateway/*`.
-5. **Tests (TDD)** — `select_payer` request tests (resolution, funding gate, errors);
-   agent-runner mode-branch tests (stripe → gateway with identity, litellm untouched);
-   internal-agent parity check verified via the gateway's `llm_request` log + a balance drop.
+1. ✅ **`llm-gateway` service** — built as a second entrypoint in the agent-runner package
+   (`src/gateway/`: Relay + StripeUpstream Effect services, plain-node handler/server),
+   internal-only, reusing `HmacSigner` / `RailsHttp` / `Logger`. Holds `STRIPE_GATEWAY_KEY`
+   (fail-fast boot check). Relay + handler unit-tested.
+2. ✅ **Rails `Internal::LLMGatewayController#select_payer`** (inherits
+   `Internal::BaseController` — HMAC + IP allowlist) + `LLMGateway::PayerResolver`. Resolves
+   the task run → stamped billing customer, verifies the pricing-plan subscription (no live
+   balance fetch — see Open decisions), returns `{ payer_customer_id }` or a coded error.
+   Request-tested incl. cross-tenant isolation. (`selection_id` deferred to stage 2 with
+   `record-usage`, its only consumer.)
+3. ✅ **Agent-runner rewire** — `stripe_gateway` mode posts to the gateway with
+   `X-Harmonic-{Task-Run-Id,Subdomain,Model}` headers; litellm mode unchanged.
+   `stripe_customer_stripe_id` removed from the dispatch stream and task plumbing
+   (legacy payloads still parse); the runner holds no Stripe credentials.
+4. ✅ **Wiring** — `llm-gateway` compose service (same image, gateway entrypoint) in dev and
+   prod behind a `stripe` profile: prod enables via `COMPOSE_PROFILES=stripe` in the server
+   `.env` (deploy-managed — NOT started once by name like litellm), dev via `start.sh`
+   auto-adding the profile when `STRIPE_GATEWAY_KEY` is set. `billing:gateway_health` now
+   probes the gateway's `/health` instead of checking a Rails-side key. Deploy docs +
+   enablement runbook updated.
+5. **Tests (TDD, alongside each task)** — unit/request coverage done for 1–4. Remaining
+   before exit: the live parity smoke test — run the stack with the gateway enabled,
+   confirm an internal agent task bills via `llm_request` logs on both services + a
+   balance drop.
 
 Scope boundaries (deferred because Stage 1's only caller is the trusted agent-runner):
 **streaming (SSE)**, **model allowlist**, **rate limiting**, **request-size caps** → stage 4
@@ -304,6 +316,10 @@ rollout posture). Not publicly advertised.
 
 - **Per-collective feature flag**, app-admin controlled (mirrors `stripe_billing` gating).
   External keys for a collective work only while its flag is on.
+- **Gateway ingress auth.** Today the gateway trusts the backend network (any peer can
+  relay a money-spending call — acceptable while the network holds only trusted services).
+  External access requires authenticating callers at the gateway itself, and an external
+  identity handshake (key-based) alongside the internal task-run headers.
 - Public `llm.harmonic.social` edge (Caddy) + an external gateway-key credential type,
   scoped and revocable, with per-key spend caps and rate limits.
 - The untrusted-caller protections deferred from stage 1: **streaming (SSE) passthrough**
@@ -326,10 +342,14 @@ its own project. This initial project builds only the minimal UI in stage 3.
 
 ## Open decisions
 
-- **Balance freshness at selection.** Checking each member's live Stripe balance per call
-  is slow. Cache balances (short TTL) for the eligibility filter, and treat a 402 from the
-  relay as authoritative "dry now" → advance and retry once. Composes with Stripe's
-  zero-balance rejection.
+- **Balance freshness at selection — decided for single customer, one sub-decision left
+  for pools.** `select-payer` performs no live balance fetch (slow, stale, and it conflates
+  a Stripe API error with an empty balance). The balance gate is dispatch preflight (once
+  per task) plus the relay passing through Stripe's 402 — and the Stripe gateway team has
+  **confirmed zero-balance rejection is enabled** on the account, so the 402 is
+  authoritative, not assumed. Remaining for stage 2: how the pool eligibility filter
+  learns who is dry — short-TTL balance cache vs. treat a relay 402 as "dry now", mark the
+  member, re-pick once. Lean 402-retry (no cache invalidation problem).
 - **Model allowlist scope.** Per-gateway-key, per-pool, or global? Reuse
   `StripeGatewayModelMapper`'s mapping/validation.
 - **Internal/external traffic isolation (external phase).** After external access exists,
