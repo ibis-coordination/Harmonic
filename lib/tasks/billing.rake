@@ -6,7 +6,7 @@ namespace :billing do
   task gateway_health: :environment do
     report = StripeService.gateway_health
 
-    puts "STRIPE_GATEWAY_KEY:       #{report[:gateway_key_present] ? "present" : "MISSING"}"
+    puts "llm-gateway /health:      #{report[:llm_gateway_reachable] ? "reachable" : "UNREACHABLE (is the stripe compose profile enabled?)"}"
     puts "STRIPE_CREDIT_PRODUCT_ID: #{report[:credit_product_configured] ? "present" : "MISSING"}"
     puts "STRIPE_PRICING_PLAN_ID:   #{report[:pricing_plan_configured] ? "present" : "MISSING"}"
     puts "Active billing customers: #{report[:active_customers].size}"
