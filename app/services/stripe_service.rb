@@ -464,8 +464,9 @@ class StripeService
   # probes the service instead of checking local env.
   sig { returns(T::Boolean) }
   def self.llm_gateway_reachable?
-    url = URI.parse("#{ENV.fetch("LLM_GATEWAY_URL", "http://llm-gateway:4500")}/health")
-    response = Net::HTTP.start(url.host, url.port, open_timeout: 2, read_timeout: 2) do |http|
+    base = ENV.fetch("LLM_GATEWAY_URL", "http://llm-gateway:4500").delete_suffix("/")
+    url = URI.parse("#{base}/health")
+    response = Net::HTTP.start(url.host, url.port, use_ssl: url.scheme == "https", open_timeout: 2, read_timeout: 2) do |http|
       http.get(url.path)
     end
     response.is_a?(Net::HTTPSuccess)

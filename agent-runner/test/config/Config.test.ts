@@ -33,11 +33,23 @@ describe("Config LLM base URLs", () => {
     expect(config.stripeGatewayBaseUrl).toBe("https://llm.stripe.com");
   });
 
-  it("honors LLM_BASE_URL for the gateway route when boot mode is stripe_gateway", async () => {
+  it("LLM_BASE_URL never affects the Stripe upstream — that is STRIPE_GATEWAY_BASE_URL's job", async () => {
     vi.stubEnv("LLM_GATEWAY_MODE", "stripe_gateway");
     vi.stubEnv("LLM_BASE_URL", "https://gateway-proxy.test");
     const config = await loadConfig();
-    expect(config.stripeGatewayBaseUrl).toBe("https://gateway-proxy.test");
+    expect(config.stripeGatewayBaseUrl).toBe("https://llm.stripe.com");
     expect(config.litellmBaseUrl).toBe("http://litellm:4000");
+  });
+
+  it("honors STRIPE_GATEWAY_BASE_URL for the Stripe upstream", async () => {
+    vi.stubEnv("STRIPE_GATEWAY_BASE_URL", "https://stripe-proxy.test");
+    const config = await loadConfig();
+    expect(config.stripeGatewayBaseUrl).toBe("https://stripe-proxy.test");
+  });
+
+  it("defaults the Harmonic LLM gateway URL and honors LLM_GATEWAY_URL", async () => {
+    expect((await loadConfig()).llmGatewayUrl).toBe("http://llm-gateway:4500");
+    vi.stubEnv("LLM_GATEWAY_URL", "http://gateway.test:9000");
+    expect((await loadConfig()).llmGatewayUrl).toBe("http://gateway.test:9000");
   });
 });

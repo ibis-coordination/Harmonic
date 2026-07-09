@@ -12,7 +12,9 @@ module Internal
     # that should pay for it (and verify that payer is funded).
     sig { void }
     def select_payer
-      task_run = AiAgentTaskRun.find_by(id: params[:task_run_id])
+      # Eager-load the payer: this runs once per LLM call, so the lazy
+      # belongs_to would double the query count on a hot path.
+      task_run = AiAgentTaskRun.includes(:billing_customer).find_by(id: params[:task_run_id])
       if task_run.nil?
         render json: { error: "Task run not found" }, status: :not_found
         return

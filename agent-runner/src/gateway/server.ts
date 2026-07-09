@@ -10,8 +10,8 @@
  *
  * The request body is forwarded to the Stripe AI Gateway verbatim; the upstream
  * response is returned unchanged so the caller parses it exactly as it would a
- * direct Stripe response. The service is internal-only (backend network, no
- * public edge) in this phase.
+ * direct Stripe response. The service is internal-only: backend network, no
+ * public route, no published port.
  */
 
 import { createServer } from "node:http";

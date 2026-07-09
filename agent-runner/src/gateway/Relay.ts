@@ -52,6 +52,11 @@ export const relay = (
           path: SELECT_PAYER_PATH,
           headers: buildHeaders(selectBody, config.agentRunnerSecret),
           body: selectBody,
+          // Keep this hop short: it's a local DB lookup, and its budget adds
+          // to the Stripe upstream's 120s. The caller's own timeout must
+          // exceed the sum (see LLMClient), or a slow-but-successful billed
+          // call gets aborted client-side after Stripe has already metered it.
+          timeoutMs: 10_000,
         }),
       catch: (error) =>
         new GatewayError({ message: `select-payer request failed: ${error instanceof Error ? error.message : String(error)}` }),

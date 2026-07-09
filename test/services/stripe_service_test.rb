@@ -1851,6 +1851,36 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert health1[:pricing_plan_subscribed]
   end
 
+  test "gateway_health probes over TLS when LLM_GATEWAY_URL is https" do
+    stub_request(:get, "https://gateway.example/health")
+      .to_return(status: 200, body: { status: "ok" }.to_json)
+
+    original_url = ENV["LLM_GATEWAY_URL"]
+    ENV["LLM_GATEWAY_URL"] = "https://gateway.example"
+    begin
+      report = StripeService.gateway_health
+    ensure
+      original_url.nil? ? ENV.delete("LLM_GATEWAY_URL") : ENV["LLM_GATEWAY_URL"] = original_url
+    end
+
+    assert report[:llm_gateway_reachable]
+  end
+
+  test "gateway_health tolerates a trailing slash in LLM_GATEWAY_URL" do
+    stub_request(:get, "http://llm-gateway:4500/health")
+      .to_return(status: 200, body: { status: "ok" }.to_json)
+
+    original_url = ENV["LLM_GATEWAY_URL"]
+    ENV["LLM_GATEWAY_URL"] = "http://llm-gateway:4500/"
+    begin
+      report = StripeService.gateway_health
+    ensure
+      original_url.nil? ? ENV.delete("LLM_GATEWAY_URL") : ENV["LLM_GATEWAY_URL"] = original_url
+    end
+
+    assert report[:llm_gateway_reachable]
+  end
+
   test "gateway_health reports missing config and unreachable gateway" do
     # An unreachable llm-gateway (connection refused) must report false, not raise.
     stub_request(:get, "http://llm-gateway:4500/health").to_raise(Errno::ECONNREFUSED)

@@ -14,6 +14,7 @@ const testConfig: AppConfig = {
   agentRunnerSecret: "test-secret",
   redisUrl: "redis://redis:6379",
   litellmBaseUrl: "http://litellm:4000",
+  llmGatewayUrl: "http://llm-gateway:4500",
   stripeGatewayBaseUrl: "https://llm.stripe.com",
   llmGatewayMode: "stripe_gateway",
   stripeGatewayKey: "sk_test",
@@ -77,6 +78,25 @@ describe("gateway relay", () => {
     expect(capturedCustomerId).toBe("cus_abc");
     expect(capturedSelectPath).toBe("/internal/llm-gateway/select-payer");
     expect(capturedSubdomain).toBe("acme");
+  });
+
+  it("bounds the select-payer hop with a short timeout so the relay budget stays under the caller's", async () => {
+    let capturedTimeout: number | undefined;
+
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      railsLayer(
+        { statusCode: 200, body: JSON.stringify({ payer_customer_id: "cus_abc" }) },
+        (opts) => {
+          capturedTimeout = opts.timeoutMs;
+        },
+      ),
+      stripeLayer(async () => ({ status: 200, body: "{}" })),
+    );
+
+    await Effect.runPromise(Effect.provide(relay(req), layers));
+
+    expect(capturedTimeout).toBe(10_000);
   });
 
   it("propagates a select-payer failure without calling Stripe", async () => {

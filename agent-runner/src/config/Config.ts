@@ -43,18 +43,15 @@ export const ConfigLive = Layer.effect(
     const redisUrl = yield* optionalEnv("REDIS_URL", "redis://redis:6379");
     const llmGatewayMode = yield* optionalEnv("LLM_GATEWAY_MODE", "litellm");
     const harmonicInternalUrl = yield* optionalEnv("HARMONIC_INTERNAL_URL", "http://web:3000");
-    // LLM_BASE_URL historically overrode the single boot-mode endpoint; keep
-    // honoring it for whichever mode the env declares, with per-route
-    // overrides available via the explicit vars.
+    // LLM_BASE_URL is a legacy override for the LiteLLM route only. Billed
+    // calls go to LLM_GATEWAY_URL, and the gateway entrypoint's Stripe
+    // upstream is configured solely via STRIPE_GATEWAY_BASE_URL.
     const llmBaseUrl = process.env["LLM_BASE_URL"];
     const litellmBaseUrl = yield* optionalEnv(
       "LITELLM_BASE_URL",
       (llmGatewayMode === "litellm" ? llmBaseUrl : undefined) ?? "http://litellm:4000",
     );
-    const stripeGatewayBaseUrl = yield* optionalEnv(
-      "STRIPE_GATEWAY_BASE_URL",
-      (llmGatewayMode === "stripe_gateway" ? llmBaseUrl : undefined) ?? "https://llm.stripe.com",
-    );
+    const stripeGatewayBaseUrl = yield* optionalEnv("STRIPE_GATEWAY_BASE_URL", "https://llm.stripe.com");
     const llmGatewayUrl = yield* optionalEnv("LLM_GATEWAY_URL", "http://llm-gateway:4500");
     const stripeGatewayKey = process.env["STRIPE_GATEWAY_KEY"];
     const streamName = yield* optionalEnv("AGENT_TASKS_STREAM", "agent_tasks");

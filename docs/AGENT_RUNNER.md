@@ -146,7 +146,7 @@ Local development note: the `agent-runner` compose service sits behind a `profil
 
 The secret has two distinct responsibilities:
 
-1. **HMAC signing** of internal API requests between Rails and agent-runner.
+1. **HMAC signing** of internal API requests to Rails — from the agent-runner (task lifecycle) AND from the llm-gateway (`select-payer`).
 2. **AES-256-GCM key material** (via HKDF) for the ephemeral task tokens published on the Redis stream.
 
 Because the secret is used for encryption, a rotation has a short grace window: any task already dispatched (encrypted token sitting in the stream) is un-decryptable by a runner that has only the new key. Plan accordingly.
@@ -154,7 +154,7 @@ Because the secret is used for encryption, a rotation has a short grace window: 
 Recommended procedure:
 
 1. **Drain in-flight work.** Ensure no new tasks will be dispatched: either pause the humans that trigger them, or temporarily stop creating task runs. Watch the Redis stream length (`XLEN agent_tasks`) drop to zero after the runner has processed the pending entries.
-2. **Roll the secret in env for both services simultaneously.** Rails and agent-runner must share the same value; a mismatch produces decrypt failures and HMAC rejections. If deploying rolling (not all-at-once), expect a brief window of 401s and decrypt errors — the runner now surfaces these as typed `TokenDecryptError` failures via `reporter.fail` rather than silently orphaning the task, so affected tasks will be marked failed rather than stuck in `queued`.
+2. **Roll the secret in env for all three consumers simultaneously.** Rails, agent-runner, and llm-gateway must share the same value; a mismatch produces decrypt failures and HMAC rejections — a stale llm-gateway fails every billed LLM call with select-payer 401s. If deploying rolling (not all-at-once), expect a brief window of 401s and decrypt errors — the runner now surfaces these as typed `TokenDecryptError` failures via `reporter.fail` rather than silently orphaning the task, so affected tasks will be marked failed rather than stuck in `queued`.
 3. **Use `rake agent_runner:redispatch_queued`** after the rotation to reissue any tasks that got stuck in `queued` state during the window. The rake guards against dispatching tasks that have already moved to `running` or a terminal state.
 4. **Expect nonce cache carryover.** Replay protection stores nonces in Redis with a 5-minute TTL; the rotated secret is unrelated, so the cache stays valid across the rotation.
 

@@ -130,11 +130,16 @@ export const LLMClientLive = Layer.effect(
 
           const url = `${baseUrl}${endpoint}`;
           const startedAt = Date.now();
+          // The gateway hop nests two budgets (select-payer 10s + Stripe 120s),
+          // so its client-side timeout must exceed their sum — aborting here
+          // while the gateway's Stripe call runs on would bill the customer
+          // for a response we discard. Direct LiteLLM calls keep the flat 120s.
+          const timeoutMs = mode === "stripe_gateway" ? 160_000 : 120_000;
           const response = await fetch(url, {
             method: "POST",
             headers,
             body,
-            signal: AbortSignal.timeout(120_000),
+            signal: AbortSignal.timeout(timeoutMs),
           });
           const durationMs = Date.now() - startedAt;
 
