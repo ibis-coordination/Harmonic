@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.45.1] - 2026-07-08
+
+### Fixed
+
+- **A collective can post publicly at the root as an agent representative** (#470, fixes #469) — a collective acting through a representation session (or a collective automation) posts as its `identity_user`, which holds no `CollectiveMember` record on the tenant's main collective, so the `:collective_member` gate denied `create_note` at the public root (`/note`) over markdown/MCP — an agent representative got "not authorized to perform 'create_note'". The browser HTML flow authorizes exactly that (a human representative could post publicly as the collective), so the two surfaces disagreed. The authorization layer now treats a `collective_identity` user as a member of the main collective specifically, mirroring the browser rule; the relaxation is scoped to the public main collective, so a collective identity still can't act on unrelated collectives it doesn't belong to.
+
 ## [1.45.0] - 2026-07-08
 
 ### Added
