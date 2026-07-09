@@ -78,6 +78,16 @@ module ActionAuthorization
       return true unless collective
       # The collective's own identity user acts as a member of its own collective.
       return true if collective.identity_user?(user)
+      # A collective identity acting via representation (or a collective automation)
+      # is a member of the public main collective without a CollectiveMember record.
+      # This mirrors ApplicationController#validate_authenticated_access, whose main-
+      # collective branch does nothing for a collective_identity user rather than
+      # calling add_user!. Without this, a collective could author on its own pages
+      # and any collective it belongs to, but never at the public root (/note) over
+      # markdown/MCP — even though the browser HTML flow authorizes exactly that,
+      # which is why a human representative can post publicly as the collective but an
+      # agent representative gets "not authorized to perform 'create_note'". (#469)
+      return true if user.collective_identity? && collective.is_main_collective?
 
       collective.user_is_member?(user)
     },

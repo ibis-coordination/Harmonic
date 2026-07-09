@@ -93,6 +93,36 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.check_authorization(:collective_member, non_member, context)
   end
 
+  # Regression for #469: a collective identity acting via representation could not
+  # author at the public root (/note) over markdown/MCP because it holds no
+  # CollectiveMember record on the main collective — even though the browser flow
+  # authorizes it there. The check must treat a collective_identity user as a
+  # member of the main collective specifically.
+  test "collective_member authorization treats a collective identity as a member of the main collective" do
+    identity = @collective.identity_user
+    assert identity.collective_identity?, "sanity: identity_user is a collective_identity user"
+
+    main = @tenant.main_collective
+    # The identity is NOT a member of the main collective and is not ITS identity user...
+    refute main.identity_user?(identity)
+    refute main.user_is_member?(identity)
+    # ...yet it is authorized as a member of the public root.
+    assert ActionAuthorization.check_authorization(:collective_member, identity, { collective: main })
+
+    # But the relaxation is scoped to the MAIN collective only: the same identity
+    # is still denied on an unrelated collective it doesn't belong to.
+    other = create_collective(tenant: @tenant, created_by: @user, handle: "aa-other-#{SecureRandom.hex(4)}")
+    refute other.identity_user?(identity)
+    refute other.user_is_member?(identity)
+    refute ActionAuthorization.check_authorization(:collective_member, identity, { collective: other })
+
+    # And it does not open the root to non-identity non-members (e.g. a plain human).
+    human_non_member = create_user
+    @tenant.add_user!(human_non_member)
+    refute human_non_member.collective_identity?
+    refute ActionAuthorization.check_authorization(:collective_member, human_non_member, { collective: main })
+  end
+
   # Test: Resource owner authorization
   test "resource_owner authorization checks created_by_id" do
     note = Note.create!(
