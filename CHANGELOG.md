@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.46.0] - 2026-07-09
+
+### Added
+
+- **Internal LLM gateway service** (#479, toward #464) — billed LLM calls now route agent-runner → `llm-gateway` → Stripe AI Gateway instead of the runner calling Stripe directly. The gateway resolves the payer per call through a new internal `select-payer` endpoint (task run → its stamped billing customer), making it the single home for payer selection — the seam the planned common-pool credits extend — and the runner no longer holds Stripe credentials or sees customer ids. Runs as a second entrypoint on the agent-runner image behind a `stripe` compose profile; operators enable it with `COMPOSE_PROFILES=stripe` and a network-CIDR `INTERNAL_ALLOWED_IPS` (runbooks in docs/DEPLOYMENT.md and docs/BILLING.md). `billing:gateway_health` now probes the gateway's `/health` instead of checking a Rails-side key, and rotating `AGENT_RUNNER_SECRET` now involves three services.
+
+### Fixed
+
+- **Tuning in to a collective-identity user works** (#475, fixes #468) — the tune-in button built its POST URL from the collective profile path, which has no `tune_in` action, so the request 404'd; it now targets the user resource via a routable handle.
+- **Collective representation auto-confirms the read for the collective, not the representative** (#474, fixes #471) — a collective-authored note attributed the auto-confirmed read to the representative's individual identity; the collective is both author and reader there, so the representative no longer gets a separate read-confirmation.
+
 ## [1.45.1] - 2026-07-08
 
 ### Fixed
