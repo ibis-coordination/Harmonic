@@ -269,4 +269,52 @@ class ApiCollectiveRepresentationTest < ActionDispatch::IntegrationTest
                  "should explain the missing end capability")
     assert_equal 0, RepresentationSession.where(collective: @collective).count
   end
+
+  # ---------------------------------------------------------------------------
+  # Posting publicly at the root as the collective (#469)
+  #
+  # A human representative can post a public note at the main-collective root
+  # (/note) as the collective, but an AI-agent representative got
+  # "not authorized to perform 'create_note'". The acting identity is the
+  # represented collective's identity_user, which holds no CollectiveMember row
+  # on the main collective — so the :collective_member gate denied it over
+  # markdown/MCP even though the browser HTML flow authorizes exactly this.
+  # ---------------------------------------------------------------------------
+  test "agent representative can create a public note at the root as the collective" do
+    @tenant.main_collective.enable_api!
+
+    # The agent has public writes enabled (the #467 guardrail its owner toggled
+    # on) — so this exercises the *later* #469 gate, not that one.
+    agent = create_ai_agent(parent: @alice, name: "Pub Agent #{SecureRandom.hex(4)}",
+                            agent_configuration: { "mode" => "internal", "allow_public_writes" => true })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    @collective.collective_members.find_by(user: agent).add_role!("representative")
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
+    headers = {
+      "Authorization" => "Bearer #{token.plaintext_token}",
+      "Accept" => "text/markdown",
+    }
+
+    post "#{represent_path}/actions/start_representation", headers: headers
+    assert_response :success, "start failed: #{response.body}"
+    session_id = response.body.match(/Session ID: `([a-f0-9-]+)`/)[1]
+
+    rep_headers = headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-Collective" => @collective.handle,
+    )
+
+    assert_difference -> { Note.count }, 1 do
+      post "/note/actions/create_note",
+           params: { text: "Public announcement from the collective." },
+           headers: rep_headers
+    end
+
+    assert_response :success, "root create_note under collective representation must succeed: #{response.body}"
+    note = Note.order(:created_at).last
+    assert_equal @collective.identity_user_id, note.created_by_id,
+                 "the note must be attributed to the collective identity, not the agent"
+    assert note.collective.is_main_collective?, "the note must land on the public main collective"
+  end
 end
