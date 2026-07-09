@@ -229,7 +229,8 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     fields = entry[1]
     assert_equal "stripe_gateway", fields["llm_gateway_mode"]
     assert_equal "anthropic/claude-sonnet-4.6", fields["model"]
-    assert_equal "cus_test123", fields["stripe_customer_stripe_id"]
+    # Customer ids no longer ride the stream; the gateway resolves the payer from the task run.
+    assert_nil fields["stripe_customer_stripe_id"]
     redis.close
   end
 
@@ -442,7 +443,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_equal "queued", task_run.status, "system agent dispatch should not fail: #{task_run.error}"
     entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == task_run.id }
     assert_not_nil entry, "system agent task should be dispatched to the stream"
-    assert_equal "", entry[1]["stripe_customer_stripe_id"]
+    assert_nil entry[1]["stripe_customer_stripe_id"]
     redis.close
   end
 

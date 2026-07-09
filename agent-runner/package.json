@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:gateway": "node dist/gateway/server.js",
     "dev": "tsx watch src/index.ts",
+    "dev:gateway": "tsx watch src/gateway/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

@@ -10,6 +10,7 @@ function fields(overrides: Record<string, string> = {}): string[] {
     model: "anthropic/claude-sonnet-4-6",
     agent_id: "agent-1",
     tenant_subdomain: "test",
+    // Legacy field from pre-gateway dispatches; the parser must ignore it.
     stripe_customer_stripe_id: "cus_abc",
     mode: "task",
     chat_session_id: "",

@@ -55,9 +55,8 @@ class AgentRunnerDispatchService
     end
 
     # Billing checks. System agents (e.g., Trio) are exempt: they have no
-    # billing_customer, are never charged, and the agent-runner already
-    # tolerates a missing stripe_customer_stripe_id by skipping the
-    # X-Stripe-Customer-ID header.
+    # billing_customer, are never charged, and route through LiteLLM rather
+    # than the LLM gateway.
     billing_customer = ai_agent.billing_customer
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
       # (a) The agent's identity must be paid for before we run a task — the
@@ -137,7 +136,7 @@ class AgentRunnerDispatchService
 
     # Publish to Redis Stream with encrypted token
     begin
-      publish_to_stream(token, billing_customer, model: model, gateway_mode: gateway_mode)
+      publish_to_stream(token, model: model, gateway_mode: gateway_mode)
     rescue StandardError => e
       # Redis failure after token creation — clean up the token and fail the task
       # so it shows up on the admin page instead of lurking as "queued" forever.
@@ -181,11 +180,13 @@ class AgentRunnerDispatchService
     Rails.logger.error("[AgentRunnerDispatchService] Failed to broadcast chat error: #{e.message}")
   end
 
-  sig { params(token: ApiToken, billing_customer: T.nilable(StripeCustomer), model: String, gateway_mode: String).void }
-  def publish_to_stream(token, billing_customer, model:, gateway_mode:)
+  sig { params(token: ApiToken, model: String, gateway_mode: String).void }
+  def publish_to_stream(token, model:, gateway_mode:)
     encrypted_token = AgentRunnerCrypto.encrypt(token.plaintext_token)
 
     redis = Redis.new(url: ENV["REDIS_URL"])
+    # No customer id in the payload: billing attribution is stamped on the task
+    # run (stripe_customer_id) and resolved by the LLM gateway per call.
     payload = {
       task_run_id: @task_run.id,
       encrypted_token: encrypted_token,
@@ -195,7 +196,6 @@ class AgentRunnerDispatchService
       llm_gateway_mode: gateway_mode,
       agent_id: T.must(@task_run.ai_agent).id,
       tenant_subdomain: T.must(@task_run.tenant).subdomain,
-      stripe_customer_stripe_id: billing_customer&.stripe_id || "",
       mode: @task_run.mode,
       chat_session_id: @task_run.chat_session_id || "",
     }

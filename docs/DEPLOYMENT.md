@@ -111,6 +111,48 @@ tasks are automatically detected and marked failed:
 
 Users see orphaned task failures and can retry.
 
+### LLM Gateway
+
+The `llm-gateway` service relays billed LLM calls to the Stripe AI Gateway,
+resolving the payer per call via the Rails internal API. It runs the **same
+image** as the agent-runner with a different entrypoint, so CI image builds,
+`deploy.sh`, and `rollback.sh` all cover it with no changes — the rollback
+retag of `harmonic-agent-runner` applies to both services.
+
+It sits behind the `stripe` compose profile (it fail-fast exits without
+`STRIPE_GATEWAY_KEY`). To enable it, set in the server's `.env`:
+
+```bash
+COMPOSE_PROFILES=stripe
+```
+
+Compose reads `COMPOSE_PROFILES` from `.env` automatically, so every existing
+compose invocation (deploy, rollback, maintenance) manages the gateway once
+the profile is listed — required here because the gateway must update in
+lockstep with web/agent-runner (same image, shared internal contract).
+
+This differs from how litellm runs: litellm's `llm` profile is *not* listed,
+so it is started once by name (`docker compose up -d litellm` auto-activates
+a named service's profiles) and kept alive by its restart policy; plain
+`up -d` ignores it. That start-once pattern is fine for a third-party image
+with no deploy coupling, but do not use it for the gateway. (Listing `llm` in
+`COMPOSE_PROFILES` would also work, but changes litellm behavior: it would
+re-pull `main-latest` and restart on every deploy.)
+
+Two more requirements:
+
+- `INTERNAL_ALLOWED_IPS` must cover the gateway container — use the Docker
+  network CIDR, not a single container IP, since both agent-runner and
+  llm-gateway call `/internal/*`.
+- **Deploy web and agent-runner together across the gateway cutover**: the
+  runner no longer sends Stripe customer ids, and Rails no longer publishes
+  them to the stream. An old runner consuming a new payload in
+  `stripe_gateway` mode fails the task with a clear, re-runnable error. A
+  normal `deploy.sh` restarts everything together, so the window is seconds.
+
+Health: the service exposes `GET /health` on port 4500 (compose healthcheck
+uses it). It is internal-only — no Caddy route, no published port.
+
 ### Deployments with Downtime
 
 For schema-changing migrations:

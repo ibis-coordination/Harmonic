@@ -7,6 +7,9 @@ export interface AppConfig {
   readonly agentRunnerSecret: string;
   readonly redisUrl: string;
   readonly litellmBaseUrl: string;
+  /** The Harmonic LLM gateway — where the runner sends billed (stripe_gateway) calls. */
+  readonly llmGatewayUrl: string;
+  /** The Stripe AI Gateway upstream — used by the gateway entrypoint, not the runner. */
   readonly stripeGatewayBaseUrl: string;
   /** Fallback route for tasks whose payload carries no llm_gateway_mode. */
   readonly llmGatewayMode: "litellm" | "stripe_gateway";
@@ -40,18 +43,16 @@ export const ConfigLive = Layer.effect(
     const redisUrl = yield* optionalEnv("REDIS_URL", "redis://redis:6379");
     const llmGatewayMode = yield* optionalEnv("LLM_GATEWAY_MODE", "litellm");
     const harmonicInternalUrl = yield* optionalEnv("HARMONIC_INTERNAL_URL", "http://web:3000");
-    // LLM_BASE_URL historically overrode the single boot-mode endpoint; keep
-    // honoring it for whichever mode the env declares, with per-route
-    // overrides available via the explicit vars.
+    // LLM_BASE_URL is a legacy override for the LiteLLM route only. Billed
+    // calls go to LLM_GATEWAY_URL, and the gateway entrypoint's Stripe
+    // upstream is configured solely via STRIPE_GATEWAY_BASE_URL.
     const llmBaseUrl = process.env["LLM_BASE_URL"];
     const litellmBaseUrl = yield* optionalEnv(
       "LITELLM_BASE_URL",
       (llmGatewayMode === "litellm" ? llmBaseUrl : undefined) ?? "http://litellm:4000",
     );
-    const stripeGatewayBaseUrl = yield* optionalEnv(
-      "STRIPE_GATEWAY_BASE_URL",
-      (llmGatewayMode === "stripe_gateway" ? llmBaseUrl : undefined) ?? "https://llm.stripe.com",
-    );
+    const stripeGatewayBaseUrl = yield* optionalEnv("STRIPE_GATEWAY_BASE_URL", "https://llm.stripe.com");
+    const llmGatewayUrl = yield* optionalEnv("LLM_GATEWAY_URL", "http://llm-gateway:4500");
     const stripeGatewayKey = process.env["STRIPE_GATEWAY_KEY"];
     const streamName = yield* optionalEnv("AGENT_TASKS_STREAM", "agent_tasks");
     const consumerGroup = yield* optionalEnv("AGENT_TASKS_CONSUMER_GROUP", "agent_runner");
@@ -71,6 +72,7 @@ export const ConfigLive = Layer.effect(
       agentRunnerSecret,
       redisUrl,
       litellmBaseUrl,
+      llmGatewayUrl,
       stripeGatewayBaseUrl,
       llmGatewayMode: llmGatewayMode as "litellm" | "stripe_gateway",
       stripeGatewayKey,

@@ -328,7 +328,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
           messages,
           task.model,
           tools,
-          task.stripeCustomerStripeId,
+          { taskRunId: task.taskRunId, subdomain: task.tenantSubdomain },
           task.llmGatewayMode,
         ).pipe(
           Effect.map((r) => ({ ok: true as const, response: r })),
@@ -593,7 +593,7 @@ const updateScratchpad = (
       [{ role: "user", content: prompt }],
       task.model,
       [], // no tools for scratchpad
-      task.stripeCustomerStripeId,
+      { taskRunId: task.taskRunId, subdomain: task.tenantSubdomain },
       task.llmGatewayMode,
     );
 

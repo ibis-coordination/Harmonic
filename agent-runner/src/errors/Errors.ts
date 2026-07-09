@@ -37,3 +37,7 @@ export class TokenDecryptError extends Data.TaggedError("TokenDecryptError")<{
   readonly taskRunId: string;
   readonly message: string;
 }> {}
+
+export class GatewayError extends Data.TaggedError("GatewayError")<{
+  readonly message: string;
+}> {}

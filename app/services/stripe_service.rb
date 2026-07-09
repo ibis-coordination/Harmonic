@@ -447,7 +447,7 @@ class StripeService
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def self.gateway_health
     {
-      gateway_key_present: ENV["STRIPE_GATEWAY_KEY"].present?,
+      llm_gateway_reachable: llm_gateway_reachable?,
       credit_product_configured: ENV["STRIPE_CREDIT_PRODUCT_ID"].present?,
       pricing_plan_configured: ENV["STRIPE_PRICING_PLAN_ID"].present?,
       active_customers: StripeCustomer.where(active: true).map do |customer|
@@ -459,6 +459,21 @@ class StripeService
       end,
     }
   end
+
+  # STRIPE_GATEWAY_KEY lives on the llm-gateway service, not Rails, so health
+  # probes the service instead of checking local env.
+  sig { returns(T::Boolean) }
+  def self.llm_gateway_reachable?
+    base = ENV.fetch("LLM_GATEWAY_URL", "http://llm-gateway:4500").delete_suffix("/")
+    url = URI.parse("#{base}/health")
+    response = Net::HTTP.start(url.host, url.port, use_ssl: url.scheme == "https", open_timeout: 2, read_timeout: 2) do |http|
+      http.get(url.path)
+    end
+    response.is_a?(Net::HTTPSuccess)
+  rescue StandardError
+    false
+  end
+  private_class_method :llm_gateway_reachable?
 
   # Create a Stripe Billing Portal session.
   # Returns the portal URL for redirect.

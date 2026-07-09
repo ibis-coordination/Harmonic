@@ -1693,6 +1693,17 @@ class StripeServiceTest < ActiveSupport::TestCase
     original.nil? ? ENV.delete("STRIPE_PRICING_PLAN_ID") : ENV["STRIPE_PRICING_PLAN_ID"] = original
   end
 
+  # For tests that exercise a path where the pricing plan must NOT be
+  # configured (e.g. the credit-grant-only topup flow). The dev container env
+  # may carry a real STRIPE_PRICING_PLAN_ID, so tests can't assume absence.
+  def without_pricing_plan_env
+    original = ENV["STRIPE_PRICING_PLAN_ID"]
+    ENV.delete("STRIPE_PRICING_PLAN_ID")
+    yield
+  ensure
+    ENV["STRIPE_PRICING_PLAN_ID"] = original unless original.nil?
+  end
+
   def stub_pricing_plan_subscription_flow(reserve_total: "0")
     stub_request(:get, "https://api.stripe.com/v2/billing/pricing_plans/#{PLAN_ID}")
       .to_return(status: 200, body: { id: PLAN_ID, live_version: PLAN_VERSION }.to_json, headers: { "Content-Type" => "application/json" })
@@ -1816,18 +1827,20 @@ class StripeServiceTest < ActiveSupport::TestCase
         headers: { "Content-Type" => "application/json" },
       )
 
-    original_key = ENV["STRIPE_GATEWAY_KEY"]
+    # STRIPE_GATEWAY_KEY lives on the llm-gateway service, not Rails — health
+    # reports the gateway's reachability instead of a local env check.
+    stub_request(:get, "http://llm-gateway:4500/health")
+      .to_return(status: 200, body: { status: "ok" }.to_json)
+
     original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
-    ENV["STRIPE_GATEWAY_KEY"] = "rk_test_gateway"
     ENV["STRIPE_CREDIT_PRODUCT_ID"] = "prod_test_credit"
     begin
       report = with_pricing_plan_env { StripeService.gateway_health }
     ensure
-      original_key.nil? ? ENV.delete("STRIPE_GATEWAY_KEY") : ENV["STRIPE_GATEWAY_KEY"] = original_key
       original_product.nil? ? ENV.delete("STRIPE_CREDIT_PRODUCT_ID") : ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product
     end
 
-    assert report[:gateway_key_present]
+    assert report[:llm_gateway_reachable]
     assert report[:credit_product_configured]
     assert report[:pricing_plan_configured]
     customer_ids = report[:active_customers].map { |c| c[:stripe_id] }
@@ -1838,19 +1851,52 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert health1[:pricing_plan_subscribed]
   end
 
-  test "gateway_health reports missing config" do
-    original_key = ENV["STRIPE_GATEWAY_KEY"]
-    original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
-    ENV.delete("STRIPE_GATEWAY_KEY")
-    ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
+  test "gateway_health probes over TLS when LLM_GATEWAY_URL is https" do
+    stub_request(:get, "https://gateway.example/health")
+      .to_return(status: 200, body: { status: "ok" }.to_json)
+
+    original_url = ENV["LLM_GATEWAY_URL"]
+    ENV["LLM_GATEWAY_URL"] = "https://gateway.example"
     begin
       report = StripeService.gateway_health
     ensure
-      ENV["STRIPE_GATEWAY_KEY"] = original_key unless original_key.nil?
-      ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product unless original_product.nil?
+      original_url.nil? ? ENV.delete("LLM_GATEWAY_URL") : ENV["LLM_GATEWAY_URL"] = original_url
     end
 
-    assert_not report[:gateway_key_present]
+    assert report[:llm_gateway_reachable]
+  end
+
+  test "gateway_health tolerates a trailing slash in LLM_GATEWAY_URL" do
+    stub_request(:get, "http://llm-gateway:4500/health")
+      .to_return(status: 200, body: { status: "ok" }.to_json)
+
+    original_url = ENV["LLM_GATEWAY_URL"]
+    ENV["LLM_GATEWAY_URL"] = "http://llm-gateway:4500/"
+    begin
+      report = StripeService.gateway_health
+    ensure
+      original_url.nil? ? ENV.delete("LLM_GATEWAY_URL") : ENV["LLM_GATEWAY_URL"] = original_url
+    end
+
+    assert report[:llm_gateway_reachable]
+  end
+
+  test "gateway_health reports missing config and unreachable gateway" do
+    # An unreachable llm-gateway (connection refused) must report false, not raise.
+    stub_request(:get, "http://llm-gateway:4500/health").to_raise(Errno::ECONNREFUSED)
+
+    original_product = ENV["STRIPE_CREDIT_PRODUCT_ID"]
+    original_plan = ENV["STRIPE_PRICING_PLAN_ID"]
+    ENV.delete("STRIPE_CREDIT_PRODUCT_ID")
+    ENV.delete("STRIPE_PRICING_PLAN_ID")
+    begin
+      report = StripeService.gateway_health
+    ensure
+      ENV["STRIPE_CREDIT_PRODUCT_ID"] = original_product unless original_product.nil?
+      ENV["STRIPE_PRICING_PLAN_ID"] = original_plan unless original_plan.nil?
+    end
+
+    assert_not report[:llm_gateway_reachable]
     assert_not report[:credit_product_configured]
     assert_not report[:pricing_plan_configured]
     assert_equal [], report[:active_customers]
@@ -1900,7 +1946,7 @@ class StripeServiceTest < ActiveSupport::TestCase
       },
     )
 
-    StripeService.handle_webhook_event(event)
+    without_pricing_plan_env { StripeService.handle_webhook_event(event) }
 
     # Should NOT have changed subscription state
     sc.reload
@@ -1933,7 +1979,7 @@ class StripeServiceTest < ActiveSupport::TestCase
       },
     )
 
-    StripeService.handle_webhook_event(event)
+    without_pricing_plan_env { StripeService.handle_webhook_event(event) }
 
     assert_requested(
       :post,
