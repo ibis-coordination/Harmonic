@@ -10,15 +10,6 @@ class CollectiveMember < ApplicationRecord
   belongs_to :collective
   belongs_to :user
 
-  validate :identity_users_not_member_of_main_collective
-
-  sig { void }
-  def identity_users_not_member_of_main_collective
-    if user.collective_identity? && collective == T.must(tenant).main_collective
-      errors.add(:user, "Collective identity users cannot be members of the main collective")
-    end
-  end
-
   sig { returns(User) }
   def user
     @user ||= super

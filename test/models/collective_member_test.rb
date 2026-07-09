@@ -140,7 +140,10 @@ class CollectiveMemberTest < ActiveSupport::TestCase
 
   # === Identity User Validation Tests ===
 
-  test "identity user cannot be member of main collective" do
+  # Issue #477: collective identities are now first-class members of the main
+  # collective — the old bar (identity_users_not_member_of_main_collective) was
+  # vestigial and blocked tuning in to an identity on the general path.
+  test "identity user can be member of main collective (issue #477)" do
     @tenant.create_main_collective!(created_by: @user)
     main_collective = @tenant.main_collective
     identity = @collective.identity_user
@@ -150,8 +153,8 @@ class CollectiveMemberTest < ActiveSupport::TestCase
       collective: main_collective,
       user: identity,
     )
-    assert_not collective_member.valid?
-    assert_includes collective_member.errors[:user], "Collective identity users cannot be members of the main collective"
+    assert collective_member.valid?
+    assert collective_member.save
   end
 
   test "identity user can be member of non-main collective" do

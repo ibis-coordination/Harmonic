@@ -63,26 +63,7 @@ class UserListMember < ApplicationRecord
   sig { void }
   def member_is_collective_member
     return if CollectiveMember.exists?(collective_id: collective_id, user_id: user_id)
-    return if addable_collective_identity?
 
     errors.add(:user_id, "must be a member of the collective")
-  end
-
-  # Collective-identity users are structurally barred from *membership* in the
-  # main collective — a collective can't be a member of the tenant-wide
-  # "everyone" — but they're still tenant citizens you can tune in to. The
-  # primary "tuned in" list is main-collective-scoped, so admit an identity
-  # user there as long as its collective lives in this list's tenant. Without
-  # this, tuning in to a collective identity fails validation even once the
-  # request reaches the right route (issue #468).
-  sig { returns(T::Boolean) }
-  def addable_collective_identity?
-    member = user
-    list = user_list
-    return false if member.nil? || list.nil?
-    return false unless member.collective_identity?
-    return false unless list.collective&.is_main_collective?
-
-    Collective.where(identity_user_id: member.id, tenant_id: list.tenant_id).exists?
   end
 end
