@@ -135,6 +135,27 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "execute_tune_in succeeds for a collective-identity user (issue #468)" do
+    # A standard collective owns an identity User sharing its handle, reachable
+    # at /u/<handle>. Tuning in adds it to the actor's main-collective primary
+    # list even though identity users aren't main-collective members.
+    ic = Collective.create!(
+      tenant: @tenant, name: "Ident Co", handle: "ident-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    identity_user = ic.identity_user
+    assert identity_user, "expected the standard collective to have an identity user"
+
+    assert_difference -> { UserListMember.where(user_id: identity_user.id).count }, +1 do
+      post "/u/#{handle_of(identity_user)}/actions/tune_in", params: {}.to_json, headers: @headers
+    end
+    assert_response :success
+    assert_includes response.body, "Tuned in."
+
+    primary = UserList.unscope(where: :collective_id).find_by(owner_id: @user.id, is_primary: true)
+    assert_includes primary.members, identity_user
+  end
+
   test "execute_tune_in rejects tuning in to yourself" do
     post "/u/#{handle_of(@user)}/actions/tune_in", params: {}.to_json, headers: @headers
     # The tune_in rule excludes your own profile, and that rule is enforced at
