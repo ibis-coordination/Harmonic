@@ -8,12 +8,21 @@
   # `tune_in_on_list_user_ids` for the batch-loading pattern.
 %>
 <% if viewer && viewer.id != target.id && !blocked %>
+  <%
+    # Tune-in acts on the user resource at /u/<handle>, NOT target.path: for a
+    # collective-identity user `#path` points at the collective profile
+    # (/collectives/<handle>), which has no tune_in action — so appending it
+    # 404s (issue #468). Use the TenantUser handle (which the /u/:handle routes
+    # resolve via find_by), NOT User#handle — the latter returns the display
+    # form "collectives/<handle>" for identity users, not a resolvable handle.
+    user_action_base = "/u/#{target.tenant_user&.handle}"
+  %>
   <%= render AjaxToggleButtonComponent.new(
         on:        on_list,
-        on_url:    "#{target.path}/actions/tune_out",
+        on_url:    "#{user_action_base}/actions/tune_out",
         on_html:   pulse_icon('tuning_in', size: :sm) + " Tuned in",
         on_class:  "pulse-action-btn-secondary pulse-tune-in-btn",
-        off_url:   "#{target.path}/actions/tune_in",
+        off_url:   "#{user_action_base}/actions/tune_in",
         off_html:  octicon('plus', height: 14) + " Tune in",
         off_class: "pulse-action-btn pulse-tune-in-btn",
         title:     "Tuning in adds this user's activity to your timeline view",

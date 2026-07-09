@@ -194,6 +194,43 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     assert_no_match(/pulse-tune-in-btn/, own_row.to_s)
   end
 
+  test "show HTML: tune-in button for a collective-identity member targets /u/<handle>, not the collective path (issue #468)" do
+    # A standard collective auto-creates an identity User that shares the
+    # collective's handle and owns a TenantUser — so it is a real, tune-in-able
+    # user reachable at /u/<handle>. Its #path, however, points at the
+    # collective profile (/collectives/<handle>), which has no tune_in action.
+    # The button must build its URL from the user resource, not from #path,
+    # else it POSTs to a 404.
+    identity_collective = Collective.create!(
+      tenant: @tenant, name: "Ident Co", handle: "ident-#{SecureRandom.hex(4)}",
+      collective_type: "standard", created_by: @user, updated_by: @user
+    )
+    identity_user = identity_collective.identity_user
+    assert identity_user, "expected the standard collective to have an identity user"
+
+    # The list is main-collective-scoped (see setup). A collective-identity user
+    # can be tuned in to (added to a main-collective list) even though it isn't a
+    # main-collective member — see UserListMember#addable_collective_identity?.
+    list = UserList.create!(creator: @user, owner: @user, name: "Has an identity member")
+    list.user_list_members.create!(added_by: @user, user: identity_user)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/lists/#{list.truncated_id}?tab=members"
+    assert_response :success
+
+    # The resolvable handle is the identity user's TenantUser handle (suffixed on
+    # collision with the collective's own handle), NOT the bare collective handle
+    # nor User#handle's "collectives/<handle>" display form.
+    handle = identity_user.tenant_users.find_by(tenant_id: @tenant.id).handle
+    # Off state (identity user not on the viewer's primary list): current URL is
+    # tune_in, alt is tune_out — both must live under the /u/ user resource.
+    assert_select ".pulse-list-members [data-ajax-toggle-url-value=?]", "/u/#{handle}/actions/tune_in"
+    assert_select ".pulse-list-members [data-ajax-toggle-alt-url-value=?]", "/u/#{handle}/actions/tune_out"
+    # And never the collective path (the bug) nor the "collectives/" display form.
+    assert_select ".pulse-list-members [data-ajax-toggle-url-value^='/collectives/']", count: 0
+    assert_select ".pulse-list-members [data-ajax-toggle-url-value*='/collectives/']", count: 0
+  end
+
   test "show HTML: members tab hides the tune-in button when the member is blocked either way" do
     list = UserList.create!(creator: @user, owner: @user, name: "Tabbed")
     list.user_list_members.create!(added_by: @user, user: @other)

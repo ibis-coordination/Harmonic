@@ -106,6 +106,19 @@ class UserListMemberTest < ActiveSupport::TestCase
     assert_includes m.errors[:user_id].join(" "), "collective"
   end
 
+  # The main-collective exception for identity users (issue #468) must NOT leak
+  # to non-main lists: @list is scoped to a non-main collective, and the identity
+  # user isn't a member of it, so it's still rejected.
+  test "collective-identity non-member is still rejected from a non-main-collective list" do
+    ic = create_collective(tenant: @tenant, created_by: @user, name: "Ident", handle: "ident-#{SecureRandom.hex(4)}")
+    identity_user = ic.identity_user
+    assert identity_user&.collective_identity?, "expected an identity user for the standard collective"
+
+    m = UserListMember.new(user_list: @list, user: identity_user, added_by: @user)
+    assert_not m.valid?
+    assert_includes m.errors[:user_id].join(" "), "collective"
+  end
+
   # ---- Scope-mismatch guard ----
 
   test "scope_matches_list rejects mismatched collective_id" do
