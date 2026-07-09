@@ -7,6 +7,9 @@ export interface AppConfig {
   readonly agentRunnerSecret: string;
   readonly redisUrl: string;
   readonly litellmBaseUrl: string;
+  /** The Harmonic LLM gateway — where the runner sends billed (stripe_gateway) calls. */
+  readonly llmGatewayUrl: string;
+  /** The Stripe AI Gateway upstream — used by the gateway entrypoint, not the runner. */
   readonly stripeGatewayBaseUrl: string;
   /** Fallback route for tasks whose payload carries no llm_gateway_mode. */
   readonly llmGatewayMode: "litellm" | "stripe_gateway";
@@ -52,6 +55,7 @@ export const ConfigLive = Layer.effect(
       "STRIPE_GATEWAY_BASE_URL",
       (llmGatewayMode === "stripe_gateway" ? llmBaseUrl : undefined) ?? "https://llm.stripe.com",
     );
+    const llmGatewayUrl = yield* optionalEnv("LLM_GATEWAY_URL", "http://llm-gateway:4500");
     const stripeGatewayKey = process.env["STRIPE_GATEWAY_KEY"];
     const streamName = yield* optionalEnv("AGENT_TASKS_STREAM", "agent_tasks");
     const consumerGroup = yield* optionalEnv("AGENT_TASKS_CONSUMER_GROUP", "agent_runner");
@@ -71,6 +75,7 @@ export const ConfigLive = Layer.effect(
       agentRunnerSecret,
       redisUrl,
       litellmBaseUrl,
+      llmGatewayUrl,
       stripeGatewayBaseUrl,
       llmGatewayMode: llmGatewayMode as "litellm" | "stripe_gateway",
       stripeGatewayKey,

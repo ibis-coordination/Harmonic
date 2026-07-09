@@ -37,7 +37,6 @@ function makeTask(overrides?: Partial<TaskPayload>): TaskPayload {
     model: undefined,
     agentId: "agent-1",
     tenantSubdomain: "test",
-    stripeCustomerStripeId: undefined,
     mode: "task",
     chatSessionId: undefined,
     ...overrides,

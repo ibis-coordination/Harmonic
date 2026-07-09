@@ -10,6 +10,7 @@ const baseConfig = {
   agentRunnerSecret: "test-secret",
   redisUrl: "redis://test:6379",
   litellmBaseUrl: "http://litellm:4000",
+  llmGatewayUrl: "http://llm-gateway:4500",
   stripeGatewayBaseUrl: "https://stripe.test",
   llmGatewayMode: "litellm" as const,
   stripeGatewayKey: undefined,
@@ -120,73 +121,71 @@ const okBody = {
 
 function runChatWith(
   config: Partial<typeof baseConfig>,
-  opts: { customerId?: string; gatewayMode?: "litellm" | "stripe_gateway"; response?: Response },
+  opts: {
+    routing?: { taskRunId: string; subdomain: string };
+    gatewayMode?: "litellm" | "stripe_gateway";
+    response?: Response;
+  },
 ) {
   const fetchSpy = vi.fn(async () => opts.response ?? jsonResponse(okBody));
   vi.stubGlobal("fetch", fetchSpy);
   const layer = Layer.succeed(Config, { ...baseConfig, ...config });
   const program = Effect.gen(function* () {
     const client = yield* LLMClient;
-    return yield* client.chat([], undefined, [], opts.customerId, opts.gatewayMode);
+    return yield* client.chat([], undefined, [], opts.routing, opts.gatewayMode);
   });
   return Effect.runPromise(
     program.pipe(Effect.provide(LLMClientLive.pipe(Layer.provide(layer)))),
   ).then(() => fetchSpy);
 }
 
+const routing = { taskRunId: "task-run-1", subdomain: "acme" };
+
 describe("LLMClient per-task gateway routing", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("routes to the Stripe gateway when the task says stripe_gateway", async () => {
-    const fetchSpy = await runChatWith(
-      { stripeGatewayKey: "rk_test_123" },
-      { customerId: "cus_abc", gatewayMode: "stripe_gateway" },
-    );
+  it("routes stripe_gateway calls to the Harmonic LLM gateway with routing headers", async () => {
+    const fetchSpy = await runChatWith({}, { routing, gatewayMode: "stripe_gateway" });
 
     const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://stripe.test/chat/completions");
+    expect(url).toBe("http://llm-gateway:4500/chat/completions");
     const headers = init.headers as Record<string, string>;
-    expect(headers["Authorization"]).toBe("Bearer rk_test_123");
-    expect(headers["X-Stripe-Customer-ID"]).toBe("cus_abc");
+    expect(headers["X-Harmonic-Task-Run-Id"]).toBe("task-run-1");
+    expect(headers["X-Harmonic-Subdomain"]).toBe("acme");
+    expect(headers["X-Harmonic-Model"]).toBe("default");
+    // The runner no longer holds Stripe credentials or customer ids.
+    expect(headers["Authorization"]).toBeUndefined();
+    expect(headers["X-Stripe-Customer-ID"]).toBeUndefined();
   });
 
   it("routes to LiteLLM when the task says litellm even if the config default is stripe_gateway", async () => {
     const fetchSpy = await runChatWith(
-      { llmGatewayMode: "stripe_gateway", stripeGatewayKey: "rk_test_123" },
-      { gatewayMode: "litellm" },
+      { llmGatewayMode: "stripe_gateway" },
+      { routing, gatewayMode: "litellm" },
     );
 
     const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://litellm:4000/v1/chat/completions");
     const headers = init.headers as Record<string, string>;
-    expect(headers["Authorization"]).toBeUndefined();
+    expect(headers["X-Harmonic-Task-Run-Id"]).toBeUndefined();
   });
 
   it("falls back to the config mode when the task carries no mode", async () => {
     const fetchSpy = await runChatWith(
-      { llmGatewayMode: "stripe_gateway", stripeGatewayKey: "rk_test_123" },
-      { customerId: "cus_abc" },
+      { llmGatewayMode: "stripe_gateway" },
+      { routing },
     );
 
     const [url] = fetchSpy.mock.calls[0] as unknown as [string];
-    expect(url).toBe("https://stripe.test/chat/completions");
+    expect(url).toBe("http://llm-gateway:4500/chat/completions");
   });
 
-  it("fails in stripe_gateway mode without a stripe customer id", async () => {
+  it("fails in stripe_gateway mode without routing identity", async () => {
     await expect(
-      runChatWith(
-        { stripeGatewayKey: "rk_test_123" },
-        { gatewayMode: "stripe_gateway" },
-      ),
-    ).rejects.toThrow(/customer/i);
-  });
-
-  it("fails in stripe_gateway mode without STRIPE_GATEWAY_KEY", async () => {
-    await expect(
-      runChatWith({}, { customerId: "cus_abc", gatewayMode: "stripe_gateway" }),
-    ).rejects.toThrow(/STRIPE_GATEWAY_KEY/);
+      runChatWith({}, { gatewayMode: "stripe_gateway" }),
+    ).rejects.toThrow(/task run/i);
   });
 });
 
@@ -196,13 +195,10 @@ describe("LLMClient request logging", () => {
     vi.restoreAllMocks();
   });
 
-  it("logs a structured llm_request line without leaking the customer id", async () => {
+  it("logs a structured llm_request line", async () => {
     const infoSpy = vi.spyOn(log, "info").mockImplementation(() => {});
 
-    await runChatWith(
-      { stripeGatewayKey: "rk_test_123" },
-      { customerId: "cus_abc", gatewayMode: "stripe_gateway" },
-    );
+    await runChatWith({}, { routing, gatewayMode: "stripe_gateway" });
 
     const entry = infoSpy.mock.calls
       .map((c) => c[0] as Record<string, unknown>)
@@ -211,13 +207,12 @@ describe("LLMClient request logging", () => {
       event: "llm_request",
       gateway_mode: "stripe_gateway",
       status_code: 200,
-      stripe_customer_present: true,
+      task_run_id: "task-run-1",
       model: "default",
       input_tokens: 1,
       output_tokens: 1,
     });
     expect(entry?.["duration_ms"]).toBeGreaterThanOrEqual(0);
-    expect(JSON.stringify(entry)).not.toContain("cus_abc");
   });
 
   it("logs the failure status when the gateway rejects the request", async () => {
@@ -225,9 +220,9 @@ describe("LLMClient request logging", () => {
 
     await expect(
       runChatWith(
-        { stripeGatewayKey: "rk_test_123" },
+        {},
         {
-          customerId: "cus_abc",
+          routing,
           gatewayMode: "stripe_gateway",
           response: new Response("insufficient credit", { status: 402 }),
         },
@@ -241,8 +236,7 @@ describe("LLMClient request logging", () => {
       event: "llm_request_failed",
       gateway_mode: "stripe_gateway",
       status_code: 402,
-      stripe_customer_present: true,
+      task_run_id: "task-run-1",
     });
-    expect(JSON.stringify(entry)).not.toContain("cus_abc");
   });
 });

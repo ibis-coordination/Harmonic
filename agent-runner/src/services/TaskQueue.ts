@@ -70,7 +70,6 @@ export function parseStreamEntry(fields: string[]): TaskPayload | null {
   const maxSteps = maxStepsStr !== undefined ? parseInt(maxStepsStr, 10) : 30;
 
   const model = map.get("model");
-  const stripeCustomerStripeId = map.get("stripe_customer_stripe_id");
   const llmGatewayModeStr = map.get("llm_gateway_mode");
   const llmGatewayMode =
     llmGatewayModeStr === "stripe_gateway" || llmGatewayModeStr === "litellm"
@@ -87,7 +86,6 @@ export function parseStreamEntry(fields: string[]): TaskPayload | null {
     model: model !== undefined && model !== "" ? model : undefined,
     agentId,
     tenantSubdomain,
-    stripeCustomerStripeId: stripeCustomerStripeId !== undefined && stripeCustomerStripeId !== "" ? stripeCustomerStripeId : undefined,
     llmGatewayMode,
     mode: mode === "chat_turn" ? "chat_turn" : "task",
     chatSessionId: chatSessionId !== undefined && chatSessionId !== "" ? chatSessionId : undefined,

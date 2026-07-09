@@ -17,7 +17,6 @@ describe("buildInitialMessages", () => {
     model: undefined,
     agentId: "agent-1",
     tenantSubdomain: "test",
-    stripeCustomerStripeId: undefined,
   };
 
   it("builds system + user messages", () => {

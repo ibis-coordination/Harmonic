@@ -90,7 +90,10 @@ services:
       # LLM_BASE_URL intentionally passed through only if set — empty string
       # would override agent-runner's per-mode default.
       - LLM_BASE_URL
-      - STRIPE_GATEWAY_KEY
+      # Where stripe_gateway-mode calls go (defaults to http://llm-gateway:4500).
+      # The runner holds no Stripe credentials — the llm-gateway service
+      # resolves the payer and relays to the Stripe AI Gateway.
+      - LLM_GATEWAY_URL
       - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-100}
       - STREAM_MAX_LEN=${STREAM_MAX_LEN:-10000}
     depends_on:
@@ -107,6 +110,45 @@ services:
     networks:
       - frontend  # needs external access for LLM API calls
       - backend
+
+  # LLM gateway — relays billed LLM calls to the Stripe AI Gateway, resolving
+  # the payer per call via the Rails internal API. The only service that holds
+  # STRIPE_GATEWAY_KEY. Internal-only: no Caddy route, no published port.
+  # Same image as agent-runner, different entrypoint.
+  #
+  # Own profile ("stripe"): it fail-fast exits without STRIPE_GATEWAY_KEY.
+  # Enable via COMPOSE_PROFILES=stripe in the server .env — NOT by starting it
+  # once by name (litellm-style): the gateway shares the agent-runner image and
+  # must be recreated by every deploy's `up -d`. See docs/DEPLOYMENT.md.
+  llm-gateway:
+    image: ghcr.io/ibis-coordination/harmonic-agent-runner:latest
+    command: ["node", "dist/gateway/server.js"]
+    restart: unless-stopped
+    profiles: ["stripe"]
+    environment:
+      - NODE_ENV=production
+      - AGENT_RUNNER_SECRET=${AGENT_RUNNER_SECRET:?AGENT_RUNNER_SECRET must be set}
+      - HARMONIC_INTERNAL_URL=http://web:3000
+      - HARMONIC_HOSTNAME=${HOSTNAME:?HOSTNAME must be set}
+      - STRIPE_GATEWAY_KEY
+      - STRIPE_GATEWAY_BASE_URL
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4500/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    networks:
+      - frontend  # outbound to llm.stripe.com
+      - backend   # Rails internal API; reachable by agent-runner
 
   redis:
     image: redis:7-alpine

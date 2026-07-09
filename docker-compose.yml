@@ -183,6 +183,37 @@ services:
       - frontend  # needs external access for LLM API calls
       - backend
 
+  # LLM gateway — relays billed LLM calls to the Stripe AI Gateway, resolving
+  # the payer per call via the Rails internal API. The only service that holds
+  # STRIPE_GATEWAY_KEY; the agent-runner sends stripe_gateway-mode calls here
+  # instead of holding Stripe credentials itself. Internal-only: no Caddy
+  # route, no published port.
+  #
+  # Own profile ("stripe"): it fail-fast exits without STRIPE_GATEWAY_KEY, so
+  # it only makes sense when the Stripe AI Gateway is configured. start.sh
+  # enables the profile automatically when STRIPE_GATEWAY_KEY is set in .env
+  # (note: start.sh's --profile flags override any COMPOSE_PROFILES env var).
+  llm-gateway:
+    build: ./agent-runner
+    command: ["node", "dist/gateway/server.js"]
+    profiles: ["stripe"]
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      AGENT_RUNNER_SECRET: "${AGENT_RUNNER_SECRET}"
+      HARMONIC_INTERNAL_URL: http://web:3000
+      HARMONIC_HOSTNAME: "${HOSTNAME:-harmonic.local}"
+      STRIPE_GATEWAY_KEY: "${STRIPE_GATEWAY_KEY}"
+      STRIPE_GATEWAY_BASE_URL: "${STRIPE_GATEWAY_BASE_URL:-https://llm.stripe.com}"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - frontend  # outbound to llm.stripe.com
+      - backend   # Rails internal API; reachable by agent-runner
+
   # # LLM services for in-app AI chat (optional - use profiles to enable)
   # ollama:
   #   image: ollama/ollama:latest

@@ -28,12 +28,22 @@ export interface LLMResponse {
   readonly reasoning: string | undefined;
 }
 
+/**
+ * Identity of the task behind a billed LLM call. The Harmonic LLM gateway
+ * resolves the paying Stripe customer from it — the runner never sees
+ * customer ids or Stripe credentials.
+ */
+export interface GatewayRouting {
+  readonly taskRunId: string;
+  readonly subdomain: string;
+}
+
 export interface LLMClientService {
   readonly chat: (
     messages: readonly Message[],
     model: string | undefined,
     tools: readonly ToolDefinition[],
-    stripeCustomerId: string | undefined,
+    routing: GatewayRouting | undefined,
     gatewayMode?: "litellm" | "stripe_gateway",
   ) => Effect.Effect<LLMResponse, LLMError>;
 }
@@ -78,11 +88,14 @@ export const LLMClientLive = Layer.effect(
   Effect.gen(function* () {
     const config = yield* Config;
 
-    const chat: LLMClientService["chat"] = (messages, model, tools, stripeCustomerId, gatewayMode) =>
+    const chat: LLMClientService["chat"] = (messages, model, tools, routing, gatewayMode) =>
       Effect.tryPromise({
         try: async () => {
           const mode = gatewayMode ?? config.llmGatewayMode;
-          const baseUrl = mode === "stripe_gateway" ? config.stripeGatewayBaseUrl : config.litellmBaseUrl;
+          // Billed calls go to the Harmonic LLM gateway, which resolves the
+          // payer and relays to the Stripe AI Gateway. Everything else goes
+          // straight to LiteLLM.
+          const baseUrl = mode === "stripe_gateway" ? config.llmGatewayUrl : config.litellmBaseUrl;
           const endpoint = mode === "stripe_gateway"
             ? "/chat/completions"
             : "/v1/chat/completions";
@@ -92,16 +105,14 @@ export const LLMClientLive = Layer.effect(
           };
 
           if (mode === "stripe_gateway") {
-            if (config.stripeGatewayKey === undefined) {
-              throw new Error("STRIPE_GATEWAY_KEY is required in stripe_gateway mode");
+            if (routing === undefined) {
+              // Without the task identity the gateway cannot resolve who pays —
+              // refuse rather than send an unattributable billed call.
+              throw new Error("stripe_gateway mode requires the task run identity for billing attribution");
             }
-            if (stripeCustomerId === undefined) {
-              // Without the customer header the gateway would bill the platform
-              // account instead of the tenant — refuse rather than eat the cost.
-              throw new Error("stripe_gateway mode requires a stripe customer id for billing attribution");
-            }
-            headers["Authorization"] = `Bearer ${config.stripeGatewayKey}`;
-            headers["X-Stripe-Customer-ID"] = stripeCustomerId;
+            headers["X-Harmonic-Task-Run-Id"] = routing.taskRunId;
+            headers["X-Harmonic-Subdomain"] = routing.subdomain;
+            headers["X-Harmonic-Model"] = model ?? "default";
           }
 
           const body = JSON.stringify({
@@ -127,13 +138,13 @@ export const LLMClientLive = Layer.effect(
           });
           const durationMs = Date.now() - startedAt;
 
-          // Routing fields only — never the customer id itself.
+          // Routing fields only — customer ids never flow through the runner.
           const requestLogFields = {
             gateway_mode: mode,
             model: model ?? "default",
             status_code: response.status,
             duration_ms: durationMs,
-            stripe_customer_present: stripeCustomerId !== undefined,
+            task_run_id: routing?.taskRunId,
           };
 
           if (!response.ok) {
