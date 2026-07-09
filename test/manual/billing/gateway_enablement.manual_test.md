@@ -11,8 +11,9 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 ## Prerequisites
 
 - Stripe account enrolled in the AI Gateway preview (`llm.stripe.com`)
-- `STRIPE_GATEWAY_KEY`, `STRIPE_CREDIT_PRODUCT_ID`, and `STRIPE_PRICING_PLAN_ID` set (see docs/BILLING.md runbook)
-- `rails billing:gateway_health` shows all three vars present
+- `STRIPE_GATEWAY_KEY` set on the llm-gateway service; `STRIPE_CREDIT_PRODUCT_ID` and `STRIPE_PRICING_PLAN_ID` set on Rails (see docs/BILLING.md runbook)
+- `llm-gateway` service running (`stripe` compose profile) and healthy (`GET /health`)
+- `rails billing:gateway_health` shows the llm-gateway reachable and both config vars present
 - Tenant A: `stripe_billing` enabled, a user with an active subscription and one internal AI agent
 - Tenant B: `stripe_billing` NOT enabled, with one internal AI agent (regression control)
 
@@ -36,13 +37,14 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 ### Steps
 
 1. Run a short task with Tenant A's agent
-2. Watch agent-runner logs for `llm_request` lines
+2. Watch agent-runner AND llm-gateway logs for `llm_request` lines
 3. Run `rails billing:gateway_health` after completion
 
 ### Checklist
 
 - [ ] Task completes successfully
-- [ ] Log lines show `"gateway_mode":"stripe_gateway"`, `"stripe_customer_present":true`, and a `provider/model`-format model name
+- [ ] Runner log lines show `"gateway_mode":"stripe_gateway"`, a `task_run_id`, and a `provider/model`-format model name
+- [ ] Gateway log lines show `"gateway_mode":"stripe_gateway"` with a 200 status (the relay reached Stripe)
 - [ ] Meter events for the run appear in the Stripe dashboard (Usage-based billing → Meters) within seconds
 - [ ] Balance drops by roughly the expected token cost (deduction is aggregated periodically — allow up to an hour, not instant)
 

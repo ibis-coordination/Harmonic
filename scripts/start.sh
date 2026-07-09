@@ -25,6 +25,14 @@ HOST_MODE=$(grep -E "^HOST_MODE=" .env | cut -d'=' -f2 | cut -d'#' -f1 | tr -d '
 # Always enable the llm profile (agent-runner + sidecars).
 # Add profile for reverse proxy based on HOST_MODE.
 PROFILES="--profile llm"
+
+# Enable the llm-gateway when a Stripe gateway key is configured
+# (the gateway fail-fast exits without STRIPE_GATEWAY_KEY).
+STRIPE_GATEWAY_KEY_FROM_ENV=$(grep -E "^STRIPE_GATEWAY_KEY=" .env 2>/dev/null | cut -d'=' -f2- | cut -d'#' -f1 | tr -d ' ' || true)
+if [ -n "$STRIPE_GATEWAY_KEY_FROM_ENV" ]; then
+    PROFILES="$PROFILES --profile stripe"
+fi
+
 if [ "$HOST_MODE" = "caddy" ]; then
     PROFILES="$PROFILES --profile caddy"
 elif [ "$HOST_MODE" = "ngrok" ]; then

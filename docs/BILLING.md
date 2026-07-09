@@ -99,7 +99,7 @@ How LLM usage billing turns on for a production tenant. Prerequisite: the Stripe
 
 **Restricted key permissions.** Two keys, minimal scopes. Every permission maps to a specific code path — when adding a new Stripe API call, extend the matching key's permissions and this table.
 
-`STRIPE_GATEWAY_KEY` — used exclusively as the Bearer token for `llm.stripe.com` requests (agent-runner):
+`STRIPE_GATEWAY_KEY` — used exclusively as the Bearer token for `llm.stripe.com` requests. Held only by the `llm-gateway` service (the agent-runner sends billed calls there and holds no Stripe credentials):
 
 | Permission | Access | Used by |
 |------------|--------|---------|
@@ -133,13 +133,18 @@ Webhook verification (`/stripe/webhooks`) uses `STRIPE_WEBHOOK_SECRET` for signa
 
    `STRIPE_SECRET_KEY` is the account secret key, used only for this run — it is not an app env var and never goes on the server. The webhook URL derives from `HOSTNAME`/`PRIMARY_SUBDOMAIN` exactly as the app's own non-tenant URLs do (or pass an explicit URL as the first argument). The script idempotently creates or verifies the credit product, the $3/month identity price, and the webhook endpoint (printing `STRIPE_WEBHOOK_SECRET` on creation), verifies the pricing plan and gateway key when their env vars are provided, and prints the env-var block plus any remaining dashboard-only steps. Re-run it after each manual step until the manual-steps list is empty.
 2. **Dashboard-only steps** (the script prints these with exact instructions):
-   - Create the two restricted keys per the permission tables above (`STRIPE_GATEWAY_KEY` → Rails and agent-runner; `STRIPE_API_KEY` → Rails only).
+   - Create the two restricted keys per the permission tables above (`STRIPE_GATEWAY_KEY` → llm-gateway service only; `STRIPE_API_KEY` → Rails only).
    - Create the pricing plan (Dashboard → Pricing plans → Create → "Billing for LLM tokens" template): select the models to offer and set the **markup percentage** — this is the pricing decision. Set its `bpp_...` id as `STRIPE_PRICING_PLAN_ID`.
 3. **Ask Stripe to enable zero-balance rejection** (token-billing-team@stripe.com) so the gateway itself refuses requests once a customer's balance is empty — our dispatch preflight checks at task start, not per LLM call, and balance deduction is aggregated periodically rather than real-time.
-4. **Deploy** with the vars set. No behavior changes yet — routing stays on LiteLLM until a tenant qualifies.
-5. **Verify health:** `rails billing:gateway_health` should show all three vars present and list active customers with balances and subscription status.
+4. **Deploy** with the vars set, and enable the `llm-gateway` service by setting
+   `COMPOSE_PROFILES=stripe` in the server's `.env` (see the LLM Gateway section of
+   docs/DEPLOYMENT.md — do not start it by name like litellm; it must be deploy-managed).
+   Ensure `INTERNAL_ALLOWED_IPS` covers the gateway container (use the Docker network CIDR,
+   not a single container IP). No behavior changes yet — routing stays on LiteLLM until a
+   tenant qualifies.
+5. **Verify health:** `rails billing:gateway_health` should show the llm-gateway reachable, both config vars present, and list active customers with balances and subscription status.
 6. **Enable the flag:** `tenant.enable_feature_flag!("stripe_billing")` for the target tenant. From the next dispatch, that tenant's billed agents route through the gateway. Before flipping it on a tenant, confirm no *other* tenant already has the flag plus active billing customers — their agents would start requiring credits too.
-7. **Smoke test:** top up a small amount at `/billing/topup` (this also creates the pricing-plan subscription), run an agent task, confirm the balance dropped (`billing:gateway_health`) and the agent-runner logged `llm_request` lines with `"gateway_mode":"stripe_gateway"`. Full checklist: `test/manual/billing/gateway_enablement.manual_test.md`.
+7. **Smoke test:** top up a small amount at `/billing/topup` (this also creates the pricing-plan subscription), run an agent task, confirm the balance dropped (`billing:gateway_health`) and both the agent-runner and the llm-gateway logged `llm_request` lines with `"gateway_mode":"stripe_gateway"` (the runner's line shows the call reached the gateway; the gateway's line shows it reached Stripe). Full checklist: `test/manual/billing/gateway_enablement.manual_test.md`.
 
 **Model names.** Model names match the Stripe gateway's `provider/model` scheme 1-to-1, and `config/litellm_config.yaml` uses the same names, so an agent's configured model (e.g. `anthropic/claude-sonnet-4.6`) works unchanged whether it routes through the gateway or LiteLLM. `StripeGatewayModelMapper` resolves blank/`default` to its default model and passes `provider/model` names through; names the gateway cannot proxy (local Ollama, Arcee Trinity) fail the task at dispatch with an explanatory error — update the agent's model or route the tenant back to LiteLLM.
 

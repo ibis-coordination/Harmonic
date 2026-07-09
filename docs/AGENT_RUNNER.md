@@ -116,23 +116,31 @@ Visible at `/system-admin/agent-runner` (requires sys_admin role). Shows runner 
 | `HARMONIC_INTERNAL_URL` | No | `http://web:3000` | Direct TCP URL to Rails container |
 | `REDIS_URL` | No | `redis://redis:6379` | Redis connection |
 | `LITELLM_BASE_URL` | No | `http://litellm:4000` | LiteLLM endpoint |
-| `STRIPE_GATEWAY_BASE_URL` | No | `https://llm.stripe.com` | Stripe AI Gateway endpoint |
-| `LLM_BASE_URL` | No | — | Legacy override; applies to whichever route `LLM_GATEWAY_MODE` names |
+| `LLM_GATEWAY_URL` | No | `http://llm-gateway:4500` | Harmonic LLM gateway — where the runner sends billed (`stripe_gateway`-mode) calls. The runner holds no Stripe credentials; the gateway resolves the payer and relays to the Stripe AI Gateway. |
+| `LLM_BASE_URL` | No | — | Legacy override for the LiteLLM route only (billed calls always go to `LLM_GATEWAY_URL`) |
 | `LLM_GATEWAY_MODE` | No | `litellm` | Fallback route for tasks whose payload predates the per-task `llm_gateway_mode` stream field. Rails decides routing per task; this only covers old queued payloads. |
-| `STRIPE_GATEWAY_KEY` | No | — | Required for any task routed through the Stripe gateway |
 | `MAX_CONCURRENT_TASKS` | No | `100` | Maximum concurrent task fibers |
 | `STREAM_MAX_LEN` | No | `10000` | Redis stream approximate max length |
 | `AGENT_TASKS_STREAM` | No | `agent_tasks` | Redis stream name |
 | `AGENT_TASKS_CONSUMER_GROUP` | No | `agent_runner` | Consumer group name |
 | `AGENT_TASKS_CONSUMER_NAME` | No | `runner-{pid}` | Consumer name (unique per process) |
 
+The `llm-gateway` entrypoint (same image, `node dist/gateway/server.js`, compose profile
+`stripe`) additionally reads:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `STRIPE_GATEWAY_KEY` | Yes | — | Bearer token for `llm.stripe.com`; the gateway fail-fast exits without it |
+| `STRIPE_GATEWAY_BASE_URL` | No | `https://llm.stripe.com` | Stripe AI Gateway upstream |
+| `GATEWAY_PORT` | No | `4500` | Listen port |
+
 Rails also needs:
 | Variable | Description |
 |----------|-------------|
 | `AGENT_RUNNER_SECRET` | Same value as agent-runner (for encryption + HMAC verification) |
-| `INTERNAL_ALLOWED_IPS` | Comma-separated IPs/CIDRs for internal API access. In Docker, set this to the agent-runner container's bridge-network IP or the container network CIDR; the check uses the TCP peer address (`REMOTE_ADDR`), not the spoofable `X-Forwarded-For` header. |
+| `INTERNAL_ALLOWED_IPS` | Comma-separated IPs/CIDRs for internal API access. In Docker, set this to the container network CIDR (it must cover every internal caller: agent-runner and llm-gateway); the check uses the TCP peer address (`REMOTE_ADDR`), not the spoofable `X-Forwarded-For` header. |
 
-Local development note: the `agent-runner` compose service sits behind a `profiles: ["llm"]` gate. Start it with `docker compose --profile llm up agent-runner` (or `docker compose --profile llm up -d`) when you want to exercise the full dispatch path locally.
+Local development note: the `agent-runner` compose service sits behind a `profiles: ["llm"]` gate. Start it with `docker compose --profile llm up agent-runner` (or `docker compose --profile llm up -d`) when you want to exercise the full dispatch path locally. The `llm-gateway` service sits behind a separate `stripe` profile (it fail-fast exits without `STRIPE_GATEWAY_KEY`); `./scripts/start.sh` enables it automatically when `STRIPE_GATEWAY_KEY` is set in `.env`, or add `--profile stripe` manually.
 
 ## Rotating `AGENT_RUNNER_SECRET`
 
