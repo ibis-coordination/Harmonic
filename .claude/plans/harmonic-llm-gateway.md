@@ -329,18 +329,48 @@ DB-backed — funding collective → consenting members → their Stripe custome
 uniform-random per call — replacing `LLM_POOL_CONFIG`. Camp B intact: each member's own
 balance pays Stripe directly per call; the collective never holds funds.
 
-Open questions to resolve at build time:
+**First implementation pass — decided 2026-07-10 (minimal prototype for the private
+beta; everything else iterates on real-user feedback):**
 
-- **Consent duration**: open-ended-until-exit (what membership naturally gives) vs the
-  time-bounded/renewable window argued for in the earlier commitment design ("time-bound
-  establishes clearer expectations and lowers risk"). Possibly membership admits you and
-  funding participation rides a renewable window (dues-like).
-- **Agent admission governance**: admitting an agent spends everyone's money; a Decision
-  is the natural gate. Who can propose, what threshold.
-- **Dry-member handling** (402-retry vs balance cache) — still hostage to Stripe's answer
-  on the zero-balance blocker.
-- How `agent_funders` interacts with `billable_types`, listability, and the join UX (all
-  keyed on `collective_type` today).
+- **Consent span: open-ended until exit.** Membership IS the consent; leaving ends it. No
+  windows, no renewal machinery. The time-boundedness argument stays banked below for
+  iteration if beta members want renewal periods.
+- **Agent admission: collective admins only.** Attaching an agent to a funding collective
+  is an admin action. The Decision-gate upgrade layers on later.
+- **Unfunded members: funded to join, skipped if lapsed.** Invite acceptance requires an
+  active funded billing customer (keeps "joining = consenting to fund" real). If funding
+  lapses after joining, the member is skipped in draws (logged), not pool-breaking.
+- **Type properties: unlisted, invite-only, not billable.** Like chat collectives —
+  excluded from public listing and `billable_types`. The invite/join flow carries the
+  funding-consent language for this type.
+
+Build shape for the v1 cut:
+
+- `agent_funders` added to `VALID_COLLECTIVE_TYPES` (immutable like the others); creation
+  through the existing collective-creation path with the new type.
+- Funding link = association from the agent to its funding collective; valid only when
+  the collective is `agent_funders` type and the agent's `parent` is an active member
+  (primary-must-be-a-funder, checked at attach time AND per call).
+- `PayerResolver.pool_customer_ids` becomes DB-backed: funding collective → active
+  members → each member's funded billing customer (active + pricing-plan subscription) →
+  uniform-random draw. Thread-scope-safe lookups (`tenant_scoped_only` + explicit ids —
+  select-payer runs after tenant re-scope but never through collective-scoped
+  associations).
+- **No primary, no service**, enforced statelessly per call at select-payer/dispatch: if
+  the agent's parent is no longer an active funding member, resolution fails with its own
+  error code (distinct from `not_funded`).
+- Agent profile shows "funded by ⟨collective⟩" publicly; roster keeps normal collective
+  visibility.
+- `LLM_POOL_CONFIG` PoC retired when the DB-backed lookup lands (delete the env branch —
+  it was built to be removable).
+- Usage transparency deferred: members see their own drain via Stripe's customer portal
+  receipts. The usage table / realized-vs-fair-share view is the first fast-follow
+  candidate (the Ostrom lens says monitoring is load-bearing — expect beta feedback here).
+
+Deferred to iteration (deliberately NOT in v1): renewable consent windows; Decision gate
+for agent admission; dry-member 402-retry vs balance cache (hostage to Stripe's
+zero-balance answer — today the 402 relays verbatim); public roster options beyond
+collective-default visibility; per-member spend ceilings within a pool.
 
 Notes carried from the abandoned commitment-subtype cut (still relevant where the
 commitment instrument returns, e.g. renewable funding windows): join-deadline vs
