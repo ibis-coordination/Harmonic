@@ -309,7 +309,7 @@ class ApiToken < ApplicationRecord
   def self.authenticate_llm_gateway(token_string)
     return nil if token_string.blank?
 
-    unscoped.find_by(token_hash: hash_token(token_string), deleted_at: nil, internal: false, token_type: "llm_gateway") # unscoped-allowed — cross-tenant auth by unguessable hash; tenant is derived FROM the token
+    unscoped.find_by(token_hash: hash_token(token_string), deleted_at: nil, internal: false, token_type: "llm_gateway") # unscoped-allowed
   end
 
   sig { params(token_string: String).returns(String) }
