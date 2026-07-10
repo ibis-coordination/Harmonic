@@ -26,6 +26,7 @@ Rails.application.routes.draw do
   # The gateway resolves the payer for a billed LLM call and reports usage.
   scope "internal/llm-gateway", module: "internal", as: "internal_llm_gateway" do
     post 'select-payer' => 'llm_gateway#select_payer'
+    post 'select-payer-for-token' => 'llm_gateway#select_payer_for_token'
   end
 
   # Incoming webhooks - public endpoint for external automation triggers

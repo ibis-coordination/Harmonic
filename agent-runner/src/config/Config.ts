@@ -4,6 +4,12 @@ import { ConfigError } from "../errors/Errors.js";
 export interface AppConfig {
   readonly harmonicInternalUrl: string;
   readonly harmonicHostname: string;
+  /**
+   * Host subdomain for internal Rails calls that carry no tenant of their own
+   * (the gateway's select-payer-for-token resolves the tenant from the API
+   * key, but Rails host authorization still needs a real Host header).
+   */
+  readonly primarySubdomain: string;
   readonly agentRunnerSecret: string;
   readonly redisUrl: string;
   readonly litellmBaseUrl: string;
@@ -40,6 +46,7 @@ export const ConfigLive = Layer.effect(
   Effect.gen(function* () {
     const agentRunnerSecret = yield* requireEnv("AGENT_RUNNER_SECRET");
     const harmonicHostname = yield* requireEnv("HARMONIC_HOSTNAME");
+    const primarySubdomain = yield* optionalEnv("HARMONIC_PRIMARY_SUBDOMAIN", "app");
     const redisUrl = yield* optionalEnv("REDIS_URL", "redis://redis:6379");
     const llmGatewayMode = yield* optionalEnv("LLM_GATEWAY_MODE", "litellm");
     const harmonicInternalUrl = yield* optionalEnv("HARMONIC_INTERNAL_URL", "http://web:3000");
@@ -69,6 +76,7 @@ export const ConfigLive = Layer.effect(
     return {
       harmonicInternalUrl,
       harmonicHostname,
+      primarySubdomain,
       agentRunnerSecret,
       redisUrl,
       litellmBaseUrl,

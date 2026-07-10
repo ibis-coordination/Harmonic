@@ -20,6 +20,8 @@ import { ConfigLive } from "../config/Config.js";
 import { RailsHttpLive } from "../services/RailsHttp.js";
 import { StripeUpstreamLive } from "./StripeUpstream.js";
 import { relay } from "./Relay.js";
+import { externalRelay } from "./ExternalRelay.js";
+import { RateLimiter } from "./RateLimiter.js";
 import { createHandler } from "./handler.js";
 import { log } from "../services/Logger.js";
 
@@ -36,7 +38,20 @@ const AppLayer = Layer.provideMerge(
 );
 const runtime = ManagedRuntime.make(AppLayer);
 
-const handler = createHandler((req) => runtime.runPromise(relay(req)));
+const intEnv = (name: string, defaultValue: number): number =>
+  parseInt(process.env[name] ?? "", 10) || defaultValue;
+
+const handler = createHandler({
+  runRelay: (req) => runtime.runPromise(relay(req)),
+  runExternalRelay: (req) => runtime.runPromise(externalRelay(req)),
+  // Spend-rate stopgap for external keys until dollar ceilings exist:
+  // requests per minute bound the burn rate, requests per day bound the total.
+  rateLimiter: new RateLimiter({
+    perMinute: intEnv("GATEWAY_EXTERNAL_RPM", 20),
+    perDay: intEnv("GATEWAY_EXTERNAL_RPD", 500),
+  }),
+  maxBodyBytes: intEnv("GATEWAY_MAX_BODY_BYTES", 1024 * 1024),
+});
 
 const port = parseInt(process.env["GATEWAY_PORT"] ?? "4500", 10) || 4500;
 const server = createServer((req, res) => {

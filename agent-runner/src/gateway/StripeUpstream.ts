@@ -15,11 +15,26 @@ export interface StripeUpstreamResult {
   readonly body: string;
 }
 
+export interface StripeUpstreamStreamResult {
+  readonly status: number;
+  readonly contentType: string;
+  readonly body: ReadableStream<Uint8Array> | null;
+}
+
 export interface StripeUpstreamService {
   readonly chatCompletions: (opts: {
     readonly customerId: string;
     readonly body: string;
   }) => Promise<StripeUpstreamResult>;
+  /**
+   * Same hop, but the response body is handed back as a stream instead of
+   * buffered text — the external ingress pipes it to the client byte for
+   * byte, which serves SSE (stream: true) and plain JSON responses alike.
+   */
+  readonly chatCompletionsStream: (opts: {
+    readonly customerId: string;
+    readonly body: string;
+  }) => Promise<StripeUpstreamStreamResult>;
 }
 
 export class StripeUpstream extends Context.Tag("StripeUpstream")<StripeUpstream, StripeUpstreamService>() {}
@@ -29,12 +44,12 @@ export const StripeUpstreamLive = Layer.effect(
   Effect.gen(function* () {
     const config = yield* Config;
 
-    const chatCompletions: StripeUpstreamService["chatCompletions"] = async ({ customerId, body }) => {
+    const rawRequest = async ({ customerId, body }: { customerId: string; body: string }): Promise<Response> => {
       if (config.stripeGatewayKey === undefined) {
         throw new Error("STRIPE_GATEWAY_KEY is required to relay to the Stripe AI Gateway");
       }
 
-      const response = await fetch(`${config.stripeGatewayBaseUrl}/chat/completions`, {
+      return fetch(`${config.stripeGatewayBaseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,11 +59,23 @@ export const StripeUpstreamLive = Layer.effect(
         body,
         signal: AbortSignal.timeout(120_000),
       });
+    };
 
+    const chatCompletions: StripeUpstreamService["chatCompletions"] = async (opts) => {
+      const response = await rawRequest(opts);
       const text = await response.text();
       return { status: response.status, body: text };
     };
 
-    return { chatCompletions };
+    const chatCompletionsStream: StripeUpstreamService["chatCompletionsStream"] = async (opts) => {
+      const response = await rawRequest(opts);
+      return {
+        status: response.status,
+        contentType: response.headers.get("content-type") ?? "application/json",
+        body: response.body,
+      };
+    };
+
+    return { chatCompletions, chatCompletionsStream };
   }),
 );

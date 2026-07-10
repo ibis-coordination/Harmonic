@@ -100,5 +100,58 @@ module LLMGateway
       end
       assert_equal "not_a_billed_task", error.code
     end
+
+    # === resolve_for_agent (external gateway calls — no task run) ===
+
+    def create_agent_billing_customer!(**overrides)
+      customer = StripeCustomer.create!(
+        billable: @ai_agent,
+        stripe_id: "cus_agent_individual",
+        active: true,
+        pricing_plan_subscription_id: "bpps_test123",
+        **overrides,
+      )
+      @ai_agent.update!(stripe_customer_id: customer.id)
+      customer
+    end
+
+    test "resolve_for_agent picks from the pool when the agent is pool-configured" do
+      configure_pool!(["cus_pool_a", "cus_pool_b"])
+
+      result = PayerResolver.resolve_for_agent(@ai_agent)
+      assert_includes ["cus_pool_a", "cus_pool_b"], result.payer_customer_id
+    end
+
+    test "resolve_for_agent pool takes precedence over the agent's billing customer" do
+      create_agent_billing_customer!
+      configure_pool!(["cus_pool_a"])
+
+      result = PayerResolver.resolve_for_agent(@ai_agent)
+      assert_equal "cus_pool_a", result.payer_customer_id
+    end
+
+    test "resolve_for_agent falls back to the agent's billing customer" do
+      create_agent_billing_customer!
+
+      result = PayerResolver.resolve_for_agent(@ai_agent)
+      assert_equal "cus_agent_individual", result.payer_customer_id
+    end
+
+    test "resolve_for_agent raises not_funded when the agent has no billing customer" do
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve_for_agent(@ai_agent)
+      end
+      assert_equal "not_funded", error.code
+      assert_equal :payment_required, error.http_status
+    end
+
+    test "resolve_for_agent raises not_funded when the billing customer has no credit subscription" do
+      create_agent_billing_customer!(pricing_plan_subscription_id: nil)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve_for_agent(@ai_agent)
+      end
+      assert_equal "not_funded", error.code
+    end
   end
 end

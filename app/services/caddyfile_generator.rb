@@ -38,6 +38,12 @@ class CaddyfileGenerator
     lines << "\tredir https://#{primary_subdomain}.#{hostname}{uri} permanent"
     lines << "}"
 
+    # LLM gateway edge: external agents call the OpenAI-compatible ingress
+    # with their llm_gateway API keys. Only /v1/* is forwarded — the gateway's
+    # internal relay (/chat/completions) has no auth of its own and must stay
+    # unreachable from outside.
+    lines.concat(llm_gateway_block(hostname))
+
     # Primary subdomain
     lines.concat(subdomain_block("#{primary_subdomain}.#{hostname}"))
 
@@ -58,6 +64,18 @@ class CaddyfileGenerator
     end
 
     lines.join("\n") + "\n"
+  end
+
+  sig { params(hostname: String).returns(T::Array[String]) }
+  def llm_gateway_block(hostname)
+    [
+      "llm.#{hostname} {",
+      "\thandle /v1/* {",
+      "\t\treverse_proxy llm-gateway:4500",
+      "\t}",
+      "\trespond 403",
+      "}",
+    ]
   end
 
   sig { params(host: String).returns(T::Array[String]) }

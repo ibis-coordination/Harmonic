@@ -141,6 +141,175 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  # === select-payer-for-token (external gateway ingress) ===
+  # These requests arrive via the public llm.<hostname> edge, so the gateway
+  # cannot know a tenant subdomain — the token itself carries the tenant.
+  # All error bodies are OpenAI-shaped ({error: {message, type, code}})
+  # because the gateway passes them through to the external client verbatim.
+
+  def create_gateway_agent_and_token(token_type: "llm_gateway")
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    token = ApiToken.create!(
+      tenant: @tenant, user: agent, name: "Gateway key", scopes: ["read:all"], token_type: token_type
+    )
+    [agent, token]
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
+  end
+
+  def with_pool_config(pool_by_agent_id)
+    previous = ENV.fetch(LLMGateway::PayerResolver::POOL_CONFIG_ENV, nil)
+    ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = pool_by_agent_id.to_json
+    yield
+  ensure
+    if previous.nil?
+      ENV.delete(LLMGateway::PayerResolver::POOL_CONFIG_ENV)
+    else
+      ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = previous
+    end
+  end
+
+  def select_payer_for_token(body_hash)
+    # Host is deliberately NOT a tenant subdomain: the action must not depend
+    # on subdomain tenant resolution.
+    host! "app.#{ENV.fetch("HOSTNAME", "harmonic.local")}"
+    body = body_hash.to_json
+    post "/internal/llm-gateway/select-payer-for-token", params: body, headers: signed_headers(body)
+  end
+
+  def assert_openai_error(code)
+    error = JSON.parse(response.body)["error"]
+    assert error.is_a?(Hash), "expected an OpenAI-shaped error body, got #{response.body}"
+    assert_equal code, error["code"]
+    assert error["message"].present?
+    assert error["type"].present?
+  end
+
+  test "token caller: returns a pool payer and the mapped model" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    agent, token = create_gateway_agent_and_token
+
+    with_pool_config(agent.id => ["cus_pool_a", "cus_pool_b"]) do
+      select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
+    end
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_includes ["cus_pool_a", "cus_pool_b"], body["payer_customer_id"]
+    assert_equal "anthropic/claude-sonnet-4.6", body["model"]
+    assert_not_nil token.reload.last_used_at, "expected last_used_at to be bumped"
+  end
+
+  test "token caller: falls back to the agent's billing customer" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    agent, token = create_gateway_agent_and_token
+    customer = StripeCustomer.create!(
+      billable: agent, stripe_id: "cus_external_agent", active: true, pricing_plan_subscription_id: "bpps_ext"
+    )
+    agent.update!(stripe_customer_id: customer.id)
+
+    select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
+
+    assert_response :success
+    assert_equal "cus_external_agent", JSON.parse(response.body)["payer_customer_id"]
+  end
+
+  test "token caller: blank model maps to the default model" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    agent, token = create_gateway_agent_and_token
+
+    with_pool_config(agent.id => ["cus_pool_a"]) do
+      select_payer_for_token(agent_token: token.plaintext_token)
+    end
+
+    assert_response :success
+    assert_equal StripeGatewayModelMapper::DEFAULT_MODEL, JSON.parse(response.body)["model"]
+  end
+
+  test "token caller: 401 for a missing token" do
+    select_payer_for_token(model: "anthropic/claude-sonnet-4.6")
+    assert_response :unauthorized
+    assert_openai_error("invalid_token")
+  end
+
+  test "token caller: 401 for an unknown token" do
+    select_payer_for_token(agent_token: "not-a-real-token")
+    assert_response :unauthorized
+    assert_openai_error("invalid_token")
+  end
+
+  test "token caller: 401 for a revoked token" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    _agent, token = create_gateway_agent_and_token
+    plaintext = token.plaintext_token
+    token.delete!
+
+    select_payer_for_token(agent_token: plaintext)
+    assert_response :unauthorized
+    assert_openai_error("invalid_token")
+  end
+
+  test "token caller: 401 for an expired token" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    _agent, token = create_gateway_agent_and_token
+    token.update_column(:expires_at, 1.hour.ago)
+
+    select_payer_for_token(agent_token: token.plaintext_token)
+    assert_response :unauthorized
+    assert_openai_error("invalid_token")
+  end
+
+  test "token caller: 401 for a rest-type token" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    _agent, token = create_gateway_agent_and_token(token_type: "rest")
+
+    select_payer_for_token(agent_token: token.plaintext_token)
+    assert_response :unauthorized
+    assert_openai_error("invalid_token")
+  end
+
+  test "token caller: 403 when the tenant flag is off" do
+    agent, token = create_gateway_agent_and_token
+
+    with_pool_config(agent.id => ["cus_pool_a"]) do
+      select_payer_for_token(agent_token: token.plaintext_token)
+    end
+
+    assert_response :forbidden
+    assert_openai_error("feature_disabled")
+  end
+
+  test "token caller: 402 when the agent is not funded" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    _agent, token = create_gateway_agent_and_token
+
+    select_payer_for_token(agent_token: token.plaintext_token)
+    assert_response :payment_required
+    assert_openai_error("not_funded")
+  end
+
+  test "token caller: 400 for a model the gateway cannot proxy" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    agent, token = create_gateway_agent_and_token
+
+    with_pool_config(agent.id => ["cus_pool_a"]) do
+      select_payer_for_token(agent_token: token.plaintext_token, model: "local-ollama-model")
+    end
+
+    assert_response :bad_request
+    assert_openai_error("unsupported_model")
+  end
+
+  test "token caller: rejects an unsigned request" do
+    host! "app.#{ENV.fetch("HOSTNAME", "harmonic.local")}"
+    post "/internal/llm-gateway/select-payer-for-token",
+         params: { agent_token: "anything" }.to_json,
+         headers: { "Content-Type" => "application/json" }
+    assert_response :unauthorized
+  end
+
   private
 
   def select_payer(body_hash)

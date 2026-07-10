@@ -297,6 +297,21 @@ class ApiToken < ApplicationRecord
     unscope(where: :internal).find_by(token_hash: token_hash, deleted_at: nil, tenant_id: tenant_id)
   end
 
+  # Authenticate a Bearer key presented to the LLM gateway. The gateway is a
+  # single cross-tenant edge (llm.<hostname>), so unlike `.authenticate` there
+  # is no tenant context yet — the token itself identifies the tenant, and the
+  # caller re-scopes the thread to it after this lookup. Bypassing the tenant
+  # scope is safe here because the unguessable 256-bit hash IS the credential:
+  # the lookup is the authentication, the same pre-tenant character as User
+  # auth. Only user-issued llm_gateway-type keys match; expiry is a call-site
+  # check (same convention as `.authenticate`).
+  sig { params(token_string: String).returns(T.nilable(ApiToken)) }
+  def self.authenticate_llm_gateway(token_string)
+    return nil if token_string.blank?
+
+    unscoped.find_by(token_hash: hash_token(token_string), deleted_at: nil, internal: false, token_type: "llm_gateway") # unscoped-allowed
+  end
+
   sig { params(token_string: String).returns(String) }
   def self.hash_token(token_string)
     Digest::SHA256.hexdigest(token_string)

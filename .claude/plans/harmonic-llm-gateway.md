@@ -352,18 +352,33 @@ surface accepts exactly its own type. A leaked token is exactly one kind of inci
 data access (rest), audited agent action (mcp), or spend with zero data access
 (llm_gateway).
 
-Remaining stage-4 scope:
+**Ingress BUILT (2026-07-10, branch llm-gateway-ingress; implementation plan in
+llm-gateway-stage4-ingress.md):**
 
-- **Per-collective feature flag**, app-admin controlled (mirrors `stripe_billing` gating).
-  External gateway calls for a collective's agents work only while its flag is on.
-- Public `llm.harmonic.social` edge (Caddy static block) exposing an OpenAI-compatible
-  `POST /v1/chat/completions`; the gateway forwards the bearer token to Rails for
-  validation (gateway stays stateless — revocation takes effect on the next call).
-- The untrusted-caller protections deferred from stage 1: **streaming (SSE) passthrough**
-  (external clients stream), **model allowlist** enforced at the gateway, **rate limiting**,
-  **request-size caps**, and **per-key spend ceilings** independent of Stripe's balance
-  gate (a leaked key spends other people's money until the pool is dry; the balance gate
-  alone doesn't bound that).
+- **Tenant-level `llm_gateway` feature flag** (decided over per-collective: mirrors
+  `stripe_billing` exactly; per-collective gating arrives with the real pool feature).
+  Toggle appears automatically in tenant admin settings.
+- `llm.<hostname>` Caddy block forwarding ONLY `/v1/*` to the gateway; the gateway's
+  unauthenticated internal relay path stays unreachable from outside.
+- OpenAI-compatible `POST /v1/chat/completions` with the agent's llm_gateway key as
+  Bearer. Rails authenticates per call via `select-payer-for-token`
+  (`ApiToken.authenticate_llm_gateway` — cross-tenant hash lookup, thread re-scoped from
+  the token's tenant) and returns payer + mapped model; gateway stays stateless, so
+  revocation takes effect on the next call. Model validation via
+  `StripeGatewayModelMapper`; OpenAI-shaped error bodies pass through verbatim.
+- **Streaming (SSE) passthrough** — upstream bytes pipe straight through; one code path
+  serves stream and non-stream.
+- **Per-key rate limits** (in-memory sliding window, `GATEWAY_EXTERNAL_RPM`=20 /
+  `GATEWAY_EXTERNAL_RPD`=500) + **request-size cap** (`GATEWAY_MAX_BODY_BYTES`=1 MB) as
+  the spend-rate stopgap; **dollar spend ceilings deferred** until record-usage
+  persistence exists.
+- Dev E2E verified through the real edge: 401/403/429 (with Retry-After) negative paths,
+  and the valid-key path relaying Stripe's balance-rejection 400 verbatim (full-chain
+  proof while the Stripe blocker stands).
+
+Still remaining for the beta:
+
+- Prod DNS for `llm.harmonic.social` (deploy step, not code).
 - **Internal/external traffic isolation** so a beta collective's runaway usage or a stolen
   key can't take down internal agents (see Open decisions).
 - Explicit commitment enrollment as the consent/contract gate for every external

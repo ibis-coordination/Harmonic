@@ -69,6 +69,14 @@ feature_flags:
     default_collective: false
     collective_level: false
 
+  llm_gateway:
+    name: "LLM Gateway External Access"
+    description: "Allows the tenant's external agents to call the LLM gateway directly with their llm_gateway API keys, billed to their pool or billing customer. Requires Stripe billing."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: false
+
   vote_receipt_emails:
     name: "Vote Receipt Emails"
     description: "Allows voters to opt in to receiving email receipts when they vote"

@@ -7,6 +7,7 @@ import type { AppConfig } from "../../src/config/Config.js";
 const testConfig: AppConfig = {
   harmonicInternalUrl: "http://web:3000",
   harmonicHostname: "harmonic.local",
+  primarySubdomain: "app",
   agentRunnerSecret: "test-secret",
   redisUrl: "redis://redis:6379",
   litellmBaseUrl: "http://litellm:4000",
@@ -66,5 +67,47 @@ describe("StripeUpstream", () => {
       run({ ...testConfig, stripeGatewayKey: undefined }, { customerId: "cus_abc", body: "{}" }),
     ).rejects.toThrow(/STRIPE_GATEWAY_KEY/);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  describe("chatCompletionsStream", () => {
+    const runStream = (config: AppConfig, opts: { customerId: string; body: string }) =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const stripe = yield* StripeUpstream;
+          return yield* Effect.promise(() => stripe.chatCompletionsStream(opts));
+        }).pipe(Effect.provide(StripeUpstreamLive.pipe(Layer.provide(Layer.succeed(Config, config))))),
+      );
+
+    it("returns the upstream body as a stream with its content type", async () => {
+      const fetchSpy = vi.fn(
+        async () =>
+          new Response("data: chunk\n\n", { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+      );
+      vi.stubGlobal("fetch", fetchSpy);
+
+      const body = JSON.stringify({ model: "anthropic/claude-sonnet-4.6", stream: true, messages: [] });
+      const result = await runStream(testConfig, { customerId: "cus_abc", body });
+
+      const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers["X-Stripe-Customer-ID"]).toBe("cus_abc");
+      expect(result.status).toBe(200);
+      expect(result.contentType).toBe("text/event-stream");
+      expect(result.body).not.toBeNull();
+      expect(await new Response(result.body).text()).toBe("data: chunk\n\n");
+    });
+
+    it("streams error responses verbatim too", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response('{"error":"nope"}', { status: 402, headers: { "Content-Type": "application/json" } })),
+      );
+
+      const result = await runStream(testConfig, { customerId: "cus_abc", body: "{}" });
+
+      expect(result.status).toBe(402);
+      expect(result.contentType).toBe("application/json");
+      expect(await new Response(result.body).text()).toBe('{"error":"nope"}');
+    });
   });
 });

@@ -68,6 +68,13 @@ class RegenerateCaddyfileJobTest < ActiveJob::TestCase
       if block.include?("redir")
         # Bare domain redirect block
         assert_includes block, "redir https://", "Bare domain should redirect"
+      elsif block.start_with?("llm.")
+        # LLM gateway edge: only /v1/* is forwarded, and to the gateway —
+        # never to the Rails app.
+        assert_includes block, "reverse_proxy llm-gateway:4500",
+          "LLM edge should proxy to the gateway: #{block}"
+        assert_not_includes block, "reverse_proxy web:3000",
+          "LLM edge must not proxy to the Rails app: #{block}"
       else
         assert_includes block, "reverse_proxy web:3000",
           "Block should proxy to web:3000: #{block}"

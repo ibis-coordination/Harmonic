@@ -186,8 +186,9 @@ services:
   # LLM gateway — relays billed LLM calls to the Stripe AI Gateway, resolving
   # the payer per call via the Rails internal API. The only service that holds
   # STRIPE_GATEWAY_KEY; the agent-runner sends stripe_gateway-mode calls here
-  # instead of holding Stripe credentials itself. Internal-only: no Caddy
-  # route, no published port.
+  # instead of holding Stripe credentials itself. No published port; Caddy
+  # forwards ONLY /v1/* on llm.<hostname> (the external, bearer-authenticated
+  # ingress) — the internal relay path stays unreachable from outside.
   #
   # Own profile ("stripe"): it fail-fast exits without STRIPE_GATEWAY_KEY, so
   # it only makes sense when the Stripe AI Gateway is configured. start.sh
@@ -204,8 +205,13 @@ services:
       AGENT_RUNNER_SECRET: "${AGENT_RUNNER_SECRET}"
       HARMONIC_INTERNAL_URL: http://web:3000
       HARMONIC_HOSTNAME: "${HOSTNAME:-harmonic.local}"
+      HARMONIC_PRIMARY_SUBDOMAIN: "${PRIMARY_SUBDOMAIN:-app}"
       STRIPE_GATEWAY_KEY: "${STRIPE_GATEWAY_KEY}"
       STRIPE_GATEWAY_BASE_URL: "${STRIPE_GATEWAY_BASE_URL:-https://llm.stripe.com}"
+      # External-ingress limits (per llm_gateway API key)
+      GATEWAY_EXTERNAL_RPM: "${GATEWAY_EXTERNAL_RPM:-20}"
+      GATEWAY_EXTERNAL_RPD: "${GATEWAY_EXTERNAL_RPD:-500}"
+      GATEWAY_MAX_BODY_BYTES: "${GATEWAY_MAX_BODY_BYTES:-1048576}"
     deploy:
       resources:
         limits:
