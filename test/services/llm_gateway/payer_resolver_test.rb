@@ -155,6 +155,19 @@ module LLMGateway
       end
     end
 
+    test "an archived funding collective suspends the agent" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_primary")
+      @ai_agent.update!(funding_collective: funding)
+      funding.update!(archived_at: Time.current, archived_by_id: @user.id)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "funding_collective_unavailable", error.code
+      assert_equal :forbidden, error.http_status
+    end
+
     test "raises pool_exhausted when no member is funded" do
       funding = create_funding_collective
       @ai_agent.update!(funding_collective: funding)

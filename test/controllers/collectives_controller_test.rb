@@ -1964,6 +1964,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   test "an admin can attach a member's agent to an agent_funding collective" do
     funding = create_funding_collective
     agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
     post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
@@ -1981,22 +1982,45 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     funding.add_user!(member)
     agent = create_ai_agent(parent: member)
     Tenant.clear_thread_scope
+    @tenant.add_user!(agent)
     sign_in_as(member, tenant: @tenant)
 
     post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
+    assert_redirected_to "#{funding.path}/settings"
+    assert flash[:alert].present?, "expected an alert explaining the refusal"
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "attach errors are JSON for JSON requests" do
+    funding = create_funding_collective
+    member = create_user(name: "Plain Member")
+    @tenant.add_user!(member)
+    fund_user!(member)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    funding.add_user!(member)
+    agent = create_ai_agent(parent: member)
+    Tenant.clear_thread_scope
+    @tenant.add_user!(agent)
+    sign_in_as(member, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
+
     assert_response :forbidden
+    assert response.parsed_body["error"].present?
     assert_nil agent.reload.funding_collective_id
   end
 
   test "attach is refused on non-funding collectives" do
     other = create_test_collective
     agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
     post "#{other.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert_response :forbidden
+    assert_redirected_to "#{other.path}/settings"
+    assert flash[:alert].present?
     assert_nil agent.reload.funding_collective_id
   end
 
@@ -2005,12 +2029,55 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     outsider = create_user(name: "Outsider")
     @tenant.add_user!(outsider)
     agent = create_ai_agent(parent: outsider)
+    @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
     post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert_response :unprocessable_entity
+    assert_redirected_to "#{funding.path}/settings"
+    assert_match(/member/i, flash[:alert])
     assert_nil agent.reload.funding_collective_id
+  end
+
+  test "an agent from another tenant cannot be attached" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+    other_tenant = create_tenant(subdomain: "other-fund-#{SecureRandom.hex(4)}")
+    other_tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
+
+    assert_response :not_found
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "the attach list only offers agents from this tenant" do
+    funding = create_funding_collective
+    local = create_ai_agent(parent: @user, name: "Local Fund Bot")
+    @tenant.add_user!(local)
+    foreign = create_ai_agent(parent: @user, name: "Foreign Fund Bot")
+    other_tenant = create_tenant(subdomain: "other-fund-#{SecureRandom.hex(4)}")
+    other_tenant.add_user!(foreign)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{funding.path}/settings"
+
+    assert_response :success
+    assert_match "Local Fund Bot", response.body
+    assert_no_match(/Foreign Fund Bot/, response.body)
+  end
+
+  test "detaching an agent not funded by this collective redirects with an alert" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{funding.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_redirected_to "#{funding.path}/settings"
+    assert flash[:alert].present?
   end
 
   test "an admin can detach a funded agent" do

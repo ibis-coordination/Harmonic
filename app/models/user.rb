@@ -259,6 +259,11 @@ class User < ApplicationRecord
       return
     end
 
+    if collective.archived?
+      errors.add(:funding_collective_id, "cannot be an archived collective")
+      return
+    end
+
     parent_membership = collective.collective_members.find_by(user_id: parent_id)
     if parent_membership.nil? || parent_membership.archived?
       errors.add(:funding_collective_id, "requires the agent's principal to be an active member of the funding collective")

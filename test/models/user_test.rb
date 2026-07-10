@@ -2107,5 +2107,15 @@ class UserTest < ActiveSupport::TestCase
     assert_not agent.valid?
     assert agent.errors[:funding_collective_id].join(" ").include?("member")
   end
+
+  test "an archived collective cannot be attached as a funding collective" do
+    funding = create_funding_collective
+    funding.update!(archived_at: Time.current, archived_by_id: @user.id)
+    agent = create_ai_agent(parent: @user)
+
+    agent.funding_collective = funding
+    assert_not agent.valid?
+    assert agent.errors[:funding_collective_id].join(" ").include?("archived")
+  end
 end
 

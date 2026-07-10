@@ -69,6 +69,7 @@ module LLMGateway
     def self.pool_result(agent, context:)
       return nil if agent.funding_collective_id.nil?
 
+      ensure_funding_collective_available!(agent)
       ensure_primary_active!(agent)
 
       pool = pool_customer_ids(agent)
@@ -83,6 +84,23 @@ module LLMGateway
       payer = T.must(pool.sample)
       Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{pool.size}")
       Result.new(payer_customer_id: payer)
+    end
+
+    # Archiving a funding collective is how the arrangement is wound down, so
+    # it must stop the spending; membership rows survive archiving, so the
+    # member-based checks alone would keep drawing. A collective outside the
+    # calling tenant suspends the agent the same way — the membership lookups
+    # below are scoped to the calling tenant and could never see it anyway.
+    sig { params(agent: User).void }
+    def self.ensure_funding_collective_available!(agent)
+      collective = Collective.tenant_scoped_only.find_by(id: agent.funding_collective_id)
+      return if collective && !collective.archived?
+
+      raise ResolutionError.new(
+        "funding_collective_unavailable",
+        :forbidden,
+        "The agent's funding collective is archived or unavailable; the agent is suspended."
+      )
     end
 
     # No primary, no service: the accountable principal must remain an active

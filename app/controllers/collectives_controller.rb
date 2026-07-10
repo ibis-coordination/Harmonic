@@ -186,12 +186,13 @@ class CollectivesController < ApplicationController
       active_collective_ai_agent_ids = @collective_ai_agents.pluck(:id)
       addable_ids = user_ai_agent_ids - active_collective_ai_agent_ids
       @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
-      # Agents on this funding collective's payroll, and members' agents that
-      # could be attached (their principal is an active member).
+      # Agents on this funding collective's payroll, and this tenant's agents
+      # that could be attached (their principal is an active member).
       if @current_collective.agent_funding?
         @funded_agents = User.where(funding_collective_id: @current_collective.id).order(:name)
         active_member_ids = @current_collective.collective_members.where(archived_at: nil).pluck(:user_id)
         @attachable_agents = User.where(user_type: "ai_agent", parent_id: active_member_ids)
+          .includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
           .where.not(id: @funded_agents.pluck(:id))
           .order(:name)
       end
@@ -475,19 +476,24 @@ class CollectivesController < ApplicationController
   # additionally requires the agent's principal to be an active member.
   def add_funded_agent
     unless @current_collective.agent_funding?
-      return render status: 403, json: { error: 'Agents can only be funded by an agent funding collective' }
+      return render_funded_agent_error(403, 'Agents can only be funded by an agent funding collective')
     end
     unless @current_user.collective_member&.is_admin?
-      return render status: 403, json: { error: 'Unauthorized' }
+      return render_funded_agent_error(403, 'Unauthorized')
     end
-    ai_agent = User.find_by(id: params[:ai_agent_id])
-    if ai_agent.nil? || !ai_agent.ai_agent?
-      return render status: 404, json: { error: 'AI Agent not found' }
+    # Scoped to this tenant's agents: funding only operates where the
+    # collective lives (per-call membership lookups are tenant-scoped), so an
+    # agent from another tenant would attach and then be suspended forever.
+    ai_agent = User.where(user_type: "ai_agent")
+      .joins(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      .find_by(id: params[:ai_agent_id])
+    if ai_agent.nil?
+      return render_funded_agent_error(404, 'AI Agent not found')
     end
 
     ai_agent.funding_collective = @current_collective
     unless ai_agent.save
-      return render status: 422, json: { error: ai_agent.errors.full_messages.to_sentence }
+      return render_funded_agent_error(422, ai_agent.errors.full_messages.to_sentence)
     end
 
     respond_to do |format|
@@ -507,11 +513,11 @@ class CollectivesController < ApplicationController
 
   def remove_funded_agent
     unless @current_user.collective_member&.is_admin?
-      return render status: 403, json: { error: 'Unauthorized' }
+      return render_funded_agent_error(403, 'Unauthorized')
     end
     ai_agent = User.find_by(id: params[:ai_agent_id])
     if ai_agent.nil? || ai_agent.funding_collective_id != @current_collective.id
-      return render status: 404, json: { error: 'AI Agent is not funded by this collective' }
+      return render_funded_agent_error(404, 'AI Agent is not funded by this collective')
     end
 
     ai_agent.update!(funding_collective_id: nil)
@@ -953,6 +959,18 @@ class CollectivesController < ApplicationController
   # Only these types are user-creatable; chat and private_workspace
   # collectives are minted by their own internal flows.
   USER_CREATABLE_COLLECTIVE_TYPES = ["standard", "agent_funding"].freeze
+
+  # The funded-agent actions are called from both the settings page's plain
+  # HTML forms and JSON clients; errors must come back in the caller's format.
+  def render_funded_agent_error(status, message)
+    respond_to do |format|
+      format.json { render status: status, json: { error: message } }
+      format.html do
+        flash[:alert] = message
+        redirect_to "#{@current_collective.path}/settings"
+      end
+    end
+  end
 
   # Returns an error message when the requested collective type may not be
   # created by this user, nil when the request is fine. Creating an

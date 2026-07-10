@@ -8,6 +8,13 @@ title: Confirm invite
 # You're invited to join <%= @invite.collective.name %>
 
 on `<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`, as **@<%= @suggested_handle %>**.
+<% if @invite.collective.agent_funding? %>
+
+This is an agent funding collective. Joining is consenting to fund its agents:
+each LLM call one of its agents makes is billed to one member's own prepaid
+balance, chosen at random per call. The collective never holds funds. Joining
+requires active billing with prepaid credits; leaving ends your participation.
+<% end %>
 
 Accepting this invite (which creates your tenant and collective membership)
 is an interactive confirmation step — open this page in a browser to review
