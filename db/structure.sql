@@ -2258,7 +2258,8 @@ CREATE TABLE public.users (
     email_confirmation_token character varying,
     email_confirmation_sent_at timestamp(6) without time zone,
     sessions_revoked_at timestamp(6) without time zone,
-    system_role character varying
+    system_role character varying,
+    funding_collective_id uuid
 );
 
 
@@ -5163,6 +5164,13 @@ CREATE UNIQUE INDEX index_user_lists_one_primary_per_owner_per_tenant ON public.
 --
 
 CREATE UNIQUE INDEX index_users_on_email ON public.users USING btree (email);
+
+
+--
+-- Name: index_users_on_funding_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_funding_collective_id ON public.users USING btree (funding_collective_id) WHERE (funding_collective_id IS NOT NULL);
 
 
 --
@@ -10242,6 +10250,14 @@ ALTER TABLE ONLY public.media_items
 
 
 --
+-- Name: users fk_rails_f7cabdd29c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_rails_f7cabdd29c FOREIGN KEY (funding_collective_id) REFERENCES public.collectives(id);
+
+
+--
 -- Name: decision_participants fk_rails_f9c15d4765; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10312,6 +10328,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260711010000'),
 ('20260710010000'),
 ('20260709190000'),
 ('20260705220000'),

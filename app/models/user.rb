@@ -27,6 +27,10 @@ class User < ApplicationRecord
   has_one :stripe_customer, as: :billable, class_name: "StripeCustomer"
   # For AI agents: which StripeCustomer pays for this agent's usage
   belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
+  # AI agents only: the agent_funding collective whose members' balances fund
+  # this agent's LLM usage (drawn per call — see LLMGateway::PayerResolver).
+  # When set, it takes precedence over billing_customer for token spend.
+  belongs_to :funding_collective, class_name: "Collective", optional: true
 
   # User block associations
   has_many :user_blocks_given, class_name: "UserBlock", foreign_key: "blocker_id", dependent: :destroy
@@ -134,6 +138,7 @@ class User < ApplicationRecord
   validates :name, presence: true
   validates :system_role, inclusion: { in: SYSTEM_ROLES, allow_nil: true }
   validate :ai_agent_must_have_parent
+  validate :funding_collective_assignable, if: :funding_collective_id_changed?
   validate :agent_mode_is_immutable, if: :ai_agent?
   # collective_identity Users only exist as the spawn of a Collective; an
   # orphan (no backing Collective) is data corruption. Validated on update
@@ -233,6 +238,31 @@ class User < ApplicationRecord
     return unless persisted? && parent_id == id
 
     errors.add(:parent_id, "user cannot be its own parent")
+  end
+
+  # Runs only when the link changes (attach happens in request context, where
+  # the tenant thread scope makes the collective readable). Per-call
+  # enforcement of these same conditions lives in LLMGateway::PayerResolver,
+  # which must not trust a link that was valid at attach time.
+  sig { void }
+  def funding_collective_assignable
+    return if funding_collective_id.nil?
+
+    unless ai_agent?
+      errors.add(:funding_collective_id, "can only be set for AI agent users")
+      return
+    end
+
+    collective = funding_collective
+    if collective.nil? || !collective.agent_funding?
+      errors.add(:funding_collective_id, "must reference an agent_funding collective")
+      return
+    end
+
+    parent_membership = collective.collective_members.find_by(user_id: parent_id)
+    if parent_membership.nil? || parent_membership.archived?
+      errors.add(:funding_collective_id, "requires the agent's principal to be an active member of the funding collective")
+    end
   end
 
   sig { returns(T::Boolean) }

@@ -2048,5 +2048,64 @@ class UserTest < ActiveSupport::TestCase
     identity.name = "Renamed"
     assert identity.valid?, identity.errors.full_messages.to_sentence
   end
+
+  # === Funding collective ===
+
+  def create_funding_collective(members: [@user])
+    collective = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Agent Funding",
+      handle: "fund-#{SecureRandom.hex(4)}",
+      collective_type: "agent_funding"
+    )
+    members.each { |member| collective.add_user!(member) }
+    collective
+  end
+
+  test "an agent can be funded by an agent_funding collective its parent belongs to" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+
+    agent.funding_collective = funding
+    assert agent.valid?, agent.errors.full_messages.to_sentence
+    agent.save!
+    assert_equal funding.id, agent.reload.funding_collective_id
+  end
+
+  test "humans cannot have a funding collective" do
+    funding = create_funding_collective
+
+    @user.funding_collective = funding
+    assert_not @user.valid?
+    assert @user.errors[:funding_collective_id].any?
+  end
+
+  test "the funding collective must be agent_funding type" do
+    agent = create_ai_agent(parent: @user)
+
+    agent.funding_collective = @collective
+    assert_not agent.valid?
+    assert agent.errors[:funding_collective_id].join(" ").include?("agent_funding"), "expected a type error"
+  end
+
+  test "the agent's parent must be an active member of the funding collective" do
+    funding = create_funding_collective(members: [])
+    agent = create_ai_agent(parent: @user)
+
+    agent.funding_collective = funding
+    assert_not agent.valid?
+    assert agent.errors[:funding_collective_id].join(" ").include?("member")
+  end
+
+  test "an archived parent membership does not satisfy the funding link" do
+    funding = create_funding_collective
+    funding.collective_members.find_by!(user: @user).archive!
+    agent = create_ai_agent(parent: @user)
+
+    agent.funding_collective = funding
+    assert_not agent.valid?
+    assert agent.errors[:funding_collective_id].join(" ").include?("member")
+  end
 end
 

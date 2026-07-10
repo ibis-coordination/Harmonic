@@ -68,6 +68,22 @@ class InviteTest < ActiveSupport::TestCase
     end
   end
 
+  test "invite is valid for an agent_funding collective" do
+    funding = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Agent Funding",
+      handle: "fund-#{SecureRandom.hex(4)}",
+      collective_type: "agent_funding"
+    )
+    invitee = create_user
+    @tenant.add_user!(invitee)
+
+    invite = build_invite(collective: funding, invited_user: invitee)
+    assert invite.valid?, "expected invite to be valid: #{invite.errors.full_messages.join(', ')}"
+    assert invite.collective_invitable?
+  end
+
   test "is_acceptable_by_user? rejects legacy invites on the main collective" do
     # Simulates legacy data: an invite that existed before the validation was
     # added. Bypass validation to construct it.
