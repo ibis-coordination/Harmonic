@@ -23,10 +23,15 @@ class Invite < ApplicationRecord
       errors.add(:collective, "cannot be a private workspace")
     elsif c.chat?
       errors.add(:collective, "cannot be a chat collective")
-    elsif c.collective_type != "standard"
-      errors.add(:collective, "must be a standard collective (got #{c.collective_type.inspect})")
+    elsif !INVITABLE_COLLECTIVE_TYPES.include?(c.collective_type)
+      errors.add(:collective, "must be an invitable collective type (got #{c.collective_type.inspect})")
     end
   end
+
+  # agent_funding is invite-only by design: the invite is the consent
+  # instrument for funding participation (shareable open links are refused at
+  # Collective#find_or_create_shareable_invite).
+  INVITABLE_COLLECTIVE_TYPES = ["standard", "agent_funding"].freeze
 
   sig { void }
   def set_tenant_id
@@ -73,7 +78,7 @@ class Invite < ApplicationRecord
     return false if c.is_main_collective?
     return false if c.private_workspace?
     return false if c.chat?
-    c.collective_type == "standard"
+    INVITABLE_COLLECTIVE_TYPES.include?(c.collective_type)
   end
 
 end

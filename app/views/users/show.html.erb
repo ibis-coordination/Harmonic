@@ -132,6 +132,15 @@
     </div>
   <% end %>
 
+  <% if @showing_user.ai_agent? && @showing_user.funding_collective %>
+    <div class="pulse-user-parent-info">
+      <span style="color: var(--color-fg-muted);">Funded by</span>
+      <a href="<%= @showing_user.funding_collective.path %>" class="pulse-user-parent-link">
+        <strong><%= @showing_user.funding_collective.name %></strong>
+      </a>
+    </div>
+  <% end %>
+
   <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
     <div class="pulse-user-ai_agent-count">
       <%= octicon 'people', height: 14 %>

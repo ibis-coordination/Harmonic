@@ -9,6 +9,16 @@
       on <code><%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %></code>
     </p>
 
+    <% if @invite.collective.agent_funding? %>
+      <p class="pulse-body-text" style="text-align:left;">
+        <strong><%= @invite.collective.name %></strong> is an agent funding collective.
+        Joining is consenting to fund its agents: each LLM call one of its agents makes
+        is billed to one member's own prepaid balance, chosen at random per call. The
+        collective never holds funds. Joining requires active billing with prepaid
+        credits; leaving ends your participation.
+      </p>
+    <% end %>
+
     <%= form_with url: accept_invite_path, method: :post, class: "pulse-auth-form", local: true do %>
       <%= render "shared/bot_protection_fields" %>
       <input type="hidden" name="code" value="<%= @invite.code %>">

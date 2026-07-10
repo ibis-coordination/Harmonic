@@ -182,6 +182,7 @@ class Collective
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::Collective).void
       ).void
@@ -192,10 +193,11 @@ class Collective
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::Collective])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -203,6 +205,7 @@ class Collective
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::Collective]).void
       ).void
@@ -213,10 +216,11 @@ class Collective
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::Collective]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -298,6 +302,7 @@ class Collective
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -310,11 +315,12 @@ class Collective
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -753,6 +759,20 @@ class Collective
     def events=(value); end
 
     sig { returns(T::Array[T.untyped]) }
+    def harmonic_bridge_setup_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def harmonic_bridge_setup_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :harmonic_bridge_setups`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::HarmonicBridgeSetup::PrivateCollectionProxy) }
+    def harmonic_bridge_setups; end
+
+    sig { params(value: T::Enumerable[::HarmonicBridgeSetup]).void }
+    def harmonic_bridge_setups=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def heartbeat_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -817,6 +837,34 @@ class Collective
 
     sig { params(value: T::Enumerable[::Link]).void }
     def links=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def mcp_tool_call_log_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def mcp_tool_call_log_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :mcp_tool_call_logs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::McpToolCallLog::PrivateCollectionProxy) }
+    def mcp_tool_call_logs; end
+
+    sig { params(value: T::Enumerable[::McpToolCallLog]).void }
+    def mcp_tool_call_logs=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def mcp_tool_call_resource_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def mcp_tool_call_resource_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :mcp_tool_call_resources`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::McpToolCallResource::PrivateCollectionProxy) }
+    def mcp_tool_call_resources; end
+
+    sig { params(value: T::Enumerable[::McpToolCallResource]).void }
+    def mcp_tool_call_resources=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def media_item_ids; end
@@ -915,6 +963,20 @@ class Collective
 
     sig { params(value: T::Enumerable[::Option]).void }
     def options=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def refresh_token_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def refresh_token_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :refresh_tokens`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::RefreshToken::PrivateCollectionProxy) }
+    def refresh_tokens; end
+
+    sig { params(value: T::Enumerable[::RefreshToken]).void }
+    def refresh_tokens=(value); end
 
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
@@ -1098,6 +1160,34 @@ class Collective
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def user_item_status_ids=(ids); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def user_list_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_list_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def user_list_member_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def user_list_member_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :user_list_members`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserListMember::PrivateCollectionProxy) }
+    def user_list_members; end
+
+    sig { params(value: T::Enumerable[::UserListMember]).void }
+    def user_list_members=(value); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :user_lists`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::UserList::PrivateCollectionProxy) }
+    def user_lists; end
+
+    sig { params(value: T::Enumerable[::UserList]).void }
+    def user_lists=(value); end
+
     # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :users, through: :collective_members`.
     # 🔗 [Rails guide for `has_many_through` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-through-association)
     sig { returns(::User::PrivateCollectionProxy) }
@@ -1120,6 +1210,20 @@ class Collective
     sig { params(value: T::Enumerable[::Vote]).void }
     def votes=(value); end
 
+    sig { returns(T::Array[T.untyped]) }
+    def web_push_subscription_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def web_push_subscription_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :web_push_subscriptions`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::WebPushSubscription::PrivateCollectionProxy) }
+    def web_push_subscriptions; end
+
+    sig { params(value: T::Enumerable[::WebPushSubscription]).void }
+    def web_push_subscriptions=(value); end
+
     # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :webhook_deliveries`.
     # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
     sig { returns(::WebhookDelivery::PrivateCollectionProxy) }
@@ -1136,6 +1240,9 @@ class Collective
   end
 
   module GeneratedAssociationRelationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def agent_funding(*args, &blk); end
+
     sig { returns(PrivateAssociationRelation) }
     def all; end
 
@@ -1290,6 +1397,9 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def with_attached_image(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
+    def with_heartbeat_for(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
     def with_recursive(*args, &blk); end
@@ -2441,6 +2551,9 @@ class Collective
   end
 
   module GeneratedRelationMethods
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def agent_funding(*args, &blk); end
+
     sig { returns(PrivateRelation) }
     def all; end
 
@@ -2595,6 +2708,9 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def with_attached_image(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
+    def with_heartbeat_for(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
     def with_recursive(*args, &blk); end

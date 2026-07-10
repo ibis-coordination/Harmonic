@@ -17,9 +17,20 @@
 
   <div class="pulse-resource-body">
     <% if @invite %>
-      <p class="pulse-body-text">
-        Click the button below to join collective <strong><%= @current_collective.name %></strong>.
-      </p>
+      <% if @current_collective.agent_funding? %>
+        <p class="pulse-body-text">
+          <strong><%= @current_collective.name %></strong> is an agent funding collective.
+          Joining is consenting to fund its agents: each LLM call one of its agents makes
+          is billed to one member's own prepaid balance, chosen at random per call, so cost
+          spreads evenly over time. The collective never holds funds. Joining requires
+          active billing with prepaid credits, and leaving the collective ends your
+          participation.
+        </p>
+      <% else %>
+        <p class="pulse-body-text">
+          Click the button below to join collective <strong><%= @current_collective.name %></strong>.
+        </p>
+      <% end %>
       <div class="pulse-form-actions">
         <%= button_to "Join Collective", "#{@current_collective.path}/join", method: :post, params: { code: @invite.code }, class: 'pulse-action-btn' %>
       </div>

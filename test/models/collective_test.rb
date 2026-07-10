@@ -26,6 +26,52 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_equal "test", collective.handle
   end
 
+  test "agent_funding is a valid collective type with the expected exclusions" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Agent Funding",
+      handle: "funding",
+      collective_type: "agent_funding"
+    )
+
+    assert collective.agent_funding?
+    assert_not collective.listable?
+    assert_not Collective.listable.exists?(id: collective.id)
+    assert_not Collective.billable_types.exists?(id: collective.id)
+  end
+
+  test "agent_funding collectives get no identity user" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Agent Funding",
+      handle: "funding",
+      collective_type: "agent_funding"
+    )
+
+    assert_nil collective.identity_user, "funding collectives don't act or speak; no identity"
+  end
+
+  test "agent_funding collectives refuse shareable invites" do
+    tenant = create_tenant
+    user = create_user
+    collective = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Agent Funding",
+      handle: "funding",
+      collective_type: "agent_funding"
+    )
+
+    error = assert_raises(RuntimeError) { collective.find_or_create_shareable_invite(user) }
+    assert_match(/funding/, error.message)
+  end
+
   test "Collective.handle_is_valid validation" do
     tenant = create_tenant
     user = create_user

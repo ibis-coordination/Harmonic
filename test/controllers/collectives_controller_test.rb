@@ -1845,6 +1845,255 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not cm.has_role?("representative"), "a non-admin agent must not grant roles"
   end
 
+  # === Agent funding collectives ===
+
+  def fund_user!(user, stripe_id: "cus_#{SecureRandom.hex(6)}")
+    StripeCustomer.create!(
+      billable: user, stripe_id: stripe_id, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+    )
+  end
+
+  def create_funding_collective(admin: @user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    collective = Collective.create!(
+      tenant: @tenant,
+      created_by: admin,
+      name: "Agent Funding",
+      handle: "fund-#{SecureRandom.hex(4)}",
+      collective_type: "agent_funding"
+    )
+    cm = collective.add_user!(admin)
+    cm.add_role!("admin")
+    collective
+  ensure
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
+  def invite_to(collective, user)
+    Invite.create!(
+      tenant: @tenant,
+      collective: collective,
+      created_by: @user,
+      invited_user: user,
+      code: SecureRandom.hex(8),
+      expires_at: 1.week.from_now
+    )
+  end
+
+  def member_of?(collective, user)
+    CollectiveMember.tenant_scoped_only(@tenant.id).where(archived_at: nil).exists?(collective_id: collective.id, user_id: user.id)
+  end
+
+  test "the join page shows funding consent copy for agent_funding collectives" do
+    funding = create_funding_collective
+    invitee = create_user(name: "Prospective Funder")
+    @tenant.add_user!(invitee)
+    invite = invite_to(funding, invitee)
+    sign_in_as(invitee, tenant: @tenant)
+
+    get "#{funding.path}/join", params: { code: invite.code }
+
+    assert_response :success
+    assert_match(/consenting to fund/i, response.body)
+    assert_match(/prepaid balance/i, response.body)
+  end
+
+  test "accepting an agent_funding invite requires funded billing" do
+    funding = create_funding_collective
+    invitee = create_user(name: "Unfunded")
+    @tenant.add_user!(invitee)
+    invite = invite_to(funding, invitee)
+    sign_in_as(invitee, tenant: @tenant)
+
+    post "#{funding.path}/join", params: { code: invite.code }
+
+    assert_redirected_to "#{funding.path}/join"
+    assert_match(/billing/i, flash[:alert])
+    assert_not member_of?(funding, invitee), "unfunded user must not become a funding member"
+  end
+
+  test "a funded user accepting an agent_funding invite becomes a member" do
+    funding = create_funding_collective
+    invitee = create_user(name: "Funded")
+    @tenant.add_user!(invitee)
+    fund_user!(invitee)
+    invite = invite_to(funding, invitee)
+    sign_in_as(invitee, tenant: @tenant)
+
+    post "#{funding.path}/join", params: { code: invite.code }
+
+    assert_redirected_to funding.path
+    assert member_of?(funding, invitee)
+  end
+
+  test "a funded user can create an agent_funding collective" do
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    handle = "fund-pool-#{SecureRandom.hex(4)}"
+
+    post "/collectives", params: { name: "Fund Pool", handle: handle, collective_type: "agent_funding" }
+
+    collective = Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
+    assert collective, "expected the collective to be created"
+    assert collective.agent_funding?
+    assert collective.billing_exempt?, "funding collectives are not billable"
+    assert member_of?(collective, @user)
+  end
+
+  test "creating an agent_funding collective requires funded billing" do
+    sign_in_as(@user, tenant: @tenant)
+    handle = "fund-pool-#{SecureRandom.hex(4)}"
+
+    post "/collectives", params: { name: "Fund Pool", handle: handle, collective_type: "agent_funding" }
+
+    assert_nil Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
+    assert_match(/billing/i, flash[:alert])
+  end
+
+  test "internal-only collective types cannot be created through the public path" do
+    sign_in_as(@user, tenant: @tenant)
+    handle = "sneaky-#{SecureRandom.hex(4)}"
+
+    post "/collectives", params: { name: "Sneaky", handle: handle, collective_type: "chat" }
+
+    assert_nil Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
+  end
+
+  test "an admin can attach a member's agent to an agent_funding collective" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_response :redirect
+    assert_equal funding.id, agent.reload.funding_collective_id
+  end
+
+  test "non-admin members cannot attach agents" do
+    funding = create_funding_collective
+    member = create_user(name: "Plain Member")
+    @tenant.add_user!(member)
+    fund_user!(member)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    funding.add_user!(member)
+    agent = create_ai_agent(parent: member)
+    Tenant.clear_thread_scope
+    @tenant.add_user!(agent)
+    sign_in_as(member, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_redirected_to "#{funding.path}/settings"
+    assert flash[:alert].present?, "expected an alert explaining the refusal"
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "attach errors are JSON for JSON requests" do
+    funding = create_funding_collective
+    member = create_user(name: "Plain Member")
+    @tenant.add_user!(member)
+    fund_user!(member)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    funding.add_user!(member)
+    agent = create_ai_agent(parent: member)
+    Tenant.clear_thread_scope
+    @tenant.add_user!(agent)
+    sign_in_as(member, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
+
+    assert_response :forbidden
+    assert response.parsed_body["error"].present?
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "attach is refused on non-funding collectives" do
+    other = create_test_collective
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{other.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_redirected_to "#{other.path}/settings"
+    assert flash[:alert].present?
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "attach fails clearly when the agent's principal is not a member" do
+    funding = create_funding_collective
+    outsider = create_user(name: "Outsider")
+    @tenant.add_user!(outsider)
+    agent = create_ai_agent(parent: outsider)
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_redirected_to "#{funding.path}/settings"
+    assert_match(/member/i, flash[:alert])
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "an agent from another tenant cannot be attached" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+    other_tenant = create_tenant(subdomain: "other-fund-#{SecureRandom.hex(4)}")
+    other_tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
+
+    assert_response :not_found
+    assert_nil agent.reload.funding_collective_id
+  end
+
+  test "the attach list only offers agents from this tenant" do
+    funding = create_funding_collective
+    local = create_ai_agent(parent: @user, name: "Local Fund Bot")
+    @tenant.add_user!(local)
+    foreign = create_ai_agent(parent: @user, name: "Foreign Fund Bot")
+    other_tenant = create_tenant(subdomain: "other-fund-#{SecureRandom.hex(4)}")
+    other_tenant.add_user!(foreign)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{funding.path}/settings"
+
+    assert_response :success
+    assert_match "Local Fund Bot", response.body
+    assert_no_match(/Foreign Fund Bot/, response.body)
+  end
+
+  test "detaching an agent not funded by this collective redirects with an alert" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{funding.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_redirected_to "#{funding.path}/settings"
+    assert flash[:alert].present?
+  end
+
+  test "an admin can detach a funded agent" do
+    funding = create_funding_collective
+    agent = create_ai_agent(parent: @user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_collective: funding)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{funding.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert_response :redirect
+    assert_nil agent.reload.funding_collective_id
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)

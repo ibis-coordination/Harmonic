@@ -97,6 +97,14 @@ class CollectivesController < ApplicationController
   end
 
   def create_collective
+    if (error = collective_type_request_error)
+      return render_action_error({
+        action_name: "create_collective",
+        resource: nil,
+        error: error,
+      })
+    end
+
     begin
       collective = api_helper.create_collective
       render_action_success({
@@ -145,6 +153,11 @@ class CollectivesController < ApplicationController
   end
 
   def create
+    if (error = collective_type_request_error)
+      flash[:alert] = error
+      return redirect_to "/collectives/new"
+    end
+
     @collective = api_helper.create_collective
     flash[:notice] = "Collective #{@collective.name} created successfully."
     redirect_to @collective.path
@@ -173,6 +186,16 @@ class CollectivesController < ApplicationController
       active_collective_ai_agent_ids = @collective_ai_agents.pluck(:id)
       addable_ids = user_ai_agent_ids - active_collective_ai_agent_ids
       @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      # Agents on this funding collective's payroll, and this tenant's agents
+      # that could be attached (their principal is an active member).
+      if @current_collective.agent_funding?
+        @funded_agents = User.where(funding_collective_id: @current_collective.id).order(:name)
+        active_member_ids = @current_collective.collective_members.where(archived_at: nil).pluck(:user_id)
+        @attachable_agents = User.where(user_type: "ai_agent", parent_id: active_member_ids)
+          .includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+          .where.not(id: @funded_agents.pluck(:id))
+          .order(:name)
+      end
       # Automation counts for display
       @enabled_automations_count = @current_collective.automation_rules.where(enabled: true).count
       @total_automations_count = @current_collective.automation_rules.count
@@ -442,6 +465,69 @@ class CollectivesController < ApplicationController
       end
       format.html do
         flash[:notice] = "#{ai_agent.display_name} has been removed from #{@current_collective.name}"
+        redirect_to "#{@current_collective.path}/settings"
+      end
+    end
+  end
+
+  # Attach an agent to this funding collective's payroll: its LLM usage draws
+  # from the members' balances from the next call on. Admitting an agent
+  # spends everyone's money, so it is admin-only; the model validation
+  # additionally requires the agent's principal to be an active member.
+  def add_funded_agent
+    unless @current_collective.agent_funding?
+      return render_funded_agent_error(403, 'Agents can only be funded by an agent funding collective')
+    end
+    unless @current_user.collective_member&.is_admin?
+      return render_funded_agent_error(403, 'Unauthorized')
+    end
+    # Scoped to this tenant's agents: funding only operates where the
+    # collective lives (per-call membership lookups are tenant-scoped), so an
+    # agent from another tenant would attach and then be suspended forever.
+    ai_agent = User.where(user_type: "ai_agent")
+      .joins(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      .find_by(id: params[:ai_agent_id])
+    if ai_agent.nil?
+      return render_funded_agent_error(404, 'AI Agent not found')
+    end
+
+    ai_agent.funding_collective = @current_collective
+    unless ai_agent.save
+      return render_funded_agent_error(422, ai_agent.errors.full_messages.to_sentence)
+    end
+
+    respond_to do |format|
+      format.json do
+        render json: {
+          ai_agent_id: ai_agent.id,
+          ai_agent_name: ai_agent.display_name,
+          ai_agent_path: ai_agent.path,
+        }
+      end
+      format.html do
+        flash[:notice] = "#{ai_agent.display_name} is now funded by #{@current_collective.name}"
+        redirect_to "#{@current_collective.path}/settings"
+      end
+    end
+  end
+
+  def remove_funded_agent
+    unless @current_user.collective_member&.is_admin?
+      return render_funded_agent_error(403, 'Unauthorized')
+    end
+    ai_agent = User.find_by(id: params[:ai_agent_id])
+    if ai_agent.nil? || ai_agent.funding_collective_id != @current_collective.id
+      return render_funded_agent_error(404, 'AI Agent is not funded by this collective')
+    end
+
+    ai_agent.update!(funding_collective_id: nil)
+
+    respond_to do |format|
+      format.json do
+        render json: { ai_agent_id: ai_agent.id, ai_agent_name: ai_agent.display_name }
+      end
+      format.html do
+        flash[:notice] = "#{ai_agent.display_name} is no longer funded by #{@current_collective.name}"
         redirect_to "#{@current_collective.path}/settings"
       end
     end
@@ -772,6 +858,13 @@ class CollectivesController < ApplicationController
     invite = Invite.find_by(code: params[:code]) if params[:code]
     invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
     if invite && current_user
+      # Funded to join: accepting a funding-collective invite is consenting to
+      # have your own balance drawn on, so it requires working billing.
+      if @current_collective.agent_funding? && !current_user.funded_billing?
+        flash[:alert] = "Joining this collective means consenting to fund its agents from your own prepaid balance, " \
+                        "which requires active billing with prepaid credits. Set up billing at /billing first."
+        return redirect_to "#{@current_collective.path}/join"
+      end
       if invite.is_acceptable_by_user?(current_user)
         @current_user.accept_invite!(invite)
         clear_pending_invite! if pending_invite_code == invite.code
@@ -862,6 +955,38 @@ class CollectivesController < ApplicationController
 
   # POST /collectives/:collective_handle/deactivate
   private
+
+  # Only these types are user-creatable; chat and private_workspace
+  # collectives are minted by their own internal flows.
+  USER_CREATABLE_COLLECTIVE_TYPES = ["standard", "agent_funding"].freeze
+
+  # The funded-agent actions are called from both the settings page's plain
+  # HTML forms and JSON clients; errors must come back in the caller's format.
+  def render_funded_agent_error(status, message)
+    respond_to do |format|
+      format.json { render status: status, json: { error: message } }
+      format.html do
+        flash[:alert] = message
+        redirect_to "#{@current_collective.path}/settings"
+      end
+    end
+  end
+
+  # Returns an error message when the requested collective type may not be
+  # created by this user, nil when the request is fine. Creating an
+  # agent_funding collective makes you its first funding member, so it
+  # carries the same funded-billing requirement as joining one.
+  def collective_type_request_error
+    requested = params[:collective_type].presence || "standard"
+    return "Collective type #{requested.inspect} is not available." unless USER_CREATABLE_COLLECTIVE_TYPES.include?(requested)
+
+    if requested == "agent_funding" && !current_user.funded_billing?
+      return "Creating an agent funding collective makes you its first funding member, which requires " \
+             "active billing with prepaid credits. Set up billing at /billing first."
+    end
+
+    nil
+  end
 
   # Shared guard for the member-management actions. Renders the appropriate
   # action error and returns :handled when the request is not allowed;

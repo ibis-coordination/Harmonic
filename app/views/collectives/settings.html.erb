@@ -309,6 +309,62 @@
       </section>
     <% end %>
 
+    <% if @current_collective.agent_funding? %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Funded Agents</h2>
+        <p class="pulse-section-description">
+          Agents on this collective's payroll: each LLM call one of them makes is billed to
+          one member's own prepaid balance, chosen at random per call. An agent can be
+          attached only while its principal is an active member.
+        </p>
+        <% if @funded_agents.any? %>
+          <table class="pulse-table">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Principal</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% @funded_agents.each do |agent| %>
+                <tr>
+                  <td><%= link_to agent.display_name, agent.path %></td>
+                  <td>
+                    <% if agent.parent %>
+                      <%= link_to agent.parent.display_name, agent.parent.path %>
+                    <% else %>
+                      <em>Unknown</em>
+                    <% end %>
+                  </td>
+                  <td>
+                    <%= button_to "Detach", "#{@current_collective.path}/settings/remove_funded_agent",
+                                  method: :delete, params: { ai_agent_id: agent.id }, class: 'pulse-action-btn-danger' %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% else %>
+          <p class="pulse-empty-message"><em>No agents are funded by this collective yet.</em></p>
+        <% end %>
+
+        <% if @attachable_agents.any? %>
+          <h3 class="pulse-subsection-title">Attach a member's agent</h3>
+          <form action="<%= @current_collective.path %>/settings/add_funded_agent" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <select name="ai_agent_id" class="pulse-form-select">
+              <option value="">Select an agent...</option>
+              <% @attachable_agents.each do |agent| %>
+                <option value="<%= agent.id %>"><%= agent.display_name %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Attach</button>
+          </form>
+        <% end %>
+      </section>
+    <% end %>
+
     <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? %>
       <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_collective.path %>/settings/remove_ai_agent">
         <h2 class="pulse-section-title">AI Agents in this Collective</h2>

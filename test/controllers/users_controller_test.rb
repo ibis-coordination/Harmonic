@@ -626,6 +626,29 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Has 1 AI agent"
   end
 
+  test "ai_agent profile shows its funding collective" do
+    ai_agent = create_ai_agent(parent: @user, name: "Pooled AiAgent")
+    @tenant.add_user!(ai_agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    funding = Collective.create!(
+      tenant: @tenant, created_by: @user, name: "Shared Fund",
+      handle: "fund-#{SecureRandom.hex(4)}", collective_type: "agent_funding"
+    )
+    funding.add_user!(@user)
+    ai_agent.update!(funding_collective: funding)
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{ai_agent.handle}"
+    assert_response :success
+    assert_includes response.body, "Funded by"
+    assert_includes response.body, "Shared Fund"
+
+    get "/u/#{ai_agent.handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Funded by: [Shared Fund]"
+  end
+
   # === AiAgent Count Tests (Markdown) ===
 
   test "markdown person profile shows ai_agent count when they have ai_agents" do
