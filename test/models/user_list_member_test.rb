@@ -106,9 +106,10 @@ class UserListMemberTest < ActiveSupport::TestCase
     assert_includes m.errors[:user_id].join(" "), "collective"
   end
 
-  # The main-collective exception for identity users (issue #468) must NOT leak
-  # to non-main lists: @list is scoped to a non-main collective, and the identity
-  # user isn't a member of it, so it's still rejected.
+  # Since #477 an identity is a member of the *main* collective only. Membership
+  # doesn't extend to arbitrary collectives, so a non-main list still requires
+  # real membership: @list is scoped to a non-main collective the identity hasn't
+  # joined, so it's rejected on the general path.
   test "collective-identity non-member is still rejected from a non-main-collective list" do
     ic = create_collective(tenant: @tenant, created_by: @user, name: "Ident", handle: "ident-#{SecureRandom.hex(4)}")
     identity_user = ic.identity_user

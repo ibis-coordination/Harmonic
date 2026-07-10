@@ -208,9 +208,9 @@ class UserListsHtmlTest < ActionDispatch::IntegrationTest
     identity_user = identity_collective.identity_user
     assert identity_user, "expected the standard collective to have an identity user"
 
-    # The list is main-collective-scoped (see setup). A collective-identity user
-    # can be tuned in to (added to a main-collective list) even though it isn't a
-    # main-collective member — see UserListMember#addable_collective_identity?.
+    # The list is main-collective-scoped (see setup). Since #477 a collective
+    # identity is a first-class main-collective member, so it can be tuned in to
+    # (added to a main-collective list) via the general membership path.
     list = UserList.create!(creator: @user, owner: @user, name: "Has an identity member")
     list.user_list_members.create!(added_by: @user, user: identity_user)
 

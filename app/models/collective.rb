@@ -689,6 +689,15 @@ class Collective < ApplicationRecord
     )
     self.identity_user = identity
     save!
+
+    # Make the identity a first-class member of the tenant's main collective, so
+    # it's counted in the directory and admissible to the tenant-wide "everyone"
+    # list on the general membership path — no special-case exception needed
+    # (issue #477). The main collective has no parent to join, and during its own
+    # creation `tenant.main_collective` isn't wired up yet, so skip both cases:
+    # only join when a main collective exists and it isn't this collective.
+    main = T.must(tenant).main_collective
+    main.add_user!(identity) if main && main.id != id
   end
 
   # Keep the identity user's handle in lockstep when the collective is renamed,

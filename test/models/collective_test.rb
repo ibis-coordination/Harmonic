@@ -189,6 +189,32 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_equal "collective_identity", collective.identity_user.user_type
   end
 
+  # Issue #477: a new collective's identity is born a first-class member of the
+  # tenant's main collective, so it's counted in the directory and admissible to
+  # the tenant-wide "everyone" list without any special-case exception.
+  test "create_identity_user! joins the identity to the main collective (issue #477)" do
+    tenant = create_tenant
+    user = create_user
+    tenant.create_main_collective!(created_by: user)
+    main = tenant.main_collective
+
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Foo Team", handle: "foo-team")
+
+    assert_includes main.member_users, collective.identity_user
+  end
+
+  # The main collective has no parent-of-the-parent to join, and counting its own
+  # identity as its own member is meaningless — so it must not self-join.
+  test "the main collective's own identity is not a member of the main collective (issue #477)" do
+    tenant = create_tenant
+    user = create_user
+    tenant.create_main_collective!(created_by: user)
+    main = tenant.main_collective
+
+    assert main.identity_user.present?
+    assert_not_includes main.member_users, main.identity_user
+  end
+
   # Goal 2 of handle-model-unification: the identity user shares the collective's
   # own handle so @foo-team and /collectives/foo-team resolve to one identity.
   test "identity user shares the collective's handle" do

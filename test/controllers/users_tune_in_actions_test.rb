@@ -137,8 +137,9 @@ class UsersTuneInActionsTest < ActionDispatch::IntegrationTest
 
   test "execute_tune_in succeeds for a collective-identity user (issue #468)" do
     # A standard collective owns an identity User sharing its handle, reachable
-    # at /u/<handle>. Tuning in adds it to the actor's main-collective primary
-    # list even though identity users aren't main-collective members.
+    # at /u/<handle>. Since #477 the identity is a first-class main-collective
+    # member, so tuning in adds it to the actor's main-collective primary list
+    # via the general membership path (no special-case exception).
     ic = Collective.create!(
       tenant: @tenant, name: "Ident Co", handle: "ident-#{SecureRandom.hex(4)}",
       collective_type: "standard", created_by: @user, updated_by: @user
