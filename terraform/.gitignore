@@ -1,0 +1,8 @@
+# Never commit local state, var files, or the provider cache.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+crash.log

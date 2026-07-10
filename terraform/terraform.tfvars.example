@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+domain             = "harmonic.example.com"
+region             = "nyc3"
+ses_region         = "us-east-1"
+spaces_bucket_name = "harmonic-example-storage" # must be globally unique
+
+# Fingerprints of SSH keys already in your DO account (DO console -> Settings -> Security).
+ssh_key_fingerprints = ["aa:bb:cc:dd:ee:ff:..."]
+
+# Lock SSH to your own IPs. Leaving this empty closes port 22 entirely (good
+# default if you only ever use the DO web console).
+ssh_allowed_cidrs = ["203.0.113.4/32"]
+
+# Sizing — bump for real load.
+droplet_size = "s-2vcpu-4gb"
+pg_size      = "db-s-1vcpu-1gb"
