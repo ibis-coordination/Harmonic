@@ -486,4 +486,53 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_equal "litellm", entry[1]["llm_gateway_mode"]
     redis.close
   end
+
+  # === Pool-configured agents (LLM_POOL_CONFIG proof of concept) ===
+
+  def with_pool_config(customer_ids, agent_id:)
+    previous = ENV.fetch(LLMGateway::PayerResolver::POOL_CONFIG_ENV, nil)
+    ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = { agent_id => customer_ids }.to_json
+    yield
+  ensure
+    if previous.nil?
+      ENV.delete(LLMGateway::PayerResolver::POOL_CONFIG_ENV)
+    else
+      ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = previous
+    end
+  end
+
+  test "dispatches a pool-configured agent with no individual billing through the gateway" do
+    enable_stripe_billing_flag!(@tenant)
+    # No billing customer, no subscription, no balance — the pool funds it.
+    # Neither the identity check nor the balance preflight applies, so a
+    # balance fetch here would be a bug.
+    redis = Redis.new(url: ENV["REDIS_URL"])
+    StripeService.stub :get_credit_balance, ->(_) { raise "must not fetch balance for a pool-funded task" } do
+      with_pool_config(["cus_pool_a", "cus_pool_b"], agent_id: @ai_agent.id) do
+        AgentRunnerDispatchService.dispatch(@task_run)
+      end
+    end
+
+    @task_run.reload
+    assert_equal "queued", @task_run.status, "pool-funded dispatch should not fail: #{@task_run.error}"
+    assert_nil @task_run.stripe_customer_id, "pool-funded runs must not be stamped with an individual payer"
+
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
+    assert_not_nil entry, "pool-funded task should be dispatched to the stream"
+    assert_equal "stripe_gateway", entry[1]["llm_gateway_mode"]
+    assert_equal StripeGatewayModelMapper::DEFAULT_MODEL, entry[1]["model"]
+    redis.close
+  end
+
+  test "pool config does not apply to agents outside it" do
+    enable_stripe_billing_flag!(@tenant)
+
+    with_pool_config(["cus_pool_a"], agent_id: "some-other-agent") do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_match(/Billing is not set up/, @task_run.error)
+  end
 end

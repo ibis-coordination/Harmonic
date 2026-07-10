@@ -117,6 +117,23 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "returns a pool customer for a pool-configured agent" do
+    previous = ENV.fetch(LLMGateway::PayerResolver::POOL_CONFIG_ENV, nil)
+    ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = { @ai_agent.id => ["cus_pool_a", "cus_pool_b"] }.to_json
+
+    # The unbilled run has no stamped customer — the pool alone funds it.
+    select_payer(task_run_id: @unbilled_task_run.id, model: "anthropic/claude-sonnet-4.6")
+
+    assert_response :success
+    assert_includes ["cus_pool_a", "cus_pool_b"], JSON.parse(response.body)["payer_customer_id"]
+  ensure
+    if previous.nil?
+      ENV.delete(LLMGateway::PayerResolver::POOL_CONFIG_ENV)
+    else
+      ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = previous
+    end
+  end
+
   test "rejects an unsigned request" do
     post "/internal/llm-gateway/select-payer",
          params: { task_run_id: @task_run.id }.to_json,
