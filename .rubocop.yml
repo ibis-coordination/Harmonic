@@ -27,37 +27,20 @@ Layout/LineLength:
 Layout/MultilineMethodCallIndentation:
   EnforcedStyle: indented
 
-# Metrics cops - lenient for existing large files
-Metrics/ClassLength:
-  Max: 600
-  Exclude:
-    - 'app/controllers/application_controller.rb'
-    - 'app/services/api_helper.rb'
-    - 'app/models/collective.rb'
+# Hash/array literals passed as arguments indent 2 spaces from the statement
+# (codebase style), not aligned to the opening paren (the default).
+Layout/FirstHashElementIndentation:
+  EnforcedStyle: consistent
 
-Metrics/MethodLength:
-  Max: 30
-  Exclude:
-    - 'app/controllers/application_controller.rb'
-    - 'app/services/api_helper.rb'
+Layout/FirstArrayElementIndentation:
+  EnforcedStyle: consistent
 
-Metrics/AbcSize:
-  Max: 40
-  Exclude:
-    - 'app/controllers/application_controller.rb'
-    - 'app/services/api_helper.rb'
-
-Metrics/BlockLength:
-  Exclude:
-    - 'config/routes.rb'
-    - 'test/**/*'
-    - 'spec/**/*'
-
-Metrics/CyclomaticComplexity:
-  Max: 15
-
-Metrics/PerceivedComplexity:
-  Max: 15
+# Metrics cops are disabled: they re-litigate whole files on every touch
+# (a one-line edit to a long method flags the method), which produces churn,
+# not quality. Code size/complexity judgment is left to review; correctness
+# is carried by Sorbet and the test suite.
+Metrics:
+  Enabled: false
 
 # Style cops
 Style/Documentation:
@@ -84,6 +67,12 @@ Style/TrailingCommaInArrayLiteral:
 Style/TrailingCommaInHashLiteral:
   EnforcedStyleForMultiline: consistent_comma
 
+# No enforcement either way for commas in multiline method calls: the
+# codebase is mixed, and both the default (strip) and consistent_comma (add)
+# would churn hundreds of untouched lines whenever a file is revisited.
+Style/TrailingCommaInArguments:
+  Enabled: false
+
 # Rails cops
 Rails/SkipsModelValidations:
   Enabled: false  # Allow update_column etc when needed
@@ -97,9 +86,16 @@ Rails/OutputSafety:
 Rails/I18nLocaleTexts:
   Enabled: false  # Not using I18n extensively yet
 
+Rails/InverseOf:
+  Enabled: false  # Custom-FK associations without inverses are common here
+
 # Naming cops
 Naming/PredicateName:
   Enabled: false  # Allow is_* and has_* methods
 
 Naming/VariableNumber:
-  EnforcedStyle: snake_case
+  Enabled: false  # user_1 in tests is fine
+
+# Taste-only cops with no defect yield
+Style/SafeNavigationChainLength:
+  Enabled: false
