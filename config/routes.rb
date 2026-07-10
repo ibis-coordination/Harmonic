@@ -580,6 +580,8 @@ Rails.application.routes.draw do
     post "#{prefix}/unarchive" => 'collectives#unarchive'
     post "#{prefix}/settings/add_ai_agent" => 'collectives#add_ai_agent'
     delete "#{prefix}/settings/remove_ai_agent" => 'collectives#remove_ai_agent'
+    post "#{prefix}/settings/add_funded_agent" => 'collectives#add_funded_agent'
+    delete "#{prefix}/settings/remove_funded_agent" => 'collectives#remove_funded_agent'
     get "#{prefix}/settings/actions" => 'collectives#actions_index_settings'
     get "#{prefix}/settings/actions/update_collective_settings" => 'collectives#describe_update_collective_settings'
     post "#{prefix}/settings/actions/update_collective_settings" => 'collectives#update_collective_settings_action'

@@ -76,6 +76,11 @@ class ApiHelper
 
   sig { returns(Collective) }
   def create_collective
+    # Controllers gate which types a user may request (and the funded-billing
+    # requirement for agent_funding) before this runs — see
+    # CollectivesController#collective_type_request_error.
+    collective_type = params[:collective_type].presence || "standard"
+
     collective = T.let(nil, T.nilable(Collective))
     ActiveRecord::Base.transaction do
       collective = Collective.create!(
@@ -85,7 +90,10 @@ class ApiHelper
         created_by: current_user,
         timezone: params[:timezone],
         tempo: params[:tempo],
-        synchronization_mode: params[:synchronization_mode]
+        synchronization_mode: params[:synchronization_mode],
+        collective_type: collective_type,
+        # Funding collectives exist to pay for agents, not to be paid for.
+        billing_exempt: collective_type == "agent_funding"
       )
 
       # Apply optional settings
@@ -107,7 +115,10 @@ class ApiHelper
       # This is needed to ensure that all the models created in this transaction
       # are associated with the correct tenant and collective
       Collective.scope_thread_to_collective(handle: collective.handle, subdomain: T.must(collective.tenant).subdomain)
-      collective.add_user!(current_user, roles: ["admin", "representative"])
+      # No representative role on funding collectives — there is no identity
+      # user to represent.
+      creator_roles = collective.agent_funding? ? ["admin"] : ["admin", "representative"]
+      collective.add_user!(current_user, roles: creator_roles)
     end
     T.must(collective)
   end
@@ -871,6 +882,13 @@ class ApiHelper
       # invites and invites addressed to someone else must not grant
       # membership through the action route either.
       raise "Invite is not valid or has expired" unless invite.is_acceptable_by_user?(current_user)
+
+      # Same funded-to-join gate as the HTML flow: joining a funding
+      # collective is consenting to have your balance drawn on.
+      if current_collective.agent_funding? && !current_user.funded_billing?
+        raise "Joining an agent funding collective is consenting to fund its agents from your own prepaid balance, " \
+              "which requires active billing with prepaid credits. Set up billing at /billing first."
+      end
 
       current_user.accept_invite!(invite)
       collective_member = current_user.collective_members.find_by(collective: current_collective)
