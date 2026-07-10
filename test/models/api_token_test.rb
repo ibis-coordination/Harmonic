@@ -796,4 +796,71 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert_not token.valid?
     assert token.errors[:token_type].any?, "expected an immutability error"
   end
+
+  # === authenticate_llm_gateway tests ===
+
+  def create_llm_gateway_token(**overrides)
+    agent = create_external_agent
+    token = build_token(user: agent, token_type: "llm_gateway", name: "Gateway key", **overrides)
+    token.save!
+    token
+  end
+
+  test "authenticate_llm_gateway finds a token without tenant context" do
+    token = create_llm_gateway_token
+
+    other_tenant = create_tenant(subdomain: "other-tenant")
+    Tenant.scope_thread_to_tenant(subdomain: other_tenant.subdomain)
+
+    found = ApiToken.authenticate_llm_gateway(T.must(token.plaintext_token))
+    assert found, "expected the token to be found from another tenant's context"
+    assert_equal token.id, found.id
+  ensure
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+  end
+
+  test "authenticate_llm_gateway rejects rest and mcp tokens" do
+    agent = create_external_agent
+    ["rest", "mcp"].each do |type|
+      token = build_token(user: agent, token_type: type, name: "#{type} token")
+      token.save!
+      assert_nil ApiToken.authenticate_llm_gateway(T.must(token.plaintext_token)),
+                 "#{type} token must not authenticate for the LLM gateway"
+    end
+  end
+
+  test "authenticate_llm_gateway rejects revoked tokens" do
+    token = create_llm_gateway_token
+    plaintext = T.must(token.plaintext_token)
+    token.delete!
+
+    assert_nil ApiToken.authenticate_llm_gateway(plaintext)
+  end
+
+  test "authenticate_llm_gateway rejects internal tokens" do
+    agent = create_internal_agent
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: agent, initiated_by: @user,
+      task: "Test", max_steps: 5, status: "queued"
+    )
+    token = ApiToken.create_internal_token(
+      user: agent, tenant: @tenant, context: task_run, token_type: "llm_gateway"
+    )
+
+    assert_nil ApiToken.authenticate_llm_gateway(T.must(token.plaintext_token))
+  end
+
+  test "authenticate_llm_gateway returns nil for unknown or blank tokens" do
+    assert_nil ApiToken.authenticate_llm_gateway("not-a-real-token")
+    assert_nil ApiToken.authenticate_llm_gateway("")
+  end
+
+  test "authenticate_llm_gateway returns expired tokens for the caller to reject" do
+    token = create_llm_gateway_token
+    token.update_column(:expires_at, 1.hour.ago)
+
+    found = ApiToken.authenticate_llm_gateway(T.must(token.plaintext_token))
+    assert found, "expired tokens are returned; expiry is a call-site check"
+    assert found.expired?
+  end
 end

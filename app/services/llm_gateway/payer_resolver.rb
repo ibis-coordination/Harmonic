@@ -45,6 +45,49 @@ module LLMGateway
       new(task_run).resolve
     end
 
+    # Resolve the payer for a gateway call made directly by an agent (external
+    # ingress — authenticated by its llm_gateway API key, no task run). Same
+    # funding policy as the task-run path: pool first, else the agent's own
+    # billing customer.
+    sig { params(agent: User).returns(Result) }
+    def self.resolve_for_agent(agent)
+      pool_result(agent.id, context: "agent=#{agent.id}") || funded_result(agent.billing_customer)
+    end
+
+    sig { params(agent_id: String, context: String).returns(T.nilable(Result)) }
+    def self.pool_result(agent_id, context:)
+      pool = pool_customer_ids(agent_id)
+      return nil if pool.empty?
+
+      payer = T.must(pool.sample)
+      Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{pool.size}")
+      Result.new(payer_customer_id: payer)
+    end
+
+    # LLM usage must be funded: a prepaid-credit (pricing-plan) subscription
+    # must exist, or metered usage would never bill. This is a cheap, local
+    # check.
+    #
+    # The credit *balance* is deliberately NOT fetched here. Payer resolution
+    # runs on the per-LLM-call path, and a live Stripe balance call there is
+    # both slow and stale (Stripe aggregates deductions rather than deducting
+    # in real time), and it conflates a Stripe API error with an empty
+    # balance. The balance gate is enforced once at dispatch preflight and,
+    # authoritatively, by the gateway relaying a Stripe 402 when the balance
+    # is empty.
+    sig { params(billing_customer: T.nilable(StripeCustomer)).returns(Result) }
+    def self.funded_result(billing_customer)
+      if billing_customer.nil? || billing_customer.pricing_plan_subscription_id.blank?
+        raise ResolutionError.new(
+          "not_funded",
+          :payment_required,
+          "AI usage billing is not set up. Add credits at /billing."
+        )
+      end
+
+      Result.new(payer_customer_id: billing_customer.stripe_id)
+    end
+
     sig { params(agent_id: String).returns(T::Array[String]) }
     def self.pool_customer_ids(agent_id)
       raw = ENV.fetch(POOL_CONFIG_ENV, nil)
@@ -65,14 +108,8 @@ module LLMGateway
 
     sig { returns(Result) }
     def resolve
-      pool = self.class.pool_customer_ids(T.must(@task_run.ai_agent_id))
-      if pool.any?
-        payer = T.must(pool.sample)
-        Rails.logger.info(
-          "[LLMGateway] Pool payer selected task_run=#{@task_run.id} payer=#{payer} pool_size=#{pool.size}"
-        )
-        return Result.new(payer_customer_id: payer)
-      end
+      pool = self.class.pool_result(T.must(@task_run.ai_agent_id), context: "task_run=#{@task_run.id}")
+      return pool if pool
 
       billing_customer = @task_run.billing_customer
       if billing_customer.nil?
@@ -83,26 +120,7 @@ module LLMGateway
         )
       end
 
-      # LLM usage must be funded: a prepaid-credit (pricing-plan) subscription
-      # must exist, or metered usage would never bill. This is a cheap, local
-      # check.
-      #
-      # The credit *balance* is deliberately NOT fetched here. `select_payer`
-      # runs on the per-LLM-call path, and a live Stripe balance call there is
-      # both slow and stale (Stripe aggregates deductions rather than deducting
-      # in real time), and it conflates a Stripe API error with an empty
-      # balance. The balance gate is enforced once at dispatch preflight and,
-      # authoritatively, by the gateway relaying a Stripe 402 when the balance
-      # is empty.
-      if billing_customer.pricing_plan_subscription_id.blank?
-        raise ResolutionError.new(
-          "not_funded",
-          :payment_required,
-          "AI usage billing is not set up. Add credits at /billing."
-        )
-      end
-
-      Result.new(payer_customer_id: billing_customer.stripe_id)
+      self.class.funded_result(billing_customer)
     end
   end
 end
