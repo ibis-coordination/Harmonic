@@ -58,12 +58,12 @@ class AgentRunnerDispatchService
     # billing_customer, are never charged, and route through LiteLLM rather
     # than the LLM gateway.
     #
-    # Pool-funded agents (LLM_POOL_CONFIG proof of concept) skip the
-    # individual checks entirely: they have no personal billing customer to
-    # verify or stamp — the gateway's select-payer picks a pool member per
-    # call, and the relayed Stripe 402 is the balance gate.
+    # Pool-funded agents (funding_collective set) skip the individual checks
+    # entirely: their spend draws from the collective's members, not a
+    # personal billing customer — the gateway's select-payer picks a funded
+    # member per call, and the relayed Stripe 402 is the balance gate.
     billing_customer = ai_agent.billing_customer
-    pool_funded = LLMGateway::PayerResolver.pool_customer_ids(ai_agent.id).any?
+    pool_funded = ai_agent.funding_collective_id.present?
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !pool_funded
       # (a) The agent's identity must be paid for before we run a task — the
       # norm, unchanged. An agent's billing_customer is its principal's Stripe

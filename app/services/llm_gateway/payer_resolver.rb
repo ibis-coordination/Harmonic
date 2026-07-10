@@ -3,23 +3,14 @@
 
 module LLMGateway
   # Resolves which Stripe customer pays for a billed LLM call, and verifies the
-  # payer is funded. This is the single home for payer-selection policy: today
-  # it resolves a task run to its stamped billing customer (one payer); the
-  # common-pool selection will extend this same seam.
+  # payer is funded. This is the single home for payer-selection policy: an
+  # agent funded by an agent_funding collective draws uniformly at random from
+  # its funded members' balances; otherwise the individual billing customer
+  # pays (the task run's stamped customer, or the agent's own).
   class PayerResolver
     extend T::Sig
 
     Result = Struct.new(:payer_customer_id, keyword_init: true)
-
-    # Proof-of-concept common pools, configured entirely by env var — no
-    # schema, no UI, removable by unsetting the var. Maps agent ids to the
-    # Stripe customers whose balances jointly fund that agent's calls:
-    #   LLM_POOL_CONFIG='{"<agent-id>": ["cus_a", "cus_b"]}'
-    # Each call picks a payer uniformly at random, so cost converges to an
-    # even split across the pool. The real pool feature (member consent,
-    # management UX) is deliberately not designed yet; only this resolver
-    # seam and the dispatch bypass will remain when it is.
-    POOL_CONFIG_ENV = "LLM_POOL_CONFIG"
 
     # A resolution failure that carries the wire error code and HTTP status the
     # gateway (and its callers) should surface.
@@ -47,21 +38,69 @@ module LLMGateway
 
     # Resolve the payer for a gateway call made directly by an agent (external
     # ingress — authenticated by its llm_gateway API key, no task run). Same
-    # funding policy as the task-run path: pool first, else the agent's own
-    # billing customer.
+    # funding policy as the task-run path: funding collective first, else the
+    # agent's own billing customer.
     sig { params(agent: User).returns(Result) }
     def self.resolve_for_agent(agent)
-      pool_result(agent.id, context: "agent=#{agent.id}") || funded_result(agent.billing_customer)
+      pool_result(agent, context: "agent=#{agent.id}") || funded_result(agent.billing_customer)
     end
 
-    sig { params(agent_id: String, context: String).returns(T.nilable(Result)) }
-    def self.pool_result(agent_id, context:)
-      pool = pool_customer_ids(agent_id)
-      return nil if pool.empty?
+    # The Stripe customers eligible to pay for this agent's calls: the funding
+    # collective's active human members whose own billing is funded (active
+    # customer with a prepaid-credit subscription). Members whose funding
+    # lapsed are skipped rather than pool-breaking. Lookups use
+    # tenant_scoped_only + explicit ids — never collective-scoped associations,
+    # which misbehave outside normal request scoping.
+    sig { params(agent: User).returns(T::Array[String]) }
+    def self.pool_customer_ids(agent)
+      collective_id = agent.funding_collective_id
+      return [] if collective_id.nil?
+
+      member_user_ids = CollectiveMember.tenant_scoped_only
+                                        .where(collective_id: collective_id, archived_at: nil)
+                                        .pluck(:user_id)
+      human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
+      StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+                    .where.not(pricing_plan_subscription_id: [nil, ""])
+                    .pluck(:stripe_id)
+    end
+
+    sig { params(agent: User, context: String).returns(T.nilable(Result)) }
+    def self.pool_result(agent, context:)
+      return nil if agent.funding_collective_id.nil?
+
+      ensure_primary_active!(agent)
+
+      pool = pool_customer_ids(agent)
+      if pool.empty?
+        raise ResolutionError.new(
+          "pool_exhausted",
+          :payment_required,
+          "No funded members are available in the agent's funding collective."
+        )
+      end
 
       payer = T.must(pool.sample)
       Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{pool.size}")
       Result.new(payer_customer_id: payer)
+    end
+
+    # No primary, no service: the accountable principal must remain an active
+    # member of the funding collective (the attach-time validation can drift —
+    # members leave). Checked statelessly on every call.
+    sig { params(agent: User).void }
+    def self.ensure_primary_active!(agent)
+      membership = CollectiveMember.tenant_scoped_only.find_by(
+        collective_id: agent.funding_collective_id,
+        user_id: agent.parent_id
+      )
+      return if membership && membership.archived_at.nil?
+
+      raise ResolutionError.new(
+        "no_primary",
+        :forbidden,
+        "The agent's principal is no longer an active member of its funding collective; the agent is suspended."
+      )
     end
 
     # LLM usage must be funded: a prepaid-credit (pricing-plan) subscription
@@ -88,19 +127,6 @@ module LLMGateway
       Result.new(payer_customer_id: billing_customer.stripe_id)
     end
 
-    sig { params(agent_id: String).returns(T::Array[String]) }
-    def self.pool_customer_ids(agent_id)
-      raw = ENV.fetch(POOL_CONFIG_ENV, nil)
-      return [] if raw.blank?
-
-      config = JSON.parse(raw)
-      ids = config[agent_id]
-      ids.is_a?(Array) ? ids.grep(String).reject(&:blank?) : []
-    rescue JSON::ParserError => e
-      Rails.logger.error("[LLMGateway] Ignoring malformed #{POOL_CONFIG_ENV}: #{e.message}")
-      []
-    end
-
     sig { params(task_run: AiAgentTaskRun).void }
     def initialize(task_run)
       @task_run = task_run
@@ -108,7 +134,7 @@ module LLMGateway
 
     sig { returns(Result) }
     def resolve
-      pool = self.class.pool_result(T.must(@task_run.ai_agent_id), context: "task_run=#{@task_run.id}")
+      pool = self.class.pool_result(T.must(@task_run.ai_agent), context: "task_run=#{@task_run.id}")
       return pool if pool
 
       billing_customer = @task_run.billing_customer

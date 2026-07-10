@@ -487,30 +487,30 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
-  # === Pool-configured agents (LLM_POOL_CONFIG proof of concept) ===
+  # === Pool-funded agents (agent_funding collective) ===
 
-  def with_pool_config(customer_ids, agent_id:)
-    previous = ENV.fetch(LLMGateway::PayerResolver::POOL_CONFIG_ENV, nil)
-    ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = { agent_id => customer_ids }.to_json
-    yield
-  ensure
-    if previous.nil?
-      ENV.delete(LLMGateway::PayerResolver::POOL_CONFIG_ENV)
-    else
-      ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = previous
-    end
+  def attach_funding_collective!(agent)
+    funding = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Agent Funding",
+      handle: "fund-#{SecureRandom.hex(4)}",
+      collective_type: "agent_funding",
+    )
+    funding.add_user!(@user)
+    agent.update!(funding_collective: funding)
+    funding
   end
 
-  test "dispatches a pool-configured agent with no individual billing through the gateway" do
+  test "dispatches a pool-funded agent with no individual billing through the gateway" do
     enable_stripe_billing_flag!(@tenant)
+    attach_funding_collective!(@ai_agent)
     # No billing customer, no subscription, no balance — the pool funds it.
     # Neither the identity check nor the balance preflight applies, so a
     # balance fetch here would be a bug.
     redis = Redis.new(url: ENV["REDIS_URL"])
     StripeService.stub :get_credit_balance, ->(_) { raise "must not fetch balance for a pool-funded task" } do
-      with_pool_config(["cus_pool_a", "cus_pool_b"], agent_id: @ai_agent.id) do
-        AgentRunnerDispatchService.dispatch(@task_run)
-      end
+      AgentRunnerDispatchService.dispatch(@task_run)
     end
 
     @task_run.reload
@@ -524,12 +524,10 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
-  test "pool config does not apply to agents outside it" do
+  test "agents without a funding collective still need individual billing" do
     enable_stripe_billing_flag!(@tenant)
 
-    with_pool_config(["cus_pool_a"], agent_id: "some-other-agent") do
-      AgentRunnerDispatchService.dispatch(@task_run)
-    end
+    AgentRunnerDispatchService.dispatch(@task_run)
 
     @task_run.reload
     assert_equal "failed", @task_run.status

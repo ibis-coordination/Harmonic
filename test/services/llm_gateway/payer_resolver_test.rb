@@ -18,87 +18,166 @@ module LLMGateway
         max_steps: 10,
         status: "running",
       )
-
-      @previous_pool_config = ENV.fetch(PayerResolver::POOL_CONFIG_ENV, nil)
     end
 
-    teardown do
-      if @previous_pool_config.nil?
-        ENV.delete(PayerResolver::POOL_CONFIG_ENV)
-      else
-        ENV[PayerResolver::POOL_CONFIG_ENV] = @previous_pool_config
-      end
+    def create_funding_collective(members: [@user])
+      collective = Collective.create!(
+        tenant: @tenant,
+        created_by: @user,
+        name: "Agent Funding",
+        handle: "fund-#{SecureRandom.hex(4)}",
+        collective_type: "agent_funding",
+      )
+      members.each { |member| collective.add_user!(member) }
+      collective
     end
 
-    def configure_pool!(customer_ids, agent_id: @ai_agent.id)
-      ENV[PayerResolver::POOL_CONFIG_ENV] = { agent_id => customer_ids }.to_json
+    def create_funded_member!(collective, stripe_id:)
+      member = create_user
+      @tenant.add_user!(member)
+      collective.add_user!(member)
+      fund!(member, stripe_id: stripe_id)
+      member
     end
 
-    test "resolves a pool-configured agent to one of the pool customers" do
-      configure_pool!(["cus_pool_a", "cus_pool_b", "cus_pool_c"])
+    def fund!(user, stripe_id:, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}")
+      StripeCustomer.create!(
+        billable: user,
+        stripe_id: stripe_id,
+        active: active,
+        pricing_plan_subscription_id: pricing_plan_subscription_id,
+      )
+    end
+
+    def create_stamped_billing_customer!
+      billing_customer = StripeCustomer.create!(
+        billable: @ai_agent,
+        stripe_id: "cus_individual",
+        active: true,
+        pricing_plan_subscription_id: "bpps_test123",
+      )
+      @task_run.update!(stripe_customer_id: billing_customer.id)
+      billing_customer
+    end
+
+    test "resolves a funding-collective agent to a funded member's customer" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_primary")
+      create_funded_member!(funding, stripe_id: "cus_member_b")
+      @ai_agent.update!(funding_collective: funding)
 
       result = PayerResolver.resolve(@task_run)
-      assert_includes ["cus_pool_a", "cus_pool_b", "cus_pool_c"], result.payer_customer_id
+      assert_includes ["cus_primary", "cus_member_b"], result.payer_customer_id
     end
 
-    test "pool selection is uniformly random across calls" do
-      customers = ["cus_pool_a", "cus_pool_b", "cus_pool_c"]
-      configure_pool!(customers)
+    test "pool selection is uniformly random across funded members" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      create_funded_member!(funding, stripe_id: "cus_pool_b")
+      create_funded_member!(funding, stripe_id: "cus_pool_c")
+      @ai_agent.update!(funding_collective: funding)
 
       counts = Hash.new(0)
       300.times do
         counts[PayerResolver.resolve(@task_run).payer_customer_id] += 1
       end
 
-      customers.each do |cus|
+      ["cus_pool_a", "cus_pool_b", "cus_pool_c"].each do |cus|
         # Expected 100 of 300 each; 60 is ~5 standard deviations below the
         # mean, so a false failure is vanishingly unlikely.
         assert_operator counts[cus], :>=, 60, "expected #{cus} to be picked roughly uniformly, got #{counts.inspect}"
       end
     end
 
-    test "pool config takes precedence over a stamped billing customer" do
-      billing_customer = StripeCustomer.create!(
-        billable: @ai_agent,
-        stripe_id: "cus_individual",
-        active: true,
-        pricing_plan_subscription_id: "bpps_test123",
-      )
-      @task_run.update!(stripe_customer_id: billing_customer.id)
-      configure_pool!(["cus_pool_a"])
+    test "the funding collective takes precedence over a stamped billing customer" do
+      create_stamped_billing_customer!
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      @ai_agent.update!(funding_collective: funding)
 
       result = PayerResolver.resolve(@task_run)
       assert_equal "cus_pool_a", result.payer_customer_id
     end
 
-    test "falls back to the stamped billing customer when the agent is not in the pool config" do
-      billing_customer = StripeCustomer.create!(
-        billable: @ai_agent,
-        stripe_id: "cus_individual",
-        active: true,
-        pricing_plan_subscription_id: "bpps_test123",
-      )
-      @task_run.update!(stripe_customer_id: billing_customer.id)
-      configure_pool!(["cus_pool_a"], agent_id: "some-other-agent-id")
+    test "falls back to the stamped billing customer without a funding collective" do
+      create_stamped_billing_customer!
 
       result = PayerResolver.resolve(@task_run)
       assert_equal "cus_individual", result.payer_customer_id
     end
 
-    test "raises not_a_billed_task when there is no pool config and no billing customer" do
+    test "raises not_a_billed_task when there is no funding collective and no billing customer" do
       error = assert_raises(PayerResolver::ResolutionError) do
         PayerResolver.resolve(@task_run)
       end
       assert_equal "not_a_billed_task", error.code
     end
 
-    test "malformed pool config is ignored" do
-      ENV[PayerResolver::POOL_CONFIG_ENV] = "not valid json"
+    test "members whose funding lapsed are skipped in draws" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_active")
+      lapsed = create_user
+      @tenant.add_user!(lapsed)
+      funding.add_user!(lapsed)
+      fund!(lapsed, stripe_id: "cus_lapsed", active: false)
+      unsubscribed = create_user
+      @tenant.add_user!(unsubscribed)
+      funding.add_user!(unsubscribed)
+      fund!(unsubscribed, stripe_id: "cus_unsubscribed", pricing_plan_subscription_id: nil)
+      @ai_agent.update!(funding_collective: funding)
+
+      20.times do
+        assert_equal "cus_active", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "archived members are skipped in draws" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_active")
+      departed = create_funded_member!(funding, stripe_id: "cus_departed")
+      funding.collective_members.find_by!(user: departed).archive!
+      @ai_agent.update!(funding_collective: funding)
+
+      20.times do
+        assert_equal "cus_active", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "non-human members never fund" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_human")
+      funding.add_user!(@ai_agent)
+      fund!(@ai_agent, stripe_id: "cus_agent_self")
+      @ai_agent.update!(funding_collective: funding)
+
+      20.times do
+        assert_equal "cus_human", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "raises pool_exhausted when no member is funded" do
+      funding = create_funding_collective
+      @ai_agent.update!(funding_collective: funding)
 
       error = assert_raises(PayerResolver::ResolutionError) do
         PayerResolver.resolve(@task_run)
       end
-      assert_equal "not_a_billed_task", error.code
+      assert_equal "pool_exhausted", error.code
+      assert_equal :payment_required, error.http_status
+    end
+
+    test "raises no_primary when the principal's membership is archived after attach" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_primary")
+      create_funded_member!(funding, stripe_id: "cus_member_b")
+      @ai_agent.update!(funding_collective: funding)
+      funding.collective_members.find_by!(user: @user).archive!
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "no_primary", error.code
+      assert_equal :forbidden, error.http_status
     end
 
     # === resolve_for_agent (external gateway calls — no task run) ===
@@ -115,16 +194,20 @@ module LLMGateway
       customer
     end
 
-    test "resolve_for_agent picks from the pool when the agent is pool-configured" do
-      configure_pool!(["cus_pool_a", "cus_pool_b"])
+    test "resolve_for_agent draws from the funding collective" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      @ai_agent.update!(funding_collective: funding)
 
       result = PayerResolver.resolve_for_agent(@ai_agent)
-      assert_includes ["cus_pool_a", "cus_pool_b"], result.payer_customer_id
+      assert_equal "cus_pool_a", result.payer_customer_id
     end
 
-    test "resolve_for_agent pool takes precedence over the agent's billing customer" do
+    test "resolve_for_agent funding collective takes precedence over the agent's billing customer" do
       create_agent_billing_customer!
-      configure_pool!(["cus_pool_a"])
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      @ai_agent.update!(funding_collective: funding)
 
       result = PayerResolver.resolve_for_agent(@ai_agent)
       assert_equal "cus_pool_a", result.payer_customer_id

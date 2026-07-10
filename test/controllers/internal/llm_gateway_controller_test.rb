@@ -117,21 +117,14 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "returns a pool customer for a pool-configured agent" do
-    previous = ENV.fetch(LLMGateway::PayerResolver::POOL_CONFIG_ENV, nil)
-    ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = { @ai_agent.id => ["cus_pool_a", "cus_pool_b"] }.to_json
+  test "returns a pool customer for a pool-funded agent" do
+    attach_funding_collective!(@ai_agent, ["cus_pool_a", "cus_pool_b"])
 
     # The unbilled run has no stamped customer — the pool alone funds it.
     select_payer(task_run_id: @unbilled_task_run.id, model: "anthropic/claude-sonnet-4.6")
 
     assert_response :success
     assert_includes ["cus_pool_a", "cus_pool_b"], JSON.parse(response.body)["payer_customer_id"]
-  ensure
-    if previous.nil?
-      ENV.delete(LLMGateway::PayerResolver::POOL_CONFIG_ENV)
-    else
-      ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = previous
-    end
   end
 
   test "rejects an unsigned request" do
@@ -159,16 +152,35 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
   end
 
-  def with_pool_config(pool_by_agent_id)
-    previous = ENV.fetch(LLMGateway::PayerResolver::POOL_CONFIG_ENV, nil)
-    ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = pool_by_agent_id.to_json
-    yield
-  ensure
-    if previous.nil?
-      ENV.delete(LLMGateway::PayerResolver::POOL_CONFIG_ENV)
-    else
-      ENV[LLMGateway::PayerResolver::POOL_CONFIG_ENV] = previous
+  # Fund the agent through an agent_funding collective. The first stripe id
+  # funds @user (the agent's principal, who must be a member); each further id
+  # funds an additional member.
+  def attach_funding_collective!(agent, stripe_ids)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    funding = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Agent Funding",
+      handle: "fund-#{SecureRandom.hex(4)}",
+      collective_type: "agent_funding"
+    )
+    funding.add_user!(@user)
+    stripe_ids.each_with_index do |stripe_id, index|
+      member = @user
+      if index.positive?
+        member = create_user
+        @tenant.add_user!(member)
+        funding.add_user!(member)
+      end
+      StripeCustomer.create!(
+        billable: member, stripe_id: stripe_id, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+      )
     end
+    agent.update!(funding_collective: funding)
+    funding
+  ensure
+    Tenant.clear_thread_scope
+    Collective.clear_thread_scope
   end
 
   def select_payer_for_token(body_hash)
@@ -190,10 +202,9 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: returns a pool payer and the mapped model" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
+    attach_funding_collective!(agent, ["cus_pool_a", "cus_pool_b"])
 
-    with_pool_config(agent.id => ["cus_pool_a", "cus_pool_b"]) do
-      select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
-    end
+    select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
 
     assert_response :success
     body = JSON.parse(response.body)
@@ -219,10 +230,9 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: blank model maps to the default model" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
+    attach_funding_collective!(agent, ["cus_pool_a"])
 
-    with_pool_config(agent.id => ["cus_pool_a"]) do
-      select_payer_for_token(agent_token: token.plaintext_token)
-    end
+    select_payer_for_token(agent_token: token.plaintext_token)
 
     assert_response :success
     assert_equal StripeGatewayModelMapper::DEFAULT_MODEL, JSON.parse(response.body)["model"]
@@ -272,10 +282,9 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
 
   test "token caller: 403 when the tenant flag is off" do
     agent, token = create_gateway_agent_and_token
+    attach_funding_collective!(agent, ["cus_pool_a"])
 
-    with_pool_config(agent.id => ["cus_pool_a"]) do
-      select_payer_for_token(agent_token: token.plaintext_token)
-    end
+    select_payer_for_token(agent_token: token.plaintext_token)
 
     assert_response :forbidden
     assert_openai_error("feature_disabled")
@@ -293,10 +302,9 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: 400 for a model the gateway cannot proxy" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
+    attach_funding_collective!(agent, ["cus_pool_a"])
 
-    with_pool_config(agent.id => ["cus_pool_a"]) do
-      select_payer_for_token(agent_token: token.plaintext_token, model: "local-ollama-model")
-    end
+    select_payer_for_token(agent_token: token.plaintext_token, model: "local-ollama-model")
 
     assert_response :bad_request
     assert_openai_error("unsupported_model")
