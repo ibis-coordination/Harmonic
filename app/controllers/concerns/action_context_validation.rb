@@ -6,15 +6,15 @@
 # 1. Declared-visibility validation — MCP-only. Compares the visibility tier
 #    the agent declared in its MCP `context` block against the action's
 #    resolved audience. Direct REST/markdown writes carry no context block,
-#    so there's nothing to validate; agent tokens also default to
-#    `mcp_only: true`, which `ApplicationController#api_authorize!` enforces by
+#    so there's nothing to validate; agent tokens also default to the mcp
+#    type, which `ApplicationController#api_authorize!` enforces by
 #    returning 403 on direct REST/markdown before any action body runs.
 #
 # 2. Public-write guardrail — fires on EVERY restricted-agent write, MCP or
 #    direct REST/markdown, mirroring how the capability check (ActionCapability
-#    Check) runs on all writes. mcp_only fences direct writes for the default
-#    token, but a principal can opt a token out of mcp_only — a deliberate
-#    choice on the token form. Were the gate MCP-only, such a token would reach
+#    Check) runs on all writes. The mcp token type fences direct writes for
+#    the default token, but a principal can issue a rest-type token instead —
+#    a deliberate choice on the token form. Were the gate MCP-only, such a token would reach
 #    writes with its restriction silently dropped, the exact bypass the
 #    capability layer already closes by running everywhere. So this runs
 #    everywhere too: capabilities and the public-write gate are one system with
@@ -75,7 +75,7 @@ module ActionContextValidation
     # fires on every restricted-agent write regardless of dispatch path (see
     # the module comment). Gate on the resolved audience (ground truth), not
     # the declared one: an agent whose owner hasn't enabled public writes can't
-    # act in the main collective even via a direct opted-out-of-mcp_only token.
+    # act in the main collective even via a direct rest-type token.
     # Only the `public` tier is gated; private and shared are always allowed.
     return unless audience == "public"
     return if CapabilityCheck.public_writes_allowed?(caller)

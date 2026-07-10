@@ -1484,7 +1484,7 @@ class UserTest < ActiveSupport::TestCase
     fresh_tenant.create_main_collective!(created_by: parent)
 
     Tenant.scope_thread_to_tenant(subdomain: fresh_tenant.subdomain)
-    agent = create_ai_agent(parent: parent, name: "Agent #{SecureRandom.hex(4)}")
+    agent = create_ai_agent(parent: parent, name: "Agent #{SecureRandom.hex(4)}", agent_configuration: { "mode" => "external" })
     fresh_tenant.add_user!(agent)
     Tenant.clear_thread_scope
 

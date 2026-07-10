@@ -224,7 +224,7 @@ class ApiCollectiveRepresentationTest < ActionDispatch::IntegrationTest
   # representative role. `capabilities: nil` means "all grantable" (the default);
   # pass an array to restrict what the agent may do.
   def agent_headers(capabilities:)
-    config = { "mode" => "internal" }
+    config = { "mode" => "external" }
     config["capabilities"] = capabilities unless capabilities.nil?
     agent = create_ai_agent(parent: @alice, name: "Rep Agent #{SecureRandom.hex(4)}", agent_configuration: config)
     @tenant.add_user!(agent)
@@ -286,7 +286,7 @@ class ApiCollectiveRepresentationTest < ActionDispatch::IntegrationTest
     # The agent has public writes enabled (the #467 guardrail its owner toggled
     # on) — so this exercises the *later* #469 gate, not that one.
     agent = create_ai_agent(parent: @alice, name: "Pub Agent #{SecureRandom.hex(4)}",
-                            agent_configuration: { "mode" => "internal", "allow_public_writes" => true })
+                            agent_configuration: { "mode" => "external", "allow_public_writes" => true })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
     @collective.collective_members.find_by(user: agent).add_role!("representative")

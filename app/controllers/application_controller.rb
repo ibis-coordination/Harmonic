@@ -204,12 +204,19 @@ class ApplicationController < ActionController::Base
     current_token
     return if performed?
 
-    # mcp_only tokens are restricted to /mcp; reject direct REST/markdown.
-    # Model validation pins mcp_only to ai_agent users.
-    if current_token&.mcp_only? && !request.env["harmonic.internal_dispatch"]
+    # Each token type reaches exactly its own surface; REST/markdown is the
+    # rest type's. The "mcp_only" error code is kept for mcp tokens — it's a
+    # documented agent-facing contract (/help/mcp).
+    if current_token&.mcp_type? && !request.env["harmonic.internal_dispatch"]
       return render json: {
         error: "mcp_only",
         message: "This token is set to MCP-only mode. Use it through the /mcp endpoint. See /help/mcp for details.",
+      }, status: :forbidden
+    end
+    if current_token&.llm_gateway_type?
+      return render json: {
+        error: "llm_gateway_only",
+        message: "This token is for the LLM gateway only. It cannot access REST or markdown endpoints.",
       }, status: :forbidden
     end
 

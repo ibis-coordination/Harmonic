@@ -153,7 +153,7 @@ class MarkdownActionAuthorizationTest < ActionDispatch::IntegrationTest
                             agent_configuration: config)
     @tenant.add_user!(agent)
     @tenant.main_collective.add_user!(agent)
-    ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+    ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "rest")
   end
 
   test "main-collective note frontmatter omits public-resolved actions when allow_public_writes is off" do

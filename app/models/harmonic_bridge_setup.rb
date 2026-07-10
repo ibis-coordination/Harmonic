@@ -205,7 +205,7 @@ class HarmonicBridgeSetup < ApplicationRecord
       client_name: "harmonic-bridge",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
-      mcp_only: true
+      token_type: "mcp"
     )
     token.save!
     token

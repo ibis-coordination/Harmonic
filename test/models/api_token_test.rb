@@ -707,4 +707,93 @@ class ApiTokenTest < ActiveSupport::TestCase
     assert token.persisted?
     assert_equal 64, token.client_name.length
   end
+
+  # === Token type tests ===
+
+  def create_external_agent
+    agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    assert agent.external_ai_agent?
+    agent
+  end
+
+  def create_internal_agent
+    agent = create_ai_agent(parent: @user)
+    assert agent.internal_ai_agent?
+    agent
+  end
+
+  def build_token(user:, token_type: nil, **overrides)
+    attrs = { tenant: @tenant, user: user, name: "Typed token", scopes: ["read:all"] }.merge(overrides)
+    attrs[:token_type] = token_type if token_type
+    ApiToken.new(attrs)
+  end
+
+  test "token_type defaults to rest" do
+    token = build_token(user: @user)
+    token.save!
+    assert_equal "rest", token.token_type
+    assert token.rest_type?
+    assert_not token.mcp_type?
+    assert_not token.llm_gateway_type?
+  end
+
+  test "invalid token_type is rejected" do
+    token = build_token(user: @user, token_type: "banana")
+    assert_not token.valid?
+    assert token.errors[:token_type].any?
+  end
+
+  test "mcp type requires an AI agent user" do
+    token = build_token(user: @user, token_type: "mcp")
+    assert_not token.valid?
+    assert token.errors[:token_type].any?, "expected a token_type error for a human mcp token"
+  end
+
+  test "llm_gateway type requires an AI agent user" do
+    token = build_token(user: @user, token_type: "llm_gateway")
+    assert_not token.valid?
+    assert token.errors[:token_type].any?, "expected a token_type error for a human llm_gateway token"
+  end
+
+  test "an external agent can hold all three token types" do
+    agent = create_external_agent
+    ["rest", "mcp", "llm_gateway"].each do |type|
+      token = build_token(user: agent, token_type: type, name: "#{type} token")
+      assert token.valid?, "#{type}: #{token.errors.full_messages.join(", ")}"
+      token.save!
+    end
+  end
+
+  test "internal agents cannot have user-issued tokens of any type" do
+    agent = create_internal_agent
+    ["rest", "mcp", "llm_gateway"].each do |type|
+      token = build_token(user: agent, token_type: type, name: "#{type} token")
+      assert_not token.valid?, "#{type} token on an internal agent must be invalid"
+      assert token.errors[:user].any?, "expected a user error for #{type}"
+    end
+  end
+
+  test "system-minted internal tokens for internal agents are exempt" do
+    agent = create_internal_agent
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: agent, initiated_by: @user,
+      task: "Test", max_steps: 5, status: "queued"
+    )
+    token = ApiToken.create_internal_token(
+      user: agent, tenant: @tenant, context: task_run, token_type: "mcp"
+    )
+    assert token.persisted?
+    assert token.internal?
+    assert token.mcp_type?
+  end
+
+  test "token_type is immutable after creation" do
+    agent = create_external_agent
+    token = build_token(user: agent, token_type: "mcp")
+    token.save!
+
+    token.token_type = "rest"
+    assert_not token.valid?
+    assert token.errors[:token_type].any?, "expected an immutability error"
+  end
 end

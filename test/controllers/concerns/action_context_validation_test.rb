@@ -32,16 +32,16 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "AI agents writing via direct REST are blocked by mcp_only, not by context validation" do
-    # Agent tokens default to mcp_only:true. A direct REST hit gets 403
+  test "AI agents writing via direct REST are blocked by the mcp-type fence, not by context validation" do
+    # Agent tokens default to the mcp type. A direct REST hit gets 403
     # "mcp_only" from api_authorize! BEFORE the concern's chain entry.
-    # This pins the layered defense: mcp_only is the outer fence; context
+    # This pins the layered defense: the mcp type is the outer fence; context
     # validation is the inner gate that only fires under MCP dispatch.
     agent = create_ai_agent(parent: @user, name: "Direct-REST Test Agent",
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
 
     post "/collectives/#{@collective.handle}/note/actions/create_note",
          params: { text: "should not land" }.to_json,
@@ -51,7 +51,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
            "Authorization" => "Bearer #{token.plaintext_token}",
          }
 
-    # The mcp_only fence fires first — agent never reaches the concern.
+    # The mcp-type fence fires first — agent never reaches the concern.
     assert_response :forbidden
     body = response.parsed_body
     assert_equal "mcp_only", body["error"]
@@ -68,7 +68,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
 
     # @collective is non-main → resolves to "shared"; declaring "public" mismatches.
     body = {
@@ -153,7 +153,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     main.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
 
     assert_no_difference -> { Note.count } do
       # main collective → resolves to "public"; declared correctly, but the
@@ -174,7 +174,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
                             agent_configuration: { "mode" => "external", "allow_public_writes" => true })
     @tenant.add_user!(agent)
     main.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
 
     assert_difference -> { Note.count }, 1 do
       post_create_note_via_mcp(collective: main, declared_visibility: "public", token: token)
@@ -189,7 +189,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: true)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
 
     assert_difference -> { Note.count }, 1 do
       post_create_note_via_mcp(collective: @collective, declared_visibility: "shared", token: token)
@@ -197,9 +197,9 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "AI agent on an mcp_only-disabled token is still public-gated on a direct REST write (public denied by default)" do
+  test "AI agent on a rest-type token is still public-gated on a direct REST write (public denied by default)" do
     # The asymmetry fix: the gate used to fire only under MCP dispatch, so an
-    # agent token an owner opted out of mcp_only could reach a direct REST
+    # rest-type agent token could reach a direct REST
     # write with its restriction silently dropped. Now the gate runs on every
     # restricted-agent write, mirroring the capability check. main collective →
     # resolves to "public", which is off by default.
@@ -209,7 +209,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     main.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "rest")
 
     assert_no_difference -> { Note.count } do
       post "/collectives/#{main.handle}/note/actions/create_note",
@@ -227,16 +227,16 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_equal "public", body["zone"]
   end
 
-  test "AI agent on an mcp_only-disabled token may write to the shared zone via direct REST (always allowed)" do
+  test "AI agent on a rest-type token may write to the shared zone via direct REST (always allowed)" do
     # Companion to the test above: the gate runs on the direct path but allows
     # what the agent is actually permitted. @collective is non-main → "shared",
     # always allowed. Proves the fix gates rather than blanket-blocking direct
-    # writes, and that mcp_only:false genuinely reaches the action.
+    # writes, and that a rest-type token genuinely reaches the action.
     agent = create_ai_agent(parent: @user, name: "Direct-REST Shared Agent",
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "rest")
 
     assert_difference -> { Note.count }, 1 do
       post "/collectives/#{@collective.handle}/note/actions/create_note",
@@ -250,7 +250,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "AI agent on an mcp_only-disabled token hitting an unknown action gets the 404 teaching error, not a public-write 403" do
+  test "AI agent on a rest-type token hitting an unknown action gets the 404 teaching error, not a public-write 403" do
     # Now that the public-write gate runs on every restricted-agent write, it
     # must defer to the unknown-action catch-all exactly as ActionCapabilityCheck
     # does — an action name that exists nowhere should yield the useful 404 +
@@ -263,7 +263,7 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
                             agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     main.add_user!(agent)
-    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, mcp_only: false)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "rest")
     # Create the note under main's collective scope so its history event's
     # auto-populated collective_id matches the note (the thread is scoped to
     # @collective in setup, which is not main).
@@ -288,9 +288,9 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "public_writes_disabled"
   end
 
-  test "non-agent token with mcp_only disabled bypasses the context gate but writes anyway (humans aren't restricted_users)" do
-    # A human-owned API token (which CAN'T be mcp_only — model validation
-    # pins mcp_only to ai_agent users). A direct REST write goes through
+  test "non-agent rest-type token bypasses the context gate but writes anyway (humans aren't restricted_users)" do
+    # A human-owned API token (which CAN'T be mcp-type — model validation
+    # pins agent-only types to ai_agent users). A direct REST write goes through
     # without context. ActionContextValidation runs but short-circuits at
     # `restricted_user?` — humans aren't restricted.
     token = ApiToken.create!(tenant: @tenant, user: @user, scopes: ApiToken.valid_scopes)

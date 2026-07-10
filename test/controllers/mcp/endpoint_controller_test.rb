@@ -30,7 +30,8 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     @api_token = ApiToken.create!(
       tenant: @tenant,
       user: @agent,
-      scopes: ApiToken.valid_scopes
+      scopes: ApiToken.valid_scopes,
+      token_type: "mcp"
     )
     @plaintext_token = @api_token.plaintext_token
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
@@ -571,7 +572,8 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     agent_token = ApiToken.create!(
       tenant: @tenant,
       user: ai_agent,
-      scopes: ApiToken.valid_scopes
+      scopes: ApiToken.valid_scopes,
+      token_type: "mcp"
     )
 
     post_jsonrpc(
@@ -1786,7 +1788,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     second_agent = create_ai_agent(parent: @user, name: "Sibling Agent #{SecureRandom.hex(2)}",
                                    agent_configuration: { "mode" => "external" })
     @tenant.add_user!(second_agent)
-    second_token = ApiToken.create!(tenant: @tenant, user: second_agent, scopes: ApiToken.valid_scopes)
+    second_token = ApiToken.create!(tenant: @tenant, user: second_agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
     Tenant.clear_thread_scope
 
     clear_mcp_rate_limit_keys(token_ids: [@api_token.id, second_token.id])
@@ -1831,7 +1833,7 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
     agent = create_ai_agent(parent: isolated_user, name: "Override Agent",
                             agent_configuration: { "mode" => "external" })
     isolated_tenant.add_user!(agent)
-    token = ApiToken.create!(tenant: isolated_tenant, user: agent, scopes: ApiToken.valid_scopes)
+    token = ApiToken.create!(tenant: isolated_tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "mcp")
     Tenant.clear_thread_scope
 
     host! "#{isolated_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
@@ -1874,8 +1876,8 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
                                 agent_configuration: { "mode" => "external" })
     isolated_tenant.add_user!(agent_one)
     isolated_tenant.add_user!(agent_two)
-    token_one = ApiToken.create!(tenant: isolated_tenant, user: agent_one, scopes: ApiToken.valid_scopes)
-    token_two = ApiToken.create!(tenant: isolated_tenant, user: agent_two, scopes: ApiToken.valid_scopes)
+    token_one = ApiToken.create!(tenant: isolated_tenant, user: agent_one, scopes: ApiToken.valid_scopes, token_type: "mcp")
+    token_two = ApiToken.create!(tenant: isolated_tenant, user: agent_two, scopes: ApiToken.valid_scopes, token_type: "mcp")
     Tenant.clear_thread_scope
 
     host! "#{isolated_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"

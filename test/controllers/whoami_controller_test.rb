@@ -138,7 +138,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows ai_agent parent info" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     # Create API token for ai_agent
@@ -161,7 +161,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows ai_agent identity prompt when set" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test Assistant")
+    ai_agent = create_ai_agent(parent: @user, name: "Test Assistant", agent_configuration: { "mode" => "external" })
     ai_agent.update_columns(agent_configuration: { "identity_prompt" => "You are a helpful assistant for scheduling meetings." })
     @tenant.add_user!(ai_agent)
 
@@ -185,11 +185,14 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_api!
     trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
 
-    api_token = ApiToken.create!(
-      user: trio,
-      tenant: @tenant,
-      name: "Trio Token",
-      scopes: %w[read:users],
+    # System agents can't hold user-issued keys; they act via system-minted
+    # internal tokens (this mirrors the automation path).
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: trio, initiated_by: @user,
+      task: "whoami test", max_steps: 5, status: "queued"
+    )
+    api_token = ApiToken.create_internal_token(
+      user: trio, tenant: @tenant, context: task_run
     )
 
     get "/whoami", headers: {
@@ -211,7 +214,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami does not show identity prompt section when not set" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test Agent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test Agent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -306,7 +309,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows scratchpad section for ai_agents" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -327,7 +330,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows scratchpad content when set" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     ai_agent.update_columns(agent_configuration: { "scratchpad" => "Remember to check the weekly sync notes." })
     @tenant.add_user!(ai_agent)
 
@@ -349,7 +352,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "whoami shows empty scratchpad message when not set" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -380,7 +383,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "actions_index shows update_scratchpad for ai_agents" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -401,7 +404,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "update_scratchpad succeeds for ai_agents" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -436,7 +439,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "update_scratchpad rejects content exceeding max length" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
 
     api_token = ApiToken.create!(
@@ -461,7 +464,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
   test "update_scratchpad clears scratchpad with empty content" do
     @tenant.enable_api!
 
-    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent")
+    ai_agent = create_ai_agent(parent: @user, name: "Test AiAgent", agent_configuration: { "mode" => "external" })
     ai_agent.update_columns(agent_configuration: { "scratchpad" => "Old notes" })
     @tenant.add_user!(ai_agent)
 

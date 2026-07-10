@@ -259,7 +259,7 @@ class ApiTest < ActionDispatch::IntegrationTest
     # the agent itself is billed via the agent's pending_billing_setup pattern,
     # which is enforced at agent creation, not on each API call.
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    agent = create_ai_agent(parent: @user, name: "Authzed Agent #{SecureRandom.hex(4)}")
+    agent = create_ai_agent(parent: @user, name: "Authzed Agent #{SecureRandom.hex(4)}", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
     agent_token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
@@ -302,7 +302,7 @@ class ApiTest < ActionDispatch::IntegrationTest
     # agent's token to bypass the activation gate. The agent's parent's state
     # is what matters for agent-owned tokens.
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    agent = create_ai_agent(parent: @user, name: "Unactivated Parent Agent #{SecureRandom.hex(4)}")
+    agent = create_ai_agent(parent: @user, name: "Unactivated Parent Agent #{SecureRandom.hex(4)}", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
     @collective.add_user!(agent)
     agent_token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)

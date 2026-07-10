@@ -61,12 +61,14 @@
         </tr>
         <% if @showing_user.ai_agent? %>
           <tr>
-            <th>MCP-only</th>
+            <th>Type</th>
             <td>
-              <% if @token.mcp_only? %>
-                <span class="pulse-tag pulse-tag-success" title="This token can only be used through /mcp">Yes</span>
+              <% if @token.mcp_type? %>
+                <span class="pulse-tag pulse-tag-success" title="This token can only be used through /mcp">MCP</span>
+              <% elsif @token.llm_gateway_type? %>
+                <span class="pulse-tag" title="This token can only be used with the LLM gateway">LLM gateway</span>
               <% else %>
-                <span class="pulse-tag" title="This token can be used through /mcp or directly via REST/markdown">No</span>
+                <span class="pulse-tag" title="This token can only be used via direct REST/markdown">REST</span>
               <% end %>
             </td>
           </tr>

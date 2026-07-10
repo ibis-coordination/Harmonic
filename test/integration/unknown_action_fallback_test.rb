@@ -102,7 +102,7 @@ class UnknownActionFallbackTest < ActionDispatch::IntegrationTest
     # "Your capabilities do not include 'totally_made_up'" — misleading,
     # because the action doesn't exist anywhere. The filter must defer to the
     # catch-all so the agent gets the actually-useful 404 + actions list.
-    agent = create_ai_agent(parent: @user, name: "Capability Test Agent")
+    agent = create_ai_agent(parent: @user, name: "Capability Test Agent", agent_configuration: { "mode" => "external" })
     agent_token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes)
     agent_headers = {
       "Authorization" => "Bearer #{agent_token.plaintext_token}",

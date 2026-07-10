@@ -62,13 +62,23 @@
 
       <% if @showing_user.ai_agent? %>
         <section class="pulse-settings-section">
-          <h2 class="pulse-section-title">Access mode</h2>
-          <label class="pulse-checkbox-label" style="display: flex; align-items: flex-start; gap: 8px;">
-            <%= form.check_box :mcp_only %>
+          <h2 class="pulse-section-title">Token type</h2>
+          <p class="pulse-hint">Each token reaches exactly one surface; the type is fixed at creation.</p>
+          <label class="pulse-radio-label" style="display: flex; align-items: flex-start; gap: 8px;">
+            <%= form.radio_button :token_type, 'mcp' %>
             <span>
-              <strong>MCP-only access (recommended)</strong>
+              <strong>MCP (recommended)</strong>
               <p class="pulse-hint" style="margin-top: 4px;">
-                When checked, this token can only be used through the <code>/mcp</code> endpoint. Every action — reads and writes — is logged for your review. See <a href="/help/mcp" class="pulse-link">/help/mcp</a> for connection details. Uncheck only if you have a legacy client that needs direct REST or markdown access; doing so removes the audit guarantee for this token.
+                Usable only through the <code>/mcp</code> endpoint. Every action — reads and writes — is logged for your review. See <a href="/help/mcp" class="pulse-link">/help/mcp</a> for connection details.
+              </p>
+            </span>
+          </label>
+          <label class="pulse-radio-label" style="display: flex; align-items: flex-start; gap: 8px;">
+            <%= form.radio_button :token_type, 'rest' %>
+            <span>
+              <strong>REST</strong>
+              <p class="pulse-hint" style="margin-top: 4px;">
+                Direct REST and markdown access, for legacy clients that cannot use <code>/mcp</code>. Removes the audit guarantee for this token.
               </p>
             </span>
           </label>

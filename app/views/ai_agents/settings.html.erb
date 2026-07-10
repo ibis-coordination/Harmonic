@@ -241,10 +241,12 @@
                       <% end %>
                     </td>
                     <td>
-                      <% if token.mcp_only? %>
-                        <span class="pulse-badge pulse-badge-success" title="This token can only be used through /mcp">Yes</span>
+                      <% if token.mcp_type? %>
+                        <span class="pulse-badge pulse-badge-success" title="This token can only be used through /mcp">MCP</span>
+                      <% elsif token.llm_gateway_type? %>
+                        <span class="pulse-badge pulse-badge-muted" title="This token can only be used with the LLM gateway">LLM gateway</span>
                       <% else %>
-                        <span class="pulse-badge pulse-badge-muted" title="This token can be used through /mcp or directly via REST/markdown">No</span>
+                        <span class="pulse-badge pulse-badge-muted" title="This token can only be used via direct REST/markdown">REST</span>
                       <% end %>
                     </td>
                     <td><%= timeago(token.created_at) %></td>

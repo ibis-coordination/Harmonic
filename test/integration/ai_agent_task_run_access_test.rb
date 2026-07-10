@@ -128,9 +128,13 @@ class AiAgentTaskRunAccessTest < ActionDispatch::IntegrationTest
   end
 
   test "ai_agent cannot access ai_agents index page" do
-    # Create API token for ai_agent
+    # Token-holding agents must be external-mode.
+    external_agent = create_ai_agent(parent: @parent, name: "Ext Token Agent",
+                                     agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(external_agent)
+    @collective.add_user!(external_agent)
     token = ApiToken.create!(
-      user: @ai_agent,
+      user: external_agent,
       tenant: @tenant,
       name: "Test Token",
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,

@@ -36,13 +36,23 @@ class ApiToken < ApplicationRecord
   # excluded from this count.
   MAX_ACTIVE_TOKENS_PER_USER = 50
 
+  # Every token has exactly one purpose, fixed at creation: rest tokens reach
+  # REST/markdown endpoints only, mcp tokens reach /mcp only, llm_gateway
+  # tokens reach the LLM gateway only. A leaked token is exactly one kind of
+  # incident — data access, audited agent action, or spend with no data access.
+  TOKEN_TYPES = ["rest", "mcp", "llm_gateway"].freeze
+  AGENT_ONLY_TOKEN_TYPES = ["mcp", "llm_gateway"].freeze
+
   validates :token_hash, presence: true, uniqueness: true
   validates :scopes, presence: true
   validates :client_name, length: { maximum: 64 }, allow_blank: true
+  validates :token_type, inclusion: { in: TOKEN_TYPES }
   validate :validate_scopes
   validate :internal_tokens_require_allow_flag
   validate :context_matches_internal_flag
-  validate :mcp_only_requires_ai_agent_user
+  validate :token_type_allowed_for_user
+  validate :token_type_immutable
+  validate :user_must_not_be_internal_agent, on: :create
   validate :active_token_count_within_limit, on: :create
 
   before_validation :generate_token_hash
@@ -169,6 +179,21 @@ class ApiToken < ApplicationRecord
     internal == true
   end
 
+  sig { returns(T::Boolean) }
+  def rest_type?
+    token_type == "rest"
+  end
+
+  sig { returns(T::Boolean) }
+  def mcp_type?
+    token_type == "mcp"
+  end
+
+  sig { returns(T::Boolean) }
+  def llm_gateway_type?
+    token_type == "llm_gateway"
+  end
+
   sig { returns(String) }
   def client_label
     client_name.presence || name.to_s
@@ -189,17 +214,16 @@ class ApiToken < ApplicationRecord
       tenant: Tenant,
       context: T.any(AiAgentTaskRun, AutomationRuleRun),
       expires_in: ActiveSupport::Duration,
-      mcp_only: T::Boolean
+      token_type: String
     ).returns(ApiToken)
   end
-  # `mcp_only:` is an explicit opt-in by the caller. AgentRunnerDispatchService
-  # passes true because all agent-acting calls go through /mcp via the
-  # agent-runner's McpClient (locking the token to /mcp closes the audit-bypass
-  # hole where a leaked token could be used directly without producing an
-  # McpToolCallLog row). AutomationInternalActionService leaves it false
-  # because automations dispatch via MarkdownUiService against the direct
-  # action endpoints, not /mcp.
-  def self.create_internal_token(user:, tenant:, context:, expires_in: 1.hour, mcp_only: false)
+  # `token_type:` is chosen by the caller. AgentRunnerDispatchService passes
+  # "mcp" because all agent-acting calls go through /mcp via the agent-runner's
+  # McpClient (locking the token to /mcp closes the audit-bypass hole where a
+  # leaked token could be used directly without producing an McpToolCallLog
+  # row). MarkdownUiService's automation path uses the default "rest" because
+  # automations dispatch against the direct action endpoints, not /mcp.
+  def self.create_internal_token(user:, tenant:, context:, expires_in: 1.hour, token_type: "rest")
     token = new(
       user: user,
       tenant: tenant,
@@ -208,7 +232,7 @@ class ApiToken < ApplicationRecord
       name: "Internal Agent Token",
       expires_at: Time.current + expires_in,
       context: context,
-      mcp_only: mcp_only
+      token_type: token_type
     )
     # Set the allow flag to bypass the validation - only this method can create internal tokens
     token.allow_internal_token = true
@@ -316,11 +340,32 @@ class ApiToken < ApplicationRecord
   end
 
   sig { void }
-  def mcp_only_requires_ai_agent_user
-    return unless mcp_only?
+  def token_type_allowed_for_user
+    return unless AGENT_ONLY_TOKEN_TYPES.include?(token_type)
     return if user&.ai_agent?
 
-    errors.add(:mcp_only, "can only be set on AI agent tokens")
+    errors.add(:token_type, "#{token_type} tokens can only belong to AI agents")
+  end
+
+  # One purpose per credential, for the credential's whole life. Changing the
+  # type would silently re-point what a leaked or long-lived token can reach.
+  sig { void }
+  def token_type_immutable
+    return if new_record?
+    return unless token_type_changed?
+
+    errors.add(:token_type, "cannot be changed after creation")
+  end
+
+  # Internal agents act only through the agent-runner's ephemeral internal
+  # tokens; they cannot hold user-issued API keys. Create-only so legacy rows
+  # can still be revoked/updated.
+  sig { void }
+  def user_must_not_be_internal_agent
+    return if internal?
+    return unless user&.internal_ai_agent?
+
+    errors.add(:user, "internal agents cannot have API keys")
   end
 
   # Internal tokens must have a context (AiAgentTaskRun or AutomationRuleRun)
