@@ -298,13 +298,13 @@ yet — no schema, no models, no UI, no feature flags, no permanent decisions.
 Exit criteria: a pool-configured agent's calls draw down different members' balances
 across calls, observed on real Stripe customers, with the distribution verified in tests.
 
-**Working sketch for the real feature (2026-07-10): primary principal + `agent_funders`
+**Working sketch for the real feature (2026-07-10): primary principal + `agent_funding`
 collective.** This is the current design direction — a sketch to build the first cut
 from, not yet a shipped decision.
 
 The structure: every agent keeps exactly one **primary principal** — a human, publicly
 listed, accountable for the agent (and carrying its seat subscription), exactly today's
-`parent`. Token funding comes from an **`agent_funders` collective** (a fourth
+`parent`. Token funding comes from an **`agent_funding` collective** (a fourth
 `collective_type`, immutable at creation like the others): joining it IS consenting to
 fund its agents' LLM usage from your own prepaid balance. Two crisp rules instead of one
 overloaded one: *the primary principal answers for the agent; the funding collective pays
@@ -346,10 +346,10 @@ beta; everything else iterates on real-user feedback):**
 
 Build shape for the v1 cut:
 
-- `agent_funders` added to `VALID_COLLECTIVE_TYPES` (immutable like the others); creation
+- `agent_funding` added to `VALID_COLLECTIVE_TYPES` (immutable like the others); creation
   through the existing collective-creation path with the new type.
 - Funding link = association from the agent to its funding collective; valid only when
-  the collective is `agent_funders` type and the agent's `parent` is an active member
+  the collective is `agent_funding` type and the agent's `parent` is an active member
   (primary-must-be-a-funder, checked at attach time AND per call).
 - `PayerResolver.pool_customer_ids` becomes DB-backed: funding collective → active
   members → each member's funded billing customer (active + pricing-plan subscription) →
