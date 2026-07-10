@@ -11,6 +11,16 @@ module LLMGateway
 
     Result = Struct.new(:payer_customer_id, keyword_init: true)
 
+    # Proof-of-concept common pools, configured entirely by env var — no
+    # schema, no UI, removable by unsetting the var. Maps agent ids to the
+    # Stripe customers whose balances jointly fund that agent's calls:
+    #   LLM_POOL_CONFIG='{"<agent-id>": ["cus_a", "cus_b"]}'
+    # Each call picks a payer uniformly at random, so cost converges to an
+    # even split across the pool. The real pool feature (member consent,
+    # management UX) is deliberately not designed yet; only this resolver
+    # seam and the dispatch bypass will remain when it is.
+    POOL_CONFIG_ENV = "LLM_POOL_CONFIG"
+
     # A resolution failure that carries the wire error code and HTTP status the
     # gateway (and its callers) should surface.
     class ResolutionError < StandardError
@@ -35,6 +45,19 @@ module LLMGateway
       new(task_run).resolve
     end
 
+    sig { params(agent_id: String).returns(T::Array[String]) }
+    def self.pool_customer_ids(agent_id)
+      raw = ENV.fetch(POOL_CONFIG_ENV, nil)
+      return [] if raw.blank?
+
+      config = JSON.parse(raw)
+      ids = config[agent_id]
+      ids.is_a?(Array) ? ids.grep(String).reject(&:blank?) : []
+    rescue JSON::ParserError => e
+      Rails.logger.error("[LLMGateway] Ignoring malformed #{POOL_CONFIG_ENV}: #{e.message}")
+      []
+    end
+
     sig { params(task_run: AiAgentTaskRun).void }
     def initialize(task_run)
       @task_run = task_run
@@ -42,6 +65,15 @@ module LLMGateway
 
     sig { returns(Result) }
     def resolve
+      pool = self.class.pool_customer_ids(T.must(@task_run.ai_agent_id))
+      if pool.any?
+        payer = T.must(pool.sample)
+        Rails.logger.info(
+          "[LLMGateway] Pool payer selected task_run=#{@task_run.id} payer=#{payer} pool_size=#{pool.size}"
+        )
+        return Result.new(payer_customer_id: payer)
+      end
+
       billing_customer = @task_run.billing_customer
       if billing_customer.nil?
         raise ResolutionError.new(

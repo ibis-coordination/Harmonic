@@ -276,25 +276,34 @@ agent-runner and gateway rather than copy (avoids crypto drift).
 Exit criteria: internal agents bill identically to today, now via the gateway; parity
 confirmed before proceeding.
 
-### Stage 2 — Common-pool logic (backend, testable)
+### Stage 2 — Common-pool mechanics, proof of concept (env-configured)
 
-- `#464`'s common-pool commitment subtype: the consent/contract record for which collective
-  members may be drawn.
-- `select-payer` resolves a pool → eligible members (consenting + positive balance) →
-  **uniform-random** pick; skips dry members; returns `pool_exhausted` when none are
-  eligible.
-- `record-usage` persistence lands here (deferred from stage 1, first consumed by the
-  breakdown): a usage table + endpoint whose rows carry
-  `(collective_id, payer_user_id, model, tokens, cost)` so per collective/per user cost is
-  queryable.
+**Rescoped 2026-07-09: prove the end-to-end mechanics with the most lightweight,
+reversible implementation possible.** Pool *management* (how pools are created, who
+consents, how membership changes) is a larger feature we are deliberately not designing
+yet — no schema, no models, no UI, no feature flags, no permanent decisions.
 
-Internal agents whose collective has a pool now draw from members' balances. Testable
-without UI: unit-test selection (uniform distribution, dry-skip, exhaustion) and
-integration-test the `select-payer` / `record-usage` contract via console, fixtures, and
-the API.
+- Pool definition = `LLM_POOL_CONFIG` env var: `{"<agent-id>": ["cus_a", "cus_b"]}`,
+  mapping an agent to the Stripe customers whose balances jointly fund it. Unset = no
+  pools. Delete the var and the PoC is gone.
+- `PayerResolver` picks uniformly at random from the pool per call (pool wins over a
+  stamped individual customer) and logs each selection.
+- Dispatch skips the individual billing checks for a pool-configured agent (it has no
+  personal billing customer) and routes it `stripe_gateway`; the relayed Stripe 402 is
+  the balance gate. Gateway/runner code unchanged.
+- Usage accounting for the PoC = Rails logs (`Pool payer selected task_run=... payer=...`)
+  plus the Stripe dashboard. The usage table / `record-usage` endpoint wait for the real
+  feature.
 
-Exit criteria: a pooled collective's agent calls draw down members' balances correctly and
-the distribution is verified in tests.
+Exit criteria: a pool-configured agent's calls draw down different members' balances
+across calls, observed on real Stripe customers, with the distribution verified in tests.
+
+Design notes banked for the real feature (from the abandoned first cut, never committed):
+commitment-subtype consent instrument; join-deadline vs funding-window semantics (the
+roster could freeze before the first draw); critical-mass-as-activation; window overlap
+rules; thread-scope-safe pool lookups (commitment participant counting via the
+collective-scoped association breaks outside request contexts). None of these are
+decisions yet.
 
 ### Stage 3 — Minimal UI to prove end-to-end
 
