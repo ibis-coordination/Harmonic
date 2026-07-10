@@ -930,30 +930,41 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # Agents that hold user-issued tokens must be external-mode — internal
+  # agents cannot have API keys.
+  def create_external_agent_with_handle(name:)
+    agent = create_ai_agent(parent: @user, name: name, agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    @collective.add_user!(agent)
+    [agent, agent.tenant_users.find_by(tenant: @tenant).handle]
+  end
+
   test "settings page shows client_name as the token label for Connect-flow tokens" do
+    agent, handle = create_external_agent_with_handle(name: "Connect Label Agent")
     ApiToken.create!(
       tenant: @tenant,
-      user: @ai_agent,
+      user: agent,
       name: "Cursor connection",
       client_name: "Cursor",
       scopes: ["read:all"]
     )
     sign_in_as(@user, tenant: @tenant)
-    get "/ai-agents/#{@ai_agent_handle}/settings"
+    get "/ai-agents/#{handle}/settings"
     assert_response :success
     assert_includes response.body, "Client"
     assert_includes response.body, "Cursor"
   end
 
   test "settings page falls back to token name when client_name is blank" do
+    agent, handle = create_external_agent_with_handle(name: "Fallback Label Agent")
     ApiToken.create!(
       tenant: @tenant,
-      user: @ai_agent,
+      user: agent,
       name: "Hand-rolled paste token",
       scopes: ["read:all"]
     )
     sign_in_as(@user, tenant: @tenant)
-    get "/ai-agents/#{@ai_agent_handle}/settings"
+    get "/ai-agents/#{handle}/settings"
     assert_response :success
     assert_includes response.body, "Hand-rolled paste token"
   end
@@ -1007,14 +1018,16 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "agent itself can read its own /ai-agents/handle/settings via authorize_parent_or_self" do
     @tenant.enable_api!
+    agent, handle = create_external_agent_with_handle(name: "Self-Read Agent")
     token = ApiToken.create!(
-      user: @ai_agent,
+      user: agent,
       tenant: @tenant,
       name: "Self-Read Token",
       scopes: ApiToken.read_scopes,
-      expires_at: 1.year.from_now
+      expires_at: 1.year.from_now,
+      token_type: "rest"
     )
-    get "/ai-agents/#{@ai_agent_handle}/settings",
+    get "/ai-agents/#{handle}/settings",
         headers: {
           "Authorization" => "Bearer #{token.plaintext_token}",
           "Accept" => "text/markdown",
@@ -1031,14 +1044,16 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "agent itself cannot POST update_settings" do
+    agent, handle = create_external_agent_with_handle(name: "Self-Write Agent")
     token = ApiToken.create!(
-      user: @ai_agent,
+      user: agent,
       tenant: @tenant,
       name: "Self-Write Token",
       scopes: ApiToken.write_scopes + ApiToken.read_scopes,
-      expires_at: 1.year.from_now
+      expires_at: 1.year.from_now,
+      token_type: "rest"
     )
-    post "/ai-agents/#{@ai_agent_handle}/settings",
+    post "/ai-agents/#{handle}/settings",
          params: { name: "Self-renamed" },
          headers: {
            "Authorization" => "Bearer #{token.plaintext_token}",
@@ -1288,7 +1303,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
                     "refresh after reveal must not re-show the plaintext token")
   end
 
-  test "external-only: generate_token defaults the new token to mcp_only=true" do
+  test "external-only: generate_token defaults the new token to the mcp type" do
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
@@ -1302,10 +1317,10 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert new_agent
     token = ApiToken.unscoped.where(user_id: new_agent.id).first
     assert token, "token should be persisted"
-    assert token.mcp_only?, "auto-generated agent token must default to mcp_only=true"
+    assert token.mcp_type?, "auto-generated agent token must default to the mcp type"
   end
 
-  test "external-only: generate_token with mcp_only=0 honors the override" do
+  test "external-only: generate_token with the legacy mcp_only=0 alias honors the override" do
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
@@ -1320,7 +1335,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert new_agent
     token = ApiToken.unscoped.where(user_id: new_agent.id).first
     assert token
-    assert_not token.mcp_only?, "principal explicitly opted out of mcp_only mode"
+    assert token.rest_type?, "principal explicitly opted into a rest token via the legacy alias"
   end
 
   test "external-only: external agent creation without generate_token redirects (no token rendered)" do

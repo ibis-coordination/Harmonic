@@ -167,7 +167,7 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     token = s.api_token
     assert_not_nil token
     assert_equal @agent.id, token.user_id
-    assert token.mcp_only?, "token should be mcp_only"
+    assert token.mcp_type?, "token should be mcp type"
     assert token.scopes.include?("read:all")
     assert token.scopes.include?("create:all")
 

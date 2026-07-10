@@ -12,7 +12,6 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @collective = @tenant.main_collective
 
     @ai_agent = create_ai_agent(parent: @user)
-    @ai_agent.update_columns(agent_configuration: { "mode" => "internal" })
     @tenant.add_user!(@ai_agent)
     @collective.add_user!(@ai_agent)
     @agent_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @ai_agent).handle
@@ -43,6 +42,15 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
   def create_chat_session
     with_tenant_scope do
       ChatSession.find_or_create_between(user_a: @ai_agent, user_b: @user, tenant: @tenant)
+    end
+  end
+
+  # Token-holding agents must be external-mode. These tests exercise the
+  # agent-as-API-sender path, where the agent's mode doesn't otherwise matter.
+  def agent_api_token
+    @ai_agent.update_columns(agent_configuration: { "mode" => "external" })
+    with_tenant_scope do
+      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
     end
   end
 
@@ -504,9 +512,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
       session.chat_messages.create!(sender: @user, content: "Hello agent!")
     end
 
-    agent_token = with_tenant_scope do
-      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
-    end
+    agent_token = agent_api_token
     user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
 
     get "/chat/#{user_handle}",
@@ -524,9 +530,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
       session.chat_messages.create!(sender: @user, content: "Hello agent!")
     end
 
-    agent_token = with_tenant_scope do
-      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
-    end
+    agent_token = agent_api_token
     user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
 
     # Clear browser session so API token auth is used
@@ -554,9 +558,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
       session.chat_messages.create!(sender: @user, content: "Hello!")
     end
 
-    agent_token = with_tenant_scope do
-      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
-    end
+    agent_token = agent_api_token
     user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
 
     assert_no_difference "AiAgentTaskRun.count" do
@@ -583,9 +585,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_api!
     @collective.enable_api!
 
-    agent_token = with_tenant_scope do
-      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
-    end
+    agent_token = agent_api_token
     other_user = create_user(email: "noconvo-#{SecureRandom.hex(4)}@example.com")
     @tenant.add_user!(other_user)
     other_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: other_user).handle
@@ -819,9 +819,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
 
     create_chat_session
 
-    agent_token = with_tenant_scope do
-      ApiToken.create!(tenant: @tenant, user: @ai_agent, scopes: ApiToken.valid_scopes)
-    end
+    agent_token = agent_api_token
     user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
 
     # Clear browser session so API token auth is used

@@ -27,7 +27,7 @@ class AiAgentCapabilityTest < ActionDispatch::IntegrationTest
   private
 
   def create_ai_agent_for(parent, name)
-    ai_agent = create_ai_agent(parent: parent, name: name)
+    ai_agent = create_ai_agent(parent: parent, name: name, agent_configuration: { "mode" => "external" })
     @tenant.add_user!(ai_agent)
     @collective.add_user!(ai_agent)
     ai_agent

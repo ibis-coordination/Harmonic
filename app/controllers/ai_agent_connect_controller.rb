@@ -45,7 +45,7 @@ class AiAgentConnectController < ApplicationController
       client_name: @harness_name,
       scopes: ApiToken.read_scopes + ApiToken.write_scopes,
       expires_at: 1.year.from_now,
-      mcp_only: true
+      token_type: "mcp"
     )
 
     begin

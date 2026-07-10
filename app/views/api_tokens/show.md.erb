@@ -12,7 +12,7 @@ This token belongs to ai_agent [<%= @showing_user.display_name %>](<%= @showing_
 | Name | <%= @token.name || 'Unnamed' %> |
 | Token | `<%= @token.plaintext_token %>` |
 <% if @showing_user.ai_agent? %>
-| MCP-only | <%= @token.mcp_only? ? 'Yes' : 'No' %> |
+| Type | <%= @token.token_type %> |
 <% end %>
 | Created | <%= time_ago_in_words(@token.created_at) %> ago |
 | Last Used | <%= @token.last_used_at ? time_ago_in_words(@token.last_used_at) + ' ago' : 'Never' %> |
@@ -24,7 +24,7 @@ This token belongs to ai_agent [<%= @showing_user.display_name %>](<%= @showing_
 | Name | <%= @token.name || 'Unnamed' %> |
 | Token | `<%= @token.obfuscated_token %>` |
 <% if @showing_user.ai_agent? %>
-| MCP-only | <%= @token.mcp_only? ? 'Yes' : 'No' %> |
+| Type | <%= @token.token_type %> |
 <% end %>
 | Created | <%= time_ago_in_words(@token.created_at) %> ago |
 | Last Used | <%= @token.last_used_at ? time_ago_in_words(@token.last_used_at) + ' ago' : 'Never' %> |

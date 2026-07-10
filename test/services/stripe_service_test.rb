@@ -1075,7 +1075,7 @@ class StripeServiceTest < ActiveSupport::TestCase
       active: true,
     )
 
-    agent = create_ai_agent(parent: @user, name: "Token Agent #{SecureRandom.hex(4)}")
+    agent = create_ai_agent(parent: @user, name: "Token Agent #{SecureRandom.hex(4)}", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
 
     # Create an API token for the agent
@@ -1102,7 +1102,7 @@ class StripeServiceTest < ActiveSupport::TestCase
       active: true,
     )
 
-    agent = create_ai_agent(parent: @user, name: "Cancel Token Agent #{SecureRandom.hex(4)}")
+    agent = create_ai_agent(parent: @user, name: "Cancel Token Agent #{SecureRandom.hex(4)}", agent_configuration: { "mode" => "external" })
     @tenant.add_user!(agent)
 
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)

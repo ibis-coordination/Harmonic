@@ -263,8 +263,8 @@ class MarkdownUiService
   # safe channel for the outer controller to communicate trusted context
   # into the inner request.
   #
-  # `harmonic.internal_dispatch` is read by api_authorize! to enforce
-  # mcp_only. The mcp_* keys are restored into Current by
+  # `harmonic.internal_dispatch` is read by api_authorize! to let internal
+  # dispatch through the mcp-type fence. The mcp_* keys are restored into Current by
   # ApplicationController#restore_mcp_dispatch_context! and consumed by
   # track_task_run_resource and ActionContextValidation.
   sig { returns(T::Hash[String, T.untyped]) }

@@ -174,7 +174,7 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
 
   # === MCP-only default for agent tokens ===
 
-  test "POST create for an agent defaults the new token to mcp_only=true" do
+  test "POST create for an agent defaults the new token to the mcp type" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     agent = create_ai_agent(parent: @user, name: "Default-MCP Agent",
                             agent_configuration: { "mode" => "external" })
@@ -190,10 +190,10 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     token = ApiToken.unscoped.find_by(user: agent, name: "Token")
     assert token, "token should be persisted"
-    assert token.mcp_only?, "agent token form must default mcp_only=true when the checkbox is omitted"
+    assert token.mcp_type?, "agent token form must default to the mcp type when no type is chosen"
   end
 
-  test "POST create for an agent with mcp_only=0 honors the override" do
+  test "POST create for an agent with the legacy mcp_only=0 alias honors the override" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     agent = create_ai_agent(parent: @user, name: "Override-Off Agent",
                             agent_configuration: { "mode" => "external" })
@@ -209,10 +209,10 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     token = ApiToken.unscoped.find_by(user: agent, name: "Token")
     assert token
-    refute token.mcp_only?, "principal explicitly unchecked the mcp_only box"
+    assert token.rest_type?, "principal explicitly opted into a rest token via the legacy alias"
   end
 
-  test "POST create for a human defaults mcp_only=false (the column default)" do
+  test "POST create for a human defaults to the rest type" do
     sign_in_for_tokens
 
     post "/u/#{token_handle}/settings/tokens",
@@ -221,7 +221,7 @@ class ApiTokensControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     token = ApiToken.unscoped.find_by(user: @user, name: "Human Token")
     assert token
-    refute token.mcp_only?, "human tokens should not get mcp_only=true (validation would reject it anyway)"
+    assert token.rest_type?, "human tokens are rest type (agent-only types would be rejected anyway)"
   end
 
   test "POST create creates the token directly when user already has an active subscription" do

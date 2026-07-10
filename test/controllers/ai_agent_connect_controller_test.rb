@@ -44,7 +44,7 @@ class AiAgentConnectControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     token = @ai_agent.api_tokens.order(created_at: :desc).first
     assert_equal "Cursor", token.client_name
-    assert token.mcp_only?
+    assert token.mcp_type?
     assert_not token.internal?
   end
 

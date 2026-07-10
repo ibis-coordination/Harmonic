@@ -331,6 +331,11 @@ module Mcp
       # agency violation. See /help/mcp for the full explanation.
       return render_mcp_non_agent_forbidden(token.user) unless token.user.ai_agent?
 
+      # /mcp accepts only mcp-type tokens — each token type reaches exactly
+      # its own surface (rest tokens use REST/markdown, llm_gateway tokens
+      # the LLM gateway).
+      return render_mcp_unauthorized unless token.mcp_type?
+
       token.token_used!
       @current_token = token
       @plaintext_bearer = plaintext

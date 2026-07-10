@@ -1081,51 +1081,6 @@ class ApiToken
     sig { void }
     def last_used_at_will_change!; end
 
-    sig { returns(T::Boolean) }
-    def mcp_only; end
-
-    sig { params(value: T::Boolean).returns(T::Boolean) }
-    def mcp_only=(value); end
-
-    sig { returns(T::Boolean) }
-    def mcp_only?; end
-
-    sig { returns(T.nilable(T::Boolean)) }
-    def mcp_only_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def mcp_only_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def mcp_only_came_from_user?; end
-
-    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
-    def mcp_only_change; end
-
-    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
-    def mcp_only_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def mcp_only_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(T::Boolean)) }
-    def mcp_only_in_database; end
-
-    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
-    def mcp_only_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def mcp_only_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(T::Boolean)) }
-    def mcp_only_previously_was; end
-
-    sig { returns(T.nilable(T::Boolean)) }
-    def mcp_only_was; end
-
-    sig { void }
-    def mcp_only_will_change!; end
-
     sig { returns(T.nilable(::String)) }
     def name; end
 
@@ -1205,9 +1160,6 @@ class ApiToken
     def restore_last_used_at!; end
 
     sig { void }
-    def restore_mcp_only!; end
-
-    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -1227,6 +1179,9 @@ class ApiToken
 
     sig { void }
     def restore_token_prefix!; end
+
+    sig { void }
+    def restore_token_type!; end
 
     sig { void }
     def restore_updated_at!; end
@@ -1300,12 +1255,6 @@ class ApiToken
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_last_used_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
-    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
-    def saved_change_to_mcp_only; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_mcp_only?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_name; end
 
@@ -1347,6 +1296,12 @@ class ApiToken
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_token_prefix?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_token_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_token_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::ActiveSupport::TimeWithZone, ::ActiveSupport::TimeWithZone])) }
     def saved_change_to_updated_at; end
@@ -1630,6 +1585,51 @@ class ApiToken
     sig { void }
     def token_prefix_will_change!; end
 
+    sig { returns(::String) }
+    def token_type; end
+
+    sig { params(value: ::String).returns(::String) }
+    def token_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def token_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def token_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def token_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def token_type_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def token_type_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def token_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def token_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def token_type_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def token_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def token_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def token_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def token_type_was; end
+
+    sig { void }
+    def token_type_will_change!; end
+
     sig { returns(::ActiveSupport::TimeWithZone) }
     def updated_at; end
 
@@ -1754,9 +1754,6 @@ class ApiToken
     def will_save_change_to_last_used_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_mcp_only?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1776,6 +1773,9 @@ class ApiToken
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_token_prefix?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_token_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_updated_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end

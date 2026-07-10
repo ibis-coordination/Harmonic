@@ -1782,7 +1782,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # all grantable actions are allowed) AND collective-admin standing. An agent
   # that a human has deliberately made a collective admin can act.
   test "an AI-agent admin with the capability can update member roles" do
-    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    agent = create_ai_agent(parent: @user, name: "Admin Bot", agent_configuration: { "mode" => "external" })
     @collective.add_user!(agent, roles: ["admin"])
     target = add_member(name: "Target")
 
@@ -1796,7 +1796,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an AI-agent admin with the capability can remove members" do
-    agent = create_ai_agent(parent: @user, name: "Admin Bot")
+    agent = create_ai_agent(parent: @user, name: "Admin Bot", agent_configuration: { "mode" => "external" })
     @collective.add_user!(agent, roles: ["admin"])
     target = add_member(name: "Target")
 
@@ -1815,7 +1815,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   test "an AI-agent admin without the member-management capability is denied" do
     agent = create_ai_agent(
       parent: @user, name: "Scoped Bot",
-      agent_configuration: { "mode" => "internal", "capabilities" => ["create_note"] },
+      agent_configuration: { "mode" => "external", "capabilities" => ["create_note"] },
     )
     @collective.add_user!(agent, roles: ["admin"])
     target = add_member(name: "Target")
@@ -1832,7 +1832,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # Second key: collective-admin standing. An agent with the capability but no
   # admin role is rejected by the action's :collective_admin authorization.
   test "an AI-agent non-admin with the capability is denied by authorization" do
-    agent = create_ai_agent(parent: @user, name: "Member Bot")
+    agent = create_ai_agent(parent: @user, name: "Member Bot", agent_configuration: { "mode" => "external" })
     @collective.add_user!(agent) # no admin role
     target = add_member(name: "Target")
 

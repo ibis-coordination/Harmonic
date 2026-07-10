@@ -108,8 +108,9 @@ Two internal endpoints, both over the existing HMAC + IP-allowlist channel. The 
 (select payer → forward to Stripe → return verbatim) is written once and never changes as
 payer types are added. The **ingress** is the part that grows per caller type: today the
 caller identifies itself with `X-Harmonic-Task-Run-Id` / `X-Harmonic-Subdomain` routing
-headers (agent-runner-specific), and stage 4's external keys will add a different identity
-handshake plus real caller auth at the gateway. The seam holds below the handler.
+headers (agent-runner-specific); stage 4's external calls identify the agent by its own
+API token (type `llm_gateway`), forwarded to Rails for validation. The seam holds below
+the handler.
 
 Note the accepted trade: `select-payer` runs per LLM call, so every call costs one extra
 internal Rails round-trip (milliseconds against an LLM call's seconds). That is the price
@@ -117,12 +118,12 @@ of per-call payer selection, which stage 2's random pick requires.
 
 ### `POST /internal/llm-gateway/select-payer` — before relaying
 
-Request. The gateway passes a caller identity; initially that is the agent whose task is
-running (agent-runner), later it may be an external gateway key. Either resolves to a
-payer:
+Request. The gateway passes a caller identity; initially that is a task run (agent-runner),
+later an external agent authenticated by its `llm_gateway`-type API token. Either resolves
+to the agent, and the agent resolves to a payer:
 
 ```json
-{ "caller": { "type": "agent" | "gateway_key", "id": "..." }, "model": "anthropic/claude-sonnet-4.6" }
+{ "caller": { "type": "task_run" | "agent_token", "id": "..." }, "model": "anthropic/claude-sonnet-4.6" }
 ```
 
 Response:
@@ -133,11 +134,10 @@ Response:
 
 or `{ "error": "pool_exhausted" | "not_authorized" | "model_not_allowed" }`.
 
-Rails: resolve `caller → payer`. If the caller maps to a single customer (an agent's
-principal, or a single-customer key), return it directly. If it maps to a common pool,
-filter to members who consent (are in the common-pool commitment) and have positive
-balance, then **select one uniformly at random** (see below). Validate the model against
-the allowlist.
+Rails: resolve `caller → agent → payer`. The funding mapping hangs off the agent, never
+the credential: an agent in a pool draws from the pool (filter to consenting members,
+**select one uniformly at random** — see below); otherwise its own billing_customer pays.
+Validate the model against the allowlist.
 
 ### `POST /internal/llm-gateway/record-usage` — after relaying (async, fire-and-forget)
 
@@ -317,23 +317,53 @@ Explicitly *not* the real management experience.
 Exit criteria: a human can set up a pool in the UI, run a collective's agents through it,
 and watch the cost distribute — proving the full backend loop.
 
-### Stage 4 — External beta access (per-collective, admin-gated flag)
+### Stage 4 — External beta access (identity-keyed, per-collective admin-gated flag)
 
 Open the gateway beyond the agent-runner, to *select* collectives only. Additive to the
 architecture; the per-collective admin-only feature flag is the boundary (see Scope &
 rollout posture). Not publicly advertised.
 
+**Identity-keyed, not funding-keyed (decided 2026-07-09).** There is no separate
+"gateway key" credential type. External gateway calls authenticate with the agent's own
+API token; the token answers only "who is calling." Funding resolution reuses the exact
+agent→funding mapping the internal path uses (agent → pool, or agent → its
+billing_customer) — the key never points at money, the agent does. This keeps the purpose
+legible: an API key belongs to a specific external agent, so a gateway call is that agent
+powering itself, attributable and revocable per identity. `select-payer` gains a second
+caller type (authenticated agent identity instead of task-run id) in front of the same
+funding logic.
+
+**Three mutually exclusive token types (formalizing `mcp_only`).** Every ApiToken has
+exactly one type, chosen at creation, never changed:
+
+| Type | Who can hold one (user-issued) | Reaches |
+|---|---|---|
+| `rest` | humans, external agents | REST / markdown endpoints only |
+| `mcp` | external agents only | `/mcp` only |
+| `llm_gateway` | external agents only | the gateway only |
+
+Internal agents cannot have user-issued API keys at all; the agent-runner's ephemeral
+task-scoped tokens (`internal: true`, minted by dispatch) are the one carve-out and stay
+type `mcp`. Migration: `mcp_only: true` → `mcp`, `false` → `rest`; nothing existing
+becomes `llm_gateway`, so no pre-existing token gains spending power. This subsumes the
+previously planned mcp/rest mode-exclusivity work (the action-context bypass closure) —
+one migration, three values instead of two. Enforcement is three symmetric gates: each
+surface accepts exactly its own type. A leaked token is exactly one kind of incident:
+data access (rest), audited agent action (mcp), or spend with zero data access
+(llm_gateway).
+
+Remaining stage-4 scope:
+
 - **Per-collective feature flag**, app-admin controlled (mirrors `stripe_billing` gating).
-  External keys for a collective work only while its flag is on.
-- **Gateway ingress auth.** Today the gateway trusts the backend network (any peer can
-  relay a money-spending call — acceptable while the network holds only trusted services).
-  External access requires authenticating callers at the gateway itself, and an external
-  identity handshake (key-based) alongside the internal task-run headers.
-- Public `llm.harmonic.social` edge (Caddy) + an external gateway-key credential type,
-  scoped and revocable, with per-key spend caps and rate limits.
+  External gateway calls for a collective's agents work only while its flag is on.
+- Public `llm.harmonic.social` edge (Caddy static block) exposing an OpenAI-compatible
+  `POST /v1/chat/completions`; the gateway forwards the bearer token to Rails for
+  validation (gateway stays stateless — revocation takes effect on the next call).
 - The untrusted-caller protections deferred from stage 1: **streaming (SSE) passthrough**
   (external clients stream), **model allowlist** enforced at the gateway, **rate limiting**,
-  and **request-size caps**.
+  **request-size caps**, and **per-key spend ceilings** independent of Stripe's balance
+  gate (a leaked key spends other people's money until the pool is dry; the balance gate
+  alone doesn't bound that).
 - **Internal/external traffic isolation** so a beta collective's runaway usage or a stolen
   key can't take down internal agents (see Open decisions).
 - Explicit commitment enrollment as the consent/contract gate for every external

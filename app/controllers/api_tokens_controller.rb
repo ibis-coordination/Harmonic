@@ -25,7 +25,7 @@ class ApiTokensController < ApplicationController
     return render status: :forbidden, plain: "403 Forbidden - Internal AI agents cannot have API tokens" if @showing_user.internal_ai_agent?
 
     @token = @showing_user.api_tokens.new(user: @showing_user)
-    @token.mcp_only = @showing_user.ai_agent?
+    @token.token_type = default_token_type
     respond_to do |format|
       format.html
       format.md
@@ -57,7 +57,7 @@ class ApiTokensController < ApplicationController
     @token = build_token(
       name: token_params[:name],
       read_write: token_params[:read_write],
-      mcp_only: extract_mcp_only_from_params,
+      token_type: extract_token_type_from_params,
     )
     @token.save!
     sync_subscription_for_new_billable!
@@ -97,7 +97,7 @@ class ApiTokensController < ApplicationController
     @token = build_token(
       name: pending["name"],
       read_write: pending["read_write"],
-      mcp_only: pending["mcp_only"].nil? ? @showing_user.ai_agent? : pending["mcp_only"],
+      token_type: pending["token_type"] || default_token_type,
     )
     # Restore the stashed expiry (the form's duration params aren't in this request).
     expires_at = pending["expires_at"]
@@ -183,11 +183,7 @@ class ApiTokensController < ApplicationController
     @token = build_token(
       name: params[:name],
       read_write: params[:read_write],
-      mcp_only: if params.key?(:mcp_only)
-                  [true, "true", "1"].include?(params[:mcp_only])
-                else
-                  @showing_user.ai_agent?
-                end,
+      token_type: requested_token_type(params),
     )
     @token.save!
     sync_subscription_for_new_billable!
@@ -206,7 +202,7 @@ class ApiTokensController < ApplicationController
 
   def token_params
     # duration_param is defined in the ApplicationController
-    params.require(:api_token).permit(:name, :read_write, :mcp_only).merge(user: @showing_user)
+    params.require(:api_token).permit(:name, :read_write, :token_type, :mcp_only).merge(user: @showing_user)
   end
 
   # True when creating this token would make the user newly billable AND they
@@ -229,7 +225,7 @@ class ApiTokensController < ApplicationController
       "user_handle" => @showing_user.handle,
       "name" => token_params[:name],
       "read_write" => token_params[:read_write],
-      "mcp_only" => extract_mcp_only_from_params,
+      "token_type" => extract_token_type_from_params,
       "expires_at" => (Time.current + [duration_param, 1.year].min).iso8601,
     }
   end
@@ -251,26 +247,37 @@ class ApiTokensController < ApplicationController
     redirect_to checkout_url, allow_other_host: true
   end
 
-  def build_token(name:, read_write:, mcp_only:)
+  def build_token(name:, read_write:, token_type:)
     token = @showing_user.api_tokens.new
     token.name = name
     token.scopes = ApiToken.read_scopes
     token.scopes += ApiToken.write_scopes if read_write == "write"
     token.expires_at = Time.current + [duration_param, 1.year].min
-    token.mcp_only = mcp_only
+    token.token_type = token_type
     token
   end
 
-  # Resolve the form's `mcp_only` checkbox value (sent as "1"/"0") to a
-  # boolean. Falls back to the user-type-based default when the field is
-  # absent: agent tokens default true (the recommended secure mode), human
-  # tokens default false (the check ignores human tokens anyway).
-  def extract_mcp_only_from_params
-    if token_params.key?(:mcp_only)
-      ["1", "true", true].include?(token_params[:mcp_only])
-    else
-      @showing_user.ai_agent?
+  def extract_token_type_from_params
+    requested_token_type(token_params)
+  end
+
+  # Resolve the requested token type. Accepts an explicit `token_type`
+  # (invalid values pass through so model validation reports them), the
+  # legacy `mcp_only` flag as an alias, or falls back to the user-type
+  # default: agent tokens default to mcp (the recommended secure mode),
+  # human tokens to rest.
+  def requested_token_type(source)
+    return source[:token_type] if source[:token_type].present?
+
+    if source.respond_to?(:key?) && source.key?(:mcp_only)
+      return ["1", "true", true].include?(source[:mcp_only]) ? "mcp" : "rest"
     end
+
+    default_token_type
+  end
+
+  def default_token_type
+    @showing_user.ai_agent? ? "mcp" : "rest"
   end
 
   # After saving a new token, push the updated billable_quantity to Stripe so

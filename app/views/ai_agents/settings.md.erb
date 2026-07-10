@@ -57,10 +57,10 @@ Add this agent (ID: `<%= @ai_agent.id %>`) to one of your collectives:
 ## API Tokens
 
 <% if @ai_agent.api_tokens.external.any? %>
-| Name | MCP-only | Created | Last Used | Expires | Status |
+| Name | Type | Created | Last Used | Expires | Status |
 |------|----------|---------|-----------|---------|--------|
 <% @ai_agent.api_tokens.external.each do |token| %>
-| <%= token.name || 'Unnamed' %> | <%= token.mcp_only? ? 'Yes' : 'No' %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Active' : 'Inactive' %> |
+| <%= token.name || 'Unnamed' %> | <%= token.token_type %> | <%= time_ago_in_words(token.created_at) %> ago | <%= token.last_used_at ? time_ago_in_words(token.last_used_at) + ' ago' : 'Never' %> | <%= time_ago_in_words(token.expires_at) %> | <%= token.active? ? 'Active' : 'Inactive' %> |
 <% end %>
 <% else %>
 This agent has no API tokens.
