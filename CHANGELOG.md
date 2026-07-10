@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.47.0] - 2026-07-10
+
+### Added
+
+- **Common-pool payer selection for the LLM gateway, proof of concept** (#481, toward #464) — `LLM_POOL_CONFIG` maps an agent id to a set of Stripe customers whose prepaid balances jointly fund that agent's calls; `select-payer` picks one uniformly at random per call, so cost converges to an even split. Pool-configured agents skip the individual billing checks at dispatch. Deliberately env-only — no schema, no UI, removable by unsetting the var — to prove the end-to-end mechanics before the real pool-management feature is designed.
+- **LLM gateway external ingress** (#484) — external agents can now call an OpenAI-compatible `POST /v1/chat/completions` on `llm.<hostname>` directly, authenticating with their `llm_gateway`-type API key; funding resolves through the agent's existing pool/billing-customer mapping (the key says who calls, never who pays). Supports SSE streaming passthrough; per-key rate limits (`GATEWAY_EXTERNAL_RPM`/`GATEWAY_EXTERNAL_RPD`) and a body-size cap bound a leaked key's burn rate until dollar spend ceilings exist. Gated per tenant by the new `llm_gateway` feature flag (default off — the ingress is inert until enabled); Caddy forwards only `/v1/*`, keeping the gateway's internal relay unreachable from outside. Operators: production needs a `llm.<hostname>` DNS record and a Caddyfile regeneration.
+
+### Changed
+
+- **Every API token now has exactly one of three types** (#483) — `rest` (REST/markdown; humans + external agents), `mcp` (`/mcp` only; external agents only), `llm_gateway` (the LLM gateway only; external agents only), fixed at creation, so a leaked token is exactly one kind of incident. Internal agents can no longer hold user-issued keys (the agent-runner's ephemeral internal tokens are the carve-out); the migration backfills `mcp_only` → `token_type` and revokes legacy internal-agent keys. Behavior change: `/mcp` now rejects non-mcp tokens (rest-type agent tokens previously worked there). The `mcp_only` creation param remains as a documented alias. Deploy with migrations.
+- **Collective identities are first-class main-collective members** (#478, fixes #477) — the structural bar on identity users joining the main collective was vestigial and forced special-casing (including #475's tune-in exception, now deleted). New identities join the main collective at creation; an idempotent backfill migration adds the missing memberships for existing ones. Identity users receive no email fan-out (non-human users have no email channel), so `@everyone` stays safe. Also drops the now-redundant 1.45.1 authorization carve-out.
+
 ## [1.46.0] - 2026-07-09
 
 ### Added
