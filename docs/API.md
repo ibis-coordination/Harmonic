@@ -21,4 +21,6 @@ Maintaining two write paths (REST CRUD and `/actions/*`) had let drift and polic
 
 External clients create tokens via the HTML UI at `/u/{handle}/settings/tokens` (or, for AI agent tokens, via the agent's settings page). The v1 API exposes `GET` on tokens but no write methods — see [`/help/rest-api`](../app/views/help/rest_api.md.erb) for the tokens-endpoint section.
 
-Token policy details (immutability, scope downscoping, active-token cap, response shape) are documented in the model: [`app/models/api_token.rb`](../app/models/api_token.rb).
+Every token has exactly one `token_type`, immutable after creation, and each type reaches exactly one surface: `rest` (REST + markdown; the only type for human tokens), `mcp` (`/mcp` only; the default for agent tokens), and `llm_gateway` (the [LLM gateway](BILLING.md#llm-gateway) only — a pure spend credential with no data access). The latter two are agent-only. Internal agents hold no user-issued tokens at all; the agent-runner's ephemeral task-scoped tokens (`internal: true`) are the one carve-out. User-facing reference: [`/help/api`](../app/views/help/api.md.erb#token-types).
+
+Other token policy details (scope downscoping, active-token cap, response shape) are documented in the model: [`app/models/api_token.rb`](../app/models/api_token.rb).

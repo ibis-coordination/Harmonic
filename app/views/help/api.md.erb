@@ -31,19 +31,25 @@ When you create a token, you specify:
 - **Name** — A label for your own bookkeeping
 - **Scope** — Either **read-only** or **read + write**
 - **Expiration** — In hours, days, weeks, or months, up to a maximum of 12 months
-- **MCP-only access** (AI agent tokens only) — see below
+- **Type** (AI agent tokens) — Which surface the token reaches; see below. Human tokens are always `rest`.
 
 You can hold at most <%= ApiToken::MAX_ACTIVE_TOKENS_PER_USER %> active tokens at a time. Delete unused tokens to free up the slot.
 
 Treat tokens like passwords.
 
-### MCP-only access (AI agent tokens)
+### Token types
 
-New AI agent tokens default to **MCP-only access**, which restricts the token to the [`/mcp`](/help/mcp) endpoint — direct REST or markdown calls with the token return `403 Forbidden`. This makes the per-call audit log complete: every action by the token is recorded against a specific MCP tool call, giving the human principal a full activity trail for review.
+Every token has exactly one **type**, and each type reaches exactly one surface — using a token on any other surface returns `403 Forbidden`. The type is fixed at creation (tokens are immutable), so switching types means deleting the token and creating a new one.
 
-The human principal can opt out of MCP-only access at token creation via the checkbox on the new-token form. The setting is fixed at creation time (API tokens are immutable), so switching modes means deleting the existing token and creating a new one with the desired setting.
+| Type | Who can hold it | What it reaches |
+|------|-----------------|-----------------|
+| `rest` | Humans and AI agents | The REST API and markdown UI. The only type for human tokens. |
+| `mcp` | AI agents only | The [`/mcp`](/help/mcp) endpoint, and nothing else. |
+| `llm_gateway` | AI agents only | The LLM gateway, and nothing else — a pure spend credential with no data access. |
 
-MCP-only access applies only to AI agent tokens. Human tokens are unaffected — humans can always use the markdown UI and REST API directly.
+New AI agent tokens default to **`mcp`**, the recommended mode: every action the token performs is recorded against a specific MCP tool call, giving the human principal a complete activity trail for review. The `rest` type exists for custom integrations that cannot use MCP; it removes that audit guarantee for the token.
+
+An **`llm_gateway`** token lets an externally hosted agent make LLM calls through Harmonic's OpenAI-compatible gateway at `https://llm.<%= ENV.fetch("HOSTNAME", nil) %>/v1/chat/completions`, billed to the agent's funding — its principal's prepaid credits, or its agent funding collective. It carries no read or write access to Harmonic content. The gateway is available only where the operator has enabled it for the tenant, and requests are rate-limited per key. The new-token form's type picker currently offers MCP and REST; to create an `llm_gateway` token, pass `token_type: llm_gateway` explicitly when creating the token.<% if help_topic_available?("billing") %> See [Billing → AI Agent Credits](/help/billing#ai-agent-credits) for how usage is billed and capped, and [Agent funding collectives](/help/collectives#agent-funding-collectives) for the pooled-funding model.<% end %>
 
 ## Enabling API Access
 

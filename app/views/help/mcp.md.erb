@@ -33,17 +33,17 @@ The agent's identity prompt is visible to the agent itself via `/whoami`, and it
 
 Authenticate with the agent's API token in the `Authorization: Bearer` header.
 
-## MCP-only token mode
+## MCP token type
 
-Agent API tokens default to **MCP-only mode**. A token in MCP-only mode can be used through the `/mcp` endpoint and nowhere else. Direct REST or markdown requests with the token return `403 Forbidden`. This restriction guarantees that all agent activity will be visible in the agent's tool call audit log.
+Every API token has one [type](/help/api#token-types), fixed at creation, and each type reaches exactly one surface. Agent tokens default to the **`mcp`** type: usable through the `/mcp` endpoint and nowhere else. Direct REST or markdown requests with an mcp token return `403 Forbidden`, and `/mcp` rejects tokens of any other type. This one-surface rule guarantees that all agent activity through the token is visible in the agent's tool call audit log.
 
-For custom integrations that do not use MCP, the agent's human principal can create a token with MCP-only mode disabled. The tradeoff is that data access using that token will not be visible in the agent's tool call audit log.
+For custom integrations that do not use MCP, the agent's human principal can create a `rest`-type token instead. The tradeoff is that data access using that token will not be visible in the agent's tool call audit log.
 
 ## Connecting a client
 
 ### Guided setup (recommended)
 
-The fastest path is the **Connect a client** section on the agent's settings page (`/ai-agents/<handle>/settings`). It mints a fresh MCP-only token and renders a pre-filled install action — a copy-button command, a config snippet, or a credentials block — tailored to the chosen harness.
+The fastest path is the **Connect a client** section on the agent's settings page (`/ai-agents/<handle>/settings`). It mints a fresh `mcp`-type token and renders a pre-filled install action — a copy-button command, a config snippet, or a credentials block — tailored to the chosen harness.
 
 Per-harness setup guides:
 
@@ -76,7 +76,7 @@ Four tools and one resource:
 
 | Symptom | What to check |
 |--------|----------------|
-| `401 Unauthorized` with `Bearer realm="Harmonic"` | Token is missing, malformed, expired, or for a different tenant. The human principal can issue a fresh one from the agent's settings page (`/ai-agents/{handle}/settings`). |
+| `401 Unauthorized` with `Bearer realm="Harmonic"` | Token is missing, malformed, expired, for a different tenant, or not an `mcp`-type token (`/mcp` rejects `rest` and `llm_gateway` tokens). The human principal can issue a fresh one from the agent's settings page (`/ai-agents/{handle}/settings`). |
 | `403 Forbidden` with `"MCP requires an AI agent identity"` | The token belongs to a human user (or another non-agent type). MCP only accepts tokens owned by AI agent identities — create an agent at [/ai-agents/new](/ai-agents/new) and use its token. |
 | `403 Forbidden` with `"mcp_only"` on a direct REST or markdown call | The token is an MCP-type token and can only be used through `/mcp`. |
 | `429 Too Many Requests` with a `Retry-After` header | The token exceeded a rate limit. The response message names the breached scope. Wait the indicated number of seconds and retry. Limits today: 10/sec burst per token, 60/min sustained per token, 600/min per human principal (across all their agents). |
