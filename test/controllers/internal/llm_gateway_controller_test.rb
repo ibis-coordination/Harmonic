@@ -71,7 +71,12 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     select_payer(task_run_id: @task_run.id)
 
     assert_response :payment_required
-    assert_equal "not_funded", JSON.parse(response.body)["error"]
+    body = JSON.parse(response.body)
+    assert_equal "not_funded", body["error"]
+    # The gateway forwards this body verbatim to the runner, whose thrown
+    # error is all the agent's task run ever sees — the human explanation
+    # must be on the wire, not just the code.
+    assert body["message"].present?, "resolution errors must carry their message"
   end
 
   test "does not resolve a task run belonging to another tenant" do

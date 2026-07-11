@@ -35,7 +35,9 @@ module Internal
       )
       render json: { payer_customer_id: result.payer_customer_id, selection_id: selection_id }
     rescue LLMGateway::PayerResolver::ResolutionError => e
-      render json: { error: e.code }, status: e.http_status
+      # The message rides along: the gateway forwards this body verbatim and
+      # the runner's thrown error is all the agent's task run ever sees.
+      render json: { error: e.code, message: e.message }, status: e.http_status
     end
 
     # POST /internal/llm-gateway/select-payer-for-token
