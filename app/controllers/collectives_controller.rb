@@ -235,9 +235,8 @@ class CollectivesController < ApplicationController
     # Per-member daily draw ceiling (agent_funding only — model-validated).
     # Dollars in the form, cents in the column; blank clears it.
     if params.key?(:member_daily_draw_cap)
-      raw = params[:member_daily_draw_cap].to_s.strip
       begin
-        @current_collective.member_daily_draw_cap_cents = raw.blank? ? nil : (BigDecimal(raw) * 100).to_i
+        @current_collective.member_daily_draw_cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
       rescue ArgumentError
         flash[:error] = "The member daily draw ceiling must be a dollar amount (or blank for no ceiling)."
         return redirect_to "#{@current_collective.path}/settings"

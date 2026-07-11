@@ -739,6 +739,20 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
   end
 
+  test "update_settings rejects a spend cap too large for the column" do
+    # A value past int4 parses fine and passes validation, then raises
+    # ActiveModel::RangeError at save — it must get the friendly-error path,
+    # not a 500.
+    @ai_agent.update!(llm_daily_spend_cap_cents: 550)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { llm_daily_spend_cap: "30000000" }
+
+    assert_response :redirect
+    assert flash[:error].present?
+    assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
+  end
+
   # === Agent notification preferences ===
 
   test "agent settings page renders a single on/off toggle per notification type, no email column" do

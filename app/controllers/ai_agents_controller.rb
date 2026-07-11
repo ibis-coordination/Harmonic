@@ -183,9 +183,8 @@ class AiAgentsController < ApplicationController
     # Daily LLM spend cap: dollars in the form, cents in the column; blank
     # clears it, an absent param leaves it untouched.
     if params.key?(:llm_daily_spend_cap)
-      raw = params[:llm_daily_spend_cap].to_s.strip
       begin
-        @ai_agent.llm_daily_spend_cap_cents = raw.blank? ? nil : (BigDecimal(raw) * 100).to_i
+        @ai_agent.llm_daily_spend_cap_cents = MoneyParam.dollars_to_cents(params[:llm_daily_spend_cap])
       rescue ArgumentError
         flash[:error] = "The daily spend cap must be a dollar amount (or blank for no cap)."
         return redirect_to ai_agent_settings_path(original_handle)
