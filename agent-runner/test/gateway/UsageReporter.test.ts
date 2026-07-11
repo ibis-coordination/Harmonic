@@ -67,6 +67,74 @@ describe("teeUsage", () => {
     expect(await usage).toBeNull();
   });
 
+  it("scans a final usage line even without a trailing newline", async () => {
+    const { stream, usage } = teeUsage(
+      chunkedStream(['data: {"choices":[],"usage":{"prompt_tokens":2,"completion_tokens":1}}']),
+      "text/event-stream",
+    );
+
+    await new Response(stream).text();
+    expect(await usage).toEqual({ inputTokens: 2, outputTokens: 1 });
+  });
+
+  it("propagates cancellation to the upstream source", async () => {
+    // A disconnecting client must stop the upstream generation — with
+    // stream.tee() the scanning branch kept pulling to EOF, holding the
+    // upstream open (and billing tokens) after the client was gone.
+    let cancelled = false;
+    let chunks = 0;
+    const encoder = new TextEncoder();
+    const source = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunks += 1;
+        if (chunks <= 3) {
+          controller.enqueue(encoder.encode('data: {"usage":null}\n\n'));
+          return undefined;
+        }
+        // Stall like a slow upstream mid-generation.
+        return new Promise<void>(() => {});
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const { stream, usage } = teeUsage(source, "text/event-stream");
+
+    await stream.getReader().cancel();
+
+    expect(await usage).toBeNull();
+    // Cancellation reaches the source through the pipe a tick later.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(cancelled).toBe(true);
+  });
+
+  it("reads from the source only as fast as the consumer", async () => {
+    // stream.tee() buffered every chunk the slower branch hadn't consumed,
+    // unboundedly; the scanner must ride the consumer's pace instead.
+    let pulls = 0;
+    const encoder = new TextEncoder();
+    const source = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulls += 1;
+          if (pulls > 50) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(encoder.encode('data: {"usage":null}\n\n'));
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const { stream } = teeUsage(source, "text/event-stream");
+
+    const reader = stream.getReader();
+    await reader.read();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(pulls).toBeLessThan(10);
+  });
+
   it("parses a non-streamed JSON body at end of stream", async () => {
     const body = JSON.stringify({ id: "c1", usage: { prompt_tokens: 99, completion_tokens: 1 } });
     const { stream, usage } = teeUsage(chunkedStream([body.slice(0, 10), body.slice(10)]), "application/json");

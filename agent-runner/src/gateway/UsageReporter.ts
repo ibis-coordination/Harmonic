@@ -45,17 +45,35 @@ export const extractUsageFromJson = (body: string): Usage | null => {
   }
 };
 
-const scanSseForUsage = async (stream: ReadableStream<Uint8Array>): Promise<Usage | null> => {
+/**
+ * Scan an upstream response stream for the usage block while passing its
+ * bytes through untouched. The usage promise resolves once the stream ends
+ * (null when no usage ever appeared, or when the consumer cancelled).
+ *
+ * Deliberately an identity TransformStream rather than stream.tee(): tee
+ * reads at the pace of the FASTER consumer and buffers unboundedly for the
+ * slower one, and it only cancels the source when BOTH branches cancel — so
+ * an eager scanner branch would destroy backpressure and keep the upstream
+ * generating (and billing) after the client disconnected. pipeThrough keeps
+ * the consumer's backpressure and cancellation end to end.
+ */
+export const teeUsage = (
+  stream: ReadableStream<Uint8Array>,
+  contentType: string,
+): { stream: ReadableStream<Uint8Array>; usage: Promise<Usage | null> } => {
+  let resolveUsage: (usage: Usage | null) => void = () => {};
+  const usage = new Promise<Usage | null>((resolve) => {
+    resolveUsage = resolve;
+  });
+
+  const isSse = contentType.includes("text/event-stream");
   const decoder = new TextDecoder();
   let buffered = "";
+  let text = "";
+  let jsonAbandoned = false;
   let found: Usage | null = null;
-  const reader = stream.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    buffered += done ? decoder.decode() : decoder.decode(value, { stream: true });
-    const lines = buffered.split("\n");
-    // The last element is an incomplete line (or "") — keep it buffered.
-    buffered = lines.pop() ?? "";
+
+  const scanLines = (lines: string[]): void => {
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const payload = line.slice("data: ".length).trim();
@@ -65,43 +83,48 @@ const scanSseForUsage = async (stream: ReadableStream<Uint8Array>): Promise<Usag
         // final one — usageFromObject returns null until that one arrives.
         found = usageFromObject(JSON.parse(payload)) ?? found;
       } catch {
-        // Partial or non-JSON data line — not ours to police; passthrough
-        // already delivered it to the client verbatim.
+        // Partial or non-JSON data line — not ours to police; the client
+        // receives it verbatim either way.
       }
     }
-    if (done) return found;
-  }
-};
+  };
 
-const accumulateJsonForUsage = async (stream: ReadableStream<Uint8Array>): Promise<Usage | null> => {
-  const decoder = new TextDecoder();
-  let text = "";
-  const reader = stream.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    text += done ? decoder.decode() : decoder.decode(value, { stream: true });
-    if (text.length > MAX_JSON_ACCUMULATION_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    if (done) return extractUsageFromJson(text);
-  }
-};
+  const scanner = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      controller.enqueue(chunk);
+      if (isSse) {
+        buffered += decoder.decode(chunk, { stream: true });
+        const lines = buffered.split("\n");
+        // The last element is an incomplete line (or "") — keep it buffered.
+        buffered = lines.pop() ?? "";
+        scanLines(lines);
+      } else if (!jsonAbandoned) {
+        text += decoder.decode(chunk, { stream: true });
+        if (text.length > MAX_JSON_ACCUMULATION_BYTES) {
+          // A body past the cap is abandoned (usage unreported), never
+          // truncated-and-parsed; the passthrough is unaffected.
+          text = "";
+          jsonAbandoned = true;
+        }
+      }
+    },
+    flush() {
+      if (isSse) {
+        // Scan the final line even when the stream ends without a newline.
+        scanLines([buffered + decoder.decode()]);
+        resolveUsage(found);
+      } else {
+        resolveUsage(jsonAbandoned ? null : extractUsageFromJson(text + decoder.decode()));
+      }
+    },
+    cancel() {
+      // Consumer went away mid-stream; usage never arrived. The row staying
+      // pending is the honest signal.
+      resolveUsage(null);
+    },
+  });
 
-/**
- * Tee an upstream response stream: the returned stream is handed to the
- * client untouched; the sibling branch is scanned for the usage block and
- * resolves once the stream ends (null when no usage ever appeared).
- */
-export const teeUsage = (
-  stream: ReadableStream<Uint8Array>,
-  contentType: string,
-): { stream: ReadableStream<Uint8Array>; usage: Promise<Usage | null> } => {
-  const [passthrough, scanned] = stream.tee();
-  const usage = (contentType.includes("text/event-stream") ? scanSseForUsage(scanned) : accumulateJsonForUsage(scanned)).catch(
-    () => null,
-  );
-  return { stream: passthrough, usage };
+  return { stream: stream.pipeThrough(scanner), usage };
 };
 
 export interface UsageReport {
