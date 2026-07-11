@@ -308,6 +308,25 @@ module LLMGateway
       assert_equal "cus_pool_a", PayerResolver.resolve(@task_run).payer_customer_id
     end
 
+    test "pool selection verifies only the sampled member's balance" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_stale_a")
+      create_funded_member!(funding, stripe_id: "cus_stale_b")
+      create_funded_member!(funding, stripe_id: "cus_stale_c")
+      # All snapshots stale: a per-member gate check would refetch every one
+      # of them from Stripe, serially, on the per-call path.
+      ["cus_stale_a", "cus_stale_b", "cus_stale_c"].each do |stripe_id|
+        seed_balance!(stripe_id, 1_000_000, fetched_at: 11.minutes.ago)
+      end
+      @ai_agent.update!(funding_collective: funding)
+
+      fetches = 0
+      StripeService.stub :get_credit_balance, ->(_) { fetches += 1; 1_000_000 } do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal 1, fetches, "only the sampled member's balance is verified, not the whole pool's"
+    end
+
     test "dry members are skipped in draws" do
       funding = create_funding_collective
       fund!(@user, stripe_id: "cus_active")
