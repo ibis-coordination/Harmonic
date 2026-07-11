@@ -405,9 +405,15 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "record-usage is idempotent on the selection id" do
     select_payer(task_run_id: @task_run.id)
     selection_id = JSON.parse(response.body)["selection_id"]
-    record_usage(selection_id: selection_id, input_tokens: 10, output_tokens: 20, status: "ok")
 
-    record_usage(selection_id: selection_id, input_tokens: 999, output_tokens: 999, status: "ok")
+    prices = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.00", output_per_million: "15.00" } }
+    GatewayModelCatalog.stub :prices, prices do
+      record_usage(selection_id: selection_id, model: "anthropic/claude-sonnet-4.6",
+                   input_tokens: 10, output_tokens: 20, status: "ok")
+
+      record_usage(selection_id: selection_id, model: "anthropic/claude-sonnet-4.6",
+                   input_tokens: 999, output_tokens: 999, status: "ok")
+    end
 
     assert_response :success
     record = LLMUsageRecord.find_by!(selection_id: selection_id)
@@ -430,7 +436,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_equal "failed", LLMUsageRecord.find_by!(selection_id: selection_id).status
   end
 
-  test "an unpriced model completes with no cost estimate" do
+  test "unpriced usage stays pending and a later report can price it" do
     select_payer(task_run_id: @task_run.id)
     selection_id = JSON.parse(response.body)["selection_id"]
 
@@ -440,8 +446,30 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal "pending", record.status, "billed usage that cannot be priced must stay open, not seal at NULL cost"
+    assert_equal 5, record.input_tokens, "the tokens are known and must be kept for re-pricing"
+
+    prices = { "unknown/model" => { input_per_million: "3.00", output_per_million: "15.00" } }
+    GatewayModelCatalog.stub :prices, prices do
+      record_usage(selection_id: selection_id, model: "unknown/model", input_tokens: 5, output_tokens: 5, status: "ok")
+    end
+
+    record.reload
     assert_equal "completed", record.status
-    assert_nil record.estimated_cost_cents
+    assert_not_nil record.estimated_cost_cents
+  end
+
+  test "an unpriced failed call still finalizes" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+
+    GatewayModelCatalog.stub :prices, {} do
+      record_usage(selection_id: selection_id, model: "unknown/model", input_tokens: 0, output_tokens: 0, status: "error")
+    end
+
+    assert_response :success
+    assert_equal "failed", LLMUsageRecord.find_by!(selection_id: selection_id).status,
+                 "nothing was billed on an error, so there is no cost to wait for"
   end
 
   # A funded customer also carries a generous fresh balance snapshot, so the

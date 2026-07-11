@@ -95,14 +95,28 @@ module Internal
       model = params[:model].presence || record.model
       input_tokens = params[:input_tokens].to_i
       output_tokens = params[:output_tokens].to_i
+      ok = params[:status].to_s == "ok"
+      cost = LLMGateway::UsageCost.estimate_cents(
+        model: model, input_tokens: input_tokens, output_tokens: output_tokens,
+      )
+
+      # Billed usage that can't be priced (catalog outage, rate-card gap) must
+      # not seal at a NULL cost — the spend sums would count it as free
+      # forever. Keep the tokens and stay pending so a later report can price
+      # it. Failed calls billed nothing, so they finalize regardless.
+      if ok && cost.nil?
+        record.update!(model: model, input_tokens: input_tokens, output_tokens: output_tokens)
+        Rails.logger.warn("[LLMGateway] Usage for #{record.selection_id} is unpriced (model=#{model}); leaving pending for re-pricing")
+        render json: { status: record.status }
+        return
+      end
+
       record.update!(
-        status: params[:status].to_s == "ok" ? "completed" : "failed",
+        status: ok ? "completed" : "failed",
         model: model,
         input_tokens: input_tokens,
         output_tokens: output_tokens,
-        estimated_cost_cents: LLMGateway::UsageCost.estimate_cents(
-          model: model, input_tokens: input_tokens, output_tokens: output_tokens,
-        ),
+        estimated_cost_cents: cost,
         # Spend sums anchor on completion: the cost belongs to the moment it
         # became known, or a call straddling a snapshot refresh or a UTC-day
         # boundary would be counted nowhere.
