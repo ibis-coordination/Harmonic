@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { extractUsageFromJson, teeUsage, reportUsage } from "../../src/gateway/UsageReporter.js";
+import { log } from "../../src/services/Logger.js";
 import type { RailsHttpService, RailsRequestOptions, RailsResponse } from "../../src/services/RailsHttp.js";
 
 const chunkedStream = (chunks: string[]): ReadableStream<Uint8Array> => {
@@ -195,6 +196,28 @@ describe("reportUsage", () => {
     });
 
     expect(JSON.parse(calls[0]?.body ?? "{}")).toMatchObject({ selection_id: "sel_err", input_tokens: 0, output_tokens: 0, status: "error" });
+  });
+
+  it("logs a terminal 4xx rejection without retrying", async () => {
+    // A systematic 401 (rotated secret) or 404 must leave a signal — silence
+    // here means every ledger row quietly stays pending until someone audits.
+    const warnSpy = vi.spyOn(log, "warn").mockImplementation(() => {});
+    const { service, calls } = railsCapture([401]);
+
+    await reportUsage(service, "test-secret", {
+      subdomain: "app",
+      selectionId: "sel_reject",
+      model: "m",
+      usage: { inputTokens: 1, outputTokens: 2 },
+      ok: true,
+    });
+
+    expect(calls).toHaveLength(1);
+    const entry = warnSpy.mock.calls
+      .map((c) => c[0] as Record<string, unknown>)
+      .find((f) => f["event"] === "record_usage_rejected");
+    expect(entry).toMatchObject({ selection_id: "sel_reject", status_code: 401 });
+    warnSpy.mockRestore();
   });
 
   it("retries once and never throws", async () => {

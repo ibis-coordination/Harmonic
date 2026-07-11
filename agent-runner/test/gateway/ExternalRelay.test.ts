@@ -107,6 +107,34 @@ describe("external relay", () => {
     expect(await new Response(result.body as ReadableStream<Uint8Array>).text()).toBe("data: ok\n\n");
   });
 
+  it("honors a client's explicit include_usage: false", async () => {
+    // The client may have opted out precisely because its parser can't take
+    // the extra empty-choices usage chunk; the ledger row staying pending is
+    // the designed fallback, not a reason to override the client.
+    let capturedBody: string | undefined;
+    const optOutReq = {
+      bearerToken: "hg_agent_key_123",
+      body: JSON.stringify({
+        model: "default",
+        stream: true,
+        stream_options: { include_usage: false },
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    };
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      railsLayer({ statusCode: 200, body: JSON.stringify({ payer_customer_id: "cus_abc", model: "anthropic/claude-sonnet-4.6" }) }),
+      stripeLayer(async ({ body }) => {
+        capturedBody = body;
+        return { status: 200, contentType: "text/event-stream", body: streamOf("data: ok\n\n") };
+      }),
+    );
+
+    await Effect.runPromise(Effect.provide(externalRelay(optOutReq), layers));
+
+    expect(JSON.parse(capturedBody ?? "{}")["stream_options"]).toEqual({ include_usage: false });
+  });
+
   it("passes a select-payer rejection through verbatim without calling Stripe", async () => {
     let stripeCalled = false;
     const errorBody = JSON.stringify({
@@ -270,6 +298,31 @@ describe("external relay", () => {
       ConfigTest,
       layer,
       stripeLayer(async () => ({ status: 200, contentType: "application/json", body: streamOf("{}") })),
+    );
+
+    const result = await Effect.runPromise(Effect.provide(externalRelay(req), layers));
+    await new Response(result.body as ReadableStream<Uint8Array>).text();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(calls.every((c) => c.path !== "/internal/llm-gateway/record-usage")).toBe(true);
+  });
+
+  it("skips record-usage when selection returned a null selection id", async () => {
+    // Rails renders selection_id: null when opening the ledger row failed —
+    // JSON null must not slip past the guard into a doomed record-usage POST.
+    const { layer, calls } = railsWithLedger({
+      payer_customer_id: "cus_abc",
+      model: "anthropic/claude-sonnet-4.6",
+      selection_id: null,
+    });
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      layer,
+      stripeLayer(async () => ({
+        status: 200,
+        contentType: "application/json",
+        body: streamOf(JSON.stringify({ id: "c1", usage: { prompt_tokens: 1, completion_tokens: 1 } })),
+      })),
     );
 
     const result = await Effect.runPromise(Effect.provide(externalRelay(req), layers));

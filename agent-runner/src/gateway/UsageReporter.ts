@@ -154,7 +154,14 @@ export const reportUsage = async (rails: RailsHttpService, secret: string, repor
         body,
         timeoutMs: 10_000,
       });
-      if (response.statusCode < 500) return;
+      if (response.statusCode < 300) return;
+      if (response.statusCode < 500) {
+        // Terminal rejection (bad signature, unknown selection): retrying
+        // can't help, but silence would hide a systematic outage — e.g. a
+        // rotated secret quietly leaving every ledger row pending.
+        log.warn({ event: "record_usage_rejected", selection_id: report.selectionId, status_code: response.statusCode });
+        return;
+      }
     } catch {
       // fall through to retry
     }

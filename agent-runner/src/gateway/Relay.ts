@@ -76,7 +76,7 @@ export const relay = (
     }
 
     const parsed = yield* Effect.try({
-      try: () => JSON.parse(selectText) as { payer_customer_id?: string; selection_id?: string },
+      try: () => JSON.parse(selectText) as { payer_customer_id?: string; selection_id?: string | null },
       catch: () => new GatewayError({ message: "select-payer returned a non-JSON 200 body" }),
     });
     const payerCustomerId = parsed.payer_customer_id;
@@ -104,8 +104,9 @@ export const relay = (
     // Close out the ledger row select-payer opened. Fire-and-forget: the
     // caller already has its response; a successful call whose body somehow
     // carries no usage stays pending rather than being faked as free.
+    // Rails renders selection_id: null when opening the ledger row failed.
     const selectionId = parsed.selection_id;
-    if (selectionId !== undefined && selectionId !== "") {
+    if (typeof selectionId === "string" && selectionId !== "") {
       const ok = upstream.status === 200;
       const usage = ok ? extractUsageFromJson(upstream.body) : null;
       if (!ok || usage !== null) {

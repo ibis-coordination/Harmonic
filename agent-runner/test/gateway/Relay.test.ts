@@ -203,4 +203,20 @@ describe("gateway relay", () => {
 
     expect(calls.every((c) => c.path !== "/internal/llm-gateway/record-usage")).toBe(true);
   });
+
+  it("skips record-usage when select-payer returns a null selection id", async () => {
+    // Rails renders selection_id: null when opening the ledger row failed —
+    // JSON null must not slip past the guard into a doomed record-usage POST.
+    const { layer, calls } = railsWithLedger({ payer_customer_id: "cus_abc", selection_id: null });
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      layer,
+      stripeLayer(async () => ({ status: 200, body: JSON.stringify({ id: "c1", usage: { prompt_tokens: 1, completion_tokens: 1 } }) })),
+    );
+
+    await Effect.runPromise(Effect.provide(relay(req), layers));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(calls.every((c) => c.path !== "/internal/llm-gateway/record-usage")).toBe(true);
+  });
 });
