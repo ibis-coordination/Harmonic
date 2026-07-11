@@ -320,6 +320,131 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
 
   private
 
+  # === Usage ledger (selection opens a record, record-usage completes it) ===
+
+  test "select-payer opens a pending usage record and returns its selection id" do
+    select_payer(task_run_id: @task_run.id)
+
+    assert_response :success
+    selection_id = JSON.parse(response.body)["selection_id"]
+    assert selection_id.present?, "expected select-payer to return a selection_id"
+    record = LLMUsageRecord.find_by(selection_id: selection_id)
+    assert record.present?, "expected a usage record keyed by the selection id"
+    assert_equal "pending", record.status
+    assert_equal @ai_agent.id, record.ai_agent_id
+    assert_equal "cus_test123", record.payer_stripe_customer_id
+    assert_equal @task_run.id, record.ai_agent_task_run_id
+    assert_equal @tenant.id, record.origin_tenant_id
+    assert record.occurred_at.present?
+    assert_nil record.funding_collective_id, "an individual billing draw must not be attributed to a pool"
+  end
+
+  test "a pool draw stamps the funding collective on the usage record" do
+    funding = attach_funding_collective!(@ai_agent, ["cus_pool_a"])
+
+    select_payer(task_run_id: @unbilled_task_run.id)
+
+    assert_response :success
+    selection_id = JSON.parse(response.body)["selection_id"]
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal funding.id, record.funding_collective_id
+    assert_equal "cus_pool_a", record.payer_stripe_customer_id
+  end
+
+  test "a failed payer resolution opens no usage record" do
+    select_payer(task_run_id: @unbilled_task_run.id)
+
+    assert_response :unprocessable_entity
+    assert_equal 0, LLMUsageRecord.count
+  end
+
+  test "token caller: selection opens a pending usage record with the mapped model" do
+    @tenant.enable_feature_flag!("llm_gateway")
+    agent, token = create_gateway_agent_and_token
+    funding = attach_funding_collective!(agent, ["cus_pool_a"])
+
+    select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
+
+    assert_response :success
+    selection_id = JSON.parse(response.body)["selection_id"]
+    assert selection_id.present?
+    record = LLMUsageRecord.find_by(selection_id: selection_id)
+    assert record.present?
+    assert_equal "pending", record.status
+    assert_equal agent.id, record.ai_agent_id
+    assert_equal "cus_pool_a", record.payer_stripe_customer_id
+    assert_equal "anthropic/claude-sonnet-4.6", record.model
+    assert_equal token.id, record.api_token_id
+    assert_equal funding.id, record.funding_collective_id
+  end
+
+  test "record-usage completes the pending record with tokens and estimated cost" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+
+    prices = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.00", output_per_million: "15.00" } }
+    GatewayModelCatalog.stub :prices, prices do
+      record_usage(selection_id: selection_id, model: "anthropic/claude-sonnet-4.6",
+                   input_tokens: 812, output_tokens: 344, status: "ok")
+    end
+
+    assert_response :success
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal "completed", record.status
+    assert_equal 812, record.input_tokens
+    assert_equal 344, record.output_tokens
+    assert_equal "anthropic/claude-sonnet-4.6", record.model
+    # (812 × $3.00 + 344 × $15.00) / 1M tokens = $0.007596 → 0.7596¢
+    assert_in_delta 0.7596, record.estimated_cost_cents.to_f, 0.0001
+  end
+
+  test "record-usage is idempotent on the selection id" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+    record_usage(selection_id: selection_id, input_tokens: 10, output_tokens: 20, status: "ok")
+
+    record_usage(selection_id: selection_id, input_tokens: 999, output_tokens: 999, status: "ok")
+
+    assert_response :success
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal 10, record.input_tokens, "a replay must not overwrite the recorded usage"
+  end
+
+  test "record-usage with an unknown selection id is a 404" do
+    record_usage(selection_id: "sel_does_not_exist", input_tokens: 1, output_tokens: 1, status: "ok")
+
+    assert_response :not_found
+  end
+
+  test "an upstream error is recorded as failed" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+
+    record_usage(selection_id: selection_id, input_tokens: 0, output_tokens: 0, status: "error")
+
+    assert_response :success
+    assert_equal "failed", LLMUsageRecord.find_by!(selection_id: selection_id).status
+  end
+
+  test "an unpriced model completes with no cost estimate" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+
+    GatewayModelCatalog.stub :prices, {} do
+      record_usage(selection_id: selection_id, model: "unknown/model", input_tokens: 5, output_tokens: 5, status: "ok")
+    end
+
+    assert_response :success
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal "completed", record.status
+    assert_nil record.estimated_cost_cents
+  end
+
+  def record_usage(body_hash)
+    body = body_hash.to_json
+    post "/internal/llm-gateway/record-usage", params: body, headers: signed_headers(body)
+  end
+
   def select_payer(body_hash)
     body = body_hash.to_json
     post "/internal/llm-gateway/select-payer", params: body, headers: signed_headers(body)

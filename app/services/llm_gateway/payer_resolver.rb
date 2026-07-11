@@ -10,7 +10,10 @@ module LLMGateway
   class PayerResolver
     extend T::Sig
 
-    Result = Struct.new(:payer_customer_id, keyword_init: true)
+    # funding_collective_id names the pool a draw came from (nil when the
+    # agent's own billing customer pays) — stamped on the usage ledger for
+    # point-in-time attribution, since the agent's pool link is mutable.
+    Result = Struct.new(:payer_customer_id, :funding_collective_id, keyword_init: true)
 
     # A resolution failure that carries the wire error code and HTTP status the
     # gateway (and its callers) should surface.
@@ -83,7 +86,7 @@ module LLMGateway
 
       payer = T.must(pool.sample)
       Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{pool.size}")
-      Result.new(payer_customer_id: payer)
+      Result.new(payer_customer_id: payer, funding_collective_id: agent.funding_collective_id)
     end
 
     # Archiving a funding collective is how the arrangement is wound down, so

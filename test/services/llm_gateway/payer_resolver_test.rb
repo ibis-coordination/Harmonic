@@ -99,6 +99,22 @@ module LLMGateway
       assert_equal "cus_pool_a", result.payer_customer_id
     end
 
+    test "a pool result names the funding collective it drew from" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      @ai_agent.update!(funding_collective: funding)
+
+      result = PayerResolver.resolve(@task_run)
+      assert_equal funding.id, result.funding_collective_id
+    end
+
+    test "an individual billing result names no funding collective" do
+      create_stamped_billing_customer!
+
+      result = PayerResolver.resolve(@task_run)
+      assert_nil result.funding_collective_id
+    end
+
     test "falls back to the stamped billing customer without a funding collective" do
       create_stamped_billing_customer!
 
