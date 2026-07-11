@@ -180,7 +180,8 @@ module LLMGateway
       end
     end
 
-    def record_spend!(stripe_id, cents, funding_collective_id: nil, agent: @ai_agent, occurred_at: Time.current)
+    def record_spend!(stripe_id, cents, funding_collective_id: nil, agent: @ai_agent,
+                      occurred_at: Time.current, completed_at: occurred_at)
       LLMUsageRecord.create!(
         selection_id: "sel_#{SecureRandom.uuid}",
         status: "completed",
@@ -190,6 +191,7 @@ module LLMGateway
         funding_collective_id: funding_collective_id,
         estimated_cost_cents: cents,
         occurred_at: occurred_at,
+        completed_at: completed_at,
       )
     end
 
@@ -212,6 +214,17 @@ module LLMGateway
 
       result = PayerResolver.resolve(@task_run)
       assert_equal "cus_individual", result.payer_customer_id
+    end
+
+    test "a call opened yesterday but completed today counts toward the daily cap" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 100)
+      record_spend!("cus_individual", 100, occurred_at: 25.hours.ago, completed_at: 1.minute.ago)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "spend_cap_exceeded", error.code
     end
 
     test "the daily spend cap also gates pool-funded agents" do

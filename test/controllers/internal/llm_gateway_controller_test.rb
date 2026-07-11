@@ -399,6 +399,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_equal "anthropic/claude-sonnet-4.6", record.model
     # (812 × $3.00 + 344 × $15.00) / 1M tokens = $0.007596 → 0.7596¢
     assert_in_delta 0.7596, record.estimated_cost_cents.to_f, 0.0001
+    assert_not_nil record.completed_at, "spend sums anchor on completion time, so record-usage must stamp it"
   end
 
   test "record-usage is idempotent on the selection id" do

@@ -57,7 +57,7 @@ module LLMGateway
       return if cap.nil?
 
       spent = LLMUsageRecord.where(ai_agent_id: agent.id)
-                            .where(occurred_at: Time.current.utc.beginning_of_day..)
+                            .where(completed_at: Time.current.utc.beginning_of_day..)
                             .sum(:estimated_cost_cents)
       return if spent < cap
 
@@ -99,7 +99,7 @@ module LLMGateway
       return stripe_ids if cap.nil?
 
       drawn = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_collective_id: collective_id)
-                            .where(occurred_at: Time.current.utc.beginning_of_day..)
+                            .where(completed_at: Time.current.utc.beginning_of_day..)
                             .group(:payer_stripe_customer_id)
                             .sum(:estimated_cost_cents)
       stripe_ids.reject { |stripe_id| drawn.fetch(stripe_id, 0) >= cap }

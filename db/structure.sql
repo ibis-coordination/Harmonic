@@ -874,6 +874,7 @@ CREATE TABLE public.llm_usage_records (
     ai_agent_task_run_id uuid,
     api_token_id uuid,
     occurred_at timestamp(6) without time zone NOT NULL,
+    completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -3333,6 +3334,13 @@ CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit
 
 
 --
+-- Name: idx_llm_usage_on_pool_payer_completed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_llm_usage_on_pool_payer_completed ON public.llm_usage_records USING btree (funding_collective_id, payer_stripe_customer_id, completed_at) WHERE (funding_collective_id IS NOT NULL);
+
+
+--
 -- Name: idx_mcp_logs_on_task_run_and_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3368,17 +3376,17 @@ CREATE UNIQUE INDEX idx_members_tenant_collective_user ON public.collective_memb
 
 
 --
--- Name: idx_on_funding_collective_id_occurred_at_477880f140; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_on_funding_collective_id_occurred_at_477880f140 ON public.llm_usage_records USING btree (funding_collective_id, occurred_at) WHERE (funding_collective_id IS NOT NULL);
-
-
---
 -- Name: idx_on_mcp_tool_call_log_id_created_at_1e02440f92; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_on_mcp_tool_call_log_id_created_at_1e02440f92 ON public.mcp_tool_call_resources USING btree (mcp_tool_call_log_id, created_at);
+
+
+--
+-- Name: idx_on_payer_stripe_customer_id_completed_at_399b313a19; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_payer_stripe_customer_id_completed_at_399b313a19 ON public.llm_usage_records USING btree (payer_stripe_customer_id, completed_at);
 
 
 --
@@ -4555,6 +4563,13 @@ CREATE INDEX index_links_on_tenant_id ON public.links USING btree (tenant_id);
 --
 
 CREATE INDEX index_links_on_to_linkable ON public.links USING btree (to_linkable_type, to_linkable_id);
+
+
+--
+-- Name: index_llm_usage_records_on_ai_agent_id_and_completed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_llm_usage_records_on_ai_agent_id_and_completed_at ON public.llm_usage_records USING btree (ai_agent_id, completed_at);
 
 
 --

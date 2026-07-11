@@ -27,14 +27,26 @@ class CreateLLMUsageRecords < ActiveRecord::Migration[7.2]
       t.decimal :estimated_cost_cents, precision: 14, scale: 6
       t.uuid :ai_agent_task_run_id
       t.uuid :api_token_id
+      # occurred_at is when the payer was selected (the row opened);
+      # completed_at is when the cost landed. Spend sums anchor on
+      # completed_at — a cost belongs to the moment it became known, or a
+      # call straddling a snapshot refresh or a UTC-day boundary would be
+      # counted nowhere.
       t.datetime :occurred_at, null: false
+      t.datetime :completed_at
       t.timestamps
     end
     add_index :llm_usage_records, :selection_id, unique: true
+    # occurred_at indexes serve the pending-reservation scans; completed_at
+    # indexes serve the spend sums.
     add_index :llm_usage_records, [:payer_stripe_customer_id, :occurred_at]
     add_index :llm_usage_records, [:ai_agent_id, :occurred_at]
-    add_index :llm_usage_records, [:funding_collective_id, :occurred_at],
-              where: "funding_collective_id IS NOT NULL"
+    add_index :llm_usage_records, [:payer_stripe_customer_id, :completed_at]
+    add_index :llm_usage_records, [:ai_agent_id, :completed_at]
+    # Covers the per-member draw-ceiling sum: pool + payer + day window.
+    add_index :llm_usage_records, [:funding_collective_id, :payer_stripe_customer_id, :completed_at],
+              where: "funding_collective_id IS NOT NULL",
+              name: "idx_llm_usage_on_pool_payer_completed"
     add_foreign_key :llm_usage_records, :tenants, column: :origin_tenant_id
     add_foreign_key :llm_usage_records, :collectives, column: :funding_collective_id
     add_foreign_key :llm_usage_records, :users, column: :ai_agent_id

@@ -16,7 +16,7 @@ module LLMGateway
       StripeBalanceSnapshot.create!(stripe_customer_id: stripe_id, balance_cents: balance_cents, fetched_at: fetched_at)
     end
 
-    def spend!(cents, occurred_at: Time.current, stripe_id: "cus_gate_test")
+    def spend!(cents, occurred_at: Time.current, completed_at: occurred_at, stripe_id: "cus_gate_test")
       agent = @ai_agent ||= create_ai_agent(parent: @user)
       LLMUsageRecord.create!(
         selection_id: "sel_#{SecureRandom.uuid}",
@@ -26,6 +26,7 @@ module LLMGateway
         origin_tenant_id: @tenant.id,
         estimated_cost_cents: cents,
         occurred_at: occurred_at,
+        completed_at: completed_at,
       )
     end
 
@@ -119,6 +120,18 @@ module LLMGateway
 
       no_stripe! do
         assert BalanceGate.funded?("cus_gate_test")
+      end
+    end
+
+    test "spend completed after the snapshot counts even when the call opened before it" do
+      # Opened before the snapshot was fetched, cost landed after: the cost is
+      # in neither the Stripe balance nor an occurred_at-anchored delta. It
+      # must count, so the sums anchor on completion time.
+      seed_snapshot!(100, fetched_at: 5.seconds.ago)
+      spend!(90, occurred_at: 2.minutes.ago, completed_at: Time.current)
+
+      no_stripe! do
+        assert_not BalanceGate.funded?("cus_gate_test")
       end
     end
 

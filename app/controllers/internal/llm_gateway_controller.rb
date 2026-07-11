@@ -103,6 +103,10 @@ module Internal
         estimated_cost_cents: LLMGateway::UsageCost.estimate_cents(
           model: model, input_tokens: input_tokens, output_tokens: output_tokens,
         ),
+        # Spend sums anchor on completion: the cost belongs to the moment it
+        # became known, or a call straddling a snapshot refresh or a UTC-day
+        # boundary would be counted nowhere.
+        completed_at: Time.current,
       )
       render json: { status: record.status }
     end

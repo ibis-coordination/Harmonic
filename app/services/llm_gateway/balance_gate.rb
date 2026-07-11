@@ -80,8 +80,11 @@ module LLMGateway
 
     sig { params(snapshot: StripeBalanceSnapshot).returns(BigDecimal) }
     def self.effective_balance_cents(snapshot)
+      # Anchored on completed_at, not occurred_at: a call opened before the
+      # snapshot but costed after it is in neither the Stripe balance nor an
+      # occurred_at-anchored delta.
       spend = LLMUsageRecord.where(payer_stripe_customer_id: snapshot.stripe_customer_id)
-                            .where(occurred_at: snapshot.fetched_at..)
+                            .where(completed_at: snapshot.fetched_at..)
                             .sum(:estimated_cost_cents)
       BigDecimal(snapshot.balance_cents) - spend
     end
