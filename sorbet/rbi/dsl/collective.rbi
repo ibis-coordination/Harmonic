@@ -839,6 +839,20 @@ class Collective
     def links=(value); end
 
     sig { returns(T::Array[T.untyped]) }
+    def llm_usage_record_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def llm_usage_record_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :llm_usage_records`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::LLMUsageRecord::PrivateCollectionProxy) }
+    def llm_usage_records; end
+
+    sig { params(value: T::Enumerable[::LLMUsageRecord]).void }
+    def llm_usage_records=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
     def mcp_tool_call_log_ids; end
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
@@ -1061,6 +1075,20 @@ class Collective
 
     sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
     def search_index_ids=(ids); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def stripe_balance_snapshot_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def stripe_balance_snapshot_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :stripe_balance_snapshots`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::StripeBalanceSnapshot::PrivateCollectionProxy) }
+    def stripe_balance_snapshots; end
+
+    sig { params(value: T::Enumerable[::StripeBalanceSnapshot]).void }
+    def stripe_balance_snapshots=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def stripe_customer_ids; end
@@ -1949,6 +1977,51 @@ class Collective
     sig { void }
     def internal_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def member_daily_draw_cap_cents; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def member_daily_draw_cap_cents=(value); end
+
+    sig { returns(T::Boolean) }
+    def member_daily_draw_cap_cents?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def member_daily_draw_cap_cents_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def member_daily_draw_cap_cents_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def member_daily_draw_cap_cents_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def member_daily_draw_cap_cents_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def member_daily_draw_cap_cents_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def member_daily_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def member_daily_draw_cap_cents_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def member_daily_draw_cap_cents_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def member_daily_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def member_daily_draw_cap_cents_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def member_daily_draw_cap_cents_was; end
+
+    sig { void }
+    def member_daily_draw_cap_cents_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def name; end
 
@@ -2076,6 +2149,9 @@ class Collective
     def restore_internal!; end
 
     sig { void }
+    def restore_member_daily_draw_cap_cents!; end
+
+    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -2170,6 +2246,12 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_internal?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_member_daily_draw_cap_cents; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_member_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_name; end
@@ -2524,6 +2606,9 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_internal?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_member_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end

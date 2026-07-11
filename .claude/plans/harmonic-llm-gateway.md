@@ -523,7 +523,17 @@ this; reservations are complexity to buy only if the gap is demonstrably abused)
 running-counter optimizations (indexed SQL sums are fine at beta volume), Stripe
 reconciliation truing (still deferred — but the ledger is the local half of it when it
 comes), and any dashboard UI (the usage-transparency view builds on the ledger as its
-own follow-up).
+own follow-up). Also deferred, as one bundle: **member-set draw ceilings and monthly
+caps**. V1's ceiling is one admin-set daily number for the whole pool, but members'
+willingness to fund differs (one member may accept $100/mo where another means $10) and
+the unit people budget in is $/month — while daily remains the incident-containment
+knob (a monthly budget alone lets a runaway agent burn the month in an hour, then
+starve for 27 days). The follow-up: per-(member, collective) self-service ceilings,
+expressed monthly with a daily containment bound (possibly derived, cap/30 + burst
+headroom). Changes the consent story — the ceiling becomes part of what a member agrees
+to at join time, adjustable by them alone — and slots into the same draw filter.
+Mechanically trivial (same ledger sum, different window start); the design work is the
+consent/budget surface, so design it with beta feedback.
 
 Exit criteria: with zero-balance rejection disabled on the Stripe account, a dry
 customer's calls are refused by our gate with the correct wire error while funded

@@ -139,6 +139,10 @@ class User < ApplicationRecord
   validates :system_role, inclusion: { in: SYSTEM_ROLES, allow_nil: true }
   validate :ai_agent_must_have_parent
   validate :funding_collective_assignable, if: :funding_collective_id_changed?
+  # Per-UTC-day LLM spend ceiling, enforced per call in
+  # LLMGateway::PayerResolver against the usage ledger. Agents only.
+  validates :llm_daily_spend_cap_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validate :llm_daily_spend_cap_agent_only, if: :llm_daily_spend_cap_cents_changed?
   validate :agent_mode_is_immutable, if: :ai_agent?
   # collective_identity Users only exist as the spawn of a Collective; an
   # orphan (no backing Collective) is data corruption. Validated on update
@@ -268,6 +272,13 @@ class User < ApplicationRecord
     if parent_membership.nil? || parent_membership.archived?
       errors.add(:funding_collective_id, "requires the agent's principal to be an active member of the funding collective")
     end
+  end
+
+  sig { void }
+  def llm_daily_spend_cap_agent_only
+    return if llm_daily_spend_cap_cents.nil? || ai_agent?
+
+    errors.add(:llm_daily_spend_cap_cents, "can only be set for AI agent users")
   end
 
   sig { returns(T::Boolean) }

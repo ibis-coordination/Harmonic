@@ -78,6 +78,14 @@
             <textarea id="identity_prompt" name="identity_prompt" rows="6" class="pulse-form-input"><%= @ai_agent.agent_configuration&.dig("identity_prompt") %></textarea>
             <small class="pulse-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</small>
           </div>
+
+          <div class="pulse-form-group">
+            <label for="llm_daily_spend_cap" class="pulse-label">Daily LLM spend cap (USD)</label>
+            <input type="number" id="llm_daily_spend_cap" name="llm_daily_spend_cap" min="0.01" step="0.01"
+                   value="<%= @ai_agent.llm_daily_spend_cap_cents ? (@ai_agent.llm_daily_spend_cap_cents / 100.0) : "" %>"
+                   class="pulse-form-input">
+            <small class="pulse-hint">Once the agent's LLM usage reaches this amount, further calls are refused until midnight UTC. Leave blank for no cap.</small>
+          </div>
         </section>
 
         <%# Mode is fixed when only one of the two flags is enabled — submit it

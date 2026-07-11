@@ -180,6 +180,76 @@ module LLMGateway
       end
     end
 
+    def record_spend!(stripe_id, cents, funding_collective_id: nil, agent: @ai_agent, occurred_at: Time.current)
+      LLMUsageRecord.create!(
+        selection_id: "sel_#{SecureRandom.uuid}",
+        status: "completed",
+        ai_agent_id: agent.id,
+        payer_stripe_customer_id: stripe_id,
+        origin_tenant_id: @tenant.id,
+        funding_collective_id: funding_collective_id,
+        estimated_cost_cents: cents,
+        occurred_at: occurred_at,
+      )
+    end
+
+    test "an agent over its daily spend cap is refused" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 100)
+      record_spend!("cus_individual", 100)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "spend_cap_exceeded", error.code
+      assert_equal :too_many_requests, error.http_status
+    end
+
+    test "spend from previous days does not count against the daily cap" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 100)
+      record_spend!("cus_individual", 5_000, occurred_at: 2.days.ago)
+
+      result = PayerResolver.resolve(@task_run)
+      assert_equal "cus_individual", result.payer_customer_id
+    end
+
+    test "the daily spend cap also gates pool-funded agents" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      @ai_agent.update!(funding_collective: funding, llm_daily_spend_cap_cents: 100)
+      record_spend!("cus_pool_a", 150, funding_collective_id: funding.id)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "spend_cap_exceeded", error.code
+    end
+
+    test "pool members over the collective's daily draw ceiling are skipped" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_fresh")
+      create_funded_member!(funding, stripe_id: "cus_tapped")
+      funding.update!(member_daily_draw_cap_cents: 50)
+      record_spend!("cus_tapped", 50, funding_collective_id: funding.id)
+      @ai_agent.update!(funding_collective: funding)
+
+      20.times do
+        assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "draws for other pools do not count against a collective's ceiling" do
+      funding = create_funding_collective
+      other_pool = create_funding_collective
+      fund!(@user, stripe_id: "cus_pool_a")
+      funding.update!(member_daily_draw_cap_cents: 50)
+      record_spend!("cus_pool_a", 500, funding_collective_id: other_pool.id)
+      @ai_agent.update!(funding_collective: funding)
+
+      assert_equal "cus_pool_a", PayerResolver.resolve(@task_run).payer_customer_id
+    end
+
     test "dry members are skipped in draws" do
       funding = create_funding_collective
       fund!(@user, stripe_id: "cus_active")

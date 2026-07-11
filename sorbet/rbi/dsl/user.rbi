@@ -1475,6 +1475,51 @@ class User
     sig { void }
     def image_url_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def llm_daily_spend_cap_cents; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def llm_daily_spend_cap_cents=(value); end
+
+    sig { returns(T::Boolean) }
+    def llm_daily_spend_cap_cents?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def llm_daily_spend_cap_cents_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def llm_daily_spend_cap_cents_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def llm_daily_spend_cap_cents_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def llm_daily_spend_cap_cents_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def llm_daily_spend_cap_cents_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def llm_daily_spend_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def llm_daily_spend_cap_cents_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def llm_daily_spend_cap_cents_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def llm_daily_spend_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def llm_daily_spend_cap_cents_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def llm_daily_spend_cap_cents_was; end
+
+    sig { void }
+    def llm_daily_spend_cap_cents_will_change!; end
+
     sig { returns(::String) }
     def name; end
 
@@ -1734,6 +1779,9 @@ class User
     def restore_image_url!; end
 
     sig { void }
+    def restore_llm_daily_spend_cap_cents!; end
+
+    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -1840,6 +1888,12 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_image_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_llm_daily_spend_cap_cents; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_llm_daily_spend_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_name; end
@@ -2362,6 +2416,9 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_image_url?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_llm_daily_spend_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end

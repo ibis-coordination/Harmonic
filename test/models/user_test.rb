@@ -2117,5 +2117,18 @@ class UserTest < ActiveSupport::TestCase
     assert_not agent.valid?
     assert agent.errors[:funding_collective_id].join(" ").include?("archived")
   end
+
+  test "a daily spend cap can only be set on AI agents and must be positive" do
+    agent = create_ai_agent(parent: @user)
+    agent.llm_daily_spend_cap_cents = 500
+    assert agent.valid?, agent.errors.full_messages.to_sentence
+
+    agent.llm_daily_spend_cap_cents = 0
+    assert_not agent.valid?
+
+    @user.llm_daily_spend_cap_cents = 500
+    assert_not @user.valid?
+    assert @user.errors[:llm_daily_spend_cap_cents].any?
+  end
 end
 

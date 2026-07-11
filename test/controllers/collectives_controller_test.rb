@@ -2068,6 +2068,19 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Foreign Fund Bot/, response.body)
   end
 
+  test "an admin can set and clear the member daily draw ceiling" do
+    funding = create_funding_collective
+    sign_in_as(@user, tenant: @tenant)
+
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{funding.path}/settings" }
+
+    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "0.50" }, headers: referer
+    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+
+    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "" }, headers: referer
+    assert_nil funding.reload.member_daily_draw_cap_cents
+  end
+
   test "detaching an agent not funded by this collective redirects with an alert" do
     funding = create_funding_collective
     agent = create_ai_agent(parent: @user)

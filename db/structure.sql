@@ -427,7 +427,8 @@ CREATE TABLE public.collectives (
     collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
     trio_user_id uuid,
     tier character varying DEFAULT 'free'::character varying NOT NULL,
-    archived_by_id uuid
+    archived_by_id uuid,
+    member_daily_draw_cap_cents integer
 );
 
 
@@ -2297,7 +2298,8 @@ CREATE TABLE public.users (
     email_confirmation_sent_at timestamp(6) without time zone,
     sessions_revoked_at timestamp(6) without time zone,
     system_role character varying,
-    funding_collective_id uuid
+    funding_collective_id uuid,
+    llm_daily_spend_cap_cents integer
 );
 
 
@@ -10457,6 +10459,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260711140000'),
 ('20260711130000'),
 ('20260711120000'),
 ('20260711010000'),

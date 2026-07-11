@@ -45,7 +45,27 @@ module LLMGateway
     # agent's own billing customer.
     sig { params(agent: User).returns(Result) }
     def self.resolve_for_agent(agent)
+      ensure_within_daily_cap!(agent)
       pool_result(agent, context: "agent=#{agent.id}") || funded_result(agent.billing_customer)
+    end
+
+    # The agent's own per-UTC-day spend ceiling, whoever pays. Enforced
+    # against the usage ledger before any payer is picked.
+    sig { params(agent: User).void }
+    def self.ensure_within_daily_cap!(agent)
+      cap = agent.llm_daily_spend_cap_cents
+      return if cap.nil?
+
+      spent = LLMUsageRecord.where(ai_agent_id: agent.id)
+                            .where(occurred_at: Time.current.utc.beginning_of_day..)
+                            .sum(:estimated_cost_cents)
+      return if spent < cap
+
+      raise ResolutionError.new(
+        "spend_cap_exceeded",
+        :too_many_requests,
+        "The agent's daily spend cap has been reached. It resets at midnight UTC."
+      )
     end
 
     # The Stripe customers eligible to pay for this agent's calls: the funding
@@ -63,10 +83,26 @@ module LLMGateway
                                         .where(collective_id: collective_id, archived_at: nil)
                                         .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
-                    .where.not(pricing_plan_subscription_id: [nil, ""])
-                    .pluck(:stripe_id)
-                    .select { |stripe_id| BalanceGate.funded?(stripe_id) }
+      stripe_ids = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+                                 .where.not(pricing_plan_subscription_id: [nil, ""])
+                                 .pluck(:stripe_id)
+      under_daily_draw_cap(stripe_ids, collective_id).select { |stripe_id| BalanceGate.funded?(stripe_id) }
+    end
+
+    # The collective's per-UTC-day ceiling on drawing from any one member:
+    # members it has already tapped for the cap today drop out of the draw
+    # (draws by other pools don't count — the ceiling is a promise about THIS
+    # collective's reach into a member's balance).
+    sig { params(stripe_ids: T::Array[String], collective_id: String).returns(T::Array[String]) }
+    def self.under_daily_draw_cap(stripe_ids, collective_id)
+      cap = Collective.tenant_scoped_only.find_by(id: collective_id)&.member_daily_draw_cap_cents
+      return stripe_ids if cap.nil?
+
+      drawn = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_collective_id: collective_id)
+                            .where(occurred_at: Time.current.utc.beginning_of_day..)
+                            .group(:payer_stripe_customer_id)
+                            .sum(:estimated_cost_cents)
+      stripe_ids.reject { |stripe_id| drawn.fetch(stripe_id, 0) >= cap }
     end
 
     sig { params(agent: User, context: String).returns(T.nilable(Result)) }
@@ -164,7 +200,9 @@ module LLMGateway
 
     sig { returns(Result) }
     def resolve
-      pool = self.class.pool_result(T.must(@task_run.ai_agent), context: "task_run=#{@task_run.id}")
+      agent = T.must(@task_run.ai_agent)
+      self.class.ensure_within_daily_cap!(agent)
+      pool = self.class.pool_result(agent, context: "task_run=#{@task_run.id}")
       return pool if pool
 
       billing_customer = @task_run.billing_customer
