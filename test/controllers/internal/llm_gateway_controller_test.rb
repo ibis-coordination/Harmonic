@@ -9,6 +9,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
 
     @ai_agent = create_ai_agent(parent: @user)
+    seed_balance!("cus_test123")
     @billing_customer = StripeCustomer.create!(
       billable: @ai_agent,
       stripe_id: "cus_test123",
@@ -53,8 +54,8 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "returns the payer customer id for a funded billed task" do
-    # The credit balance is not consulted here (enforced at dispatch + the
-    # relay's 402), so a live balance call must never happen on this path.
+    # The balance gate reads its fresh snapshot — a live Stripe call must
+    # never happen on the per-call path while snapshots are fresh.
     StripeService.stub :get_credit_balance, ->(_) { raise "must not fetch balance on the select-payer path" } do
       select_payer(task_run_id: @task_run.id, model: "anthropic/claude-sonnet-4.6")
     end
@@ -172,6 +173,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
         @tenant.add_user!(member)
         funding.add_user!(member)
       end
+      seed_balance!(stripe_id)
       StripeCustomer.create!(
         billable: member, stripe_id: stripe_id, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
       )
@@ -216,6 +218,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: falls back to the agent's billing customer" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
+    seed_balance!("cus_external_agent")
     customer = StripeCustomer.create!(
       billable: agent, stripe_id: "cus_external_agent", active: true, pricing_plan_subscription_id: "bpps_ext"
     )
@@ -438,6 +441,13 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     record = LLMUsageRecord.find_by!(selection_id: selection_id)
     assert_equal "completed", record.status
     assert_nil record.estimated_cost_cents
+  end
+
+  # A funded customer also carries a generous fresh balance snapshot, so the
+  # balance gate never reaches for Stripe in tests.
+  def seed_balance!(stripe_id, cents = 1_000_000)
+    StripeBalanceSnapshot.where(stripe_customer_id: stripe_id).delete_all
+    StripeBalanceSnapshot.create!(stripe_customer_id: stripe_id, balance_cents: cents, fetched_at: Time.current)
   end
 
   def record_usage(body_hash)

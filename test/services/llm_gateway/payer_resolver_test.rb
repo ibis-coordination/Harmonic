@@ -41,6 +41,9 @@ module LLMGateway
     end
 
     def fund!(user, stripe_id:, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}")
+      # A funded customer also has a generous fresh balance snapshot, so the
+      # balance gate never reaches for Stripe in tests.
+      seed_balance!(stripe_id, 1_000_000)
       StripeCustomer.create!(
         billable: user,
         stripe_id: stripe_id,
@@ -49,7 +52,13 @@ module LLMGateway
       )
     end
 
+    def seed_balance!(stripe_id, cents, fetched_at: Time.current)
+      StripeBalanceSnapshot.where(stripe_customer_id: stripe_id).delete_all
+      StripeBalanceSnapshot.create!(stripe_customer_id: stripe_id, balance_cents: cents, fetched_at: fetched_at)
+    end
+
     def create_stamped_billing_customer!
+      seed_balance!("cus_individual", 1_000_000)
       billing_customer = StripeCustomer.create!(
         billable: @ai_agent,
         stripe_id: "cus_individual",
@@ -171,6 +180,44 @@ module LLMGateway
       end
     end
 
+    test "dry members are skipped in draws" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_active")
+      create_funded_member!(funding, stripe_id: "cus_dry")
+      # Drained, recently verified — inside the verify throttle, so the gate
+      # neither refetches nor draws from this member.
+      seed_balance!("cus_dry", 0, fetched_at: 5.seconds.ago)
+      @ai_agent.update!(funding_collective: funding)
+
+      20.times do
+        assert_equal "cus_active", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "an all-dry pool raises pool_exhausted" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_active")
+      seed_balance!("cus_active", 0, fetched_at: 5.seconds.ago)
+      @ai_agent.update!(funding_collective: funding)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "pool_exhausted", error.code
+      assert_equal :payment_required, error.http_status
+    end
+
+    test "a dry individual billing customer is refused with balance_exhausted" do
+      create_stamped_billing_customer!
+      seed_balance!("cus_individual", 0, fetched_at: 5.seconds.ago)
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "balance_exhausted", error.code
+      assert_equal :payment_required, error.http_status
+    end
+
     test "an archived funding collective suspends the agent" do
       funding = create_funding_collective
       fund!(@user, stripe_id: "cus_primary")
@@ -212,6 +259,7 @@ module LLMGateway
     # === resolve_for_agent (external gateway calls — no task run) ===
 
     def create_agent_billing_customer!(**overrides)
+      seed_balance!("cus_agent_individual", 1_000_000)
       customer = StripeCustomer.create!(
         billable: @ai_agent,
         stripe_id: "cus_agent_individual",

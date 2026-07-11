@@ -66,6 +66,7 @@ module LLMGateway
       StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
                     .where.not(pricing_plan_subscription_id: [nil, ""])
                     .pluck(:stripe_id)
+                    .select { |stripe_id| BalanceGate.funded?(stripe_id) }
     end
 
     sig { params(agent: User, context: String).returns(T.nilable(Result)) }
@@ -142,6 +143,14 @@ module LLMGateway
           "not_funded",
           :payment_required,
           "AI usage billing is not set up. Add credits at /billing."
+        )
+      end
+
+      unless BalanceGate.funded?(billing_customer.stripe_id)
+        raise ResolutionError.new(
+          "balance_exhausted",
+          :payment_required,
+          "The prepaid balance is empty. Add credits at /billing."
         )
       end
 

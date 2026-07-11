@@ -321,6 +321,10 @@ class StripeService
     )
     Rails.logger.info("[StripeService] Created credit grant of #{amount_cents} cents for customer #{stripe_customer.stripe_id} (session #{checkout_session_id})")
 
+    # A drained payer must recover the moment they top up — drop the cached
+    # balance snapshot so the gate's next check refetches.
+    LLMGateway::BalanceGate.invalidate!(stripe_customer.stripe_id)
+
     # Credits only drain if the customer is subscribed to the LLM-tokens
     # pricing plan; a failure here is logged and dispatch blocks gateway
     # usage until the next top-up retries it.

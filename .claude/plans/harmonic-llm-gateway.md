@@ -545,7 +545,9 @@ its own project. This initial project builds only the minimal UI in stage 3.
   resolution is disabling it entirely. Stage 5's snapshot-minus-ledger gate replaces the
   402's authority with our own, and resolves the dry-member sub-decision in favor of the
   cache: dry members are filtered from the draw up front, so the 402-retry design is
-  unnecessary. Still true and still binding: no live Stripe call in the request path.
+  unnecessary. The surviving rule, stated precisely: no **per-call** live Stripe fetch —
+  the gate's refreshes are TTL-amortized (one per payer per TTL window, plus a throttled
+  verify on a zero-crossing), never one per request.
 - **Model allowlist scope.** Per-gateway-key, per-pool, or global? Reuse
   `StripeGatewayModelMapper`'s mapping/validation.
 - **Internal/external traffic isolation (external phase).** After external access exists,
