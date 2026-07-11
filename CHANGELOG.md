@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.48.0] - 2026-07-11
+
+### Added
+
+- **Agent funding collectives** (#487, toward #464) — the common pool is now a real feature: a new `agent_funding` collective type whose active human members jointly fund an attached agent's LLM calls, drawn uniformly at random per call. Replaces the env-only `LLM_POOL_CONFIG` proof of concept. Wired through collective create/join, agent attach/detach, and profiles; the agent's principal must remain an active member, and archiving the collective suspends its agents. Deploy with migrations.
+- **LLM usage ledger and self-owned spend controls** (#488, toward #464) — every billed gateway call is recorded in a payer-keyed ledger (opened at payer selection, completed with token counts and estimated cost), which powers three controls: a self-owned zero-balance gate (cached Stripe balance snapshot minus ledger spend, fails closed, no per-call Stripe fetch — ready to take over the moment Stripe's per-call rejection is disabled), a per-agent daily spend cap set by the principal (`spend_cap_exceeded`, resets midnight UTC), and a per-member daily draw ceiling on funding collectives. In-flight calls reserve headroom so concurrency can't slip past the controls; the ledger also gives per-agent/per-pool accounting and makes the gateway portable. New optional env vars: `GATEWAY_BALANCE_SNAPSHOT_TTL_SECONDS`, `GATEWAY_BALANCE_BUFFER_CENTS`, `GATEWAY_PENDING_RESERVE_CENTS`. Deploy with migrations.
+
 ## [1.47.0] - 2026-07-10
 
 ### Added
