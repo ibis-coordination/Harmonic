@@ -216,6 +216,51 @@ module LLMGateway
       assert_equal "cus_individual", result.payer_customer_id
     end
 
+    def open_call!(stripe_id, funding_collective_id: nil, agent: @ai_agent, occurred_at: Time.current)
+      LLMUsageRecord.create!(
+        selection_id: "sel_#{SecureRandom.uuid}",
+        status: "pending",
+        ai_agent_id: agent.id,
+        payer_stripe_customer_id: stripe_id,
+        origin_tenant_id: @tenant.id,
+        funding_collective_id: funding_collective_id,
+        occurred_at: occurred_at,
+      )
+    end
+
+    test "in-flight calls reserve against the daily cap" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 50)
+      2.times { open_call!("cus_individual") }
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "spend_cap_exceeded", error.code
+    end
+
+    test "stale pending calls do not reserve against the daily cap" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 50)
+      2.times { open_call!("cus_individual", occurred_at: 20.minutes.ago) }
+
+      result = PayerResolver.resolve(@task_run)
+      assert_equal "cus_individual", result.payer_customer_id
+    end
+
+    test "in-flight draws reserve against the collective's draw ceiling" do
+      funding = create_funding_collective
+      fund!(@user, stripe_id: "cus_fresh")
+      create_funded_member!(funding, stripe_id: "cus_tapped")
+      funding.update!(member_daily_draw_cap_cents: 50)
+      2.times { open_call!("cus_tapped", funding_collective_id: funding.id) }
+      @ai_agent.update!(funding_collective: funding)
+
+      20.times do
+        assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
     test "a call opened yesterday but completed today counts toward the daily cap" do
       create_stamped_billing_customer!
       @ai_agent.update!(llm_daily_spend_cap_cents: 100)

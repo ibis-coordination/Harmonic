@@ -78,14 +78,15 @@ module LLMGateway
       StripeBalanceSnapshot.find_by(stripe_customer_id: stripe_customer_id)
     end
 
-    sig { params(snapshot: StripeBalanceSnapshot).returns(BigDecimal) }
+    sig { params(snapshot: StripeBalanceSnapshot).returns(Numeric) }
     def self.effective_balance_cents(snapshot)
       # Anchored on completed_at, not occurred_at: a call opened before the
       # snapshot but costed after it is in neither the Stripe balance nor an
-      # occurred_at-anchored delta.
-      spend = LLMUsageRecord.where(payer_stripe_customer_id: snapshot.stripe_customer_id)
-                            .where(completed_at: snapshot.fetched_at..)
-                            .sum(:estimated_cost_cents)
+      # occurred_at-anchored delta. In-flight calls hold reservations.
+      spend = LLMUsageRecord.spend_cents_for(
+        { payer_stripe_customer_id: snapshot.stripe_customer_id },
+        since: snapshot.fetched_at,
+      )
       BigDecimal(snapshot.balance_cents) - spend
     end
   end

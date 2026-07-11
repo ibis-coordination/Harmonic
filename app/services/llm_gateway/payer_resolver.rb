@@ -56,9 +56,7 @@ module LLMGateway
       cap = agent.llm_daily_spend_cap_cents
       return if cap.nil?
 
-      spent = LLMUsageRecord.where(ai_agent_id: agent.id)
-                            .where(completed_at: Time.current.utc.beginning_of_day..)
-                            .sum(:estimated_cost_cents)
+      spent = LLMUsageRecord.spend_cents_for({ ai_agent_id: agent.id }, since: Time.current.utc.beginning_of_day)
       return if spent < cap
 
       raise ResolutionError.new(
@@ -98,11 +96,18 @@ module LLMGateway
       cap = Collective.tenant_scoped_only.find_by(id: collective_id)&.member_daily_draw_cap_cents
       return stripe_ids if cap.nil?
 
-      drawn = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_collective_id: collective_id)
-                            .where(completed_at: Time.current.utc.beginning_of_day..)
-                            .group(:payer_stripe_customer_id)
-                            .sum(:estimated_cost_cents)
-      stripe_ids.reject { |stripe_id| drawn.fetch(stripe_id, 0) >= cap }
+      base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_collective_id: collective_id)
+      drawn = base.where(completed_at: Time.current.utc.beginning_of_day..)
+                  .group(:payer_stripe_customer_id)
+                  .sum(:estimated_cost_cents)
+      # In-flight draws hold reservations, same as the flat sums do.
+      in_flight = base.where(status: "pending", occurred_at: LLMUsageRecord::PENDING_RESERVATION_WINDOW.ago..)
+                      .group(:payer_stripe_customer_id)
+                      .count
+      reserve = LLMUsageRecord.pending_reserve_cents
+      stripe_ids.reject do |stripe_id|
+        drawn.fetch(stripe_id, 0) + (in_flight.fetch(stripe_id, 0) * reserve) >= cap
+      end
     end
 
     sig { params(agent: User, context: String).returns(T.nilable(Result)) }

@@ -106,17 +106,35 @@ module LLMGateway
       end
     end
 
-    test "pending ledger rows without a cost do not count against the balance" do
-      seed_snapshot!(100)
+    def open_call!(occurred_at: Time.current, stripe_id: "cus_gate_test")
       agent = @ai_agent ||= create_ai_agent(parent: @user)
       LLMUsageRecord.create!(
         selection_id: "sel_#{SecureRandom.uuid}",
         status: "pending",
         ai_agent_id: agent.id,
-        payer_stripe_customer_id: "cus_gate_test",
+        payer_stripe_customer_id: stripe_id,
         origin_tenant_id: @tenant.id,
-        occurred_at: Time.current,
+        occurred_at: occurred_at,
       )
+    end
+
+    test "recent pending calls reserve headroom against the balance" do
+      # Costs land only at completion, so each in-flight call holds a fixed
+      # reservation — otherwise concurrent calls are all invisible to the
+      # gate until the first ones complete.
+      seed_snapshot!(100, fetched_at: 5.seconds.ago)
+      3.times { open_call! }
+
+      no_stripe! do
+        assert_not BalanceGate.funded?("cus_gate_test"), "3 reservations at 25¢ must drain a 100¢ balance to the buffer"
+      end
+    end
+
+    test "stale pending calls stop reserving" do
+      # A row pending past the window is a call whose usage never came back;
+      # it must not pin the payer at zero forever.
+      seed_snapshot!(100, fetched_at: 5.seconds.ago)
+      3.times { open_call!(occurred_at: 20.minutes.ago) }
 
       no_stripe! do
         assert BalanceGate.funded?("cus_gate_test")
