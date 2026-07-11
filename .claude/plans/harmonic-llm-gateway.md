@@ -146,9 +146,10 @@ Validate the model against the allowlist.
 ```
 
 Rails computes cost from token counts × the per-model rate (pricing stays in Rails, never
-in the gateway) and logs it for observability. Under uniform-random selection this does
-**not** feed back into future selection — it is purely for accounting and monitoring.
-Runs after the client already has its response; retries on failure.
+in the gateway) and records it (the stage-5 usage ledger; log-only until then). Under
+uniform-random selection this does **not** feed back into future selection — it feeds
+accounting, the balance gate's local delta, and spend caps. Runs after the client already
+has its response; retries on failure, deduped on `selection_id`.
 
 ## Selection strategy: uniform random
 
@@ -461,6 +462,75 @@ Still remaining for the beta:
 Exit criteria: a flagged beta collective can drive external LLM calls billed to its pool,
 isolated from internal traffic, with the flag as a one-switch off ramp.
 
+### Stage 5 — Usage ledger and self-owned spend controls
+
+One core, four consumers. A per-call usage ledger is the shared foundation for:
+
+1. **Self-owned zero-balance rejection.** Stripe's per-call balance gate has proven
+   unreliable (it rejects funded customers — the open blocker), and the plausible
+   resolution is Stripe disabling rejection on the account. At that point the relay's 402
+   passthrough is no longer a balance gate at all, and we must refuse dry customers
+   ourselves or eat unbounded overage at invoice time.
+2. **Spend caps** — per-agent daily ceilings, and per-member draw ceilings in pools.
+3. **Per-agent accounting** — usage/cost breakdown by agent for invoicing transparency
+   (Stripe aggregates per customer per model; the agent dimension only exists on our side
+   of the wire).
+4. **Gateway portability** — self-owned metering + gating is most of what a move off
+   Stripe's LLM gateway (e.g. to OpenRouter) would require; this stage makes that a
+   relay swap rather than a rebuild.
+
+**Design: snapshot minus ledger.** No live Stripe call in the request path — ever. The
+effective balance of a payer is a cached Stripe snapshot minus locally recorded spend
+since that snapshot:
+
+- **Ledger** — `llm_usage_records`: tenant, agent, payer `stripe_customer_id` (string —
+  payers can be any funded member), model, input/output tokens, estimated cost (cents,
+  computed in Rails from the per-model rate table), occurred_at, source reference
+  (task_run or api_token), and the `selection_id` minted by `select-payer` as the
+  idempotency key. Written by the already-sketched `record-usage` internal endpoint
+  (fire-and-forget after the response completes; retries dedup on selection_id).
+  Streamed calls report usage in the final SSE chunk only when the request asks for it —
+  the relay injects `stream_options.include_usage` upstream and strips nothing on the way
+  back (clients tolerate the extra chunk; it's valid OpenAI shape).
+- **Snapshot cache** — per payer customer: `CreditBalanceSummary` total + fetched_at,
+  refreshed lazily on TTL expiry (~10 min). Every refresh zeroes the local delta, so
+  estimate drift never accumulates; worst-case overage is bounded by
+  (TTL × spend rate) and still gets billed by Stripe's metering at invoice — this is a
+  gate, not an invoice. The top-up path (`create_credit_grant_from_checkout`) invalidates
+  the payer's snapshot directly, so recovery from empty is immediate, no webhook needed.
+- **Gate** — in `PayerResolver`, the single per-call choke point for both the task-run
+  and external-ingress paths. Pools: dry members are filtered from the draw exactly like
+  lapsed/archived members; an all-dry pool is the existing `pool_exhausted` 402.
+  Individual agents: a dry billing customer is a new `balance_exhausted` 402 (distinct
+  from `not_funded`, which means no prepaid subscription at all).
+  **Verify before rejecting:** the first time a payer's effective balance crosses zero,
+  force one fresh snapshot and re-evaluate before refusing — a stale cache must never
+  reproduce the false-rejection bug we're escaping. Gate threshold is a small
+  configurable buffer above zero to absorb in-flight streamed calls that haven't landed
+  in the ledger yet.
+- **Caps** — pure ledger sums against thresholds, no Stripe involvement: a per-agent
+  daily cap (agent-level setting) refused as `spend_cap_exceeded` 429, and a per-member
+  daily draw ceiling on funding collectives that filters members from the pool draw the
+  same way dry members are filtered. Self-resetting at day boundaries; no state beyond
+  the ledger.
+
+Build order within the stage: (a) ledger + record-usage write path, (b) snapshot cache +
+balance gate, (c) caps. Each lands independently; (a) alone already delivers the
+accounting breakdown.
+
+Non-goals: reservation accounting for concurrent in-flight calls (the buffer absorbs
+this; reservations are complexity to buy only if the gap is demonstrably abused),
+running-counter optimizations (indexed SQL sums are fine at beta volume), Stripe
+reconciliation truing (still deferred — but the ledger is the local half of it when it
+comes), and any dashboard UI (the usage-transparency view builds on the ledger as its
+own follow-up).
+
+Exit criteria: with zero-balance rejection disabled on the Stripe account, a dry
+customer's calls are refused by our gate with the correct wire error while funded
+customers are unaffected; a drained pool member stops being drawn; a per-agent cap
+demonstrably stops spend at the threshold; and ledger totals match the Stripe invoice
+for the same window within estimate tolerance.
+
 ### Deferred — full pool management UX (separate project)
 
 The design-heavy surface: setup and consent flows, monitoring dashboards, spend controls,
@@ -469,14 +539,13 @@ its own project. This initial project builds only the minimal UI in stage 3.
 
 ## Open decisions
 
-- **Balance freshness at selection — decided for single customer, one sub-decision left
-  for pools.** `select-payer` performs no live balance fetch (slow, stale, and it conflates
-  a Stripe API error with an empty balance). The balance gate is dispatch preflight (once
-  per task) plus the relay passing through Stripe's 402 — and the Stripe gateway team has
-  **confirmed zero-balance rejection is enabled** on the account, so the 402 is
-  authoritative, not assumed. Remaining for stage 2: how the pool eligibility filter
-  learns who is dry — short-TTL balance cache vs. treat a relay 402 as "dry now", mark the
-  member, re-pick once. Lean 402-retry (no cache invalidation problem).
+- **Balance freshness at selection — superseded by stage 5.** The original premise
+  ("no live balance fetch; Stripe's per-call 402 is the authoritative gate") died with
+  the blocker: Stripe's rejection fires on funded customers, and the plausible
+  resolution is disabling it entirely. Stage 5's snapshot-minus-ledger gate replaces the
+  402's authority with our own, and resolves the dry-member sub-decision in favor of the
+  cache: dry members are filtered from the draw up front, so the 402-retry design is
+  unnecessary. Still true and still binding: no live Stripe call in the request path.
 - **Model allowlist scope.** Per-gateway-key, per-pool, or global? Reuse
   `StripeGatewayModelMapper`'s mapping/validation.
 - **Internal/external traffic isolation (external phase).** After external access exists,
@@ -484,10 +553,10 @@ its own project. This initial project builds only the minimal UI in stage 3.
   account would otherwise take down internal agents too (they route through the same
   gateway). Likely resolution: one gateway *service*, two credential/quota lanes (separate
   gateway keys and/or rate-limit buckets). Decide when scoping the external phase.
-- **Abuse & spend caps (external phase).** A public money-spending endpoint needs per-key
-  rate limits and per-key/per-pool spend ceilings independent of Stripe's balance gate,
-  plus a top-up chargeback posture (prepaid + consumable + card dispute = losing both the
-  money and the usage). Not needed while internal-only.
+- **Abuse & spend caps (external phase).** Per-key rate limits shipped in stage 4;
+  dollar spend ceilings are designed in stage 5 (per-agent daily cap, per-member pool
+  draw ceiling). Still open: top-up chargeback posture (prepaid + consumable + card
+  dispute = losing both the money and the usage).
 - **Stored-value / pool legal structure.** Before external money flows, get a legal read
   that the pool's direct-pay-per-call design (no inter-user transfer) stays clear of
   money-transmission/stored-value regulation. Product framing itself is **decided** —
