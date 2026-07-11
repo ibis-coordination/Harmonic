@@ -13,6 +13,7 @@ import { Config } from "../config/Config.js";
 import { RailsHttp } from "../services/RailsHttp.js";
 import { StripeUpstream } from "./StripeUpstream.js";
 import { buildHeaders } from "../services/HmacSigner.js";
+import { extractUsageFromJson, reportUsage } from "./UsageReporter.js";
 import { GatewayError } from "../errors/Errors.js";
 import { log } from "../services/Logger.js";
 
@@ -75,7 +76,7 @@ export const relay = (
     }
 
     const parsed = yield* Effect.try({
-      try: () => JSON.parse(selectText) as { payer_customer_id?: string },
+      try: () => JSON.parse(selectText) as { payer_customer_id?: string; selection_id?: string },
       catch: () => new GatewayError({ message: "select-payer returned a non-JSON 200 body" }),
     });
     const payerCustomerId = parsed.payer_customer_id;
@@ -99,6 +100,24 @@ export const relay = (
       status_code: upstream.status,
       duration_ms: Date.now() - startedAt,
     });
+
+    // Close out the ledger row select-payer opened. Fire-and-forget: the
+    // caller already has its response; a successful call whose body somehow
+    // carries no usage stays pending rather than being faked as free.
+    const selectionId = parsed.selection_id;
+    if (selectionId !== undefined && selectionId !== "") {
+      const ok = upstream.status === 200;
+      const usage = ok ? extractUsageFromJson(upstream.body) : null;
+      if (!ok || usage !== null) {
+        void reportUsage(rails, config.agentRunnerSecret, {
+          subdomain: req.subdomain,
+          selectionId,
+          model: req.model,
+          usage,
+          ok,
+        });
+      }
+    }
 
     return { status: upstream.status, body: upstream.body };
   });

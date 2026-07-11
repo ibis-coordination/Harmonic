@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Effect, Layer } from "effect";
 import { externalRelay } from "../../src/gateway/ExternalRelay.js";
 import { StripeUpstream } from "../../src/gateway/StripeUpstream.js";
@@ -93,10 +93,12 @@ describe("external relay", () => {
     });
 
     expect(capturedCustomerId).toBe("cus_abc");
-    // The forwarded body is the client's body with the model rewritten.
+    // The forwarded body is the client's body with the model rewritten and
+    // include_usage injected (streamed calls must report their token counts).
     expect(JSON.parse(capturedBody ?? "{}")).toEqual({
       model: "anthropic/claude-sonnet-4.6",
       stream: true,
+      stream_options: { include_usage: true },
       messages: [{ role: "user", content: "hi" }],
     });
 
@@ -186,5 +188,94 @@ describe("external relay", () => {
     );
 
     expect(JSON.parse(capturedBody ?? "{}")).toEqual({ agent_token: "hg_key" });
+  });
+
+  // Per-path Rails mock: selection succeeds with the given body, every other
+  // path (record-usage) is captured and returns 200.
+  const railsWithLedger = (selectBody: Record<string, unknown>): { layer: Layer.Layer<RailsHttp>; calls: RailsRequestOptions[] } => {
+    const calls: RailsRequestOptions[] = [];
+    const service: RailsHttpService = {
+      request: async (opts): Promise<RailsResponse> => {
+        calls.push(opts);
+        const body = opts.path === "/internal/llm-gateway/select-payer-for-token" ? JSON.stringify(selectBody) : "{}";
+        return { statusCode: 200, headers: {}, text: async () => body };
+      },
+    };
+    return { layer: Layer.succeed(RailsHttp, service), calls };
+  };
+
+  it("reports streamed usage to record-usage after the stream completes", async () => {
+    const { layer, calls } = railsWithLedger({
+      payer_customer_id: "cus_abc",
+      model: "anthropic/claude-sonnet-4.6",
+      selection_id: "sel_ext",
+    });
+    const sse = [
+      'data: {"id":"c1","choices":[{"delta":{"content":"hi"}}],"usage":null}\n\n',
+      'data: {"id":"c1","choices":[],"usage":{"prompt_tokens":40,"completion_tokens":9}}\n\n',
+      "data: [DONE]\n\n",
+    ].join("");
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      layer,
+      stripeLayer(async () => ({ status: 200, contentType: "text/event-stream", body: streamOf(sse) })),
+    );
+
+    const result = await Effect.runPromise(Effect.provide(externalRelay(req), layers));
+    // The client sees the stream verbatim.
+    expect(await new Response(result.body as ReadableStream<Uint8Array>).text()).toBe(sse);
+
+    await vi.waitFor(() => {
+      expect(calls.some((c) => c.path === "/internal/llm-gateway/record-usage")).toBe(true);
+    });
+    const report = calls.find((c) => c.path === "/internal/llm-gateway/record-usage");
+    expect(report?.subdomain).toBe("app");
+    expect(JSON.parse(report?.body ?? "{}")).toEqual({
+      selection_id: "sel_ext",
+      model: "anthropic/claude-sonnet-4.6",
+      input_tokens: 40,
+      output_tokens: 9,
+      status: "ok",
+    });
+  });
+
+  it("reports an upstream error immediately so the ledger row is closed as failed", async () => {
+    const { layer, calls } = railsWithLedger({
+      payer_customer_id: "cus_abc",
+      model: "anthropic/claude-sonnet-4.6",
+      selection_id: "sel_ext_err",
+    });
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      layer,
+      stripeLayer(async () => ({
+        status: 400,
+        contentType: "application/json",
+        body: streamOf(JSON.stringify({ error: { message: "no balance" } })),
+      })),
+    );
+
+    await Effect.runPromise(Effect.provide(externalRelay(req), layers));
+
+    await vi.waitFor(() => {
+      expect(calls.some((c) => c.path === "/internal/llm-gateway/record-usage")).toBe(true);
+    });
+    const report = calls.find((c) => c.path === "/internal/llm-gateway/record-usage");
+    expect(JSON.parse(report?.body ?? "{}")).toMatchObject({ selection_id: "sel_ext_err", status: "error" });
+  });
+
+  it("skips record-usage when selection returned no selection id", async () => {
+    const { layer, calls } = railsWithLedger({ payer_customer_id: "cus_abc", model: "anthropic/claude-sonnet-4.6" });
+    const layers = Layer.mergeAll(
+      ConfigTest,
+      layer,
+      stripeLayer(async () => ({ status: 200, contentType: "application/json", body: streamOf("{}") })),
+    );
+
+    const result = await Effect.runPromise(Effect.provide(externalRelay(req), layers));
+    await new Response(result.body as ReadableStream<Uint8Array>).text();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(calls.every((c) => c.path !== "/internal/llm-gateway/record-usage")).toBe(true);
   });
 });
