@@ -65,6 +65,10 @@ class Collective < ApplicationRecord
   VALID_COLLECTIVE_TYPES = ["standard", "private_workspace", "chat", "agent_funding"].freeze
 
   validates :collective_type, inclusion: { in: VALID_COLLECTIVE_TYPES }
+  # Per-UTC-day ceiling on how much this funding collective may draw from any
+  # single member, enforced per call in LLMGateway::PayerResolver.
+  validates :member_daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validate :member_daily_draw_cap_funding_only, if: :member_daily_draw_cap_cents_changed?
   validate :handle_is_valid
   validate :creator_is_not_collective_identity, on: :create
   validate :collective_type_immutable, on: :update
@@ -200,6 +204,13 @@ class Collective < ApplicationRecord
   sig { returns(T::Boolean) }
   def agent_funding?
     collective_type == "agent_funding"
+  end
+
+  sig { void }
+  def member_daily_draw_cap_funding_only
+    return if member_daily_draw_cap_cents.nil? || agent_funding?
+
+    errors.add(:member_daily_draw_cap_cents, "can only be set on agent funding collectives")
   end
 
   sig { returns(T::Boolean) }

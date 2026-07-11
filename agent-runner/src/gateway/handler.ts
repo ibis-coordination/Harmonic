@@ -18,7 +18,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { Readable } from "node:stream";
+import { Readable, pipeline } from "node:stream";
 import { createHash } from "node:crypto";
 import type { GatewayRelayRequest, GatewayRelayResult } from "./Relay.js";
 import type { ExternalRelayRequest, ExternalRelayResult } from "./ExternalRelay.js";
@@ -79,8 +79,14 @@ const sendExternalResult = (res: ServerResponse, result: ExternalRelayResult): v
     return;
   }
   // Pipe upstream bytes through as they arrive — this is what makes SSE
-  // streaming work end to end.
-  Readable.fromWeb(result.body as import("node:stream/web").ReadableStream<Uint8Array>).pipe(res);
+  // streaming work end to end. pipeline (not .pipe) so a client disconnect
+  // destroys the source — cancelling the web stream and aborting the
+  // upstream fetch, which stops the billed generation — and so a mid-stream
+  // upstream error ends the response instead of crashing the process.
+  const source = Readable.fromWeb(result.body as import("node:stream/web").ReadableStream<Uint8Array>);
+  pipeline(source, res, (error) => {
+    if (error) log.info({ event: "external_stream_closed", reason: error.message });
+  });
 };
 
 const handleInternal = async (

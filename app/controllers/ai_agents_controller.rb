@@ -180,6 +180,17 @@ class AiAgentsController < ApplicationController
     config["allow_public_writes"] = ActiveModel::Type::Boolean.new.cast(params[:allow_public_writes]) if params.key?(:allow_public_writes)
     @ai_agent.agent_configuration = config
 
+    # Daily LLM spend cap: dollars in the form, cents in the column; blank
+    # clears it, an absent param leaves it untouched.
+    if params.key?(:llm_daily_spend_cap)
+      begin
+        @ai_agent.llm_daily_spend_cap_cents = MoneyParam.dollars_to_cents(params[:llm_daily_spend_cap])
+      rescue ArgumentError
+        flash[:error] = "The daily spend cap must be a dollar amount (or blank for no cap)."
+        return redirect_to ai_agent_settings_path(original_handle)
+      end
+    end
+
     # Notification preferences live on the agent's tenant_user and ride along in
     # the same settings form (single Save button — no separate notifications
     # submit). The hidden notifications_present marker distinguishes "every box

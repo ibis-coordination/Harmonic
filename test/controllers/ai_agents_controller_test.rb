@@ -711,6 +711,48 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal true, @ai_agent.agent_configuration["allow_public_writes"]
   end
 
+  test "update_settings sets, keeps, and clears the daily LLM spend cap" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Dollars in the form, cents in the column.
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { llm_daily_spend_cap: "5.50" }
+    assert_response :redirect
+    assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
+
+    # Absent param leaves it untouched.
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { name: "Renamed" }
+    assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
+
+    # Blank clears it.
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { llm_daily_spend_cap: "" }
+    assert_nil @ai_agent.reload.llm_daily_spend_cap_cents
+  end
+
+  test "update_settings rejects an unparseable spend cap with a friendly error" do
+    @ai_agent.update!(llm_daily_spend_cap_cents: 550)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { llm_daily_spend_cap: "lots" }
+
+    assert_response :redirect
+    assert flash[:error].present?
+    assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
+  end
+
+  test "update_settings rejects a spend cap too large for the column" do
+    # A value past int4 parses fine and passes validation, then raises
+    # ActiveModel::RangeError at save — it must get the friendly-error path,
+    # not a 500.
+    @ai_agent.update!(llm_daily_spend_cap_cents: 550)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/ai-agents/#{@ai_agent_handle}/settings", params: { llm_daily_spend_cap: "30000000" }
+
+    assert_response :redirect
+    assert flash[:error].present?
+    assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
+  end
+
   # === Agent notification preferences ===
 
   test "agent settings page renders a single on/off toggle per notification type, no email column" do

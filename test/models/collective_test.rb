@@ -57,6 +57,28 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_nil collective.identity_user, "funding collectives don't act or speak; no identity"
   end
 
+  test "a member daily draw ceiling can only be set on agent_funding collectives and must be positive" do
+    tenant = create_tenant
+    user = create_user
+    funding = Collective.create!(
+      tenant: tenant,
+      created_by: user,
+      name: "Agent Funding",
+      handle: "funding-cap",
+      collective_type: "agent_funding"
+    )
+    funding.member_daily_draw_cap_cents = 500
+    assert funding.valid?, funding.errors.full_messages.to_sentence
+
+    funding.member_daily_draw_cap_cents = 0
+    assert_not funding.valid?
+
+    standard = Collective.create!(tenant: tenant, created_by: user, name: "Standard", handle: "std-cap")
+    standard.member_daily_draw_cap_cents = 500
+    assert_not standard.valid?
+    assert standard.errors[:member_daily_draw_cap_cents].any?
+  end
+
   test "agent_funding collectives refuse shareable invites" do
     tenant = create_tenant
     user = create_user

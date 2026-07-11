@@ -15,6 +15,7 @@ import { Config } from "../config/Config.js";
 import { RailsHttp } from "../services/RailsHttp.js";
 import { StripeUpstream } from "./StripeUpstream.js";
 import { buildHeaders } from "../services/HmacSigner.js";
+import { reportUsage, teeUsage } from "./UsageReporter.js";
 import { GatewayError } from "../errors/Errors.js";
 import { log } from "../services/Logger.js";
 
@@ -94,7 +95,7 @@ export const externalRelay = (
     }
 
     const selectParsed = yield* Effect.try({
-      try: () => JSON.parse(selectText) as { payer_customer_id?: string; model?: string },
+      try: () => JSON.parse(selectText) as { payer_customer_id?: string; model?: string; selection_id?: string | null },
       catch: () => new GatewayError({ message: "select-payer-for-token returned a non-JSON 200 body" }),
     });
     const payerCustomerId = selectParsed.payer_customer_id;
@@ -108,6 +109,20 @@ export const externalRelay = (
     // response back.
     if (mappedModel !== undefined) {
       parsed["model"] = mappedModel;
+    }
+    // Streamed calls only carry a usage block when asked; inject the ask so
+    // the ledger gets token counts. The client sees one extra final chunk —
+    // valid OpenAI shape. An explicit include_usage: false is honored (the
+    // client's parser may not take that chunk); the ledger row staying
+    // pending is the designed fallback.
+    if (parsed["stream"] === true) {
+      const existing =
+        typeof parsed["stream_options"] === "object" && parsed["stream_options"] !== null && !Array.isArray(parsed["stream_options"])
+          ? (parsed["stream_options"] as Record<string, unknown>)
+          : {};
+      if (existing["include_usage"] !== false) {
+        parsed["stream_options"] = { ...existing, include_usage: true };
+      }
     }
     const startedAt = Date.now();
     const upstream = yield* Effect.tryPromise({
@@ -126,6 +141,38 @@ export const externalRelay = (
       status_code: upstream.status,
       duration_ms: Date.now() - startedAt,
     });
+
+    // Close out the ledger row the selection opened. Success: tee the stream
+    // and report token counts once it ends (a stream that never carried
+    // usage stays pending rather than being faked as free). Upstream error:
+    // close the row as failed immediately.
+    // Rails renders selection_id: null when opening the ledger row failed.
+    const selectionId = selectParsed.selection_id;
+    const reportModel = mappedModel ?? requestedModel ?? "";
+    if (typeof selectionId === "string" && selectionId !== "") {
+      if (upstream.status !== 200 || upstream.body === null) {
+        void reportUsage(rails, config.agentRunnerSecret, {
+          subdomain: config.primarySubdomain,
+          selectionId,
+          model: reportModel,
+          usage: null,
+          ok: false,
+        });
+      } else {
+        const teed = teeUsage(upstream.body, upstream.contentType);
+        void teed.usage.then((usage) => {
+          if (usage === null) return;
+          return reportUsage(rails, config.agentRunnerSecret, {
+            subdomain: config.primarySubdomain,
+            selectionId,
+            model: reportModel,
+            usage,
+            ok: true,
+          });
+        });
+        return { status: upstream.status, contentType: upstream.contentType, body: teed.stream };
+      }
+    }
 
     return { status: upstream.status, contentType: upstream.contentType, body: upstream.body ?? "" };
   });

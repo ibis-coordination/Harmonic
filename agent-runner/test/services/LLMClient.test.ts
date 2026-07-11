@@ -215,6 +215,27 @@ describe("LLMClient request logging", () => {
     expect(entry?.["duration_ms"]).toBeGreaterThanOrEqual(0);
   });
 
+  it("surfaces the gateway's reason when a spend cap trips", async () => {
+    vi.spyOn(log, "warn").mockImplementation(() => {});
+    const capBody = JSON.stringify({
+      error: "spend_cap_exceeded",
+      message: "The agent's daily spend cap has been reached. It resets at midnight UTC.",
+    });
+
+    // A canned "rate limited, try again" message would misdirect the agent
+    // into futile retries until midnight UTC — the real reason must survive.
+    await expect(
+      runChatWith(
+        {},
+        {
+          routing,
+          gatewayMode: "stripe_gateway",
+          response: new Response(capBody, { status: 429 }),
+        },
+      ),
+    ).rejects.toThrow(/spend_cap_exceeded/);
+  });
+
   it("logs the failure status when the gateway rejects the request", async () => {
     const warnSpy = vi.spyOn(log, "warn").mockImplementation(() => {});
 
@@ -227,7 +248,7 @@ describe("LLMClient request logging", () => {
           response: new Response("insufficient credit", { status: 402 }),
         },
       ),
-    ).rejects.toThrow(/Payment required/);
+    ).rejects.toThrow(/insufficient credit/);
 
     const entry = warnSpy.mock.calls
       .map((c) => c[0] as Record<string, unknown>)

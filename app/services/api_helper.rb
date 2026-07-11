@@ -906,6 +906,17 @@ class ApiHelper
       current_collective.timezone = params[:timezone] if params[:timezone].present?
       current_collective.tempo = params[:tempo] if params[:tempo].present?
       current_collective.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
+      # Per-member daily draw ceiling (agent_funding only — model-validated).
+      # Dollars in, cents stored; blank clears it. The action wrapper renders
+      # whatever message is raised, so re-raise the parse failure in words the
+      # caller can act on.
+      if params.has_key?(:member_daily_draw_cap)
+        begin
+          current_collective.member_daily_draw_cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
+        rescue ArgumentError
+          raise ArgumentError, "The member daily draw ceiling must be a dollar amount (or blank for no ceiling)."
+        end
+      end
 
       # Handle settings stored in JSON column (skip for private workspaces — enforced settings)
       unless current_collective.private_workspace?

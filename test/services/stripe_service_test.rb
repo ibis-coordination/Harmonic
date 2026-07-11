@@ -1780,6 +1780,18 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_nil sc.reload.pricing_plan_subscription_id
   end
 
+  test "create_credit_grant_from_checkout invalidates the payer's balance snapshot" do
+    sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_grant_snap", active: true, pricing_plan_subscription_id: "bpps_snap")
+    StripeBalanceSnapshot.create!(stripe_customer_id: "cus_grant_snap", balance_cents: 0, fetched_at: Time.current)
+    stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")
+      .to_return(status: 200, body: { id: "credgr_snap" }.to_json, headers: { "Content-Type" => "application/json" })
+
+    StripeService.create_credit_grant_from_checkout(stripe_customer: sc, amount_cents: 500, checkout_session_id: "cs_snap_inv")
+
+    assert_nil StripeBalanceSnapshot.find_by(stripe_customer_id: "cus_grant_snap"),
+               "a top-up must invalidate the drained snapshot so recovery is immediate"
+  end
+
   test "create_credit_grant_from_checkout also subscribes the customer to the pricing plan" do
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_grant_plan", active: true)
     stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")

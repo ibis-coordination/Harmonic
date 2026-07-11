@@ -427,7 +427,8 @@ CREATE TABLE public.collectives (
     collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
     trio_user_id uuid,
     tier character varying DEFAULT 'free'::character varying NOT NULL,
-    archived_by_id uuid
+    archived_by_id uuid,
+    member_daily_draw_cap_cents integer
 );
 
 
@@ -851,6 +852,31 @@ CREATE TABLE public.links (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     collective_id uuid
+);
+
+
+--
+-- Name: llm_usage_records; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.llm_usage_records (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    origin_tenant_id uuid NOT NULL,
+    ai_agent_id uuid NOT NULL,
+    funding_collective_id uuid,
+    payer_stripe_customer_id character varying NOT NULL,
+    selection_id character varying NOT NULL,
+    status character varying DEFAULT 'pending'::character varying NOT NULL,
+    model character varying,
+    input_tokens integer,
+    output_tokens integer,
+    estimated_cost_cents numeric(14,6),
+    ai_agent_task_run_id uuid,
+    api_token_id uuid,
+    occurred_at timestamp(6) without time zone NOT NULL,
+    completed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
 );
 
 
@@ -1725,6 +1751,20 @@ CREATE TABLE public.search_index_p9 (
 
 
 --
+-- Name: stripe_balance_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stripe_balance_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    stripe_customer_id character varying NOT NULL,
+    balance_cents integer NOT NULL,
+    fetched_at timestamp(6) without time zone NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+
+--
 -- Name: stripe_customers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2259,7 +2299,8 @@ CREATE TABLE public.users (
     email_confirmation_sent_at timestamp(6) without time zone,
     sessions_revoked_at timestamp(6) without time zone,
     system_role character varying,
-    funding_collective_id uuid
+    funding_collective_id uuid,
+    llm_daily_spend_cap_cents integer
 );
 
 
@@ -2759,6 +2800,14 @@ ALTER TABLE ONLY public.links
 
 
 --
+-- Name: llm_usage_records llm_usage_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT llm_usage_records_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: mcp_tool_call_logs mcp_tool_call_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3004,6 +3053,14 @@ ALTER TABLE ONLY public.search_index_p8
 
 ALTER TABLE ONLY public.search_index_p9
     ADD CONSTRAINT search_index_p9_pkey PRIMARY KEY (tenant_id, id);
+
+
+--
+-- Name: stripe_balance_snapshots stripe_balance_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stripe_balance_snapshots
+    ADD CONSTRAINT stripe_balance_snapshots_pkey PRIMARY KEY (id);
 
 
 --
@@ -3277,6 +3334,13 @@ CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit
 
 
 --
+-- Name: idx_llm_usage_on_pool_payer_completed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_llm_usage_on_pool_payer_completed ON public.llm_usage_records USING btree (funding_collective_id, payer_stripe_customer_id, completed_at) WHERE (funding_collective_id IS NOT NULL);
+
+
+--
 -- Name: idx_mcp_logs_on_task_run_and_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3316,6 +3380,20 @@ CREATE UNIQUE INDEX idx_members_tenant_collective_user ON public.collective_memb
 --
 
 CREATE INDEX idx_on_mcp_tool_call_log_id_created_at_1e02440f92 ON public.mcp_tool_call_resources USING btree (mcp_tool_call_log_id, created_at);
+
+
+--
+-- Name: idx_on_payer_stripe_customer_id_completed_at_399b313a19; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_payer_stripe_customer_id_completed_at_399b313a19 ON public.llm_usage_records USING btree (payer_stripe_customer_id, completed_at);
+
+
+--
+-- Name: idx_on_payer_stripe_customer_id_occurred_at_23f65307ac; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_payer_stripe_customer_id_occurred_at_23f65307ac ON public.llm_usage_records USING btree (payer_stripe_customer_id, occurred_at);
 
 
 --
@@ -4488,6 +4566,27 @@ CREATE INDEX index_links_on_to_linkable ON public.links USING btree (to_linkable
 
 
 --
+-- Name: index_llm_usage_records_on_ai_agent_id_and_completed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_llm_usage_records_on_ai_agent_id_and_completed_at ON public.llm_usage_records USING btree (ai_agent_id, completed_at);
+
+
+--
+-- Name: index_llm_usage_records_on_ai_agent_id_and_occurred_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_llm_usage_records_on_ai_agent_id_and_occurred_at ON public.llm_usage_records USING btree (ai_agent_id, occurred_at);
+
+
+--
+-- Name: index_llm_usage_records_on_selection_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_llm_usage_records_on_selection_id ON public.llm_usage_records USING btree (selection_id);
+
+
+--
 -- Name: index_mcp_tool_call_logs_on_api_token_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4926,6 +5025,13 @@ CREATE UNIQUE INDEX index_representation_sessions_on_truncated_id ON public.repr
 --
 
 CREATE INDEX index_representation_sessions_on_trustee_grant_id ON public.representation_sessions USING btree (trustee_grant_id);
+
+
+--
+-- Name: index_stripe_balance_snapshots_on_stripe_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_stripe_balance_snapshots_on_stripe_customer_id ON public.stripe_balance_snapshots USING btree (stripe_customer_id);
 
 
 --
@@ -9042,6 +9148,14 @@ ALTER TABLE ONLY public.agent_session_steps
 
 
 --
+-- Name: llm_usage_records fk_rails_1162436250; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT fk_rails_1162436250 FOREIGN KEY (funding_collective_id) REFERENCES public.collectives(id);
+
+
+--
 -- Name: options fk_rails_129a008786; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9167,6 +9281,14 @@ ALTER TABLE ONLY public.invites
 
 ALTER TABLE ONLY public.commitments
     ADD CONSTRAINT fk_rails_2b0260c142 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: llm_usage_records fk_rails_2b098f105b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT fk_rails_2b098f105b FOREIGN KEY (ai_agent_id) REFERENCES public.users(id);
 
 
 --
@@ -9530,6 +9652,14 @@ ALTER TABLE ONLY public.invites
 
 
 --
+-- Name: llm_usage_records fk_rails_6dea1e3f2a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT fk_rails_6dea1e3f2a FOREIGN KEY (origin_tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: notes fk_rails_6e1963e950; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9618,6 +9748,14 @@ ALTER TABLE ONLY public.decision_participants
 
 
 --
+-- Name: llm_usage_records fk_rails_84d3b918da; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT fk_rails_84d3b918da FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id);
+
+
+--
 -- Name: automation_rules fk_rails_858e51f175; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9703,6 +9841,14 @@ ALTER TABLE ONLY public.agent_session_steps
 
 ALTER TABLE ONLY public.note_history_events
     ADD CONSTRAINT fk_rails_927b722124 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
+-- Name: llm_usage_records fk_rails_929d02a160; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT fk_rails_929d02a160 FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
 
 
 --
@@ -10328,6 +10474,9 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260711140000'),
+('20260711130000'),
+('20260711120000'),
 ('20260711010000'),
 ('20260710010000'),
 ('20260709190000'),

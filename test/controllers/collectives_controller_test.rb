@@ -2068,6 +2068,62 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Foreign Fund Bot/, response.body)
   end
 
+  test "an admin can set and clear the member daily draw ceiling" do
+    funding = create_funding_collective
+    sign_in_as(@user, tenant: @tenant)
+
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{funding.path}/settings" }
+
+    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "0.50" }, headers: referer
+    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+
+    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "" }, headers: referer
+    assert_nil funding.reload.member_daily_draw_cap_cents
+  end
+
+  test "an over-large draw ceiling is rejected with a friendly error" do
+    funding = create_funding_collective
+    funding.update!(member_daily_draw_cap_cents: 50)
+    sign_in_as(@user, tenant: @tenant)
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{funding.path}/settings" }
+
+    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "30000000" }, headers: referer
+
+    assert_response :redirect
+    assert flash[:error].present?
+    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+  end
+
+  test "the update_collective_settings action sets and clears the draw ceiling" do
+    funding = create_funding_collective
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{funding.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "0.75" }.to_json, headers: headers
+    assert_response :success
+    assert_equal 75, funding.reload.member_daily_draw_cap_cents
+
+    post "#{funding.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "" }.to_json, headers: headers
+    assert_response :success
+    assert_nil funding.reload.member_daily_draw_cap_cents
+  end
+
+  test "the update_collective_settings action rejects a bad draw ceiling with a friendly message" do
+    funding = create_funding_collective
+    funding.update!(member_daily_draw_cap_cents: 50)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{funding.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "lots" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_no_match(/BigDecimal/, response.body, "internal parse errors must not leak to the action API")
+    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+  end
+
   test "detaching an agent not funded by this collective redirects with an alert" do
     funding = create_funding_collective
     agent = create_ai_agent(parent: @user)

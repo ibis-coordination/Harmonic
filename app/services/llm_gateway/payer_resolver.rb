@@ -10,7 +10,10 @@ module LLMGateway
   class PayerResolver
     extend T::Sig
 
-    Result = Struct.new(:payer_customer_id, keyword_init: true)
+    # funding_collective_id names the pool a draw came from (nil when the
+    # agent's own billing customer pays) — stamped on the usage ledger for
+    # point-in-time attribution, since the agent's pool link is mutable.
+    Result = Struct.new(:payer_customer_id, :funding_collective_id, keyword_init: true)
 
     # A resolution failure that carries the wire error code and HTTP status the
     # gateway (and its callers) should surface.
@@ -42,13 +45,33 @@ module LLMGateway
     # agent's own billing customer.
     sig { params(agent: User).returns(Result) }
     def self.resolve_for_agent(agent)
+      ensure_within_daily_cap!(agent)
       pool_result(agent, context: "agent=#{agent.id}") || funded_result(agent.billing_customer)
     end
 
+    # The agent's own per-UTC-day spend ceiling, whoever pays. Enforced
+    # against the usage ledger before any payer is picked.
+    sig { params(agent: User).void }
+    def self.ensure_within_daily_cap!(agent)
+      cap = agent.llm_daily_spend_cap_cents
+      return if cap.nil?
+
+      spent = LLMUsageRecord.spend_cents_for({ ai_agent_id: agent.id }, since: Time.current.utc.beginning_of_day)
+      return if spent < cap
+
+      raise ResolutionError.new(
+        "spend_cap_exceeded",
+        :too_many_requests,
+        "The agent's daily spend cap has been reached. It resets at midnight UTC."
+      )
+    end
+
     # The Stripe customers eligible to pay for this agent's calls: the funding
-    # collective's active human members whose own billing is funded (active
-    # customer with a prepaid-credit subscription). Members whose funding
-    # lapsed are skipped rather than pool-breaking. Lookups use
+    # collective's active human members with active, prepaid-credit-subscribed
+    # billing, under the collective's draw ceiling. Members whose funding
+    # lapsed are skipped rather than pool-breaking. Balances are NOT checked
+    # here — the balance gate can reach for Stripe on a stale snapshot, so it
+    # runs once against the sampled candidate, not per member. Lookups use
     # tenant_scoped_only + explicit ids — never collective-scoped associations,
     # which misbehave outside normal request scoping.
     sig { params(agent: User).returns(T::Array[String]) }
@@ -60,9 +83,33 @@ module LLMGateway
                                         .where(collective_id: collective_id, archived_at: nil)
                                         .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
-                    .where.not(pricing_plan_subscription_id: [nil, ""])
-                    .pluck(:stripe_id)
+      stripe_ids = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+                                 .where.not(pricing_plan_subscription_id: [nil, ""])
+                                 .pluck(:stripe_id)
+      under_daily_draw_cap(stripe_ids, collective_id)
+    end
+
+    # The collective's per-UTC-day ceiling on drawing from any one member:
+    # members it has already tapped for the cap today drop out of the draw
+    # (draws by other pools don't count — the ceiling is a promise about THIS
+    # collective's reach into a member's balance).
+    sig { params(stripe_ids: T::Array[String], collective_id: String).returns(T::Array[String]) }
+    def self.under_daily_draw_cap(stripe_ids, collective_id)
+      cap = Collective.tenant_scoped_only.find_by(id: collective_id)&.member_daily_draw_cap_cents
+      return stripe_ids if cap.nil?
+
+      base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_collective_id: collective_id)
+      drawn = base.where(completed_at: Time.current.utc.beginning_of_day..)
+                  .group(:payer_stripe_customer_id)
+                  .sum(:estimated_cost_cents)
+      # In-flight draws hold reservations, same as the flat sums do.
+      in_flight = base.where(status: "pending", occurred_at: LLMUsageRecord::PENDING_RESERVATION_WINDOW.ago..)
+                      .group(:payer_stripe_customer_id)
+                      .count
+      reserve = LLMUsageRecord.pending_reserve_cents
+      stripe_ids.reject do |stripe_id|
+        drawn.fetch(stripe_id, 0) + (in_flight.fetch(stripe_id, 0) * reserve) >= cap
+      end
     end
 
     sig { params(agent: User, context: String).returns(T.nilable(Result)) }
@@ -73,7 +120,13 @@ module LLMGateway
       ensure_primary_active!(agent)
 
       pool = pool_customer_ids(agent)
-      if pool.empty?
+      # Sample first, verify the balance of only the sampled member (falling
+      # through to the next on a dry balance): the gate can reach for Stripe
+      # on a stale snapshot, so verifying the whole pool would put one Stripe
+      # round-trip per member on the per-call path. A funded pool costs one
+      # check; the worst case (everyone dry) still checks each member once.
+      payer = pool.shuffle.find { |stripe_id| BalanceGate.funded?(stripe_id) }
+      if payer.nil?
         raise ResolutionError.new(
           "pool_exhausted",
           :payment_required,
@@ -81,9 +134,8 @@ module LLMGateway
         )
       end
 
-      payer = T.must(pool.sample)
       Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{pool.size}")
-      Result.new(payer_customer_id: payer)
+      Result.new(payer_customer_id: payer, funding_collective_id: agent.funding_collective_id)
     end
 
     # Archiving a funding collective is how the arrangement is wound down, so
@@ -125,13 +177,12 @@ module LLMGateway
     # must exist, or metered usage would never bill. This is a cheap, local
     # check.
     #
-    # The credit *balance* is deliberately NOT fetched here. Payer resolution
-    # runs on the per-LLM-call path, and a live Stripe balance call there is
-    # both slow and stale (Stripe aggregates deductions rather than deducting
-    # in real time), and it conflates a Stripe API error with an empty
-    # balance. The balance gate is enforced once at dispatch preflight and,
-    # authoritatively, by the gateway relaying a Stripe 402 when the balance
-    # is empty.
+    # The balance check goes through BalanceGate: normally a cached snapshot
+    # minus the local ledger delta, with Stripe consulted only on a snapshot
+    # miss or TTL expiry — never a per-call fetch (a live call here would be
+    # slow and stale, since Stripe aggregates deductions rather than
+    # deducting in real time). The gateway relaying a Stripe 402 remains the
+    # authoritative backstop.
     sig { params(billing_customer: T.nilable(StripeCustomer)).returns(Result) }
     def self.funded_result(billing_customer)
       if billing_customer.nil? || billing_customer.pricing_plan_subscription_id.blank?
@@ -139,6 +190,14 @@ module LLMGateway
           "not_funded",
           :payment_required,
           "AI usage billing is not set up. Add credits at /billing."
+        )
+      end
+
+      unless BalanceGate.funded?(billing_customer.stripe_id)
+        raise ResolutionError.new(
+          "balance_exhausted",
+          :payment_required,
+          "The prepaid balance is empty. Add credits at /billing."
         )
       end
 
@@ -152,7 +211,9 @@ module LLMGateway
 
     sig { returns(Result) }
     def resolve
-      pool = self.class.pool_result(T.must(@task_run.ai_agent), context: "task_run=#{@task_run.id}")
+      agent = T.must(@task_run.ai_agent)
+      self.class.ensure_within_daily_cap!(agent)
+      pool = self.class.pool_result(agent, context: "task_run=#{@task_run.id}")
       return pool if pool
 
       billing_customer = @task_run.billing_customer

@@ -159,12 +159,10 @@ export const LLMClientLive = Layer.effect(
               ...requestLogFields,
               error_body: errorBody.slice(0, 200),
             });
-            if (response.status === 402) {
-              throw new Error("Payment required. Please check your billing setup.");
-            }
-            if (response.status === 429) {
-              throw new Error("Rate limited by LLM provider. Please try again later.");
-            }
+            // No canned per-status messages: this error is all the task run
+            // ever sees, and the gateway's body distinguishes a spend cap
+            // (don't retry until midnight UTC) from provider rate limiting,
+            // and a dry pool from the agent's own billing.
             throw new Error(`LLM request failed with status ${response.status}: ${errorBody.slice(0, 500)}`);
           }
 

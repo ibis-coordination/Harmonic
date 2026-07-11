@@ -27,6 +27,7 @@ Rails.application.routes.draw do
   scope "internal/llm-gateway", module: "internal", as: "internal_llm_gateway" do
     post 'select-payer' => 'llm_gateway#select_payer'
     post 'select-payer-for-token' => 'llm_gateway#select_payer_for_token'
+    post 'record-usage' => 'llm_gateway#record_usage'
   end
 
   # Incoming webhooks - public endpoint for external automation triggers

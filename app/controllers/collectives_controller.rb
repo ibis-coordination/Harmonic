@@ -232,6 +232,16 @@ class CollectivesController < ApplicationController
     @current_collective.timezone = params[:timezone]
     @current_collective.tempo = params[:tempo]
     @current_collective.synchronization_mode = params[:synchronization_mode]
+    # Per-member daily draw ceiling (agent_funding only — model-validated).
+    # Dollars in the form, cents in the column; blank clears it.
+    if params.key?(:member_daily_draw_cap)
+      begin
+        @current_collective.member_daily_draw_cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
+      rescue ArgumentError
+        flash[:error] = "The member daily draw ceiling must be a dollar amount (or blank for no ceiling)."
+        return redirect_to "#{@current_collective.path}/settings"
+      end
+    end
     unless @current_collective.private_workspace?
       @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
       @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
