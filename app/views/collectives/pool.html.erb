@@ -45,7 +45,7 @@
 
     <p class="pulse-body-text">
       Pool draw ceiling: this pool stops drawing from a member once its draws from
-      them reach <strong><%= number_to_currency(@funding_pool.member_daily_draw_cap_cents / 100.0) %></strong>
+      them reach <strong><%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %></strong>
       for the day (UTC). Each member also sets their own ceiling when enrolling —
       the lower of the two applies. Ceilings are per pool: draws by other pools
       you may be enrolled in count against those pools' ceilings, not this one's.
@@ -92,26 +92,26 @@
         <p class="pulse-body-text">
           You are enrolled: this pool's agents can draw from your prepaid balance,
           up to your own ceiling of
-          <strong><%= number_to_currency(@current_user_enrollment.daily_draw_cap_cents / 100.0) %></strong>
+          <strong><%= number_to_currency(@current_user_enrollment.draw_cap_cents / 100.0) %></strong>
           per day (or the pool's ceiling, whichever is lower).
           Withdrawing drops you out of draws immediately.
         </p>
         <% if @funding_pools_enabled %>
-          <% matches_pool = @current_user_enrollment.daily_draw_cap_cents == @funding_pool.member_daily_draw_cap_cents %>
+          <% matches_pool = @current_user_enrollment.draw_cap_cents == @funding_pool.member_draw_cap_cents %>
           <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
             <fieldset class="pulse-radio-group">
               <legend class="pulse-fieldset-legend">Your daily ceiling</legend>
               <label class="pulse-radio-label">
                 <input type="radio" name="ceiling_choice" value="pool" <%= "checked" if matches_pool %> class="pulse-radio-input">
-                <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_daily_draw_cap_cents / 100.0) %> per day</span>
+                <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per day</span>
               </label>
               <label class="pulse-radio-label">
                 <input type="radio" name="ceiling_choice" value="custom" <%= "checked" unless matches_pool %> class="pulse-radio-input">
                 <span>Set your own lower ceiling (USD per day):</span>
                 <input type="number" name="daily_draw_cap" min="0.01" step="0.01"
-                       max="<%= @funding_pool.member_daily_draw_cap_cents / 100.0 %>"
-                       value="<%= @current_user_enrollment.daily_draw_cap_cents / 100.0 unless matches_pool %>"
+                       max="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
+                       value="<%= @current_user_enrollment.draw_cap_cents / 100.0 unless matches_pool %>"
                        class="pulse-form-input" style="width: auto;">
               </label>
             </fieldset>
@@ -136,13 +136,13 @@
             <legend class="pulse-fieldset-legend">Your daily ceiling</legend>
             <label class="pulse-radio-label">
               <input type="radio" name="ceiling_choice" value="pool" checked class="pulse-radio-input">
-              <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_daily_draw_cap_cents / 100.0) %> per day</span>
+              <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per day</span>
             </label>
             <label class="pulse-radio-label">
               <input type="radio" name="ceiling_choice" value="custom" class="pulse-radio-input">
               <span>Set your own lower ceiling (USD per day):</span>
               <input type="number" name="daily_draw_cap" min="0.01" step="0.01"
-                     max="<%= @funding_pool.member_daily_draw_cap_cents / 100.0 %>"
+                     max="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
                      class="pulse-form-input" style="width: auto;">
             </label>
           </fieldset>

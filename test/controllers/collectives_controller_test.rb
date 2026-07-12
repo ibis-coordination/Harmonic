@@ -1863,7 +1863,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   def create_pool!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_daily_draw_cap_cents: 500)
+    FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_draw_cap_cents: 500)
   ensure
     Tenant.clear_thread_scope
   end
@@ -1875,9 +1875,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
   end
 
-  def enroll!(pool, user, daily_draw_cap_cents: 500)
+  def enroll!(pool, user, draw_cap_cents: 500)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    pool.enroll!(user, daily_draw_cap_cents: daily_draw_cap_cents)
+    pool.enroll!(user, draw_cap_cents: draw_cap_cents)
   ensure
     Tenant.clear_thread_scope
   end
@@ -1897,7 +1897,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{collective.path}/settings"
     pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
     assert pool.present?
-    assert_equal 500, pool.member_daily_draw_cap_cents
+    assert_equal 500, pool.member_draw_cap_cents
   end
 
   test "creating a pool without a draw ceiling is refused" do
@@ -1990,7 +1990,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{collective.path}/settings"
     pool.reload
     assert_not pool.archived?, "expected the closed pool to reopen"
-    assert_equal 500, pool.member_daily_draw_cap_cents, "reopening without a ceiling param keeps the existing ceiling"
+    assert_equal 500, pool.member_draw_cap_cents, "reopening without a ceiling param keeps the existing ceiling"
   end
 
   test "reopening a closed pool with a ceiling param updates the ceiling" do
@@ -2004,7 +2004,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     pool.reload
     assert_not pool.archived?
-    assert_equal 250, pool.member_daily_draw_cap_cents
+    assert_equal 250, pool.member_draw_cap_cents
   end
 
   test "an admin can close the pool" do
@@ -2046,7 +2046,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{collective.path}/pool"
     assert active_enrollment?(pool, @user)
     enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
-    assert_equal 300, enrollment.daily_draw_cap_cents
+    assert_equal 300, enrollment.draw_cap_cents
   end
 
   test "enrolling without a ceiling is refused" do
@@ -2079,7 +2079,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to "#{collective.path}/pool"
     enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
-    assert_equal 500, enrollment.daily_draw_cap_cents, "the pool choice snapshots the pool's ceiling as the member's own"
+    assert_equal 500, enrollment.draw_cap_cents, "the pool choice snapshots the pool's ceiling as the member's own"
   end
 
   test "enrolling with the custom choice but no amount is refused" do
@@ -2123,7 +2123,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{collective.path}/pool"
     assert active_enrollment?(pool, @user)
     enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
-    assert_equal 125, enrollment.daily_draw_cap_cents
+    assert_equal 125, enrollment.draw_cap_cents
   end
 
   test "enrolling without funded billing fails with a friendly error" do
@@ -2342,7 +2342,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # posts alone — a cap-only POST must not clobber the fields the main
     # settings form would have carried.
     post "#{collective.path}/settings", params: { member_daily_draw_cap: "0.50" }, headers: referer
-    assert_equal 50, pool.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
     collective.reload
     assert_equal original_name, collective.name, "a cap-only POST must not blank the name"
     assert collective.all_members_can_invite?, "a cap-only POST must not reset the invitation policy"
@@ -2351,14 +2351,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # clear it, not a way to lift the limit.
     post "#{collective.path}/settings", params: { member_daily_draw_cap: "" }, headers: referer
     assert flash[:error].present?, "clearing the ceiling must be refused"
-    assert_equal 50, pool.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
   test "an over-large draw ceiling is rejected with a friendly error" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
-    pool.update!(member_daily_draw_cap_cents: 50)
+    pool.update!(member_draw_cap_cents: 50)
     sign_in_as(@user, tenant: @tenant)
     referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
 
@@ -2366,7 +2366,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert flash[:error].present?
-    assert_equal 50, pool.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
   test "the update_collective_settings action sets the draw ceiling but refuses to clear it" do
@@ -2379,19 +2379,19 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "#{collective.path}/settings/actions/update_collective_settings",
          params: { member_daily_draw_cap: "0.75" }.to_json, headers: headers
     assert_response :success
-    assert_equal 75, pool.reload.member_daily_draw_cap_cents
+    assert_equal 75, pool.reload.member_draw_cap_cents
 
     post "#{collective.path}/settings/actions/update_collective_settings",
          params: { member_daily_draw_cap: "" }.to_json, headers: headers
     assert_response :unprocessable_entity
-    assert_equal 75, pool.reload.member_daily_draw_cap_cents, "the ceiling is mandatory and cannot be cleared"
+    assert_equal 75, pool.reload.member_draw_cap_cents, "the ceiling is mandatory and cannot be cleared"
   end
 
   test "the update_collective_settings action rejects a bad draw ceiling with a friendly message" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
-    pool.update!(member_daily_draw_cap_cents: 50)
+    pool.update!(member_draw_cap_cents: 50)
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
@@ -2400,14 +2400,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_no_match(/BigDecimal/, response.body, "internal parse errors must not leak to the action API")
-    assert_equal 50, pool.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
   test "the draw ceiling action is refused while the flag is off" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
-    pool.update!(member_daily_draw_cap_cents: 50)
+    pool.update!(member_draw_cap_cents: 50)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     collective.disable_feature_flag!("funding_pools")
     Tenant.clear_thread_scope
@@ -2419,7 +2419,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_match(/not enabled/i, response.body)
-    assert_equal 50, pool.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
   test "the markdown settings page notes the wind-down state when the flag is off" do
@@ -2628,7 +2628,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
-    pool.update!(member_daily_draw_cap_cents: 150)
+    pool.update!(member_draw_cap_cents: 150)
     fund_user!(@user)
     enroll!(pool, @user)
     agent = create_ai_agent(parent: @user, name: "Pool Md Bot")
@@ -2685,7 +2685,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
-    pool.update!(member_daily_draw_cap_cents: 150)
+    pool.update!(member_draw_cap_cents: 150)
     fund_user!(@user)
     enroll!(pool, @user)
     agent = create_ai_agent(parent: @user, name: "Pool Page Bot")
@@ -2818,7 +2818,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert active_enrollment?(pool, member)
     enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: member.id)
-    assert_equal 300, enrollment.daily_draw_cap_cents
+    assert_equal 300, enrollment.draw_cap_cents
 
     post "#{collective.path}/pool/actions/withdraw_from_funding_pool", params: {}.to_json, headers: headers
     assert_response :success

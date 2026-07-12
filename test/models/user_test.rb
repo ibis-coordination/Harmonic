@@ -2052,7 +2052,7 @@ class UserTest < ActiveSupport::TestCase
   # === Funding pool ===
 
   def create_funding_pool!(enroll: [@user])
-    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
+    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)
     enroll.each do |member|
       StripeCustomer.create!(
         billable: member,
@@ -2060,7 +2060,7 @@ class UserTest < ActiveSupport::TestCase
         active: true,
         pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
       )
-      pool.enroll!(member, daily_draw_cap_cents: 500)
+      pool.enroll!(member, draw_cap_cents: 500)
     end
     pool
   end

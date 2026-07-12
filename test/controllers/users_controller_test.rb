@@ -635,12 +635,12 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       handle: "fund-#{SecureRandom.hex(4)}"
     )
     collective.add_user!(@user)
-    pool = FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_daily_draw_cap_cents: 500)
+    pool = FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_draw_cap_cents: 500)
     StripeCustomer.create!(
       billable: @user, stripe_id: "cus_#{SecureRandom.hex(6)}", active: true,
       pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
     )
-    pool.enroll!(@user, daily_draw_cap_cents: 500)
+    pool.enroll!(@user, draw_cap_cents: 500)
     ai_agent.update!(funding_pool: pool)
     Tenant.clear_thread_scope
 

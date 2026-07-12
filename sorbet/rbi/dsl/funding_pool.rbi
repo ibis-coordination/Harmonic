@@ -938,49 +938,94 @@ class FundingPool
     def id_will_change!; end
 
     sig { returns(::Integer) }
-    def member_daily_draw_cap_cents; end
+    def member_draw_cap_cents; end
 
     sig { params(value: ::Integer).returns(::Integer) }
-    def member_daily_draw_cap_cents=(value); end
+    def member_draw_cap_cents=(value); end
 
     sig { returns(T::Boolean) }
-    def member_daily_draw_cap_cents?; end
+    def member_draw_cap_cents?; end
 
     sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_before_last_save; end
+    def member_draw_cap_cents_before_last_save; end
 
     sig { returns(T.untyped) }
-    def member_daily_draw_cap_cents_before_type_cast; end
+    def member_draw_cap_cents_before_type_cast; end
 
     sig { returns(T::Boolean) }
-    def member_daily_draw_cap_cents_came_from_user?; end
+    def member_draw_cap_cents_came_from_user?; end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
-    def member_daily_draw_cap_cents_change; end
+    def member_draw_cap_cents_change; end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
-    def member_daily_draw_cap_cents_change_to_be_saved; end
+    def member_draw_cap_cents_change_to_be_saved; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def member_daily_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def member_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_in_database; end
+    def member_draw_cap_cents_in_database; end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
-    def member_daily_draw_cap_cents_previous_change; end
+    def member_draw_cap_cents_previous_change; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def member_daily_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def member_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_previously_was; end
+    def member_draw_cap_cents_previously_was; end
 
     sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_was; end
+    def member_draw_cap_cents_was; end
 
     sig { void }
-    def member_daily_draw_cap_cents_will_change!; end
+    def member_draw_cap_cents_will_change!; end
+
+    sig { returns(::String) }
+    def member_draw_cap_period; end
+
+    sig { params(value: ::String).returns(::String) }
+    def member_draw_cap_period=(value); end
+
+    sig { returns(T::Boolean) }
+    def member_draw_cap_period?; end
+
+    sig { returns(T.nilable(::String)) }
+    def member_draw_cap_period_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def member_draw_cap_period_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def member_draw_cap_period_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def member_draw_cap_period_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def member_draw_cap_period_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def member_draw_cap_period_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def member_draw_cap_period_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def member_draw_cap_period_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def member_draw_cap_period_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def member_draw_cap_period_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def member_draw_cap_period_was; end
+
+    sig { void }
+    def member_draw_cap_period_will_change!; end
 
     sig { void }
     def restore_archived_at!; end
@@ -1001,7 +1046,10 @@ class FundingPool
     def restore_id_value!; end
 
     sig { void }
-    def restore_member_daily_draw_cap_cents!; end
+    def restore_member_draw_cap_cents!; end
+
+    sig { void }
+    def restore_member_draw_cap_period!; end
 
     sig { void }
     def restore_tenant_id!; end
@@ -1046,10 +1094,16 @@ class FundingPool
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::Integer, ::Integer])) }
-    def saved_change_to_member_daily_draw_cap_cents; end
+    def saved_change_to_member_draw_cap_cents; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_member_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def saved_change_to_member_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_member_draw_cap_period; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_member_draw_cap_period?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
@@ -1172,7 +1226,10 @@ class FundingPool
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_member_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+    def will_save_change_to_member_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_member_draw_cap_period?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

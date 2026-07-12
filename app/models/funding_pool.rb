@@ -18,26 +18,33 @@ class FundingPool < ApplicationRecord
   # rather than block the deletion with a foreign-key violation.
   has_many :funded_agents, class_name: "User", dependent: :nullify, inverse_of: :funding_pool
 
+  # The windows a draw ceiling can cover. Every UI surface currently writes
+  # "day"; week/month are live in the schema and resolver, awaiting a period
+  # selector in the UI.
+  DRAW_CAP_PERIODS = ["day", "week", "month"].freeze
+
   validates :collective_id, uniqueness: { message: "already has a funding pool" }
-  # Mandatory: every pool states its per-member daily ceiling explicitly, so
-  # no member's exposure is ever an unstated default.
-  validates :member_daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }
+  # Mandatory: every pool states its per-member ceiling explicitly, so no
+  # member's exposure is ever an unstated default.
+  validates :member_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }
+  validates :member_draw_cap_period, inclusion: { in: DRAW_CAP_PERIODS }
   validate :collective_is_standard, on: :create
   validate :tenant_matches_collective
 
   # Enroll (or re-enroll) a member. The enrollment gate — funded billing,
   # active membership, human, open pool — re-runs on reactivation, so a
   # withdrawn member whose funding lapsed cannot slip back in. The caller must
-  # pass the member's own daily draw ceiling: consent is restated, never
-  # carried over silently from a previous enrollment.
-  sig { params(user: User, daily_draw_cap_cents: Integer).returns(FundingPoolEnrollment) }
-  def enroll!(user, daily_draw_cap_cents:)
+  # pass the member's own draw ceiling: consent is restated, never carried
+  # over silently from a previous enrollment.
+  sig { params(user: User, draw_cap_cents: Integer, draw_cap_period: String).returns(FundingPoolEnrollment) }
+  def enroll!(user, draw_cap_cents:, draw_cap_period: "day")
     enrollment = enrollments.find_or_initialize_by(user: user)
     # Explicit scope: the enrollment lives in this pool's collective, not
     # whatever collective the thread happens to be scoped to.
     enrollment.tenant_id = tenant_id
     enrollment.collective_id = collective_id
-    enrollment.daily_draw_cap_cents = daily_draw_cap_cents
+    enrollment.draw_cap_cents = draw_cap_cents
+    enrollment.draw_cap_period = draw_cap_period
     enrollment.archived_at = nil
     enrollment.save!
     enrollment

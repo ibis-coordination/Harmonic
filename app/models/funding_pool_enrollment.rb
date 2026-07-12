@@ -19,10 +19,12 @@ class FundingPoolEnrollment < ApplicationRecord
 
   before_validation :set_scope_from_pool
   validates :user_id, uniqueness: { scope: :funding_pool_id }
-  # The member's own daily ceiling on this pool's draws, stated as part of the
+  # The member's own ceiling on this pool's draws, stated as part of the
   # consent — mandatory, so no enrollee's exposure rests on an assumed limit.
-  # The effective ceiling at draw time is min(pool ceiling, this).
-  validates :daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }
+  # Enforced at draw time independently of the pool's own ceiling, each over
+  # its own period window.
+  validates :draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }
+  validates :draw_cap_period, inclusion: { in: FundingPool::DRAW_CAP_PERIODS }
   validate :scope_matches_pool
   validate :enrollable, if: :enrolling?
 

@@ -4,6 +4,8 @@ require "test_helper"
 
 module LLMGateway
   class PayerResolverTest < ActiveSupport::TestCase
+    include ActiveSupport::Testing::TimeHelpers
+
     setup do
       @tenant, @collective, @user = create_tenant_collective_user
       @tenant.enable_feature_flag!("internal_ai_agents")
@@ -29,9 +31,9 @@ module LLMGateway
       FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
       @collective.enable_feature_flag!("funding_pools")
-      pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
+      pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)
       fund!(@user, stripe_id: primary_stripe_id)
-      pool.enroll!(@user, daily_draw_cap_cents: primary_cap)
+      pool.enroll!(@user, draw_cap_cents: primary_cap)
       pool
     end
 
@@ -40,7 +42,7 @@ module LLMGateway
       @tenant.add_user!(member)
       @collective.add_user!(member)
       fund!(member, stripe_id: stripe_id)
-      pool.enroll!(member, daily_draw_cap_cents: cap)
+      pool.enroll!(member, draw_cap_cents: cap)
       member
     end
 
@@ -181,7 +183,7 @@ module LLMGateway
       @collective.add_user!(other_agent)
       fund!(other_agent, stripe_id: "cus_agent_self")
       FundingPoolEnrollment.new(tenant: @tenant, collective: @collective, funding_pool: pool, user: other_agent,
-                                daily_draw_cap_cents: 500)
+                                draw_cap_cents: 500)
                            .save!(validate: false)
       @ai_agent.update!(funding_pool: pool)
 
@@ -261,7 +263,7 @@ module LLMGateway
     test "in-flight draws reserve against the pool's draw ceiling" do
       pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
       create_enrolled_member!(pool, stripe_id: "cus_tapped")
-      pool.update!(member_daily_draw_cap_cents: 50)
+      pool.update!(member_draw_cap_cents: 50)
       2.times { open_call!("cus_tapped", funding_pool_id: pool.id) }
       @ai_agent.update!(funding_pool: pool)
 
@@ -295,7 +297,7 @@ module LLMGateway
     test "pool members over the pool's daily draw ceiling are skipped" do
       pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
       create_enrolled_member!(pool, stripe_id: "cus_tapped")
-      pool.update!(member_daily_draw_cap_cents: 50)
+      pool.update!(member_draw_cap_cents: 50)
       record_spend!("cus_tapped", 50, funding_pool_id: pool.id)
       @ai_agent.update!(funding_pool: pool)
 
@@ -318,7 +320,7 @@ module LLMGateway
     test "the pool ceiling binds when lower than a member's own enrollment ceiling" do
       pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
       create_enrolled_member!(pool, stripe_id: "cus_generous", cap: 10_000)
-      pool.update!(member_daily_draw_cap_cents: 50)
+      pool.update!(member_draw_cap_cents: 50)
       record_spend!("cus_generous", 50, funding_pool_id: pool.id)
       @ai_agent.update!(funding_pool: pool)
 
@@ -332,7 +334,7 @@ module LLMGateway
       # that number as the member's own consent, never a live reference.
       pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
       create_enrolled_member!(pool, stripe_id: "cus_snapshot", cap: 500)
-      pool.update!(member_daily_draw_cap_cents: 10_000)
+      pool.update!(member_draw_cap_cents: 10_000)
       record_spend!("cus_snapshot", 500, funding_pool_id: pool.id)
       @ai_agent.update!(funding_pool: pool)
 
@@ -349,12 +351,74 @@ module LLMGateway
       assert_equal "cus_primary", PayerResolver.resolve(@task_run).payer_customer_id
     end
 
+    # === Ceiling periods. The schema and resolver support day/week/month
+    # windows; every current UI surface writes "day". Frozen mid-week,
+    # mid-month so "earlier this week/month" is distinct from "today". ===
+
+    test "a weekly member ceiling counts draws since the start of the UTC week" do
+      travel_to Time.utc(2026, 7, 15, 12) do # Wednesday, July 15
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        member = create_enrolled_member!(pool, stripe_id: "cus_weekly")
+        pool.enrollments.find_by!(user: member).update!(draw_cap_cents: 100, draw_cap_period: "week")
+        # Monday's draw: outside today's window, inside this week's.
+        record_spend!("cus_weekly", 100, funding_pool_id: pool.id, occurred_at: 2.days.ago)
+        @ai_agent.update!(funding_pool: pool)
+
+        20.times do
+          assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+        end
+      end
+    end
+
+    test "last week's draws do not count against a weekly ceiling" do
+      travel_to Time.utc(2026, 7, 15, 12) do
+        pool = create_funding_pool!(primary_stripe_id: "cus_primary")
+        pool.enrollments.find_by!(user: @user).update!(draw_cap_cents: 100, draw_cap_period: "week")
+        record_spend!("cus_primary", 100, funding_pool_id: pool.id, occurred_at: 8.days.ago)
+        @ai_agent.update!(funding_pool: pool)
+
+        assert_equal "cus_primary", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "a monthly member ceiling counts draws since the start of the UTC month" do
+      travel_to Time.utc(2026, 7, 15, 12) do
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        member = create_enrolled_member!(pool, stripe_id: "cus_monthly")
+        pool.enrollments.find_by!(user: member).update!(draw_cap_cents: 100, draw_cap_period: "month")
+        record_spend!("cus_monthly", 100, funding_pool_id: pool.id, occurred_at: 10.days.ago)
+        @ai_agent.update!(funding_pool: pool)
+
+        20.times do
+          assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+        end
+      end
+    end
+
+    test "pool and member ceilings with different periods are enforced independently" do
+      travel_to Time.utc(2026, 7, 15, 12) do
+        # Pool: $1.00 per member per WEEK. Member's own ceiling: $5.00 per DAY.
+        # Monday's draw fills the pool's weekly window even though today's
+        # window is empty — no cross-period normalization, each bound stands.
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        create_enrolled_member!(pool, stripe_id: "cus_week_bound")
+        pool.update!(member_draw_cap_cents: 100, member_draw_cap_period: "week")
+        record_spend!("cus_week_bound", 100, funding_pool_id: pool.id, occurred_at: 2.days.ago)
+        record_spend!("cus_fresh", 100, funding_pool_id: pool.id, occurred_at: 8.days.ago)
+        @ai_agent.update!(funding_pool: pool)
+
+        20.times do
+          assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+        end
+      end
+    end
+
     test "draws for other pools do not count against a pool's ceiling" do
       pool = create_funding_pool!(primary_stripe_id: "cus_pool_a")
       other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
       other_collective.add_user!(@user)
-      other_pool = FundingPool.create!(tenant: @tenant, collective: other_collective, created_by: @user, member_daily_draw_cap_cents: 500)
-      pool.update!(member_daily_draw_cap_cents: 50)
+      other_pool = FundingPool.create!(tenant: @tenant, collective: other_collective, created_by: @user, member_draw_cap_cents: 500)
+      pool.update!(member_draw_cap_cents: 50)
       record_spend!("cus_pool_a", 500, funding_pool_id: other_pool.id)
       @ai_agent.update!(funding_pool: pool)
 

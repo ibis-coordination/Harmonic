@@ -79,45 +79,65 @@ module LLMGateway
     def self.pool_customer_ids(pool)
       enrollment_caps = FundingPoolEnrollment.tenant_scoped_only
         .where(funding_pool_id: pool.id, archived_at: nil)
-        .pluck(:user_id, :daily_draw_cap_cents).to_h
+        .pluck(:user_id, :draw_cap_cents, :draw_cap_period)
+        .to_h { |user_id, cents, period| [user_id, [cents, period]] }
       member_user_ids = CollectiveMember.tenant_scoped_only
         .where(collective_id: pool.collective_id, user_id: enrollment_caps.keys, archived_at: nil)
         .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      # Each candidate's effective ceiling: the tighter of the pool's ceiling
-      # and the one the member stated when enrolling. Both are mandatory;
-      # compact guards pre-backfill rows.
-      cap_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+      member_caps_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
         .where.not(pricing_plan_subscription_id: [nil, ""])
         .pluck(:billable_id, :stripe_id)
-        .to_h { |user_id, stripe_id| [stripe_id, [pool.member_daily_draw_cap_cents, enrollment_caps[user_id]].compact.min] }
-      under_daily_draw_cap(cap_by_stripe_id, pool)
+        .to_h { |user_id, stripe_id| [stripe_id, enrollment_caps[user_id]] }
+      under_draw_caps(member_caps_by_stripe_id, pool)
     end
 
-    # The per-UTC-day ceiling on drawing from any one member: members this
-    # pool has already tapped for their effective ceiling today drop out of
-    # the draw (draws by other pools don't count — the ceiling is a promise
-    # about THIS pool's reach into a member's balance).
-    sig { params(cap_by_stripe_id: T::Hash[String, T.nilable(Integer)], pool: FundingPool).returns(T::Array[String]) }
-    def self.under_daily_draw_cap(cap_by_stripe_id, pool)
-      stripe_ids = cap_by_stripe_id.keys
-      capped_ids = stripe_ids.select { |stripe_id| cap_by_stripe_id[stripe_id] }
-      return stripe_ids if capped_ids.empty?
+    # The start of the window a (cents, period) ceiling covers. UTC calendar
+    # anchors: midnight, Monday, the 1st.
+    sig { params(period: T.nilable(String)).returns(Time) }
+    def self.draw_cap_window_start(period)
+      now = Time.current.utc
+      case period
+      when "week" then now.beginning_of_week
+      when "month" then now.beginning_of_month
+      else now.beginning_of_day
+      end
+    end
 
-      base = LLMUsageRecord.where(payer_stripe_customer_id: capped_ids, funding_pool_id: pool.id)
-      drawn = base.where(completed_at: Time.current.utc.beginning_of_day..)
-        .group(:payer_stripe_customer_id)
-        .sum(:estimated_cost_cents)
-      # In-flight draws hold reservations, same as the flat sums do.
+    # The ceilings on drawing from any one member: the pool's ceiling and the
+    # member's own enrollment ceiling are enforced independently, each over
+    # its own period window — never normalized across periods. A member at
+    # either bound drops out of the draw until that window rolls over (draws
+    # by other pools don't count — each ceiling is a promise about THIS
+    # pool's reach into a member's balance).
+    sig { params(member_caps_by_stripe_id: T::Hash[String, T.untyped], pool: FundingPool).returns(T::Array[String]) }
+    def self.under_draw_caps(member_caps_by_stripe_id, pool)
+      stripe_ids = member_caps_by_stripe_id.keys
+      return stripe_ids if stripe_ids.empty?
+
+      periods = ([pool.member_draw_cap_period] + member_caps_by_stripe_id.values.compact.map(&:last)).compact.uniq
+      base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_pool_id: pool.id)
+      drawn_by_period = periods.to_h do |period|
+        sums = base.where(completed_at: draw_cap_window_start(period)..)
+          .group(:payer_stripe_customer_id)
+          .sum(:estimated_cost_cents)
+        [period, sums]
+      end
+      # In-flight draws hold reservations; a recent pending row sits inside
+      # every window, so the reservation counts toward each bound.
       in_flight = base.where(status: "pending", occurred_at: LLMUsageRecord::PENDING_RESERVATION_WINDOW.ago..)
         .group(:payer_stripe_customer_id)
         .count
       reserve = LLMUsageRecord.pending_reserve_cents
-      stripe_ids.reject do |stripe_id|
-        cap = cap_by_stripe_id[stripe_id]
-        next false if cap.nil?
 
-        drawn.fetch(stripe_id, 0) + (in_flight.fetch(stripe_id, 0) * reserve) >= cap
+      stripe_ids.reject do |stripe_id|
+        reserved = in_flight.fetch(stripe_id, 0) * reserve
+        at_bound = lambda do |cents, period|
+          cents && drawn_by_period.fetch(period, {}).fetch(stripe_id, 0) + reserved >= cents
+        end
+        member_cents, member_period = member_caps_by_stripe_id[stripe_id]
+        at_bound.call(pool.member_draw_cap_cents, pool.member_draw_cap_period) ||
+          at_bound.call(member_cents, member_period)
       end
     end
 

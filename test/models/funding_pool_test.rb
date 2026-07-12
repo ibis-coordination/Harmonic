@@ -9,7 +9,7 @@ class FundingPoolTest < ActiveSupport::TestCase
   end
 
   def create_pool!(collective: @collective, **overrides)
-    FundingPool.create!(collective: collective, created_by: @user, member_daily_draw_cap_cents: 500, **overrides)
+    FundingPool.create!(collective: collective, created_by: @user, member_draw_cap_cents: 500, **overrides)
   end
 
   test "a standard collective can have a funding pool" do
@@ -41,12 +41,22 @@ class FundingPoolTest < ActiveSupport::TestCase
 
   test "the draw ceiling is mandatory and must be a positive integer" do
     pool = create_pool!
-    pool.member_daily_draw_cap_cents = 0
+    pool.member_draw_cap_cents = 0
     assert_not pool.valid?
-    pool.member_daily_draw_cap_cents = 500
+    pool.member_draw_cap_cents = 500
     assert pool.valid?
-    pool.member_daily_draw_cap_cents = nil
+    pool.member_draw_cap_cents = nil
     assert_not pool.valid?, "a pool must always carry an explicit draw ceiling"
+  end
+
+  test "the draw cap period must be day, week, or month" do
+    pool = create_pool!
+    FundingPool::DRAW_CAP_PERIODS.each do |period|
+      pool.member_draw_cap_period = period
+      assert pool.valid?, "#{period} should be a valid period"
+    end
+    pool.member_draw_cap_period = "fortnight"
+    assert_not pool.valid?
   end
 
   test "destroying a pool detaches its agents instead of orphaning them" do
@@ -57,7 +67,7 @@ class FundingPoolTest < ActiveSupport::TestCase
       active: true,
       pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}",
     )
-    pool.enroll!(@user, daily_draw_cap_cents: 500)
+    pool.enroll!(@user, draw_cap_cents: 500)
     agent = create_ai_agent(parent: @user)
     agent.update!(funding_pool: pool)
 

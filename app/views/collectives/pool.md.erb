@@ -12,11 +12,11 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 | | |
 |---------|-------|
 | Status | <%= @funding_pool.archived? ? "Closed" : "Open" %> |
-| Pool draw ceiling | <%= format("$%.2f", @funding_pool.member_daily_draw_cap_cents / 100.0) %> per member per day (UTC) |
+| Pool draw ceiling | <%= format("$%.2f", @funding_pool.member_draw_cap_cents / 100.0) %> per member per day (UTC) |
 | Enrolled members | <%= @pool_enrollments.any? ? @pool_enrollments.map { |e| "[#{e.user.display_name}](#{e.user.path})" }.join(", ") : "(none yet)" %> |
 <% enrolled_user_ids = @pool_enrollments.map(&:user_id) -%>
 | Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})#{" (not running — principal not enrolled)" unless a.parent_id && enrolled_user_ids.include?(a.parent_id)}" }.join(", ") : "(none yet)" %> |
-| Your enrollment | <%= @current_user_enrolled ? format("Enrolled — this pool's agents can draw from your prepaid balance, up to your own ceiling of $%.2f per day (or the pool's ceiling, whichever is lower)", @current_user_enrollment.daily_draw_cap_cents / 100.0) : "Not enrolled" %> |
+| Your enrollment | <%= @current_user_enrolled ? format("Enrolled — this pool's agents can draw from your prepaid balance, up to your own ceiling of $%.2f per day (or the pool's ceiling, whichever is lower)", @current_user_enrollment.draw_cap_cents / 100.0) : "Not enrolled" %> |
 
 The pool stops drawing from a member once its draws from them reach the ceiling for the day; each member also sets their own ceiling when enrolling, and the lower of the two applies. Ceilings are per pool — draws by other pools count against those pools' ceilings, not this one's.
 

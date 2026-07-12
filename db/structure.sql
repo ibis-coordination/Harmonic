@@ -795,7 +795,8 @@ CREATE TABLE public.funding_pool_enrollments (
     archived_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    daily_draw_cap_cents integer NOT NULL
+    draw_cap_cents integer NOT NULL,
+    draw_cap_period character varying DEFAULT 'day'::character varying NOT NULL
 );
 
 
@@ -808,10 +809,11 @@ CREATE TABLE public.funding_pools (
     tenant_id uuid NOT NULL,
     collective_id uuid NOT NULL,
     created_by_id uuid NOT NULL,
-    member_daily_draw_cap_cents integer NOT NULL,
+    member_draw_cap_cents integer NOT NULL,
     archived_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    member_draw_cap_period character varying DEFAULT 'day'::character varying NOT NULL
 );
 
 
@@ -10606,6 +10608,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260712120000'),
 ('20260712110000'),
 ('20260712100000'),
 ('20260711210000'),

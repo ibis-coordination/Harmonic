@@ -255,7 +255,7 @@ class CollectivesController < ApplicationController
         cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
         raise ArgumentError, "ceiling required" if cap_cents.nil?
 
-        pool.update!(member_daily_draw_cap_cents: cap_cents)
+        pool.update!(member_draw_cap_cents: cap_cents)
       rescue ArgumentError
         flash[:error] = "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one."
         return redirect_to "#{@current_collective.path}/settings"
@@ -557,7 +557,7 @@ class CollectivesController < ApplicationController
 
     pool = @current_collective.funding_pool
     if pool
-      pool.member_daily_draw_cap_cents = cap_cents if cap_cents
+      pool.member_draw_cap_cents = cap_cents if cap_cents
       pool.archived_at = nil
       unless pool.save
         return render_funded_agent_error(422, pool.errors.full_messages.to_sentence)
@@ -567,7 +567,7 @@ class CollectivesController < ApplicationController
         return render_funded_agent_error(422, 'A pool draw ceiling is required to open a funding pool — the most it may bill any one enrolled member per day')
       end
       FundingPool.create!(collective: @current_collective, created_by: @current_user,
-                          member_daily_draw_cap_cents: cap_cents)
+                          member_draw_cap_cents: cap_cents)
     end
 
     flash[:notice] = "Funding pool is open. Members can now enroll."
@@ -611,7 +611,7 @@ class CollectivesController < ApplicationController
     # pool-ceiling raise never silently raises this member's exposure.
     # Re-posting while enrolled updates the ceiling.
     if params[:ceiling_choice] == "pool"
-      cap_cents = pool.member_daily_draw_cap_cents
+      cap_cents = pool.member_draw_cap_cents
     else
       begin
         cap_cents = MoneyParam.dollars_to_cents(params[:daily_draw_cap])
@@ -630,14 +630,14 @@ class CollectivesController < ApplicationController
 
     already_enrolled = pool.enrollments.active.exists?(user_id: @current_user.id)
     begin
-      pool.enroll!(@current_user, daily_draw_cap_cents: cap_cents)
+      pool.enroll!(@current_user, draw_cap_cents: cap_cents)
     rescue ActiveRecord::RecordInvalid => e
       return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence, redirect_path: pool_page_path)
     end
 
-    pool_binds = pool.member_daily_draw_cap_cents < cap_cents
+    pool_binds = pool.member_draw_cap_cents < cap_cents
     stated = format("$%.2f", cap_cents / 100.0)
-    effective_note = pool_binds ? " (the pool's #{format("$%.2f", pool.member_daily_draw_cap_cents / 100.0)} ceiling applies while it is lower)" : ""
+    effective_note = pool_binds ? " (the pool's #{format("$%.2f", pool.member_draw_cap_cents / 100.0)} ceiling applies while it is lower)" : ""
     flash[:notice] = if already_enrolled
       "Your daily draw ceiling is now #{stated}#{effective_note}."
     else
@@ -926,7 +926,7 @@ class CollectivesController < ApplicationController
     end
 
     begin
-      pool.enroll!(current_user, daily_draw_cap_cents: cap_cents)
+      pool.enroll!(current_user, draw_cap_cents: cap_cents)
       render_action_success({
         action_name: 'enroll_in_funding_pool',
         resource: @current_collective,

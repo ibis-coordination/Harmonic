@@ -909,7 +909,7 @@ class ApiHelper
           cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
           raise ArgumentError, "ceiling required" if cap_cents.nil?
 
-          pool.update!(member_daily_draw_cap_cents: cap_cents)
+          pool.update!(member_draw_cap_cents: cap_cents)
         rescue ArgumentError
           raise ArgumentError, "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one, so it cannot be cleared."
         end
