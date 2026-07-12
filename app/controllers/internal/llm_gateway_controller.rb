@@ -89,7 +89,10 @@ module Internal
         render json: { error: "unknown_selection" }, status: :not_found
         return
       end
-      unless record.pending?
+      # Abandoned rows still accept a late report — abandonment is the sweep's
+      # bookkeeping guess, and real usage beats it. Completed/failed rows are
+      # sealed (idempotency: gateway retries must not double-record).
+      unless record.pending? || record.status == "abandoned"
         render json: { status: record.status }
         return
       end

@@ -16,7 +16,11 @@ class LLMUsageRecord < ApplicationRecord
 
   self.implicit_order_column = "created_at"
 
-  STATUSES = ["pending", "completed", "failed"].freeze
+  # "abandoned" is the sweep's terminal verdict on a pending row whose usage
+  # never came back: it stops polluting "pending" as a signal, carries no cost
+  # (Stripe may still have billed the call — the row is the ops trail for that
+  # gap), and a late usage report may still complete it.
+  STATUSES = ["pending", "completed", "failed", "abandoned"].freeze
 
   belongs_to :origin_tenant, class_name: "Tenant"
   belongs_to :ai_agent, class_name: "User"

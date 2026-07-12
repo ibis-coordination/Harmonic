@@ -462,6 +462,23 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil record.estimated_cost_cents
   end
 
+  test "a late usage report lands on a row the sweep already abandoned" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+    LLMUsageRecord.find_by!(selection_id: selection_id).update!(status: "abandoned")
+
+    prices = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.00", output_per_million: "15.00" } }
+    GatewayModelCatalog.stub :prices, prices do
+      record_usage(selection_id: selection_id, model: "anthropic/claude-sonnet-4.6",
+                   input_tokens: 10, output_tokens: 20, status: "ok")
+    end
+
+    assert_response :success
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal "completed", record.status, "abandonment is a bookkeeping guess; real usage must overwrite it"
+    assert_not_nil record.estimated_cost_cents
+  end
+
   test "an unpriced failed call still finalizes" do
     select_payer(task_run_id: @task_run.id)
     selection_id = JSON.parse(response.body)["selection_id"]
