@@ -2382,6 +2382,22 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_nil agent.reload.funding_pool_id, "detach stops spending and must never be flag-gated"
   end
 
+  test "the agents section does not reference the pool section when it is hidden" do
+    collective = create_test_collective
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.enable_feature_flag!("api")
+    collective.enable_feature_flag!("api")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_match(/AI Agents in this Collective/, response.body, "the agents section itself should render")
+    assert_no_match(/Agent Funding Pool\s+section above/, response.body,
+                    "must not point at a section that is not rendered")
+  end
+
   test "the settings pool section is wind-down only when the flag is off" do
     collective = create_test_collective
     enable_funding_pools!(collective)

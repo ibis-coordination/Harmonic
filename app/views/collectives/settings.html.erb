@@ -456,9 +456,11 @@
         <p class="pulse-section-description">
           AI Agents are virtual identities managed by their parent user.
           Actions taken by ai_agents are the responsibility of their parent.
-          Membership controls where an agent can act; it does not affect how its
-          usage is billed — pooled funding is managed in the Agent Funding Pool
-          section above.
+          <% if @funding_pools_enabled || @funding_pool %>
+            Membership controls where an agent can act; it does not affect how its
+            usage is billed — pooled funding is managed in the Agent Funding Pool
+            section above.
+          <% end %>
         </p>
         <div data-ai_agent-manager-target="list">
           <table class="pulse-table"<%= @collective_ai_agents.empty? ? ' style="display:none;"'.html_safe : '' %>>
