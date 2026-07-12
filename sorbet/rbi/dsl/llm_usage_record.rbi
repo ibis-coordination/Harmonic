@@ -446,8 +446,8 @@ class LLMUsageRecord
     sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
     def build_api_token(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
-    def build_funding_collective(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def build_funding_pool(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_origin_tenant(*args, &blk); end
@@ -467,11 +467,11 @@ class LLMUsageRecord
     sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
     def create_api_token!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
-    def create_funding_collective(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
-    def create_funding_collective!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_origin_tenant(*args, &blk); end
@@ -485,17 +485,17 @@ class LLMUsageRecord
     sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
     def create_task_run!(*args, &blk); end
 
-    sig { returns(T.nilable(::Collective)) }
-    def funding_collective; end
+    sig { returns(T.nilable(::FundingPool)) }
+    def funding_pool; end
 
-    sig { params(value: T.nilable(::Collective)).void }
-    def funding_collective=(value); end
-
-    sig { returns(T::Boolean) }
-    def funding_collective_changed?; end
+    sig { params(value: T.nilable(::FundingPool)).void }
+    def funding_pool=(value); end
 
     sig { returns(T::Boolean) }
-    def funding_collective_previously_changed?; end
+    def funding_pool_changed?; end
+
+    sig { returns(T::Boolean) }
+    def funding_pool_previously_changed?; end
 
     sig { returns(T.nilable(::Tenant)) }
     def origin_tenant; end
@@ -515,8 +515,8 @@ class LLMUsageRecord
     sig { returns(T.nilable(::ApiToken)) }
     def reload_api_token; end
 
-    sig { returns(T.nilable(::Collective)) }
-    def reload_funding_collective; end
+    sig { returns(T.nilable(::FundingPool)) }
+    def reload_funding_pool; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_origin_tenant; end
@@ -531,7 +531,7 @@ class LLMUsageRecord
     def reset_api_token; end
 
     sig { void }
-    def reset_funding_collective; end
+    def reset_funding_pool; end
 
     sig { void }
     def reset_origin_tenant; end

@@ -487,24 +487,26 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
-  # === Pool-funded agents (agent_funding collective) ===
+  # === Pool-funded agents ===
 
-  def attach_funding_collective!(agent)
-    funding = Collective.create!(
-      tenant: @tenant,
-      created_by: @user,
-      name: "Agent Funding",
-      handle: "fund-#{SecureRandom.hex(4)}",
-      collective_type: "agent_funding",
+  def attach_funding_pool!(agent)
+    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
+    # Enrollment requires the principal's own funded billing; the AGENT still
+    # has no billing customer, which is the point of these tests.
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_principal_#{SecureRandom.hex(4)}",
+      active: true,
+      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}",
     )
-    funding.add_user!(@user)
-    agent.update!(funding_collective: funding)
-    funding
+    pool.enroll!(@user)
+    agent.update!(funding_pool: pool)
+    pool
   end
 
   test "dispatches a pool-funded agent with no individual billing through the gateway" do
     enable_stripe_billing_flag!(@tenant)
-    attach_funding_collective!(@ai_agent)
+    attach_funding_pool!(@ai_agent)
     # No billing customer, no subscription, no balance — the pool funds it.
     # Neither the identity check nor the balance preflight applies, so a
     # balance fetch here would be a bug.
@@ -524,7 +526,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
-  test "agents without a funding collective still need individual billing" do
+  test "agents without a funding pool still need individual billing" do
     enable_stripe_billing_flag!(@tenant)
 
     AgentRunnerDispatchService.dispatch(@task_run)

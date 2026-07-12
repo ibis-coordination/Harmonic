@@ -44,12 +44,12 @@ class AgentRunnerDispatchService
     agent_archived = agent_tenant_user&.archived? || false
     if ai_agent.suspended? || agent_archived || ai_agent.pending_billing_setup?
       status_msg = if ai_agent.pending_billing_setup?
-        "pending billing setup. Set up billing at /billing to activate this agent"
-      elsif ai_agent.suspended?
-        "suspended"
-      else
-        "deactivated"
-      end
+                     "pending billing setup. Set up billing at /billing to activate this agent"
+                   elsif ai_agent.suspended?
+                     "suspended"
+                   else
+                     "deactivated"
+                   end
       fail_task!("Agent is #{status_msg}.")
       return
     end
@@ -58,12 +58,12 @@ class AgentRunnerDispatchService
     # billing_customer, are never charged, and route through LiteLLM rather
     # than the LLM gateway.
     #
-    # Pool-funded agents (funding_collective set) skip the individual checks
-    # entirely: their spend draws from the collective's members, not a
+    # Pool-funded agents (funding_pool set) skip the individual checks
+    # entirely: their spend draws from the pool's enrolled members, not a
     # personal billing customer — the gateway's select-payer picks a funded
     # member per call, and the relayed Stripe 402 is the balance gate.
     billing_customer = ai_agent.billing_customer
-    pool_funded = ai_agent.funding_collective_id.present?
+    pool_funded = ai_agent.funding_pool_id.present?
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !pool_funded
       # (a) The agent's identity must be paid for before we run a task — the
       # norm, unchanged. An agent's billing_customer is its principal's Stripe
@@ -94,10 +94,10 @@ class AgentRunnerDispatchService
     # than its own env config. Routing does not depend on the per-identity
     # subscription: a free account with credits still drains them via the gateway.
     gateway_mode = if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
-      "stripe_gateway"
-    else
-      "litellm"
-    end
+                     "stripe_gateway"
+                   else
+                     "litellm"
+                   end
 
     model = ai_agent.agent_configuration&.dig("model") || ""
     if gateway_mode == "stripe_gateway"
@@ -192,7 +192,7 @@ class AgentRunnerDispatchService
   def publish_to_stream(token, model:, gateway_mode:)
     encrypted_token = AgentRunnerCrypto.encrypt(token.plaintext_token)
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     # No customer id in the payload: billing attribution is stamped on the task
     # run (stripe_customer_id) and resolved by the LLM gateway per call.
     payload = {

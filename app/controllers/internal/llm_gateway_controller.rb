@@ -30,7 +30,7 @@ module Internal
         ai_agent_id: T.must(task_run.ai_agent_id),
         payer_customer_id: result.payer_customer_id,
         origin_tenant_id: T.must(task_run.tenant_id),
-        funding_collective_id: result.funding_collective_id,
+        funding_pool_id: result.funding_pool_id,
         task_run_id: task_run.id,
       )
       render json: { payer_customer_id: result.payer_customer_id, selection_id: selection_id }
@@ -67,7 +67,7 @@ module Internal
         ai_agent_id: T.must(token.user_id),
         payer_customer_id: result.payer_customer_id,
         origin_tenant_id: tenant.id,
-        funding_collective_id: result.funding_collective_id,
+        funding_pool_id: result.funding_pool_id,
         api_token_id: token.id,
         model: model,
       )
@@ -138,13 +138,13 @@ module Internal
         ai_agent_id: String,
         payer_customer_id: String,
         origin_tenant_id: String,
-        funding_collective_id: T.nilable(String),
+        funding_pool_id: T.nilable(String),
         task_run_id: T.nilable(String),
         api_token_id: T.nilable(String),
         model: T.nilable(String),
       ).returns(T.nilable(String))
     end
-    def open_usage_record(ai_agent_id:, payer_customer_id:, origin_tenant_id:, funding_collective_id: nil,
+    def open_usage_record(ai_agent_id:, payer_customer_id:, origin_tenant_id:, funding_pool_id: nil,
                           task_run_id: nil, api_token_id: nil, model: nil)
       record = LLMUsageRecord.create!(
         selection_id: "sel_#{SecureRandom.uuid}",
@@ -152,7 +152,7 @@ module Internal
         ai_agent_id: ai_agent_id,
         payer_stripe_customer_id: payer_customer_id,
         origin_tenant_id: origin_tenant_id,
-        funding_collective_id: funding_collective_id,
+        funding_pool_id: funding_pool_id,
         ai_agent_task_run_id: task_run_id,
         api_token_id: api_token_id,
         model: model,
