@@ -1277,13 +1277,20 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
       # Funding pool actions only exist while the collective has an open pool.
-      conditional_actions: ["enroll_in_funding_pool", "withdraw_from_funding_pool",
-                            "attach_funded_agent", "detach_funded_agent",].map do |name|
+      # Enrollment and attachment additionally need the operator-managed
+      # funding_pools flag; withdrawal and detachment are exits and stay
+      # available even after the flag is turned off.
+      conditional_actions: [
+        ["enroll_in_funding_pool", true], ["withdraw_from_funding_pool", false],
+        ["attach_funded_agent", true], ["detach_funded_agent", false],
+      ].map do |name, needs_flag|
         {
           name: name,
           condition: lambda { |context|
-            pool = context[:collective]&.funding_pool
-            pool.present? && !pool.archived?
+            collective = context[:collective]
+            pool = collective&.funding_pool
+            pool.present? && !pool.archived? &&
+              (!needs_flag || collective.feature_enabled?("funding_pools"))
           },
         }
       end,

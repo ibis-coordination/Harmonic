@@ -21,8 +21,14 @@ module LLMGateway
     end
 
     # A pool on the agent's parent collective with the principal enrolled and
-    # funded — the minimum arrangement the attach validation accepts.
+    # funded — the minimum arrangement the attach validation accepts. The
+    # operator-managed funding_pools flag is on: the resolver treats it as a
+    # kill switch.
     def create_funding_pool!(primary_stripe_id: "cus_primary")
+      FeatureFlagService.config["funding_pools"] ||= {}
+      FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+      @tenant.enable_feature_flag!("funding_pools")
+      @collective.enable_feature_flag!("funding_pools")
       pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
       fund!(@user, stripe_id: primary_stripe_id)
       pool.enroll!(@user)
@@ -356,6 +362,18 @@ module LLMGateway
       pool = create_funding_pool!
       @ai_agent.update!(funding_pool: pool)
       pool.archive!
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "funding_collective_unavailable", error.code
+      assert_equal :forbidden, error.http_status
+    end
+
+    test "disabling the funding_pools flag suspends pool draws" do
+      pool = create_funding_pool!
+      @ai_agent.update!(funding_pool: pool)
+      @collective.disable_feature_flag!("funding_pools")
 
       error = assert_raises(PayerResolver::ResolutionError) do
         PayerResolver.resolve(@task_run)

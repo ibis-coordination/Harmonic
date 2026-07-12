@@ -1853,6 +1853,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
+  def enable_funding_pools!(collective)
+    enable_stripe_billing_flag!(@tenant)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    collective.enable_feature_flag!("funding_pools")
+  end
+
   def create_pool!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user)
@@ -1880,8 +1888,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin can create a funding pool" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     sign_in_as(@user, tenant: @tenant)
 
     post "#{collective.path}/settings/create_funding_pool"
@@ -1891,8 +1899,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "non-admin members cannot create a funding pool" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     member = create_user(name: "Plain Member")
     @tenant.add_user!(member)
     add_member!(collective, member)
@@ -1915,8 +1923,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a pool cannot be opened on an archived collective" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     collective.update!(archived_at: Time.current, archived_by_id: @user.id)
     Tenant.clear_thread_scope
@@ -1942,6 +1950,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     cm.add_role!("admin")
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
+    enable_funding_pools!(chat)
     sign_in_as(@user, tenant: @tenant)
 
     post "#{chat.path}/settings/create_funding_pool"
@@ -1952,8 +1961,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "creating the pool again reopens a closed pool instead of failing" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     pool.archive!
     sign_in_as(@user, tenant: @tenant)
@@ -1965,8 +1974,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin can close the pool" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
 
@@ -1977,8 +1986,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "non-admins cannot close the pool" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     member = create_user(name: "Plain Member")
     @tenant.add_user!(member)
@@ -1992,8 +2001,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "a funded member can enroll themselves" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     sign_in_as(@user, tenant: @tenant)
@@ -2005,8 +2014,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "enrolling without funded billing fails with a friendly error" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
 
@@ -2018,8 +2027,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an enrolled member can withdraw" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2032,8 +2041,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the settings page shows funding consent copy with the enroll button" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     create_pool!(collective)
     fund_user!(@user)
     sign_in_as(@user, tenant: @tenant)
@@ -2046,8 +2055,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin can attach an enrolled member's agent" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2062,8 +2071,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "non-admin members cannot attach agents" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     member = create_user(name: "Plain Member")
     @tenant.add_user!(member)
@@ -2082,8 +2091,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "attach errors are JSON for JSON requests" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     member = create_user(name: "Plain Member")
     @tenant.add_user!(member)
@@ -2102,8 +2111,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "attach is refused when the collective has no pool" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     fund_user!(@user)
     agent = create_ai_agent(parent: @user)
     @tenant.add_user!(agent)
@@ -2117,8 +2126,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "attach fails clearly when the agent's principal is not enrolled" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     create_pool!(collective)
     outsider = create_user(name: "Outsider")
     @tenant.add_user!(outsider)
@@ -2134,8 +2143,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an agent from another tenant cannot be attached" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2151,8 +2160,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the attach list only offers this tenant's agents of enrolled members" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2171,8 +2180,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin can set and clear the member daily draw ceiling" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
 
@@ -2186,8 +2195,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an over-large draw ceiling is rejected with a friendly error" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     pool.update!(member_daily_draw_cap_cents: 50)
     sign_in_as(@user, tenant: @tenant)
@@ -2201,8 +2210,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the update_collective_settings action sets and clears the draw ceiling" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
@@ -2219,8 +2228,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the update_collective_settings action rejects a bad draw ceiling with a friendly message" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     pool.update!(member_daily_draw_cap_cents: 50)
     sign_in_as(@user, tenant: @tenant)
@@ -2247,8 +2256,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "detaching an agent not funded by this pool redirects with an alert" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     create_pool!(collective)
     fund_user!(@user)
     agent = create_ai_agent(parent: @user)
@@ -2262,8 +2271,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "an admin can detach a funded agent" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2279,9 +2288,109 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_nil agent.reload.funding_pool_id
   end
 
-  test "the markdown settings page shows the funding pool state" do
+  test "creating a pool requires the funding_pools flag" do
     enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "collective admins cannot self-enable the funding_pools flag" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
+
+    post "#{collective.path}/settings", params: { name: collective.name, feature_funding_pools: "true" }, headers: referer
+
+    assert_not collective.reload.feature_flag_enabled_locally?("funding_pools"),
+               "operator-managed flags must not be self-serve from collective settings"
+  end
+
+  test "enrolling requires the funding_pools flag" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "attaching requires the funding_pools flag" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert flash[:alert].present?
+    assert_nil agent.reload.funding_pool_id
+  end
+
+  test "withdraw and detach still work after the flag is disabled" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+    assert_not active_enrollment?(pool, @user), "withdrawal is a consent exit and must never be flag-gated"
+
+    delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+    assert_nil agent.reload.funding_pool_id, "detach stops spending and must never be flag-gated"
+  end
+
+  test "the enroll_in_funding_pool action is refused when the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+
+    assert_response :not_found
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the markdown settings page shows the funding pool state" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     pool.update!(member_daily_draw_cap_cents: 150)
     fund_user!(@user)
@@ -2305,8 +2414,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # === Funding pool markdown actions ===
 
   test "the enroll_in_funding_pool action enrolls the caller" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     sign_in_as(@user, tenant: @tenant)
@@ -2319,8 +2428,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the enroll_in_funding_pool action explains an unfunded refusal" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
@@ -2333,8 +2442,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the withdraw_from_funding_pool action withdraws the caller" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2348,8 +2457,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the attach_funded_agent action attaches an enrolled member's agent" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)
@@ -2366,8 +2475,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the detach_funded_agent action detaches a funded agent" do
-    enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
+    enable_funding_pools!(collective)
     pool = create_pool!(collective)
     fund_user!(@user)
     enroll!(pool, @user)

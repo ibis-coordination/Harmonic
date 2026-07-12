@@ -190,6 +190,7 @@ class CollectivesController < ApplicationController
       # and this tenant's agents that could be attached (their principal is
       # actively enrolled).
       if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing")
+        @funding_pools_enabled = @current_collective.feature_enabled?("funding_pools")
         @funding_pool = @current_collective.funding_pool
         if @funding_pool && !@funding_pool.archived?
           @funded_agents = @funding_pool.funded_agents.order(:name)
@@ -270,6 +271,9 @@ class CollectivesController < ApplicationController
     FeatureFlagService.all_flags.each do |flag_name|
       param_key = "feature_#{flag_name}"
       next unless params.key?(param_key) || params.key?(flag_name)
+      # Operator-managed flags (e.g. funding_pools) are enabled per collective
+      # by a platform admin, never from this self-serve form.
+      next if FeatureFlagService.operator_managed?(flag_name)
 
       value = params[param_key] || params[flag_name]
       enabled = value == "true" || value == "1" || value == true
@@ -497,6 +501,9 @@ class CollectivesController < ApplicationController
     unless @current_tenant.feature_enabled?("stripe_billing")
       return render_funded_agent_error(403, 'Funding pools require billing to be enabled for this account')
     end
+    unless @current_collective.feature_enabled?("funding_pools")
+      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective')
+    end
     unless @current_collective.standard?
       return render_funded_agent_error(403, 'Only standard collectives can have a funding pool')
     end
@@ -535,6 +542,9 @@ class CollectivesController < ApplicationController
   # Enrollment is the member's own consent to be drawn on — always self-serve,
   # never done by an admin on someone's behalf.
   def enroll_in_funding_pool
+    unless @current_collective.feature_enabled?("funding_pools")
+      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective')
+    end
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?
       return render_funded_agent_error(404, 'This collective has no open funding pool')
@@ -567,6 +577,9 @@ class CollectivesController < ApplicationController
   # everyone's money, so it is admin-only; the model validation additionally
   # requires the agent's principal to be actively enrolled.
   def add_funded_agent
+    unless @current_collective.feature_enabled?("funding_pools")
+      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective')
+    end
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?
       return render_funded_agent_error(403, 'This collective has no open funding pool')
@@ -790,6 +803,14 @@ class CollectivesController < ApplicationController
 
   def execute_enroll_in_funding_pool
     return render_action_error({ action_name: 'enroll_in_funding_pool', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+    unless @current_collective.feature_enabled?("funding_pools")
+      return render_action_error({
+        action_name: 'enroll_in_funding_pool',
+        resource: @current_collective,
+        error: 'Funding pools are not enabled for this collective.',
+        status: :not_found,
+      })
+    end
 
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?
@@ -850,6 +871,14 @@ class CollectivesController < ApplicationController
   def execute_attach_funded_agent
     return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
     return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'Only collective admins can attach funded agents.', status: :forbidden }) unless current_user.collective_member&.is_admin?
+    unless @current_collective.feature_enabled?("funding_pools")
+      return render_action_error({
+        action_name: 'attach_funded_agent',
+        resource: @current_collective,
+        error: 'Funding pools are not enabled for this collective.',
+        status: :not_found,
+      })
+    end
 
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?

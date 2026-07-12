@@ -163,6 +163,10 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   # further id funds an additional enrolled member.
   def attach_funding_pool!(agent, stripe_ids)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    @collective.enable_feature_flag!("funding_pools")
     pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
     stripe_ids.each_with_index do |stripe_id, index|
       member = @user

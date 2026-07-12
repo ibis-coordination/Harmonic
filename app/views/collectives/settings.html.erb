@@ -183,7 +183,8 @@
       <%
         available_flags = FeatureFlagService.all_flags.select { |f|
           FeatureFlagService.tenant_enabled?(@current_tenant, f) &&
-            FeatureFlagService.flag_metadata(f).fetch("collective_level", false)
+            FeatureFlagService.flag_metadata(f).fetch("collective_level", false) &&
+            !FeatureFlagService.operator_managed?(f)
         }
         tier_in_effect = @current_tenant.feature_enabled?("stripe_billing")
         if tier_in_effect
@@ -326,9 +327,15 @@
       </section>
     <% end %>
 
-    <% if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing") %>
+    <% if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing") && (@funding_pools_enabled || @funding_pool) %>
       <section class="pulse-settings-section">
         <h2 class="pulse-section-title">Agent Funding Pool</h2>
+        <% unless @funding_pools_enabled %>
+          <p class="pulse-section-description">
+            Funding pools are disabled for this collective. Enrolled members and funded
+            agents can still be removed below; enrollment and attachment are paused.
+          </p>
+        <% end %>
         <% if @funding_pool.nil? || @funding_pool.archived? %>
           <p class="pulse-section-description">
             A funding pool lets members fund this collective's agents together: each LLM call
@@ -336,9 +343,11 @@
             chosen at random per call. The pool never holds money — enrollment is each
             member's own choice.
           </p>
-          <%= button_to (@funding_pool ? "Reopen Funding Pool" : "Create Funding Pool"),
-                        "#{@current_collective.path}/settings/create_funding_pool",
-                        method: :post, class: "pulse-action-btn" %>
+          <% if @funding_pools_enabled %>
+            <%= button_to (@funding_pool ? "Reopen Funding Pool" : "Create Funding Pool"),
+                          "#{@current_collective.path}/settings/create_funding_pool",
+                          method: :post, class: "pulse-action-btn" %>
+          <% end %>
         <% else %>
           <p class="pulse-section-description">
             Each LLM call an attached agent makes is billed to one enrolled member's own
@@ -360,7 +369,7 @@
             <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                           method: :delete, class: "pulse-action-btn-danger",
                           data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and agents whose principal withdraws are suspended." } %>
-          <% else %>
+          <% elsif @funding_pools_enabled %>
             <p class="pulse-section-description">
               Enrolling is consenting to fund this collective's agents from your own
               prepaid balance — each call is billed to one enrolled member, drawn at
@@ -403,7 +412,7 @@
             <p class="pulse-empty-message"><em>No agents are funded by this pool yet.</em></p>
           <% end %>
 
-          <% if @attachable_agents.any? %>
+          <% if @funding_pools_enabled && @attachable_agents.any? %>
             <h3 class="pulse-subsection-title">Attach an enrolled member's agent</h3>
             <form action="<%= @current_collective.path %>/settings/add_funded_agent" method="post" class="pulse-inline-form">
               <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">

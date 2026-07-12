@@ -490,6 +490,10 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   # === Pool-funded agents ===
 
   def attach_funding_pool!(agent)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    @collective.enable_feature_flag!("funding_pools")
     pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
     # Enrollment requires the principal's own funded billing; the AGENT still
     # has no billing customer, which is the point of these tests.
