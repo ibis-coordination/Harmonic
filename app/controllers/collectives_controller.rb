@@ -243,7 +243,8 @@ class CollectivesController < ApplicationController
     @current_collective.tempo = params[:tempo] if params.key?(:tempo)
     @current_collective.synchronization_mode = params[:synchronization_mode] if params.key?(:synchronization_mode)
     # Per-member daily draw ceiling (lives on the collective's funding pool).
-    # Dollars in the form, cents in the column; blank clears it.
+    # Dollars in the form, cents in the column. Mandatory — blank is a
+    # refused attempt to clear it, not a way to lift the limit.
     if params.key?(:member_daily_draw_cap)
       pool = @current_collective.funding_pool
       if pool.nil?
@@ -251,9 +252,12 @@ class CollectivesController < ApplicationController
         return redirect_to "#{@current_collective.path}/settings"
       end
       begin
-        pool.update!(member_daily_draw_cap_cents: MoneyParam.dollars_to_cents(params[:member_daily_draw_cap]))
+        cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
+        raise ArgumentError, "ceiling required" if cap_cents.nil?
+
+        pool.update!(member_daily_draw_cap_cents: cap_cents)
       rescue ArgumentError
-        flash[:error] = "The member daily draw ceiling must be a dollar amount (or blank for no ceiling)."
+        flash[:error] = "The member daily draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one."
         return redirect_to "#{@current_collective.path}/settings"
       end
     end
@@ -541,11 +545,28 @@ class CollectivesController < ApplicationController
       return render_funded_agent_error(403, 'Unauthorized')
     end
 
+    # The ceiling is part of opening a pool, never an implicit default:
+    # required when creating, optional when reopening (the closed pool
+    # already carries one).
+    begin
+      cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
+    rescue ArgumentError
+      return render_funded_agent_error(422, 'The member daily draw ceiling must be a dollar amount, e.g. 5.00')
+    end
+
     pool = @current_collective.funding_pool
     if pool
-      pool.unarchive! if pool.archived?
+      pool.member_daily_draw_cap_cents = cap_cents if cap_cents
+      pool.archived_at = nil
+      unless pool.save
+        return render_funded_agent_error(422, pool.errors.full_messages.to_sentence)
+      end
     else
-      FundingPool.create!(collective: @current_collective, created_by: @current_user)
+      if cap_cents.nil?
+        return render_funded_agent_error(422, 'A member daily draw ceiling is required to open a funding pool')
+      end
+      FundingPool.create!(collective: @current_collective, created_by: @current_user,
+                          member_daily_draw_cap_cents: cap_cents)
     end
 
     flash[:notice] = "Funding pool is open. Members can now enroll."

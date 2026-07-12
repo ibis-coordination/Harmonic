@@ -894,9 +894,10 @@ class ApiHelper
       current_collective.tempo = params[:tempo] if params[:tempo].present?
       current_collective.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
       # Per-member daily draw ceiling (lives on the collective's funding
-      # pool). Dollars in, cents stored; blank clears it. The action wrapper
-      # renders whatever message is raised, so re-raise the parse failure in
-      # words the caller can act on.
+      # pool). Dollars in, cents stored. Mandatory — a blank value is a
+      # refused attempt to clear it. The action wrapper renders whatever
+      # message is raised, so re-raise the parse failure in words the caller
+      # can act on.
       if params.has_key?(:member_daily_draw_cap)
         pool = current_collective.funding_pool
         raise "This collective has no funding pool, so it has no draw ceiling to set." if pool.nil?
@@ -905,9 +906,12 @@ class ApiHelper
         end
 
         begin
-          pool.update!(member_daily_draw_cap_cents: MoneyParam.dollars_to_cents(params[:member_daily_draw_cap]))
+          cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
+          raise ArgumentError, "ceiling required" if cap_cents.nil?
+
+          pool.update!(member_daily_draw_cap_cents: cap_cents)
         rescue ArgumentError
-          raise ArgumentError, "The member daily draw ceiling must be a dollar amount (or blank for no ceiling)."
+          raise ArgumentError, "The member daily draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one, so it cannot be cleared."
         end
       end
 

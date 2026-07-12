@@ -1863,7 +1863,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   def create_pool!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user)
+    FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_daily_draw_cap_cents: 500)
   ensure
     Tenant.clear_thread_scope
   end
@@ -1887,15 +1887,33 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
       .exists?(funding_pool_id: pool.id, user_id: user.id)
   end
 
-  test "an admin can create a funding pool" do
+  test "an admin can create a funding pool with an explicit draw ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+
+    assert_redirected_to "#{collective.path}/settings"
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert pool.present?
+    assert_equal 500, pool.member_daily_draw_cap_cents
+  end
+
+  test "creating a pool without a draw ceiling is refused" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     sign_in_as(@user, tenant: @tenant)
 
     post "#{collective.path}/settings/create_funding_pool"
 
-    assert_redirected_to "#{collective.path}/settings"
-    assert FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+    assert flash[:alert].present?, "expected a friendly refusal — every pool needs an explicit ceiling"
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "not money" }
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
   end
 
   test "non-admin members cannot create a funding pool" do
@@ -1970,7 +1988,23 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "#{collective.path}/settings/create_funding_pool"
 
     assert_redirected_to "#{collective.path}/settings"
-    assert_not pool.reload.archived?, "expected the closed pool to reopen"
+    pool.reload
+    assert_not pool.archived?, "expected the closed pool to reopen"
+    assert_equal 500, pool.member_daily_draw_cap_cents, "reopening without a ceiling param keeps the existing ceiling"
+  end
+
+  test "reopening a closed pool with a ceiling param updates the ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.archive!
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "2.50" }
+
+    pool.reload
+    assert_not pool.archived?
+    assert_equal 250, pool.member_daily_draw_cap_cents
   end
 
   test "an admin can close the pool" do
@@ -2201,8 +2235,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_name, collective.name, "a cap-only POST must not blank the name"
     assert collective.all_members_can_invite?, "a cap-only POST must not reset the invitation policy"
 
+    # The ceiling is mandatory: a blank submission is a rejected attempt to
+    # clear it, not a way to lift the limit.
     post "#{collective.path}/settings", params: { member_daily_draw_cap: "" }, headers: referer
-    assert_nil pool.reload.member_daily_draw_cap_cents
+    assert flash[:error].present?, "clearing the ceiling must be refused"
+    assert_equal 50, pool.reload.member_daily_draw_cap_cents
   end
 
   test "an over-large draw ceiling is rejected with a friendly error" do
@@ -2220,7 +2257,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 50, pool.reload.member_daily_draw_cap_cents
   end
 
-  test "the update_collective_settings action sets and clears the draw ceiling" do
+  test "the update_collective_settings action sets the draw ceiling but refuses to clear it" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
@@ -2234,8 +2271,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     post "#{collective.path}/settings/actions/update_collective_settings",
          params: { member_daily_draw_cap: "" }.to_json, headers: headers
-    assert_response :success
-    assert_nil pool.reload.member_daily_draw_cap_cents
+    assert_response :unprocessable_entity
+    assert_equal 75, pool.reload.member_daily_draw_cap_cents, "the ceiling is mandatory and cannot be cleared"
   end
 
   test "the update_collective_settings action rejects a bad draw ceiling with a friendly message" do

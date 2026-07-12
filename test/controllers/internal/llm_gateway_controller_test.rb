@@ -167,7 +167,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     @collective.enable_feature_flag!("funding_pools")
-    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
+    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
     stripe_ids.each_with_index do |stripe_id, index|
       member = @user
       if index.positive?

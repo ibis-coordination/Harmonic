@@ -6,7 +6,7 @@ class FundingPoolEnrollmentTest < ActiveSupport::TestCase
   setup do
     @tenant, @collective, @user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    @pool = FundingPool.create!(collective: @collective, created_by: @user)
+    @pool = FundingPool.create!(collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
     fund!(@user)
   end
 

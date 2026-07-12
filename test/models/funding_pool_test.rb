@@ -9,7 +9,7 @@ class FundingPoolTest < ActiveSupport::TestCase
   end
 
   def create_pool!(collective: @collective, **overrides)
-    FundingPool.create!(collective: collective, created_by: @user, **overrides)
+    FundingPool.create!(collective: collective, created_by: @user, member_daily_draw_cap_cents: 500, **overrides)
   end
 
   test "a standard collective can have a funding pool" do
@@ -39,14 +39,14 @@ class FundingPoolTest < ActiveSupport::TestCase
     assert pool.errors[:collective_id].any?
   end
 
-  test "the draw ceiling must be a positive integer when set" do
+  test "the draw ceiling is mandatory and must be a positive integer" do
     pool = create_pool!
     pool.member_daily_draw_cap_cents = 0
     assert_not pool.valid?
     pool.member_daily_draw_cap_cents = 500
     assert pool.valid?
     pool.member_daily_draw_cap_cents = nil
-    assert pool.valid?
+    assert_not pool.valid?, "a pool must always carry an explicit draw ceiling"
   end
 
   test "destroying a pool detaches its agents instead of orphaning them" do

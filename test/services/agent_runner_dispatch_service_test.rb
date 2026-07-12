@@ -494,7 +494,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     @collective.enable_feature_flag!("funding_pools")
-    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
+    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
     # Enrollment requires the principal's own funded billing; the AGENT still
     # has no billing customer, which is the point of these tests.
     StripeCustomer.create!(

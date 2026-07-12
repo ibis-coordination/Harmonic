@@ -19,7 +19,9 @@ class FundingPool < ApplicationRecord
   has_many :funded_agents, class_name: "User", dependent: :nullify, inverse_of: :funding_pool
 
   validates :collective_id, uniqueness: { message: "already has a funding pool" }
-  validates :member_daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  # Mandatory: every pool states its per-member daily ceiling explicitly, so
+  # no member's exposure is ever an unstated default.
+  validates :member_daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }
   validate :collective_is_standard, on: :create
   validate :tenant_matches_collective
 

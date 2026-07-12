@@ -29,7 +29,7 @@ module LLMGateway
       FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
       @collective.enable_feature_flag!("funding_pools")
-      pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
+      pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
       fund!(@user, stripe_id: primary_stripe_id)
       pool.enroll!(@user)
       pool
@@ -307,7 +307,7 @@ module LLMGateway
       pool = create_funding_pool!(primary_stripe_id: "cus_pool_a")
       other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
       other_collective.add_user!(@user)
-      other_pool = FundingPool.create!(tenant: @tenant, collective: other_collective, created_by: @user)
+      other_pool = FundingPool.create!(tenant: @tenant, collective: other_collective, created_by: @user, member_daily_draw_cap_cents: 500)
       pool.update!(member_daily_draw_cap_cents: 50)
       record_spend!("cus_pool_a", 500, funding_pool_id: other_pool.id)
       @ai_agent.update!(funding_pool: pool)

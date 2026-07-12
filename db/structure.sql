@@ -807,7 +807,7 @@ CREATE TABLE public.funding_pools (
     tenant_id uuid NOT NULL,
     collective_id uuid NOT NULL,
     created_by_id uuid NOT NULL,
-    member_daily_draw_cap_cents integer,
+    member_daily_draw_cap_cents integer NOT NULL,
     archived_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
@@ -10605,6 +10605,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260712100000'),
 ('20260711210000'),
 ('20260711200000'),
 ('20260711140000'),
