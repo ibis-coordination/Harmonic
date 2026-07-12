@@ -410,8 +410,8 @@ class User
     sig { params(args: T.untyped, blk: T.untyped).returns(::StripeCustomer) }
     def build_billing_customer(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
-    def build_funding_collective(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def build_funding_pool(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Attachment) }
     def build_image_attachment(*args, &blk); end
@@ -473,11 +473,11 @@ class User
     sig { params(args: T.untyped, blk: T.untyped).returns(::StripeCustomer) }
     def create_billing_customer!(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
-    def create_funding_collective(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool(*args, &blk); end
 
-    sig { params(args: T.untyped, blk: T.untyped).returns(::Collective) }
-    def create_funding_collective!(*args, &blk); end
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::ActiveStorage::Attachment) }
     def create_image_attachment(*args, &blk); end
@@ -531,17 +531,17 @@ class User
     sig { params(value: T::Enumerable[::DecisionParticipant]).void }
     def decision_participants=(value); end
 
-    sig { returns(T.nilable(::Collective)) }
-    def funding_collective; end
+    sig { returns(T.nilable(::FundingPool)) }
+    def funding_pool; end
 
-    sig { params(value: T.nilable(::Collective)).void }
-    def funding_collective=(value); end
-
-    sig { returns(T::Boolean) }
-    def funding_collective_changed?; end
+    sig { params(value: T.nilable(::FundingPool)).void }
+    def funding_pool=(value); end
 
     sig { returns(T::Boolean) }
-    def funding_collective_previously_changed?; end
+    def funding_pool_changed?; end
+
+    sig { returns(T::Boolean) }
+    def funding_pool_previously_changed?; end
 
     sig { returns(T::Array[T.untyped]) }
     def granted_trustee_grant_ids; end
@@ -690,8 +690,8 @@ class User
     sig { returns(T.nilable(::StripeCustomer)) }
     def reload_billing_customer; end
 
-    sig { returns(T.nilable(::Collective)) }
-    def reload_funding_collective; end
+    sig { returns(T.nilable(::FundingPool)) }
+    def reload_funding_pool; end
 
     sig { returns(T.nilable(::ActiveStorage::Attachment)) }
     def reload_image_attachment; end
@@ -709,7 +709,7 @@ class User
     def reset_billing_customer; end
 
     sig { void }
-    def reset_funding_collective; end
+    def reset_funding_pool; end
 
     sig { void }
     def reset_image_attachment; end
@@ -1340,6 +1340,51 @@ class User
     sig { void }
     def funding_collective_id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def funding_pool_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def funding_pool_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def funding_pool_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def funding_pool_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def funding_pool_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def funding_pool_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def funding_pool_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def funding_pool_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def funding_pool_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_id_was; end
+
+    sig { void }
+    def funding_pool_id_will_change!; end
+
     sig { returns(::String) }
     def id; end
 
@@ -1770,6 +1815,9 @@ class User
     def restore_funding_collective_id!; end
 
     sig { void }
+    def restore_funding_pool_id!; end
+
+    sig { void }
     def restore_id!; end
 
     sig { void }
@@ -1870,6 +1918,12 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_funding_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_funding_pool_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_funding_pool_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_id; end
@@ -2407,6 +2461,9 @@ class User
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_funding_collective_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_funding_pool_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

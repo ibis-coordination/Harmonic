@@ -27,10 +27,10 @@ class User < ApplicationRecord
   has_one :stripe_customer, as: :billable, class_name: "StripeCustomer"
   # For AI agents: which StripeCustomer pays for this agent's usage
   belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
-  # AI agents only: the agent_funding collective whose members' balances fund
+  # AI agents only: the funding pool whose enrolled members' balances fund
   # this agent's LLM usage (drawn per call — see LLMGateway::PayerResolver).
   # When set, it takes precedence over billing_customer for token spend.
-  belongs_to :funding_collective, class_name: "Collective", optional: true
+  belongs_to :funding_pool, optional: true
 
   # User block associations
   has_many :user_blocks_given, class_name: "UserBlock", foreign_key: "blocker_id", dependent: :destroy
@@ -138,7 +138,7 @@ class User < ApplicationRecord
   validates :name, presence: true
   validates :system_role, inclusion: { in: SYSTEM_ROLES, allow_nil: true }
   validate :ai_agent_must_have_parent
-  validate :funding_collective_assignable, if: :funding_collective_id_changed?
+  validate :funding_pool_assignable, if: :funding_pool_id_changed?
   # Per-UTC-day LLM spend ceiling, enforced per call in
   # LLMGateway::PayerResolver against the usage ledger. Agents only.
   validates :llm_daily_spend_cap_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
@@ -245,32 +245,32 @@ class User < ApplicationRecord
   end
 
   # Runs only when the link changes (attach happens in request context, where
-  # the tenant thread scope makes the collective readable). Per-call
-  # enforcement of these same conditions lives in LLMGateway::PayerResolver,
-  # which must not trust a link that was valid at attach time.
+  # the tenant thread scope makes the pool readable). Per-call enforcement of
+  # these same conditions lives in LLMGateway::PayerResolver, which must not
+  # trust a link that was valid at attach time.
   sig { void }
-  def funding_collective_assignable
-    return if funding_collective_id.nil?
+  def funding_pool_assignable
+    return if funding_pool_id.nil?
 
     unless ai_agent?
-      errors.add(:funding_collective_id, "can only be set for AI agent users")
+      errors.add(:funding_pool_id, "can only be set for AI agent users")
       return
     end
 
-    collective = funding_collective
-    if collective.nil? || !collective.agent_funding?
-      errors.add(:funding_collective_id, "must reference an agent_funding collective")
+    pool = funding_pool
+    if pool.nil? || pool.archived?
+      errors.add(:funding_pool_id, "must reference an open funding pool — this pool is closed or missing")
       return
     end
 
-    if collective.archived?
-      errors.add(:funding_collective_id, "cannot be an archived collective")
+    if pool.collective&.archived?
+      errors.add(:funding_pool_id, "cannot belong to an archived collective")
       return
     end
 
-    parent_membership = collective.collective_members.find_by(user_id: parent_id)
-    if parent_membership.nil? || parent_membership.archived?
-      errors.add(:funding_collective_id, "requires the agent's principal to be an active member of the funding collective")
+    parent_enrollment = pool.enrollments.find_by(user_id: parent_id)
+    if parent_enrollment.nil? || parent_enrollment.archived?
+      errors.add(:funding_pool_id, "requires the agent's principal to be enrolled in the funding pool")
     end
   end
 

@@ -2049,73 +2049,77 @@ class UserTest < ActiveSupport::TestCase
     assert identity.valid?, identity.errors.full_messages.to_sentence
   end
 
-  # === Funding collective ===
+  # === Funding pool ===
 
-  def create_funding_collective(members: [@user])
-    collective = Collective.create!(
-      tenant: @tenant,
-      created_by: @user,
-      name: "Agent Funding",
-      handle: "fund-#{SecureRandom.hex(4)}",
-      collective_type: "agent_funding"
-    )
-    members.each { |member| collective.add_user!(member) }
-    collective
+  def create_funding_pool!(enroll: [@user])
+    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user)
+    enroll.each do |member|
+      StripeCustomer.create!(
+        billable: member,
+        stripe_id: "cus_#{SecureRandom.hex(6)}",
+        active: true,
+        pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+      )
+      pool.enroll!(member)
+    end
+    pool
   end
 
-  test "an agent can be funded by an agent_funding collective its parent belongs to" do
-    funding = create_funding_collective
+  test "an agent can be funded by a pool its parent is enrolled in" do
+    pool = create_funding_pool!
     agent = create_ai_agent(parent: @user)
 
-    agent.funding_collective = funding
+    agent.funding_pool = pool
     assert agent.valid?, agent.errors.full_messages.to_sentence
     agent.save!
-    assert_equal funding.id, agent.reload.funding_collective_id
+    assert_equal pool.id, agent.reload.funding_pool_id
   end
 
-  test "humans cannot have a funding collective" do
-    funding = create_funding_collective
+  test "humans cannot have a funding pool" do
+    pool = create_funding_pool!
 
-    @user.funding_collective = funding
+    @user.funding_pool = pool
     assert_not @user.valid?
-    assert @user.errors[:funding_collective_id].any?
+    assert @user.errors[:funding_pool_id].any?
   end
 
-  test "the funding collective must be agent_funding type" do
+  test "the agent's parent must be enrolled in the funding pool" do
+    pool = create_funding_pool!(enroll: [])
     agent = create_ai_agent(parent: @user)
 
-    agent.funding_collective = @collective
+    agent.funding_pool = pool
     assert_not agent.valid?
-    assert agent.errors[:funding_collective_id].join(" ").include?("agent_funding"), "expected a type error"
+    assert agent.errors[:funding_pool_id].join(" ").include?("enrolled")
   end
 
-  test "the agent's parent must be an active member of the funding collective" do
-    funding = create_funding_collective(members: [])
+  test "a withdrawn parent enrollment does not satisfy the funding link" do
+    pool = create_funding_pool!
+    pool.enrollments.find_by!(user: @user).withdraw!
     agent = create_ai_agent(parent: @user)
 
-    agent.funding_collective = funding
+    agent.funding_pool = pool
     assert_not agent.valid?
-    assert agent.errors[:funding_collective_id].join(" ").include?("member")
+    assert agent.errors[:funding_pool_id].join(" ").include?("enrolled")
   end
 
-  test "an archived parent membership does not satisfy the funding link" do
-    funding = create_funding_collective
-    funding.collective_members.find_by!(user: @user).archive!
+  test "a closed pool cannot be attached" do
+    pool = create_funding_pool!
+    pool.archive!
     agent = create_ai_agent(parent: @user)
 
-    agent.funding_collective = funding
+    agent.funding_pool = pool
     assert_not agent.valid?
-    assert agent.errors[:funding_collective_id].join(" ").include?("member")
+    assert agent.errors[:funding_pool_id].join(" ").include?("closed")
   end
 
-  test "an archived collective cannot be attached as a funding collective" do
-    funding = create_funding_collective
-    funding.update!(archived_at: Time.current, archived_by_id: @user.id)
+  test "a pool on an archived collective cannot be attached" do
+    pool = create_funding_pool!
+    @collective.update!(archived_at: Time.current, archived_by_id: @user.id)
     agent = create_ai_agent(parent: @user)
 
-    agent.funding_collective = funding
+    agent.funding_pool = pool
     assert_not agent.valid?
-    assert agent.errors[:funding_collective_id].join(" ").include?("archived")
+    assert agent.errors[:funding_pool_id].join(" ").include?("archived")
   end
 
   test "a daily spend cap can only be set on AI agents and must be positive" do

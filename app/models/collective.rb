@@ -27,6 +27,7 @@ class Collective < ApplicationRecord
     has_many table.to_sym
   end
   has_many :users, through: :collective_members
+  has_one :funding_pool, dependent: :destroy
 
   scope :standard, -> { where(collective_type: "standard") }
   scope :private_workspaces, -> { where(collective_type: "private_workspace") }
@@ -189,6 +190,11 @@ class Collective < ApplicationRecord
     settings["all_members_can_invite"] = false
     settings["any_member_can_represent"] = false
     settings["any_member_can_summarize"] = false
+  end
+
+  sig { returns(T::Boolean) }
+  def standard?
+    collective_type == "standard"
   end
 
   sig { returns(T::Boolean) }

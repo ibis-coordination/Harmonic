@@ -518,6 +518,9 @@ class Collective
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def build_funding_pool(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_identity_user(*args, &blk); end
 
@@ -625,6 +628,12 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_identity_user(*args, &blk); end
@@ -757,6 +766,40 @@ class Collective
 
     sig { params(value: T::Enumerable[::Event]).void }
     def events=(value); end
+
+    sig { returns(T.nilable(::FundingPool)) }
+    def funding_pool; end
+
+    sig { params(value: T.nilable(::FundingPool)).void }
+    def funding_pool=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def funding_pool_enrollment_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def funding_pool_enrollment_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :funding_pool_enrollments`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::FundingPoolEnrollment::PrivateCollectionProxy) }
+    def funding_pool_enrollments; end
+
+    sig { params(value: T::Enumerable[::FundingPoolEnrollment]).void }
+    def funding_pool_enrollments=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def funding_pool_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def funding_pool_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :funding_pools`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::FundingPool::PrivateCollectionProxy) }
+    def funding_pools; end
+
+    sig { params(value: T::Enumerable[::FundingPool]).void }
+    def funding_pools=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def harmonic_bridge_setup_ids; end
@@ -995,6 +1038,9 @@ class Collective
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
+    sig { returns(T.nilable(::FundingPool)) }
+    def reload_funding_pool; end
+
     sig { returns(T.nilable(::User)) }
     def reload_identity_user; end
 
@@ -1043,6 +1089,9 @@ class Collective
 
     sig { void }
     def reset_created_by; end
+
+    sig { void }
+    def reset_funding_pool; end
 
     sig { void }
     def reset_identity_user; end
