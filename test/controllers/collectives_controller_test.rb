@@ -2111,7 +2111,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not active_enrollment?(pool, @user)
   end
 
-  test "the settings page shows funding consent copy with the enroll button" do
+  test "the settings page shows funding consent copy pointing members at the pool page" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     create_pool!(collective)
