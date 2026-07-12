@@ -233,12 +233,15 @@ class CollectivesController < ApplicationController
       flash[:error] = "Cannot update settings for a deactivated collective. Reactivate it on the billing page first."
       return redirect_to "#{@current_collective.path}/settings"
     end
-    @current_collective.name = params[:name]
+    # Assign only fields the form actually carried: the page hosts more than
+    # one form POSTing here (the main settings form and the pool section's
+    # draw-ceiling form), and a partial post must not clobber the rest.
+    @current_collective.name = params[:name] if params.key?(:name)
     # @current_collective.handle = params[:handle] if params[:handle]
-    @current_collective.description = params[:description]
-    @current_collective.timezone = params[:timezone]
-    @current_collective.tempo = params[:tempo]
-    @current_collective.synchronization_mode = params[:synchronization_mode]
+    @current_collective.description = params[:description] if params.key?(:description)
+    @current_collective.timezone = params[:timezone] if params.key?(:timezone)
+    @current_collective.tempo = params[:tempo] if params.key?(:tempo)
+    @current_collective.synchronization_mode = params[:synchronization_mode] if params.key?(:synchronization_mode)
     # Per-member daily draw ceiling (lives on the collective's funding pool).
     # Dollars in the form, cents in the column; blank clears it.
     if params.key?(:member_daily_draw_cap)
@@ -255,9 +258,9 @@ class CollectivesController < ApplicationController
       end
     end
     unless @current_collective.private_workspace?
-      @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members'
-      @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member'
-      @current_collective.settings['any_member_can_summarize'] = params[:summarization] == 'any_member'
+      @current_collective.settings['all_members_can_invite'] = params[:invitations] == 'all_members' if params.key?(:invitations)
+      @current_collective.settings['any_member_can_represent'] = params[:representation] == 'any_member' if params.key?(:representation)
+      @current_collective.settings['any_member_can_summarize'] = params[:summarization] == 'any_member' if params.key?(:summarization)
     end
     unless ENV['SAAS_MODE'] == 'true'
       @current_collective.settings['file_storage_limit'] = (params[:file_storage_limit].to_i * 1.megabyte) if params[:file_storage_limit]

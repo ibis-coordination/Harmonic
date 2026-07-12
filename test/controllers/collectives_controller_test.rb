@@ -2179,18 +2179,29 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Foreign Fund Bot/, response.body)
   end
 
-  test "an admin can set and clear the member daily draw ceiling" do
+  test "an admin can set and clear the member daily draw ceiling without touching other settings" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
+    original_name = collective.name
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.settings["all_members_can_invite"] = true
+    collective.save!
+    Tenant.clear_thread_scope
     sign_in_as(@user, tenant: @tenant)
 
     referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
 
-    post "#{collective.path}/settings", params: { name: collective.name, member_daily_draw_cap: "0.50" }, headers: referer
+    # The ceiling lives in its own small form inside the pool section, so it
+    # posts alone — a cap-only POST must not clobber the fields the main
+    # settings form would have carried.
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "0.50" }, headers: referer
     assert_equal 50, pool.reload.member_daily_draw_cap_cents
+    collective.reload
+    assert_equal original_name, collective.name, "a cap-only POST must not blank the name"
+    assert collective.all_members_can_invite?, "a cap-only POST must not reset the invitation policy"
 
-    post "#{collective.path}/settings", params: { name: collective.name, member_daily_draw_cap: "" }, headers: referer
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "" }, headers: referer
     assert_nil pool.reload.member_daily_draw_cap_cents
   end
 
@@ -2202,7 +2213,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
 
-    post "#{collective.path}/settings", params: { name: collective.name, member_daily_draw_cap: "30000000" }, headers: referer
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "30000000" }, headers: referer
 
     assert_response :redirect
     assert flash[:error].present?
