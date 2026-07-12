@@ -30,6 +30,17 @@ class FeatureFlagService
     config[flag_name.to_s]
   end
 
+  # Operator-managed flags are enabled per collective by a platform admin
+  # (console or admin tooling) and are never toggleable from collective
+  # settings — the self-serve write paths and the settings UI skip them.
+  sig { params(flag_name: String).returns(T::Boolean) }
+  def self.operator_managed?(flag_name)
+    metadata = flag_metadata(flag_name)
+    return false if metadata.nil?
+
+    metadata["operator_managed"] == true
+  end
+
   # Check if a flag is enabled at the app level (from config file)
   sig { params(flag_name: String).returns(T::Boolean) }
   def self.app_enabled?(flag_name)

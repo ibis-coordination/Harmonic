@@ -6,13 +6,6 @@ You are already a member of this collective.
 [Go to collective homepage](<%= @current_collective.path %>)
 <% elsif @invite %>
 You have been invited to join this collective.
-<% if @current_collective.agent_funding? %>
-
-This is an agent funding collective. Joining is consenting to fund its agents:
-each LLM call one of its agents makes is billed to one member's own prepaid
-balance, chosen at random per call. The collective never holds funds. Joining
-requires active billing with prepaid credits; leaving ends your participation.
-<% end %>
 <% else %>
 You need an invite code to join this collective.
 <% end %>

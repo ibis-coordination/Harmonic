@@ -427,8 +427,7 @@ CREATE TABLE public.collectives (
     collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
     trio_user_id uuid,
     tier character varying DEFAULT 'free'::character varying NOT NULL,
-    archived_by_id uuid,
-    member_daily_draw_cap_cents integer
+    archived_by_id uuid
 );
 
 
@@ -784,6 +783,41 @@ CREATE TABLE public.events (
 
 
 --
+-- Name: funding_pool_enrollments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.funding_pool_enrollments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    funding_pool_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    archived_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    draw_cap_cents integer NOT NULL,
+    draw_cap_period character varying DEFAULT 'day'::character varying NOT NULL
+);
+
+
+--
+-- Name: funding_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.funding_pools (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    collective_id uuid NOT NULL,
+    created_by_id uuid NOT NULL,
+    member_draw_cap_cents integer NOT NULL,
+    archived_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    member_draw_cap_period character varying DEFAULT 'day'::character varying NOT NULL
+);
+
+
+--
 -- Name: harmonic_bridge_setups; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -863,7 +897,6 @@ CREATE TABLE public.llm_usage_records (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     origin_tenant_id uuid NOT NULL,
     ai_agent_id uuid NOT NULL,
-    funding_collective_id uuid,
     payer_stripe_customer_id character varying NOT NULL,
     selection_id character varying NOT NULL,
     status character varying DEFAULT 'pending'::character varying NOT NULL,
@@ -876,7 +909,8 @@ CREATE TABLE public.llm_usage_records (
     occurred_at timestamp(6) without time zone NOT NULL,
     completed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    funding_pool_id uuid
 );
 
 
@@ -2299,8 +2333,8 @@ CREATE TABLE public.users (
     email_confirmation_sent_at timestamp(6) without time zone,
     sessions_revoked_at timestamp(6) without time zone,
     system_role character varying,
-    funding_collective_id uuid,
-    llm_daily_spend_cap_cents integer
+    llm_daily_spend_cap_cents integer,
+    funding_pool_id uuid
 );
 
 
@@ -2773,6 +2807,22 @@ ALTER TABLE ONLY public.decisions
 
 ALTER TABLE ONLY public.events
     ADD CONSTRAINT events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: funding_pool_enrollments funding_pool_enrollments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pool_enrollments
+    ADD CONSTRAINT funding_pool_enrollments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: funding_pools funding_pools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pools
+    ADD CONSTRAINT funding_pools_pkey PRIMARY KEY (id);
 
 
 --
@@ -3334,10 +3384,10 @@ CREATE UNIQUE INDEX idx_audit_entries_decision_sequence ON public.decision_audit
 
 
 --
--- Name: idx_llm_usage_on_pool_payer_completed; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_llm_usage_on_funding_pool_payer_completed; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_llm_usage_on_pool_payer_completed ON public.llm_usage_records USING btree (funding_collective_id, payer_stripe_customer_id, completed_at) WHERE (funding_collective_id IS NOT NULL);
+CREATE INDEX idx_llm_usage_on_funding_pool_payer_completed ON public.llm_usage_records USING btree (funding_pool_id, payer_stripe_customer_id, completed_at) WHERE (funding_pool_id IS NOT NULL);
 
 
 --
@@ -4433,6 +4483,34 @@ CREATE INDEX index_events_on_tenant_id ON public.events USING btree (tenant_id);
 
 
 --
+-- Name: index_funding_pool_enrollments_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_funding_pool_enrollments_on_collective_id ON public.funding_pool_enrollments USING btree (collective_id);
+
+
+--
+-- Name: index_funding_pool_enrollments_on_funding_pool_id_and_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_funding_pool_enrollments_on_funding_pool_id_and_user_id ON public.funding_pool_enrollments USING btree (funding_pool_id, user_id);
+
+
+--
+-- Name: index_funding_pool_enrollments_on_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_funding_pool_enrollments_on_user_id ON public.funding_pool_enrollments USING btree (user_id);
+
+
+--
+-- Name: index_funding_pools_on_collective_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_funding_pools_on_collective_id ON public.funding_pools USING btree (collective_id);
+
+
+--
 -- Name: index_harmonic_bridge_setups_on_api_token_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5273,10 +5351,10 @@ CREATE UNIQUE INDEX index_users_on_email ON public.users USING btree (email);
 
 
 --
--- Name: index_users_on_funding_collective_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_users_on_funding_pool_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_users_on_funding_collective_id ON public.users USING btree (funding_collective_id) WHERE (funding_collective_id IS NOT NULL);
+CREATE INDEX index_users_on_funding_pool_id ON public.users USING btree (funding_pool_id) WHERE (funding_pool_id IS NOT NULL);
 
 
 --
@@ -9148,14 +9226,6 @@ ALTER TABLE ONLY public.agent_session_steps
 
 
 --
--- Name: llm_usage_records fk_rails_1162436250; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.llm_usage_records
-    ADD CONSTRAINT fk_rails_1162436250 FOREIGN KEY (funding_collective_id) REFERENCES public.collectives(id);
-
-
---
 -- Name: options fk_rails_129a008786; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9332,6 +9402,14 @@ ALTER TABLE ONLY public.notes
 
 
 --
+-- Name: funding_pool_enrollments fk_rails_329476199a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pool_enrollments
+    ADD CONSTRAINT fk_rails_329476199a FOREIGN KEY (funding_pool_id) REFERENCES public.funding_pools(id);
+
+
+--
 -- Name: representation_sessions fk_rails_33f2d734e7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9441,6 +9519,14 @@ ALTER TABLE ONLY public.chat_messages
 
 ALTER TABLE ONLY public.commitments
     ADD CONSTRAINT fk_rails_4bd2b4721e FOREIGN KEY (created_by_id) REFERENCES public.users(id);
+
+
+--
+-- Name: funding_pool_enrollments fk_rails_4cdae83766; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pool_enrollments
+    ADD CONSTRAINT fk_rails_4cdae83766 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -9628,6 +9714,14 @@ ALTER TABLE ONLY public.user_lists
 
 
 --
+-- Name: funding_pools fk_rails_6a33cefa81; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pools
+    ADD CONSTRAINT fk_rails_6a33cefa81 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: mcp_tool_call_resources fk_rails_6af7010e2b; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9724,6 +9818,14 @@ ALTER TABLE ONLY public.notifications
 
 
 --
+-- Name: funding_pool_enrollments fk_rails_7dac780871; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pool_enrollments
+    ADD CONSTRAINT fk_rails_7dac780871 FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
+
+
+--
 -- Name: decisions fk_rails_7ee5cf7c37; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9745,6 +9847,14 @@ ALTER TABLE ONLY public.ai_agent_task_run_resources
 
 ALTER TABLE ONLY public.decision_participants
     ADD CONSTRAINT fk_rails_81ebc9cc6f FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: funding_pools fk_rails_8346d377ae; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pools
+    ADD CONSTRAINT fk_rails_8346d377ae FOREIGN KEY (collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -9865,6 +9975,14 @@ ALTER TABLE ONLY public.user_blocks
 
 ALTER TABLE ONLY public.active_storage_variant_records
     ADD CONSTRAINT fk_rails_993965df05 FOREIGN KEY (blob_id) REFERENCES public.active_storage_blobs(id);
+
+
+--
+-- Name: funding_pool_enrollments fk_rails_9a040c3f5d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pool_enrollments
+    ADD CONSTRAINT fk_rails_9a040c3f5d FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -10012,6 +10130,14 @@ ALTER TABLE ONLY public.content_reports
 
 
 --
+-- Name: llm_usage_records fk_rails_b361f3501d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_usage_records
+    ADD CONSTRAINT fk_rails_b361f3501d FOREIGN KEY (funding_pool_id) REFERENCES public.funding_pools(id);
+
+
+--
 -- Name: mcp_tool_call_logs fk_rails_b48d4ac2a6; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10081,6 +10207,14 @@ ALTER TABLE ONLY public.heartbeats
 
 ALTER TABLE ONLY public.chat_messages
     ADD CONSTRAINT fk_rails_c4d58352c0 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: users fk_rails_c5452b275c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT fk_rails_c5452b275c FOREIGN KEY (funding_pool_id) REFERENCES public.funding_pools(id);
 
 
 --
@@ -10340,6 +10474,14 @@ ALTER TABLE ONLY public.decision_participants
 
 
 --
+-- Name: funding_pools fk_rails_efb55bac09; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funding_pools
+    ADD CONSTRAINT fk_rails_efb55bac09 FOREIGN KEY (created_by_id) REFERENCES public.users(id);
+
+
+--
 -- Name: commitment_participants fk_rails_f0bea833a7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10393,14 +10535,6 @@ ALTER TABLE ONLY public.commitment_participants
 
 ALTER TABLE ONLY public.media_items
     ADD CONSTRAINT fk_rails_f516d9b114 FOREIGN KEY (updated_by_id) REFERENCES public.users(id);
-
-
---
--- Name: users fk_rails_f7cabdd29c; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT fk_rails_f7cabdd29c FOREIGN KEY (funding_collective_id) REFERENCES public.collectives(id);
 
 
 --
@@ -10474,6 +10608,11 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260712120000'),
+('20260712110000'),
+('20260712100000'),
+('20260711210000'),
+('20260711200000'),
 ('20260711140000'),
 ('20260711130000'),
 ('20260711120000'),

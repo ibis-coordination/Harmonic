@@ -151,7 +151,7 @@ class ActionsHelper
     },
     "update_collective_settings" => {
       description: "Update collective settings",
-      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)",
+      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled, member_daily_draw_cap)",
       params: [
         { name: "name", type: "string", description: "The name of the collective" },
         { name: "description", type: "string", description: "A description of the collective" },
@@ -162,6 +162,51 @@ class ActionsHelper
         { name: "representation", type: "string", description: 'Who can represent the collective: "any_member" or "only_representatives"' },
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
+        { name: "member_daily_draw_cap", type: "string",
+          description: 'The funding pool\'s draw ceiling — the most it may bill any one enrolled member per day (UTC), in dollars, e.g. "5.00". ' \
+                       "Requires an open pool; mandatory, so it cannot be blanked.", },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
+    "enroll_in_funding_pool" => {
+      description: "Enroll yourself in this collective's funding pool. Enrolling is consenting to fund the collective's agents from your own " \
+                   "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random, and the pool stops " \
+                   "drawing from you once its draws reach your daily ceiling. Requires active billing with prepaid credits. " \
+                   "Enrolling again while already enrolled updates your ceiling.",
+      params_string: "(daily_draw_cap)",
+      params: [
+        { name: "daily_draw_cap", type: "string",
+          description: 'Required. Your own daily ceiling on what this pool may bill you, in dollars, e.g. "5.00".', },
+      ],
+      authorization: :authenticated,
+      visibility: :by_collective,
+    },
+    "withdraw_from_funding_pool" => {
+      description: "Withdraw your enrollment from this collective's funding pool. You drop out of payer draws immediately. " \
+                   "Your agents funded by this pool stay attached (still listed as funded agents) but their calls are refused " \
+                   "until you re-enroll or they are detached.",
+      params_string: "()",
+      params: [],
+      authorization: :authenticated,
+      visibility: :by_collective,
+    },
+    "attach_funded_agent" => {
+      description: "Attach an AI agent to this collective's funding pool: from its next call on, the agent's LLM usage is billed to " \
+                   "enrolled members' balances, one random member per call. The agent's principal must be enrolled.",
+      params_string: "(ai_agent_id)",
+      params: [
+        { name: "ai_agent_id", type: "string", description: "ID of the AI agent to attach" },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
+    "detach_funded_agent" => {
+      description: "Detach an AI agent from this collective's funding pool. It stops drawing on members' balances immediately " \
+                   "and reverts to its own billing.",
+      params_string: "(ai_agent_id)",
+      params: [
+        { name: "ai_agent_id", type: "string", description: "ID of the AI agent to detach" },
       ],
       authorization: :collective_admin,
       visibility: :by_collective,
@@ -331,7 +376,7 @@ class ActionsHelper
     },
     "query_rows" => {
       description: "Query rows in this table with optional filtering, sorting, and pagination. " \
-        "Results include each row's _harmonic_row_id, the identifier passed as row_id to update_row/delete_row",
+                   "Results include each row's _harmonic_row_id, the identifier passed as row_id to update_row/delete_row",
       params_string: "(where, order_by, order, limit, offset)",
       params: [
         { name: "where", type: "object", required: false, description: "Filter by column values, e.g. { \"Status\": \"done\" }" },
@@ -430,7 +475,8 @@ class ActionsHelper
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
-        { name: "deadline", type: "datetime", description: "When the decision closes. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w." },
+        { name: "deadline", type: "datetime",
+          description: "When the decision closes. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
       ],
       authorization: :resource_owner,
       visibility: :by_collective,
@@ -1238,6 +1284,51 @@ class ActionsHelper
         { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string],
           description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
+      # Funding pool actions require a pool. Enrollment and attachment
+      # additionally need an OPEN pool and the operator-managed funding_pools
+      # flag; withdrawal and detachment are exits and stay available on a
+      # closed pool or after the flag is turned off.
+      conditional_actions: [
+        ["enroll_in_funding_pool", true], ["withdraw_from_funding_pool", false],
+        ["attach_funded_agent", true], ["detach_funded_agent", false],
+      ].map do |name, entrance|
+        {
+          name: name,
+          condition: lambda { |context|
+            collective = context[:collective]
+            pool = collective&.funding_pool
+            pool.present? &&
+              (!entrance || (!pool.archived? && collective.feature_enabled?("funding_pools")))
+          },
+        }
+      end,
+    },
+    "/collectives/:collective_handle/pool" => {
+      controller_actions: ["collectives#pool"],
+      actions: [],
+      # The member-facing pair only: the page offers each viewer what applies
+      # to them right now. Enroll stays offered to enrolled members too — the
+      # same action restates their ceiling. Admin roster actions stay on the
+      # settings route.
+      conditional_actions: [
+        {
+          name: "enroll_in_funding_pool",
+          condition: lambda { |context|
+            collective = context[:collective]
+            pool = collective&.funding_pool
+            pool.present? && !pool.archived? && collective.feature_enabled?("funding_pools") &&
+              context[:user].present?
+          },
+        },
+        {
+          name: "withdraw_from_funding_pool",
+          condition: lambda { |context|
+            pool = context[:collective]&.funding_pool
+            user = context[:user]
+            pool.present? && user.present? && pool.enrollments.active.exists?(user_id: user.id)
+          },
+        },
+      ],
     },
     "/collectives/:collective_handle/cycles" => {
       controller_actions: ["cycles#index"],
@@ -1285,6 +1376,7 @@ class ActionsHelper
             next false unless collective && user
             next false unless user.can_represent?(collective)
             next false if collective.archived?
+
             !RepresentationSession.exists?(collective: collective, representative_user: user, ended_at: nil)
           },
         },
@@ -1296,6 +1388,7 @@ class ActionsHelper
             collective = context[:collective]
             user = context[:user]
             next false unless collective && user
+
             RepresentationSession.exists?(collective: collective, representative_user: user, ended_at: nil)
           },
         },
@@ -1769,6 +1862,7 @@ class ActionsHelper
             user = context[:user]
             next false unless grant && user
             next false unless grant.active? && grant.trustee_user == user
+
             !RepresentationSession.exists?(trustee_grant: grant, ended_at: nil)
           },
         },
@@ -1779,6 +1873,7 @@ class ActionsHelper
             user = context[:user]
             next false unless grant && user
             next false unless grant.active? && grant.trustee_user == user
+
             RepresentationSession.exists?(trustee_grant: grant, ended_at: nil)
           },
         },

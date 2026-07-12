@@ -28,10 +28,7 @@ class Invite < ApplicationRecord
     end
   end
 
-  # agent_funding is invite-only by design: the invite is the consent
-  # instrument for funding participation (shareable open links are refused at
-  # Collective#find_or_create_shareable_invite).
-  INVITABLE_COLLECTIVE_TYPES = ["standard", "agent_funding"].freeze
+  INVITABLE_COLLECTIVE_TYPES = ["standard"].freeze
 
   sig { void }
   def set_tenant_id

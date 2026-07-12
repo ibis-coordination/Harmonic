@@ -518,6 +518,9 @@ class Collective
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def build_funding_pool(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_identity_user(*args, &blk); end
 
@@ -625,6 +628,12 @@ class Collective
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by!(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::FundingPool) }
+    def create_funding_pool!(*args, &blk); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_identity_user(*args, &blk); end
@@ -757,6 +766,40 @@ class Collective
 
     sig { params(value: T::Enumerable[::Event]).void }
     def events=(value); end
+
+    sig { returns(T.nilable(::FundingPool)) }
+    def funding_pool; end
+
+    sig { params(value: T.nilable(::FundingPool)).void }
+    def funding_pool=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def funding_pool_enrollment_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def funding_pool_enrollment_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :funding_pool_enrollments`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::FundingPoolEnrollment::PrivateCollectionProxy) }
+    def funding_pool_enrollments; end
+
+    sig { params(value: T::Enumerable[::FundingPoolEnrollment]).void }
+    def funding_pool_enrollments=(value); end
+
+    sig { returns(T::Array[T.untyped]) }
+    def funding_pool_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def funding_pool_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `Collective` class because it declared `has_many :funding_pools`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::FundingPool::PrivateCollectionProxy) }
+    def funding_pools; end
+
+    sig { params(value: T::Enumerable[::FundingPool]).void }
+    def funding_pools=(value); end
 
     sig { returns(T::Array[T.untyped]) }
     def harmonic_bridge_setup_ids; end
@@ -995,6 +1038,9 @@ class Collective
     sig { returns(T.nilable(::User)) }
     def reload_created_by; end
 
+    sig { returns(T.nilable(::FundingPool)) }
+    def reload_funding_pool; end
+
     sig { returns(T.nilable(::User)) }
     def reload_identity_user; end
 
@@ -1043,6 +1089,9 @@ class Collective
 
     sig { void }
     def reset_created_by; end
+
+    sig { void }
+    def reset_funding_pool; end
 
     sig { void }
     def reset_identity_user; end
@@ -1268,9 +1317,6 @@ class Collective
   end
 
   module GeneratedAssociationRelationMethods
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateAssociationRelation) }
-    def agent_funding(*args, &blk); end
-
     sig { returns(PrivateAssociationRelation) }
     def all; end
 
@@ -1977,51 +2023,6 @@ class Collective
     sig { void }
     def internal_will_change!; end
 
-    sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents; end
-
-    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents=(value); end
-
-    sig { returns(T::Boolean) }
-    def member_daily_draw_cap_cents?; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def member_daily_draw_cap_cents_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def member_daily_draw_cap_cents_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def member_daily_draw_cap_cents_change; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def member_daily_draw_cap_cents_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def member_daily_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def member_daily_draw_cap_cents_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def member_daily_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_previously_was; end
-
-    sig { returns(T.nilable(::Integer)) }
-    def member_daily_draw_cap_cents_was; end
-
-    sig { void }
-    def member_daily_draw_cap_cents_will_change!; end
-
     sig { returns(T.nilable(::String)) }
     def name; end
 
@@ -2149,9 +2150,6 @@ class Collective
     def restore_internal!; end
 
     sig { void }
-    def restore_member_daily_draw_cap_cents!; end
-
-    sig { void }
     def restore_name!; end
 
     sig { void }
@@ -2246,12 +2244,6 @@ class Collective
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_internal?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
-    def saved_change_to_member_daily_draw_cap_cents; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_member_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_name; end
@@ -2608,9 +2600,6 @@ class Collective
     def will_save_change_to_internal?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_member_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2636,9 +2625,6 @@ class Collective
   end
 
   module GeneratedRelationMethods
-    sig { params(args: T.untyped, blk: T.untyped).returns(PrivateRelation) }
-    def agent_funding(*args, &blk); end
-
     sig { returns(PrivateRelation) }
     def all; end
 

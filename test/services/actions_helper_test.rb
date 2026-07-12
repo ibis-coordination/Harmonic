@@ -353,4 +353,19 @@ class ActionsHelperTest < ActiveSupport::TestCase
     assert workspace_result, "Should find actions for /workspace/ note route"
     assert_equal collectives_result, workspace_result
   end
+
+  test "update_collective_settings documents every param its execute path accepts" do
+    definition = ActionsHelper::ACTION_DEFINITIONS["update_collective_settings"]
+    documented = definition[:params].map { |p| p[:name] }
+    # The draw ceiling is settable through this action; leaving it out of the
+    # docs makes it undiscoverable on the markdown surface.
+    assert_includes documented, "member_daily_draw_cap"
+    assert_includes definition[:params_string], "member_daily_draw_cap"
+  end
+
+  test "enroll_in_funding_pool documents its required ceiling param" do
+    definition = ActionsHelper::ACTION_DEFINITIONS["enroll_in_funding_pool"]
+    assert_equal ["daily_draw_cap"], definition[:params].map { |p| p[:name] }
+    assert_match(/required/i, definition[:params].first[:description])
+  end
 end

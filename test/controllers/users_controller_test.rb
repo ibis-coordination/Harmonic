@@ -626,16 +626,22 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Has 1 AI agent"
   end
 
-  test "ai_agent profile shows its funding collective" do
+  test "ai_agent profile shows the collective whose pool funds it" do
     ai_agent = create_ai_agent(parent: @user, name: "Pooled AiAgent")
     @tenant.add_user!(ai_agent)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    funding = Collective.create!(
+    collective = Collective.create!(
       tenant: @tenant, created_by: @user, name: "Shared Fund",
-      handle: "fund-#{SecureRandom.hex(4)}", collective_type: "agent_funding"
+      handle: "fund-#{SecureRandom.hex(4)}"
     )
-    funding.add_user!(@user)
-    ai_agent.update!(funding_collective: funding)
+    collective.add_user!(@user)
+    pool = FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_draw_cap_cents: 500)
+    StripeCustomer.create!(
+      billable: @user, stripe_id: "cus_#{SecureRandom.hex(6)}", active: true,
+      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+    )
+    pool.enroll!(@user, draw_cap_cents: 500)
+    ai_agent.update!(funding_pool: pool)
     Tenant.clear_thread_scope
 
     sign_in_as(@user, tenant: @tenant)

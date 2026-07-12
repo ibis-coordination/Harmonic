@@ -124,7 +124,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "returns a pool customer for a pool-funded agent" do
-    attach_funding_collective!(@ai_agent, ["cus_pool_a", "cus_pool_b"])
+    attach_funding_pool!(@ai_agent, ["cus_pool_a", "cus_pool_b"])
 
     # The unbilled run has no stamped customer — the pool alone funds it.
     select_payer(task_run_id: @unbilled_task_run.id, model: "anthropic/claude-sonnet-4.6")
@@ -158,33 +158,31 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     Collective.clear_thread_scope
   end
 
-  # Fund the agent through an agent_funding collective. The first stripe id
-  # funds @user (the agent's principal, who must be a member); each further id
-  # funds an additional member.
-  def attach_funding_collective!(agent, stripe_ids)
+  # Fund the agent through its parent collective's funding pool. The first
+  # stripe id funds @user (the agent's principal, who must be enrolled); each
+  # further id funds an additional enrolled member.
+  def attach_funding_pool!(agent, stripe_ids)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    funding = Collective.create!(
-      tenant: @tenant,
-      created_by: @user,
-      name: "Agent Funding",
-      handle: "fund-#{SecureRandom.hex(4)}",
-      collective_type: "agent_funding"
-    )
-    funding.add_user!(@user)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    @collective.enable_feature_flag!("funding_pools")
+    pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)
     stripe_ids.each_with_index do |stripe_id, index|
       member = @user
       if index.positive?
         member = create_user
         @tenant.add_user!(member)
-        funding.add_user!(member)
+        @collective.add_user!(member)
       end
       seed_balance!(stripe_id)
       StripeCustomer.create!(
         billable: member, stripe_id: stripe_id, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
       )
+      pool.enroll!(member, draw_cap_cents: 500)
     end
-    agent.update!(funding_collective: funding)
-    funding
+    agent.update!(funding_pool: pool)
+    pool
   ensure
     Tenant.clear_thread_scope
     Collective.clear_thread_scope
@@ -209,7 +207,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: returns a pool payer and the mapped model" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
-    attach_funding_collective!(agent, ["cus_pool_a", "cus_pool_b"])
+    attach_funding_pool!(agent, ["cus_pool_a", "cus_pool_b"])
 
     select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
 
@@ -238,7 +236,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: blank model maps to the default model" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
-    attach_funding_collective!(agent, ["cus_pool_a"])
+    attach_funding_pool!(agent, ["cus_pool_a"])
 
     select_payer_for_token(agent_token: token.plaintext_token)
 
@@ -290,7 +288,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
 
   test "token caller: 403 when the tenant flag is off" do
     agent, token = create_gateway_agent_and_token
-    attach_funding_collective!(agent, ["cus_pool_a"])
+    attach_funding_pool!(agent, ["cus_pool_a"])
 
     select_payer_for_token(agent_token: token.plaintext_token)
 
@@ -310,7 +308,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: 400 for a model the gateway cannot proxy" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
-    attach_funding_collective!(agent, ["cus_pool_a"])
+    attach_funding_pool!(agent, ["cus_pool_a"])
 
     select_payer_for_token(agent_token: token.plaintext_token, model: "local-ollama-model")
 
@@ -344,18 +342,18 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_equal @task_run.id, record.ai_agent_task_run_id
     assert_equal @tenant.id, record.origin_tenant_id
     assert record.occurred_at.present?
-    assert_nil record.funding_collective_id, "an individual billing draw must not be attributed to a pool"
+    assert_nil record.funding_pool_id, "an individual billing draw must not be attributed to a pool"
   end
 
-  test "a pool draw stamps the funding collective on the usage record" do
-    funding = attach_funding_collective!(@ai_agent, ["cus_pool_a"])
+  test "a pool draw stamps the funding pool on the usage record" do
+    pool = attach_funding_pool!(@ai_agent, ["cus_pool_a"])
 
     select_payer(task_run_id: @unbilled_task_run.id)
 
     assert_response :success
     selection_id = JSON.parse(response.body)["selection_id"]
     record = LLMUsageRecord.find_by!(selection_id: selection_id)
-    assert_equal funding.id, record.funding_collective_id
+    assert_equal pool.id, record.funding_pool_id
     assert_equal "cus_pool_a", record.payer_stripe_customer_id
   end
 
@@ -369,7 +367,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   test "token caller: selection opens a pending usage record with the mapped model" do
     @tenant.enable_feature_flag!("llm_gateway")
     agent, token = create_gateway_agent_and_token
-    funding = attach_funding_collective!(agent, ["cus_pool_a"])
+    pool = attach_funding_pool!(agent, ["cus_pool_a"])
 
     select_payer_for_token(agent_token: token.plaintext_token, model: "anthropic/claude-sonnet-4.6")
 
@@ -383,7 +381,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_equal "cus_pool_a", record.payer_stripe_customer_id
     assert_equal "anthropic/claude-sonnet-4.6", record.model
     assert_equal token.id, record.api_token_id
-    assert_equal funding.id, record.funding_collective_id
+    assert_equal pool.id, record.funding_pool_id
   end
 
   test "record-usage completes the pending record with tokens and estimated cost" do
@@ -461,6 +459,23 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
 
     record.reload
     assert_equal "completed", record.status
+    assert_not_nil record.estimated_cost_cents
+  end
+
+  test "a late usage report lands on a row the sweep already abandoned" do
+    select_payer(task_run_id: @task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+    LLMUsageRecord.find_by!(selection_id: selection_id).update!(status: "abandoned")
+
+    prices = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.00", output_per_million: "15.00" } }
+    GatewayModelCatalog.stub :prices, prices do
+      record_usage(selection_id: selection_id, model: "anthropic/claude-sonnet-4.6",
+                   input_tokens: 10, output_tokens: 20, status: "ok")
+    end
+
+    assert_response :success
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal "completed", record.status, "abandonment is a bookkeeping guess; real usage must overwrite it"
     assert_not_nil record.estimated_cost_cents
   end
 

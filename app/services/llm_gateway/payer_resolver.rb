@@ -4,16 +4,16 @@
 module LLMGateway
   # Resolves which Stripe customer pays for a billed LLM call, and verifies the
   # payer is funded. This is the single home for payer-selection policy: an
-  # agent funded by an agent_funding collective draws uniformly at random from
-  # its funded members' balances; otherwise the individual billing customer
-  # pays (the task run's stamped customer, or the agent's own).
+  # agent attached to a collective's funding pool draws uniformly at random
+  # from the enrolled members' balances; otherwise the individual billing
+  # customer pays (the task run's stamped customer, or the agent's own).
   class PayerResolver
     extend T::Sig
 
-    # funding_collective_id names the pool a draw came from (nil when the
-    # agent's own billing customer pays) — stamped on the usage ledger for
+    # funding_pool_id names the pool a draw came from (nil when the agent's
+    # own billing customer pays) — stamped on the usage ledger for
     # point-in-time attribution, since the agent's pool link is mutable.
-    Result = Struct.new(:payer_customer_id, :funding_collective_id, keyword_init: true)
+    Result = Struct.new(:payer_customer_id, :funding_pool_id, keyword_init: true)
 
     # A resolution failure that carries the wire error code and HTTP status the
     # gateway (and its callers) should surface.
@@ -41,7 +41,7 @@ module LLMGateway
 
     # Resolve the payer for a gateway call made directly by an agent (external
     # ingress — authenticated by its llm_gateway API key, no task run). Same
-    # funding policy as the task-run path: funding collective first, else the
+    # funding policy as the task-run path: funding pool first, else the
     # agent's own billing customer.
     sig { params(agent: User).returns(Result) }
     def self.resolve_for_agent(agent)
@@ -66,110 +66,152 @@ module LLMGateway
       )
     end
 
-    # The Stripe customers eligible to pay for this agent's calls: the funding
-    # collective's active human members with active, prepaid-credit-subscribed
-    # billing, under the collective's draw ceiling. Members whose funding
-    # lapsed are skipped rather than pool-breaking. Balances are NOT checked
-    # here — the balance gate can reach for Stripe on a stale snapshot, so it
-    # runs once against the sampled candidate, not per member. Lookups use
-    # tenant_scoped_only + explicit ids — never collective-scoped associations,
-    # which misbehave outside normal request scoping.
-    sig { params(agent: User).returns(T::Array[String]) }
-    def self.pool_customer_ids(agent)
-      collective_id = agent.funding_collective_id
-      return [] if collective_id.nil?
-
+    # The Stripe customers eligible to pay for this agent's calls: the pool's
+    # actively-enrolled human members who are still active members of the
+    # pool's collective, with active, prepaid-credit-subscribed billing, under
+    # the pool's draw ceiling. Members whose funding lapsed are skipped rather
+    # than pool-breaking. Balances are NOT checked here — the balance gate can
+    # reach for Stripe on a stale snapshot, so it runs once against the
+    # sampled candidate, not per member. Lookups use tenant_scoped_only +
+    # explicit ids — never collective-scoped associations, which misbehave
+    # outside normal request scoping.
+    sig { params(pool: FundingPool).returns(T::Array[String]) }
+    def self.pool_customer_ids(pool)
+      enrollment_caps = FundingPoolEnrollment.tenant_scoped_only
+        .where(funding_pool_id: pool.id, archived_at: nil)
+        .pluck(:user_id, :draw_cap_cents, :draw_cap_period)
+        .to_h { |user_id, cents, period| [user_id, [cents, period]] }
       member_user_ids = CollectiveMember.tenant_scoped_only
-                                        .where(collective_id: collective_id, archived_at: nil)
-                                        .pluck(:user_id)
+        .where(collective_id: pool.collective_id, user_id: enrollment_caps.keys, archived_at: nil)
+        .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      stripe_ids = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
-                                 .where.not(pricing_plan_subscription_id: [nil, ""])
-                                 .pluck(:stripe_id)
-      under_daily_draw_cap(stripe_ids, collective_id)
+      member_caps_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+        .where.not(pricing_plan_subscription_id: [nil, ""])
+        .pluck(:billable_id, :stripe_id)
+        .to_h { |user_id, stripe_id| [stripe_id, enrollment_caps[user_id]] }
+      under_draw_caps(member_caps_by_stripe_id, pool)
     end
 
-    # The collective's per-UTC-day ceiling on drawing from any one member:
-    # members it has already tapped for the cap today drop out of the draw
-    # (draws by other pools don't count — the ceiling is a promise about THIS
-    # collective's reach into a member's balance).
-    sig { params(stripe_ids: T::Array[String], collective_id: String).returns(T::Array[String]) }
-    def self.under_daily_draw_cap(stripe_ids, collective_id)
-      cap = Collective.tenant_scoped_only.find_by(id: collective_id)&.member_daily_draw_cap_cents
-      return stripe_ids if cap.nil?
+    # The start of the window a (cents, period) ceiling covers. UTC calendar
+    # anchors: midnight, Monday, the 1st.
+    sig { params(period: T.nilable(String)).returns(Time) }
+    def self.draw_cap_window_start(period)
+      now = Time.current.utc
+      case period
+      when "week" then now.beginning_of_week
+      when "month" then now.beginning_of_month
+      else now.beginning_of_day
+      end
+    end
 
-      base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_collective_id: collective_id)
-      drawn = base.where(completed_at: Time.current.utc.beginning_of_day..)
-                  .group(:payer_stripe_customer_id)
-                  .sum(:estimated_cost_cents)
-      # In-flight draws hold reservations, same as the flat sums do.
+    # The ceilings on drawing from any one member: the pool's ceiling and the
+    # member's own enrollment ceiling are enforced independently, each over
+    # its own period window — never normalized across periods. A member at
+    # either bound drops out of the draw until that window rolls over (draws
+    # by other pools don't count — each ceiling is a promise about THIS
+    # pool's reach into a member's balance).
+    sig { params(member_caps_by_stripe_id: T::Hash[String, T.untyped], pool: FundingPool).returns(T::Array[String]) }
+    def self.under_draw_caps(member_caps_by_stripe_id, pool)
+      stripe_ids = member_caps_by_stripe_id.keys
+      return stripe_ids if stripe_ids.empty?
+
+      periods = ([pool.member_draw_cap_period] + member_caps_by_stripe_id.values.compact.map(&:last)).compact.uniq
+      base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_pool_id: pool.id)
+      drawn_by_period = periods.to_h do |period|
+        sums = base.where(completed_at: draw_cap_window_start(period)..)
+          .group(:payer_stripe_customer_id)
+          .sum(:estimated_cost_cents)
+        [period, sums]
+      end
+      # In-flight draws hold reservations; a recent pending row sits inside
+      # every window, so the reservation counts toward each bound.
       in_flight = base.where(status: "pending", occurred_at: LLMUsageRecord::PENDING_RESERVATION_WINDOW.ago..)
-                      .group(:payer_stripe_customer_id)
-                      .count
+        .group(:payer_stripe_customer_id)
+        .count
       reserve = LLMUsageRecord.pending_reserve_cents
+
       stripe_ids.reject do |stripe_id|
-        drawn.fetch(stripe_id, 0) + (in_flight.fetch(stripe_id, 0) * reserve) >= cap
+        reserved = in_flight.fetch(stripe_id, 0) * reserve
+        at_bound = lambda do |cents, period|
+          cents && drawn_by_period.fetch(period, {}).fetch(stripe_id, 0) + reserved >= cents
+        end
+        member_cents, member_period = member_caps_by_stripe_id[stripe_id]
+        at_bound.call(pool.member_draw_cap_cents, pool.member_draw_cap_period) ||
+          at_bound.call(member_cents, member_period)
       end
     end
 
     sig { params(agent: User, context: String).returns(T.nilable(Result)) }
     def self.pool_result(agent, context:)
-      return nil if agent.funding_collective_id.nil?
+      return nil if agent.funding_pool_id.nil?
 
-      ensure_funding_collective_available!(agent)
-      ensure_primary_active!(agent)
+      pool = ensure_funding_pool_available!(agent)
+      ensure_primary_active!(agent, pool)
 
-      pool = pool_customer_ids(agent)
+      candidates = pool_customer_ids(pool)
       # Sample first, verify the balance of only the sampled member (falling
       # through to the next on a dry balance): the gate can reach for Stripe
       # on a stale snapshot, so verifying the whole pool would put one Stripe
       # round-trip per member on the per-call path. A funded pool costs one
       # check; the worst case (everyone dry) still checks each member once.
-      payer = pool.shuffle.find { |stripe_id| BalanceGate.funded?(stripe_id) }
+      payer = candidates.shuffle.find { |stripe_id| BalanceGate.funded?(stripe_id) }
       if payer.nil?
         raise ResolutionError.new(
           "pool_exhausted",
           :payment_required,
-          "No funded members are available in the agent's funding collective."
+          "No funded members are available in the agent's funding pool."
         )
       end
 
-      Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{pool.size}")
-      Result.new(payer_customer_id: payer, funding_collective_id: agent.funding_collective_id)
+      Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{candidates.size}")
+      Result.new(payer_customer_id: payer, funding_pool_id: pool.id)
     end
 
-    # Archiving a funding collective is how the arrangement is wound down, so
-    # it must stop the spending; membership rows survive archiving, so the
-    # member-based checks alone would keep drawing. A collective outside the
-    # calling tenant suspends the agent the same way — the membership lookups
-    # below are scoped to the calling tenant and could never see it anyway.
-    sig { params(agent: User).void }
-    def self.ensure_funding_collective_available!(agent)
-      collective = Collective.tenant_scoped_only.find_by(id: agent.funding_collective_id)
-      return if collective && !collective.archived?
+    # Closing a pool (or archiving its collective) is how the arrangement is
+    # wound down, so it must stop the spending; enrollment rows survive both,
+    # so the member-based checks alone would keep drawing. The operator-managed
+    # funding_pools flag is checked here too: turning it off is the operator's
+    # kill switch and must stop draws immediately, not just hide the UI. A pool
+    # outside the calling tenant suspends the agent the same way — the
+    # enrollment lookups are scoped to the calling tenant and could never see
+    # it anyway. The wire code predates the pool remodel and is kept stable
+    # for callers.
+    sig { params(agent: User).returns(FundingPool) }
+    def self.ensure_funding_pool_available!(agent)
+      pool = FundingPool.tenant_scoped_only.find_by(id: agent.funding_pool_id)
+      collective = pool && Collective.tenant_scoped_only.find_by(id: pool.collective_id)
+      if pool && !pool.archived? && collective && !collective.archived? && collective.feature_enabled?("funding_pools")
+        return pool
+      end
 
       raise ResolutionError.new(
         "funding_collective_unavailable",
         :forbidden,
-        "The agent's funding collective is archived or unavailable; the agent is suspended."
+        "The agent's funding pool is closed or unavailable, so its calls are refused. It runs again when the pool reopens, or when it is detached and given its own billing."
       )
     end
 
-    # No primary, no service: the accountable principal must remain an active
-    # member of the funding collective (the attach-time validation can drift —
-    # members leave). Checked statelessly on every call.
-    sig { params(agent: User).void }
-    def self.ensure_primary_active!(agent)
+    # No primary, no service: the accountable principal must remain enrolled
+    # in the pool and an active member of its collective (the attach-time
+    # validation can drift — members withdraw or leave). Checked statelessly
+    # on every call.
+    sig { params(agent: User, pool: FundingPool).void }
+    def self.ensure_primary_active!(agent, pool)
+      enrollment = FundingPoolEnrollment.tenant_scoped_only.find_by(
+        funding_pool_id: pool.id,
+        user_id: agent.parent_id,
+        archived_at: nil
+      )
       membership = CollectiveMember.tenant_scoped_only.find_by(
-        collective_id: agent.funding_collective_id,
+        collective_id: pool.collective_id,
         user_id: agent.parent_id
       )
-      return if membership && membership.archived_at.nil?
+      return if enrollment && membership && membership.archived_at.nil?
 
       raise ResolutionError.new(
         "no_primary",
         :forbidden,
-        "The agent's principal is no longer an active member of its funding collective; the agent is suspended."
+        "The agent's principal is no longer enrolled in its funding pool, so its calls are refused until the principal re-enrolls or the agent is detached."
       )
     end
 

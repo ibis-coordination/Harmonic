@@ -121,3 +121,12 @@ feature_flags:
     default_tenant: false
     default_collective: false
     collective_level: false
+
+  funding_pools:
+    name: "Funding Pools"
+    description: "Allows this collective to open a funding pool: enrolled members' prepaid balances fund the collective's agents, one random member billed per call. Operator-managed — enabled per collective by a platform admin, never self-serve from collective settings. Requires stripe_billing on the tenant to do anything."
+    app_enabled: true
+    default_tenant: false
+    default_collective: false
+    collective_level: true
+    operator_managed: true

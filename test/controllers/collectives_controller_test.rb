@@ -1845,7 +1845,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not cm.has_role?("representative"), "a non-admin agent must not grant roles"
   end
 
-  # === Agent funding collectives ===
+  # === Funding pools ===
 
   def fund_user!(user, stripe_id: "cus_#{SecureRandom.hex(6)}")
     StripeCustomer.create!(
@@ -1853,207 +1853,464 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     )
   end
 
-  def create_funding_collective(admin: @user)
+  def enable_funding_pools!(collective)
+    enable_stripe_billing_flag!(@tenant)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    collective.enable_feature_flag!("funding_pools")
+  end
+
+  def create_pool!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    collective = Collective.create!(
-      tenant: @tenant,
-      created_by: admin,
-      name: "Agent Funding",
-      handle: "fund-#{SecureRandom.hex(4)}",
-      collective_type: "agent_funding"
-    )
-    cm = collective.add_user!(admin)
-    cm.add_role!("admin")
-    collective
+    FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_draw_cap_cents: 500)
   ensure
-    Collective.clear_thread_scope
     Tenant.clear_thread_scope
   end
 
-  def invite_to(collective, user)
-    Invite.create!(
-      tenant: @tenant,
-      collective: collective,
-      created_by: @user,
-      invited_user: user,
-      code: SecureRandom.hex(8),
-      expires_at: 1.week.from_now
+  def add_member!(collective, user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.add_user!(user)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def enroll!(pool, user, draw_cap_cents: 500)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    pool.enroll!(user, draw_cap_cents: draw_cap_cents)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def active_enrollment?(pool, user)
+    FundingPoolEnrollment.tenant_scoped_only(@tenant.id).where(archived_at: nil)
+      .exists?(funding_pool_id: pool.id, user_id: user.id)
+  end
+
+  test "an admin can create a funding pool with an explicit draw ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+
+    assert_redirected_to "#{collective.path}/settings"
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert pool.present?
+    assert_equal 500, pool.member_draw_cap_cents
+  end
+
+  test "creating a pool without a draw ceiling is refused" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    assert flash[:alert].present?, "expected a friendly refusal — every pool needs an explicit ceiling"
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "not money" }
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "non-admin members cannot create a funding pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    member = create_user(name: "Plain Member")
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    sign_in_as(member, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "creating a pool requires the stripe_billing feature" do
+    collective = create_test_collective
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "a pool cannot be opened on an archived collective" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.update!(archived_at: Time.current, archived_by_id: @user.id)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    # The global archived-collective interceptor bounces the request to the
+    # settings page before the action runs; the pool must not be created.
+    assert_redirected_to "#{collective.path}/settings"
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "a pool cannot be opened on a non-standard collective" do
+    enable_stripe_billing_flag!(@tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    chat = Collective.create!(
+      tenant: @tenant, created_by: @user, name: "Chat", handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat"
     )
+    cm = chat.add_user!(@user)
+    cm.add_role!("admin")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    enable_funding_pools!(chat)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{chat.path}/settings/create_funding_pool"
+
+    assert_response :redirect
+    assert flash[:alert].present?, "expected a friendly refusal, not a crash"
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: chat.id)
   end
 
-  def member_of?(collective, user)
-    CollectiveMember.tenant_scoped_only(@tenant.id).where(archived_at: nil).exists?(collective_id: collective.id, user_id: user.id)
+  test "creating the pool again reopens a closed pool instead of failing" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.archive!
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    assert_redirected_to "#{collective.path}/settings"
+    pool.reload
+    assert_not pool.archived?, "expected the closed pool to reopen"
+    assert_equal 500, pool.member_draw_cap_cents, "reopening without a ceiling param keeps the existing ceiling"
   end
 
-  test "the join page shows funding consent copy for agent_funding collectives" do
-    funding = create_funding_collective
-    invitee = create_user(name: "Prospective Funder")
-    @tenant.add_user!(invitee)
-    invite = invite_to(funding, invitee)
-    sign_in_as(invitee, tenant: @tenant)
+  test "reopening a closed pool with a ceiling param updates the ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.archive!
+    sign_in_as(@user, tenant: @tenant)
 
-    get "#{funding.path}/join", params: { code: invite.code }
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "2.50" }
+
+    pool.reload
+    assert_not pool.archived?
+    assert_equal 250, pool.member_draw_cap_cents
+  end
+
+  test "an admin can close the pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/close_funding_pool"
+
+    assert_redirected_to "#{collective.path}/settings"
+    assert pool.reload.archived?
+  end
+
+  test "non-admins cannot close the pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = create_user(name: "Plain Member")
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    sign_in_as(member, tenant: @tenant)
+
+    post "#{collective.path}/settings/close_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not pool.reload.archived?
+  end
+
+  test "a funded member can enroll themselves with their own ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert active_enrollment?(pool, @user)
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 300, enrollment.draw_cap_cents
+  end
+
+  test "enrolling without a ceiling is refused" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool"
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert_match(/ceiling/i, flash[:alert], "consent must state an explicit ceiling")
+    assert_not active_enrollment?(pool, @user)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "several" }
+
+    assert flash[:alert].present?
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "enrolling with the pool-ceiling choice adopts the pool's current ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { ceiling_choice: "pool" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 500, enrollment.draw_cap_cents, "the pool choice snapshots the pool's ceiling as the member's own"
+  end
+
+  test "enrolling with the custom choice but no amount is refused" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { ceiling_choice: "custom" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert_match(/ceiling/i, flash[:alert])
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the enroll form offers the pool ceiling as the default with a custom opt-down" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/Match the pool ceiling/i, response.body)
+    assert_match(/ceiling_choice/, response.body)
+  end
+
+  test "an enrolled member can update their ceiling by re-enrolling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "1.25" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert active_enrollment?(pool, @user)
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 125, enrollment.draw_cap_cents
+  end
+
+  test "enrolling without funded billing fails with a friendly error" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert_match(/billing/i, flash[:alert])
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "an enrolled member can withdraw" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert_not active_enrollment?(pool, @user)
+    assert_no_match(/stay attached/, flash[:notice], "no agent warning when the member has no attached agents")
+  end
+
+  test "withdrawing with attached agents says they stay attached but stop" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+
+    assert_match(/stay attached/, flash[:notice])
+    assert_match(/calls are refused/, flash[:notice])
+  end
+
+  test "enrolling above the pool ceiling notes that the pool ceiling applies" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "50.00" }
+
+    assert active_enrollment?(pool, @user)
+    assert_match(/pool's \$5\.00 ceiling applies/, flash[:notice])
+  end
+
+  test "the settings page shows funding consent copy pointing members at the pool page" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
 
     assert_response :success
     assert_match(/consenting to fund/i, response.body)
     assert_match(/prepaid balance/i, response.body)
   end
 
-  test "accepting an agent_funding invite requires funded billing" do
-    funding = create_funding_collective
-    invitee = create_user(name: "Unfunded")
-    @tenant.add_user!(invitee)
-    invite = invite_to(funding, invitee)
-    sign_in_as(invitee, tenant: @tenant)
-
-    post "#{funding.path}/join", params: { code: invite.code }
-
-    assert_redirected_to "#{funding.path}/join"
-    assert_match(/billing/i, flash[:alert])
-    assert_not member_of?(funding, invitee), "unfunded user must not become a funding member"
-  end
-
-  test "a funded user accepting an agent_funding invite becomes a member" do
-    funding = create_funding_collective
-    invitee = create_user(name: "Funded")
-    @tenant.add_user!(invitee)
-    fund_user!(invitee)
-    invite = invite_to(funding, invitee)
-    sign_in_as(invitee, tenant: @tenant)
-
-    post "#{funding.path}/join", params: { code: invite.code }
-
-    assert_redirected_to funding.path
-    assert member_of?(funding, invitee)
-  end
-
-  test "a funded user can create an agent_funding collective" do
+  test "an admin can attach an enrolled member's agent" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
     fund_user!(@user)
-    sign_in_as(@user, tenant: @tenant)
-    handle = "fund-pool-#{SecureRandom.hex(4)}"
-
-    post "/collectives", params: { name: "Fund Pool", handle: handle, collective_type: "agent_funding" }
-
-    collective = Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
-    assert collective, "expected the collective to be created"
-    assert collective.agent_funding?
-    assert collective.billing_exempt?, "funding collectives are not billable"
-    assert member_of?(collective, @user)
-  end
-
-  test "creating an agent_funding collective requires funded billing" do
-    sign_in_as(@user, tenant: @tenant)
-    handle = "fund-pool-#{SecureRandom.hex(4)}"
-
-    post "/collectives", params: { name: "Fund Pool", handle: handle, collective_type: "agent_funding" }
-
-    assert_nil Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
-    assert_match(/billing/i, flash[:alert])
-  end
-
-  test "internal-only collective types cannot be created through the public path" do
-    sign_in_as(@user, tenant: @tenant)
-    handle = "sneaky-#{SecureRandom.hex(4)}"
-
-    post "/collectives", params: { name: "Sneaky", handle: handle, collective_type: "chat" }
-
-    assert_nil Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle)
-  end
-
-  test "an admin can attach a member's agent to an agent_funding collective" do
-    funding = create_funding_collective
+    enroll!(pool, @user)
     agent = create_ai_agent(parent: @user)
     @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
-    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
     assert_response :redirect
-    assert_equal funding.id, agent.reload.funding_collective_id
+    assert_equal pool.id, agent.reload.funding_pool_id
   end
 
   test "non-admin members cannot attach agents" do
-    funding = create_funding_collective
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
     member = create_user(name: "Plain Member")
     @tenant.add_user!(member)
+    add_member!(collective, member)
     fund_user!(member)
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    funding.add_user!(member)
+    enroll!(pool, member)
     agent = create_ai_agent(parent: member)
-    Tenant.clear_thread_scope
     @tenant.add_user!(agent)
     sign_in_as(member, tenant: @tenant)
 
-    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert_redirected_to "#{funding.path}/settings"
+    assert_redirected_to "#{collective.path}/settings"
     assert flash[:alert].present?, "expected an alert explaining the refusal"
-    assert_nil agent.reload.funding_collective_id
+    assert_nil agent.reload.funding_pool_id
   end
 
   test "attach errors are JSON for JSON requests" do
-    funding = create_funding_collective
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
     member = create_user(name: "Plain Member")
     @tenant.add_user!(member)
+    add_member!(collective, member)
     fund_user!(member)
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    funding.add_user!(member)
+    enroll!(pool, member)
     agent = create_ai_agent(parent: member)
-    Tenant.clear_thread_scope
     @tenant.add_user!(agent)
     sign_in_as(member, tenant: @tenant)
 
-    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
 
     assert_response :forbidden
     assert response.parsed_body["error"].present?
-    assert_nil agent.reload.funding_collective_id
+    assert_nil agent.reload.funding_pool_id
   end
 
-  test "attach is refused on non-funding collectives" do
-    other = create_test_collective
+  test "attach is refused when the collective has no pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    fund_user!(@user)
     agent = create_ai_agent(parent: @user)
     @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
-    post "#{other.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert_redirected_to "#{other.path}/settings"
+    assert_redirected_to "#{collective.path}/settings"
     assert flash[:alert].present?
-    assert_nil agent.reload.funding_collective_id
+    assert_nil agent.reload.funding_pool_id
   end
 
-  test "attach fails clearly when the agent's principal is not a member" do
-    funding = create_funding_collective
+  test "attach fails clearly when the agent's principal is not enrolled" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
     outsider = create_user(name: "Outsider")
     @tenant.add_user!(outsider)
     agent = create_ai_agent(parent: outsider)
     @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
-    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert_redirected_to "#{funding.path}/settings"
-    assert_match(/member/i, flash[:alert])
-    assert_nil agent.reload.funding_collective_id
+    assert_redirected_to "#{collective.path}/settings"
+    assert_match(/enrolled/i, flash[:alert])
+    assert_nil agent.reload.funding_pool_id
   end
 
   test "an agent from another tenant cannot be attached" do
-    funding = create_funding_collective
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
     agent = create_ai_agent(parent: @user)
     other_tenant = create_tenant(subdomain: "other-fund-#{SecureRandom.hex(4)}")
     other_tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
-    post "#{funding.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }, as: :json
 
     assert_response :not_found
-    assert_nil agent.reload.funding_collective_id
+    assert_nil agent.reload.funding_pool_id
   end
 
-  test "the attach list only offers agents from this tenant" do
-    funding = create_funding_collective
+  test "the attach list only offers this tenant's agents of enrolled members" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
     local = create_ai_agent(parent: @user, name: "Local Fund Bot")
     @tenant.add_user!(local)
     foreign = create_ai_agent(parent: @user, name: "Foreign Fund Bot")
@@ -2061,93 +2318,634 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     other_tenant.add_user!(foreign)
     sign_in_as(@user, tenant: @tenant)
 
-    get "#{funding.path}/settings"
+    get "#{collective.path}/settings"
 
     assert_response :success
     assert_match "Local Fund Bot", response.body
     assert_no_match(/Foreign Fund Bot/, response.body)
   end
 
-  test "an admin can set and clear the member daily draw ceiling" do
-    funding = create_funding_collective
+  test "an admin can set and clear the member daily draw ceiling without touching other settings" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    original_name = collective.name
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.settings["all_members_can_invite"] = true
+    collective.save!
+    Tenant.clear_thread_scope
     sign_in_as(@user, tenant: @tenant)
 
-    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{funding.path}/settings" }
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
 
-    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "0.50" }, headers: referer
-    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+    # The ceiling lives in its own small form inside the pool section, so it
+    # posts alone — a cap-only POST must not clobber the fields the main
+    # settings form would have carried.
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "0.50" }, headers: referer
+    assert_equal 50, pool.reload.member_draw_cap_cents
+    collective.reload
+    assert_equal original_name, collective.name, "a cap-only POST must not blank the name"
+    assert collective.all_members_can_invite?, "a cap-only POST must not reset the invitation policy"
 
-    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "" }, headers: referer
-    assert_nil funding.reload.member_daily_draw_cap_cents
+    # The ceiling is mandatory: a blank submission is a rejected attempt to
+    # clear it, not a way to lift the limit.
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "" }, headers: referer
+    assert flash[:error].present?, "clearing the ceiling must be refused"
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
   test "an over-large draw ceiling is rejected with a friendly error" do
-    funding = create_funding_collective
-    funding.update!(member_daily_draw_cap_cents: 50)
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_draw_cap_cents: 50)
     sign_in_as(@user, tenant: @tenant)
-    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{funding.path}/settings" }
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
 
-    post "#{funding.path}/settings", params: { name: funding.name, member_daily_draw_cap: "30000000" }, headers: referer
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "30000000" }, headers: referer
 
     assert_response :redirect
     assert flash[:error].present?
-    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
-  test "the update_collective_settings action sets and clears the draw ceiling" do
-    funding = create_funding_collective
+  test "the update_collective_settings action sets the draw ceiling but refuses to clear it" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
-    post "#{funding.path}/settings/actions/update_collective_settings",
+    post "#{collective.path}/settings/actions/update_collective_settings",
          params: { member_daily_draw_cap: "0.75" }.to_json, headers: headers
     assert_response :success
-    assert_equal 75, funding.reload.member_daily_draw_cap_cents
+    assert_equal 75, pool.reload.member_draw_cap_cents
 
-    post "#{funding.path}/settings/actions/update_collective_settings",
+    post "#{collective.path}/settings/actions/update_collective_settings",
          params: { member_daily_draw_cap: "" }.to_json, headers: headers
-    assert_response :success
-    assert_nil funding.reload.member_daily_draw_cap_cents
+    assert_response :unprocessable_entity
+    assert_equal 75, pool.reload.member_draw_cap_cents, "the ceiling is mandatory and cannot be cleared"
   end
 
   test "the update_collective_settings action rejects a bad draw ceiling with a friendly message" do
-    funding = create_funding_collective
-    funding.update!(member_daily_draw_cap_cents: 50)
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_draw_cap_cents: 50)
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
-    post "#{funding.path}/settings/actions/update_collective_settings",
+    post "#{collective.path}/settings/actions/update_collective_settings",
          params: { member_daily_draw_cap: "lots" }.to_json, headers: headers
 
     assert_response :unprocessable_entity
     assert_no_match(/BigDecimal/, response.body, "internal parse errors must not leak to the action API")
-    assert_equal 50, funding.reload.member_daily_draw_cap_cents
+    assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
-  test "detaching an agent not funded by this collective redirects with an alert" do
-    funding = create_funding_collective
+  test "the draw ceiling action is refused while the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_draw_cap_cents: 50)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "0.75" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/not enabled/i, response.body)
+    assert_equal 50, pool.reload.member_draw_cap_cents
+  end
+
+  test "the markdown settings page notes the wind-down state when the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/disabled for this collective/i, response.body)
+  end
+
+  test "setting a draw ceiling on a collective without a pool fails with a friendly message" do
+    collective = create_test_collective
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "0.75" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/funding pool/i, response.body)
+  end
+
+  test "detaching an agent not funded by this pool redirects with an alert" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    fund_user!(@user)
     agent = create_ai_agent(parent: @user)
     @tenant.add_user!(agent)
     sign_in_as(@user, tenant: @tenant)
 
-    delete "#{funding.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+    delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert_redirected_to "#{funding.path}/settings"
+    assert_redirected_to "#{collective.path}/settings"
     assert flash[:alert].present?
   end
 
   test "an admin can detach a funded agent" do
-    funding = create_funding_collective
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
     agent = create_ai_agent(parent: @user)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    agent.update!(funding_collective: funding)
+    agent.update!(funding_pool: pool)
     Tenant.clear_thread_scope
     sign_in_as(@user, tenant: @tenant)
 
-    delete "#{funding.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+    delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
 
     assert_response :redirect
-    assert_nil agent.reload.funding_collective_id
+    assert_nil agent.reload.funding_pool_id
+  end
+
+  test "creating a pool requires the funding_pools flag" do
+    enable_stripe_billing_flag!(@tenant)
+    collective = create_test_collective
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "collective admins cannot self-enable the funding_pools flag" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
+
+    post "#{collective.path}/settings", params: { name: collective.name, feature_funding_pools: "true" }, headers: referer
+
+    assert_not collective.reload.feature_flag_enabled_locally?("funding_pools"),
+               "operator-managed flags must not be self-serve from collective settings"
+  end
+
+  test "enrolling requires the funding_pools flag" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool"
+
+    assert flash[:alert].present?
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "attaching requires the funding_pools flag" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert flash[:alert].present?
+    assert_nil agent.reload.funding_pool_id
+  end
+
+  test "withdraw and detach still work after the flag is disabled" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+    assert_not active_enrollment?(pool, @user), "withdrawal is a consent exit and must never be flag-gated"
+
+    delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: agent.id }
+    assert_nil agent.reload.funding_pool_id, "detach stops spending and must never be flag-gated"
+  end
+
+  test "the agents section does not reference the pool section when it is hidden" do
+    collective = create_test_collective
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @tenant.enable_feature_flag!("api")
+    collective.enable_feature_flag!("api")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_match(/AI Agents in this Collective/, response.body, "the agents section itself should render")
+    assert_no_match(/Agent Funding Pool\s+section above/, response.body,
+                    "must not point at a section that is not rendered")
+  end
+
+  test "the settings pool section is wind-down only when the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_match(/disabled for this collective/i, response.body)
+    assert_no_match(/Save Ceiling/, response.body, "the draw ceiling must not be editable while the flag is off")
+    assert_no_match(/>Enroll in Pool</, response.body)
+    assert_no_match(/Attach an enrolled member/, response.body)
+    assert_match(/Withdraw from Pool/, response.body)
+    assert_match(/Detach/, response.body)
+    assert_match(/Close Funding Pool/, response.body)
+  end
+
+  test "the enroll_in_funding_pool action is refused when the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+
+    assert_response :not_found
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the markdown settings page shows the funding pool state" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_draw_cap_cents: 150)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Pool Md Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/Funding Pool/, response.body)
+    assert_match(/\$1\.50/, response.body)
+    assert_match "Pool Md Bot", response.body
+    assert_match(/enrolled/i, response.body)
+  end
+
+  # === Member-facing pool page ===
+
+  def add_funded_member!(collective, name: "Pool Member")
+    member = create_user(name: name)
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    fund_user!(member)
+    member
+  end
+
+  test "a non-admin member can enroll and withdraw from the pool page" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+    assert_response :success
+    assert_match(/consenting to fund/i, response.body)
+    assert_match(/Enroll/, response.body)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }
+    assert_redirected_to "#{collective.path}/pool"
+    assert active_enrollment?(pool, member)
+
+    get "#{collective.path}/pool"
+    assert_match(/Withdraw/, response.body)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+    assert_redirected_to "#{collective.path}/pool"
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "the pool page shows pool state without admin controls" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_draw_cap_cents: 150)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Pool Page Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/\$1\.50/, response.body)
+    assert_match "Pool Page Bot", response.body
+    assert_match @user.name, response.body
+    assert_no_match(/Close Funding Pool/, response.body)
+    assert_no_match(/Attach/, response.body)
+  end
+
+  test "the pool page redirects when the collective has no pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_redirected_to collective.path
+  end
+
+  # Withdrawal never detaches agents — their calls are simply refused until
+  # the principal re-enrolls. The rosters must SAY that, or a withdrawn
+  # member sees their agents still listed as funded and reasonably concludes
+  # withdrawal didn't work.
+  test "funded agents whose principal is not enrolled are marked as not running" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enrollment = enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Orphaned Pool Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    enrollment.withdraw!
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+    assert_response :success
+    assert_match "Orphaned Pool Bot", response.body
+    assert_match(/principal not enrolled/i, response.body)
+
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+    assert_match(/principal not enrolled/i, response.body)
+
+    get "#{collective.path}/settings"
+    assert_match(/principal not enrolled/i, response.body)
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+    assert_match(/principal not enrolled/i, response.body)
+  end
+
+  test "funded agents with enrolled principals carry no not-running marker" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Running Pool Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+    assert_match "Running Pool Bot", response.body
+    assert_no_match(/principal not enrolled/i, response.body)
+  end
+
+  test "a closed pool page still offers withdrawal but not enrollment" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    enroll!(pool, member)
+    pool.archive!
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/closed/i, response.body)
+    assert_match(/Withdraw/, response.body)
+    assert_no_match(/>Enroll in Pool</, response.body)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "the markdown pool page offers enroll to members and withdraw only to enrolled ones" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/enroll_in_funding_pool/, response.body)
+    assert_no_match(/withdraw_from_funding_pool/, response.body)
+
+    enroll!(pool, member)
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+    # Enroll stays offered to enrolled members — re-enrolling updates their ceiling.
+    assert_match(/enroll_in_funding_pool/, response.body)
+    assert_match(/withdraw_from_funding_pool/, response.body)
+  end
+
+  test "the pool-page action routes execute for a non-admin member" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/pool/actions/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }.to_json, headers: headers
+    assert_response :success
+    assert active_enrollment?(pool, member)
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: member.id)
+    assert_equal 300, enrollment.draw_cap_cents
+
+    post "#{collective.path}/pool/actions/withdraw_from_funding_pool", params: {}.to_json, headers: headers
+    assert_response :success
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "the enroll action requires a ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/pool/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/ceiling/i, response.body)
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "non-members are bounced from the pool page" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    outsider = create_user(name: "Pool Outsider")
+    @tenant.add_user!(outsider)
+    sign_in_as(outsider, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_redirected_to "#{collective.path}/join"
+  end
+
+  # === Funding pool markdown actions ===
+
+  test "the enroll_in_funding_pool action enrolls the caller" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: { daily_draw_cap: "5.00" }.to_json, headers: headers
+
+    assert_response :success
+    assert active_enrollment?(pool, @user)
+  end
+
+  test "the enroll_in_funding_pool action explains an unfunded refusal" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: { daily_draw_cap: "5.00" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/billing/i, response.body)
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the withdraw_from_funding_pool action withdraws the caller" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/withdraw_from_funding_pool", params: {}.to_json, headers: headers
+
+    assert_response :success
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the attach_funded_agent action attaches an enrolled member's agent" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/attach_funded_agent",
+         params: { ai_agent_id: agent.id }.to_json, headers: headers
+
+    assert_response :success
+    assert_equal pool.id, agent.reload.funding_pool_id
+  end
+
+  test "the detach_funded_agent action detaches a funded agent" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/detach_funded_agent",
+         params: { ai_agent_id: agent.id }.to_json, headers: headers
+
+    assert_response :success
+    assert_nil agent.reload.funding_pool_id
+  end
+
+  test "internal-only collective types cannot be created through the public path" do
+    sign_in_as(@user, tenant: @tenant)
+
+    ["chat", "agent_funding"].each do |requested_type|
+      handle = "sneaky-#{SecureRandom.hex(4)}"
+      post "/collectives", params: { name: "Sneaky", handle: handle, collective_type: requested_type }
+      assert_nil Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle),
+                 "expected #{requested_type} to be rejected on the public create path"
+    end
   end
 
   private

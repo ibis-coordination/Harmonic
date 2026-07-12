@@ -55,6 +55,11 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "PurgeDismissedNotificationsJob",
     "description" => "Delete long-dismissed notification recipients and orphaned notifications",
   },
+  "sweep_stuck_llm_usage_records" => {
+    "cron" => "45 * * * *", # Hourly at :45
+    "class" => "SweepStuckLLMUsageRecordsJob",
+    "description" => "Re-price unpriced LLM usage rows and mark stale pending ones abandoned",
+  },
   "cleanup_abandoned_bridge_setups" => {
     "cron" => "15 * * * *", # Hourly at :15
     "class" => "CleanupAbandonedBridgeSetupsJob",

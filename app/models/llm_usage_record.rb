@@ -16,14 +16,20 @@ class LLMUsageRecord < ApplicationRecord
 
   self.implicit_order_column = "created_at"
 
-  STATUSES = ["pending", "completed", "failed"].freeze
+  # "abandoned" is the sweep's terminal verdict on a pending row whose usage
+  # never came back: it stops polluting "pending" as a signal, carries no cost
+  # (Stripe may still have billed the call — the row is the ops trail for that
+  # gap), and a late usage report may still complete it.
+  STATUSES = ["pending", "completed", "failed", "abandoned"].freeze
 
   belongs_to :origin_tenant, class_name: "Tenant"
   belongs_to :ai_agent, class_name: "User"
   # The pool the draw came from, stamped at selection time (nil = the agent's
   # own billing customer paid). Point-in-time: agents move between pools, so
-  # this is never re-derived through the agent's mutable link.
-  belongs_to :funding_collective, class_name: "Collective", optional: true
+  # this is never re-derived through the agent's mutable link. Unscoped from
+  # the collective dimension — the ledger is read from billing contexts, not
+  # from the pool's collective.
+  belongs_to :funding_pool, -> { unscope_collective }, optional: true, inverse_of: false
   belongs_to :task_run, class_name: "AiAgentTaskRun", foreign_key: "ai_agent_task_run_id", optional: true, inverse_of: false
   belongs_to :api_token, optional: true
 
