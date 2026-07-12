@@ -1083,13 +1083,6 @@ class CollectivesController < ApplicationController
     invite = Invite.find_by(code: params[:code]) if params[:code]
     invite ||= Invite.find_by(invited_user: current_user, collective: @current_collective)
     if invite && current_user
-      # Funded to join: accepting a funding-collective invite is consenting to
-      # have your own balance drawn on, so it requires working billing.
-      if @current_collective.agent_funding? && !current_user.funded_billing?
-        flash[:alert] = "Joining this collective means consenting to fund its agents from your own prepaid balance, " \
-                        "which requires active billing with prepaid credits. Set up billing at /billing first."
-        return redirect_to "#{@current_collective.path}/join"
-      end
       if invite.is_acceptable_by_user?(current_user)
         @current_user.accept_invite!(invite)
         clear_pending_invite! if pending_invite_code == invite.code
@@ -1181,9 +1174,9 @@ class CollectivesController < ApplicationController
   # POST /collectives/:collective_handle/deactivate
   private
 
-  # Only these types are user-creatable; chat and private_workspace
+  # Only this type is user-creatable; chat and private_workspace
   # collectives are minted by their own internal flows.
-  USER_CREATABLE_COLLECTIVE_TYPES = ["standard", "agent_funding"].freeze
+  USER_CREATABLE_COLLECTIVE_TYPES = ["standard"].freeze
 
   # The funded-agent actions are called from both the settings page's plain
   # HTML forms and JSON clients; errors must come back in the caller's format.
@@ -1198,17 +1191,10 @@ class CollectivesController < ApplicationController
   end
 
   # Returns an error message when the requested collective type may not be
-  # created by this user, nil when the request is fine. Creating an
-  # agent_funding collective makes you its first funding member, so it
-  # carries the same funded-billing requirement as joining one.
+  # created by this user, nil when the request is fine.
   def collective_type_request_error
     requested = params[:collective_type].presence || "standard"
     return "Collective type #{requested.inspect} is not available." unless USER_CREATABLE_COLLECTIVE_TYPES.include?(requested)
-
-    if requested == "agent_funding" && !current_user.funded_billing?
-      return "Creating an agent funding collective makes you its first funding member, which requires " \
-             "active billing with prepaid credits. Set up billing at /billing first."
-    end
 
     nil
   end

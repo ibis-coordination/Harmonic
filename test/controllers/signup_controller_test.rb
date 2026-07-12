@@ -601,64 +601,7 @@ class SignupControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # === Agent funding collectives ===
-
-  test "the confirmation page shows funding consent copy for agent_funding invites" do
-    funding = create_funding_collective
-    invite = create_invite(collective: funding, invited_user: @uninvited_user)
-    sign_in_without_membership(@uninvited_user)
-
-    get "/invite-required", params: { code: invite.code }
-
-    assert_response :success
-    assert_match(/consenting to fund/i, response.body)
-    assert_match(/prepaid balance/i, response.body)
-  end
-
-  test "accepting an agent_funding invite through signup requires funded billing" do
-    funding = create_funding_collective
-    invite = create_invite(collective: funding, invited_user: @uninvited_user)
-    sign_in_without_membership(@uninvited_user)
-
-    post "/invite-required/accept", params: { code: invite.code }
-
-    assert_redirected_to "/invite-required"
-    assert_match(/billing/i, flash[:alert])
-    assert_not @tenant.tenant_users.exists?(user: @uninvited_user), "the blocked accept must not join the tenant either"
-    assert_not CollectiveMember.tenant_scoped_only(@tenant.id).exists?(collective_id: funding.id, user_id: @uninvited_user.id)
-  end
-
-  test "a funded user can accept an agent_funding invite through signup" do
-    funding = create_funding_collective
-    StripeCustomer.create!(
-      billable: @uninvited_user,
-      stripe_id: "cus_#{SecureRandom.hex(6)}",
-      active: true,
-      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
-    )
-    invite = create_invite(collective: funding, invited_user: @uninvited_user)
-    sign_in_without_membership(@uninvited_user)
-
-    post "/invite-required/accept", params: { code: invite.code }
-
-    assert_redirected_to funding.path
-    assert CollectiveMember.tenant_scoped_only(@tenant.id).exists?(collective_id: funding.id, user_id: @uninvited_user.id)
-  end
-
   private
-
-  def create_funding_collective
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    Collective.create!(
-      tenant: @tenant,
-      created_by: @host_user,
-      name: "Agent Funding",
-      handle: "fund-#{SecureRandom.hex(4)}",
-      collective_type: "agent_funding"
-    )
-  ensure
-    Tenant.clear_thread_scope
-  end
 
   def with_bot_protection
     original_force = ENV["FORCE_BOT_PROTECTION_IN_TEST"]

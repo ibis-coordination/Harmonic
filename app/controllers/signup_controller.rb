@@ -68,16 +68,6 @@ class SignupController < ApplicationController
       return redirect_to invite_required_path
     end
 
-    # Funded to join: accepting a funding-collective invite is consenting to
-    # have your own balance drawn on, so it carries the same billing
-    # requirement as the in-app accept path. Gate before the join transaction
-    # so a blocked accept doesn't create the TenantUser either.
-    if invite.collective.agent_funding? && !@current_user.funded_billing?
-      flash[:alert] = "Joining #{invite.collective.name} means consenting to fund its agents from your own prepaid balance, " \
-                      "which requires active billing with prepaid credits."
-      return redirect_to invite_required_path
-    end
-
     requested_handle = params[:handle].presence
     retried = false
     begin

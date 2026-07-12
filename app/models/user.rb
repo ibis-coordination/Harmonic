@@ -814,8 +814,8 @@ class User < ApplicationRecord
 
   # Whether this user's own balance can be drawn on for pooled LLM funding:
   # an active Stripe customer with a prepaid-credit subscription. Gates
-  # joining (and creating) agent_funding collectives; the same condition
-  # decides draw eligibility per call in LLMGateway::PayerResolver.
+  # funding-pool enrollment; the same condition decides draw eligibility per
+  # call in LLMGateway::PayerResolver.
   sig { returns(T::Boolean) }
   def funded_billing?
     customer = stripe_customer

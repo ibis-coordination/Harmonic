@@ -32,7 +32,6 @@ class Collective < ApplicationRecord
   scope :standard, -> { where(collective_type: "standard") }
   scope :private_workspaces, -> { where(collective_type: "private_workspace") }
   scope :chat, -> { where(collective_type: "chat") }
-  scope :agent_funding, -> { where(collective_type: "agent_funding") }
   scope :listable, -> { where(collective_type: "standard") }
   scope :billable_types, -> { where(collective_type: ["standard", "private_workspace"]) }
 
@@ -59,17 +58,9 @@ class Collective < ApplicationRecord
     read_attribute(:has_heartbeat) ? true : false
   end
 
-  # agent_funding: joining IS consenting to fund the collective's agents' LLM
-  # usage from your own prepaid balance (each member pays Stripe directly per
-  # call — the collective never holds funds). Unlisted, invite-only, not
-  # billable; see LLMGateway::PayerResolver for the payer draw.
-  VALID_COLLECTIVE_TYPES = ["standard", "private_workspace", "chat", "agent_funding"].freeze
+  VALID_COLLECTIVE_TYPES = ["standard", "private_workspace", "chat"].freeze
 
   validates :collective_type, inclusion: { in: VALID_COLLECTIVE_TYPES }
-  # Per-UTC-day ceiling on how much this funding collective may draw from any
-  # single member, enforced per call in LLMGateway::PayerResolver.
-  validates :member_daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
-  validate :member_daily_draw_cap_funding_only, if: :member_daily_draw_cap_cents_changed?
   validate :handle_is_valid
   validate :creator_is_not_collective_identity, on: :create
   validate :collective_type_immutable, on: :update
@@ -205,18 +196,6 @@ class Collective < ApplicationRecord
   sig { returns(T::Boolean) }
   def chat?
     collective_type == "chat"
-  end
-
-  sig { returns(T::Boolean) }
-  def agent_funding?
-    collective_type == "agent_funding"
-  end
-
-  sig { void }
-  def member_daily_draw_cap_funding_only
-    return if member_daily_draw_cap_cents.nil? || agent_funding?
-
-    errors.add(:member_daily_draw_cap_cents, "can only be set on agent funding collectives")
   end
 
   sig { returns(T::Boolean) }
@@ -697,7 +676,6 @@ class Collective < ApplicationRecord
   def create_identity_user!
     return if private_workspace?
     return if chat?
-    return if agent_funding? # funding collectives don't act or speak
     return if identity_user
     # The identity shares the collective's handle; without one there's nothing
     # to share, so defer to `handle_is_valid` to surface the blank-handle error
@@ -897,9 +875,6 @@ class Collective < ApplicationRecord
     raise "Cannot create invites for the main collective" if is_main_collective?
     raise "Cannot create invites for private workspaces" if private_workspace?
     raise "Cannot create invites for chat collectives" if chat?
-    # Funding membership is a consent to spend money; every invite names its
-    # invitee rather than circulating as an open link.
-    raise "Cannot create shareable invites for agent funding collectives" if agent_funding?
 
     invite = Invite.where(
       collective: self,
