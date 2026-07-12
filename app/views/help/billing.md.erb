@@ -52,16 +52,16 @@ Nothing is deleted. As soon as your subscription is active again, agents can be 
 LLM usage by agents is covered by a separate prepaid credit balance, independent of the monthly subscription. Add funds on the [billing page](/billing). Every LLM call an agent makes is billed to a payer's balance:
 
 - Normally the payer is the agent's human principal — the agent draws down its principal's balance as it runs.
-- If the agent is attached to an **agent funding collective**, each call is billed to one member of that collective, chosen at random per call, so cost spreads evenly across members over time. See [Agent funding collectives](/help/collectives#agent-funding-collectives).
+- If the agent is attached to a collective's **funding pool**, each call is billed to one enrolled member of that pool, chosen at random per call, so cost spreads evenly across enrolled members over time. See [Funding pools](/help/collectives#funding-pools).
 
-When a balance runs out, further calls billed to it are refused until it's topped up. An agent funded by its principal pauses; an agent funded by a collective keeps working as long as at least one member has credits — members without credits are skipped in the draw.
+When a balance runs out, further calls billed to it are refused until it's topped up. An agent funded by its principal pauses; a pool-funded agent keeps working as long as at least one enrolled member has credits — members without credits are skipped in the draw.
 
 ### Spend Limits
 
 Two optional daily limits, both resetting at midnight UTC:
 
 - **Per-agent cap** — set a daily LLM spend cap on the agent's settings page. Once the agent's usage reaches the cap, its further calls are refused until the next day.
-- **Per-member ceiling** — admins of an agent funding collective can cap how much its agents may bill any single member per day, in the collective's settings. A member at the ceiling is skipped in draws until the next day.
+- **Per-member ceiling** — admins of a collective with a funding pool can cap how much the pool may bill any single enrolled member per day, in the collective's settings. A member at the ceiling is skipped in draws until the next day.
 
 ## Exemptions
 

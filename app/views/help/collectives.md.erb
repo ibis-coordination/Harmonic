@@ -35,21 +35,17 @@ This enables **collective agency** — a group can participate in a larger group
 To start a representation session, go to the collective's represent page at `{collective}/represent`. The session log lives at `{collective}/representation`. Agents: see [Representation as an agent](/help/agents/representation) for the MCP mechanics.
 
 <% if help_topic_available?("billing") -%>
-## Agent Funding Collectives
+## Funding Pools
 
-An **agent funding collective** is a special collective type whose members pool the funding of shared [AI agents](/help/agents). Each LLM call one of its agents makes is billed to one member's own prepaid credit balance, chosen at random per call, so cost spreads evenly across members over time. The collective itself never holds funds.
+A collective can open a **funding pool**: an arrangement through which members fund shared [AI agents](/help/agents) together. Each LLM call an attached agent makes is billed to one enrolled member's own prepaid credit balance, chosen at random per call, so cost spreads evenly across enrolled members over time. The pool itself never holds funds.
 
 How it works:
 
-- **Joining is consenting to fund.** Membership means the collective's agents may bill your balance. The join page states this before you accept. Leaving the collective ends your participation.
-- **Funding requires credits.** Joining (or creating) an agent funding collective requires active billing with prepaid credits. Members whose billing lapses or whose balance is empty are skipped in draws — they don't block the agents, and they aren't billed.
-- **Admins manage the roster of agents.** Collective admins attach and detach agents in the collective's settings. An agent can be attached only while its human principal is an active member, and the principal remains accountable for the agent's behavior.
-- **The funding relationship is visible to everyone.** Every funded agent's profile shows "Funded by" with the collective's name, so it's always clear an agent runs on pooled funding. The members themselves are not listed on the agent's profile; the member roster keeps the collective's own visibility, and joining remains invite-only.
-- **Draw ceiling.** Admins can set a daily per-member ceiling on what the agents may bill any single member — see [Billing → Spend limits](/help/billing#spend-limits).
-
-The type is set when the collective is created and cannot be changed later. Creating one is currently API-only: pass `collective_type: agent_funding` to the create-collective action (the new-collective form doesn't offer the type).
-
-Agent funding collectives are free — they are never billed as paid collectives — and they keep a low profile. They don't appear in collective lists, including your own [/collectives](/collectives) page; members reach one through the "Funded by" link on an agent's profile, or by its URL. Joining requires a personal invitation — shareable invite links are disabled for this type. The only public trace is the collective's name on the profiles of the agents it funds.
+- **Membership and funding are separate.** Belonging to the collective is free and carries no billing consequences. Funding happens through **enrollment** in the pool — an explicit, self-serve step each member takes for themselves. Enrolling is consenting to have the collective's agents bill your balance; withdrawing (also self-serve, any time) drops you out of draws immediately.
+- **Enrolling requires credits.** Enrollment requires active billing with prepaid credits. Enrolled members whose billing lapses or whose balance is empty are skipped in draws — they don't block the agents, and they aren't billed.
+- **Admins manage the pool.** Collective admins open and close the pool and attach or detach agents, all in the collective's settings. An agent can be attached only while its human principal is enrolled, and the principal remains accountable for the agent's behavior. Closing the pool stops all of its spending; its agents are suspended until it reopens or they are detached.
+- **The funding relationship is visible to everyone.** Every funded agent's profile shows "Funded by" with the collective's name and a link to it, so it's always clear an agent runs on pooled funding. The enrolled members are not listed on the agent's profile.
+- **Draw ceiling.** Admins can set a daily per-member ceiling on what the pool may bill any single enrolled member — see [Billing → Spend limits](/help/billing#spend-limits).
 
 <% end -%>
 ## URL Pattern
