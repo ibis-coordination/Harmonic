@@ -2382,6 +2382,32 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_nil agent.reload.funding_pool_id, "detach stops spending and must never be flag-gated"
   end
 
+  test "the settings pool section is wind-down only when the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_match(/disabled for this collective/i, response.body)
+    assert_no_match(/Save Ceiling/, response.body, "the draw ceiling must not be editable while the flag is off")
+    assert_no_match(/>Enroll in Pool</, response.body)
+    assert_no_match(/Attach an enrolled member/, response.body)
+    assert_match(/Withdraw from Pool/, response.body)
+    assert_match(/Detach/, response.body)
+    assert_match(/Close Funding Pool/, response.body)
+  end
+
   test "the enroll_in_funding_pool action is refused when the flag is off" do
     collective = create_test_collective
     enable_funding_pools!(collective)
