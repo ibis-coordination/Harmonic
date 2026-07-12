@@ -2009,7 +2009,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     post "#{collective.path}/settings/enroll_in_funding_pool"
 
-    assert_redirected_to "#{collective.path}/settings"
+    assert_redirected_to "#{collective.path}/pool"
     assert active_enrollment?(pool, @user)
   end
 
@@ -2021,7 +2021,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     post "#{collective.path}/settings/enroll_in_funding_pool"
 
-    assert_redirected_to "#{collective.path}/settings"
+    assert_redirected_to "#{collective.path}/pool"
     assert_match(/billing/i, flash[:alert])
     assert_not active_enrollment?(pool, @user)
   end
@@ -2036,7 +2036,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     delete "#{collective.path}/settings/withdraw_from_funding_pool"
 
-    assert_redirected_to "#{collective.path}/settings"
+    assert_redirected_to "#{collective.path}/pool"
     assert_not active_enrollment?(pool, @user)
   end
 
@@ -2409,6 +2409,143 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/\$1\.50/, response.body)
     assert_match "Pool Md Bot", response.body
     assert_match(/enrolled/i, response.body)
+  end
+
+  # === Member-facing pool page ===
+
+  def add_funded_member!(collective, name: "Pool Member")
+    member = create_user(name: name)
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    fund_user!(member)
+    member
+  end
+
+  test "a non-admin member can enroll and withdraw from the pool page" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+    assert_response :success
+    assert_match(/consenting to fund/i, response.body)
+    assert_match(/Enroll/, response.body)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool"
+    assert_redirected_to "#{collective.path}/pool"
+    assert active_enrollment?(pool, member)
+
+    get "#{collective.path}/pool"
+    assert_match(/Withdraw/, response.body)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+    assert_redirected_to "#{collective.path}/pool"
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "the pool page shows pool state without admin controls" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_daily_draw_cap_cents: 150)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Pool Page Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/\$1\.50/, response.body)
+    assert_match "Pool Page Bot", response.body
+    assert_match @user.name, response.body
+    assert_no_match(/Close Funding Pool/, response.body)
+    assert_no_match(/Attach/, response.body)
+  end
+
+  test "the pool page redirects when the collective has no pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_redirected_to collective.path
+  end
+
+  test "a closed pool page still offers withdrawal but not enrollment" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    enroll!(pool, member)
+    pool.archive!
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/closed/i, response.body)
+    assert_match(/Withdraw/, response.body)
+    assert_no_match(/>Enroll in Pool</, response.body)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "the markdown pool page offers enroll to an unenrolled member and withdraw to an enrolled one" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/enroll_in_funding_pool/, response.body)
+    assert_no_match(/withdraw_from_funding_pool/, response.body)
+
+    enroll!(pool, member)
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+    assert_no_match(/enroll_in_funding_pool/, response.body)
+    assert_match(/withdraw_from_funding_pool/, response.body)
+  end
+
+  test "the pool-page action routes execute for a non-admin member" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/pool/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+    assert_response :success
+    assert active_enrollment?(pool, member)
+
+    post "#{collective.path}/pool/actions/withdraw_from_funding_pool", params: {}.to_json, headers: headers
+    assert_response :success
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "non-members are bounced from the pool page" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    outsider = create_user(name: "Pool Outsider")
+    @tenant.add_user!(outsider)
+    sign_in_as(outsider, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_redirected_to "#{collective.path}/join"
   end
 
   # === Funding pool markdown actions ===

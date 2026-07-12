@@ -87,7 +87,7 @@ Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_t
 
 ## Funding Pool
 
-Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call. The pool never holds money. Enrolling is consenting to fund; enrollment and withdrawal are always self-serve (`enroll_in_funding_pool` / `withdraw_from_funding_pool` actions). Admins attach and detach agents (`attach_funded_agent` / `detach_funded_agent`); an agent's principal must be enrolled.
+Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call. The pool never holds money. Enrolling is consenting to fund; enrollment and withdrawal are always self-serve on the [pool page](<%= @current_collective.path %>/pool), where every member can see the pool's state. Admins attach and detach agents (`attach_funded_agent` / `detach_funded_agent`); an agent's principal must be enrolled.
 
 | Setting | Value |
 |---------|-------|

@@ -1,0 +1,107 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, @current_tenant.path],
+  [@current_collective.name, @current_collective.path],
+  'Funding Pool'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'credit-card', height: 14, class: 'pulse-resource-icon' %>
+        Funding Pool
+      </span>
+    </div>
+    <h1 class="pulse-resource-title"><%= @current_collective.name %>'s Funding Pool</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;"><%= flash[:notice] %></div>
+    <% end %>
+    <% if flash[:alert] %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;"><%= flash[:alert] %></div>
+    <% end %>
+
+    <p class="pulse-body-text">
+      Each LLM call an attached agent makes is billed to one enrolled member's own
+      prepaid balance, chosen at random per call, so cost spreads evenly across
+      enrolled members over time. The pool never holds money.
+    </p>
+
+    <% if @funding_pool.archived? %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        This pool is closed. Its agents are suspended and no balances are being drawn on.
+        Enrollments are kept in case it reopens; you can still withdraw below.
+      </div>
+    <% elsif !@funding_pools_enabled %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        Funding pools are currently disabled for this collective. No balances are being
+        drawn on; enrollment is paused. You can still withdraw below.
+      </div>
+    <% end %>
+
+    <% if @funding_pool.member_daily_draw_cap_cents %>
+      <p class="pulse-body-text">
+        Daily draw ceiling: no more than
+        <strong><%= number_to_currency(@funding_pool.member_daily_draw_cap_cents / 100.0) %></strong>
+        is billed to any one enrolled member per day (UTC).
+      </p>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Enrolled Members</h2>
+      <% if @pool_enrollments.any? %>
+        <ul class="pulse-list">
+          <% @pool_enrollments.each do |enrollment| %>
+            <li><%= link_to enrollment.user.display_name, enrollment.user.path %></li>
+          <% end %>
+        </ul>
+      <% else %>
+        <p class="pulse-empty-message"><em>No members are enrolled yet.</em></p>
+      <% end %>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Funded Agents</h2>
+      <% if @funded_agents.any? %>
+        <ul class="pulse-list">
+          <% @funded_agents.each do |agent| %>
+            <li>
+              <%= link_to agent.display_name, agent.path %>
+              <% if agent.parent %>
+                <span class="pulse-muted">— principal <%= link_to agent.parent.display_name, agent.parent.path %></span>
+              <% end %>
+            </li>
+          <% end %>
+        </ul>
+      <% else %>
+        <p class="pulse-empty-message"><em>No agents are funded by this pool yet.</em></p>
+      <% end %>
+    </section>
+
+    <section class="pulse-settings-section">
+      <h2 class="pulse-section-title">Your Enrollment</h2>
+      <% if @current_user_enrolled %>
+        <p class="pulse-body-text">
+          You are enrolled: this pool's agents can draw from your prepaid balance.
+          Withdrawing drops you out of draws immediately.
+        </p>
+        <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
+                      method: :delete, class: "pulse-action-btn-danger",
+                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and agents whose principal withdraws are suspended." } %>
+      <% elsif @funding_pools_enabled && !@funding_pool.archived? %>
+        <p class="pulse-body-text">
+          Enrolling is consenting to fund this collective's agents from your own
+          prepaid balance — each call is billed to one enrolled member, drawn at
+          random. Enrollment requires active billing with prepaid credits. You can
+          withdraw at any time.
+        </p>
+        <%= button_to "Enroll in Pool", "#{@current_collective.path}/settings/enroll_in_funding_pool",
+                      method: :post, class: "pulse-action-btn" %>
+      <% else %>
+        <p class="pulse-body-text">You are not enrolled.</p>
+      <% end %>
+    </section>
+  </div>
+</article>

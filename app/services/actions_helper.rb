@@ -1276,24 +1276,51 @@ class ActionsHelper
         { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string],
           description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
-      # Funding pool actions only exist while the collective has an open pool.
-      # Enrollment and attachment additionally need the operator-managed
-      # funding_pools flag; withdrawal and detachment are exits and stay
-      # available even after the flag is turned off.
+      # Funding pool actions require a pool. Enrollment and attachment
+      # additionally need an OPEN pool and the operator-managed funding_pools
+      # flag; withdrawal and detachment are exits and stay available on a
+      # closed pool or after the flag is turned off.
       conditional_actions: [
         ["enroll_in_funding_pool", true], ["withdraw_from_funding_pool", false],
         ["attach_funded_agent", true], ["detach_funded_agent", false],
-      ].map do |name, needs_flag|
+      ].map do |name, entrance|
         {
           name: name,
           condition: lambda { |context|
             collective = context[:collective]
             pool = collective&.funding_pool
-            pool.present? && !pool.archived? &&
-              (!needs_flag || collective.feature_enabled?("funding_pools"))
+            pool.present? &&
+              (!entrance || (!pool.archived? && collective.feature_enabled?("funding_pools")))
           },
         }
       end,
+    },
+    "/collectives/:collective_handle/pool" => {
+      controller_actions: ["collectives#pool"],
+      actions: [],
+      # The member-facing pair only: the page offers each viewer whichever of
+      # enroll/withdraw applies to them right now. Admin roster actions stay
+      # on the settings route.
+      conditional_actions: [
+        {
+          name: "enroll_in_funding_pool",
+          condition: lambda { |context|
+            collective = context[:collective]
+            user = context[:user]
+            pool = collective&.funding_pool
+            pool.present? && !pool.archived? && collective.feature_enabled?("funding_pools") &&
+              user.present? && !pool.enrollments.active.exists?(user_id: user.id)
+          },
+        },
+        {
+          name: "withdraw_from_funding_pool",
+          condition: lambda { |context|
+            pool = context[:collective]&.funding_pool
+            user = context[:user]
+            pool.present? && user.present? && pool.enrollments.active.exists?(user_id: user.id)
+          },
+        },
+      ],
     },
     "/collectives/:collective_handle/cycles" => {
       controller_actions: ["cycles#index"],

@@ -3,7 +3,7 @@
 class CollectivesController < ApplicationController
   include RequiresReverification
 
-  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :views, :view, :members]
+  before_action :set_sidebar_mode, only: [:index, :new, :settings, :invite, :join, :backlinks, :views, :view, :members, :pool]
   before_action -> { require_reverification(scope: "collective_archive") }, only: [:archive, :unarchive]
 
   def index
@@ -495,6 +495,33 @@ class CollectivesController < ApplicationController
     end
   end
 
+  # Member-facing pool page: state, roster, and self-serve enroll/withdraw.
+  # Admin controls (lifecycle, ceiling, agent roster) live on settings; this
+  # page is where plain members consent in and out. Non-members never reach
+  # it — the collective-membership boundary bounces them to /join.
+  def pool
+    @funding_pool = @current_collective.funding_pool
+    if @funding_pool.nil?
+      flash[:alert] = "This collective has no funding pool."
+      return redirect_to @current_collective.path
+    end
+
+    @page_title = "Funding Pool"
+    @funding_pools_enabled = @current_collective.feature_enabled?("funding_pools")
+    @pool_enrollments = @funding_pool.enrollments.active.includes(:user).to_a
+    @current_user_enrolled = @current_user && @pool_enrollments.any? { |e| e.user_id == @current_user.id }
+    @funded_agents = @funding_pool.funded_agents.order(:name)
+    respond_to do |format|
+      format.html
+      format.md
+    end
+  end
+
+  def actions_index_pool
+    @page_title = "Actions | Funding Pool"
+    render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/pool'))
+  end
+
   # Open a funding pool for this collective (or reopen a closed one): the
   # instrument through which enrolled members fund the collective's agents.
   def create_funding_pool
@@ -540,36 +567,37 @@ class CollectivesController < ApplicationController
   end
 
   # Enrollment is the member's own consent to be drawn on — always self-serve,
-  # never done by an admin on someone's behalf.
+  # never done by an admin on someone's behalf. Redirects land on the pool
+  # page: unlike settings, every member can see it.
   def enroll_in_funding_pool
     unless @current_collective.feature_enabled?("funding_pools")
-      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective')
+      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective', redirect_path: pool_page_path)
     end
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?
-      return render_funded_agent_error(404, 'This collective has no open funding pool')
+      return render_funded_agent_error(404, 'This collective has no open funding pool', redirect_path: pool_page_path)
     end
 
     begin
       pool.enroll!(@current_user)
     rescue ActiveRecord::RecordInvalid => e
-      return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence)
+      return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence, redirect_path: pool_page_path)
     end
 
     flash[:notice] = "You are enrolled: this collective's funded agents can now draw from your prepaid balance."
-    redirect_to "#{@current_collective.path}/settings"
+    redirect_to pool_page_path
   end
 
   def withdraw_from_funding_pool
     pool = @current_collective.funding_pool
     enrollment = pool && pool.enrollments.find_by(user_id: @current_user.id)
     if enrollment.nil? || enrollment.archived?
-      return render_funded_agent_error(404, 'You are not enrolled in this funding pool')
+      return render_funded_agent_error(404, 'You are not enrolled in this funding pool', redirect_path: pool_page_path)
     end
 
     enrollment.withdraw!
     flash[:notice] = "You have withdrawn from the funding pool. You drop out of draws immediately."
-    redirect_to "#{@current_collective.path}/settings"
+    redirect_to pool_page_path
   end
 
   # Attach an agent to the pool's payroll: its LLM usage draws from enrolled
@@ -1212,14 +1240,18 @@ class CollectivesController < ApplicationController
 
   # The funded-agent actions are called from both the settings page's plain
   # HTML forms and JSON clients; errors must come back in the caller's format.
-  def render_funded_agent_error(status, message)
+  def render_funded_agent_error(status, message, redirect_path: nil)
     respond_to do |format|
       format.json { render status: status, json: { error: message } }
       format.html do
         flash[:alert] = message
-        redirect_to "#{@current_collective.path}/settings"
+        redirect_to(redirect_path || "#{@current_collective.path}/settings")
       end
     end
+  end
+
+  def pool_page_path
+    "#{@current_collective.path}/pool"
   end
 
   # Returns an error message when the requested collective type may not be
