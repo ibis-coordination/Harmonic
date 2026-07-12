@@ -165,9 +165,11 @@ docker compose -f docker-compose.production.yml stop sidekiq
 # 2. Enable maintenance mode
 ./scripts/maintenance.sh on
 
-# 3. Deploy
+# 3. Deploy — migrate in a one-off container from the NEW image (an `exec`
+# into the still-running old container wouldn't have the new migration
+# files), then start web so it boots against the migrated schema
 docker compose -f docker-compose.production.yml pull
-docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate
+docker compose -f docker-compose.production.yml run --rm web bundle exec rails db:migrate
 docker compose -f docker-compose.production.yml up -d web
 
 # 4. Disable maintenance mode
@@ -232,7 +234,11 @@ docker compose -f docker-compose.production.yml logs sidekiq --tail 50
 ### Migrations Not Applied
 
 ```bash
-docker compose -f docker-compose.production.yml exec web bundle exec rails db:migrate
+docker compose -f docker-compose.production.yml run --rm web bundle exec rails db:migrate
+# Then restart the Rails processes: they cache the schema at boot, and a
+# process that booted pre-migration keeps querying the old column list
+# (PG::UndefinedColumn on dropped columns) until restarted.
+docker compose -f docker-compose.production.yml restart web sidekiq
 ```
 
 ### View Logs
