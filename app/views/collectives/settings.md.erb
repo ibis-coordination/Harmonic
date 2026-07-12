@@ -97,7 +97,8 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 |---------|-------|
 | Pool draw ceiling | <%= format("$%.2f per member per day", @funding_pool.member_daily_draw_cap_cents / 100.0) %> |
 | Enrolled members | <%= @pool_enrollments.any? ? @pool_enrollments.map { |e| "[#{e.user.display_name}](#{e.user.path})" }.join(", ") : "(none yet)" %> |
-| Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})" }.join(", ") : "(none yet)" %> |
+<% pool_enrolled_user_ids = @pool_enrollments.map(&:user_id) -%>
+| Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})#{" (not running — principal not enrolled)" unless a.parent_id && pool_enrolled_user_ids.include?(a.parent_id)}" }.join(", ") : "(none yet)" %> |
 | You | <%= @current_user_enrolled ? "Enrolled — the pool's agents can draw from your prepaid balance" : "Not enrolled" %> |
 <% end %>
 

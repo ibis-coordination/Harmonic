@@ -367,7 +367,7 @@
           <% if @current_user_enrolled %>
             <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                           method: :delete, class: "pulse-action-btn-danger",
-                          data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any of your agents funded by this pool stop running until you re-enroll or they are detached." } %>
+                          data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately. Your agents funded by this pool stay attached (still listed as funded agents) but their calls are refused until you re-enroll or they are detached." } %>
           <% elsif @funding_pools_enabled %>
             <p class="pulse-section-description">
               Enrolling is consenting to fund this collective's agents from your own
@@ -410,6 +410,7 @@
                 </tr>
               </thead>
               <tbody>
+                <% enrolled_user_ids = @pool_enrollments.map(&:user_id) %>
                 <% @funded_agents.each do |agent| %>
                   <tr>
                     <td><%= link_to agent.display_name, agent.path %></td>
@@ -418,6 +419,9 @@
                         <%= link_to agent.parent.display_name, agent.parent.path %>
                       <% else %>
                         <em>Unknown</em>
+                      <% end %>
+                      <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
+                        <span class="pulse-muted">(not running — principal not enrolled)</span>
                       <% end %>
                     </td>
                     <td>

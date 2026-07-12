@@ -66,6 +66,7 @@
 
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Funded Agents</h2>
+      <% enrolled_user_ids = @pool_enrollments.map(&:user_id) %>
       <% if @funded_agents.any? %>
         <ul class="pulse-list">
           <% @funded_agents.each do |agent| %>
@@ -73,6 +74,9 @@
               <%= link_to agent.display_name, agent.path %>
               <% if agent.parent %>
                 <span class="pulse-muted">— principal <%= link_to agent.parent.display_name, agent.parent.path %></span>
+              <% end %>
+              <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
+                <span class="pulse-muted">— not running: principal not enrolled. Runs again when the principal re-enrolls, or when it is detached and given its own billing.</span>
               <% end %>
             </li>
           <% end %>
@@ -104,7 +108,7 @@
         <% end %>
         <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                       method: :delete, class: "pulse-action-btn-danger",
-                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any of your agents funded by this pool stop running until you re-enroll or they are detached." } %>
+                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately. Your agents funded by this pool stay attached (still listed as funded agents) but their calls are refused until you re-enroll or they are detached." } %>
       <% elsif @funding_pools_enabled && !@funding_pool.archived? %>
         <p class="pulse-body-text">
           Enrolling is consenting to fund this collective's agents from your own

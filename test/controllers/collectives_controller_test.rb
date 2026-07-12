@@ -2641,6 +2641,57 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to collective.path
   end
 
+  # Withdrawal never detaches agents — their calls are simply refused until
+  # the principal re-enrolls. The rosters must SAY that, or a withdrawn
+  # member sees their agents still listed as funded and reasonably concludes
+  # withdrawal didn't work.
+  test "funded agents whose principal is not enrolled are marked as not running" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enrollment = enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Orphaned Pool Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    enrollment.withdraw!
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+    assert_response :success
+    assert_match "Orphaned Pool Bot", response.body
+    assert_match(/principal not enrolled/i, response.body)
+
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+    assert_match(/principal not enrolled/i, response.body)
+
+    get "#{collective.path}/settings"
+    assert_match(/principal not enrolled/i, response.body)
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+    assert_match(/principal not enrolled/i, response.body)
+  end
+
+  test "funded agents with enrolled principals carry no not-running marker" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Running Pool Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+    assert_match "Running Pool Bot", response.body
+    assert_no_match(/principal not enrolled/i, response.body)
+  end
+
   test "a closed pool page still offers withdrawal but not enrollment" do
     collective = create_test_collective
     enable_funding_pools!(collective)
