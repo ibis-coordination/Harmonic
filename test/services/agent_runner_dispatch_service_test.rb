@@ -503,7 +503,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
       active: true,
       pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}",
     )
-    pool.enroll!(@user)
+    pool.enroll!(@user, daily_draw_cap_cents: 500)
     agent.update!(funding_pool: pool)
     pool
   end

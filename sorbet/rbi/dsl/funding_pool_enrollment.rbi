@@ -845,6 +845,51 @@ class FundingPoolEnrollment
     sig { void }
     def created_at_will_change!; end
 
+    sig { returns(::Integer) }
+    def daily_draw_cap_cents; end
+
+    sig { params(value: ::Integer).returns(::Integer) }
+    def daily_draw_cap_cents=(value); end
+
+    sig { returns(T::Boolean) }
+    def daily_draw_cap_cents?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def daily_draw_cap_cents_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def daily_draw_cap_cents_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def daily_draw_cap_cents_came_from_user?; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def daily_draw_cap_cents_change; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def daily_draw_cap_cents_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def daily_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def daily_draw_cap_cents_in_database; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def daily_draw_cap_cents_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def daily_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def daily_draw_cap_cents_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def daily_draw_cap_cents_was; end
+
+    sig { void }
+    def daily_draw_cap_cents_will_change!; end
+
     sig { returns(::String) }
     def funding_pool_id; end
 
@@ -990,6 +1035,9 @@ class FundingPoolEnrollment
     def restore_created_at!; end
 
     sig { void }
+    def restore_daily_draw_cap_cents!; end
+
+    sig { void }
     def restore_funding_pool_id!; end
 
     sig { void }
@@ -1024,6 +1072,12 @@ class FundingPoolEnrollment
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def saved_change_to_daily_draw_cap_cents; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_funding_pool_id; end
@@ -1204,6 +1258,9 @@ class FundingPoolEnrollment
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_daily_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_funding_pool_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

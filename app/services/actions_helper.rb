@@ -168,10 +168,14 @@ class ActionsHelper
     },
     "enroll_in_funding_pool" => {
       description: "Enroll yourself in this collective's funding pool. Enrolling is consenting to fund the collective's agents from your own " \
-                   "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random. " \
-                   "Requires active billing with prepaid credits.",
-      params_string: "()",
-      params: [],
+                   "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random, and the pool stops " \
+                   "drawing from you once its draws reach your daily ceiling. Requires active billing with prepaid credits. " \
+                   "Enrolling again while already enrolled updates your ceiling.",
+      params_string: "(daily_draw_cap)",
+      params: [
+        { name: "daily_draw_cap", type: "string",
+          description: 'Required. Your own daily ceiling on what this pool may bill you, in dollars, e.g. "5.00".', },
+      ],
       authorization: :authenticated,
       visibility: :by_collective,
     },
@@ -1298,18 +1302,18 @@ class ActionsHelper
     "/collectives/:collective_handle/pool" => {
       controller_actions: ["collectives#pool"],
       actions: [],
-      # The member-facing pair only: the page offers each viewer whichever of
-      # enroll/withdraw applies to them right now. Admin roster actions stay
-      # on the settings route.
+      # The member-facing pair only: the page offers each viewer what applies
+      # to them right now. Enroll stays offered to enrolled members too — the
+      # same action restates their ceiling. Admin roster actions stay on the
+      # settings route.
       conditional_actions: [
         {
           name: "enroll_in_funding_pool",
           condition: lambda { |context|
             collective = context[:collective]
-            user = context[:user]
             pool = collective&.funding_pool
             pool.present? && !pool.archived? && collective.feature_enabled?("funding_pools") &&
-              user.present? && !pool.enrollments.active.exists?(user_id: user.id)
+              context[:user].present?
           },
         },
         {

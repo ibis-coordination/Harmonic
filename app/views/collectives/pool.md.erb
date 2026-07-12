@@ -1,6 +1,6 @@
 # <%= @current_collective.name %>'s Funding Pool
 
-Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call, so cost spreads evenly across enrolled members over time. The pool never holds money.
+Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call, so cost spreads roughly evenly over time across the enrolled members who have balance available. The pool never holds money.
 <% if @funding_pool.archived? %>
 
 **This pool is closed.** Its agents stop running and no balances are being drawn on; everything resumes automatically if it reopens. Enrollments are kept in case it does; withdrawal is still available.
@@ -12,9 +12,11 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 | | |
 |---------|-------|
 | Status | <%= @funding_pool.archived? ? "Closed" : "Open" %> |
-| Member daily draw ceiling | <%= @funding_pool.member_daily_draw_cap_cents ? format("$%.2f per member per day (UTC)", @funding_pool.member_daily_draw_cap_cents / 100.0) : "(none)" %> |
+| Pool draw ceiling | <%= format("$%.2f", @funding_pool.member_daily_draw_cap_cents / 100.0) %> per member per day (UTC) |
 | Enrolled members | <%= @pool_enrollments.any? ? @pool_enrollments.map { |e| "[#{e.user.display_name}](#{e.user.path})" }.join(", ") : "(none yet)" %> |
 | Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})" }.join(", ") : "(none yet)" %> |
-| Your enrollment | <%= @current_user_enrolled ? "Enrolled — this pool's agents can draw from your prepaid balance" : "Not enrolled" %> |
+| Your enrollment | <%= @current_user_enrolled ? format("Enrolled — this pool's agents can draw from your prepaid balance, up to your own ceiling of $%.2f per day", @current_user_enrollment.daily_draw_cap_cents / 100.0) : "Not enrolled" %> |
 
-Enrolling is consenting to fund this collective's agents from your own prepaid balance; it requires active billing with prepaid credits, and you can withdraw at any time. Withdrawal drops you out of draws immediately. Admins manage the pool itself (lifecycle, draw ceiling, attached agents) from the collective's settings.
+The pool stops drawing from a member once its draws from them reach the ceiling for the day; each member also sets their own ceiling when enrolling, and the lower of the two applies. Ceilings are per pool — draws by other pools count against those pools' ceilings, not this one's.
+
+Enrolling is consenting to fund this collective's agents from your own prepaid balance, up to a daily ceiling you state yourself; it requires active billing with prepaid credits, and you can withdraw at any time. Withdrawal drops you out of draws immediately. To change your ceiling, enroll again with the new value. Admins manage the pool itself (lifecycle, pool ceiling, attached agents) from the collective's settings.

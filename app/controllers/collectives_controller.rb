@@ -516,7 +516,8 @@ class CollectivesController < ApplicationController
     @page_title = "Funding Pool"
     @funding_pools_enabled = @current_collective.feature_enabled?("funding_pools")
     @pool_enrollments = @funding_pool.enrollments.active.includes(:user).to_a
-    @current_user_enrolled = @current_user && @pool_enrollments.any? { |e| e.user_id == @current_user.id }
+    @current_user_enrollment = @current_user && @pool_enrollments.find { |e| e.user_id == @current_user.id }
+    @current_user_enrolled = @current_user_enrollment.present?
     @funded_agents = @funding_pool.funded_agents.order(:name)
     respond_to do |format|
       format.html
@@ -603,13 +604,35 @@ class CollectivesController < ApplicationController
       return render_funded_agent_error(404, 'This collective has no open funding pool', redirect_path: pool_page_path)
     end
 
+    # Consent states a number: the enrollee's own daily draw ceiling comes
+    # with the enrollment, never from an assumed default. Re-posting while
+    # enrolled updates the ceiling.
     begin
-      pool.enroll!(@current_user)
+      cap_cents = MoneyParam.dollars_to_cents(params[:daily_draw_cap])
+    rescue ArgumentError
+      cap_cents = nil
+    end
+    if cap_cents.nil?
+      return render_funded_agent_error(
+        422,
+        'Enrolling requires your own daily draw ceiling — the most this pool may bill you per day, as a dollar amount, e.g. 5.00',
+        redirect_path: pool_page_path,
+      )
+    end
+
+    already_enrolled = pool.enrollments.active.exists?(user_id: @current_user.id)
+    begin
+      pool.enroll!(@current_user, daily_draw_cap_cents: cap_cents)
     rescue ActiveRecord::RecordInvalid => e
       return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence, redirect_path: pool_page_path)
     end
 
-    flash[:notice] = "You are enrolled: this collective's funded agents can now draw from your prepaid balance."
+    flash[:notice] = if already_enrolled
+      "Your daily draw ceiling is now #{format("$%.2f", cap_cents / 100.0)}."
+    else
+      "You are enrolled: this collective's funded agents can now draw from your prepaid balance, " \
+        "up to #{format("$%.2f", cap_cents / 100.0)} per day."
+    end
     redirect_to pool_page_path
   end
 
@@ -876,11 +899,25 @@ class CollectivesController < ApplicationController
     end
 
     begin
-      pool.enroll!(current_user)
+      cap_cents = MoneyParam.dollars_to_cents(params[:daily_draw_cap])
+    rescue ArgumentError
+      cap_cents = nil
+    end
+    if cap_cents.nil?
+      return render_action_error({
+        action_name: 'enroll_in_funding_pool',
+        resource: @current_collective,
+        error: 'Enrolling requires daily_draw_cap — your own daily ceiling on what this pool may bill you, as a dollar amount, e.g. "5.00".',
+      })
+    end
+
+    begin
+      pool.enroll!(current_user, daily_draw_cap_cents: cap_cents)
       render_action_success({
         action_name: 'enroll_in_funding_pool',
         resource: @current_collective,
-        result: "You are enrolled: #{@current_collective.name}'s funded agents can now draw from your prepaid balance.",
+        result: "You are enrolled: #{@current_collective.name}'s funded agents can now draw from your prepaid balance, " \
+                "up to #{format("$%.2f", cap_cents / 100.0)} per day.",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({

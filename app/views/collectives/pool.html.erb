@@ -25,8 +25,9 @@
 
     <p class="pulse-body-text">
       Each LLM call an attached agent makes is billed to one enrolled member's own
-      prepaid balance, chosen at random per call, so cost spreads evenly across
-      enrolled members over time. The pool never holds money.
+      prepaid balance, chosen at random per call, so cost spreads roughly evenly
+      over time across the enrolled members who have balance available. The pool
+      never holds money.
     </p>
 
     <% if @funding_pool.archived? %>
@@ -42,13 +43,13 @@
       </div>
     <% end %>
 
-    <% if @funding_pool.member_daily_draw_cap_cents %>
-      <p class="pulse-body-text">
-        Daily draw ceiling: no more than
-        <strong><%= number_to_currency(@funding_pool.member_daily_draw_cap_cents / 100.0) %></strong>
-        is billed to any one enrolled member per day (UTC).
-      </p>
-    <% end %>
+    <p class="pulse-body-text">
+      Pool draw ceiling: this pool stops drawing from a member once its draws from
+      them reach <strong><%= number_to_currency(@funding_pool.member_daily_draw_cap_cents / 100.0) %></strong>
+      for the day (UTC). Each member also sets their own ceiling when enrolling —
+      the lower of the two applies. Ceilings are per pool: draws by other pools
+      you may be enrolled in count against those pools' ceilings, not this one's.
+    </p>
 
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Enrolled Members</h2>
@@ -85,9 +86,22 @@
       <h2 class="pulse-section-title">Your Enrollment</h2>
       <% if @current_user_enrolled %>
         <p class="pulse-body-text">
-          You are enrolled: this pool's agents can draw from your prepaid balance.
+          You are enrolled: this pool's agents can draw from your prepaid balance,
+          up to your own ceiling of
+          <strong><%= number_to_currency(@current_user_enrollment.daily_draw_cap_cents / 100.0) %></strong>
+          per day (or the pool's ceiling, whichever is lower).
           Withdrawing drops you out of draws immediately.
         </p>
+        <% if @funding_pools_enabled %>
+          <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <label for="daily_draw_cap" class="pulse-label">Your ceiling per day (USD)</label>
+            <input type="number" id="daily_draw_cap" name="daily_draw_cap" min="0.01" step="0.01" required
+                   value="<%= @current_user_enrollment.daily_draw_cap_cents / 100.0 %>"
+                   class="pulse-form-input">
+            <button type="submit" class="pulse-action-btn">Update Ceiling</button>
+          </form>
+        <% end %>
         <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                       method: :delete, class: "pulse-action-btn-danger",
                       data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any of your agents funded by this pool stop running until you re-enroll or they are detached." } %>
@@ -95,11 +109,17 @@
         <p class="pulse-body-text">
           Enrolling is consenting to fund this collective's agents from your own
           prepaid balance — each call is billed to one enrolled member, drawn at
-          random. Enrollment requires active billing with prepaid credits. You can
-          withdraw at any time.
+          random. Set your own daily ceiling: this pool stops drawing from you once
+          its draws reach it for the day, and you can change it or withdraw at any
+          time. Enrollment requires active billing with prepaid credits.
         </p>
-        <%= button_to "Enroll in Pool", "#{@current_collective.path}/settings/enroll_in_funding_pool",
-                      method: :post, class: "pulse-action-btn" %>
+        <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-inline-form">
+          <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+          <label for="daily_draw_cap" class="pulse-label">Your ceiling per day (USD)</label>
+          <input type="number" id="daily_draw_cap" name="daily_draw_cap" min="0.01" step="0.01" required
+                 class="pulse-form-input">
+          <button type="submit" class="pulse-action-btn">Enroll in Pool</button>
+        </form>
       <% else %>
         <p class="pulse-body-text">You are not enrolled.</p>
       <% end %>

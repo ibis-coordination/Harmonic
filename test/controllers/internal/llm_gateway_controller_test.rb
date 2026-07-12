@@ -179,7 +179,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
       StripeCustomer.create!(
         billable: member, stripe_id: stripe_id, active: true, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
       )
-      pool.enroll!(member)
+      pool.enroll!(member, daily_draw_cap_cents: 500)
     end
     agent.update!(funding_pool: pool)
     pool

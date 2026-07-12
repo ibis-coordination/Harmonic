@@ -1875,9 +1875,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     Tenant.clear_thread_scope
   end
 
-  def enroll!(pool, user)
+  def enroll!(pool, user, daily_draw_cap_cents: 500)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    pool.enroll!(user)
+    pool.enroll!(user, daily_draw_cap_cents: daily_draw_cap_cents)
   ensure
     Tenant.clear_thread_scope
   end
@@ -2034,7 +2034,22 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not pool.reload.archived?
   end
 
-  test "a funded member can enroll themselves" do
+  test "a funded member can enroll themselves with their own ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert active_enrollment?(pool, @user)
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 300, enrollment.daily_draw_cap_cents
+  end
+
+  test "enrolling without a ceiling is refused" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
@@ -2044,7 +2059,29 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "#{collective.path}/settings/enroll_in_funding_pool"
 
     assert_redirected_to "#{collective.path}/pool"
+    assert_match(/ceiling/i, flash[:alert], "consent must state an explicit ceiling")
+    assert_not active_enrollment?(pool, @user)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "several" }
+
+    assert flash[:alert].present?
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "an enrolled member can update their ceiling by re-enrolling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "1.25" }
+
+    assert_redirected_to "#{collective.path}/pool"
     assert active_enrollment?(pool, @user)
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 125, enrollment.daily_draw_cap_cents
   end
 
   test "enrolling without funded billing fails with a friendly error" do
@@ -2053,7 +2090,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     pool = create_pool!(collective)
     sign_in_as(@user, tenant: @tenant)
 
-    post "#{collective.path}/settings/enroll_in_funding_pool"
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }
 
     assert_redirected_to "#{collective.path}/pool"
     assert_match(/billing/i, flash[:alert])
@@ -2557,7 +2594,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/consenting to fund/i, response.body)
     assert_match(/Enroll/, response.body)
 
-    post "#{collective.path}/settings/enroll_in_funding_pool"
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }
     assert_redirected_to "#{collective.path}/pool"
     assert active_enrollment?(pool, member)
 
@@ -2624,7 +2661,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not active_enrollment?(pool, member)
   end
 
-  test "the markdown pool page offers enroll to an unenrolled member and withdraw to an enrolled one" do
+  test "the markdown pool page offers enroll to members and withdraw only to enrolled ones" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
@@ -2638,7 +2675,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     enroll!(pool, member)
     get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
-    assert_no_match(/enroll_in_funding_pool/, response.body)
+    # Enroll stays offered to enrolled members — re-enrolling updates their ceiling.
+    assert_match(/enroll_in_funding_pool/, response.body)
     assert_match(/withdraw_from_funding_pool/, response.body)
   end
 
@@ -2650,12 +2688,29 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(member, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
-    post "#{collective.path}/pool/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+    post "#{collective.path}/pool/actions/enroll_in_funding_pool", params: { daily_draw_cap: "3.00" }.to_json, headers: headers
     assert_response :success
     assert active_enrollment?(pool, member)
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: member.id)
+    assert_equal 300, enrollment.daily_draw_cap_cents
 
     post "#{collective.path}/pool/actions/withdraw_from_funding_pool", params: {}.to_json, headers: headers
     assert_response :success
+    assert_not active_enrollment?(pool, member)
+  end
+
+  test "the enroll action requires a ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/pool/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/ceiling/i, response.body)
     assert_not active_enrollment?(pool, member)
   end
 
@@ -2682,7 +2737,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
-    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: { daily_draw_cap: "5.00" }.to_json, headers: headers
 
     assert_response :success
     assert active_enrollment?(pool, @user)
@@ -2695,7 +2750,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
-    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: {}.to_json, headers: headers
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool", params: { daily_draw_cap: "5.00" }.to_json, headers: headers
 
     assert_response :unprocessable_entity
     assert_match(/billing/i, response.body)

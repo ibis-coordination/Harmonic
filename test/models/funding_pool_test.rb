@@ -57,7 +57,7 @@ class FundingPoolTest < ActiveSupport::TestCase
       active: true,
       pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}",
     )
-    pool.enroll!(@user)
+    pool.enroll!(@user, daily_draw_cap_cents: 500)
     agent = create_ai_agent(parent: @user)
     agent.update!(funding_pool: pool)
 

@@ -372,10 +372,9 @@
             <p class="pulse-section-description">
               Enrolling is consenting to fund this collective's agents from your own
               prepaid balance — each call is billed to one enrolled member, drawn at
-              random. You can withdraw at any time.
+              random, up to a daily ceiling each member sets themselves. Enroll on the
+              <a href="<%= @current_collective.path %>/pool" class="pulse-link">pool page</a>.
             </p>
-            <%= button_to "Enroll in Pool", "#{@current_collective.path}/settings/enroll_in_funding_pool",
-                          method: :post, class: "pulse-action-btn" %>
           <% end %>
 
           <% if @funding_pools_enabled %>

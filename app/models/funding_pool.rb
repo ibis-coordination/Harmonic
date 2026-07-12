@@ -27,14 +27,17 @@ class FundingPool < ApplicationRecord
 
   # Enroll (or re-enroll) a member. The enrollment gate — funded billing,
   # active membership, human, open pool — re-runs on reactivation, so a
-  # withdrawn member whose funding lapsed cannot slip back in.
-  sig { params(user: User).returns(FundingPoolEnrollment) }
-  def enroll!(user)
+  # withdrawn member whose funding lapsed cannot slip back in. The caller must
+  # pass the member's own daily draw ceiling: consent is restated, never
+  # carried over silently from a previous enrollment.
+  sig { params(user: User, daily_draw_cap_cents: Integer).returns(FundingPoolEnrollment) }
+  def enroll!(user, daily_draw_cap_cents:)
     enrollment = enrollments.find_or_initialize_by(user: user)
     # Explicit scope: the enrollment lives in this pool's collective, not
     # whatever collective the thread happens to be scoped to.
     enrollment.tenant_id = tenant_id
     enrollment.collective_id = collective_id
+    enrollment.daily_draw_cap_cents = daily_draw_cap_cents
     enrollment.archived_at = nil
     enrollment.save!
     enrollment

@@ -24,23 +24,23 @@ module LLMGateway
     # funded — the minimum arrangement the attach validation accepts. The
     # operator-managed funding_pools flag is on: the resolver treats it as a
     # kill switch.
-    def create_funding_pool!(primary_stripe_id: "cus_primary")
+    def create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 500)
       FeatureFlagService.config["funding_pools"] ||= {}
       FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
       @collective.enable_feature_flag!("funding_pools")
       pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_daily_draw_cap_cents: 500)
       fund!(@user, stripe_id: primary_stripe_id)
-      pool.enroll!(@user)
+      pool.enroll!(@user, daily_draw_cap_cents: primary_cap)
       pool
     end
 
-    def create_enrolled_member!(pool, stripe_id:)
+    def create_enrolled_member!(pool, stripe_id:, cap: 500)
       member = create_user
       @tenant.add_user!(member)
       @collective.add_user!(member)
       fund!(member, stripe_id: stripe_id)
-      pool.enroll!(member)
+      pool.enroll!(member, daily_draw_cap_cents: cap)
       member
     end
 
@@ -180,7 +180,8 @@ module LLMGateway
       other_agent = create_ai_agent(parent: @user)
       @collective.add_user!(other_agent)
       fund!(other_agent, stripe_id: "cus_agent_self")
-      FundingPoolEnrollment.new(tenant: @tenant, collective: @collective, funding_pool: pool, user: other_agent)
+      FundingPoolEnrollment.new(tenant: @tenant, collective: @collective, funding_pool: pool, user: other_agent,
+                                daily_draw_cap_cents: 500)
                            .save!(validate: false)
       @ai_agent.update!(funding_pool: pool)
 
@@ -301,6 +302,37 @@ module LLMGateway
       20.times do
         assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
       end
+    end
+
+    test "a member is skipped once this pool's draws reach their own enrollment ceiling" do
+      pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+      create_enrolled_member!(pool, stripe_id: "cus_low_consent", cap: 50)
+      record_spend!("cus_low_consent", 50, funding_pool_id: pool.id)
+      @ai_agent.update!(funding_pool: pool)
+
+      20.times do
+        assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "the pool ceiling binds when lower than a member's own enrollment ceiling" do
+      pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+      create_enrolled_member!(pool, stripe_id: "cus_generous", cap: 10_000)
+      pool.update!(member_daily_draw_cap_cents: 50)
+      record_spend!("cus_generous", 50, funding_pool_id: pool.id)
+      @ai_agent.update!(funding_pool: pool)
+
+      20.times do
+        assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
+    test "a member under their own lower ceiling is still drawable" do
+      pool = create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 100)
+      record_spend!("cus_primary", 60, funding_pool_id: pool.id)
+      @ai_agent.update!(funding_pool: pool)
+
+      assert_equal "cus_primary", PayerResolver.resolve(@task_run).payer_customer_id
     end
 
     test "draws for other pools do not count against a pool's ceiling" do

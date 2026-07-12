@@ -2060,7 +2060,7 @@ class UserTest < ActiveSupport::TestCase
         active: true,
         pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
       )
-      pool.enroll!(member)
+      pool.enroll!(member, daily_draw_cap_cents: 500)
     end
     pool
   end

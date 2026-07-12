@@ -77,29 +77,34 @@ module LLMGateway
     # outside normal request scoping.
     sig { params(pool: FundingPool).returns(T::Array[String]) }
     def self.pool_customer_ids(pool)
-      enrolled_user_ids = FundingPoolEnrollment.tenant_scoped_only
+      enrollment_caps = FundingPoolEnrollment.tenant_scoped_only
         .where(funding_pool_id: pool.id, archived_at: nil)
-        .pluck(:user_id)
+        .pluck(:user_id, :daily_draw_cap_cents).to_h
       member_user_ids = CollectiveMember.tenant_scoped_only
-        .where(collective_id: pool.collective_id, user_id: enrolled_user_ids, archived_at: nil)
+        .where(collective_id: pool.collective_id, user_id: enrollment_caps.keys, archived_at: nil)
         .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      stripe_ids = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+      # Each candidate's effective ceiling: the tighter of the pool's ceiling
+      # and the one the member stated when enrolling. Both are mandatory;
+      # compact guards pre-backfill rows.
+      cap_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
         .where.not(pricing_plan_subscription_id: [nil, ""])
-        .pluck(:stripe_id)
-      under_daily_draw_cap(stripe_ids, pool)
+        .pluck(:billable_id, :stripe_id)
+        .to_h { |user_id, stripe_id| [stripe_id, [pool.member_daily_draw_cap_cents, enrollment_caps[user_id]].compact.min] }
+      under_daily_draw_cap(cap_by_stripe_id, pool)
     end
 
-    # The pool's per-UTC-day ceiling on drawing from any one member: members
-    # it has already tapped for the cap today drop out of the draw (draws by
-    # other pools don't count — the ceiling is a promise about THIS pool's
-    # reach into a member's balance).
-    sig { params(stripe_ids: T::Array[String], pool: FundingPool).returns(T::Array[String]) }
-    def self.under_daily_draw_cap(stripe_ids, pool)
-      cap = pool.member_daily_draw_cap_cents
-      return stripe_ids if cap.nil?
+    # The per-UTC-day ceiling on drawing from any one member: members this
+    # pool has already tapped for their effective ceiling today drop out of
+    # the draw (draws by other pools don't count — the ceiling is a promise
+    # about THIS pool's reach into a member's balance).
+    sig { params(cap_by_stripe_id: T::Hash[String, T.nilable(Integer)], pool: FundingPool).returns(T::Array[String]) }
+    def self.under_daily_draw_cap(cap_by_stripe_id, pool)
+      stripe_ids = cap_by_stripe_id.keys
+      capped_ids = stripe_ids.select { |stripe_id| cap_by_stripe_id[stripe_id] }
+      return stripe_ids if capped_ids.empty?
 
-      base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_pool_id: pool.id)
+      base = LLMUsageRecord.where(payer_stripe_customer_id: capped_ids, funding_pool_id: pool.id)
       drawn = base.where(completed_at: Time.current.utc.beginning_of_day..)
         .group(:payer_stripe_customer_id)
         .sum(:estimated_cost_cents)
@@ -109,6 +114,9 @@ module LLMGateway
         .count
       reserve = LLMUsageRecord.pending_reserve_cents
       stripe_ids.reject do |stripe_id|
+        cap = cap_by_stripe_id[stripe_id]
+        next false if cap.nil?
+
         drawn.fetch(stripe_id, 0) + (in_flight.fetch(stripe_id, 0) * reserve) >= cap
       end
     end
