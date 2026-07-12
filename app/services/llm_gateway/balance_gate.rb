@@ -28,6 +28,18 @@ module LLMGateway
       ENV.fetch("GATEWAY_BALANCE_BUFFER_CENTS", "25").to_i
     end
 
+    # How far past the snapshot the local delta reaches back. Stripe
+    # aggregates deductions rather than deducting in real time, so a call
+    # costed just before a snapshot can be missing from BOTH the snapshot's
+    # balance and a fetched_at-anchored delta — an optimistic gap that lets
+    # payers run below zero. Reaching back double-counts the overlap window
+    # instead: pessimistic beats optimistic for a zero gate, and the
+    # verify-before-reject refetch absorbs most false refusals.
+    sig { returns(Integer) }
+    def self.overlap_seconds
+      ENV.fetch("GATEWAY_BALANCE_OVERLAP_SECONDS", "300").to_i
+    end
+
     # A snapshot at most this old is trusted on a zero-crossing; anything
     # older gets one verifying refetch before the payer is refused.
     VERIFY_THROTTLE_SECONDS = 30
@@ -82,10 +94,12 @@ module LLMGateway
     def self.effective_balance_cents(snapshot)
       # Anchored on completed_at, not occurred_at: a call opened before the
       # snapshot but costed after it is in neither the Stripe balance nor an
-      # occurred_at-anchored delta. In-flight calls hold reservations.
+      # occurred_at-anchored delta. The anchor reaches overlap_seconds before
+      # the snapshot to cover Stripe's aggregation lag. In-flight calls hold
+      # reservations.
       spend = LLMUsageRecord.spend_cents_for(
         { payer_stripe_customer_id: snapshot.stripe_customer_id },
-        since: snapshot.fetched_at,
+        since: snapshot.fetched_at - overlap_seconds.seconds,
       )
       BigDecimal(snapshot.balance_cents) - spend
     end

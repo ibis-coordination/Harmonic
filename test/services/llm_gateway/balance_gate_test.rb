@@ -153,7 +153,22 @@ module LLMGateway
       end
     end
 
-    test "spend recorded before the snapshot was taken does not double-count" do
+    test "spend completed just before the snapshot still counts against it" do
+      # Stripe aggregates deductions with lag, so a call costed moments before
+      # the snapshot can be missing from BOTH the snapshot's balance and a
+      # fetched_at-anchored delta. The delta must reach back past the snapshot
+      # and double-count that overlap instead — pessimistic beats optimistic
+      # for a zero gate.
+      seed_snapshot!(100, fetched_at: 5.seconds.ago)
+      spend!(90, occurred_at: 3.minutes.ago)
+
+      no_stripe! do
+        assert_not BalanceGate.funded?("cus_gate_test")
+      end
+    end
+
+    test "spend recorded well before the snapshot does not double-count" do
+      # Outside the aggregation-lag overlap, the snapshot already reflects it.
       spend!(400, occurred_at: 1.hour.ago)
       seed_snapshot!(100)
 
