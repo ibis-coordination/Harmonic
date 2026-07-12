@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.0] - 2026-07-12
+
+### Changed
+
+- **Funding pools replace agent-funding collectives** (#489, toward #464) — pooled agent funding is now a funding pool owned by a standard collective: membership stays free and social, and the billing consent is an explicit self-serve enrollment on the new `{collective}/pool` page. Consent states a number — every pool has a mandatory per-member draw ceiling and every enrollee states their own (match the pool's by default, or opt down; the two are enforced independently per window, and the schema supports day/week/month periods while the UI writes daily). Gated by the new operator-managed `funding_pools` collective flag: entrances (create, enroll, attach, ceiling changes) require it, exits (withdraw, detach, close) are never gated, and turning it off stops a pool's draws immediately. The `agent_funding` collective type is removed. Deploy with migrations.
+
+### Added
+
+- **LLM usage ledger sweep** (#489) — an hourly job re-prices pending ledger rows whose token counts landed but couldn't be priced, and marks rows stuck pending past 24h `abandoned` (ops-visible, completable by a late report), so ledger-derived numbers — draw ceilings, spend caps, future transparency views — can't silently undercount what Stripe actually billed.
+
 ## [1.48.0] - 2026-07-11
 
 ### Added
