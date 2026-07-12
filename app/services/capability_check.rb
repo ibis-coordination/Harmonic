@@ -35,6 +35,13 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "create_collective",
     "join_collective",
     "update_collective_settings",
+    # Funding-pool actions move real money: enrollment is a member's personal
+    # consent to be drawn on, and attach/detach direct the pool's spending.
+    # Humans only — the enrollment model additionally refuses non-human users.
+    "enroll_in_funding_pool",
+    "withdraw_from_funding_pool",
+    "attach_funded_agent",
+    "detach_funded_agent",
     "create_ai_agent",
     "add_ai_agent_to_collective",
     "remove_ai_agent_from_collective",

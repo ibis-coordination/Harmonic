@@ -49,6 +49,24 @@ class FundingPoolTest < ActiveSupport::TestCase
     assert pool.valid?
   end
 
+  test "destroying a pool detaches its agents instead of orphaning them" do
+    pool = create_pool!
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_#{SecureRandom.hex(6)}",
+      active: true,
+      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}",
+    )
+    pool.enroll!(@user)
+    agent = create_ai_agent(parent: @user)
+    agent.update!(funding_pool: pool)
+
+    # Collective deletion destroys the pool through has_one dependent: :destroy;
+    # an attached agent must not turn that into a foreign-key violation.
+    pool.destroy!
+    assert_nil agent.reload.funding_pool_id
+  end
+
   test "archive! closes the pool and unarchive! reopens it" do
     pool = create_pool!
     assert_not pool.archived?

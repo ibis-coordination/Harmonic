@@ -497,6 +497,9 @@ class CollectivesController < ApplicationController
     unless @current_tenant.feature_enabled?("stripe_billing")
       return render_funded_agent_error(403, 'Funding pools require billing to be enabled for this account')
     end
+    unless @current_collective.standard?
+      return render_funded_agent_error(403, 'Only standard collectives can have a funding pool')
+    end
     unless @current_user.collective_member&.is_admin?
       return render_funded_agent_error(403, 'Unauthorized')
     end

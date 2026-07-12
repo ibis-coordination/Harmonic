@@ -1914,6 +1914,43 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
   end
 
+  test "a pool cannot be opened on an archived collective" do
+    enable_stripe_billing_flag!(@tenant)
+    collective = create_test_collective
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.update!(archived_at: Time.current, archived_by_id: @user.id)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool"
+
+    # The global archived-collective interceptor bounces the request to the
+    # settings page before the action runs; the pool must not be created.
+    assert_redirected_to "#{collective.path}/settings"
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "a pool cannot be opened on a non-standard collective" do
+    enable_stripe_billing_flag!(@tenant)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    chat = Collective.create!(
+      tenant: @tenant, created_by: @user, name: "Chat", handle: "chat-#{SecureRandom.hex(4)}",
+      collective_type: "chat"
+    )
+    cm = chat.add_user!(@user)
+    cm.add_role!("admin")
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{chat.path}/settings/create_funding_pool"
+
+    assert_response :redirect
+    assert flash[:alert].present?, "expected a friendly refusal, not a crash"
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: chat.id)
+  end
+
   test "creating the pool again reopens a closed pool instead of failing" do
     enable_stripe_billing_flag!(@tenant)
     collective = create_test_collective
@@ -2240,6 +2277,29 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_nil agent.reload.funding_pool_id
+  end
+
+  test "the markdown settings page shows the funding pool state" do
+    enable_stripe_billing_flag!(@tenant)
+    collective = create_test_collective
+    pool = create_pool!(collective)
+    pool.update!(member_daily_draw_cap_cents: 150)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Pool Md Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/Funding Pool/, response.body)
+    assert_match(/\$1\.50/, response.body)
+    assert_match "Pool Md Bot", response.body
+    assert_match(/enrolled/i, response.body)
   end
 
   # === Funding pool markdown actions ===

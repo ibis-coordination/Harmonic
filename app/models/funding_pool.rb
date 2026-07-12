@@ -13,7 +13,10 @@ class FundingPool < ApplicationRecord
   belongs_to :collective
   belongs_to :created_by, class_name: "User"
   has_many :enrollments, class_name: "FundingPoolEnrollment", dependent: :destroy
-  has_many :funded_agents, class_name: "User", dependent: nil, inverse_of: :funding_pool
+  # Nullify, not restrict: collective deletion destroys the pool through the
+  # has_one, and an attached agent must detach (and stop being pool-funded)
+  # rather than block the deletion with a foreign-key violation.
+  has_many :funded_agents, class_name: "User", dependent: :nullify, inverse_of: :funding_pool
 
   validates :collective_id, uniqueness: { message: "already has a funding pool" }
   validates :member_daily_draw_cap_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true

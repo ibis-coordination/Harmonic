@@ -83,6 +83,20 @@ Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_t
 <% end %>
 <% end %>
 
+<% if @funding_pool && !@funding_pool.archived? %>
+
+## Funding Pool
+
+Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call. The pool never holds money. Enrolling is consenting to fund; enrollment and withdrawal are always self-serve (`enroll_in_funding_pool` / `withdraw_from_funding_pool` actions). Admins attach and detach agents (`attach_funded_agent` / `detach_funded_agent`); an agent's principal must be enrolled.
+
+| Setting | Value |
+|---------|-------|
+| Member daily draw ceiling | <%= @funding_pool.member_daily_draw_cap_cents ? format("$%.2f per member per day", @funding_pool.member_daily_draw_cap_cents / 100.0) : "(none)" %> |
+| Enrolled members | <%= @pool_enrollments.any? ? @pool_enrollments.map { |e| "[#{e.user.display_name}](#{e.user.path})" }.join(", ") : "(none yet)" %> |
+| Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})" }.join(", ") : "(none yet)" %> |
+| You | <%= @current_user_enrolled ? "Enrolled — the pool's agents can draw from your prepaid balance" : "Not enrolled" %> |
+<% end %>
+
 <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? %>
 <% if @current_collective.billing_exempt? %>
 Billing-exempt by an admin. [View billing](/billing)
