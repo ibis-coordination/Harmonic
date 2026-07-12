@@ -22,8 +22,10 @@ class LLMUsageRecord < ApplicationRecord
   belongs_to :ai_agent, class_name: "User"
   # The pool the draw came from, stamped at selection time (nil = the agent's
   # own billing customer paid). Point-in-time: agents move between pools, so
-  # this is never re-derived through the agent's mutable link.
-  belongs_to :funding_pool, optional: true
+  # this is never re-derived through the agent's mutable link. Unscoped from
+  # the collective dimension — the ledger is read from billing contexts, not
+  # from the pool's collective.
+  belongs_to :funding_pool, -> { unscope_collective }, optional: true, inverse_of: false
   belongs_to :task_run, class_name: "AiAgentTaskRun", foreign_key: "ai_agent_task_run_id", optional: true, inverse_of: false
   belongs_to :api_token, optional: true
 

@@ -132,11 +132,11 @@
     </div>
   <% end %>
 
-  <% if @showing_user.ai_agent? && @showing_user.funding_collective %>
+  <% if @showing_user.ai_agent? && @showing_user.funding_pool %>
     <div class="pulse-user-parent-info">
       <span style="color: var(--color-fg-muted);">Funded by</span>
-      <a href="<%= @showing_user.funding_collective.path %>" class="pulse-user-parent-link">
-        <strong><%= @showing_user.funding_collective.name %></strong>
+      <a href="<%= @showing_user.funding_pool.collective.path %>" class="pulse-user-parent-link">
+        <strong><%= @showing_user.funding_pool.collective.name %></strong>
       </a>
     </div>
   <% end %>

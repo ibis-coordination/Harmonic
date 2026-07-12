@@ -166,6 +166,43 @@ class ActionsHelper
       authorization: :collective_admin,
       visibility: :by_collective,
     },
+    "enroll_in_funding_pool" => {
+      description: "Enroll yourself in this collective's funding pool. Enrolling is consenting to fund the collective's agents from your own " \
+                   "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random. " \
+                   "Requires active billing with prepaid credits.",
+      params_string: "()",
+      params: [],
+      authorization: :authenticated,
+      visibility: :by_collective,
+    },
+    "withdraw_from_funding_pool" => {
+      description: "Withdraw your enrollment from this collective's funding pool. You drop out of payer draws immediately; " \
+                   "agents whose principal withdraws are suspended.",
+      params_string: "()",
+      params: [],
+      authorization: :authenticated,
+      visibility: :by_collective,
+    },
+    "attach_funded_agent" => {
+      description: "Attach an AI agent to this collective's funding pool: from its next call on, the agent's LLM usage is billed to " \
+                   "enrolled members' balances, one random member per call. The agent's principal must be enrolled.",
+      params_string: "(ai_agent_id)",
+      params: [
+        { name: "ai_agent_id", type: "string", description: "ID of the AI agent to attach" },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
+    "detach_funded_agent" => {
+      description: "Detach an AI agent from this collective's funding pool. It stops drawing on members' balances immediately " \
+                   "and reverts to its own billing.",
+      params_string: "(ai_agent_id)",
+      params: [
+        { name: "ai_agent_id", type: "string", description: "ID of the AI agent to detach" },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
     "add_ai_agent_to_collective" => {
       description: "Add one of your AI agents to this collective",
       params_string: "(ai_agent_id)",
@@ -331,7 +368,7 @@ class ActionsHelper
     },
     "query_rows" => {
       description: "Query rows in this table with optional filtering, sorting, and pagination. " \
-        "Results include each row's _harmonic_row_id, the identifier passed as row_id to update_row/delete_row",
+                   "Results include each row's _harmonic_row_id, the identifier passed as row_id to update_row/delete_row",
       params_string: "(where, order_by, order, limit, offset)",
       params: [
         { name: "where", type: "object", required: false, description: "Filter by column values, e.g. { \"Status\": \"done\" }" },
@@ -430,7 +467,8 @@ class ActionsHelper
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
-        { name: "deadline", type: "datetime", description: "When the decision closes. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w." },
+        { name: "deadline", type: "datetime",
+          description: "When the decision closes. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
       ],
       authorization: :resource_owner,
       visibility: :by_collective,
@@ -1238,6 +1276,17 @@ class ActionsHelper
         { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string],
           description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
+      # Funding pool actions only exist while the collective has an open pool.
+      conditional_actions: ["enroll_in_funding_pool", "withdraw_from_funding_pool",
+                            "attach_funded_agent", "detach_funded_agent",].map do |name|
+        {
+          name: name,
+          condition: lambda { |context|
+            pool = context[:collective]&.funding_pool
+            pool.present? && !pool.archived?
+          },
+        }
+      end,
     },
     "/collectives/:collective_handle/cycles" => {
       controller_actions: ["cycles#index"],
@@ -1285,6 +1334,7 @@ class ActionsHelper
             next false unless collective && user
             next false unless user.can_represent?(collective)
             next false if collective.archived?
+
             !RepresentationSession.exists?(collective: collective, representative_user: user, ended_at: nil)
           },
         },
@@ -1296,6 +1346,7 @@ class ActionsHelper
             collective = context[:collective]
             user = context[:user]
             next false unless collective && user
+
             RepresentationSession.exists?(collective: collective, representative_user: user, ended_at: nil)
           },
         },
@@ -1769,6 +1820,7 @@ class ActionsHelper
             user = context[:user]
             next false unless grant && user
             next false unless grant.active? && grant.trustee_user == user
+
             !RepresentationSession.exists?(trustee_grant: grant, ended_at: nil)
           },
         },
@@ -1779,6 +1831,7 @@ class ActionsHelper
             user = context[:user]
             next false unless grant && user
             next false unless grant.active? && grant.trustee_user == user
+
             RepresentationSession.exists?(trustee_grant: grant, ended_at: nil)
           },
         },

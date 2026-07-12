@@ -186,15 +186,21 @@ class CollectivesController < ApplicationController
       active_collective_ai_agent_ids = @collective_ai_agents.pluck(:id)
       addable_ids = user_ai_agent_ids - active_collective_ai_agent_ids
       @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
-      # Agents on this funding collective's payroll, and this tenant's agents
-      # that could be attached (their principal is an active member).
-      if @current_collective.agent_funding?
-        @funded_agents = User.where(funding_collective_id: @current_collective.id).order(:name)
-        active_member_ids = @current_collective.collective_members.where(archived_at: nil).pluck(:user_id)
-        @attachable_agents = User.where(user_type: "ai_agent", parent_id: active_member_ids)
-          .includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
-          .where.not(id: @funded_agents.pluck(:id))
-          .order(:name)
+      # Funding pool state: the pool, its enrollments, agents on its payroll,
+      # and this tenant's agents that could be attached (their principal is
+      # actively enrolled).
+      if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing")
+        @funding_pool = @current_collective.funding_pool
+        if @funding_pool && !@funding_pool.archived?
+          @funded_agents = @funding_pool.funded_agents.order(:name)
+          @pool_enrollments = @funding_pool.enrollments.active.includes(:user).to_a
+          @current_user_enrolled = @pool_enrollments.any? { |e| e.user_id == @current_user.id }
+          enrolled_ids = @pool_enrollments.map(&:user_id)
+          @attachable_agents = User.where(user_type: "ai_agent", parent_id: enrolled_ids)
+            .includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+            .where.not(id: @funded_agents.pluck(:id))
+            .order(:name)
+        end
       end
       # Automation counts for display
       @enabled_automations_count = @current_collective.automation_rules.where(enabled: true).count
@@ -232,11 +238,16 @@ class CollectivesController < ApplicationController
     @current_collective.timezone = params[:timezone]
     @current_collective.tempo = params[:tempo]
     @current_collective.synchronization_mode = params[:synchronization_mode]
-    # Per-member daily draw ceiling (agent_funding only — model-validated).
+    # Per-member daily draw ceiling (lives on the collective's funding pool).
     # Dollars in the form, cents in the column; blank clears it.
     if params.key?(:member_daily_draw_cap)
+      pool = @current_collective.funding_pool
+      if pool.nil?
+        flash[:error] = "This collective has no funding pool."
+        return redirect_to "#{@current_collective.path}/settings"
+      end
       begin
-        @current_collective.member_daily_draw_cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
+        pool.update!(member_daily_draw_cap_cents: MoneyParam.dollars_to_cents(params[:member_daily_draw_cap]))
       rescue ArgumentError
         flash[:error] = "The member daily draw ceiling must be a dollar amount (or blank for no ceiling)."
         return redirect_to "#{@current_collective.path}/settings"
@@ -480,19 +491,88 @@ class CollectivesController < ApplicationController
     end
   end
 
-  # Attach an agent to this funding collective's payroll: its LLM usage draws
-  # from the members' balances from the next call on. Admitting an agent
-  # spends everyone's money, so it is admin-only; the model validation
-  # additionally requires the agent's principal to be an active member.
+  # Open a funding pool for this collective (or reopen a closed one): the
+  # instrument through which enrolled members fund the collective's agents.
+  def create_funding_pool
+    unless @current_tenant.feature_enabled?("stripe_billing")
+      return render_funded_agent_error(403, 'Funding pools require billing to be enabled for this account')
+    end
+    unless @current_user.collective_member&.is_admin?
+      return render_funded_agent_error(403, 'Unauthorized')
+    end
+
+    pool = @current_collective.funding_pool
+    if pool
+      pool.unarchive! if pool.archived?
+    else
+      FundingPool.create!(collective: @current_collective, created_by: @current_user)
+    end
+
+    flash[:notice] = "Funding pool is open. Members can now enroll."
+    redirect_to "#{@current_collective.path}/settings"
+  end
+
+  # Closing the pool stops all of its spending: attached agents are suspended
+  # from their next call (1-to-1 — there is no fallback payer). Enrollments
+  # survive as consent records for draws already made.
+  def close_funding_pool
+    unless @current_user.collective_member&.is_admin?
+      return render_funded_agent_error(403, 'Unauthorized')
+    end
+    pool = @current_collective.funding_pool
+    if pool.nil? || pool.archived?
+      return render_funded_agent_error(404, 'This collective has no open funding pool')
+    end
+
+    pool.archive!
+    flash[:notice] = "Funding pool closed. Its agents are suspended until it reopens or they are detached."
+    redirect_to "#{@current_collective.path}/settings"
+  end
+
+  # Enrollment is the member's own consent to be drawn on — always self-serve,
+  # never done by an admin on someone's behalf.
+  def enroll_in_funding_pool
+    pool = @current_collective.funding_pool
+    if pool.nil? || pool.archived?
+      return render_funded_agent_error(404, 'This collective has no open funding pool')
+    end
+
+    begin
+      pool.enroll!(@current_user)
+    rescue ActiveRecord::RecordInvalid => e
+      return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence)
+    end
+
+    flash[:notice] = "You are enrolled: this collective's funded agents can now draw from your prepaid balance."
+    redirect_to "#{@current_collective.path}/settings"
+  end
+
+  def withdraw_from_funding_pool
+    pool = @current_collective.funding_pool
+    enrollment = pool && pool.enrollments.find_by(user_id: @current_user.id)
+    if enrollment.nil? || enrollment.archived?
+      return render_funded_agent_error(404, 'You are not enrolled in this funding pool')
+    end
+
+    enrollment.withdraw!
+    flash[:notice] = "You have withdrawn from the funding pool. You drop out of draws immediately."
+    redirect_to "#{@current_collective.path}/settings"
+  end
+
+  # Attach an agent to the pool's payroll: its LLM usage draws from enrolled
+  # members' balances from the next call on. Admitting an agent spends
+  # everyone's money, so it is admin-only; the model validation additionally
+  # requires the agent's principal to be actively enrolled.
   def add_funded_agent
-    unless @current_collective.agent_funding?
-      return render_funded_agent_error(403, 'Agents can only be funded by an agent funding collective')
+    pool = @current_collective.funding_pool
+    if pool.nil? || pool.archived?
+      return render_funded_agent_error(403, 'This collective has no open funding pool')
     end
     unless @current_user.collective_member&.is_admin?
       return render_funded_agent_error(403, 'Unauthorized')
     end
     # Scoped to this tenant's agents: funding only operates where the
-    # collective lives (per-call membership lookups are tenant-scoped), so an
+    # collective lives (per-call enrollment lookups are tenant-scoped), so an
     # agent from another tenant would attach and then be suspended forever.
     ai_agent = User.where(user_type: "ai_agent")
       .joins(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
@@ -501,7 +581,7 @@ class CollectivesController < ApplicationController
       return render_funded_agent_error(404, 'AI Agent not found')
     end
 
-    ai_agent.funding_collective = @current_collective
+    ai_agent.funding_pool = pool
     unless ai_agent.save
       return render_funded_agent_error(422, ai_agent.errors.full_messages.to_sentence)
     end
@@ -525,12 +605,13 @@ class CollectivesController < ApplicationController
     unless @current_user.collective_member&.is_admin?
       return render_funded_agent_error(403, 'Unauthorized')
     end
+    pool = @current_collective.funding_pool
     ai_agent = User.find_by(id: params[:ai_agent_id])
-    if ai_agent.nil? || ai_agent.funding_collective_id != @current_collective.id
+    if pool.nil? || ai_agent.nil? || ai_agent.funding_pool_id != pool.id
       return render_funded_agent_error(404, 'AI Agent is not funded by this collective')
     end
 
-    ai_agent.update!(funding_collective_id: nil)
+    ai_agent.update!(funding_pool_id: nil)
 
     respond_to do |format|
       format.json do
@@ -698,6 +779,140 @@ class CollectivesController < ApplicationController
         error: e.message,
       })
     end
+  end
+
+  def describe_enroll_in_funding_pool
+    render_action_description(ActionsHelper.action_description("enroll_in_funding_pool", resource: @current_collective))
+  end
+
+  def execute_enroll_in_funding_pool
+    return render_action_error({ action_name: 'enroll_in_funding_pool', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+
+    pool = @current_collective.funding_pool
+    if pool.nil? || pool.archived?
+      return render_action_error({
+        action_name: 'enroll_in_funding_pool',
+        resource: @current_collective,
+        error: 'This collective has no open funding pool.',
+        status: :not_found,
+      })
+    end
+
+    begin
+      pool.enroll!(current_user)
+      render_action_success({
+        action_name: 'enroll_in_funding_pool',
+        resource: @current_collective,
+        result: "You are enrolled: #{@current_collective.name}'s funded agents can now draw from your prepaid balance.",
+      })
+    rescue ActiveRecord::RecordInvalid => e
+      render_action_error({
+        action_name: 'enroll_in_funding_pool',
+        resource: @current_collective,
+        error: e.record.errors.full_messages.to_sentence,
+      })
+    end
+  end
+
+  def describe_withdraw_from_funding_pool
+    render_action_description(ActionsHelper.action_description("withdraw_from_funding_pool", resource: @current_collective))
+  end
+
+  def execute_withdraw_from_funding_pool
+    return render_action_error({ action_name: 'withdraw_from_funding_pool', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+
+    pool = @current_collective.funding_pool
+    enrollment = pool && pool.enrollments.find_by(user_id: current_user.id)
+    if enrollment.nil? || enrollment.archived?
+      return render_action_error({
+        action_name: 'withdraw_from_funding_pool',
+        resource: @current_collective,
+        error: 'You are not enrolled in this funding pool.',
+        status: :not_found,
+      })
+    end
+
+    enrollment.withdraw!
+    render_action_success({
+      action_name: 'withdraw_from_funding_pool',
+      resource: @current_collective,
+      result: "You have withdrawn from the funding pool. You drop out of draws immediately.",
+    })
+  end
+
+  def describe_attach_funded_agent
+    render_action_description(ActionsHelper.action_description("attach_funded_agent", resource: @current_collective))
+  end
+
+  def execute_attach_funded_agent
+    return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+    return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'Only collective admins can attach funded agents.', status: :forbidden }) unless current_user.collective_member&.is_admin?
+
+    pool = @current_collective.funding_pool
+    if pool.nil? || pool.archived?
+      return render_action_error({
+        action_name: 'attach_funded_agent',
+        resource: @current_collective,
+        error: 'This collective has no open funding pool.',
+        status: :not_found,
+      })
+    end
+
+    # Same tenant-scoped lookup as the HTML endpoint: an agent from another
+    # tenant would attach and then be suspended forever.
+    ai_agent = User.where(user_type: "ai_agent")
+      .joins(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
+      .find_by(id: params[:ai_agent_id])
+    if ai_agent.nil?
+      return render_action_error({
+        action_name: 'attach_funded_agent',
+        resource: @current_collective,
+        error: 'AI Agent not found.',
+        status: :not_found,
+      })
+    end
+
+    ai_agent.funding_pool = pool
+    if ai_agent.save
+      render_action_success({
+        action_name: 'attach_funded_agent',
+        resource: @current_collective,
+        result: "#{ai_agent.display_name} is now funded by #{@current_collective.name}.",
+      })
+    else
+      render_action_error({
+        action_name: 'attach_funded_agent',
+        resource: @current_collective,
+        error: ai_agent.errors.full_messages.to_sentence,
+      })
+    end
+  end
+
+  def describe_detach_funded_agent
+    render_action_description(ActionsHelper.action_description("detach_funded_agent", resource: @current_collective))
+  end
+
+  def execute_detach_funded_agent
+    return render_action_error({ action_name: 'detach_funded_agent', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
+    return render_action_error({ action_name: 'detach_funded_agent', resource: @current_collective, error: 'Only collective admins can detach funded agents.', status: :forbidden }) unless current_user.collective_member&.is_admin?
+
+    pool = @current_collective.funding_pool
+    ai_agent = User.find_by(id: params[:ai_agent_id])
+    if pool.nil? || ai_agent.nil? || ai_agent.funding_pool_id != pool.id
+      return render_action_error({
+        action_name: 'detach_funded_agent',
+        resource: @current_collective,
+        error: 'AI Agent is not funded by this collective.',
+        status: :not_found,
+      })
+    end
+
+    ai_agent.update!(funding_pool_id: nil)
+    render_action_success({
+      action_name: 'detach_funded_agent',
+      resource: @current_collective,
+      result: "#{ai_agent.display_name} is no longer funded by #{@current_collective.name}.",
+    })
   end
 
   def actions_index_join

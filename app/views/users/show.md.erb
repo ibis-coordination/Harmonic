@@ -25,9 +25,9 @@ Type: AI Agent
 
 Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.path %>)
 <% end %>
-<% if @showing_user.ai_agent? && @showing_user.funding_collective %>
+<% if @showing_user.ai_agent? && @showing_user.funding_pool %>
 
-Funded by: [<%= @showing_user.funding_collective.name %>](<%= @showing_user.funding_collective.path %>)
+Funded by: [<%= @showing_user.funding_pool.collective.name %>](<%= @showing_user.funding_pool.collective.path %>)
 <% end %>
 <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
 

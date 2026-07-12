@@ -30,7 +30,9 @@ class User < ApplicationRecord
   # AI agents only: the funding pool whose enrolled members' balances fund
   # this agent's LLM usage (drawn per call — see LLMGateway::PayerResolver).
   # When set, it takes precedence over billing_customer for token spend.
-  belongs_to :funding_pool, optional: true
+  # Unscoped from the collective dimension: the pool lives on its own
+  # collective, but the agent's profile renders from any collective context.
+  belongs_to :funding_pool, -> { unscope_collective }, optional: true, inverse_of: :funded_agents
 
   # User block associations
   has_many :user_blocks_given, class_name: "UserBlock", foreign_key: "blocker_id", dependent: :destroy
@@ -269,9 +271,9 @@ class User < ApplicationRecord
     end
 
     parent_enrollment = pool.enrollments.find_by(user_id: parent_id)
-    if parent_enrollment.nil? || parent_enrollment.archived?
-      errors.add(:funding_pool_id, "requires the agent's principal to be enrolled in the funding pool")
-    end
+    return unless parent_enrollment.nil? || parent_enrollment.archived?
+
+    errors.add(:funding_pool_id, "requires the agent's principal to be enrolled in the funding pool")
   end
 
   sig { void }
