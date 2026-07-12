@@ -86,6 +86,10 @@ Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_t
 <% if @funding_pool && !@funding_pool.archived? %>
 
 ## Funding Pool
+<% unless @funding_pools_enabled %>
+
+**Funding pools are disabled for this collective**, so no balances are being drawn on. This section is wind-down only: members can withdraw, agents can be detached, and the pool can be closed. Enrollment, attachment, and the draw ceiling are paused until a platform admin re-enables the feature.
+<% end %>
 
 Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call. The pool never holds money. Enrolling is consenting to fund; enrollment and withdrawal are always self-serve on the [pool page](<%= @current_collective.path %>/pool), where every member can see the pool's state. Admins attach and detach agents (`attach_funded_agent` / `detach_funded_agent`); an agent's principal must be enrolled.
 

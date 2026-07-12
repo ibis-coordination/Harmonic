@@ -2254,6 +2254,40 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 50, pool.reload.member_daily_draw_cap_cents
   end
 
+  test "the draw ceiling action is refused while the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    pool.update!(member_daily_draw_cap_cents: 50)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "0.75" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/not enabled/i, response.body)
+    assert_equal 50, pool.reload.member_daily_draw_cap_cents
+  end
+
+  test "the markdown settings page notes the wind-down state when the flag is off" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.disable_feature_flag!("funding_pools")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/disabled for this collective/i, response.body)
+  end
+
   test "setting a draw ceiling on a collective without a pool fails with a friendly message" do
     collective = create_test_collective
     sign_in_as(@user, tenant: @tenant)

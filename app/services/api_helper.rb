@@ -900,6 +900,9 @@ class ApiHelper
       if params.has_key?(:member_daily_draw_cap)
         pool = current_collective.funding_pool
         raise "This collective has no funding pool, so it has no draw ceiling to set." if pool.nil?
+        unless current_collective.feature_enabled?("funding_pools")
+          raise "Funding pools are not enabled for this collective, so the draw ceiling is paused and cannot be changed."
+        end
 
         begin
           pool.update!(member_daily_draw_cap_cents: MoneyParam.dollars_to_cents(params[:member_daily_draw_cap]))
