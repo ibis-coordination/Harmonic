@@ -177,7 +177,7 @@ class ActionsHelper
     },
     "withdraw_from_funding_pool" => {
       description: "Withdraw your enrollment from this collective's funding pool. You drop out of payer draws immediately; " \
-                   "agents attached on the strength of your enrollment stop running until you re-enroll or they are detached.",
+                   "any of your agents funded by this pool stop running until you re-enroll or they are detached.",
       params_string: "()",
       params: [],
       authorization: :authenticated,

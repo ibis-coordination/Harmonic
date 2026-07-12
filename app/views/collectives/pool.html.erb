@@ -90,7 +90,7 @@
         </p>
         <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                       method: :delete, class: "pulse-action-btn-danger",
-                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any agents attached on the strength of your enrollment stop running until you re-enroll or they are detached." } %>
+                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any of your agents funded by this pool stop running until you re-enroll or they are detached." } %>
       <% elsif @funding_pools_enabled && !@funding_pool.archived? %>
         <p class="pulse-body-text">
           Enrolling is consenting to fund this collective's agents from your own
