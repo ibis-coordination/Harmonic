@@ -159,7 +159,7 @@ module LLMGateway
       raise ResolutionError.new(
         "funding_collective_unavailable",
         :forbidden,
-        "The agent's funding pool is closed or unavailable; the agent is suspended."
+        "The agent's funding pool is closed or unavailable, so its calls are refused. It runs again when the pool reopens, or when it is detached and given its own billing."
       )
     end
 
@@ -183,7 +183,7 @@ module LLMGateway
       raise ResolutionError.new(
         "no_primary",
         :forbidden,
-        "The agent's principal is no longer enrolled in its funding pool; the agent is suspended."
+        "The agent's principal is no longer enrolled in its funding pool, so its calls are refused until the principal re-enrolls or the agent is detached."
       )
     end
 

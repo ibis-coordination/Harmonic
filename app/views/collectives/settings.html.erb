@@ -356,7 +356,7 @@
           <% if @current_user_enrolled %>
             <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                           method: :delete, class: "pulse-action-btn-danger",
-                          data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and agents whose principal withdraws are suspended." } %>
+                          data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any agents attached on the strength of your enrollment stop running until you re-enroll or they are detached." } %>
           <% elsif @funding_pools_enabled %>
             <p class="pulse-section-description">
               Enrolling is consenting to fund this collective's agents from your own
@@ -385,6 +385,11 @@
           <% end %>
 
           <h3 class="pulse-subsection-title">Funded Agents</h3>
+          <p class="pulse-section-description">
+            Agents whose LLM usage this pool pays for. Funding is separate from
+            membership: attaching an agent here does not add it to the collective,
+            and the collective's AI agent members below are not funded automatically.
+          </p>
           <% if @funded_agents.any? %>
             <table class="pulse-table">
               <thead>
@@ -433,12 +438,14 @@
 
           <h3 class="pulse-subsection-title">Close the Pool</h3>
           <p class="pulse-section-description">
-            Closing the pool stops all of its spending: attached agents are suspended from
-            their next call. Enrollments are kept as the consent record for past draws.
+            Closing the pool stops all of its spending: attached agents stop running from
+            their next call, and resume automatically if the pool reopens (or once they are
+            detached and funded individually). Enrollments are kept as the consent record
+            for past draws.
           </p>
           <%= button_to "Close Funding Pool", "#{@current_collective.path}/settings/close_funding_pool",
                         method: :post, class: "pulse-action-btn-danger",
-                        data: { turbo_confirm: "Close the funding pool? Attached agents will be suspended until it reopens or they are detached." } %>
+                        data: { turbo_confirm: "Close the funding pool? Attached agents stop running until it reopens or they are detached and funded individually." } %>
         <% end %>
       </section>
     <% end %>
@@ -449,6 +456,9 @@
         <p class="pulse-section-description">
           AI Agents are virtual identities managed by their parent user.
           Actions taken by ai_agents are the responsibility of their parent.
+          Membership controls where an agent can act; it does not affect how its
+          usage is billed — pooled funding is managed in the Agent Funding Pool
+          section above.
         </p>
         <div data-ai_agent-manager-target="list">
           <table class="pulse-table"<%= @collective_ai_agents.empty? ? ' style="display:none;"'.html_safe : '' %>>

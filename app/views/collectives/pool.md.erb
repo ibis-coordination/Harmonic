@@ -3,7 +3,7 @@
 Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call, so cost spreads evenly across enrolled members over time. The pool never holds money.
 <% if @funding_pool.archived? %>
 
-**This pool is closed.** Its agents are suspended and no balances are being drawn on. Enrollments are kept in case it reopens; withdrawal is still available.
+**This pool is closed.** Its agents stop running and no balances are being drawn on; everything resumes automatically if it reopens. Enrollments are kept in case it does; withdrawal is still available.
 <% elsif !@funding_pools_enabled %>
 
 **Funding pools are currently disabled for this collective.** No balances are being drawn on; enrollment is paused. Withdrawal is still available.

@@ -31,8 +31,9 @@
 
     <% if @funding_pool.archived? %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
-        This pool is closed. Its agents are suspended and no balances are being drawn on.
-        Enrollments are kept in case it reopens; you can still withdraw below.
+        This pool is closed. Its agents stop running and no balances are being drawn on;
+        everything resumes automatically if it reopens. Enrollments are kept in case it
+        does; you can still withdraw below.
       </div>
     <% elsif !@funding_pools_enabled %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
@@ -89,7 +90,7 @@
         </p>
         <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
                       method: :delete, class: "pulse-action-btn-danger",
-                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and agents whose principal withdraws are suspended." } %>
+                      data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately, and any agents attached on the strength of your enrollment stop running until you re-enroll or they are detached." } %>
       <% elsif @funding_pools_enabled && !@funding_pool.archived? %>
         <p class="pulse-body-text">
           Enrolling is consenting to fund this collective's agents from your own

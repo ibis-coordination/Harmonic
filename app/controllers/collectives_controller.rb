@@ -552,8 +552,9 @@ class CollectivesController < ApplicationController
     redirect_to "#{@current_collective.path}/settings"
   end
 
-  # Closing the pool stops all of its spending: attached agents are suspended
-  # from their next call (1-to-1 — there is no fallback payer). Enrollments
+  # Closing the pool stops all of its spending: attached agents' calls are
+  # refused from the next one on (1-to-1 — there is no fallback payer; no
+  # status flips, so reopening resumes them automatically). Enrollments
   # survive as consent records for draws already made.
   def close_funding_pool
     unless @current_user.collective_member&.is_admin?
@@ -565,7 +566,7 @@ class CollectivesController < ApplicationController
     end
 
     pool.archive!
-    flash[:notice] = "Funding pool closed. Its agents are suspended until it reopens or they are detached."
+    flash[:notice] = "Funding pool closed. Its agents stop running until it reopens, or until they are detached and given their own billing."
     redirect_to "#{@current_collective.path}/settings"
   end
 
