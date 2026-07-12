@@ -327,6 +327,20 @@ module LLMGateway
       end
     end
 
+    test "raising the pool ceiling does not raise an existing enrollee's exposure" do
+      # Enrolled while the pool ceiling was 500 — the enrollment snapshots
+      # that number as the member's own consent, never a live reference.
+      pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+      create_enrolled_member!(pool, stripe_id: "cus_snapshot", cap: 500)
+      pool.update!(member_daily_draw_cap_cents: 10_000)
+      record_spend!("cus_snapshot", 500, funding_pool_id: pool.id)
+      @ai_agent.update!(funding_pool: pool)
+
+      20.times do
+        assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
     test "a member under their own lower ceiling is still drawable" do
       pool = create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 100)
       record_spend!("cus_primary", 60, funding_pool_id: pool.id)

@@ -605,19 +605,27 @@ class CollectivesController < ApplicationController
     end
 
     # Consent states a number: the enrollee's own daily draw ceiling comes
-    # with the enrollment, never from an assumed default. Re-posting while
-    # enrolled updates the ceiling.
-    begin
-      cap_cents = MoneyParam.dollars_to_cents(params[:daily_draw_cap])
-    rescue ArgumentError
-      cap_cents = nil
+    # with the enrollment, never from an assumed default. The "pool" choice
+    # snapshots the pool's current ceiling as the member's own — matching
+    # everyone is the norm, opting DOWN is the individual move — so a later
+    # pool-ceiling raise never silently raises this member's exposure.
+    # Re-posting while enrolled updates the ceiling.
+    if params[:ceiling_choice] == "pool"
+      cap_cents = pool.member_daily_draw_cap_cents
+    else
+      begin
+        cap_cents = MoneyParam.dollars_to_cents(params[:daily_draw_cap])
+      rescue ArgumentError
+        cap_cents = nil
+      end
     end
     if cap_cents.nil?
-      return render_funded_agent_error(
-        422,
-        'Enrolling requires your own daily draw ceiling — the most this pool may bill you per day, as a dollar amount, e.g. 5.00',
-        redirect_path: pool_page_path,
-      )
+      message = if params[:ceiling_choice] == "custom"
+        'Enter a dollar amount for your own ceiling, e.g. 5.00'
+      else
+        'Enrolling requires your own daily draw ceiling — the most this pool may bill you per day, as a dollar amount, e.g. 5.00'
+      end
+      return render_funded_agent_error(422, message, redirect_path: pool_page_path)
     end
 
     already_enrolled = pool.enrollments.active.exists?(user_id: @current_user.id)

@@ -2068,6 +2068,48 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not active_enrollment?(pool, @user)
   end
 
+  test "enrolling with the pool-ceiling choice adopts the pool's current ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { ceiling_choice: "pool" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 500, enrollment.daily_draw_cap_cents, "the pool choice snapshots the pool's ceiling as the member's own"
+  end
+
+  test "enrolling with the custom choice but no amount is refused" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { ceiling_choice: "custom" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert_match(/ceiling/i, flash[:alert])
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the enroll form offers the pool ceiling as the default with a custom opt-down" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/Match the pool ceiling/i, response.body)
+    assert_match(/ceiling_choice/, response.body)
+  end
+
   test "an enrolled member can update their ceiling by re-enrolling" do
     collective = create_test_collective
     enable_funding_pools!(collective)
