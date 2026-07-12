@@ -88,7 +88,7 @@ Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_t
 ## Funding Pool
 <% unless @funding_pools_enabled %>
 
-**Funding pools are disabled for this collective**, so no balances are being drawn on. This section is wind-down only: members can withdraw, agents can be detached, and the pool can be closed. Enrollment, attachment, and the draw ceiling are paused until a platform admin re-enables the feature.
+**Funding pools are disabled for this collective**, so no balances are being drawn on. This section is wind-down only: members can withdraw, agents can be detached, and the pool can be closed. Enrollment, attachment, and ceiling changes are paused until a platform admin re-enables the feature.
 <% end %>
 
 Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call. The pool never holds money. Enrolling is consenting to fund, with a daily ceiling the enrollee states themselves; enrollment and withdrawal are always self-serve on the [pool page](<%= @current_collective.path %>/pool), where every member can see the pool's state. Admins attach and detach agents (`attach_funded_agent` / `detach_funded_agent`); an agent's principal must be enrolled.
@@ -99,7 +99,8 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 | Enrolled members | <%= @pool_enrollments.any? ? @pool_enrollments.map { |e| "[#{e.user.display_name}](#{e.user.path})" }.join(", ") : "(none yet)" %> |
 <% pool_enrolled_user_ids = @pool_enrollments.map(&:user_id) -%>
 | Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})#{" (not running — principal not enrolled)" unless a.parent_id && pool_enrolled_user_ids.include?(a.parent_id)}" }.join(", ") : "(none yet)" %> |
-| You | <%= @current_user_enrolled ? "Enrolled — the pool's agents can draw from your prepaid balance" : "Not enrolled" %> |
+<% my_enrollment = @current_user && @pool_enrollments.find { |e| e.user_id == @current_user.id } -%>
+| You | <%= my_enrollment ? format("Enrolled — the pool's agents can draw from your prepaid balance, up to your own ceiling of $%.2f per day (or the pool's ceiling, whichever is lower)", my_enrollment.daily_draw_cap_cents / 100.0) : "Not enrolled" %> |
 <% end %>
 
 <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? %>

@@ -2151,6 +2151,39 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to "#{collective.path}/pool"
     assert_not active_enrollment?(pool, @user)
+    assert_no_match(/stay attached/, flash[:notice], "no agent warning when the member has no attached agents")
+  end
+
+  test "withdrawing with attached agents says they stay attached but stop" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    delete "#{collective.path}/settings/withdraw_from_funding_pool"
+
+    assert_match(/stay attached/, flash[:notice])
+    assert_match(/calls are refused/, flash[:notice])
+  end
+
+  test "enrolling above the pool ceiling notes that the pool ceiling applies" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { daily_draw_cap: "50.00" }
+
+    assert active_enrollment?(pool, @user)
+    assert_match(/pool's \$5\.00 ceiling applies/, flash[:notice])
   end
 
   test "the settings page shows funding consent copy pointing members at the pool page" do

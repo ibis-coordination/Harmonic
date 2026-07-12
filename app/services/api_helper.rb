@@ -911,7 +911,7 @@ class ApiHelper
 
           pool.update!(member_daily_draw_cap_cents: cap_cents)
         rescue ArgumentError
-          raise ArgumentError, "The member daily draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one, so it cannot be cleared."
+          raise ArgumentError, "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one, so it cannot be cleared."
         end
       end
 

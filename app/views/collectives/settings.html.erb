@@ -317,8 +317,8 @@
           <p class="pulse-section-description">
             Funding pools are disabled for this collective, so no balances are being
             drawn on. This section is wind-down only: members can withdraw, agents can
-            be detached, and the pool can be closed. Enrollment, attachment, and the
-            draw ceiling are paused until a platform admin re-enables the feature.
+            be detached, and the pool can be closed. Enrollment, attachment, and
+            ceiling changes are paused until a platform admin re-enables the feature.
           </p>
         <% end %>
         <% if @funding_pool.nil? || @funding_pool.archived? %>
@@ -378,11 +378,14 @@
           <% end %>
 
           <% if @funding_pools_enabled %>
-          <h3 class="pulse-subsection-title">Member Daily Draw Ceiling</h3>
+          <h3 class="pulse-subsection-title">Pool Draw Ceiling</h3>
           <p class="pulse-section-description">
-            This pool stops drawing from a member once its draws from them reach the
-            ceiling for the day (UTC); they rejoin the draw the next day. Every pool
-            must have a ceiling.
+            The most this pool may bill any one enrolled member per day (UTC); a member
+            at the ceiling rejoins the draw the next day. Members may also set
+            themselves a lower personal ceiling when they enroll — the lower of the
+            two applies. Every pool must have a ceiling; lowering it binds everyone
+            immediately, and raising it never takes any member past the ceiling they
+            stated for themselves.
           </p>
           <form action="<%= @current_collective.path %>/settings" method="post" class="pulse-inline-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">

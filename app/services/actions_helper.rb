@@ -151,7 +151,7 @@ class ActionsHelper
     },
     "update_collective_settings" => {
       description: "Update collective settings",
-      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)",
+      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled, member_daily_draw_cap)",
       params: [
         { name: "name", type: "string", description: "The name of the collective" },
         { name: "description", type: "string", description: "A description of the collective" },
@@ -162,6 +162,9 @@ class ActionsHelper
         { name: "representation", type: "string", description: 'Who can represent the collective: "any_member" or "only_representatives"' },
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
+        { name: "member_daily_draw_cap", type: "string",
+          description: 'The funding pool\'s draw ceiling — the most it may bill any one enrolled member per day (UTC), in dollars, e.g. "5.00". ' \
+                       "Requires an open pool; mandatory, so it cannot be blanked.", },
       ],
       authorization: :collective_admin,
       visibility: :by_collective,

@@ -257,7 +257,7 @@ class CollectivesController < ApplicationController
 
         pool.update!(member_daily_draw_cap_cents: cap_cents)
       rescue ArgumentError
-        flash[:error] = "The member daily draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one."
+        flash[:error] = "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one."
         return redirect_to "#{@current_collective.path}/settings"
       end
     end
@@ -552,7 +552,7 @@ class CollectivesController < ApplicationController
     begin
       cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
     rescue ArgumentError
-      return render_funded_agent_error(422, 'The member daily draw ceiling must be a dollar amount, e.g. 5.00')
+      return render_funded_agent_error(422, 'The pool draw ceiling must be a dollar amount, e.g. 5.00')
     end
 
     pool = @current_collective.funding_pool
@@ -564,7 +564,7 @@ class CollectivesController < ApplicationController
       end
     else
       if cap_cents.nil?
-        return render_funded_agent_error(422, 'A member daily draw ceiling is required to open a funding pool')
+        return render_funded_agent_error(422, 'A pool draw ceiling is required to open a funding pool — the most it may bill any one enrolled member per day')
       end
       FundingPool.create!(collective: @current_collective, created_by: @current_user,
                           member_daily_draw_cap_cents: cap_cents)
@@ -635,11 +635,14 @@ class CollectivesController < ApplicationController
       return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence, redirect_path: pool_page_path)
     end
 
+    pool_binds = pool.member_daily_draw_cap_cents < cap_cents
+    stated = format("$%.2f", cap_cents / 100.0)
+    effective_note = pool_binds ? " (the pool's #{format("$%.2f", pool.member_daily_draw_cap_cents / 100.0)} ceiling applies while it is lower)" : ""
     flash[:notice] = if already_enrolled
-      "Your daily draw ceiling is now #{format("$%.2f", cap_cents / 100.0)}."
+      "Your daily draw ceiling is now #{stated}#{effective_note}."
     else
       "You are enrolled: this collective's funded agents can now draw from your prepaid balance, " \
-        "up to #{format("$%.2f", cap_cents / 100.0)} per day."
+        "up to #{stated} per day#{effective_note}."
     end
     redirect_to pool_page_path
   end
@@ -653,6 +656,9 @@ class CollectivesController < ApplicationController
 
     enrollment.withdraw!
     flash[:notice] = "You have withdrawn from the funding pool. You drop out of draws immediately."
+    if pool.funded_agents.where(parent_id: @current_user.id).exists?
+      flash[:notice] += " Your agents funded by this pool stay attached but their calls are refused until you re-enroll or they are detached."
+    end
     redirect_to pool_page_path
   end
 
@@ -955,10 +961,16 @@ class CollectivesController < ApplicationController
     end
 
     enrollment.withdraw!
+    result = "You have withdrawn from the funding pool. You drop out of draws immediately."
+    # No confirm step on this surface, so the result message is the only place
+    # the caller learns their attached agents stopped.
+    if pool.funded_agents.where(parent_id: current_user.id).exists?
+      result += " Your agents funded by this pool stay attached but their calls are refused until you re-enroll or they are detached."
+    end
     render_action_success({
       action_name: 'withdraw_from_funding_pool',
       resource: @current_collective,
-      result: "You have withdrawn from the funding pool. You drop out of draws immediately.",
+      result: result,
     })
   end
 
