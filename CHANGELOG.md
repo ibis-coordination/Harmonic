@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.2] - 2026-07-14
+
+### Fixed
+
+- **Pool funding and credit spend no longer require the $3/month identity subscription** (#493) — funding-pool enrollment and per-call draw eligibility now need only the prepaid-credit (pricing-plan) subscription, with balances still gated per draw. Previously the `active` flag was required, which structurally locked out exempt principals (admins' subscriptions are auto-cancelled as having nothing to bill) and silently excluded them from draws. Also: the run-task page, automations, and preflight now mirror the dispatch billing gate exactly (pool-funded agents skip individual billing; free-account principals pass); agents created before their principal had a Stripe customer now resolve to the principal's customer instead of failing as unfunded; `gateway_health` lists customers by pricing-plan subscription (`credit_customers`). A genuinely lapsed subscription still suspends the user's agents via the payment-failure webhook.
+
 ## [1.49.1] - 2026-07-14
 
 ### Fixed
