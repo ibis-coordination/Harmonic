@@ -496,6 +496,32 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
   # === Stripe billing tests ===
 
+  test "execute_task does not bounce a free-account principal with credits to billing" do
+    # An app admin owes no per-identity fee, so their customer's active flag
+    # is legitimately false — the run-task gate must mirror dispatch's
+    # free-principal carve-out instead of bouncing them to /billing. The
+    # agent is deliberately unstamped: the principal's own customer funds it.
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_free_run",
+      active: false,
+      pricing_plan_subscription_id: "bpps_free_run",
+    )
+    sign_in_as(@user, tenant: @tenant)
+
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      post "/ai-agents/#{@ai_agent_handle}/run", params: { task: "say hello" }
+    end
+
+    assert_response :redirect
+    assert_no_match %r{/billing}, response.location, "free-account principal with credits must not be bounced to billing"
+  ensure
+    @user.update!(app_admin: false)
+    @user.reload.stripe_customer&.destroy
+  end
+
   test "new page redirects to billing when stripe_billing enabled and billing not set up" do
     enable_stripe_billing_flag!(@tenant)
     sign_in_with_ai_agents_reverify(@user)

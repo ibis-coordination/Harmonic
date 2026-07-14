@@ -83,10 +83,12 @@ class AutomationExecutor
     # principal (nothing billable — e.g. an app admin), which owes no per-identity
     # fee; billable_quantity of zero is exactly that case. System agents (e.g.,
     # Trio) are exempt: they have no principal and run on the deployment's
-    # account. The prepaid-credit requirement is enforced authoritatively when
-    # the task dispatches (AgentRunnerDispatchService), which this mirrors.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? &&
-       !(ai_agent.billing_customer&.active? || ai_agent.parent&.billable_quantity&.zero?)
+    # account. Pool-funded agents skip individual billing — enrolled members
+    # fund them per call. The prepaid-credit requirement is enforced
+    # authoritatively when the task dispatches (AgentRunnerDispatchService),
+    # which this mirrors.
+    if @rule.tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && ai_agent.funding_pool_id.nil? &&
+       !(ai_agent.resolved_billing_customer&.active? || ai_agent.parent&.billable_quantity&.zero?)
       @run.mark_failed!("Billing is not set up for this agent's billing customer. Set up billing at /billing.")
       return
     end
@@ -351,10 +353,11 @@ class AutomationExecutor
     # Billing gate: if stripe_billing is enabled, the agent's identity must be
     # paid for, with the free-account principal exemption (billable_quantity of
     # zero) — same as the gate above and in AgentRunnerDispatchService. System
-    # agents (e.g., Trio) are exempt. The prepaid-credit requirement is enforced
+    # agents (e.g., Trio) are exempt, as are pool-funded agents (enrolled
+    # members fund them per call). The prepaid-credit requirement is enforced
     # at dispatch.
-    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? &&
-       !(agent.billing_customer&.active? || agent.parent&.billable_quantity&.zero?)
+    if @rule.tenant.feature_enabled?("stripe_billing") && !agent.system? && agent.funding_pool_id.nil? &&
+       !(agent.resolved_billing_customer&.active? || agent.parent&.billable_quantity&.zero?)
       return { "status" => "failed", "error" => "Billing is not set up for this agent's billing customer. Set up billing at /billing." }
     end
 

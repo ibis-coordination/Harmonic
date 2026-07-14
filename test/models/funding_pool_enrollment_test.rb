@@ -48,9 +48,19 @@ class FundingPoolEnrollmentTest < ActiveSupport::TestCase
     assert_match(/billing/i, error.message)
   end
 
-  test "an inactive billing customer does not satisfy the enrollment gate" do
+  test "an identity-subscription lapse does not block enrollment when prepaid credits are set up" do
+    # active tracks the $3/month identity subscription, which is a separate
+    # concern from pool funding: draws spend prepaid credits, which need only
+    # the pricing-plan subscription.
     member = create_member!(fund: false)
     fund!(member, active: false)
+    enrollment = @pool.enroll!(member, draw_cap_cents: 500)
+    assert enrollment.persisted?
+  end
+
+  test "a billing customer without a pricing-plan subscription does not satisfy the enrollment gate" do
+    member = create_member!(fund: false)
+    fund!(member, pricing_plan_subscription_id: nil)
     assert_raises(ActiveRecord::RecordInvalid) { @pool.enroll!(member, draw_cap_cents: 500) }
   end
 
@@ -96,7 +106,7 @@ class FundingPoolEnrollmentTest < ActiveSupport::TestCase
     member = create_member!
     enrollment = @pool.enroll!(member, draw_cap_cents: 500)
     enrollment.withdraw!
-    member.stripe_customer.update!(active: false)
+    member.stripe_customer.update!(pricing_plan_subscription_id: nil)
     assert_raises(ActiveRecord::RecordInvalid) { @pool.enroll!(member, draw_cap_cents: 500) }
     assert enrollment.reload.archived?
   end

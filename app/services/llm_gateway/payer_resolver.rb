@@ -46,7 +46,7 @@ module LLMGateway
     sig { params(agent: User).returns(Result) }
     def self.resolve_for_agent(agent)
       ensure_within_daily_cap!(agent)
-      pool_result(agent, context: "agent=#{agent.id}") || funded_result(agent.billing_customer)
+      pool_result(agent, context: "agent=#{agent.id}") || funded_result(agent.resolved_billing_customer)
     end
 
     # The agent's own per-UTC-day spend ceiling, whoever pays. Enforced
@@ -68,9 +68,11 @@ module LLMGateway
 
     # The Stripe customers eligible to pay for this agent's calls: the pool's
     # actively-enrolled human members who are still active members of the
-    # pool's collective, with active, prepaid-credit-subscribed billing, under
-    # the pool's draw ceiling. Members whose funding lapsed are skipped rather
-    # than pool-breaking. Balances are NOT checked here — the balance gate can
+    # pool's collective, with prepaid-credit-subscribed billing, under the
+    # pool's draw ceiling. The $3/month identity subscription (the customer's
+    # active flag) is deliberately not required — draws spend prepaid
+    # credits. Members whose funding lapsed are skipped rather than
+    # pool-breaking. Balances are NOT checked here — the balance gate can
     # reach for Stripe on a stale snapshot, so it runs once against the
     # sampled candidate, not per member. Lookups use tenant_scoped_only +
     # explicit ids — never collective-scoped associations, which misbehave
@@ -85,7 +87,7 @@ module LLMGateway
         .where(collective_id: pool.collective_id, user_id: enrollment_caps.keys, archived_at: nil)
         .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      member_caps_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids, active: true)
+      member_caps_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids)
         .where.not(pricing_plan_subscription_id: [nil, ""])
         .pluck(:billable_id, :stripe_id)
         .to_h { |user_id, stripe_id| [stripe_id, enrollment_caps[user_id]] }

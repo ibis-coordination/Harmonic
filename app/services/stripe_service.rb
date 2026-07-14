@@ -445,16 +445,19 @@ class StripeService
   end
   private_class_method :default_payment_method_for
 
-  # Operational snapshot of the AI gateway configuration and every active
-  # customer's prepaid credit balance. A nil balance means the Stripe API
-  # call failed for that customer (details in the error log).
+  # Operational snapshot of the AI gateway configuration and every credit
+  # customer's prepaid balance. Customers are listed by their pricing-plan
+  # subscription — the thing that makes gateway usage billable — not the
+  # $3/month identity subscription (active flag): an exempt admin who buys
+  # credits has active: false yet funds gateway usage. A nil balance means
+  # the Stripe API call failed for that customer (details in the error log).
   sig { returns(T::Hash[Symbol, T.untyped]) }
   def self.gateway_health
     {
       llm_gateway_reachable: llm_gateway_reachable?,
       credit_product_configured: ENV["STRIPE_CREDIT_PRODUCT_ID"].present?,
       pricing_plan_configured: ENV["STRIPE_PRICING_PLAN_ID"].present?,
-      active_customers: StripeCustomer.where(active: true).map do |customer|
+      credit_customers: StripeCustomer.where.not(pricing_plan_subscription_id: [nil, ""]).map do |customer|
         {
           stripe_id: customer.stripe_id,
           credit_balance_cents: get_credit_balance(customer),

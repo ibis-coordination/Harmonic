@@ -1821,8 +1821,13 @@ class StripeServiceTest < ActiveSupport::TestCase
 
   test "gateway_health reports config presence and per-customer balances" do
     StripeCustomer.create!(billable: @user, stripe_id: "cus_health1", active: true, pricing_plan_subscription_id: "bpps_health1")
-    inactive_user = User.create!(name: "Inactive", email: "inactive-#{SecureRandom.hex(4)}@example.com")
-    StripeCustomer.create!(billable: inactive_user, stripe_id: "cus_inactive", active: false)
+    unsubscribed_user = User.create!(name: "Unsubscribed", email: "unsubscribed-#{SecureRandom.hex(4)}@example.com")
+    StripeCustomer.create!(billable: unsubscribed_user, stripe_id: "cus_unsubscribed", active: true)
+    # Credit customers are listed by their pricing-plan subscription, not the
+    # $3/month identity subscription — an exempt admin who buys credits has
+    # active: false yet funds gateway usage.
+    lapsed_user = User.create!(name: "Lapsed", email: "lapsed-#{SecureRandom.hex(4)}@example.com")
+    StripeCustomer.create!(billable: lapsed_user, stripe_id: "cus_lapsed", active: false, pricing_plan_subscription_id: "bpps_lapsed")
 
     stub_request(:get, %r{https://api.stripe.com/v1/billing/credit_balance_summary.*})
       .to_return(
@@ -1855,10 +1860,11 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert report[:llm_gateway_reachable]
     assert report[:credit_product_configured]
     assert report[:pricing_plan_configured]
-    customer_ids = report[:active_customers].map { |c| c[:stripe_id] }
+    customer_ids = report[:credit_customers].map { |c| c[:stripe_id] }
     assert_includes customer_ids, "cus_health1"
-    assert_not_includes customer_ids, "cus_inactive"
-    health1 = report[:active_customers].find { |c| c[:stripe_id] == "cus_health1" }
+    assert_includes customer_ids, "cus_lapsed"
+    assert_not_includes customer_ids, "cus_unsubscribed"
+    health1 = report[:credit_customers].find { |c| c[:stripe_id] == "cus_health1" }
     assert_equal 1200, health1[:credit_balance_cents]
     assert health1[:pricing_plan_subscribed]
   end
@@ -1911,7 +1917,7 @@ class StripeServiceTest < ActiveSupport::TestCase
     assert_not report[:llm_gateway_reachable]
     assert_not report[:credit_product_configured]
     assert_not report[:pricing_plan_configured]
-    assert_equal [], report[:active_customers]
+    assert_equal [], report[:credit_customers]
   end
 
   test "get_credit_balance returns nil on Stripe error" do
