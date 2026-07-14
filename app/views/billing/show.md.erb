@@ -75,7 +75,7 @@ Add funds to run AI agents.
 <% end %>
 
 To add credits, visit `/billing` in your browser and use the "Add Funds" button.
-
+<%= render "billing/funding_section" %>
 <% elsif @billable_quantity && @billable_quantity == 0 %>
 ## Status
 
@@ -94,7 +94,7 @@ Billable items will show up here when created. AI agents cost $3/month each.
 <% @active_collectives&.each do |collective| %>
 | <%= collective.name %> (collective) |
 <% end %>
-
+<%= render "billing/funding_section" %>
 <% else %>
 ## Status
 

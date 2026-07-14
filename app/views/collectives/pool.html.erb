@@ -51,12 +51,29 @@
       you may be enrolled in count against those pools' ceilings, not this one's.
     </p>
 
+    <p class="pulse-body-text">
+      <strong>Usage (last 30 days):</strong>
+      <%= number_to_currency(@usage_report[:total_cents].to_f / 100) %>
+      <% if @usage_report[:pending_count] > 0 %>
+        — <%= pluralize(@usage_report[:pending_count], "call") %> in flight<%= ", #{@usage_report[:stale_pending_count]} stale" if @usage_report[:stale_pending_count] > 0 %>.
+      <% end %>
+    </p>
+
+    <% agent_spend_by_id = @usage_report[:agent_rows].to_h { |r| [r[:agent]&.id, r[:spend_cents]] } %>
+    <% enrolled_user_ids = @pool_enrollments.map(&:user_id) %>
+
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Enrolled Members</h2>
-      <% if @pool_enrollments.any? %>
+      <% if @usage_report[:member_rows].any? %>
         <ul class="pulse-list">
-          <% @pool_enrollments.each do |enrollment| %>
-            <li><%= link_to enrollment.user.display_name, enrollment.user.path %></li>
+          <% @usage_report[:member_rows].each do |row| %>
+            <li>
+              <%= link_to row[:user].display_name, row[:user].path %>
+              <% unless enrolled_user_ids.include?(row[:user].id) %>
+                <span class="pulse-muted">(withdrawn)</span>
+              <% end %>
+              <span class="pulse-muted">— <%= number_to_currency(row[:spend_cents].to_f / 100) %> (last 30 days)</span>
+            </li>
           <% end %>
         </ul>
       <% else %>
@@ -66,7 +83,6 @@
 
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Funded Agents</h2>
-      <% enrolled_user_ids = @pool_enrollments.map(&:user_id) %>
       <% if @funded_agents.any? %>
         <ul class="pulse-list">
           <% @funded_agents.each do |agent| %>
@@ -74,6 +90,9 @@
               <%= link_to agent.display_name, agent.path %>
               <% if agent.parent %>
                 <span class="pulse-muted">— principal <%= link_to agent.parent.display_name, agent.parent.path %></span>
+              <% end %>
+              <% if agent_spend_by_id[agent.id] %>
+                <span class="pulse-muted">— <%= number_to_currency(agent_spend_by_id[agent.id].to_f / 100) %> (last 30 days)</span>
               <% end %>
               <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
                 <span class="pulse-muted">— not running: principal not enrolled. Runs again when the principal re-enrolls, or when it is detached and given its own billing.</span>

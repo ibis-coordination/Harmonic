@@ -1,0 +1,38 @@
+<%# Pool funding this user provides: which collectives they help fund, how much
+    has been drawn from their credits, and which of their agents spent it. Shown
+    only when there is something to show — an enrollment or billed usage. %>
+<% if @funding_report && (@funding_report[:enrollment_rows].any? || @funding_report[:total_billed_cents].to_f > 0) %>
+  <section class="pulse-section" style="margin-bottom: 24px;">
+    <h2 class="pulse-section-title">Funding you provide</h2>
+
+    <% if @funding_report[:enrollment_rows].any? %>
+      <p class="pulse-muted" style="margin-bottom: 12px;">Collectives whose agents you fund from your prepaid credits.</p>
+      <table class="pulse-table" style="max-width: 640px; margin-bottom: 16px;">
+        <tbody>
+          <% @funding_report[:enrollment_rows].each do |row| %>
+            <tr>
+              <td><%= octicon 'people', height: 14 %> <%= row[:pool_name_or_collective_name] %></td>
+              <td style="text-align: right; color: var(--color-fg-muted);">
+                ceiling <%= number_to_currency(row[:enrollment].draw_cap_cents / 100.0) %>/<%= row[:enrollment].draw_cap_period %>
+              </td>
+              <td style="text-align: right;"><%= number_to_currency(row[:drawn_cents].to_f / 100) %> drawn (last 30 days)</td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+
+    <% if @funding_report[:agent_rows].any? %>
+      <p style="font-weight: 600; margin-bottom: 8px;">Your agents' usage (last 30 days)</p>
+      <ul class="pulse-list" style="margin-bottom: 16px;">
+        <% @funding_report[:agent_rows].each do |row| %>
+          <li><%= row[:agent].display_name %> — <%= number_to_currency(row[:spend_cents].to_f / 100) %></li>
+        <% end %>
+      </ul>
+    <% end %>
+
+    <p>
+      Billed to your credits: <strong><%= number_to_currency(@funding_report[:total_billed_cents].to_f / 100) %></strong> (last 30 days)<% if @funding_report[:pool_draw_cents].to_f > 0 %>, of which <%= number_to_currency(@funding_report[:pool_draw_cents].to_f / 100) %> via funding pools<% end %>.
+    </p>
+  </section>
+<% end %>

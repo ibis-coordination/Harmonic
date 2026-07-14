@@ -17,6 +17,25 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 <% enrolled_user_ids = @pool_enrollments.map(&:user_id) -%>
 | Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})#{" (not running — principal not enrolled)" unless a.parent_id && enrolled_user_ids.include?(a.parent_id)}" }.join(", ") : "(none yet)" %> |
 | Your enrollment | <%= @current_user_enrolled ? format("Enrolled — this pool's agents can draw from your prepaid balance, up to your own ceiling of $%.2f per day (or the pool's ceiling, whichever is lower)", @current_user_enrollment.draw_cap_cents / 100.0) : "Not enrolled" %> |
+| Spend (last 30 days) | <%= format("$%.2f", @usage_report[:total_cents].to_f / 100) %> |
+<% if @usage_report[:pending_count] > 0 -%>
+| Calls in flight | <%= @usage_report[:pending_count] %><%= " (#{@usage_report[:stale_pending_count]} stale)" if @usage_report[:stale_pending_count] > 0 %> |
+<% end -%>
+<% if @usage_report[:member_rows].any? { |r| r[:spend_cents].to_f > 0 } -%>
+
+Member spend (last 30 days):
+<% @usage_report[:member_rows].each do |row| -%>
+<% next if row[:spend_cents].to_f <= 0 -%>
+* <%= row[:user].display_name %><%= " (withdrawn)" unless @pool_enrollments.any? { |e| e.user_id == row[:user].id } %> — <%= format("$%.2f", row[:spend_cents].to_f / 100) %>
+<% end -%>
+<% end -%>
+<% if @usage_report[:agent_rows].any? -%>
+
+Agent spend (last 30 days):
+<% @usage_report[:agent_rows].each do |row| -%>
+* <%= row[:agent].display_name %> — <%= format("$%.2f", row[:spend_cents].to_f / 100) %>
+<% end -%>
+<% end -%>
 
 The pool stops drawing from a member once its draws from them reach the ceiling for the day; each member also sets their own ceiling when enrolling, and the lower of the two applies. Ceilings are per pool — draws by other pools count against those pools' ceilings, not this one's.
 

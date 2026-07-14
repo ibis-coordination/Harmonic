@@ -1,0 +1,25 @@
+<%# Pool funding this user provides — the markdown counterpart of the HTML
+    funding section. Shown only when there is something to show: an active
+    enrollment or billed usage. %>
+<% if @funding_report && (@funding_report[:enrollment_rows].any? || @funding_report[:total_billed_cents].to_f > 0) %>
+## Funding you provide
+<% if @funding_report[:enrollment_rows].any? -%>
+
+Collectives whose agents you fund from your prepaid credits:
+
+| Collective | Ceiling | Drawn (last 30 days) |
+|------------|---------|----------------------|
+<% @funding_report[:enrollment_rows].each do |row| -%>
+| <%= row[:pool_name_or_collective_name] %> | <%= format("$%.2f", row[:enrollment].draw_cap_cents / 100.0) %>/<%= row[:enrollment].draw_cap_period %> | <%= format("$%.2f", row[:drawn_cents].to_f / 100) %> |
+<% end -%>
+<% end -%>
+<% if @funding_report[:agent_rows].any? -%>
+
+Your agents' usage (last 30 days):
+<% @funding_report[:agent_rows].each do |row| -%>
+* <%= row[:agent].display_name %> — <%= format("$%.2f", row[:spend_cents].to_f / 100) %>
+<% end -%>
+<% end -%>
+
+Billed to your credits: **<%= format("$%.2f", @funding_report[:total_billed_cents].to_f / 100) %>** (last 30 days)<%= format(", of which $%.2f via funding pools", @funding_report[:pool_draw_cents].to_f / 100) if @funding_report[:pool_draw_cents].to_f > 0 %>.
+<% end %>
