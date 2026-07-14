@@ -202,6 +202,30 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     redis.close
   end
 
+  test "falls back to the principal's customer when the agent record is unstamped" do
+    # An agent created before its principal had a Stripe customer is never
+    # stamped (assign_billing_customer! is a no-op and the subscription
+    # checkout webhook only touches pending-flagged agents). The principal's
+    # own customer funds it.
+    enable_stripe_billing_flag!(@tenant)
+    @user.update!(app_admin: true)
+    parent_customer = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_parent_fallback",
+      active: false,
+      pricing_plan_subscription_id: "bpps_parent_fallback",
+    )
+    assert_nil @ai_agent.stripe_customer_id
+
+    StripeService.stub :get_credit_balance, ->(_) { 500 } do
+      AgentRunnerDispatchService.dispatch(@task_run)
+    end
+
+    @task_run.reload
+    refute_equal "failed", @task_run.status, "unstamped agent of a funded principal should dispatch: #{@task_run.error}"
+    assert_equal parent_customer.id, @task_run.stripe_customer_id
+  end
+
   test "stamps stripe_customer_id when billing active" do
     setup_active_billing!
 

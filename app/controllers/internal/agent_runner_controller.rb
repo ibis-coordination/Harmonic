@@ -285,10 +285,12 @@ module Internal
       end
 
       # System agents (e.g. Trio) have no billing_customer and are never
-      # charged; skip all billing-related preflight checks. Mirrors the
-      # parallel skip in AgentRunnerDispatchService.
-      if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
-        billing_customer = ai_agent.billing_customer
+      # charged; pool-funded agents draw from enrolled members per call, not
+      # a personal billing customer. Skip all billing-related preflight
+      # checks for both. Mirrors the parallel skips in
+      # AgentRunnerDispatchService.
+      if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && ai_agent.funding_pool_id.nil?
+        billing_customer = ai_agent.resolved_billing_customer
 
         # (a) The agent's identity must be paid for — an active billing_customer
         # (its principal's per-identity subscription) — unless the principal is a

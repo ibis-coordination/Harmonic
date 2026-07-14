@@ -140,7 +140,11 @@ module LLMGateway
       assert_equal "not_a_billed_task", error.code
     end
 
-    test "members whose funding lapsed after enrolling are skipped in draws" do
+    test "members without a pricing-plan subscription are skipped; an identity-subscription lapse is not" do
+      # The identity ($3/month) subscription and pool funding are separate
+      # concerns: draws spend prepaid credits, which need only the
+      # pricing-plan subscription. A member whose identity subscription
+      # lapsed (active: false) keeps funding draws.
       pool = create_funding_pool!(primary_stripe_id: "cus_active")
       lapsed = create_enrolled_member!(pool, stripe_id: "cus_lapsed")
       lapsed.stripe_customer.update!(active: false)
@@ -148,9 +152,10 @@ module LLMGateway
       unsubscribed.stripe_customer.update!(pricing_plan_subscription_id: nil)
       @ai_agent.update!(funding_pool: pool)
 
-      20.times do
-        assert_equal "cus_active", PayerResolver.resolve(@task_run).payer_customer_id
-      end
+      drawn = Set.new
+      40.times { drawn << PayerResolver.resolve(@task_run).payer_customer_id }
+      assert_includes drawn, "cus_lapsed", "an identity-subscription lapse must not exclude a plan-subscribed member"
+      assert_not_includes drawn, "cus_unsubscribed"
     end
 
     test "withdrawn enrollments are skipped in draws" do
@@ -507,7 +512,7 @@ module LLMGateway
     test "raises pool_exhausted when no enrolled member is funded" do
       pool = create_funding_pool!
       @ai_agent.update!(funding_pool: pool)
-      @user.stripe_customer.update!(active: false)
+      @user.stripe_customer.update!(pricing_plan_subscription_id: nil)
 
       error = assert_raises(PayerResolver::ResolutionError) do
         PayerResolver.resolve(@task_run)
@@ -579,6 +584,16 @@ module LLMGateway
 
       result = PayerResolver.resolve_for_agent(@ai_agent)
       assert_equal "cus_agent_individual", result.payer_customer_id
+    end
+
+    test "resolve_for_agent falls back to the principal's customer when the agent is unstamped" do
+      # Agents created before their principal had a Stripe customer are never
+      # stamped; the principal's own customer funds them. active: false pins
+      # that the identity subscription is not required on this path either.
+      fund!(@user, stripe_id: "cus_principal", active: false)
+
+      result = PayerResolver.resolve_for_agent(@ai_agent)
+      assert_equal "cus_principal", result.payer_customer_id
     end
 
     test "resolve_for_agent raises not_funded when the agent has no billing customer" do

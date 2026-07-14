@@ -94,6 +94,6 @@ class FundingPoolEnrollment < ApplicationRecord
 
     return if enrollee.funded_billing?
 
-    errors.add(:user_id, "requires funded billing — an active prepaid-credit subscription")
+    errors.add(:user_id, "requires funded billing — a prepaid-credit subscription (top up at /billing)")
   end
 end

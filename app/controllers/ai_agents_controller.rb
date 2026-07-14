@@ -253,9 +253,13 @@ class AiAgentsController < ApplicationController
       return
     end
 
-    if current_tenant.feature_enabled?("stripe_billing")
-      billing_customer = @ai_agent.billing_customer
-      unless billing_customer&.active?
+    # Mirrors the dispatch-time identity gate (see AgentRunnerDispatchService):
+    # pool-funded agents skip individual billing, and a free-account principal
+    # (nothing billable — active? legitimately false) runs on prepaid credits,
+    # enforced at dispatch.
+    if current_tenant.feature_enabled?("stripe_billing") && @ai_agent.funding_pool_id.nil?
+      billing_customer = @ai_agent.resolved_billing_customer
+      unless billing_customer&.active? || @ai_agent.parent&.billable_quantity&.zero?
         session[:billing_return_to] = ai_agent_run_task_path(@ai_agent.handle)
         flash[:notice] = "Set up billing before running AI agent tasks"
         return redirect_to "/billing"

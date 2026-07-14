@@ -813,13 +813,26 @@ class User < ApplicationRecord
   end
 
   # Whether this user's own balance can be drawn on for pooled LLM funding:
-  # an active Stripe customer with a prepaid-credit subscription. Gates
-  # funding-pool enrollment; the same condition decides draw eligibility per
-  # call in LLMGateway::PayerResolver.
+  # a Stripe customer with a prepaid-credit subscription. Gates funding-pool
+  # enrollment; the same condition decides draw eligibility per call in
+  # LLMGateway::PayerResolver. The $3/month identity subscription (the
+  # customer's active flag) is deliberately not required: draws spend prepaid
+  # credits, and exempt principals never hold an identity subscription.
   sig { returns(T::Boolean) }
   def funded_billing?
     customer = stripe_customer
-    customer.present? && customer.active? && customer.pricing_plan_subscription_id.present?
+    customer.present? && customer.pricing_plan_subscription_id.present?
+  end
+
+  # The Stripe customer that pays for this agent's own (non-pool) usage: the
+  # stamped billing customer, else the principal's. Agents created before
+  # their principal had a Stripe customer are never stamped
+  # (assign_billing_customer! is a no-op and the subscription checkout
+  # webhook only touches pending-flagged agents), so the principal's own
+  # customer funds them.
+  sig { returns(T.nilable(StripeCustomer)) }
+  def resolved_billing_customer
+    billing_customer || parent&.stripe_customer
   end
 
   sig { params(tenant: Tenant).returns(T::Boolean) }

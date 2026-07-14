@@ -62,7 +62,7 @@ class AgentRunnerDispatchService
     # entirely: their spend draws from the pool's enrolled members, not a
     # personal billing customer — the gateway's select-payer picks a funded
     # member per call, and the relayed Stripe 402 is the balance gate.
-    billing_customer = ai_agent.billing_customer
+    billing_customer = ai_agent.resolved_billing_customer
     pool_funded = ai_agent.funding_pool_id.present?
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !pool_funded
       # (a) The agent's identity must be paid for before we run a task — the

@@ -128,7 +128,7 @@
           random, and this pool stops drawing from you once its draws reach your
           daily ceiling. The pool's ceiling is the default; you can set a lower
           one for yourself, and you can change it or withdraw at any time.
-          Enrollment requires active billing with prepaid credits.
+          Enrollment requires prepaid credits.
         </p>
         <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-form">
           <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
