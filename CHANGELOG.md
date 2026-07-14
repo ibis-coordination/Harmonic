@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.49.1] - 2026-07-14
+
+### Fixed
+
+- **Deploys with migrations now migrate before starting the app** (#491) — `deploy.sh --with-migrations` runs migrations in a one-off container from the newly pulled image, then starts the long-running containers. Previously the app booted first and cached the pre-migration schema, serving 500s on affected pages until restarted (as seen deploying 1.49.0).
+- **Balance gate covers Stripe's aggregation lag** (#492) — the zero-balance gate's local spend delta now reaches back `GATEWAY_BALANCE_OVERLAP_SECONDS` (default 300) before the balance snapshot, so a call costed just before the snapshot can't slip through both the snapshot and the delta. Pessimistic double-counting in the overlap window; the verify-before-reject refetch absorbs false refusals. This closes the last optimistic gap before the gate becomes the only per-call spend stop (Stripe's zero-balance rejection is now disabled on their end).
+
 ## [1.49.0] - 2026-07-12
 
 ### Changed
