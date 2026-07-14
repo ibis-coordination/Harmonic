@@ -181,5 +181,43 @@ module LLMGateway
 
       assert_equal 100, report[:total_billed_cents]
     end
+
+    test "funding_report includes a pool_url linking each enrollment to the collective's pool page" do
+      pool = create_funding_pool!(primary_stripe_id: "cus_primary")
+
+      report = UsageReport.funding_report(@user)
+
+      enrollment_row = report[:enrollment_rows].find { |r| r[:enrollment].funding_pool_id == pool.id }
+      assert_not_nil enrollment_row
+      assert_equal "#{@collective.url}/pool", enrollment_row[:pool_url]
+    end
+
+    test "funding_report pool_url for a cross-tenant enrollment carries the other tenant's subdomain" do
+      create_funding_pool!(primary_stripe_id: "cus_primary")
+      other_tenant, _other_collective, cross_pool = create_cross_tenant_pool!(subdomain: "othertenant")
+
+      report = UsageReport.funding_report(@user)
+
+      cross_row = report[:enrollment_rows].find { |r| r[:enrollment].funding_pool_id == cross_pool.id }
+      assert_not_nil cross_row
+      assert_includes cross_row[:pool_url], other_tenant.subdomain
+      assert cross_row[:pool_url].end_with?("/pool"), "expected the pool page path"
+    end
+
+    # A pool in a second tenant that @user is also enrolled in, exercising the
+    # cross-tenant URL path (the /billing page's tenant differs from the pool's).
+    def create_cross_tenant_pool!(subdomain:)
+      other_tenant = create_tenant(subdomain: subdomain, name: "Other Tenant")
+      other_tenant.add_user!(@user)
+      other_collective = create_collective(tenant: other_tenant, created_by: @user, handle: "cross-#{SecureRandom.hex(4)}")
+      other_collective.add_user!(@user)
+      pool = FundingPool.create!(tenant: other_tenant, collective: other_collective, created_by: @user, member_draw_cap_cents: 500)
+      Tenant.scope_thread_to_tenant(subdomain: subdomain)
+      pool.enroll!(@user, draw_cap_cents: 500)
+      [other_tenant, other_collective, pool]
+    ensure
+      Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+      Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    end
   end
 end

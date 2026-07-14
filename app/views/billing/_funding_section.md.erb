@@ -10,7 +10,7 @@ Collectives whose agents you fund from your prepaid credits:
 | Collective | Ceiling | Drawn (last 30 days) |
 |------------|---------|----------------------|
 <% @funding_report[:enrollment_rows].each do |row| -%>
-| <%= row[:pool_name_or_collective_name] %> | <%= format("$%.2f", row[:enrollment].draw_cap_cents / 100.0) %>/<%= row[:enrollment].draw_cap_period %> | <%= format("$%.2f", row[:drawn_cents].to_f / 100) %> |
+| <% if row[:pool_url] %>[<%= row[:pool_name_or_collective_name] %>](<%= row[:pool_url] %>)<% else %><%= row[:pool_name_or_collective_name] %><% end %> | <%= format("$%.2f", row[:enrollment].draw_cap_cents / 100.0) %>/<%= row[:enrollment].draw_cap_period %> | <%= format("$%.2f", row[:drawn_cents].to_f / 100) %> |
 <% end -%>
 <% end -%>
 <% if @funding_report[:agent_rows].any? -%>

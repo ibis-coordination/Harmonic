@@ -1063,6 +1063,9 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Funding you provide/i, response.body)
     assert_match(/\$2\.75/, response.body)
     assert_match(/Funded Bot/, response.body)
+    pool_href = "#{Collective.tenant_scoped_only(pool.tenant_id).find(pool.collective_id).url}/pool"
+    assert_match(/<a[^>]+href="#{Regexp.escape(pool_href)}"[^>]*>[^<]*Pool Collective/, response.body,
+                 "expected the collective name to link to its pool page")
   end
 
   test "show hides the funding section for a subscriber with no pool funding" do
@@ -1109,6 +1112,9 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match(/Funding you provide/i, response.body)
     assert_match(/\$1\.50/, response.body)
+    pool_href = "#{Collective.tenant_scoped_only(pool.tenant_id).find(pool.collective_id).url}/pool"
+    assert_match("[Pool Collective](#{pool_href})", response.body,
+                 "expected the collective name to render as a markdown link to its pool page")
   end
 
   private

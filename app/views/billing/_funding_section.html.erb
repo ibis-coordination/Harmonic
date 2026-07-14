@@ -11,7 +11,7 @@
         <tbody>
           <% @funding_report[:enrollment_rows].each do |row| %>
             <tr>
-              <td><%= octicon 'people', height: 14 %> <%= row[:pool_name_or_collective_name] %></td>
+              <td><%= octicon 'people', height: 14 %> <% if row[:pool_url] %><%= link_to row[:pool_name_or_collective_name], row[:pool_url], class: "pulse-link" %><% else %><%= row[:pool_name_or_collective_name] %><% end %></td>
               <td style="text-align: right; color: var(--color-fg-muted);">
                 ceiling <%= number_to_currency(row[:enrollment].draw_cap_cents / 100.0) %>/<%= row[:enrollment].draw_cap_period %>
               </td>

@@ -99,6 +99,7 @@ module LLMGateway
         {
           enrollment: enrollment,
           pool_name_or_collective_name: collective&.name,
+          pool_url: collective && "#{collective.url}/pool",
           drawn_cents: drawn_by_pool[enrollment.funding_pool_id] || 0,
         }
       end
