@@ -469,6 +469,15 @@ class ApplicationController < ActionController::Base
     # reasons additionally surface a flash.
     reason = representation_rejection_reason(rep_session, @current_human_user, credential_valid: credential_valid)
     if reason
+      # End the rejected session in the DB before dropping the cookie. On the
+      # rejection path @current_representation_session is never set (that only
+      # happens in apply_representation_session! on success), so
+      # clear_representation!'s own `&.end!` is a no-op — which left a rejected
+      # session's row perpetually `active?` while the browser was silently
+      # kicked back to acting as itself (issue #485). Only end a session this
+      # human actually owns, so a mismatched/foreign credential (:not_found,
+      # :not_representative) never ends someone else's session.
+      rep_session.end! if rep_session&.active? && rep_session.representative_user_id == @current_human_user.id
       clear_representation!
       flash[:alert] = RepresentationPolicy::BROWSER_REPRESENTATION_FLASH[reason] if RepresentationPolicy::BROWSER_REPRESENTATION_FLASH.key?(reason)
       return
