@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.50.0] - 2026-07-15
+
+### Added
+
+- **LLM gateway usage transparency** (#494) — two read-only views over the usage ledger (30-day window, completed rows only; in-flight calls surface as counts, not cost). A funding pool's page now shows total spend, per-member incidence (including zero-spend enrollees and withdrawn members with recent draws), a per-agent breakdown, and in-flight/stale-pending counts. The `/billing` page gains a "Funding you provide" section — the user's active enrollments across tenants with per-pool amounts drawn, spend billed to their credits by agent, and the pool-draw-vs-total split — shown for free accounts too, since admins and exempt principals fund pools. Both surfaces render in HTML and markdown, and collective names link to their pool pages.
+
+### Changed
+
+- **Draw ceilings can be set per day, week, or month from the UI** (#497) — enrollment and pool ceilings already covered all three windows in the schema and resolver, but every form wrote "day". The pool-page enrollment forms and the collective-settings pool forms (create/reopen and Save Ceiling) now offer a period selector; the "match the pool ceiling" choice snapshots the pool's own period. Ceilings over different windows are enforced independently and can't be compared, so the custom-amount input drops its client-side max (the server already notes when the pool's ceiling binds) and the enrollment confirmation says the pool's ceiling "also applies" rather than claiming it is lower. Remaining "daily" copy in help and settings is now window-generic; param names are unchanged.
+
+### Fixed
+
+- **Period-only ceiling updates are refused instead of silently ignored** (#498) — `update_collective_settings` given a `member_draw_cap_period` without a `member_daily_draw_cap` now returns an error saying the two apply together, rather than dropping the change. Accompanied by coverage pins across draw-ceiling enforcement — pending reservations handing off to real cost, the weekly/monthly windows, month-boundary crossings, lowering a ceiling below its window's drawn total, period switches, and per-pool isolation of window sums.
+
 ## [1.49.2] - 2026-07-14
 
 ### Fixed
