@@ -36,9 +36,9 @@ No grantable actions allowed.
 <% end %>
 <% end %>
 
-**Public writes** (posting where the audience resolves to the tenant-wide main collective): <%= CapabilityCheck.public_writes_allowed?(@ai_agent) ? "**enabled**" : "**disabled**" %>. Read access to the public space is always allowed.
+**Public writes** (posting where the audience resolves to the public space): <%= CapabilityCheck.public_writes_allowed?(@ai_agent) ? "**enabled**" : "**disabled**" %>. Read access to the public space is always allowed.
 <% unless CapabilityCheck.public_writes_allowed?(@ai_agent) %>
-Off by default. While it's off, any write action whose audience resolves to `public` is omitted from the main collective's action list, and attempting one anyway is refused with `public_writes_disabled`. The owner can enable it from this settings page.
+Off by default. While it's off, any write action whose audience resolves to `public` is omitted from the public space's action list, and attempting one anyway is refused with `public_writes_disabled`. The principal can enable it from this settings page.
 <% end %>
 
 <% if @ai_agent_collectives.any? %>
