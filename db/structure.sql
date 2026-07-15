@@ -473,7 +473,9 @@ CREATE TABLE public.commitments (
     hard_delete_after timestamp(6) without time zone,
     starts_at timestamp without time zone,
     ends_at timestamp without time zone,
-    location text
+    location text,
+    starting_soon_event_fired_at timestamp without time zone,
+    starting_event_fired_at timestamp without time zone
 );
 
 
@@ -10621,6 +10623,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260709190000'),
 ('20260705220000'),
 ('20260705182920'),
+('20260704010000'),
 ('20260703120000'),
 ('20260702010000'),
 ('20260702000000'),

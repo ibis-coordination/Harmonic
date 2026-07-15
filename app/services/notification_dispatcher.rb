@@ -16,6 +16,10 @@ class NotificationDispatcher
       handle_commitment_join_event(event)
     when "commitment.critical_mass"
       handle_commitment_critical_mass_event(event)
+    when "commitment.starting_soon"
+      handle_commitment_starting_soon_event(event)
+    when "commitment.starting"
+      handle_commitment_starting_event(event)
     when "decision.created"
       handle_decision_created_event(event)
     when "commitment.created"
@@ -292,6 +296,42 @@ class NotificationDispatcher
         notification_type: "participation",
         title: "Critical mass reached on a commitment you joined",
         body: commitment.description.to_s.truncate(200),
+        url: commitment.display_path
+      )
+    end
+  end
+
+  # A calendar event is coming up (LEAD_TIME ahead of its start): give
+  # attendees a heads-up.
+  sig { params(event: Event).void }
+  def self.handle_commitment_starting_soon_event(event)
+    notify_commitment_start(event, notification_type: "event_starting_soon", title_prefix: "Starting soon")
+  end
+
+  # A calendar event's start time has arrived: notify attendees it's beginning.
+  sig { params(event: Event).void }
+  def self.handle_commitment_starting_event(event)
+    notify_commitment_start(event, notification_type: "event_starting", title_prefix: "Starting now")
+  end
+
+  # Notify everyone attending (committed participants plus the creator, who is
+  # the event's host whether or not they RSVP'd to their own event).
+  sig { params(event: Event, notification_type: String, title_prefix: String).void }
+  def self.notify_commitment_start(event, notification_type:, title_prefix:)
+    subject = event.subject
+    return unless subject.is_a?(Commitment)
+
+    commitment = T.let(subject, Commitment)
+
+    recipients = (commitment_participants(commitment) + [commitment.created_by]).compact.uniq(&:id)
+    body_parts = [commitment.formatted_time_range.presence, commitment.location.presence].compact
+    recipients.each do |user|
+      notify_user(
+        event: event,
+        recipient: user,
+        notification_type: notification_type,
+        title: "#{title_prefix}: #{commitment.title}",
+        body: body_parts.join(" · "),
         url: commitment.display_path
       )
     end
