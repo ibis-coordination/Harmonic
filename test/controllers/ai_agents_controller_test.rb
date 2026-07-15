@@ -779,6 +779,32 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 550, @ai_agent.reload.llm_daily_spend_cap_cents
   end
 
+  # The agent-readable markdown settings view must surface the public-writes
+  # state so an agent can query it, rather than discovering it only when a
+  # public write is refused at post time (issue #467).
+  test "markdown settings surface public writes as disabled by default" do
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "**Public writes**"
+    assert_includes response.body, "**disabled**"
+    assert_includes response.body, "public_writes_disabled"
+  end
+
+  test "markdown settings surface public writes as enabled when the owner has turned it on" do
+    @ai_agent.update!(agent_configuration: (@ai_agent.agent_configuration || {}).merge("allow_public_writes" => true))
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "**Public writes**"
+    assert_includes response.body, "**enabled**"
+    # The "off" guidance block should not appear once writes are enabled.
+    assert_not_includes response.body, "public_writes_disabled"
+  end
+
   # === Agent notification preferences ===
 
   test "agent settings page renders a single on/off toggle per notification type, no email column" do
