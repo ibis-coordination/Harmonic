@@ -2079,6 +2079,22 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "day", enrollment.draw_cap_period, "omitting the period defaults the ceiling window to a day"
   end
 
+  test "a custom enrollment without a period param defaults its window to a day" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool",
+         params: { ceiling_choice: "custom", daily_draw_cap: "3.00" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 300, enrollment.draw_cap_cents
+    assert_equal "day", enrollment.draw_cap_period, "omitting the period defaults the ceiling window to a day"
+  end
+
   test "enrolling without a ceiling is refused" do
     collective = create_test_collective
     enable_funding_pools!(collective)
@@ -2566,6 +2582,21 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     pool.reload
     assert_equal 75, pool.member_draw_cap_cents
     assert_equal "month", pool.member_draw_cap_period
+  end
+
+  test "the update_collective_settings action refuses a period change without a ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/update_collective_settings",
+         params: { member_draw_cap_period: "week" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    assert_match(/member_daily_draw_cap/, response.body)
+    assert_equal "day", pool.reload.member_draw_cap_period, "a period-only change must not silently take effect"
   end
 
   test "the update_collective_settings action refuses an invalid ceiling window" do

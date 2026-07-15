@@ -265,6 +265,38 @@ module LLMGateway
       assert_equal "cus_individual", result.payer_customer_id
     end
 
+    test "an under-reserving pending call is allowed, then its real cost gates once it completes" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 100)
+      call = open_call!("cus_individual")
+
+      # One in-flight call reserves only 25¢, under the 100¢ cap — still drawable.
+      assert_equal "cus_individual", PayerResolver.resolve(@task_run).payer_customer_id
+
+      # It completes at 200¢, far above its reservation: now over the cap.
+      call.update!(status: "completed", estimated_cost_cents: 200, completed_at: Time.current)
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "spend_cap_exceeded", error.code
+    end
+
+    test "a stale pending call reserves nothing, but its completion counts against the daily cap" do
+      create_stamped_billing_customer!
+      @ai_agent.update!(llm_daily_spend_cap_cents: 100)
+      call = open_call!("cus_individual", occurred_at: 20.minutes.ago)
+
+      # 20 minutes old: outside the reservation window, so it holds no reserve — drawable.
+      assert_equal "cus_individual", PayerResolver.resolve(@task_run).payer_customer_id
+
+      # Completing it lands the full 100¢ inside today's window — now at the cap.
+      call.update!(status: "completed", estimated_cost_cents: 100, completed_at: Time.current)
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "spend_cap_exceeded", error.code
+    end
+
     test "in-flight draws reserve against the pool's draw ceiling" do
       pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
       create_enrolled_member!(pool, stripe_id: "cus_tapped")
@@ -352,6 +384,19 @@ module LLMGateway
       end
     end
 
+    test "lowering a member's enrollment ceiling below what this pool has drawn skips them at once" do
+      pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+      member = create_enrolled_member!(pool, stripe_id: "cus_lowered", cap: 500)
+      record_spend!("cus_lowered", 300, funding_pool_id: pool.id)
+      # Re-enroll at a lower ceiling: 300 already drawn now sits at or above it.
+      pool.enroll!(member, draw_cap_cents: 200)
+      @ai_agent.update!(funding_pool: pool)
+
+      20.times do
+        assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+      end
+    end
+
     test "a member under their own lower ceiling is still drawable" do
       pool = create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 100)
       record_spend!("cus_primary", 60, funding_pool_id: pool.id)
@@ -422,6 +467,70 @@ module LLMGateway
       end
     end
 
+    test "a draw completed before the UTC week start does not count against a weekly ceiling" do
+      travel_to Time.utc(2026, 7, 15, 12) do # Wednesday, July 15
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        member = create_enrolled_member!(pool, stripe_id: "cus_weekly")
+        pool.enrollments.find_by!(user: member).update!(draw_cap_cents: 100, draw_cap_period: "week")
+        # Sunday July 12 sits in the prior UTC week — the window opens Monday July 13.
+        record_spend!("cus_weekly", 100, funding_pool_id: pool.id, occurred_at: Time.utc(2026, 7, 12, 12))
+        @ai_agent.update!(funding_pool: pool)
+
+        drawn = Set.new
+        40.times { drawn << PayerResolver.resolve(@task_run).payer_customer_id }
+        assert_includes drawn, "cus_weekly", "a draw before the week start must leave the member drawable"
+      end
+    end
+
+    test "the pool's monthly ceiling counts draws since the start of the UTC month" do
+      travel_to Time.utc(2026, 7, 15, 12) do
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        create_enrolled_member!(pool, stripe_id: "cus_tapped")
+        pool.update!(member_draw_cap_cents: 100, member_draw_cap_period: "month")
+        record_spend!("cus_tapped", 100, funding_pool_id: pool.id, occurred_at: 10.days.ago)
+        @ai_agent.update!(funding_pool: pool)
+
+        20.times do
+          assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+        end
+      end
+    end
+
+    test "a monthly enrollment ceiling counts draws from the first of the UTC month, not before" do
+      travel_to Time.utc(2026, 7, 15, 12) do
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        before = create_enrolled_member!(pool, stripe_id: "cus_prior_month")
+        on_start = create_enrolled_member!(pool, stripe_id: "cus_month_start")
+        [before, on_start].each do |m|
+          pool.enrollments.find_by!(user: m).update!(draw_cap_cents: 100, draw_cap_period: "month")
+        end
+        # June 30 sits in the prior month; July 1 opens the current window.
+        record_spend!("cus_prior_month", 100, funding_pool_id: pool.id, occurred_at: Time.utc(2026, 6, 30, 12))
+        record_spend!("cus_month_start", 100, funding_pool_id: pool.id, occurred_at: Time.utc(2026, 7, 1, 12))
+        @ai_agent.update!(funding_pool: pool)
+
+        drawn = Set.new
+        60.times { drawn << PayerResolver.resolve(@task_run).payer_customer_id }
+        assert_includes drawn, "cus_prior_month", "a draw before the month start must leave the member drawable"
+        assert_not_includes drawn, "cus_month_start", "a draw on the first of the month fills the monthly ceiling"
+      end
+    end
+
+    test "switching an enrollment to a monthly window counts this month's earlier draws" do
+      travel_to Time.utc(2026, 7, 15, 12) do
+        pool = create_funding_pool!(primary_stripe_id: "cus_fresh")
+        member = create_enrolled_member!(pool, stripe_id: "cus_switched", cap: 500)
+        # Window sums anchor on completed_at within the window now in force, whatever period that is.
+        record_spend!("cus_switched", 40, funding_pool_id: pool.id, occurred_at: 5.days.ago)
+        pool.enrollments.find_by!(user: member).update!(draw_cap_cents: 30, draw_cap_period: "month")
+        @ai_agent.update!(funding_pool: pool)
+
+        20.times do
+          assert_equal "cus_fresh", PayerResolver.resolve(@task_run).payer_customer_id
+        end
+      end
+    end
+
     test "draws for other pools do not count against a pool's ceiling" do
       pool = create_funding_pool!(primary_stripe_id: "cus_pool_a")
       other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
@@ -432,6 +541,40 @@ module LLMGateway
       @ai_agent.update!(funding_pool: pool)
 
       assert_equal "cus_pool_a", PayerResolver.resolve(@task_run).payer_customer_id
+    end
+
+    test "a member enrolled in two pools has each pool's ceiling counted only against that pool's draws" do
+      # cus_shared belongs to pool A (daily window) and pool B (monthly window),
+      # each funded by its own attached agent. A 100¢ draw sits in each pool;
+      # both are under their pool's 150¢ ceiling, but a leaked cross-pool draw
+      # would push either over — so each stays drawable only because the sums
+      # filter on funding_pool_id.
+      pool_a = create_funding_pool!(primary_stripe_id: "cus_shared", primary_cap: 150)
+      pool_a.update!(member_draw_cap_cents: 150, member_draw_cap_period: "day")
+
+      other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
+      other_collective.add_user!(@user)
+      other_collective.enable_feature_flag!("funding_pools")
+      pool_b = FundingPool.create!(tenant: @tenant, collective: other_collective, created_by: @user,
+                                   member_draw_cap_cents: 150, member_draw_cap_period: "month")
+      pool_b.enroll!(@user, draw_cap_cents: 150)
+
+      @ai_agent.update!(funding_pool: pool_a)
+      agent_b = create_ai_agent(parent: @user)
+      # The attach validation reads the enrollment through the pool's own
+      # collective, so scope the thread there for the write.
+      Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: other_collective.handle)
+      agent_b.update!(funding_pool: pool_b)
+      Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+      task_run_b = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: agent_b, initiated_by: @user, task: "Test task B", max_steps: 10, status: "running",
+      )
+
+      record_spend!("cus_shared", 100, funding_pool_id: pool_a.id)
+      record_spend!("cus_shared", 100, funding_pool_id: pool_b.id, agent: agent_b)
+
+      assert_equal "cus_shared", PayerResolver.resolve(@task_run).payer_customer_id
+      assert_equal "cus_shared", PayerResolver.resolve(task_run_b).payer_customer_id
     end
 
     test "pool selection verifies only the sampled member's balance" do
