@@ -519,6 +519,7 @@ class CollectivesController < ApplicationController
     @current_user_enrollment = @current_user && @pool_enrollments.find { |e| e.user_id == @current_user.id }
     @current_user_enrolled = @current_user_enrollment.present?
     @funded_agents = @funding_pool.funded_agents.order(:name)
+    @usage_report = LLMGateway::UsageReport.pool_report(@funding_pool)
     respond_to do |format|
       format.html
       format.md

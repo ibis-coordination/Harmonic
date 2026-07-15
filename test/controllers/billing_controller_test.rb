@@ -1048,7 +1048,109 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
       "Agent should be pending when sync discovers subscription is cancelled"
   end
 
+  # === Funding you provide ===
+
+  test "show renders the funding-you-provide section for an enrolled member with pool draws" do
+    pool = setup_pool_funding!(stripe_id: "cus_funder")
+    agent = create_ai_agent(parent: @user, name: "Funded Bot")
+    @tenant.add_user!(agent)
+    record_funding_spend!(pool, stripe_id: "cus_funder", cents: 275, agent: agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing"
+
+    assert_response :success
+    assert_match(/Funding you provide/i, response.body)
+    assert_match(/\$2\.75/, response.body)
+    assert_match(/Funded Bot/, response.body)
+    pool_href = "#{Collective.tenant_scoped_only(pool.tenant_id).find(pool.collective_id).url}/pool"
+    assert_match(/<a[^>]+href="#{Regexp.escape(pool_href)}"[^>]*>[^<]*Pool Collective/, response.body,
+                 "expected the collective name to link to its pool page")
+  end
+
+  test "show hides the funding section for a subscriber with no pool funding" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_plain", stripe_subscription_id: "sub_plain", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing"
+
+    assert_response :success
+    assert_no_match(/Funding you provide/i, response.body)
+  end
+
+  test "the markdown billing page shows the funding section to a free account funding a pool" do
+    # An app admin owes no per-identity fee (billable_quantity 0), so their
+    # customer's active flag is legitimately false — yet they can still fund
+    # pools from prepaid credits, and their /billing markdown must say so.
+    @user.update!(app_admin: true)
+    pool = setup_pool_funding!(stripe_id: "cus_free_funder", active: false)
+    agent = create_ai_agent(parent: @user, name: "Free Funded Bot")
+    @tenant.add_user!(agent)
+    record_funding_spend!(pool, stripe_id: "cus_free_funder", cents: 325, agent: agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/nothing to pay/i, response.body, "expected the free-account branch")
+    assert_match(/Funding you provide/i, response.body)
+    assert_match(/\$3\.25/, response.body)
+  ensure
+    @user.update!(app_admin: false)
+    @user.reload.stripe_customer&.destroy
+  end
+
+  test "the markdown billing page includes the funding section" do
+    pool = setup_pool_funding!(stripe_id: "cus_funder_md")
+    agent = create_ai_agent(parent: @user, name: "MD Funded Bot")
+    @tenant.add_user!(agent)
+    record_funding_spend!(pool, stripe_id: "cus_funder_md", cents: 150, agent: agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/Funding you provide/i, response.body)
+    assert_match(/\$1\.50/, response.body)
+    pool_href = "#{Collective.tenant_scoped_only(pool.tenant_id).find(pool.collective_id).url}/pool"
+    assert_match("[Pool Collective](#{pool_href})", response.body,
+                 "expected the collective name to render as a markdown link to its pool page")
+  end
+
   private
+
+  # Fund @user, open a pool on a fresh standard collective, and enroll them —
+  # the minimum arrangement for the funding-you-provide section to have content.
+  def setup_pool_funding!(stripe_id:, active: true)
+    StripeCustomer.create!(
+      billable: @user, stripe_id: stripe_id, active: active, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+    )
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    collective = create_test_collective(name: "Pool Collective")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    collective.enable_feature_flag!("funding_pools")
+    pool = FundingPool.create!(tenant: @tenant, collective: collective, created_by: @user, member_draw_cap_cents: 500)
+    pool.enroll!(@user, draw_cap_cents: 500)
+    pool
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def record_funding_spend!(pool, stripe_id:, cents:, agent:)
+    LLMUsageRecord.create!(
+      selection_id: "sel_#{SecureRandom.uuid}",
+      status: "completed",
+      ai_agent_id: agent.id,
+      payer_stripe_customer_id: stripe_id,
+      origin_tenant_id: @tenant.id,
+      funding_pool_id: pool.id,
+      estimated_cost_cents: cents,
+      occurred_at: Time.current,
+      completed_at: Time.current,
+    )
+  end
 
   def enable_stripe_billing_flag!(tenant)
     FeatureFlagService.config["stripe_billing"] ||= {}

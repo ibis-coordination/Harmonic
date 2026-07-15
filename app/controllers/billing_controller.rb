@@ -23,6 +23,7 @@ class BillingController < ApplicationController
 
     load_billing_inventory
     load_credit_balance
+    load_funding_report
   end
 
   # POST /billing/setup
@@ -319,6 +320,12 @@ class BillingController < ApplicationController
     else
       0
     end
+  end
+
+  def load_funding_report
+    return unless current_tenant&.feature_enabled?("stripe_billing")
+
+    @funding_report = LLMGateway::UsageReport.funding_report(current_user)
   end
 
   def load_billing_inventory

@@ -278,14 +278,18 @@ module LLMGateway
     end
 
     test "a call opened yesterday but completed today counts toward the daily cap" do
-      create_stamped_billing_customer!
-      @ai_agent.update!(llm_daily_spend_cap_cents: 100)
-      record_spend!("cus_individual", 100, occurred_at: 25.hours.ago, completed_at: 1.minute.ago)
+      # Anchored at noon so "1 minute ago" cannot slip past the cap's
+      # midnight-UTC boundary when the test itself runs near midnight.
+      travel_to Time.utc(2026, 7, 15, 12) do
+        create_stamped_billing_customer!
+        @ai_agent.update!(llm_daily_spend_cap_cents: 100)
+        record_spend!("cus_individual", 100, occurred_at: 25.hours.ago, completed_at: 1.minute.ago)
 
-      error = assert_raises(PayerResolver::ResolutionError) do
-        PayerResolver.resolve(@task_run)
+        error = assert_raises(PayerResolver::ResolutionError) do
+          PayerResolver.resolve(@task_run)
+        end
+        assert_equal "spend_cap_exceeded", error.code
       end
-      assert_equal "spend_cap_exceeded", error.code
     end
 
     test "the daily spend cap also gates pool-funded agents" do

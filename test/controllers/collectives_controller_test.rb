@@ -2649,6 +2649,69 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   # === Member-facing pool page ===
 
+  def record_pool_spend!(pool, stripe_id:, cents:, agent:)
+    LLMUsageRecord.create!(
+      selection_id: "sel_#{SecureRandom.uuid}",
+      status: "completed",
+      ai_agent_id: agent.id,
+      payer_stripe_customer_id: stripe_id,
+      origin_tenant_id: @tenant.id,
+      funding_pool_id: pool.id,
+      estimated_cost_cents: cents,
+      occurred_at: Time.current,
+      completed_at: Time.current,
+    )
+  end
+
+  test "the pool page shows member and agent spend for the last 30 days" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user, stripe_id: "cus_pool_spend")
+    enroll!(pool, @user)
+    alpha = create_ai_agent(parent: @user, name: "Alpha Bot")
+    beta = create_ai_agent(parent: @user, name: "Beta Bot")
+    @tenant.add_user!(alpha)
+    @tenant.add_user!(beta)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    alpha.update!(funding_pool: pool)
+    beta.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    record_pool_spend!(pool, stripe_id: "cus_pool_spend", cents: 100, agent: alpha)
+    record_pool_spend!(pool, stripe_id: "cus_pool_spend", cents: 50, agent: beta)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/Usage \(last 30 days\)/, response.body)
+    assert_match(/\$1\.50/, response.body) # member total and pool total
+    assert_match(/\$1\.00/, response.body) # Alpha Bot's spend
+    assert_match(/\$0\.50/, response.body) # Beta Bot's spend
+  end
+
+  test "the markdown pool page shows spend figures" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user, stripe_id: "cus_pool_md")
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Ledger Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    record_pool_spend!(pool, stripe_id: "cus_pool_md", cents: 275, agent: agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match(/Spend \(last 30 days\)/, response.body)
+    assert_match(/\$2\.75/, response.body)
+    assert_match(/Ledger Bot/, response.body)
+  end
+
   def add_funded_member!(collective, name: "Pool Member")
     member = create_user(name: name)
     @tenant.add_user!(member)
