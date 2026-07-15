@@ -251,11 +251,18 @@ class CollectivesController < ApplicationController
         flash[:error] = "This collective has no funding pool."
         return redirect_to "#{@current_collective.path}/settings"
       end
+      period = params[:member_draw_cap_period].presence
+      if period && FundingPool::DRAW_CAP_PERIODS.exclude?(period)
+        flash[:error] = "The pool ceiling window must be day, week, or month."
+        return redirect_to "#{@current_collective.path}/settings"
+      end
       begin
         cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
         raise ArgumentError, "ceiling required" if cap_cents.nil?
 
-        pool.update!(member_draw_cap_cents: cap_cents)
+        pool.member_draw_cap_cents = cap_cents
+        pool.member_draw_cap_period = period if period
+        pool.save!
       rescue ArgumentError
         flash[:error] = "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one."
         return redirect_to "#{@current_collective.path}/settings"
@@ -555,20 +562,26 @@ class CollectivesController < ApplicationController
     rescue ArgumentError
       return render_funded_agent_error(422, 'The pool draw ceiling must be a dollar amount, e.g. 5.00')
     end
+    period = params[:member_draw_cap_period].presence
+    if period && FundingPool::DRAW_CAP_PERIODS.exclude?(period)
+      return render_funded_agent_error(422, "The pool ceiling window must be day, week, or month")
+    end
 
     pool = @current_collective.funding_pool
     if pool
       pool.member_draw_cap_cents = cap_cents if cap_cents
+      pool.member_draw_cap_period = period if period
       pool.archived_at = nil
       unless pool.save
         return render_funded_agent_error(422, pool.errors.full_messages.to_sentence)
       end
     else
       if cap_cents.nil?
-        return render_funded_agent_error(422, 'A pool draw ceiling is required to open a funding pool — the most it may bill any one enrolled member per day')
+        message = "A pool draw ceiling is required to open a funding pool — the most it may bill any one enrolled member within its window"
+        return render_funded_agent_error(422, message)
       end
       FundingPool.create!(collective: @current_collective, created_by: @current_user,
-                          member_draw_cap_cents: cap_cents)
+                          member_draw_cap_cents: cap_cents, member_draw_cap_period: period || "day")
     end
 
     flash[:notice] = "Funding pool is open. Members can now enroll."
@@ -613,37 +626,49 @@ class CollectivesController < ApplicationController
     # Re-posting while enrolled updates the ceiling.
     if params[:ceiling_choice] == "pool"
       cap_cents = pool.member_draw_cap_cents
+      period = pool.member_draw_cap_period
     else
       begin
         cap_cents = MoneyParam.dollars_to_cents(params[:daily_draw_cap])
       rescue ArgumentError
         cap_cents = nil
       end
+      period = params[:draw_cap_period].presence || "day"
     end
     if cap_cents.nil?
       message = if params[:ceiling_choice] == "custom"
         'Enter a dollar amount for your own ceiling, e.g. 5.00'
       else
-        'Enrolling requires your own daily draw ceiling — the most this pool may bill you per day, as a dollar amount, e.g. 5.00'
+        "Enrolling requires your own draw ceiling — the most this pool may bill you, as a dollar amount, e.g. 5.00"
       end
       return render_funded_agent_error(422, message, redirect_path: pool_page_path)
+    end
+    unless FundingPool::DRAW_CAP_PERIODS.include?(period)
+      return render_funded_agent_error(422, "Choose a ceiling window: day, week, or month.", redirect_path: pool_page_path)
     end
 
     already_enrolled = pool.enrollments.active.exists?(user_id: @current_user.id)
     begin
-      pool.enroll!(@current_user, draw_cap_cents: cap_cents)
+      pool.enroll!(@current_user, draw_cap_cents: cap_cents, draw_cap_period: period)
     rescue ActiveRecord::RecordInvalid => e
       return render_funded_agent_error(422, e.record.errors.full_messages.to_sentence, redirect_path: pool_page_path)
     end
 
-    pool_binds = pool.member_draw_cap_cents < cap_cents
     stated = format("$%.2f", cap_cents / 100.0)
-    effective_note = pool_binds ? " (the pool's #{format("$%.2f", pool.member_draw_cap_cents / 100.0)} ceiling applies while it is lower)" : ""
+    pool_cap = format("$%.2f", pool.member_draw_cap_cents / 100.0)
+    # Ceilings over different windows can't be compared — both simply apply.
+    effective_note = if period != pool.member_draw_cap_period
+      " (the pool's #{pool_cap} per #{pool.member_draw_cap_period} ceiling also applies)"
+    elsif pool.member_draw_cap_cents < cap_cents
+      " (the pool's #{pool_cap} ceiling applies while it is lower)"
+    else
+      ""
+    end
     flash[:notice] = if already_enrolled
-      "Your daily draw ceiling is now #{stated}#{effective_note}."
+      "Your draw ceiling is now #{stated} per #{period}#{effective_note}."
     else
       "You are enrolled: this collective's funded agents can now draw from your prepaid balance, " \
-        "up to #{stated} per day#{effective_note}."
+        "up to #{stated} per #{period}#{effective_note}."
     end
     redirect_to pool_page_path
   end
@@ -922,17 +947,26 @@ class CollectivesController < ApplicationController
       return render_action_error({
         action_name: 'enroll_in_funding_pool',
         resource: @current_collective,
-        error: 'Enrolling requires daily_draw_cap — your own daily ceiling on what this pool may bill you, as a dollar amount, e.g. "5.00".',
+        error: 'Enrolling requires daily_draw_cap — your own ceiling on what this pool may bill you, as a dollar amount, e.g. "5.00".',
+      })
+    end
+
+    period = params[:draw_cap_period].presence || "day"
+    unless FundingPool::DRAW_CAP_PERIODS.include?(period)
+      return render_action_error({
+        action_name: "enroll_in_funding_pool",
+        resource: @current_collective,
+        error: 'draw_cap_period must be one of "day", "week", or "month".',
       })
     end
 
     begin
-      pool.enroll!(current_user, draw_cap_cents: cap_cents)
+      pool.enroll!(current_user, draw_cap_cents: cap_cents, draw_cap_period: period)
       render_action_success({
         action_name: 'enroll_in_funding_pool',
         resource: @current_collective,
         result: "You are enrolled: #{@current_collective.name}'s funded agents can now draw from your prepaid balance, " \
-                "up to #{format("$%.2f", cap_cents / 100.0)} per day.",
+                "up to #{format("$%.2f", cap_cents / 100.0)} per #{period}.",
       })
     rescue ActiveRecord::RecordInvalid => e
       render_action_error({

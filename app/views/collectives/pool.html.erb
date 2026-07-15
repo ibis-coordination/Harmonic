@@ -46,7 +46,7 @@
     <p class="pulse-body-text">
       Pool draw ceiling: this pool stops drawing from a member once its draws from
       them reach <strong><%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %></strong>
-      for the day (UTC). Each member also sets their own ceiling when enrolling —
+      for the <%= @funding_pool.member_draw_cap_period %> (UTC). Each member also sets their own ceiling when enrolling —
       the lower of the two applies. Ceilings are per pool: draws by other pools
       you may be enrolled in count against those pools' ceilings, not this one's.
     </p>
@@ -112,26 +112,31 @@
           You are enrolled: this pool's agents can draw from your prepaid balance,
           up to your own ceiling of
           <strong><%= number_to_currency(@current_user_enrollment.draw_cap_cents / 100.0) %></strong>
-          per day (or the pool's ceiling, whichever is lower).
+          per <%= @current_user_enrollment.draw_cap_period %> (or the pool's ceiling, whichever is lower).
           Withdrawing drops you out of draws immediately.
         </p>
         <% if @funding_pools_enabled %>
-          <% matches_pool = @current_user_enrollment.draw_cap_cents == @funding_pool.member_draw_cap_cents %>
+          <% matches_pool = @current_user_enrollment.draw_cap_cents == @funding_pool.member_draw_cap_cents &&
+                            @current_user_enrollment.draw_cap_period == @funding_pool.member_draw_cap_period %>
           <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
             <fieldset class="pulse-radio-group">
-              <legend class="pulse-fieldset-legend">Your daily ceiling</legend>
+              <legend class="pulse-fieldset-legend">Your ceiling</legend>
               <label class="pulse-radio-label">
                 <input type="radio" name="ceiling_choice" value="pool" <%= "checked" if matches_pool %> class="pulse-radio-input">
-                <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per day</span>
+                <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per <%= @funding_pool.member_draw_cap_period %></span>
               </label>
               <label class="pulse-radio-label">
                 <input type="radio" name="ceiling_choice" value="custom" <%= "checked" unless matches_pool %> class="pulse-radio-input">
-                <span>Set your own lower ceiling (USD per day):</span>
+                <span>Set your own ceiling (USD):</span>
                 <input type="number" name="daily_draw_cap" min="0.01" step="0.01"
-                       max="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
                        value="<%= @current_user_enrollment.draw_cap_cents / 100.0 unless matches_pool %>"
                        class="pulse-form-input" style="width: auto;">
+                <select name="draw_cap_period" class="pulse-form-select" style="width: auto;">
+                  <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                    <option value="<%= period %>" <%= "selected" if !matches_pool && @current_user_enrollment.draw_cap_period == period %>>per <%= period %></option>
+                  <% end %>
+                </select>
               </label>
             </fieldset>
             <button type="submit" class="pulse-action-btn">Update Ceiling</button>
@@ -145,24 +150,28 @@
           Enrolling is consenting to fund this collective's agents from your own
           prepaid balance — each call is billed to one enrolled member, drawn at
           random, and this pool stops drawing from you once its draws reach your
-          daily ceiling. The pool's ceiling is the default; you can set a lower
-          one for yourself, and you can change it or withdraw at any time.
+          ceiling. The pool's ceiling is the default; you can set your own, and
+          you can change it or withdraw at any time.
           Enrollment requires prepaid credits.
         </p>
         <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-form">
           <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
           <fieldset class="pulse-radio-group">
-            <legend class="pulse-fieldset-legend">Your daily ceiling</legend>
+            <legend class="pulse-fieldset-legend">Your ceiling</legend>
             <label class="pulse-radio-label">
               <input type="radio" name="ceiling_choice" value="pool" checked class="pulse-radio-input">
-              <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per day</span>
+              <span>Match the pool ceiling — <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per <%= @funding_pool.member_draw_cap_period %></span>
             </label>
             <label class="pulse-radio-label">
               <input type="radio" name="ceiling_choice" value="custom" class="pulse-radio-input">
-              <span>Set your own lower ceiling (USD per day):</span>
+              <span>Set your own ceiling (USD):</span>
               <input type="number" name="daily_draw_cap" min="0.01" step="0.01"
-                     max="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
                      class="pulse-form-input" style="width: auto;">
+              <select name="draw_cap_period" class="pulse-form-select" style="width: auto;">
+                <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                  <option value="<%= period %>" <%= "selected" if period == "day" %>>per <%= period %></option>
+                <% end %>
+              </select>
             </label>
           </fieldset>
           <button type="submit" class="pulse-action-btn">Enroll in Pool</button>

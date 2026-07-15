@@ -905,11 +905,16 @@ class ApiHelper
           raise "Funding pools are not enabled for this collective, so the draw ceiling is paused and cannot be changed."
         end
 
+        period = params[:member_draw_cap_period].presence
+        raise 'member_draw_cap_period must be one of "day", "week", or "month".' if period && FundingPool::DRAW_CAP_PERIODS.exclude?(period)
+
         begin
           cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
           raise ArgumentError, "ceiling required" if cap_cents.nil?
 
-          pool.update!(member_draw_cap_cents: cap_cents)
+          pool.member_draw_cap_cents = cap_cents
+          pool.member_draw_cap_period = period if period
+          pool.save!
         rescue ArgumentError
           raise ArgumentError, "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one, so it cannot be cleared."
         end

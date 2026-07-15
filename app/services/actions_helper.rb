@@ -151,7 +151,8 @@ class ActionsHelper
     },
     "update_collective_settings" => {
       description: "Update collective settings",
-      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled, member_daily_draw_cap)",
+      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled, " \
+                     "member_daily_draw_cap, member_draw_cap_period)",
       params: [
         { name: "name", type: "string", description: "The name of the collective" },
         { name: "description", type: "string", description: "A description of the collective" },
@@ -163,8 +164,10 @@ class ActionsHelper
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
         { name: "member_daily_draw_cap", type: "string",
-          description: 'The funding pool\'s draw ceiling — the most it may bill any one enrolled member per day (UTC), in dollars, e.g. "5.00". ' \
-                       "Requires an open pool; mandatory, so it cannot be blanked.", },
+          description: "The funding pool's draw ceiling — the most it may bill any one enrolled member within its window (UTC), " \
+                       'in dollars, e.g. "5.00". Requires an open pool; mandatory, so it cannot be blanked.', },
+        { name: "member_draw_cap_period", type: "string",
+          description: 'The window the pool ceiling covers: "day", "week", or "month". Optional; applies together with member_daily_draw_cap.', },
       ],
       authorization: :collective_admin,
       visibility: :by_collective,
@@ -172,12 +175,14 @@ class ActionsHelper
     "enroll_in_funding_pool" => {
       description: "Enroll yourself in this collective's funding pool. Enrolling is consenting to fund the collective's agents from your own " \
                    "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random, and the pool stops " \
-                   "drawing from you once its draws reach your daily ceiling. Requires active billing with prepaid credits. " \
+                   "drawing from you once its draws reach your ceiling. Requires active billing with prepaid credits. " \
                    "Enrolling again while already enrolled updates your ceiling.",
-      params_string: "(daily_draw_cap)",
+      params_string: "(daily_draw_cap, draw_cap_period)",
       params: [
         { name: "daily_draw_cap", type: "string",
-          description: 'Required. Your own daily ceiling on what this pool may bill you, in dollars, e.g. "5.00".', },
+          description: 'Required. Your ceiling on what this pool may bill you, in dollars, e.g. "5.00".', },
+        { name: "draw_cap_period", type: "string",
+          description: 'Optional. The window your ceiling covers: "day" (default), "week", or "month".', },
       ],
       authorization: :authenticated,
       visibility: :by_collective,

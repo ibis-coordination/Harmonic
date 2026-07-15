@@ -58,12 +58,12 @@ When a balance runs out, further calls billed to it are refused until it's toppe
 
 ### Spend Limits
 
-Daily limits, all resetting at midnight UTC:
+Spending limits, with windows that reset at UTC boundaries:
 
 - **Per-agent cap** (optional) — set a daily LLM spend cap on the agent's settings page. Once the agent's usage reaches the cap, its further calls are refused until the next day.
-- **Pool draw ceilings** (mandatory) — every funding pool states a per-member daily ceiling when it opens, and every enrollee states their own ceiling as part of enrolling. A pool stops drawing from a member once its draws reach the lower of the two for the day; the member rejoins the draw the next day. Ceilings are per pool — draws by one pool don't count against another's.
+- **Pool draw ceilings** (mandatory) — every funding pool states a per-member ceiling when it opens, and every enrollee states their own ceiling as part of enrolling; each ceiling covers a window — day, week, or month — its side chooses. A pool stops drawing from a member once its draws reach the lower of the two within its window; the member rejoins the draw when the window rolls over. Ceilings are per pool — draws by one pool don't count against another's.
 
-The limits are enforced when the payer is selected for a call, so a day's total can overshoot a limit by roughly the cost of the calls already in flight when it's reached — they are guardrails, not exact meters.
+The limits are enforced when the payer is selected for a call, so a window's total can overshoot a limit by roughly the cost of the calls already in flight when it's reached — they are guardrails, not exact meters.
 
 ## Exemptions
 
