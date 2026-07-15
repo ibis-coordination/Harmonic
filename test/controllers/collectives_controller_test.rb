@@ -1900,6 +1900,33 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 500, pool.member_draw_cap_cents
   end
 
+  test "an admin can open a pool with a weekly ceiling window" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool",
+         params: { member_daily_draw_cap: "5.00", member_draw_cap_period: "week" }
+
+    assert_redirected_to "#{collective.path}/settings"
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert pool.present?
+    assert_equal 500, pool.member_draw_cap_cents
+    assert_equal "week", pool.member_draw_cap_period
+  end
+
+  test "opening a pool with an invalid ceiling window is refused" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool",
+         params: { member_daily_draw_cap: "5.00", member_draw_cap_period: "fortnight" }
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
   test "creating a pool without a draw ceiling is refused" do
     collective = create_test_collective
     enable_funding_pools!(collective)
@@ -1982,6 +2009,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     collective = create_test_collective
     enable_funding_pools!(collective)
     pool = create_pool!(collective)
+    pool.update!(member_draw_cap_period: "week")
     pool.archive!
     sign_in_as(@user, tenant: @tenant)
 
@@ -1991,6 +2019,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     pool.reload
     assert_not pool.archived?, "expected the closed pool to reopen"
     assert_equal 500, pool.member_draw_cap_cents, "reopening without a ceiling param keeps the existing ceiling"
+    assert_equal "week", pool.member_draw_cap_period, "reopening without a period param keeps the existing window"
   end
 
   test "reopening a closed pool with a ceiling param updates the ceiling" do
@@ -2047,6 +2076,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert active_enrollment?(pool, @user)
     enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
     assert_equal 300, enrollment.draw_cap_cents
+    assert_equal "day", enrollment.draw_cap_period, "omitting the period defaults the ceiling window to a day"
   end
 
   test "enrolling without a ceiling is refused" do
@@ -2184,6 +2214,91 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert active_enrollment?(pool, @user)
     assert_match(/pool's \$5\.00 ceiling applies/, flash[:notice])
+  end
+
+  test "a funded member can enroll with a weekly ceiling window" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool",
+         params: { ceiling_choice: "custom", daily_draw_cap: "3.00", draw_cap_period: "week" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 300, enrollment.draw_cap_cents
+    assert_equal "week", enrollment.draw_cap_period
+    assert_match(/pool's \$5\.00 per day ceiling also applies/, flash[:notice],
+                 "ceilings over different windows both apply — the flash must not claim one is lower")
+  end
+
+  test "the pool-ceiling choice adopts the pool's period, ignoring any submitted period" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    pool.update!(member_draw_cap_period: "week")
+    Tenant.clear_thread_scope
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool",
+         params: { ceiling_choice: "pool", draw_cap_period: "month" }
+
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 500, enrollment.draw_cap_cents
+    assert_equal "week", enrollment.draw_cap_period, "the pool choice snapshots the pool's period, not the submitted one"
+  end
+
+  test "enrolling with an invalid period is refused without touching the enrollment" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool",
+         params: { ceiling_choice: "custom", daily_draw_cap: "3.00", draw_cap_period: "fortnight" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    assert flash[:alert].present?
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "re-enrolling can change only the period, keeping the same ceiling" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    enroll!(pool, @user, draw_cap_cents: 300)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool",
+         params: { ceiling_choice: "custom", daily_draw_cap: "3.00", draw_cap_period: "month" }
+
+    assert_redirected_to "#{collective.path}/pool"
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal 300, enrollment.draw_cap_cents
+    assert_equal "month", enrollment.draw_cap_period
+  end
+
+  test "the pool page offers a draw-cap period selector" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    member = add_funded_member!(collective)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_select "select[name=?]", "draw_cap_period" do
+      assert_select "option[value=?]", "day"
+      assert_select "option[value=?]", "week"
+      assert_select "option[value=?]", "month"
+    end
   end
 
   test "the settings page shows funding consent copy pointing members at the pool page" do
@@ -2354,6 +2469,56 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 50, pool.reload.member_draw_cap_cents
   end
 
+  test "the ceiling form can change the pool's ceiling window" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
+
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "0.50", member_draw_cap_period: "week" }, headers: referer
+
+    pool.reload
+    assert_equal 50, pool.member_draw_cap_cents
+    assert_equal "week", pool.member_draw_cap_period
+  end
+
+  test "an invalid ceiling window on the settings form is refused" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+    referer = { "Referer" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", "harmonic.local")}#{collective.path}/settings" }
+
+    post "#{collective.path}/settings", params: { member_daily_draw_cap: "0.50", member_draw_cap_period: "fortnight" }, headers: referer
+
+    assert flash[:error].present?
+    pool.reload
+    assert_equal 500, pool.member_draw_cap_cents, "an invalid window must not change the ceiling"
+    assert_equal "day", pool.member_draw_cap_period
+  end
+
+  test "the settings page offers a pool ceiling window selector" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_select "select[name=?]", "member_draw_cap_period" do
+      assert_select "option[value=?]", "day"
+      assert_select "option[value=?]", "week"
+      assert_select "option[value=?]", "month"
+    end
+
+    create_pool!(collective)
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_select "select[name=?]", "member_draw_cap_period"
+  end
+
   test "an over-large draw ceiling is rejected with a friendly error" do
     collective = create_test_collective
     enable_funding_pools!(collective)
@@ -2385,6 +2550,38 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          params: { member_daily_draw_cap: "" }.to_json, headers: headers
     assert_response :unprocessable_entity
     assert_equal 75, pool.reload.member_draw_cap_cents, "the ceiling is mandatory and cannot be cleared"
+  end
+
+  test "the update_collective_settings action can set the ceiling window" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "0.75", member_draw_cap_period: "month" }.to_json, headers: headers
+
+    assert_response :success
+    pool.reload
+    assert_equal 75, pool.member_draw_cap_cents
+    assert_equal "month", pool.member_draw_cap_period
+  end
+
+  test "the update_collective_settings action refuses an invalid ceiling window" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/update_collective_settings",
+         params: { member_daily_draw_cap: "0.75", member_draw_cap_period: "fortnight" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
+    pool.reload
+    assert_equal 500, pool.member_draw_cap_cents, "an invalid window must not change the ceiling"
+    assert_equal "day", pool.member_draw_cap_period
   end
 
   test "the update_collective_settings action rejects a bad draw ceiling with a friendly message" do
@@ -2943,6 +3140,37 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_match(/billing/i, response.body)
+    assert_not active_enrollment?(pool, @user)
+  end
+
+  test "the enroll_in_funding_pool action accepts a draw_cap_period" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool",
+         params: { daily_draw_cap: "5.00", draw_cap_period: "month" }.to_json, headers: headers
+
+    assert_response :success
+    enrollment = FundingPoolEnrollment.tenant_scoped_only(@tenant.id).find_by!(funding_pool_id: pool.id, user_id: @user.id)
+    assert_equal "month", enrollment.draw_cap_period
+  end
+
+  test "the enroll_in_funding_pool action refuses an invalid draw_cap_period" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    headers = { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    post "#{collective.path}/settings/actions/enroll_in_funding_pool",
+         params: { daily_draw_cap: "5.00", draw_cap_period: "fortnight" }.to_json, headers: headers
+
+    assert_response :unprocessable_entity
     assert_not active_enrollment?(pool, @user)
   end
 

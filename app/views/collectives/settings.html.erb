@@ -331,14 +331,20 @@
           <% if @funding_pools_enabled %>
             <p class="pulse-section-description">
               Every pool has an explicit ceiling on what it may draw from any one
-              enrolled member per day (UTC) — set it to open the pool.
+              enrolled member within a window — day, week, or month (UTC) — set it
+              to open the pool.
             </p>
             <form action="<%= @current_collective.path %>/settings/create_funding_pool" method="post" class="pulse-inline-form">
               <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-              <label for="new_pool_draw_cap" class="pulse-label">Ceiling per member per day (USD)</label>
+              <label for="new_pool_draw_cap" class="pulse-label">Ceiling per member (USD)</label>
               <input type="number" id="new_pool_draw_cap" name="member_daily_draw_cap" min="0.01" step="0.01" required
                      value="<%= @funding_pool ? (@funding_pool.member_draw_cap_cents / 100.0) : "" %>"
                      class="pulse-form-input">
+              <select name="member_draw_cap_period" class="pulse-form-select">
+                <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                  <option value="<%= period %>" <%= "selected" if (@funding_pool ? @funding_pool.member_draw_cap_period : "day") == period %>>per <%= period %></option>
+                <% end %>
+              </select>
               <button type="submit" class="pulse-action-btn">
                 <%= @funding_pool ? "Reopen Funding Pool" : "Create Funding Pool" %>
               </button>
@@ -372,7 +378,7 @@
             <p class="pulse-section-description">
               Enrolling is consenting to fund this collective's agents from your own
               prepaid balance — each call is billed to one enrolled member, drawn at
-              random, up to a daily ceiling each member sets themselves. Enroll on the
+              random, up to a ceiling each member sets themselves. Enroll on the
               <a href="<%= @current_collective.path %>/pool" class="pulse-link">pool page</a>.
             </p>
           <% end %>
@@ -380,19 +386,24 @@
           <% if @funding_pools_enabled %>
           <h3 class="pulse-subsection-title">Pool Draw Ceiling</h3>
           <p class="pulse-section-description">
-            The most this pool may bill any one enrolled member per day (UTC); a member
-            at the ceiling rejoins the draw the next day. Members may also set
-            themselves a lower personal ceiling when they enroll — the lower of the
-            two applies. Every pool must have a ceiling; lowering it binds everyone
+            The most this pool may bill any one enrolled member within its window (UTC);
+            a member at the ceiling rejoins the draw when the window rolls over. Members
+            may also set themselves a personal ceiling when they enroll — the lower of
+            the two applies. Every pool must have a ceiling; lowering it binds everyone
             immediately, and raising it never takes any member past the ceiling they
             stated for themselves.
           </p>
           <form action="<%= @current_collective.path %>/settings" method="post" class="pulse-inline-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-            <label for="member_daily_draw_cap" class="pulse-label">Ceiling per member per day (USD)</label>
+            <label for="member_daily_draw_cap" class="pulse-label">Ceiling per member (USD)</label>
             <input type="number" id="member_daily_draw_cap" name="member_daily_draw_cap" min="0.01" step="0.01" required
                    value="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
                    class="pulse-form-input">
+            <select name="member_draw_cap_period" class="pulse-form-select">
+              <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                <option value="<%= period %>" <%= "selected" if @funding_pool.member_draw_cap_period == period %>>per <%= period %></option>
+              <% end %>
+            </select>
             <button type="submit" class="pulse-action-btn">Save Ceiling</button>
           </form>
           <% end %>

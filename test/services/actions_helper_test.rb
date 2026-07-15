@@ -361,11 +361,13 @@ class ActionsHelperTest < ActiveSupport::TestCase
     # docs makes it undiscoverable on the markdown surface.
     assert_includes documented, "member_daily_draw_cap"
     assert_includes definition[:params_string], "member_daily_draw_cap"
+    assert_includes documented, "member_draw_cap_period"
+    assert_includes definition[:params_string], "member_draw_cap_period"
   end
 
   test "enroll_in_funding_pool documents its required ceiling param" do
     definition = ActionsHelper::ACTION_DEFINITIONS["enroll_in_funding_pool"]
-    assert_equal ["daily_draw_cap"], definition[:params].map { |p| p[:name] }
+    assert_equal(["daily_draw_cap", "draw_cap_period"], definition[:params].map { |p| p[:name] })
     assert_match(/required/i, definition[:params].first[:description])
   end
 end
