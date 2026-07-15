@@ -1232,7 +1232,9 @@ CREATE TABLE public.search_index (
     is_pinned boolean DEFAULT false,
     sort_key bigint NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 )
 PARTITION BY HASH (tenant_id);
 
@@ -1285,7 +1287,9 @@ CREATE TABLE public.search_index_p0 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1318,7 +1322,9 @@ CREATE TABLE public.search_index_p1 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1351,7 +1357,9 @@ CREATE TABLE public.search_index_p10 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1384,7 +1392,9 @@ CREATE TABLE public.search_index_p11 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1417,7 +1427,9 @@ CREATE TABLE public.search_index_p12 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1450,7 +1462,9 @@ CREATE TABLE public.search_index_p13 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1483,7 +1497,9 @@ CREATE TABLE public.search_index_p14 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1516,7 +1532,9 @@ CREATE TABLE public.search_index_p15 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1549,7 +1567,9 @@ CREATE TABLE public.search_index_p2 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1582,7 +1602,9 @@ CREATE TABLE public.search_index_p3 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1615,7 +1637,9 @@ CREATE TABLE public.search_index_p4 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1648,7 +1672,9 @@ CREATE TABLE public.search_index_p5 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1681,7 +1707,9 @@ CREATE TABLE public.search_index_p6 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1714,7 +1742,9 @@ CREATE TABLE public.search_index_p7 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1747,7 +1777,9 @@ CREATE TABLE public.search_index_p8 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -1780,7 +1812,9 @@ CREATE TABLE public.search_index_p9 (
     is_pinned boolean DEFAULT false,
     sort_key bigint DEFAULT nextval('public.search_index_sort_key_seq'::regclass) NOT NULL,
     subtype character varying,
-    replying_to_id uuid
+    replying_to_id uuid,
+    starts_at timestamp without time zone,
+    ends_at timestamp without time zone
 );
 
 
@@ -10621,6 +10655,7 @@ INSERT INTO "schema_migrations" (version) VALUES
 ('20260709190000'),
 ('20260705220000'),
 ('20260705182920'),
+('20260704000000'),
 ('20260703120000'),
 ('20260702010000'),
 ('20260702000000'),
