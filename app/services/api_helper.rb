@@ -898,6 +898,10 @@ class ApiHelper
       # refused attempt to clear it. The action wrapper renders whatever
       # message is raised, so re-raise the parse failure in words the caller
       # can act on.
+      if params[:member_draw_cap_period].present? && params[:member_daily_draw_cap].blank?
+        raise "member_draw_cap_period applies together with member_daily_draw_cap — restate the ceiling to change its window."
+      end
+
       if params.has_key?(:member_daily_draw_cap)
         pool = current_collective.funding_pool
         raise "This collective has no funding pool, so it has no draw ceiling to set." if pool.nil?
