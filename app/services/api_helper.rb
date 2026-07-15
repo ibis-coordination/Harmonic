@@ -243,8 +243,8 @@ class ApiHelper
         attrs[:deadline] = subtype == "calendar_event" ? attrs[:starts_at].presence || 100.years.from_now : 100.years.from_now
       end
       commitment = Commitment.create!(attrs)
-      # Handle close_at_critical_mass option
-      if [true, "true"].include?(params[:close_at_critical_mass])
+      # Handle close_at_critical_mass option (meaningless without a critical mass)
+      if [true, "true"].include?(params[:close_at_critical_mass]) && commitment.has_critical_mass?
         commitment.limit = commitment.critical_mass
         commitment.save!
       end
@@ -1222,13 +1222,24 @@ class ApiHelper
       commitment.title = params[:title] if params[:title].present?
       commitment.description = params[:description] if params[:description].present?
 
-      if params[:critical_mass].present? && !current_collective.private_workspace?
-        new_cm = params[:critical_mass].to_i
-        if new_cm < commitment.critical_mass.to_i && commitment.participant_count > 0
-          raise "Cannot lower critical mass after participants have joined"
-        end
+      unless current_collective.private_workspace?
+        cm_param = params[:critical_mass]
+        if cm_param.to_s == "none" || (params.key?(:critical_mass) && cm_param == "")
+          # Clearing counts as lowering: once participants have joined under a
+          # critical-mass rule, it can't be removed out from under them.
+          if commitment.has_critical_mass? && commitment.participant_count > 0
+            raise "Cannot remove critical mass after participants have joined"
+          end
 
-        commitment.critical_mass = new_cm
+          commitment.critical_mass = nil
+        elsif cm_param.present?
+          new_cm = cm_param.to_i
+          if new_cm < commitment.critical_mass.to_i && commitment.participant_count > 0
+            raise "Cannot lower critical mass after participants have joined"
+          end
+
+          commitment.critical_mass = new_cm
+        end
       end
 
       commitment.deadline = parse_datetime_param(params[:deadline]) if params[:deadline].present?
