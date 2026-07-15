@@ -85,6 +85,7 @@ import DecisionSubtypeController from "./decision_subtype_controller"
 import DialogController from "./dialog_controller"
 import DurationSelectController from "./duration_select_controller"
 import TabsController from "./tabs_controller"
+import TableRowEditController from "./table_row_edit_controller"
 import WebhookTestController from "./webhook_test_controller"
 import WebPushController from "./web_push_controller"
 
@@ -163,6 +164,7 @@ application.register("kebab-menu", KebabMenuController)
 application.register("summary-toggle", SummaryToggleController)
 application.register("dialog", DialogController)
 application.register("tabs", TabsController)
+application.register("table-row-edit", TableRowEditController)
 application.register("webhook-test", WebhookTestController)
 application.register("web-push", WebPushController)
 

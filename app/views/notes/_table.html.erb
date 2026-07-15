@@ -22,31 +22,59 @@
         </tr>
       </thead>
       <tbody>
+        <% can_edit = @note.user_can_edit_content?(@current_user) %>
         <% table.rows.each do |row| %>
-          <tr>
-            <% table.columns.each do |col| %>
-              <td><%= markdown_inline(row[col["name"]]) %></td>
-            <% end %>
-            <% if @note.user_can_edit_content?(@current_user) %>
-              <td>
+          <% if can_edit %>
+            <% row_id = row["_harmonic_row_id"] %>
+            <% update_form_id = "update-row-#{row_id}" %>
+            <tr data-controller="table-row-edit">
+              <% table.columns.each do |col| %>
+                <td>
+                  <span data-table-row-edit-target="display"><%= markdown_inline(row[col["name"]]) %></span>
+                  <%= text_field_tag "values[#{col["name"]}]", row[col["name"]],
+                        form: update_form_id, hidden: true, class: "pulse-form-input",
+                        style: "width: 100%; min-width: 80px;",
+                        data: { "table-row-edit-target": "input" } %>
+                </td>
+              <% end %>
+              <td style="white-space: nowrap;">
+                <button type="button" class="pulse-action-btn-secondary" style="padding: 2px 6px;" title="Edit row"
+                        data-table-row-edit-target="editButton" data-action="table-row-edit#edit">
+                  <%= octicon 'pencil', height: 12 %>
+                </button>
+                <button type="submit" form="<%= update_form_id %>" class="pulse-action-btn" style="padding: 2px 6px;" title="Save row"
+                        hidden data-table-row-edit-target="saveButton">
+                  <%= octicon 'check', height: 12 %>
+                </button>
+                <button type="button" class="pulse-action-btn-secondary" style="padding: 2px 6px;" title="Cancel edit"
+                        hidden data-table-row-edit-target="cancelButton" data-action="table-row-edit#cancel">
+                  <%= octicon 'x', height: 12 %>
+                </button>
                 <%= form_with(
                   url: "#{@note.path}/actions/delete_row",
                   method: :post,
                   style: "display: inline;",
                   data: { turbo_confirm: "Delete this row?" }
                 ) do |f| %>
-                  <%= f.hidden_field :row_id, value: row["_harmonic_row_id"] %>
-                  <button type="submit" class="pulse-action-btn-secondary" style="padding: 2px 6px;" title="Delete row">
+                  <%= f.hidden_field :row_id, value: row_id %>
+                  <button type="submit" class="pulse-action-btn-secondary" style="padding: 2px 6px;" title="Delete row"
+                          data-table-row-edit-target="deleteButton">
                     <%= octicon 'trash', height: 12 %>
                   </button>
                 <% end %>
               </td>
-            <% end %>
-          </tr>
+            </tr>
+          <% else %>
+            <tr>
+              <% table.columns.each do |col| %>
+                <td><%= markdown_inline(row[col["name"]]) %></td>
+              <% end %>
+            </tr>
+          <% end %>
         <% end %>
         <% if table.rows.empty? %>
           <tr>
-            <td colspan="<%= table.columns.length + (@note.user_can_edit_content?(@current_user) ? 1 : 0) %>" style="text-align: center; color: var(--color-fg-muted); padding: 24px;">
+            <td colspan="<%= table.columns.length + (can_edit ? 1 : 0) %>" style="text-align: center; color: var(--color-fg-muted); padding: 24px;">
               No rows yet. Add a row to get started.
             </td>
           </tr>
@@ -61,6 +89,15 @@
 </div>
 
 <% if @note.user_can_edit_content?(@current_user) && table.columns.any? %>
+  <%# One hidden update_row form per row. The row's cell inputs are linked to it
+      via the HTML `form=` attribute, so Save submits it through Turbo (#286).
+      Forms live here, outside <table>, since a <form> can't sit between rows. %>
+  <% table.rows.each do |row| %>
+    <%= form_with(url: "#{@note.path}/actions/update_row", method: :post, id: "update-row-#{row["_harmonic_row_id"]}") do |f| %>
+      <%= f.hidden_field :row_id, value: row["_harmonic_row_id"] %>
+    <% end %>
+  <% end %>
+
   <div style="padding: 12px 16px;">
     <%= form_with(url: "#{@note.path}/actions/add_row", method: :post, class: "pulse-form") do |f| %>
       <div style="display: flex; gap: 8px; align-items: end; flex-wrap: wrap;">

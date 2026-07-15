@@ -385,9 +385,15 @@ class NotesController < ApplicationController
 
   def execute_update_row
     api_helper.update_row
-    render_action_success({ action_name: "update_row", resource: current_note, result: "Row updated." })
+    respond_to do |format|
+      format.html { redirect_to current_note.path, notice: "Row updated." }
+      format.md { render_action_success({ action_name: "update_row", resource: current_note, result: "Row updated." }) }
+    end
   rescue RuntimeError, ActiveRecord::RecordInvalid => e
-    render_action_error({ action_name: "update_row", resource: current_note, error: e.message })
+    respond_to do |format|
+      format.html { redirect_to current_note.path, alert: e.message }
+      format.md { render_action_error({ action_name: "update_row", resource: current_note, error: e.message }) }
+    end
   end
 
   def describe_delete_row
