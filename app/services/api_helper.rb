@@ -1026,6 +1026,17 @@ class ApiHelper
     raise "Unauthorized: only creator can close decision" unless decision.can_close?(current_user)
     raise "Decision is already closed" if decision.closed?
 
+    # Reject an inline final statement up front for beacon-requiring (vote/lottery)
+    # decisions. Their tiebreaker beacon is drawn asynchronously *after* close, so
+    # the decision can never be fully resolved at close time — the statement guard
+    # in create_or_update_statement! would otherwise raise mid-transaction and roll
+    # the whole close back, which reads as "close mysteriously failed". Fail fast,
+    # before anything is closed, with an actionable message. Executive decisions
+    # are fully resolved on close, so an inline statement is still allowed. (#267/#304)
+    if params[:final_statement].present? && decision.requires_beacon?
+      raise "#{Decision::UNRESOLVED_STATEMENT_ERROR} Close the decision first, then add the final statement once the beacon has been drawn."
+    end
+
     ActiveRecord::Base.transaction do
       # For executive decisions, cast selection votes (before close, so DB trigger allows them)
       create_executive_selections!(decision) if decision.is_executive?
@@ -1053,6 +1064,7 @@ class ApiHelper
     raise "Unauthorized" unless decision.can_write_statement?(current_user)
 
     raise "Decision must be closed to add a statement" unless decision.closed?
+    raise Decision::UNRESOLVED_STATEMENT_ERROR unless decision.fully_resolved?
 
     statement = create_or_update_statement!(decision, params[:text])
 
@@ -1192,6 +1204,17 @@ class ApiHelper
   end
 
   private def create_or_update_statement!(statementable, text)
+    # Guard #267 at the lowest shared layer so *every* call site is covered.
+    # add_statement already checks this, but close_decision writes an inline
+    # final_statement inside the close transaction — before the lottery beacon
+    # job is even enqueued — so a creator could otherwise commit a statement
+    # onto a provisional vote/lottery winner the beacon later overturns. The
+    # guard is decision-specific (statements are also written on commitments,
+    # representation sessions, and notes, none of which have a beacon).
+    if statementable.is_a?(Decision) && !statementable.fully_resolved?
+      raise Decision::UNRESOLVED_STATEMENT_ERROR
+    end
+
     existing = statementable.statement
     if existing
       existing.text = text

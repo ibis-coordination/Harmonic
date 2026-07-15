@@ -534,6 +534,63 @@ class DecisionTest < ActiveSupport::TestCase
     assert_not decision.beacon_drawn?
   end
 
+  # === fully_resolved? tests (#267) ===
+
+  test "fully_resolved? is false for an open decision regardless of subtype" do
+    %w[vote lottery executive].each do |subtype|
+      decision = Decision.create!(
+        tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+        question: "Open #{subtype}?", description: "", deadline: 1.day.from_now, subtype: subtype,
+      )
+      assert_not decision.closed?, "#{subtype} decision should be open"
+      assert_not decision.fully_resolved?, "open #{subtype} decision must not be fully resolved"
+    end
+  end
+
+  test "fully_resolved? is false for a closed vote decision whose beacon has not been drawn" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      question: "Closed unresolved vote?", description: "", deadline: 1.minute.ago, subtype: "vote",
+    )
+    assert decision.closed?
+    assert_not decision.beacon_drawn?
+    assert_not decision.fully_resolved?,
+               "a closed vote whose tiebreaker beacon is undrawn is not yet resolved"
+  end
+
+  test "fully_resolved? is true for a closed vote decision once the beacon is drawn" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      question: "Closed resolved vote?", description: "", deadline: 1.minute.ago, subtype: "vote",
+      lottery_beacon_round: 12345, lottery_beacon_randomness: "abc123",
+    )
+    assert decision.closed?
+    assert decision.beacon_drawn?
+    assert decision.fully_resolved?
+  end
+
+  test "fully_resolved? requires the beacon for a closed lottery decision" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      question: "Closed lottery?", description: "", deadline: 1.minute.ago, subtype: "lottery",
+    )
+    assert decision.closed?
+    assert_not decision.fully_resolved?, "a closed lottery with no beacon is not resolved"
+
+    decision.update!(lottery_beacon_round: 999, lottery_beacon_randomness: "deadbeef")
+    assert decision.fully_resolved?
+  end
+
+  test "fully_resolved? needs no beacon for a closed executive decision" do
+    decision = Decision.create!(
+      tenant: @tenant, collective: @collective, created_by: @user, updated_by: @user,
+      question: "Closed executive?", description: "", deadline: 1.minute.ago, subtype: "executive",
+    )
+    assert decision.closed?
+    assert_not decision.beacon_drawn?
+    assert decision.fully_resolved?, "executive decisions involve no beacon — closed is sufficient"
+  end
+
   test "api_json includes beacon data for vote decision with beacon" do
     decision = Decision.create!(
       tenant: @tenant, collective: @collective,

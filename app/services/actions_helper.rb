@@ -536,7 +536,7 @@ class ActionsHelper
       visibility: :by_collective,
     },
     "add_statement" => {
-      description: "Add or update the final statement on this decision. Only available after the decision is closed.",
+      description: "Add or update the final statement on this decision. Only available once the decision is fully resolved — closed, and for vote/lottery decisions the tiebreaker beacon has been drawn.",
       params_string: "(text)",
       params: [
         { name: "text", type: "string", description: "The statement text" },

@@ -508,6 +508,14 @@ class DecisionsController < ApplicationController
       return
     end
 
+    unless @decision.fully_resolved?
+      respond_to do |format|
+        format.html { redirect_to @decision.path, alert: Decision::UNRESOLVED_STATEMENT_ERROR }
+        format.md { render_action_error({ action_name: 'add_statement', resource: @decision, error: Decision::UNRESOLVED_STATEMENT_ERROR, status: :conflict }) }
+      end
+      return
+    end
+
     begin
       api_helper(params: { text: params[:text] || params[:final_statement] }).add_statement
       respond_to do |format|

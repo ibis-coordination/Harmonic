@@ -62,6 +62,30 @@ class Decision < ApplicationRecord
     is_lottery? && beacon_drawn?
   end
 
+  sig { returns(T::Boolean) }
+  def requires_beacon?
+    is_lottery? || is_vote?
+  end
+
+  # Error surfaced when a final statement is attempted on a decision that is
+  # closed but not yet fully resolved (the tiebreaker beacon has not been
+  # drawn). See #fully_resolved? and issue #267.
+  UNRESOLVED_STATEMENT_ERROR = "Decision results are not yet final — the tiebreaker beacon has not been drawn yet."
+
+  # A decision is fully resolved once voting has closed AND — for vote/lottery
+  # decisions — the drand tiebreaker beacon has been drawn. The beacon is drawn
+  # asynchronously *after* the deadline (see LotteryDrawJob), so `closed?` alone
+  # is true during a window in which a tied result can still flip. Final
+  # statements must wait for full resolution so they can't commit to a
+  # provisional winner that the beacon later overturns. Executive decisions
+  # involve no beacon, so `closed?` is sufficient. (#267)
+  sig { returns(T::Boolean) }
+  def fully_resolved?
+    return false unless closed?
+
+    requires_beacon? ? beacon_drawn? : true
+  end
+
   AUDIT_CHAIN_LAUNCH_DATE = Time.utc(2026, 5, 5)
 
   sig { returns(T::Boolean) }
