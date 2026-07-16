@@ -18,9 +18,7 @@ class FundingPool < ApplicationRecord
   # rather than block the deletion with a foreign-key violation.
   has_many :funded_agents, class_name: "User", dependent: :nullify, inverse_of: :funding_pool
 
-  # The windows a draw ceiling can cover. Every UI surface currently writes
-  # "day"; week/month are live in the schema and resolver, awaiting a period
-  # selector in the UI.
+  # The windows a draw ceiling can cover.
   DRAW_CAP_PERIODS = ["day", "week", "month"].freeze
 
   validates :collective_id, uniqueness: { message: "already has a funding pool" }

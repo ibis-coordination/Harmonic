@@ -133,6 +133,23 @@ module LLMGateway
       assert_equal 80, row[:spend_cents]
     end
 
+    test "pool_report member rows carry the active enrollment; withdrawn rows carry none" do
+      pool = create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 500)
+      departed = create_enrolled_member!(pool, stripe_id: "cus_departed", name: "Departed Member")
+      record_spend!("cus_departed", 80, funding_pool_id: pool.id)
+      pool.enrollments.find_by!(user: departed).withdraw!
+
+      report = UsageReport.pool_report(pool)
+
+      active_row = report[:member_rows].find { |r| r[:user].id == @user.id }
+      assert_not_nil active_row[:enrollment], "an active enrollee row should carry its enrollment"
+      assert_equal 500, active_row[:enrollment].draw_cap_cents
+
+      withdrawn_row = report[:member_rows].find { |r| r[:user].id == departed.id }
+      assert_not_nil withdrawn_row, "a withdrawn member with window spend should still appear"
+      assert_nil withdrawn_row[:enrollment], "a withdrawn row should carry no active enrollment"
+    end
+
     test "pool_report counts pending and stale pending rows" do
       pool = create_funding_pool!(primary_stripe_id: "cus_primary")
       open_call!("cus_primary", funding_pool_id: pool.id, occurred_at: 1.minute.ago)

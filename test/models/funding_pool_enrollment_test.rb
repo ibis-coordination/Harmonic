@@ -27,6 +27,12 @@ class FundingPoolEnrollmentTest < ActiveSupport::TestCase
     member
   end
 
+  test "draw_cap_per_30_days_cents translates each period to a 30-day maximum" do
+    assert_equal 3000, FundingPoolEnrollment.new(draw_cap_cents: 100, draw_cap_period: "day").draw_cap_per_30_days_cents
+    assert_equal 5000, FundingPoolEnrollment.new(draw_cap_cents: 1000, draw_cap_period: "week").draw_cap_per_30_days_cents
+    assert_equal 4000, FundingPoolEnrollment.new(draw_cap_cents: 2000, draw_cap_period: "month").draw_cap_per_30_days_cents
+  end
+
   test "a funded collective member can enroll" do
     enrollment = @pool.enroll!(@user, draw_cap_cents: 500)
     assert enrollment.persisted?
