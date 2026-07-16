@@ -50,15 +50,17 @@ module LLMGateway
 
     # One row per active enrollment (zero-spend members included), plus a row
     # for any customer with window spend who is no longer actively enrolled
-    # (withdrawn members whose past draws still show up). Sorted by spend, then
-    # name.
+    # (withdrawn members whose past draws still show up). Active rows carry
+    # their enrollment (for ceiling and enrollment date); withdrawn rows carry
+    # none. Sorted by spend, then name.
     sig do
       params(pool: FundingPool, spend_by_customer: T::Hash[String, T.untyped]).returns(T::Array[T::Hash[Symbol, T.untyped]])
     end
     def self.pool_member_rows(pool, spend_by_customer)
-      enrolled_user_ids = FundingPoolEnrollment.tenant_scoped_only(pool.tenant_id)
+      enrollment_by_user_id = FundingPoolEnrollment.tenant_scoped_only(pool.tenant_id)
         .where(funding_pool_id: pool.id, archived_at: nil)
-        .pluck(:user_id)
+        .index_by(&:user_id)
+      enrolled_user_ids = enrollment_by_user_id.keys
       users_by_id = User.where(id: enrolled_user_ids).index_by(&:id)
       stripe_id_by_user = StripeCustomer.where(billable_type: "User", billable_id: enrolled_user_ids)
         .pluck(:billable_id, :stripe_id).to_h
@@ -70,7 +72,7 @@ module LLMGateway
 
         stripe_id = stripe_id_by_user[user_id]
         spend = (stripe_id && spend_by_customer[stripe_id]) || 0
-        { user: user, spend_cents: spend }
+        { user: user, spend_cents: spend, enrollment: enrollment_by_user_id[user_id] }
       end
 
       withdrawn_stripe_ids = spend_by_customer.keys - enrolled_stripe_ids
@@ -81,7 +83,7 @@ module LLMGateway
         user = withdrawn_users[user_id_by_stripe_id[stripe_id]]
         next if user.nil?
 
-        rows << { user: user, spend_cents: spend_by_customer[stripe_id] }
+        rows << { user: user, spend_cents: spend_by_customer[stripe_id], enrollment: nil }
       end
 
       rows.sort_by { |row| [-row[:spend_cents], row[:user].display_name.to_s] }

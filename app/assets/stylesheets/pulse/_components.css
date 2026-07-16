@@ -2373,6 +2373,17 @@ a.pulse-activity-title:hover {
   color: var(--color-accent-fg);
 }
 
+/* Row belonging to the current user (e.g. their own enrollment or agent). */
+.pulse-table tr.pulse-row-you {
+  background: var(--color-accent-subtle);
+}
+
+/* Totals row set off from the body rows. */
+.pulse-table tr.pulse-table-total td {
+  border-top: 2px solid var(--color-border-default);
+  border-bottom: none;
+}
+
 /* Empty State */
 .pulse-empty-message {
   font-size: 14px;

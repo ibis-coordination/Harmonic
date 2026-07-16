@@ -17,6 +17,12 @@ class FundingPoolEnrollment < ApplicationRecord
 
   scope :active, -> { where(archived_at: nil) }
 
+  # How many of a period's windows a rolling 30-day span can touch, rounded up
+  # to whole windows: 30 days, ~5 weeks (30 / 7), or 2 calendar months (a
+  # 30-day span straddles one boundary). Used to translate a ceiling into a
+  # 30-day maximum draw.
+  WINDOWS_PER_30_DAYS = { "day" => 30, "week" => 5, "month" => 2 }.freeze
+
   before_validation :set_scope_from_pool
   validates :user_id, uniqueness: { scope: :funding_pool_id }
   # The member's own ceiling on this pool's draws, stated as part of the
@@ -37,6 +43,13 @@ class FundingPoolEnrollment < ApplicationRecord
   sig { returns(T::Boolean) }
   def archived?
     archived_at.present?
+  end
+
+  # The most this ceiling could allow to be drawn in a 30-day window: the
+  # ceiling times the number of its windows a 30-day span can touch.
+  sig { returns(Integer) }
+  def draw_cap_per_30_days_cents
+    draw_cap_cents * WINDOWS_PER_30_DAYS.fetch(draw_cap_period)
   end
 
   private

@@ -2918,6 +2918,89 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/\$0\.50/, response.body) # Beta Bot's spend
   end
 
+  test "the pool page renders member and agent tables and highlights the current user's rows" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user, stripe_id: "cus_you")
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Your Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(%r{<th[^>]*>\s*Ceiling}, response.body)
+    assert_match(%r{<th[^>]*>\s*Enrolled}, response.body)
+    assert_match(%r{<th[^>]*>\s*Max possible per 30 days}, response.body)
+    assert_match(%r{<th[^>]*>\s*Principal}, response.body)
+    # The current user is highlighted both as an enrolled member and as the
+    # principal of a funded agent.
+    assert response.body.scan("pulse-row-you").size >= 2,
+           "expected the current user's member row and their agent's row to be highlighted"
+    # Each table carries a totals row summing the last-30-days column.
+    assert response.body.scan("pulse-table-total").size >= 2,
+           "expected a totals row on both the members and agents tables"
+    # The $5.00/day ceiling translates to a 30-day max of $150.00 (× 30 days),
+    # with the calculation exposed as a title tooltip.
+    assert_includes response.body, "title=\"$5.00/day × 30 days = $150.00\""
+  end
+
+  test "the pool page totals do not truncate fractional cents" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective)
+    fund_user!(@user, stripe_id: "cus_frac")
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user, name: "Frac Bot")
+    @tenant.add_user!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent.update!(funding_pool: pool)
+    Tenant.clear_thread_scope
+    record_pool_spend!(pool, stripe_id: "cus_frac", cents: 64.66044, agent: agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    # The member and agent totals round the same fractional sum; the agent
+    # total must not be truncated to $0.64.
+    assert_not_includes response.body, "$0.64"
+    assert_operator response.body.scan("$0.65").size, :>=, 2
+  end
+
+  test "the pool page shows the maximum possible draw as pool ceiling times member count" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    pool = create_pool!(collective) # pool ceiling $5.00 / day
+    fund_user!(@user)
+    enroll!(pool, @user, draw_cap_cents: 500)
+    # A second member who sets a *lower* personal ceiling — the maximum is the
+    # pool ceiling times member count, independent of what members choose.
+    frugal = add_funded_member!(collective, name: "Frugal Member")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    pool.enroll!(frugal, draw_cap_cents: 100, draw_cap_period: "day")
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_match(/Maximum Possible Draw/, response.body)
+    # $5.00 / day / member × 2 members = $10.00 / day
+    assert_match(%r{/ day / member}, response.body)
+    assert_match(/2 members/, response.body)
+    assert_match(%r{\$10\.00 / day}, response.body) # $5.00 pool ceiling × 2 members
+    assert_match(/Last 30 days \(actual\)/, response.body)
+    # Only the actual-spend column is totaled; the max-possible column is not,
+    # to avoid drawing the eye to a hypothetical sum.
+    refute_match(/\$180\.00/, response.body)
+  end
+
   test "the markdown pool page shows spend figures" do
     collective = create_test_collective
     enable_funding_pools!(collective)

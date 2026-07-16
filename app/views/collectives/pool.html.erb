@@ -62,20 +62,88 @@
     <% agent_spend_by_id = @usage_report[:agent_rows].to_h { |r| [r[:agent]&.id, r[:spend_cents]] } %>
     <% enrolled_user_ids = @pool_enrollments.map(&:user_id) %>
 
+    <% member_count = @pool_enrollments.size %>
+    <% if member_count > 0 %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Maximum Possible Draw</h2>
+        <p class="pulse-body-text">
+          This pool draws at most its per-member ceiling from each enrolled
+          member per period. So the most it can draw in total is that ceiling
+          times the number of enrolled members:
+        </p>
+        <p class="pulse-body-text">
+          <strong><%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %></strong> / <%= @funding_pool.member_draw_cap_period %> / member
+          × <%= pluralize(member_count, "member") %>
+          = <strong><%= number_to_currency(@funding_pool.member_draw_cap_cents * member_count / 100.0) %> / <%= @funding_pool.member_draw_cap_period %></strong>
+        </p>
+      </section>
+    <% end %>
+
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Enrolled Members</h2>
       <% if @usage_report[:member_rows].any? %>
-        <ul class="pulse-list">
-          <% @usage_report[:member_rows].each do |row| %>
-            <li>
-              <%= link_to row[:user].display_name, row[:user].path %>
-              <% unless enrolled_user_ids.include?(row[:user].id) %>
-                <span class="pulse-muted">(withdrawn)</span>
-              <% end %>
-              <span class="pulse-muted">— <%= number_to_currency(row[:spend_cents].to_f / 100) %> (last 30 days)</span>
-            </li>
-          <% end %>
-        </ul>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Enrolled</th>
+              <th>Ceiling</th>
+              <th style="text-align: right;">Max possible per 30 days</th>
+              <th style="text-align: right;">Last 30 days (actual)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @usage_report[:member_rows].each do |row| %>
+              <% enrollment = row[:enrollment] %>
+              <tr class="<%= 'pulse-row-you' if @current_user && row[:user].id == @current_user.id %>">
+                <td>
+                  <%= link_to row[:user].display_name, row[:user].path %>
+                  <% if enrollment.nil? %>
+                    <span class="pulse-muted">(withdrawn)</span>
+                  <% end %>
+                </td>
+                <td>
+                  <% if enrollment %>
+                    <%= enrollment.created_at.strftime("%b %-d, %Y") %>
+                  <% else %>
+                    <span class="pulse-muted">—</span>
+                  <% end %>
+                </td>
+                <td>
+                  <% if enrollment %>
+                    <%= number_to_currency(enrollment.draw_cap_cents / 100.0) %> / <%= enrollment.draw_cap_period %>
+                  <% else %>
+                    <span class="pulse-muted">—</span>
+                  <% end %>
+                </td>
+                <td style="text-align: right;">
+                  <% if enrollment %>
+                    <% mult = FundingPoolEnrollment::WINDOWS_PER_30_DAYS.fetch(enrollment.draw_cap_period) %>
+                    <% windows = case enrollment.draw_cap_period
+                                 when "week" then "#{mult} weeks (ceil(30 / 7))"
+                                 when "month" then "#{mult} months (a 30-day span can cross a month boundary)"
+                                 else "#{mult} days"
+                                 end %>
+                    <% max_str = number_to_currency(enrollment.draw_cap_per_30_days_cents / 100.0) %>
+                    <span title="<%= number_to_currency(enrollment.draw_cap_cents / 100.0) %>/<%= enrollment.draw_cap_period %> × <%= windows %> = <%= max_str %>"><%= max_str %></span>
+                  <% else %>
+                    <span class="pulse-muted">—</span>
+                  <% end %>
+                </td>
+                <td style="text-align: right;"><%= number_to_currency(row[:spend_cents].to_f / 100) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+          <tfoot>
+            <tr class="pulse-table-total">
+              <td><strong>Total</strong></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td style="text-align: right;"><strong><%= number_to_currency(@usage_report[:member_rows].sum { |r| r[:spend_cents] }.to_f / 100) %></strong></td>
+            </tr>
+          </tfoot>
+        </table>
       <% else %>
         <p class="pulse-empty-message"><em>No members are enrolled yet.</em></p>
       <% end %>
@@ -84,22 +152,49 @@
     <section class="pulse-settings-section">
       <h2 class="pulse-section-title">Funded Agents</h2>
       <% if @funded_agents.any? %>
-        <ul class="pulse-list">
-          <% @funded_agents.each do |agent| %>
-            <li>
-              <%= link_to agent.display_name, agent.path %>
-              <% if agent.parent %>
-                <span class="pulse-muted">— principal <%= link_to agent.parent.display_name, agent.parent.path %></span>
-              <% end %>
-              <% if agent_spend_by_id[agent.id] %>
-                <span class="pulse-muted">— <%= number_to_currency(agent_spend_by_id[agent.id].to_f / 100) %> (last 30 days)</span>
-              <% end %>
-              <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
-                <span class="pulse-muted">— not running: principal not enrolled. Runs again when the principal re-enrolls, or when it is detached and given its own billing.</span>
-              <% end %>
-            </li>
-          <% end %>
-        </ul>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Principal</th>
+              <th style="text-align: right;">Last 30 days</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @funded_agents.each do |agent| %>
+              <% is_you = @current_user && (agent.id == @current_user.id || agent.parent_id == @current_user.id) %>
+              <tr class="<%= 'pulse-row-you' if is_you %>">
+                <td>
+                  <%= link_to agent.display_name, agent.path %>
+                  <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
+                    <br><span class="pulse-muted" style="font-size: 12px;">Not running: principal not enrolled. Runs again when the principal re-enrolls, or when it is detached and given its own billing.</span>
+                  <% end %>
+                </td>
+                <td>
+                  <% if agent.parent %>
+                    <%= link_to agent.parent.display_name, agent.parent.path %>
+                  <% else %>
+                    <span class="pulse-muted">—</span>
+                  <% end %>
+                </td>
+                <td style="text-align: right;">
+                  <% if agent_spend_by_id[agent.id] %>
+                    <%= number_to_currency(agent_spend_by_id[agent.id].to_f / 100) %>
+                  <% else %>
+                    <span class="pulse-muted">—</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+          <tfoot>
+            <tr class="pulse-table-total">
+              <td><strong>Total</strong></td>
+              <td></td>
+              <td style="text-align: right;"><strong><%= number_to_currency(@funded_agents.sum { |a| agent_spend_by_id[a.id] || 0 }.to_f / 100) %></strong></td>
+            </tr>
+          </tfoot>
+        </table>
       <% else %>
         <p class="pulse-empty-message"><em>No agents are funded by this pool yet.</em></p>
       <% end %>
