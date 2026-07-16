@@ -54,16 +54,20 @@ class AgentRunnerDispatchService
       return
     end
 
-    # Billing checks. System agents (e.g., Trio) are exempt: they have no
-    # billing_customer, are never charged, and route through LiteLLM rather
-    # than the LLM gateway.
+    # Billing checks. Pool-funded agents (funding_pool set) skip the
+    # individual checks entirely: their spend draws from the pool's enrolled
+    # members, not a personal billing customer — the gateway's select-payer
+    # picks a funded member per call, and the relayed Stripe 402 is the
+    # balance gate.
     #
-    # Pool-funded agents (funding_pool set) skip the individual checks
-    # entirely: their spend draws from the pool's enrolled members, not a
-    # personal billing customer — the gateway's select-payer picks a funded
-    # member per call, and the relayed Stripe 402 is the balance gate.
+    # System agents (e.g., Trio) hold no individual billing either; on a
+    # billing tenant their only funding source is their collective's pool.
     billing_customer = ai_agent.resolved_billing_customer
     pool_funded = ai_agent.funding_pool_id.present?
+    if tenant.feature_enabled?("stripe_billing") && ai_agent.system? && !pool_funded
+      fail_task!("Trio runs on the collective's funding pool. A collective admin can open one in collective settings.")
+      return
+    end
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !pool_funded
       # (a) The agent's identity must be paid for before we run a task — the
       # norm, unchanged. An agent's billing_customer is its principal's Stripe
@@ -87,13 +91,13 @@ class AgentRunnerDispatchService
       @task_run.update!(stripe_customer_id: billing_customer.id) if billing_customer
     end
 
-    # Gateway routing is decided per task: a billed agent (stripe_billing tenant,
-    # non-system) meters its tokens against prepaid credits and so goes through
-    # the Stripe AI Gateway; everyone else (system agents, non-billing tenants)
-    # goes through LiteLLM. The runner reads this from the stream payload rather
+    # Gateway routing is decided per task: on a stripe_billing tenant every
+    # agent's tokens are metered through the Stripe AI Gateway — LiteLLM is
+    # never used where billing is on. Non-billing tenants route everything
+    # through LiteLLM. The runner reads this from the stream payload rather
     # than its own env config. Routing does not depend on the per-identity
     # subscription: a free account with credits still drains them via the gateway.
-    gateway_mode = if tenant.feature_enabled?("stripe_billing") && !ai_agent.system?
+    gateway_mode = if tenant.feature_enabled?("stripe_billing")
                      "stripe_gateway"
                    else
                      "litellm"
