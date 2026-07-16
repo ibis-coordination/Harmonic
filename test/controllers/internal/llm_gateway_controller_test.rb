@@ -357,6 +357,35 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     assert_equal "cus_pool_a", record.payer_stripe_customer_id
   end
 
+  test "a pool draw stamps the terms it was authorized against on the usage record" do
+    pool = attach_funding_pool!(@ai_agent, ["cus_pool_a"])
+    enrollment = pool.enrollments.find_by!(user: @user)
+
+    select_payer(task_run_id: @unbilled_task_run.id)
+
+    assert_response :success
+    selection_id = JSON.parse(response.body)["selection_id"]
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal enrollment.id, record.funding_pool_enrollment_id
+    assert_equal 500, record.enrollment_draw_cap_cents
+    assert_equal "day", record.enrollment_draw_cap_period
+    assert_equal 500, record.pool_member_draw_cap_cents
+    assert_equal "day", record.pool_member_draw_cap_period
+  end
+
+  test "an individual billing draw stamps no authorizing terms" do
+    select_payer(task_run_id: @task_run.id)
+
+    assert_response :success
+    selection_id = JSON.parse(response.body)["selection_id"]
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_nil record.funding_pool_enrollment_id
+    assert_nil record.enrollment_draw_cap_cents
+    assert_nil record.enrollment_draw_cap_period
+    assert_nil record.pool_member_draw_cap_cents
+    assert_nil record.pool_member_draw_cap_period
+  end
+
   test "a failed payer resolution opens no usage record" do
     select_payer(task_run_id: @unbilled_task_run.id)
 
@@ -403,6 +432,30 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
     # (812 × $3.00 + 344 × $15.00) / 1M tokens = $0.007596 → 0.7596¢
     assert_in_delta 0.7596, record.estimated_cost_cents.to_f, 0.0001
     assert_not_nil record.completed_at, "spend sums anchor on completion time, so record-usage must stamp it"
+  end
+
+  test "completing a pool draw preserves its authorizing-terms receipt" do
+    pool = attach_funding_pool!(@ai_agent, ["cus_pool_a"])
+    enrollment = pool.enrollments.find_by!(user: @user)
+    select_payer(task_run_id: @unbilled_task_run.id)
+    selection_id = JSON.parse(response.body)["selection_id"]
+
+    prices = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.00", output_per_million: "15.00" } }
+    GatewayModelCatalog.stub :prices, prices do
+      record_usage(selection_id: selection_id, model: "anthropic/claude-sonnet-4.6",
+                   input_tokens: 812, output_tokens: 344, status: "ok")
+    end
+
+    assert_response :success
+    record = LLMUsageRecord.find_by!(selection_id: selection_id)
+    assert_equal "completed", record.status
+    # The receipt is stamped at selection and must outlive completion: settling
+    # a dispute reads the terms off the completed row.
+    assert_equal enrollment.id, record.funding_pool_enrollment_id
+    assert_equal 500, record.enrollment_draw_cap_cents
+    assert_equal "day", record.enrollment_draw_cap_period
+    assert_equal 500, record.pool_member_draw_cap_cents
+    assert_equal "day", record.pool_member_draw_cap_period
   end
 
   test "record-usage is idempotent on the selection id" do

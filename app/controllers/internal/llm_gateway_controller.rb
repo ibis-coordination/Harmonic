@@ -27,10 +27,9 @@ module Internal
 
       result = LLMGateway::PayerResolver.resolve(task_run)
       selection_id = open_usage_record(
+        result,
         ai_agent_id: T.must(task_run.ai_agent_id),
-        payer_customer_id: result.payer_customer_id,
         origin_tenant_id: T.must(task_run.tenant_id),
-        funding_pool_id: result.funding_pool_id,
         task_run_id: task_run.id,
       )
       render json: { payer_customer_id: result.payer_customer_id, selection_id: selection_id }
@@ -64,10 +63,9 @@ module Internal
 
       token.token_used!
       selection_id = open_usage_record(
+        result,
         ai_agent_id: T.must(token.user_id),
-        payer_customer_id: result.payer_customer_id,
         origin_tenant_id: tenant.id,
-        funding_pool_id: result.funding_pool_id,
         api_token_id: token.id,
         model: model,
       )
@@ -132,30 +130,35 @@ module Internal
 
     private
 
-    # Opens the pending ledger row for a resolved selection. The ledger is
-    # advisory (gating/accounting) — a failure to open it must not block the
-    # billed call itself, so this logs and returns nil rather than raising;
-    # the gateway skips record-usage when no selection id came back.
+    # Opens the pending ledger row for a resolved selection, stamping the
+    # draw's receipt (payer, pool, and the ceilings it was authorized against)
+    # from the resolver result. The ledger is advisory (gating/accounting) — a
+    # failure to open it must not block the billed call itself, so this logs
+    # and returns nil rather than raising; the gateway skips record-usage when
+    # no selection id came back.
     sig do
       params(
+        result: LLMGateway::PayerResolver::Result,
         ai_agent_id: String,
-        payer_customer_id: String,
         origin_tenant_id: String,
-        funding_pool_id: T.nilable(String),
         task_run_id: T.nilable(String),
         api_token_id: T.nilable(String),
         model: T.nilable(String),
       ).returns(T.nilable(String))
     end
-    def open_usage_record(ai_agent_id:, payer_customer_id:, origin_tenant_id:, funding_pool_id: nil,
-                          task_run_id: nil, api_token_id: nil, model: nil)
+    def open_usage_record(result, ai_agent_id:, origin_tenant_id:, task_run_id: nil, api_token_id: nil, model: nil)
       record = LLMUsageRecord.create!(
         selection_id: "sel_#{SecureRandom.uuid}",
         status: "pending",
         ai_agent_id: ai_agent_id,
-        payer_stripe_customer_id: payer_customer_id,
+        payer_stripe_customer_id: result.payer_customer_id,
         origin_tenant_id: origin_tenant_id,
-        funding_pool_id: funding_pool_id,
+        funding_pool_id: result.funding_pool_id,
+        funding_pool_enrollment_id: result.funding_pool_enrollment_id,
+        enrollment_draw_cap_cents: result.enrollment_draw_cap_cents,
+        enrollment_draw_cap_period: result.enrollment_draw_cap_period,
+        pool_member_draw_cap_cents: result.pool_member_draw_cap_cents,
+        pool_member_draw_cap_period: result.pool_member_draw_cap_period,
         ai_agent_task_run_id: task_run_id,
         api_token_id: api_token_id,
         model: model,

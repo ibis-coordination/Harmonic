@@ -930,6 +930,96 @@ class LLMUsageRecord
     sig { void }
     def created_at_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def enrollment_draw_cap_cents; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def enrollment_draw_cap_cents=(value); end
+
+    sig { returns(T::Boolean) }
+    def enrollment_draw_cap_cents?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def enrollment_draw_cap_cents_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def enrollment_draw_cap_cents_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def enrollment_draw_cap_cents_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def enrollment_draw_cap_cents_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def enrollment_draw_cap_cents_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def enrollment_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def enrollment_draw_cap_cents_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def enrollment_draw_cap_cents_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def enrollment_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def enrollment_draw_cap_cents_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def enrollment_draw_cap_cents_was; end
+
+    sig { void }
+    def enrollment_draw_cap_cents_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def enrollment_draw_cap_period; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def enrollment_draw_cap_period=(value); end
+
+    sig { returns(T::Boolean) }
+    def enrollment_draw_cap_period?; end
+
+    sig { returns(T.nilable(::String)) }
+    def enrollment_draw_cap_period_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def enrollment_draw_cap_period_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def enrollment_draw_cap_period_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def enrollment_draw_cap_period_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def enrollment_draw_cap_period_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def enrollment_draw_cap_period_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def enrollment_draw_cap_period_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def enrollment_draw_cap_period_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def enrollment_draw_cap_period_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def enrollment_draw_cap_period_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def enrollment_draw_cap_period_was; end
+
+    sig { void }
+    def enrollment_draw_cap_period_will_change!; end
+
     sig { returns(T.nilable(::BigDecimal)) }
     def estimated_cost_cents; end
 
@@ -974,6 +1064,51 @@ class LLMUsageRecord
 
     sig { void }
     def estimated_cost_cents_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_enrollment_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def funding_pool_enrollment_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def funding_pool_enrollment_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_enrollment_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def funding_pool_enrollment_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def funding_pool_enrollment_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def funding_pool_enrollment_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def funding_pool_enrollment_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def funding_pool_enrollment_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_enrollment_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def funding_pool_enrollment_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def funding_pool_enrollment_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_enrollment_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def funding_pool_enrollment_id_was; end
+
+    sig { void }
+    def funding_pool_enrollment_id_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def funding_pool_id; end
@@ -1380,6 +1515,96 @@ class LLMUsageRecord
     sig { void }
     def payer_stripe_customer_id_will_change!; end
 
+    sig { returns(T.nilable(::Integer)) }
+    def pool_member_draw_cap_cents; end
+
+    sig { params(value: T.nilable(::Integer)).returns(T.nilable(::Integer)) }
+    def pool_member_draw_cap_cents=(value); end
+
+    sig { returns(T::Boolean) }
+    def pool_member_draw_cap_cents?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def pool_member_draw_cap_cents_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def pool_member_draw_cap_cents_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def pool_member_draw_cap_cents_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def pool_member_draw_cap_cents_change; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def pool_member_draw_cap_cents_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pool_member_draw_cap_cents_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def pool_member_draw_cap_cents_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def pool_member_draw_cap_cents_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pool_member_draw_cap_cents_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def pool_member_draw_cap_cents_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def pool_member_draw_cap_cents_was; end
+
+    sig { void }
+    def pool_member_draw_cap_cents_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def pool_member_draw_cap_period; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def pool_member_draw_cap_period=(value); end
+
+    sig { returns(T::Boolean) }
+    def pool_member_draw_cap_period?; end
+
+    sig { returns(T.nilable(::String)) }
+    def pool_member_draw_cap_period_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def pool_member_draw_cap_period_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def pool_member_draw_cap_period_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def pool_member_draw_cap_period_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def pool_member_draw_cap_period_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pool_member_draw_cap_period_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def pool_member_draw_cap_period_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def pool_member_draw_cap_period_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def pool_member_draw_cap_period_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def pool_member_draw_cap_period_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def pool_member_draw_cap_period_was; end
+
+    sig { void }
+    def pool_member_draw_cap_period_will_change!; end
+
     sig { void }
     def restore_ai_agent_id!; end
 
@@ -1396,7 +1621,16 @@ class LLMUsageRecord
     def restore_created_at!; end
 
     sig { void }
+    def restore_enrollment_draw_cap_cents!; end
+
+    sig { void }
+    def restore_enrollment_draw_cap_period!; end
+
+    sig { void }
     def restore_estimated_cost_cents!; end
+
+    sig { void }
+    def restore_funding_pool_enrollment_id!; end
 
     sig { void }
     def restore_funding_pool_id!; end
@@ -1424,6 +1658,12 @@ class LLMUsageRecord
 
     sig { void }
     def restore_payer_stripe_customer_id!; end
+
+    sig { void }
+    def restore_pool_member_draw_cap_cents!; end
+
+    sig { void }
+    def restore_pool_member_draw_cap_period!; end
 
     sig { void }
     def restore_selection_id!; end
@@ -1464,11 +1704,29 @@ class LLMUsageRecord
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_enrollment_draw_cap_cents; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_enrollment_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_enrollment_draw_cap_period; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_enrollment_draw_cap_period?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
     def saved_change_to_estimated_cost_cents; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_estimated_cost_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_funding_pool_enrollment_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_funding_pool_enrollment_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_funding_pool_id; end
@@ -1523,6 +1781,18 @@ class LLMUsageRecord
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_payer_stripe_customer_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::Integer), T.nilable(::Integer)])) }
+    def saved_change_to_pool_member_draw_cap_cents; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_pool_member_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_pool_member_draw_cap_period; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_pool_member_draw_cap_period?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_selection_id; end
@@ -1693,7 +1963,16 @@ class LLMUsageRecord
     def will_save_change_to_created_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_enrollment_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_enrollment_draw_cap_period?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_estimated_cost_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_funding_pool_enrollment_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_funding_pool_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
@@ -1721,6 +2000,12 @@ class LLMUsageRecord
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_payer_stripe_customer_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_pool_member_draw_cap_cents?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_pool_member_draw_cap_period?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_selection_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
