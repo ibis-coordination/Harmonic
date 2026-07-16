@@ -7,7 +7,7 @@ class CollectiveAutomationsController < ApplicationController
   helper_method :automations_index_path, :automation_path
 
   before_action :require_user
-  before_action :require_collective_admin
+  before_action :require_automation_manager
   before_action :require_automations_flag
   before_action :set_sidebar_mode, only: [:index, :new, :show, :edit, :runs, :run_show]
   before_action :set_automation_rule, only: [
@@ -470,13 +470,14 @@ class CollectiveAutomationsController < ApplicationController
     end
   end
 
-  def require_collective_admin
-    return if @current_user.collective_member&.is_admin?
+  # Admins and automators share the full automation-management surface.
+  def require_automation_manager
+    return if @current_user.collective_member&.can_manage_automations?
 
     respond_to do |format|
-      format.html { redirect_to @current_collective.path, alert: "You must be a collective admin to manage automations." }
+      format.html { redirect_to @current_collective.path, alert: "You must be a collective admin or automator to manage automations." }
       format.json { render json: { error: "Forbidden" }, status: :forbidden }
-      format.md { render plain: "# Error\n\nYou must be a collective admin to manage automations.", status: :forbidden }
+      format.md { render plain: "# Error\n\nYou must be a collective admin or automator to manage automations.", status: :forbidden }
     end
   end
 

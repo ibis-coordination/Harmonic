@@ -49,13 +49,25 @@ module HasRoles # TenantUser, CollectiveMember, ...
     has_role?('summarizer')
   end
 
+  def is_automator?
+    has_role?('automator')
+  end
+
+  def is_moderator?
+    has_role?('moderator')
+  end
+
   class_methods do
     def where_has_role(role)
       where("settings->'roles' ? :role", role: role)
     end
 
+    # `automator` grants automation management (see
+    # CollectiveMember#can_manage_automations?); `moderator` is a named role
+    # that grants no capabilities yet — the moderation controls it will gate
+    # are a separate feature.
     def valid_roles
-      ['admin', 'representative', 'summarizer']
+      ['admin', 'representative', 'summarizer', 'automator', 'moderator']
     end
   end
 end
