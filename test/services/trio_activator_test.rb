@@ -207,6 +207,32 @@ class TrioActivatorTest < ActiveSupport::TestCase
     assert_nil member.reload.archived_at, "expected CollectiveMember to be unarchived"
   end
 
+  # === Persona role (mention resolution keys off it) ===
+
+  test "activate! grants the trio persona role" do
+    trio = TrioActivator.activate!(@collective)
+
+    member = T.must(@collective.collective_members.find_by(user_id: trio.id))
+    assert member.has_role?("trio")
+  end
+
+  test "deactivate! removes the trio persona role" do
+    trio = TrioActivator.activate!(@collective)
+    TrioActivator.deactivate!(@collective)
+
+    member = T.must(@collective.collective_members.find_by(user_id: trio.id))
+    assert_not member.has_role?("trio"), "a deactivated trio must drop the persona role"
+  end
+
+  test "reactivation restores the trio persona role" do
+    trio = TrioActivator.activate!(@collective)
+    TrioActivator.deactivate!(@collective)
+    TrioActivator.activate!(@collective)
+
+    member = T.must(@collective.collective_members.find_by(user_id: trio.id))
+    assert member.has_role?("trio")
+  end
+
   # === Auto-funding from the collective's pool ===
 
   def open_pool!

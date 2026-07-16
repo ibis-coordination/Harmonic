@@ -32,13 +32,15 @@ module ReservedHandles
   EVERYONE = "everyone"
   # @here (currently-active members) is intentionally deferred to a later pass.
 
-  # Each collective role maps to its pluralized tag (admin → @admins,
+  # Each capability role maps to its pluralized tag (admin → @admins,
   # representative → @representatives, summarizer → @summarizers). Keyed by tag
   # so resolution and reservation can look up the role a tag expands to. Derived
-  # from the role list, so it tracks new/custom roles automatically.
+  # from the capability role list, so it tracks new/custom roles automatically.
+  # Persona roles deliberately get no pluralized group tag — their singular
+  # tag lives in AGENT_ROLES.
   sig { returns(T::Hash[String, String]) }
   def self.role_tags
-    T.unsafe(CollectiveMember).valid_roles.index_by { |role| role.pluralize }
+    T.unsafe(CollectiveMember).capability_roles.index_by { |role| role.pluralize }
   end
 
   # @everyone plus every role tag: the handles a mention expands to a *set* of

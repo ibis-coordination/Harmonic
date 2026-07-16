@@ -1474,6 +1474,28 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not cm.has_role?("representative"), "expected the representative role to be revoked"
   end
 
+  test "persona roles cannot be granted through the role endpoint" do
+    member = add_member(name: "Would-be Trio")
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(member), role: "trio", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: member)
+    assert_not cm.has_role?("trio"), "persona roles are activator-managed, never grantable"
+  end
+
+  test "the members page role menu offers only capability roles" do
+    add_member(name: "Regular Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_no_match(/role trio/, response.body)
+  end
+
   test "non-admin cannot update member roles" do
     actor = add_member(name: "Not An Admin")
     target = add_member(name: "Target")

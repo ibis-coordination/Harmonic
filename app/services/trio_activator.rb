@@ -100,6 +100,7 @@ class TrioActivator
       next unless trio
 
       member = @collective.collective_members.find_by(user_id: trio.id)
+      member&.remove_role!(ReservedHandles::TRIO)
       member&.archive!
 
       AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: false)
@@ -139,6 +140,7 @@ class TrioActivator
   def restore!(trio)
     member = @collective.collective_members.find_by(user_id: trio.id)
     member.unarchive! if member&.archived?
+    grant_persona_role!(trio)
 
     AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: true)
 
@@ -150,9 +152,18 @@ class TrioActivator
   sig { returns(User) }
   def bootstrap!
     trio = TrioSeeder.ensure_for(@collective)
+    grant_persona_role!(trio)
     self.class.seed_default_automations!(trio, T.must(@collective.tenant_id))
     @collective.ensure_trio_funded!
     trio
+  end
+
+  # The persona role is activation state: granted here, removed on
+  # deactivate. Mention resolution (@trio) keys off it.
+  sig { params(trio: User).void }
+  def grant_persona_role!(trio)
+    member = @collective.collective_members.find_by(user_id: trio.id)
+    member&.add_role!(ReservedHandles::TRIO)
   end
 
   DEFAULT_AUTOMATIONS = T.let(
