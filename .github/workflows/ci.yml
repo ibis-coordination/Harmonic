@@ -108,8 +108,10 @@ jobs:
             paths: test/models test/components test/helpers test/mailers
           - name: services
             paths: test/services test/jobs test/channels
-          - name: controllers
-            paths: test/controllers
+          - name: controllers-1
+            shard: 0
+          - name: controllers-2
+            shard: 1
           - name: integration
             paths: test/integration
 
@@ -178,7 +180,17 @@ jobs:
           AUTH_SUBDOMAIN: auth
           REDIS_URL: redis://localhost:6379/0
           COVERAGE: true
-        run: bundle exec rails test ${{ matrix.group.paths }}
+        run: |
+          if [ -n "${{ matrix.group.shard }}" ]; then
+            # Sharded group: deterministic round-robin over sorted controller test
+            # files (NR % 2). Self-balancing by file count; bump the modulus to add shards.
+            FILES=$(find test/controllers -name '*_test.rb' | sort | awk "NR % 2 == ${{ matrix.group.shard }}")
+            echo "Shard ${{ matrix.group.shard }} running:"
+            echo "$FILES"
+            bundle exec rails test $FILES
+          else
+            bundle exec rails test ${{ matrix.group.paths }}
+          fi
 
       - name: Upload coverage results
         if: always()
