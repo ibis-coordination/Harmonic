@@ -961,6 +961,9 @@ class User < ApplicationRecord
   sig { void }
   def create_parent_trustee_grant!
     return unless ai_agent? && parent_id.present?
+    # System agents are principaled by a collective identity, which never
+    # acts as a trustee — a grant would be inert noise.
+    return if system?
 
     parent_user = User.find_by(id: parent_id)
     return unless parent_user

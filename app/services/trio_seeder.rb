@@ -5,8 +5,9 @@
 #
 # Trio is a system-seeded AI agent that opted-in collectives use as their
 # in-app assistant. It is an ordinary ai_agent User in every respect except:
-#   - system_role: "trio" (so parent_id may be nil and billing is exempt)
-#   - parent_id: nil (no human owner)
+#   - system_role: "trio"
+#   - parent_id: the collective's identity user (the collective itself is the
+#     principal — no human owner, no TrusteeGrant)
 #   - no StripeCustomer or ApiToken
 #
 # The main collective's trio claims the literal handle "trio" so its profile
@@ -59,7 +60,10 @@ class TrioSeeder
       email: "trio-#{tenant.subdomain}-#{SecureRandom.hex(4)}@system.harmonic.local",
       user_type: "ai_agent",
       system_role: "trio",
-      parent_id: nil,
+      # The collective itself is the accountable principal: trio does the
+      # collective's work, and pool draws are authorized against this link
+      # (see LLMGateway::PayerResolver).
+      parent_id: @collective.identity_user_id,
       agent_configuration: build_agent_configuration,
     )
     tenant.add_user!(trio, handle: pick_handle)
