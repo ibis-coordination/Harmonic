@@ -38,8 +38,8 @@
       </div>
     <% elsif !@funding_pools_enabled %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
-        Funding pools are currently disabled for this collective. No balances are being
-        drawn on; enrollment is paused. You can still withdraw below.
+        Funding pools are currently not available for this collective. No balances are
+        being drawn on; enrollment is paused. You can still withdraw below.
       </div>
     <% end %>
 
@@ -166,7 +166,7 @@
               <tr class="<%= 'pulse-row-you' if is_you %>">
                 <td>
                   <%= link_to agent.display_name, agent.path %>
-                  <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
+                  <% unless agent.collective_pool_agent?(@funding_pool) || (agent.parent_id && enrolled_user_ids.include?(agent.parent_id)) %>
                     <br><span class="pulse-muted" style="font-size: 12px;">Not running: principal not enrolled. Runs again when the principal re-enrolls, or when it is detached and given its own billing.</span>
                   <% end %>
                 </td>

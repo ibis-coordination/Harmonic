@@ -6,7 +6,7 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 **This pool is closed.** Its agents stop running and no balances are being drawn on; everything resumes automatically if it reopens. Enrollments are kept in case it does; withdrawal is still available.
 <% elsif !@funding_pools_enabled %>
 
-**Funding pools are currently disabled for this collective.** No balances are being drawn on; enrollment is paused. Withdrawal is still available.
+**Funding pools are currently not available for this collective.** No balances are being drawn on; enrollment is paused. Withdrawal is still available.
 <% end %>
 
 | | |
@@ -15,7 +15,7 @@ Each LLM call an attached agent makes is billed to one enrolled member's own pre
 | Pool draw ceiling | <%= format("$%.2f", @funding_pool.member_draw_cap_cents / 100.0) %> per member per <%= @funding_pool.member_draw_cap_period %> (UTC) |
 | Enrolled members | <%= @pool_enrollments.any? ? @pool_enrollments.map { |e| "[#{e.user.display_name}](#{e.user.path})" }.join(", ") : "(none yet)" %> |
 <% enrolled_user_ids = @pool_enrollments.map(&:user_id) -%>
-| Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})#{" (not running — principal not enrolled)" unless a.parent_id && enrolled_user_ids.include?(a.parent_id)}" }.join(", ") : "(none yet)" %> |
+| Funded agents | <%= @funded_agents.any? ? @funded_agents.map { |a| "[#{a.display_name}](#{a.path})#{" (not running — principal not enrolled)" unless a.collective_pool_agent?(@funding_pool) || (a.parent_id && enrolled_user_ids.include?(a.parent_id))}" }.join(", ") : "(none yet)" %> |
 | Your enrollment | <%= @current_user_enrolled ? format("Enrolled — this pool's agents can draw from your prepaid balance, up to your own ceiling of $%.2f per %s (or the pool's ceiling, whichever is lower)", @current_user_enrollment.draw_cap_cents / 100.0, @current_user_enrollment.draw_cap_period) : "Not enrolled" %> |
 | Spend (last 30 days) | <%= format("$%.2f", @usage_report[:total_cents].to_f / 100) %> |
 <% if @usage_report[:pending_count] > 0 -%>

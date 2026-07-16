@@ -2763,7 +2763,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/disabled for this collective/i, response.body)
+    assert_match(/not available for this collective/i, response.body)
   end
 
   test "setting a draw ceiling on a collective without a pool fails with a friendly message" do
@@ -2927,7 +2927,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/settings"
 
     assert_response :success
-    assert_match(/disabled for this collective/i, response.body)
+    assert_match(/not available for this collective/i, response.body)
     assert_no_match(/Save Ceiling/, response.body, "the draw ceiling must not be editable while the flag is off")
     assert_no_match(/>Enroll in Pool</, response.body)
     assert_no_match(/Attach an enrolled member/, response.body)

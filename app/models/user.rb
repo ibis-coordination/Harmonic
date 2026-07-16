@@ -272,11 +272,7 @@ class User < ApplicationRecord
 
     parent_enrollment = pool.enrollments.find_by(user_id: parent_id)
     return unless parent_enrollment.nil? || parent_enrollment.archived?
-    # A system-role agent principaled by the pool collective's own identity
-    # is the collective's agent — every enrollment's consent already covers
-    # it, so no member-principal needs to be enrolled. (Per-call enforcement
-    # of the same rule: LLMGateway::PayerResolver.)
-    return if system? && parent_id.present? && pool.collective&.identity_user_id == parent_id
+    return if collective_pool_agent?(pool)
 
     errors.add(:funding_pool_id, "requires the agent's principal to be enrolled in the funding pool")
   end
@@ -291,6 +287,16 @@ class User < ApplicationRecord
   sig { returns(T::Boolean) }
   def system?
     system_role.present?
+  end
+
+  # A system-role agent principaled by the pool collective's own identity
+  # is the collective's agent — every enrollment's consent already covers
+  # it, so no member-principal needs to be enrolled. Used by the attach
+  # validation and pool displays; per-call enforcement of the same rule
+  # lives in LLMGateway::PayerResolver.
+  sig { params(pool: FundingPool).returns(T::Boolean) }
+  def collective_pool_agent?(pool)
+    system? && parent_id.present? && pool.collective&.identity_user_id == parent_id
   end
 
   # Returns the identity prompt the agent-runner should use for this user.

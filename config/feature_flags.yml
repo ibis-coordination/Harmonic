@@ -31,7 +31,7 @@ feature_flags:
 
   trio:
     name: "Trio AI Assistant"
-    description: "Enables the Trio AI assistant for this collective. When on, @trio mentions in this collective route to the collective's Trio agent and default automations are seeded."
+    description: "Enables the Trio AI assistant for this collective. When on, @trio mentions in this collective route to the collective's Trio agent and default automations are seeded. Where billing is enabled, Trio's LLM usage is funded by the collective's funding pool — open one in settings to make Trio run."
     app_enabled: true
     default_tenant: false
     default_collective: false
