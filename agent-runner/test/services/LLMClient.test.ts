@@ -125,6 +125,7 @@ function runChatWith(
     routing?: { taskRunId: string; subdomain: string };
     gatewayMode?: "litellm" | "stripe_gateway";
     response?: Response;
+    model?: string;
   },
 ) {
   const fetchSpy = vi.fn(async () => opts.response ?? jsonResponse(okBody));
@@ -132,7 +133,7 @@ function runChatWith(
   const layer = Layer.succeed(Config, { ...baseConfig, ...config });
   const program = Effect.gen(function* () {
     const client = yield* LLMClient;
-    return yield* client.chat([], undefined, [], opts.routing, opts.gatewayMode);
+    return yield* client.chat([], opts.model, [], opts.routing, opts.gatewayMode);
   });
   return Effect.runPromise(
     program.pipe(Effect.provide(LLMClientLive.pipe(Layer.provide(layer)))),
@@ -186,6 +187,42 @@ describe("LLMClient per-task gateway routing", () => {
     await expect(
       runChatWith({}, { gatewayMode: "stripe_gateway" }),
     ).rejects.toThrow(/task run/i);
+  });
+
+  // OpenAI's current models reject `max_tokens` and require
+  // `max_completion_tokens`; everything else (Anthropic-style, LiteLLM
+  // aliases) still takes `max_tokens`.
+  it("sends max_completion_tokens for openai/ models", async () => {
+    const fetchSpy = await runChatWith(
+      {},
+      { routing, gatewayMode: "stripe_gateway", model: "openai/gpt-5.2" },
+    );
+
+    const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.max_completion_tokens).toBe(4096);
+    expect(body.max_tokens).toBeUndefined();
+  });
+
+  it("sends max_tokens for non-openai models", async () => {
+    const fetchSpy = await runChatWith(
+      {},
+      { routing, gatewayMode: "stripe_gateway", model: "anthropic/claude-sonnet-4.6" },
+    );
+
+    const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.max_tokens).toBe(4096);
+    expect(body.max_completion_tokens).toBeUndefined();
+  });
+
+  it("sends max_tokens when no model is set (gateway default)", async () => {
+    const fetchSpy = await runChatWith({}, { routing, gatewayMode: "stripe_gateway" });
+
+    const [, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.max_tokens).toBe(4096);
+    expect(body.max_completion_tokens).toBeUndefined();
   });
 });
 
