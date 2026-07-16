@@ -189,4 +189,40 @@ class CollectiveMemberTest < ActiveSupport::TestCase
     assert_equal note, reads.first[:note]
     assert reads.first[:read_at].present?
   end
+
+  # === automator / moderator roles ===
+
+  test "automator is a valid grantable role" do
+    @collective_member.add_role!("automator")
+
+    assert @collective_member.has_role?("automator")
+    assert @collective_member.is_automator?
+  end
+
+  test "moderator is a valid grantable role" do
+    @collective_member.add_role!("moderator")
+
+    assert @collective_member.has_role?("moderator")
+    assert @collective_member.is_moderator?
+  end
+
+  test "automator and moderator predicates are false by default" do
+    assert_not @collective_member.is_automator?
+    assert_not @collective_member.is_moderator?
+  end
+
+  test "can_manage_automations? is true for admins and automators only" do
+    assert_not @collective_member.can_manage_automations?
+
+    @collective_member.add_role!("automator")
+    assert @collective_member.can_manage_automations?
+
+    @collective_member.remove_role!("automator")
+    @collective_member.add_role!("admin")
+    assert @collective_member.can_manage_automations?
+
+    @collective_member.remove_role!("admin")
+    @collective_member.add_role!("moderator")
+    assert_not @collective_member.can_manage_automations?, "moderator grants no capabilities yet"
+  end
 end

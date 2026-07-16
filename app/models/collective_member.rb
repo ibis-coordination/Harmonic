@@ -107,6 +107,13 @@ class CollectiveMember < ApplicationRecord
     archived_at.nil? && (has_role?('summarizer') || T.must(collective).any_member_can_summarize?)
   end
 
+  # Admins have the full automation-management surface; the automator role
+  # grants that same surface without the rest of admin.
+  sig { returns(T::Boolean) }
+  def can_manage_automations?
+    archived_at.nil? && (is_admin? || is_automator?)
+  end
+
   # Alias for backwards compatibility
   sig { returns(T::Boolean) }
   def is_admin?

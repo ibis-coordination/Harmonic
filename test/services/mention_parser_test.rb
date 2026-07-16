@@ -220,6 +220,26 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal [summarizer.id], sums.map(&:id)
   end
 
+  test "parse resolves @automators and @moderators to their role holders" do
+    tenant, collective, admin = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    collective.add_user!(admin, roles: ["admin"])
+
+    automator = create_user(email: "auto@example.com", name: "Automator")
+    tenant.add_user!(automator)
+    collective.add_user!(automator, roles: ["automator"])
+
+    moderator = create_user(email: "mod@example.com", name: "Moderator")
+    tenant.add_user!(moderator)
+    collective.add_user!(moderator, roles: ["moderator"])
+
+    autos = MentionParser.parse("ping @automators", tenant_id: tenant.id, collective: collective, author: admin)
+    assert_equal [automator.id], autos.map(&:id)
+
+    mods = MentionParser.parse("ping @moderators", tenant_id: tenant.id, collective: collective, author: admin)
+    assert_equal [moderator.id], mods.map(&:id)
+  end
+
   test "parse resolves @everyone to all members when the author is an admin" do
     tenant, collective, admin = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)

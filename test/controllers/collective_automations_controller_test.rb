@@ -337,6 +337,69 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # === Automator role ===
+  #
+  # The automator role grants the full automation-management surface that
+  # admins have — it relaxes WHO passes the gate, nothing else. The paid-tier
+  # gate is orthogonal and still applies.
+
+  def make_automator!
+    member = @collective.collective_members.find_by(user: @user)
+    member.update!(settings: { "roles" => ["automator"] })
+  end
+
+  test "an automator can view automations index" do
+    make_automator!
+
+    get "/collectives/#{@collective.handle}/settings/automations", headers: @headers
+    assert_response :success
+  end
+
+  test "an automator can create an automation" do
+    make_automator!
+
+    assert_difference "AutomationRule.unscoped.count" do
+      post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+        params: { yaml_source: valid_yaml }.to_json,
+        headers: @headers
+    end
+
+    assert_response :success
+  end
+
+  test "an automator can toggle an automation" do
+    rule = create_collective_automation_rule(name: "Toggle Target")
+    make_automator!
+
+    post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
+      headers: @headers
+
+    assert_response :success
+    assert_not rule.reload.enabled
+  end
+
+  test "the moderator role grants no automation access" do
+    member = @collective.collective_members.find_by(user: @user)
+    member.update!(settings: { "roles" => ["moderator"] })
+
+    get "/collectives/#{@collective.handle}/settings/automations", headers: @headers
+    assert_response :forbidden
+  end
+
+  test "the paid-tier gate still applies to automators" do
+    # setup_gate_test switches to session auth on a free-tier collective with
+    # stripe_billing on — the arrangement where the tier gate actually bites.
+    setup_gate_test
+    make_automator!
+
+    assert_no_difference "AutomationRule.unscoped.count" do
+      post "/collectives/#{@collective.handle}/settings/automations/new/actions/create_automation_rule",
+        params: { yaml_source: valid_yaml }
+    end
+
+    assert_match(/paid plan/i, flash[:error].to_s.presence || response.body)
+  end
+
   # === Webhook Trigger Type Tests ===
 
   test "can create automation with webhook trigger type" do
