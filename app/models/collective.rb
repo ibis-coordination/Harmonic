@@ -479,6 +479,25 @@ class Collective < ApplicationRecord
     FeatureFlagService.collective_enabled?(self, flag_name)
   end
 
+  # Whether this collective may operate a funding pool. Two doors: the paid
+  # tier (self-serve) or the operator-managed collective-level funding_pools
+  # flag (any tier). Both sit behind tenant stripe_billing and the
+  # tenant-level funding_pools flag — the operator's rollout lever and, with
+  # the app-level flag cascading through it, the kill switches. Checked at
+  # pool creation AND per draw (LLMGateway::PayerResolver), so losing the
+  # paid tier (lapse, downgrade) suspends the pool's spending without
+  # touching its configuration; regaining it resumes.
+  sig { returns(T::Boolean) }
+  def funding_pools_available?
+    return false unless standard?
+
+    tenant_record = T.must(tenant)
+    return false unless tenant_record.feature_enabled?("stripe_billing")
+    return false unless tenant_record.feature_enabled?("funding_pools")
+
+    paid_tier? || feature_enabled?("funding_pools")
+  end
+
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
     return unless value.present?

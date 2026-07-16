@@ -24,9 +24,13 @@ module LLMGateway
 
     # A pool on the agent's parent collective with the principal enrolled and
     # funded — the minimum arrangement the attach validation accepts. The
-    # operator-managed funding_pools flag is on: the resolver treats it as a
-    # kill switch.
+    # tenant has stripe_billing (draws only happen on billing tenants) and
+    # the operator-managed funding_pools flag is on at every level: the
+    # resolver treats pool availability as a kill switch.
     def create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 500)
+      FeatureFlagService.config["stripe_billing"] ||= {}
+      FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+      @tenant.enable_feature_flag!("stripe_billing")
       FeatureFlagService.config["funding_pools"] ||= {}
       FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
@@ -772,6 +776,29 @@ module LLMGateway
 
       error = assert_raises(PayerResolver::ResolutionError) do
         PayerResolver.resolve(trio_run)
+      end
+      assert_equal "funding_collective_unavailable", error.code
+    end
+
+    test "a paid-tier collective's pool draws without the operator collective flag" do
+      pool = create_funding_pool!
+      @collective.disable_feature_flag!("funding_pools")
+      @collective.update!(tier: Collective::TIER_PAID)
+      @ai_agent.update!(funding_pool: pool)
+
+      result = PayerResolver.resolve(@task_run)
+      assert_equal "cus_primary", result.payer_customer_id
+    end
+
+    test "losing the paid tier suspends a self-serve pool's draws" do
+      pool = create_funding_pool!
+      @collective.disable_feature_flag!("funding_pools")
+      @collective.update!(tier: Collective::TIER_PAID)
+      @ai_agent.update!(funding_pool: pool)
+      @collective.mark_lapsed!
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
       end
       assert_equal "funding_collective_unavailable", error.code
     end

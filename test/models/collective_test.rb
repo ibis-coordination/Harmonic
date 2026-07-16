@@ -1621,6 +1621,90 @@ class CollectiveTest < ActiveSupport::TestCase
     tenant.enable_feature_flag!("stripe_billing")
   end
 
+  # === funding_pools_available? ===
+
+  def pool_ready_collective(tenant_flag: true)
+    tenant = create_tenant(subdomain: "fpav-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Pool", handle: "pool-#{SecureRandom.hex(4)}")
+    enable_stripe_billing!(tenant)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    tenant.enable_feature_flag!("funding_pools") if tenant_flag
+    collective
+  end
+
+  test "funding pools are available self-serve on the paid tier" do
+    collective = pool_ready_collective
+    upgrade_collective_to_paid!(collective)
+
+    assert collective.funding_pools_available?
+  end
+
+  test "funding pools are not available to free-tier collectives without the operator flag" do
+    collective = pool_ready_collective
+
+    assert_not collective.funding_pools_available?
+  end
+
+  test "the operator collective flag makes pools available regardless of tier" do
+    collective = pool_ready_collective
+    collective.enable_feature_flag!("funding_pools")
+
+    assert collective.funding_pools_available?
+  end
+
+  test "losing the paid tier suspends self-serve pool availability" do
+    collective = pool_ready_collective
+    upgrade_collective_to_paid!(collective)
+    collective.mark_lapsed!
+
+    assert_not collective.funding_pools_available?
+  end
+
+  test "pools are unavailable without the tenant-level funding_pools flag" do
+    collective = pool_ready_collective(tenant_flag: false)
+    upgrade_collective_to_paid!(collective)
+
+    assert_not collective.funding_pools_available?
+  end
+
+  test "the app-level funding_pools flag is a global kill switch for self-serve pools" do
+    collective = pool_ready_collective
+    upgrade_collective_to_paid!(collective)
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = false
+
+    assert_not collective.funding_pools_available?
+  ensure
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+  end
+
+  test "pools are unavailable without tenant stripe_billing" do
+    tenant = create_tenant(subdomain: "fpav-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Pool", handle: "pool-#{SecureRandom.hex(4)}")
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    tenant.enable_feature_flag!("funding_pools")
+    collective.update!(tier: Collective::TIER_PAID)
+
+    assert_not collective.funding_pools_available?
+  end
+
+  test "pools are unavailable to non-standard collectives" do
+    collective = pool_ready_collective
+    upgrade_collective_to_paid!(collective)
+    chat = Collective.create!(
+      tenant: collective.tenant, created_by: collective.created_by,
+      name: "Chat", handle: SecureRandom.hex(8), collective_type: "chat",
+    )
+    chat.enable_feature_flag!("funding_pools")
+
+    assert_not chat.funding_pools_available?
+  end
+
   def create_automation_rule(collective, enabled: true)
     AutomationRule.create!(
       tenant: collective.tenant,
