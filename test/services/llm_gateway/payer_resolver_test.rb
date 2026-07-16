@@ -126,6 +126,33 @@ module LLMGateway
       assert_nil result.funding_pool_id
     end
 
+    test "a pool result carries the terms the draw was authorized against" do
+      pool = create_funding_pool!(primary_cap: 300)
+      @ai_agent.update!(funding_pool: pool)
+      enrollment = pool.enrollments.find_by!(user: @user)
+
+      result = PayerResolver.resolve(@task_run)
+
+      assert_equal "cus_primary", result.payer_customer_id
+      assert_equal enrollment.id, result.funding_pool_enrollment_id
+      assert_equal 300, result.enrollment_draw_cap_cents, "the selected member's own ceiling"
+      assert_equal "day", result.enrollment_draw_cap_period
+      assert_equal 500, result.pool_member_draw_cap_cents, "the pool's per-member ceiling"
+      assert_equal "day", result.pool_member_draw_cap_period
+    end
+
+    test "an individual billing result carries no authorizing terms" do
+      create_stamped_billing_customer!
+
+      result = PayerResolver.resolve(@task_run)
+
+      assert_nil result.funding_pool_enrollment_id
+      assert_nil result.enrollment_draw_cap_cents
+      assert_nil result.enrollment_draw_cap_period
+      assert_nil result.pool_member_draw_cap_cents
+      assert_nil result.pool_member_draw_cap_period
+    end
+
     test "falls back to the stamped billing customer without a funding pool" do
       create_stamped_billing_customer!
 

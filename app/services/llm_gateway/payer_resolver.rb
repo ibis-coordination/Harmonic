@@ -13,7 +13,26 @@ module LLMGateway
     # funding_pool_id names the pool a draw came from (nil when the agent's
     # own billing customer pays) — stamped on the usage ledger for
     # point-in-time attribution, since the agent's pool link is mutable.
-    Result = Struct.new(:payer_customer_id, :funding_pool_id, keyword_init: true)
+    #
+    # The remaining fields are the draw's receipt: the ceilings it was
+    # authorized against, so a dispute can be settled from the ledger alone
+    # rather than reconstructed through the mutable enrollment. All nil on the
+    # individual-billing path, where no pool authorized the draw.
+    Result = Struct.new(
+      :payer_customer_id,
+      :funding_pool_id,
+      :funding_pool_enrollment_id,
+      :enrollment_draw_cap_cents,
+      :enrollment_draw_cap_period,
+      :pool_member_draw_cap_cents,
+      :pool_member_draw_cap_period,
+      keyword_init: true,
+    )
+
+    # One member eligible to pay for a pool draw, carrying the enrollment terms
+    # that authorize it so the selected candidate can be stamped as the draw's
+    # receipt without a second lookup.
+    Candidate = Struct.new(:stripe_id, :enrollment_id, :cap_cents, :cap_period, keyword_init: true)
 
     # A resolution failure that carries the wire error code and HTTP status the
     # gateway (and its callers) should surface.
@@ -77,21 +96,24 @@ module LLMGateway
     # sampled candidate, not per member. Lookups use tenant_scoped_only +
     # explicit ids — never collective-scoped associations, which misbehave
     # outside normal request scoping.
-    sig { params(pool: FundingPool).returns(T::Array[String]) }
-    def self.pool_customer_ids(pool)
+    sig { params(pool: FundingPool).returns(T::Array[Candidate]) }
+    def self.pool_candidates(pool)
       enrollment_caps = FundingPoolEnrollment.tenant_scoped_only
         .where(funding_pool_id: pool.id, archived_at: nil)
-        .pluck(:user_id, :draw_cap_cents, :draw_cap_period)
-        .to_h { |user_id, cents, period| [user_id, [cents, period]] }
+        .pluck(:user_id, :id, :draw_cap_cents, :draw_cap_period)
+        .to_h { |user_id, id, cents, period| [user_id, [id, cents, period]] }
       member_user_ids = CollectiveMember.tenant_scoped_only
         .where(collective_id: pool.collective_id, user_id: enrollment_caps.keys, archived_at: nil)
         .pluck(:user_id)
       human_ids = User.where(id: member_user_ids, user_type: "human").pluck(:id)
-      member_caps_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids)
+      candidates_by_stripe_id = StripeCustomer.where(billable_type: "User", billable_id: human_ids)
         .where.not(pricing_plan_subscription_id: [nil, ""])
         .pluck(:billable_id, :stripe_id)
-        .to_h { |user_id, stripe_id| [stripe_id, enrollment_caps[user_id]] }
-      under_draw_caps(member_caps_by_stripe_id, pool)
+        .to_h do |user_id, stripe_id|
+          enrollment_id, cents, period = enrollment_caps[user_id]
+          [stripe_id, Candidate.new(stripe_id: stripe_id, enrollment_id: enrollment_id, cap_cents: cents, cap_period: period)]
+        end
+      under_draw_caps(candidates_by_stripe_id, pool)
     end
 
     # The start of the window a (cents, period) ceiling covers. UTC calendar
@@ -112,12 +134,12 @@ module LLMGateway
     # either bound drops out of the draw until that window rolls over (draws
     # by other pools don't count — each ceiling is a promise about THIS
     # pool's reach into a member's balance).
-    sig { params(member_caps_by_stripe_id: T::Hash[String, T.untyped], pool: FundingPool).returns(T::Array[String]) }
-    def self.under_draw_caps(member_caps_by_stripe_id, pool)
-      stripe_ids = member_caps_by_stripe_id.keys
-      return stripe_ids if stripe_ids.empty?
+    sig { params(candidates_by_stripe_id: T::Hash[String, Candidate], pool: FundingPool).returns(T::Array[Candidate]) }
+    def self.under_draw_caps(candidates_by_stripe_id, pool)
+      stripe_ids = candidates_by_stripe_id.keys
+      return candidates_by_stripe_id.values if stripe_ids.empty?
 
-      periods = ([pool.member_draw_cap_period] + member_caps_by_stripe_id.values.compact.map(&:last)).compact.uniq
+      periods = ([pool.member_draw_cap_period] + candidates_by_stripe_id.values.map(&:cap_period)).compact.uniq
       base = LLMUsageRecord.where(payer_stripe_customer_id: stripe_ids, funding_pool_id: pool.id)
       drawn_by_period = periods.to_h do |period|
         sums = base.where(completed_at: draw_cap_window_start(period)..)
@@ -132,14 +154,13 @@ module LLMGateway
         .count
       reserve = LLMUsageRecord.pending_reserve_cents
 
-      stripe_ids.reject do |stripe_id|
-        reserved = in_flight.fetch(stripe_id, 0) * reserve
+      candidates_by_stripe_id.values.reject do |candidate|
+        reserved = in_flight.fetch(candidate.stripe_id, 0) * reserve
         at_bound = lambda do |cents, period|
-          cents && drawn_by_period.fetch(period, {}).fetch(stripe_id, 0) + reserved >= cents
+          cents && drawn_by_period.fetch(period, {}).fetch(candidate.stripe_id, 0) + reserved >= cents
         end
-        member_cents, member_period = member_caps_by_stripe_id[stripe_id]
         at_bound.call(pool.member_draw_cap_cents, pool.member_draw_cap_period) ||
-          at_bound.call(member_cents, member_period)
+          at_bound.call(candidate.cap_cents, candidate.cap_period)
       end
     end
 
@@ -150,13 +171,13 @@ module LLMGateway
       pool = ensure_funding_pool_available!(agent)
       ensure_primary_active!(agent, pool)
 
-      candidates = pool_customer_ids(pool)
+      candidates = pool_candidates(pool)
       # Sample first, verify the balance of only the sampled member (falling
       # through to the next on a dry balance): the gate can reach for Stripe
       # on a stale snapshot, so verifying the whole pool would put one Stripe
       # round-trip per member on the per-call path. A funded pool costs one
       # check; the worst case (everyone dry) still checks each member once.
-      payer = candidates.shuffle.find { |stripe_id| BalanceGate.funded?(stripe_id) }
+      payer = candidates.shuffle.find { |candidate| BalanceGate.funded?(candidate.stripe_id) }
       if payer.nil?
         raise ResolutionError.new(
           "pool_exhausted",
@@ -165,8 +186,16 @@ module LLMGateway
         )
       end
 
-      Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer} pool_size=#{candidates.size}")
-      Result.new(payer_customer_id: payer, funding_pool_id: pool.id)
+      Rails.logger.info("[LLMGateway] Pool payer selected #{context} payer=#{payer.stripe_id} pool_size=#{candidates.size}")
+      Result.new(
+        payer_customer_id: payer.stripe_id,
+        funding_pool_id: pool.id,
+        funding_pool_enrollment_id: payer.enrollment_id,
+        enrollment_draw_cap_cents: payer.cap_cents,
+        enrollment_draw_cap_period: payer.cap_period,
+        pool_member_draw_cap_cents: pool.member_draw_cap_cents,
+        pool_member_draw_cap_period: pool.member_draw_cap_period,
+      )
     end
 
     # Closing a pool (or archiving its collective) is how the arrangement is
