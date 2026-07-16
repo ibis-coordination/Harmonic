@@ -2026,6 +2026,38 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_nil agent.reload.funding_pool_id
   end
 
+  test "opening a pool automatically funds the collective's trio" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    trio = TrioActivator.activate!(collective)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert pool.present?
+    assert_equal pool.id, trio.reload.funding_pool_id, "expected trio to be auto-attached to the new pool"
+  end
+
+  test "trio cannot be detached from the pool" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    trio = TrioActivator.activate!(collective)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert_equal pool.id, trio.reload.funding_pool_id
+
+    delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: trio.id }
+
+    assert flash[:alert].present?, "expected detaching trio to be refused"
+    assert_equal pool.id, trio.reload.funding_pool_id, "trio must stay on the pool payroll"
+  end
+
   test "creating a pool requires the stripe_billing feature" do
     collective = create_test_collective
     sign_in_as(@user, tenant: @tenant)

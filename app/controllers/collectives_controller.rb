@@ -583,6 +583,7 @@ class CollectivesController < ApplicationController
       FundingPool.create!(collective: @current_collective, created_by: @current_user,
                           member_draw_cap_cents: cap_cents, member_draw_cap_period: period || "day")
     end
+    @current_collective.reload.ensure_trio_funded!
 
     flash[:notice] = "Funding pool is open. Members can now enroll."
     redirect_to "#{@current_collective.path}/settings"
@@ -744,6 +745,12 @@ class CollectivesController < ApplicationController
     ai_agent = User.find_by(id: params[:ai_agent_id])
     if pool.nil? || ai_agent.nil? || ai_agent.funding_pool_id != pool.id
       return render_funded_agent_error(404, 'AI Agent is not funded by this collective')
+    end
+    # Trio's attachment is automatic while the pool is open — detaching it
+    # would leave a phantom state (trio active, pool open, every run
+    # failing) that the next reconcile would silently undo.
+    if ai_agent.id == @current_collective.trio_user_id
+      return render_funded_agent_error(422, 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead')
     end
 
     ai_agent.update!(funding_pool_id: nil)
@@ -1086,6 +1093,15 @@ class CollectivesController < ApplicationController
         resource: @current_collective,
         error: 'AI Agent is not funded by this collective.',
         status: :not_found,
+      })
+    end
+    # Same guard as the HTML endpoint: trio's attachment is automatic.
+    if ai_agent.id == @current_collective.trio_user_id
+      return render_action_error({
+        action_name: 'detach_funded_agent',
+        resource: @current_collective,
+        error: 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead.',
+        status: :unprocessable_entity,
       })
     end
 

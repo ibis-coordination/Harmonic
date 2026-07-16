@@ -206,4 +206,54 @@ class TrioActivatorTest < ActiveSupport::TestCase
 
     assert_nil member.reload.archived_at, "expected CollectiveMember to be unarchived"
   end
+
+  # === Auto-funding from the collective's pool ===
+
+  def open_pool!
+    FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @owner, member_draw_cap_cents: 500)
+  end
+
+  test "activating trio with an open pool puts it on the pool payroll" do
+    pool = open_pool!
+
+    trio = TrioActivator.activate!(@collective)
+
+    assert_equal pool.id, trio.reload.funding_pool_id
+  end
+
+  test "reactivating trio reattaches it to the pool" do
+    pool = open_pool!
+    TrioActivator.activate!(@collective)
+    trio = T.must(@collective.reload.trio_user)
+    TrioActivator.deactivate!(@collective)
+    trio.update!(funding_pool_id: nil)
+
+    TrioActivator.activate!(@collective)
+
+    assert_equal pool.id, trio.reload.funding_pool_id
+  end
+
+  test "activating trio without a pool leaves it unfunded" do
+    trio = TrioActivator.activate!(@collective)
+
+    assert_nil trio.funding_pool_id
+  end
+
+  test "activating trio with a closed pool leaves it unfunded" do
+    pool = open_pool!
+    pool.archive!
+
+    trio = TrioActivator.activate!(@collective)
+
+    assert_nil trio.reload.funding_pool_id
+  end
+
+  test "deactivating trio leaves it attached to the pool" do
+    pool = open_pool!
+    trio = TrioActivator.activate!(@collective)
+
+    TrioActivator.deactivate!(@collective)
+
+    assert_equal pool.id, trio.reload.funding_pool_id
+  end
 end
