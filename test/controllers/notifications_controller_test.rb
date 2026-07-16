@@ -679,4 +679,54 @@ class NotificationsControllerTest < ActionDispatch::IntegrationTest
     tenant_user = @tenant.tenant_users.find_by(user: @user)
     assert_not_includes tenant_user.dismissed_notices, "push-optin-banner"
   end
+
+  # === needs_action triage facet (issue #456) ===
+
+  def create_notification_for(user, type:, title:)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "test.created")
+    notification = Notification.create!(tenant: @tenant, event: event, notification_type: type, title: title)
+    NotificationRecipient.create!(notification: notification, user: user, channel: "in_app", status: "delivered")
+  ensure
+    Collective.clear_thread_scope
+  end
+
+  test "needs_action=true narrows the feed to action-requiring notifications" do
+    sign_in_as(@user, tenant: @tenant)
+    create_notification_for(@user, type: "mention", title: "Please review this")
+    create_notification_for(@user, type: "participation", title: "FYI someone voted")
+
+    get "/notifications", params: { needs_action: "true" }, headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_match "Please review this", response.body
+    assert_no_match(/FYI someone voted/, response.body)
+    assert_match "needs action only", response.body
+  end
+
+  test "unfiltered feed surfaces the needs_action count and marks action rows" do
+    sign_in_as(@user, tenant: @tenant)
+    create_notification_for(@user, type: "mention", title: "Please review this")
+    create_notification_for(@user, type: "participation", title: "FYI someone voted")
+
+    get "/notifications", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    # Both rows shown; the facet advertises the count and a filter link.
+    assert_match "Please review this", response.body
+    assert_match "FYI someone voted", response.body
+    assert_match "Needs action: **1**", response.body
+    assert_match "needs_action=true", response.body
+  end
+
+  test "HTML feed offers a needs_action filter link" do
+    sign_in_as(@user, tenant: @tenant)
+    create_notification_for(@user, type: "mention", title: "Please review this")
+
+    get "/notifications"
+
+    assert_response :success
+    assert_match "need action", response.body
+    assert_match "needs_action=true", response.body
+  end
 end
