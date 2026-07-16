@@ -228,6 +228,8 @@ module LLMGateway
     # on every call.
     sig { params(agent: User, pool: FundingPool).void }
     def self.ensure_primary_active!(agent, pool)
+      return if collective_principaled?(agent, pool)
+
       enrollment = FundingPoolEnrollment.tenant_scoped_only.find_by(
         funding_pool_id: pool.id,
         user_id: agent.parent_id,
@@ -244,6 +246,18 @@ module LLMGateway
         :forbidden,
         "The agent's principal is no longer enrolled in its funding pool, so its calls are refused until the principal re-enrolls or the agent is detached."
       )
+    end
+
+    # A system-role agent principaled by the pool collective's own identity
+    # is the collective's agent: enrolling is consent that the pool funds
+    # this collective's agents, so there is no member-principal to
+    # re-verify. A pool with no fundable members still fails as
+    # pool_exhausted.
+    sig { params(agent: User, pool: FundingPool).returns(T::Boolean) }
+    def self.collective_principaled?(agent, pool)
+      return false unless agent.system? && agent.parent_id.present?
+
+      Collective.tenant_scoped_only.exists?(id: pool.collective_id, identity_user_id: agent.parent_id)
     end
 
     # LLM usage must be funded: a prepaid-credit (pricing-plan) subscription

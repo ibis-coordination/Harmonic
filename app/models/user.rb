@@ -272,6 +272,11 @@ class User < ApplicationRecord
 
     parent_enrollment = pool.enrollments.find_by(user_id: parent_id)
     return unless parent_enrollment.nil? || parent_enrollment.archived?
+    # A system-role agent principaled by the pool collective's own identity
+    # is the collective's agent — every enrollment's consent already covers
+    # it, so no member-principal needs to be enrolled. (Per-call enforcement
+    # of the same rule: LLMGateway::PayerResolver.)
+    return if system? && parent_id.present? && pool.collective&.identity_user_id == parent_id
 
     errors.add(:funding_pool_id, "requires the agent's principal to be enrolled in the funding pool")
   end
