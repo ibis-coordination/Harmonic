@@ -200,18 +200,18 @@ module LLMGateway
 
     # Closing a pool (or archiving its collective) is how the arrangement is
     # wound down, so it must stop the spending; enrollment rows survive both,
-    # so the member-based checks alone would keep drawing. The operator-managed
-    # funding_pools flag is checked here too: turning it off is the operator's
-    # kill switch and must stop draws immediately, not just hide the UI. A pool
-    # outside the calling tenant suspends the agent the same way — the
-    # enrollment lookups are scoped to the calling tenant and could never see
-    # it anyway. The wire code predates the pool remodel and is kept stable
-    # for callers.
+    # so the member-based checks alone would keep drawing. Pool availability
+    # (Collective#funding_pools_available?) is checked here too: losing it —
+    # operator flag turned off, paid tier lapsed — must stop draws
+    # immediately, not just hide the UI. A pool outside the calling tenant
+    # suspends the agent the same way — the enrollment lookups are scoped to
+    # the calling tenant and could never see it anyway. The wire code
+    # predates the pool remodel and is kept stable for callers.
     sig { params(agent: User).returns(FundingPool) }
     def self.ensure_funding_pool_available!(agent)
       pool = FundingPool.tenant_scoped_only.find_by(id: agent.funding_pool_id)
       collective = pool && Collective.tenant_scoped_only.find_by(id: pool.collective_id)
-      if pool && !pool.archived? && collective && !collective.archived? && collective.feature_enabled?("funding_pools")
+      if pool && !pool.archived? && collective && !collective.archived? && collective.funding_pools_available?
         return pool
       end
 
@@ -228,6 +228,8 @@ module LLMGateway
     # on every call.
     sig { params(agent: User, pool: FundingPool).void }
     def self.ensure_primary_active!(agent, pool)
+      return if collective_principaled?(agent, pool)
+
       enrollment = FundingPoolEnrollment.tenant_scoped_only.find_by(
         funding_pool_id: pool.id,
         user_id: agent.parent_id,
@@ -244,6 +246,18 @@ module LLMGateway
         :forbidden,
         "The agent's principal is no longer enrolled in its funding pool, so its calls are refused until the principal re-enrolls or the agent is detached."
       )
+    end
+
+    # A system-role agent principaled by the pool collective's own identity
+    # is the collective's agent: enrolling is consent that the pool funds
+    # this collective's agents, so there is no member-principal to
+    # re-verify. A pool with no fundable members still fails as
+    # pool_exhausted.
+    sig { params(agent: User, pool: FundingPool).returns(T::Boolean) }
+    def self.collective_principaled?(agent, pool)
+      return false unless agent.system? && agent.parent_id.present?
+
+      Collective.tenant_scoped_only.exists?(id: pool.collective_id, identity_user_id: agent.parent_id)
     end
 
     # LLM usage must be funded: a prepaid-credit (pricing-plan) subscription

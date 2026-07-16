@@ -1957,6 +1957,107 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
   end
 
+  # Self-serve availability: paid tier + tenant-level flag, no collective flag.
+  def enable_self_serve_pools!(collective)
+    enable_stripe_billing_flag!(@tenant)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    upgrade_collective_to_paid!(collective)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  test "a paid-tier collective admin can open a pool self-serve without the operator flag" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+
+    assert_redirected_to "#{collective.path}/settings"
+    assert FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "a free-tier collective cannot open a pool without the operator flag" do
+    collective = create_test_collective
+    enable_stripe_billing_flag!(@tenant)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+
+    assert flash[:alert].present?
+    assert_not FundingPool.tenant_scoped_only(@tenant.id).exists?(collective_id: collective.id)
+  end
+
+  test "members can enroll in a self-serve pool" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    pool = create_pool!(collective)
+    member = create_user(name: "Enrollee")
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    fund_user!(member)
+    sign_in_as(member, tenant: @tenant)
+
+    post "#{collective.path}/settings/enroll_in_funding_pool", params: { ceiling_choice: "pool" }
+
+    assert active_enrollment?(pool, member), "expected enrollment on a self-serve pool to succeed"
+  end
+
+  test "attaching an agent to a self-serve pool still requires the operator flag" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    pool = create_pool!(collective)
+    # upgrade_collective_to_paid! already gave the owner a StripeCustomer;
+    # enrollment additionally needs funded (prepaid-credit) billing.
+    @user.reload.stripe_customer.update!(pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}")
+    enroll!(pool, @user)
+    agent = create_ai_agent(parent: @user)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
+
+    assert flash[:alert].present?, "expected non-trio agent attach to stay operator-gated"
+    assert_nil agent.reload.funding_pool_id
+  end
+
+  test "opening a pool automatically funds the collective's trio" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    trio = TrioActivator.activate!(collective)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert pool.present?
+    assert_equal pool.id, trio.reload.funding_pool_id, "expected trio to be auto-attached to the new pool"
+  end
+
+  test "trio cannot be detached from the pool" do
+    collective = create_test_collective
+    enable_self_serve_pools!(collective)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    trio = TrioActivator.activate!(collective)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+    post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
+    pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
+    assert_equal pool.id, trio.reload.funding_pool_id
+
+    delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: trio.id }
+
+    assert flash[:alert].present?, "expected detaching trio to be refused"
+    assert_equal pool.id, trio.reload.funding_pool_id, "trio must stay on the pool payroll"
+  end
+
   test "creating a pool requires the stripe_billing feature" do
     collective = create_test_collective
     sign_in_as(@user, tenant: @tenant)
@@ -2662,7 +2763,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/disabled for this collective/i, response.body)
+    assert_match(/not available for this collective/i, response.body)
   end
 
   test "setting a draw ceiling on a collective without a pool fails with a friendly message" do
@@ -2826,7 +2927,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/settings"
 
     assert_response :success
-    assert_match(/disabled for this collective/i, response.body)
+    assert_match(/not available for this collective/i, response.body)
     assert_no_match(/Save Ceiling/, response.body, "the draw ceiling must not be editable while the flag is off")
     assert_no_match(/>Enroll in Pool</, response.body)
     assert_no_match(/Attach an enrolled member/, response.body)

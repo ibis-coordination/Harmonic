@@ -315,10 +315,11 @@
         <h2 class="pulse-section-title">Agent Funding Pool</h2>
         <% unless @funding_pools_enabled %>
           <p class="pulse-section-description">
-            Funding pools are disabled for this collective, so no balances are being
-            drawn on. This section is wind-down only: members can withdraw, agents can
-            be detached, and the pool can be closed. Enrollment, attachment, and
-            ceiling changes are paused until a platform admin re-enables the feature.
+            Funding pools are not available for this collective, so no balances are
+            being drawn on. This section is wind-down only: members can withdraw,
+            agents can be detached, and the pool can be closed. Enrollment,
+            attachment, and ceiling changes are paused until the collective is back
+            on the paid plan or a platform admin enables the feature.
           </p>
         <% end %>
         <% if @funding_pool.nil? || @funding_pool.archived? %>
@@ -326,7 +327,8 @@
             A funding pool lets members fund this collective's agents together: each LLM call
             an attached agent makes is billed to one enrolled member's own prepaid balance,
             chosen at random per call. The pool never holds money — enrollment is each
-            member's own choice.
+            member's own choice. Opening a pool puts Trio on its payroll automatically
+            (when Trio is enabled here); Trio needs the pool to run.
           </p>
           <% if @funding_pools_enabled %>
             <p class="pulse-section-description">
@@ -426,6 +428,7 @@
               <tbody>
                 <% enrolled_user_ids = @pool_enrollments.map(&:user_id) %>
                 <% @funded_agents.each do |agent| %>
+                  <% collective_agent = agent.collective_pool_agent?(@funding_pool) %>
                   <tr>
                     <td><%= link_to agent.display_name, agent.path %></td>
                     <td>
@@ -434,13 +437,17 @@
                       <% else %>
                         <em>Unknown</em>
                       <% end %>
-                      <% unless agent.parent_id && enrolled_user_ids.include?(agent.parent_id) %>
+                      <% unless collective_agent || (agent.parent_id && enrolled_user_ids.include?(agent.parent_id)) %>
                         <span class="pulse-muted">(not running — principal not enrolled)</span>
                       <% end %>
                     </td>
                     <td>
-                      <%= button_to "Detach", "#{@current_collective.path}/settings/remove_funded_agent",
-                                    method: :delete, params: { ai_agent_id: agent.id }, class: 'pulse-action-btn-danger' %>
+                      <% if collective_agent %>
+                        <span class="pulse-muted">Automatic</span>
+                      <% else %>
+                        <%= button_to "Detach", "#{@current_collective.path}/settings/remove_funded_agent",
+                                      method: :delete, params: { ai_agent_id: agent.id }, class: 'pulse-action-btn-danger' %>
+                      <% end %>
                     </td>
                   </tr>
                 <% end %>
@@ -450,7 +457,9 @@
             <p class="pulse-empty-message"><em>No agents are funded by this pool yet.</em></p>
           <% end %>
 
-          <% if @funding_pools_enabled && @attachable_agents.any? %>
+          <%# Operator flag, not self-serve availability: a self-serve pool
+              funds only the collective's own trio, never arbitrary agents. %>
+          <% if @current_collective.feature_enabled?("funding_pools") && @attachable_agents.any? %>
             <h3 class="pulse-subsection-title">Attach an enrolled member's agent</h3>
             <form action="<%= @current_collective.path %>/settings/add_funded_agent" method="post" class="pulse-inline-form">
               <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">

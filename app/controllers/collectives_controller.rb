@@ -190,7 +190,7 @@ class CollectivesController < ApplicationController
       # and this tenant's agents that could be attached (their principal is
       # actively enrolled).
       if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing")
-        @funding_pools_enabled = @current_collective.feature_enabled?("funding_pools")
+        @funding_pools_enabled = @current_collective.funding_pools_available?
         @funding_pool = @current_collective.funding_pool
         if @funding_pool && !@funding_pool.archived?
           @funded_agents = @funding_pool.funded_agents.order(:name)
@@ -521,7 +521,7 @@ class CollectivesController < ApplicationController
     end
 
     @page_title = "Funding Pool"
-    @funding_pools_enabled = @current_collective.feature_enabled?("funding_pools")
+    @funding_pools_enabled = @current_collective.funding_pools_available?
     @pool_enrollments = @funding_pool.enrollments.active.includes(:user).to_a
     @current_user_enrollment = @current_user && @pool_enrollments.find { |e| e.user_id == @current_user.id }
     @current_user_enrolled = @current_user_enrollment.present?
@@ -544,11 +544,11 @@ class CollectivesController < ApplicationController
     unless @current_tenant.feature_enabled?("stripe_billing")
       return render_funded_agent_error(403, 'Funding pools require billing to be enabled for this account')
     end
-    unless @current_collective.feature_enabled?("funding_pools")
-      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective')
-    end
     unless @current_collective.standard?
       return render_funded_agent_error(403, 'Only standard collectives can have a funding pool')
+    end
+    unless @current_collective.funding_pools_available?
+      return render_funded_agent_error(403, 'Funding pools require the paid plan for this collective')
     end
     unless @current_user.collective_member&.is_admin?
       return render_funded_agent_error(403, 'Unauthorized')
@@ -583,6 +583,7 @@ class CollectivesController < ApplicationController
       FundingPool.create!(collective: @current_collective, created_by: @current_user,
                           member_draw_cap_cents: cap_cents, member_draw_cap_period: period || "day")
     end
+    @current_collective.reload.ensure_trio_funded!
 
     flash[:notice] = "Funding pool is open. Members can now enroll."
     redirect_to "#{@current_collective.path}/settings"
@@ -610,8 +611,8 @@ class CollectivesController < ApplicationController
   # never done by an admin on someone's behalf. Redirects land on the pool
   # page: unlike settings, every member can see it.
   def enroll_in_funding_pool
-    unless @current_collective.feature_enabled?("funding_pools")
-      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective', redirect_path: pool_page_path)
+    unless @current_collective.funding_pools_available?
+      return render_funded_agent_error(403, 'Funding pools are not available for this collective', redirect_path: pool_page_path)
     end
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?
@@ -691,10 +692,13 @@ class CollectivesController < ApplicationController
   # Attach an agent to the pool's payroll: its LLM usage draws from enrolled
   # members' balances from the next call on. Admitting an agent spends
   # everyone's money, so it is admin-only; the model validation additionally
-  # requires the agent's principal to be actively enrolled.
+  # requires the agent's principal to be actively enrolled. Deliberately
+  # gated on the operator-managed collective flag, NOT on self-serve pool
+  # availability: a self-serve (paid tier) pool funds only the collective's
+  # own trio, never arbitrary agents.
   def add_funded_agent
     unless @current_collective.feature_enabled?("funding_pools")
-      return render_funded_agent_error(403, 'Funding pools are not enabled for this collective')
+      return render_funded_agent_error(403, 'Attaching agents to the funding pool requires operator enablement for this collective')
     end
     pool = @current_collective.funding_pool
     if pool.nil? || pool.archived?
@@ -741,6 +745,12 @@ class CollectivesController < ApplicationController
     ai_agent = User.find_by(id: params[:ai_agent_id])
     if pool.nil? || ai_agent.nil? || ai_agent.funding_pool_id != pool.id
       return render_funded_agent_error(404, 'AI Agent is not funded by this collective')
+    end
+    # Trio's attachment is automatic while the pool is open — detaching it
+    # would leave a phantom state (trio active, pool open, every run
+    # failing) that the next reconcile would silently undo.
+    if ai_agent.id == @current_collective.trio_user_id
+      return render_funded_agent_error(422, 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead')
     end
 
     ai_agent.update!(funding_pool_id: nil)
@@ -919,11 +929,11 @@ class CollectivesController < ApplicationController
 
   def execute_enroll_in_funding_pool
     return render_action_error({ action_name: 'enroll_in_funding_pool', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
-    unless @current_collective.feature_enabled?("funding_pools")
+    unless @current_collective.funding_pools_available?
       return render_action_error({
         action_name: 'enroll_in_funding_pool',
         resource: @current_collective,
-        error: 'Funding pools are not enabled for this collective.',
+        error: 'Funding pools are not available for this collective.',
         status: :not_found,
       })
     end
@@ -1016,11 +1026,13 @@ class CollectivesController < ApplicationController
   def execute_attach_funded_agent
     return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
     return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'Only collective admins can attach funded agents.', status: :forbidden }) unless current_user.collective_member&.is_admin?
+    # Operator flag, not self-serve availability: a self-serve pool funds
+    # only the collective's own trio, never arbitrary agents.
     unless @current_collective.feature_enabled?("funding_pools")
       return render_action_error({
         action_name: 'attach_funded_agent',
         resource: @current_collective,
-        error: 'Funding pools are not enabled for this collective.',
+        error: 'Attaching agents to the funding pool requires operator enablement for this collective.',
         status: :not_found,
       })
     end
@@ -1081,6 +1093,15 @@ class CollectivesController < ApplicationController
         resource: @current_collective,
         error: 'AI Agent is not funded by this collective.',
         status: :not_found,
+      })
+    end
+    # Same guard as the HTML endpoint: trio's attachment is automatic.
+    if ai_agent.id == @current_collective.trio_user_id
+      return render_action_error({
+        action_name: 'detach_funded_agent',
+        resource: @current_collective,
+        error: 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead.',
+        status: :unprocessable_entity,
       })
     end
 

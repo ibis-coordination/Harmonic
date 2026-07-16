@@ -115,6 +115,13 @@ export const LLMClientLive = Layer.effect(
             headers["X-Harmonic-Model"] = model ?? "default";
           }
 
+          // OpenAI's current models reject `max_tokens` and require
+          // `max_completion_tokens`; everything else (Anthropic-style,
+          // LiteLLM aliases) still takes `max_tokens`.
+          const tokenCapParam = (model ?? "").startsWith("openai/")
+            ? "max_completion_tokens"
+            : "max_tokens";
+
           const body = JSON.stringify({
             model: model ?? "default",
             messages: messages.map((m) => {
@@ -125,7 +132,7 @@ export const LLMClientLive = Layer.effect(
               return msg;
             }),
             tools: tools.length > 0 ? tools : undefined,
-            max_tokens: 4096,
+            [tokenCapParam]: 4096,
           });
 
           const url = `${baseUrl}${endpoint}`;

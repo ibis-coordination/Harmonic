@@ -160,9 +160,13 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
 
   # Fund the agent through its parent collective's funding pool. The first
   # stripe id funds @user (the agent's principal, who must be enrolled); each
-  # further id funds an additional enrolled member.
+  # further id funds an additional enrolled member. The tenant gets
+  # stripe_billing too — pool availability (checked per draw) requires it.
   def attach_funding_pool!(agent, stripe_ids)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("stripe_billing")
     FeatureFlagService.config["funding_pools"] ||= {}
     FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")

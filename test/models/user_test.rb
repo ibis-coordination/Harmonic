@@ -2092,6 +2092,34 @@ class UserTest < ActiveSupport::TestCase
     assert agent.errors[:funding_pool_id].join(" ").include?("enrolled")
   end
 
+  test "a collective's trio attaches to its own collective's pool without an enrolled principal" do
+    pool = create_funding_pool!(enroll: [])
+    trio = TrioSeeder.ensure_for(@collective)
+
+    trio.funding_pool = pool
+    assert trio.valid?, trio.errors.full_messages.to_sentence
+  end
+
+  test "a trio principaled by another collective cannot attach to this pool" do
+    pool = create_funding_pool!(enroll: [])
+    other = create_collective(tenant: @tenant, created_by: @user)
+    other_trio = TrioSeeder.ensure_for(other)
+
+    other_trio.funding_pool = pool
+    assert_not other_trio.valid?
+    assert other_trio.errors[:funding_pool_id].join(" ").include?("enrolled")
+  end
+
+  test "a system agent with no principal cannot attach to a pool" do
+    pool = create_funding_pool!(enroll: [])
+    trio = TrioSeeder.ensure_for(@collective)
+    trio.update!(parent_id: nil)
+
+    trio.funding_pool = pool
+    assert_not trio.valid?
+    assert trio.errors[:funding_pool_id].join(" ").include?("enrolled")
+  end
+
   test "a withdrawn parent enrollment does not satisfy the funding link" do
     pool = create_funding_pool!
     pool.enrollments.find_by!(user: @user).withdraw!

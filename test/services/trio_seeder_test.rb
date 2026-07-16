@@ -22,8 +22,24 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert trio.persisted?
     assert_equal "ai_agent", trio.user_type
     assert_equal "trio", trio.system_role
-    assert_nil trio.parent_id
     assert_equal "Trio", trio.name
+  end
+
+  test "trio's principal is the collective's identity user" do
+    trio = TrioSeeder.ensure_for(@main)
+
+    assert_equal @main.identity_user_id, trio.parent_id
+  end
+
+  test "each collective's trio is principaled by that collective's own identity" do
+    other = create_collective(tenant: @tenant, created_by: @owner)
+
+    trio_main = TrioSeeder.ensure_for(@main)
+    trio_other = TrioSeeder.ensure_for(other)
+
+    assert_equal @main.identity_user_id, trio_main.parent_id
+    assert_equal other.identity_user_id, trio_other.parent_id
+    assert_not_equal trio_main.parent_id, trio_other.parent_id
   end
 
   test "ensure_for is idempotent" do

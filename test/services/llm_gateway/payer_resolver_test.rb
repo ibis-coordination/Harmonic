@@ -24,9 +24,13 @@ module LLMGateway
 
     # A pool on the agent's parent collective with the principal enrolled and
     # funded — the minimum arrangement the attach validation accepts. The
-    # operator-managed funding_pools flag is on: the resolver treats it as a
-    # kill switch.
+    # tenant has stripe_billing (draws only happen on billing tenants) and
+    # the operator-managed funding_pools flag is on at every level: the
+    # resolver treats pool availability as a kill switch.
     def create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 500)
+      FeatureFlagService.config["stripe_billing"] ||= {}
+      FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+      @tenant.enable_feature_flag!("stripe_billing")
       FeatureFlagService.config["funding_pools"] ||= {}
       FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
@@ -719,6 +723,104 @@ module LLMGateway
       end
       assert_equal "no_primary", error.code
       assert_equal :forbidden, error.http_status
+    end
+
+    # === Collective-principaled system agents (trio) ===
+
+    def create_pool_funded_trio!(pool)
+      trio = TrioSeeder.ensure_for(@collective)
+      trio.update!(funding_pool: pool)
+      AiAgentTaskRun.create!(
+        tenant: @tenant,
+        ai_agent: trio,
+        initiated_by: @user,
+        task: "Trio task",
+        max_steps: 10,
+        status: "running",
+      )
+    end
+
+    test "a collective-principaled trio draws from its own pool without an enrolled principal" do
+      pool = create_funding_pool!
+      trio_run = create_pool_funded_trio!(pool)
+
+      result = PayerResolver.resolve(trio_run)
+      assert_equal "cus_primary", result.payer_customer_id
+      assert_equal pool.id, result.funding_pool_id
+    end
+
+    test "a trio draw stamps the drawn member's enrollment receipt" do
+      pool = create_funding_pool!(primary_cap: 300)
+      trio_run = create_pool_funded_trio!(pool)
+
+      result = PayerResolver.resolve(trio_run)
+      assert_equal pool.enrollments.find_by!(user: @user).id, result.funding_pool_enrollment_id
+      assert_equal 300, result.enrollment_draw_cap_cents
+    end
+
+    test "a trio draw raises pool_exhausted when no enrolled member is funded" do
+      pool = create_funding_pool!
+      trio_run = create_pool_funded_trio!(pool)
+      pool.enrollments.find_by!(user: @user).withdraw!
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(trio_run)
+      end
+      assert_equal "pool_exhausted", error.code
+    end
+
+    test "the funding_pools kill switch suspends trio draws too" do
+      pool = create_funding_pool!
+      trio_run = create_pool_funded_trio!(pool)
+      @collective.disable_feature_flag!("funding_pools")
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(trio_run)
+      end
+      assert_equal "funding_collective_unavailable", error.code
+    end
+
+    test "a paid-tier collective's pool draws without the operator collective flag" do
+      pool = create_funding_pool!
+      @collective.disable_feature_flag!("funding_pools")
+      @collective.update!(tier: Collective::TIER_PAID)
+      @ai_agent.update!(funding_pool: pool)
+
+      result = PayerResolver.resolve(@task_run)
+      assert_equal "cus_primary", result.payer_customer_id
+    end
+
+    test "losing the paid tier suspends a self-serve pool's draws" do
+      pool = create_funding_pool!
+      @collective.disable_feature_flag!("funding_pools")
+      @collective.update!(tier: Collective::TIER_PAID)
+      @ai_agent.update!(funding_pool: pool)
+      @collective.mark_lapsed!
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "funding_collective_unavailable", error.code
+    end
+
+    test "a system agent principaled by a different collective still requires an enrolled principal" do
+      pool = create_funding_pool!
+      other = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
+      other_trio = TrioSeeder.ensure_for(other)
+      other_trio.update_column(:funding_pool_id, pool.id)
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant,
+        ai_agent: other_trio,
+        initiated_by: @user,
+        task: "Cross-collective trio task",
+        max_steps: 10,
+        status: "running",
+      )
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(run)
+      end
+      assert_equal "no_primary", error.code
     end
 
     # === resolve_for_agent (external gateway calls — no task run) ===

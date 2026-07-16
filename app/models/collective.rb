@@ -479,6 +479,39 @@ class Collective < ApplicationRecord
     FeatureFlagService.collective_enabled?(self, flag_name)
   end
 
+  # Trio is on the pool payroll automatically: whenever an open pool and an
+  # active trio both exist, attach. Idempotent — called from pool
+  # open/reopen and from trio activation, whichever happens second.
+  sig { void }
+  def ensure_trio_funded!
+    pool = funding_pool
+    return if pool.nil? || pool.archived?
+
+    trio = trio_user
+    return if trio.nil? || trio.funding_pool_id == pool.id
+
+    trio.update!(funding_pool: pool)
+  end
+
+  # Whether this collective may operate a funding pool. Two doors: the paid
+  # tier (self-serve) or the operator-managed collective-level funding_pools
+  # flag (any tier). Both sit behind tenant stripe_billing and the
+  # tenant-level funding_pools flag — the operator's rollout lever and, with
+  # the app-level flag cascading through it, the kill switches. Checked at
+  # pool creation AND per draw (LLMGateway::PayerResolver), so losing the
+  # paid tier (lapse, downgrade) suspends the pool's spending without
+  # touching its configuration; regaining it resumes.
+  sig { returns(T::Boolean) }
+  def funding_pools_available?
+    return false unless standard?
+
+    tenant_record = T.must(tenant)
+    return false unless tenant_record.feature_enabled?("stripe_billing")
+    return false unless tenant_record.feature_enabled?("funding_pools")
+
+    paid_tier? || feature_enabled?("funding_pools")
+  end
+
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
     return unless value.present?

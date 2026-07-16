@@ -143,6 +143,7 @@ class TrioActivator
     AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: true)
 
     @collective.update!(trio_user: trio)
+    @collective.ensure_trio_funded!
     trio
   end
 
@@ -150,6 +151,7 @@ class TrioActivator
   def bootstrap!
     trio = TrioSeeder.ensure_for(@collective)
     self.class.seed_default_automations!(trio, T.must(@collective.tenant_id))
+    @collective.ensure_trio_funded!
     trio
   end
 

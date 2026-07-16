@@ -449,65 +449,64 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     @ai_agent.update!(stripe_customer_id: billing_customer.id)
   end
 
-  # === System agent (Trio) billing exemption ===
+  # === System agents (Trio) ===
 
-  test "dispatches task for system agent without billing setup" do
-    enable_stripe_billing_flag!(@tenant)
-    @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
-    task_run = AiAgentTaskRun.create!(
+  def create_trio_task_run!
+    trio = TrioSeeder.ensure_for(@collective)
+    AiAgentTaskRun.create!(
       tenant: @tenant, ai_agent: trio, initiated_by: @user,
       task: "Where are my decisions?", max_steps: 10, status: "queued",
     )
+  end
+
+  test "trio routes through litellm when stripe_billing is off" do
+    task_run = create_trio_task_run!
 
     redis = Redis.new(url: ENV["REDIS_URL"])
     AgentRunnerDispatchService.dispatch(task_run)
 
     task_run.reload
-    assert_equal "queued", task_run.status, "system agent dispatch should not fail: #{task_run.error}"
+    assert_equal "queued", task_run.status, "dispatch should not fail: #{task_run.error}"
     entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == task_run.id }
-    assert_not_nil entry, "system agent task should be dispatched to the stream"
-    assert_nil entry[1]["stripe_customer_stripe_id"]
+    assert_not_nil entry
+    assert_equal "litellm", entry[1]["llm_gateway_mode"]
     redis.close
   end
 
-  test "does not stamp stripe_customer_id on system agent task run" do
+  test "trio on a billing tenant without a pool fails with an actionable message" do
     enable_stripe_billing_flag!(@tenant)
-    @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: trio, initiated_by: @user,
-      task: "Hello", max_steps: 10, status: "queued",
-    )
+    task_run = create_trio_task_run!
 
     AgentRunnerDispatchService.dispatch(task_run)
 
     task_run.reload
-    assert_equal "queued", task_run.status, "dispatch must succeed: #{task_run.error}"
-    assert_nil task_run.stripe_customer_id
+    assert_equal "failed", task_run.status
+    assert_match(/funding pool/, task_run.error)
   end
 
-  test "system agent routes through litellm and skips credit balance check" do
+  test "a pool-funded trio routes through the stripe gateway without individual billing" do
     enable_stripe_billing_flag!(@tenant)
-    @tenant.create_main_collective!(created_by: @user)
-    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant, ai_agent: trio, initiated_by: @user,
-      task: "Hello", max_steps: 10, status: "queued",
-    )
+    task_run = create_trio_task_run!
+    trio = T.must(task_run.ai_agent)
+    # The test env's TRIO_DEFAULT_MODEL is a LiteLLM-only alias; a gateway
+    # trio needs a gateway-resolvable model ("default" → DEFAULT_MODEL).
+    trio.update!(agent_configuration: trio.agent_configuration.merge("model" => "default"))
+    attach_funding_pool!(trio)
 
     redis = Redis.new(url: ENV["REDIS_URL"])
-    # StripeService.get_credit_balance must not be called for system agents.
-    # If it were, this stub would raise.
-    StripeService.stub :get_credit_balance, ->(_) { raise "should not be called for system agent" } do
+    # No individual billing exists; the pool funds it per call — a balance
+    # preflight here would be a bug.
+    StripeService.stub :get_credit_balance, ->(_) { raise "must not fetch balance for a pool-funded task" } do
       AgentRunnerDispatchService.dispatch(task_run)
     end
 
     task_run.reload
-    assert_equal "queued", task_run.status
+    assert_equal "queued", task_run.status, "pool-funded trio dispatch should not fail: #{task_run.error}"
+    assert_nil task_run.stripe_customer_id, "pool-funded runs must not be stamped with an individual payer"
     entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == task_run.id }
     assert_not_nil entry
-    assert_equal "litellm", entry[1]["llm_gateway_mode"]
+    assert_equal "stripe_gateway", entry[1]["llm_gateway_mode"]
+    assert_equal StripeGatewayModelMapper::DEFAULT_MODEL, entry[1]["model"]
     redis.close
   end
 
