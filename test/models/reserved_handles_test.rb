@@ -60,6 +60,22 @@ class ReservedHandlesTest < ActiveSupport::TestCase
     assert_not ReservedHandles.forbidden_for_user?("alice", system_role: nil)
   end
 
+  test "forbidden_for_user? reserves persona handle prefixes for matching system agents" do
+    assert ReservedHandles.forbidden_for_user?("trio-engineering", system_role: nil)
+    assert ReservedHandles.forbidden_for_user?("TRIO-Engineering", system_role: nil)
+    assert ReservedHandles.forbidden_for_user?("trio-engineering", system_role: "something-else")
+    assert_not ReservedHandles.forbidden_for_user?("trio-engineering", system_role: "trio")
+    # No dash, no reservation — only the prefix pattern is claimed.
+    assert_not ReservedHandles.forbidden_for_user?("triofan", system_role: nil)
+  end
+
+  test "collective identity users may sit inside an agent prefix but never on the exact tag" do
+    # A collective named "trio-fans" is legal; its identity mirrors the handle.
+    assert_not ReservedHandles.forbidden_for_user?("trio-fans", system_role: nil, collective_identity: true)
+    # The exact tag stays off-limits even for identities.
+    assert ReservedHandles.forbidden_for_user?("trio", system_role: nil, collective_identity: true)
+  end
+
   test "forbidden_for_collective? blocks main and group tags but not agent handles" do
     assert ReservedHandles.forbidden_for_collective?("main")
     assert ReservedHandles.forbidden_for_collective?("everyone")

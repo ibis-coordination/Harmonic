@@ -15,6 +15,7 @@ class Collective < ApplicationRecord
   before_validation :create_identity_user!
   before_create :set_defaults
   after_update :sync_identity_user_handle!, if: :saved_change_to_handle?
+  after_update :sync_trio_handle!, if: :saved_change_to_handle?
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
     "collectives", "api_tokens", "oauth_identities",
@@ -754,6 +755,28 @@ class Collective < ApplicationRecord
       tenant_id: T.must(tenant_id),
       base: T.must(handle),
       except_user_id: identity_user_id,
+    )
+    tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
+  end
+
+  # Trio's handle embeds the collective's (`trio-<collective handle>`), so a
+  # collective rename renames its trio too. Found through membership +
+  # system_role so a deactivated trio (archived member) also follows renames.
+  sig { void }
+  def sync_trio_handle!
+    return if handle.blank?
+
+    trio = collective_members.joins(:user).where(users: { system_role: "trio" }).first&.user
+    return unless trio
+
+    tenant_user = TenantUser.tenant_scoped_only(T.must(tenant_id)).find_by(user_id: trio.id)
+    return unless tenant_user
+
+    desired = TenantUser.persona_handle_for(
+      tenant_id: T.must(tenant_id),
+      tag: "trio",
+      collective_handle: T.must(handle),
+      except_user_id: trio.id,
     )
     tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
   end

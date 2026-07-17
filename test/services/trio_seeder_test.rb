@@ -61,19 +61,28 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert @main.user_is_member?(trio)
   end
 
-  test "main collective's trio has handle 'trio'" do
-    trio = TrioSeeder.ensure_for(@main)
+  test "trio's handle follows trio-[collective_handle] for every collective" do
+    other = create_collective(tenant: @tenant, created_by: @owner, handle: "garden-#{SecureRandom.hex(2)}")
 
-    assert_equal "trio", trio.tenant_users.find_by(tenant_id: @tenant.id).handle
+    main_trio = TrioSeeder.ensure_for(@main)
+    other_trio = TrioSeeder.ensure_for(other)
+
+    assert_equal "trio-#{@main.handle}", main_trio.tenant_users.find_by(tenant_id: @tenant.id).handle
+    assert_equal "trio-#{other.handle}", other_trio.tenant_users.find_by(tenant_id: @tenant.id).handle
   end
 
-  test "non-main collective's trio has a 'trio-<hex>' handle" do
-    other = create_collective(tenant: @tenant, created_by: @owner)
+  test "a squatted persona handle falls back to a suffixed one" do
+    other = create_collective(tenant: @tenant, created_by: @owner, handle: "sqd-#{SecureRandom.hex(2)}")
+    squatter = create_user(email: "sq_#{SecureRandom.hex(4)}@example.com")
+    squatter_tu = @tenant.add_user!(squatter)
+    # Bypass validation the way a legacy row would exist: claimed before the
+    # prefix was reserved.
+    squatter_tu.update_column(:handle, "trio-#{other.handle}")
+
     trio = TrioSeeder.ensure_for(other)
     handle = trio.tenant_users.find_by(tenant_id: @tenant.id).handle
 
-    assert_match(/\Atrio-[a-f0-9]+\z/, handle)
-    assert_not_equal "trio", handle
+    assert_match(/\Atrio-#{Regexp.escape(other.handle)}-[a-f0-9]+\z/, handle)
   end
 
   test "trio is configured as an internal ai_agent" do

@@ -1693,6 +1693,21 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_not collective.funding_pools_available?
   end
 
+  test "renaming a collective renames its trio's handle to match" do
+    tenant = create_tenant(subdomain: "rn-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Band", handle: "band-#{SecureRandom.hex(2)}")
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    trio = TrioActivator.activate!(collective)
+
+    collective.update!(handle: "orchestra-#{SecureRandom.hex(2)}")
+
+    assert_equal "trio-#{collective.handle}", trio.tenant_users.find_by(tenant_id: tenant.id).handle
+  ensure
+    Tenant.clear_thread_scope
+  end
+
   test "pools are unavailable to non-standard collectives" do
     collective = pool_ready_collective
     upgrade_collective_to_paid!(collective)

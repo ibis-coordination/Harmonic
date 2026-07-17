@@ -51,9 +51,11 @@ module ReservedHandles
   end
 
   # --- Agent-identity handles ----------------------------------------------
-  # handle => system_role required to claim it. Only the main collective's trio
-  # actually holds the literal handle; per-collective trios carry hex-suffixed
-  # handles and are reached through the collective-local resolution below.
+  # mention tag => persona role it resolves through (and the system_role
+  # required to claim the tag, or any `<tag>-*` handle, as a user handle).
+  # Persona handles follow `<tag>-<collective handle>`; no user holds the
+  # literal tag — @trio reaches the local persona via the collective-local
+  # role resolution.
   AGENT_ROLES = T.let({ "trio" => "trio" }.freeze, T::Hash[String, String])
 
   TRIO = "trio"
@@ -79,22 +81,39 @@ module ReservedHandles
   end
 
   # The system_role required to claim `handle` as a user, or nil when the handle
-  # carries no role gate.
+  # carries no role gate. Agent handles are reserved both as exact names and as
+  # prefixes: `<tag>-<collective handle>` is the persona handle pattern, so
+  # `trio-*` is claimable only by the matching system agent — otherwise a user
+  # could squat (and impersonate) a collective's future trio.
   sig { params(handle: T.nilable(String)).returns(T.nilable(String)) }
   def self.required_system_role(handle)
-    AGENT_ROLES[handle.to_s.downcase]
+    h = handle.to_s.downcase
+    exact = AGENT_ROLES[h]
+    return exact if exact
+
+    AGENT_ROLES.each do |tag, role|
+      return role if h.start_with?("#{tag}-")
+    end
+    nil
   end
 
   # True when `handle` may not be claimed by a user with the given system_role.
-  # Group tags are never a real user; an agent handle is claimable only by the
-  # matching system_role (identity users, which carry no system_role, are thus
-  # excluded from agent handles too).
-  sig { params(handle: T.nilable(String), system_role: T.nilable(String)).returns(T::Boolean) }
-  def self.forbidden_for_user?(handle, system_role: nil)
+  # Group tags are never a real user; an agent handle (exact or prefixed) is
+  # claimable only by the matching system_role. Collective identity users are
+  # a partial exception: their handle mirrors their collective's, and the
+  # collective-handle namespace has its own rules (forbidden_for_collective?
+  # allows agent names for backwards compatibility) — so an identity may sit
+  # inside an agent prefix (a collective named "trio" suffixes to
+  # "trio-xxxx"), but never on the exact agent tag itself.
+  sig { params(handle: T.nilable(String), system_role: T.nilable(String), collective_identity: T::Boolean).returns(T::Boolean) }
+  def self.forbidden_for_user?(handle, system_role: nil, collective_identity: false)
     return true if group_tag?(handle)
 
     required = required_system_role(handle)
-    !required.nil? && system_role != required
+    return false if required.nil?
+    return AGENT_ROLES.key?(handle.to_s.downcase) if collective_identity
+
+    system_role != required
   end
 
   # True when no collective may take `handle` as its handle. Group tags are

@@ -477,7 +477,10 @@ class MentionParserTest < ActiveSupport::TestCase
 
     result = MentionParser.resolve_paths("hi @trio", tenant_id: tenant.id, collective: collective)
 
-    assert_equal({ "trio" => "/u/trio" }, result)
+    # The @trio tag links to the local trio's own profile (its real handle),
+    # not to a shared /u/trio.
+    assert_equal({ "trio" => trio.reload.path }, result)
+    assert_match(%r{\A/u/trio-}, result["trio"])
   end
 
   # === extract_handles tests ===
