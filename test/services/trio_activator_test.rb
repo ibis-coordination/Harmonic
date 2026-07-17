@@ -21,7 +21,7 @@ class TrioActivatorTest < ActiveSupport::TestCase
   test "activate! creates a trio user for the collective" do
     TrioActivator.activate!(@collective)
 
-    assert_not_nil @collective.reload.trio_user_id
+    assert_not_nil @collective.reload.trio_user&.id
     assert_equal "trio", T.must(@collective.trio_user).system_role
   end
 
@@ -77,13 +77,13 @@ class TrioActivatorTest < ActiveSupport::TestCase
 
   # === deactivate! ===
 
-  test "deactivate! nils out collective.trio_user_id" do
+  test "deactivate! makes collective.trio_user nil" do
     TrioActivator.activate!(@collective)
-    assert_not_nil @collective.reload.trio_user_id
+    assert_not_nil @collective.reload.trio_user&.id
 
     TrioActivator.deactivate!(@collective)
 
-    assert_nil @collective.reload.trio_user_id
+    assert_nil @collective.reload.trio_user&.id
   end
 
   test "deactivate! archives the trio's CollectiveMember" do
@@ -114,30 +114,30 @@ class TrioActivatorTest < ActiveSupport::TestCase
     assert_nothing_raised do
       TrioActivator.deactivate!(@collective)
     end
-    assert_nil @collective.reload.trio_user_id
+    assert_nil @collective.reload.trio_user&.id
   end
 
   # === reconcile! ===
 
-  test "reconcile! activates when flag is on and trio_user_id is nil" do
+  test "reconcile! activates when flag is on and trio is inactive" do
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", true)
-    assert_nil @collective.reload.trio_user_id, "precondition: trio inactive"
+    assert_nil @collective.reload.trio_user&.id, "precondition: trio inactive"
 
     TrioActivator.reconcile!(@collective)
 
-    assert_not_nil @collective.reload.trio_user_id
+    assert_not_nil @collective.reload.trio_user&.id
   end
 
-  test "reconcile! deactivates when flag is off and trio_user_id is set" do
+  test "reconcile! deactivates when flag is off and trio is active" do
     TrioActivator.activate!(@collective)
-    assert_not_nil @collective.reload.trio_user_id, "precondition: trio active"
+    assert_not_nil @collective.reload.trio_user&.id, "precondition: trio active"
     @tenant.disable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
 
     TrioActivator.reconcile!(@collective)
 
-    assert_nil @collective.reload.trio_user_id
+    assert_nil @collective.reload.trio_user&.id
   end
 
   test "activate! sets the explicit trio feature flag to true" do

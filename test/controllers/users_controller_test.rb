@@ -43,8 +43,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_not_nil workspace.trio_user_id, "expected trio to be activated in workspace"
-    assert AutomationRule.where(ai_agent_id: workspace.trio_user_id).exists?
+    assert_not_nil workspace.trio_user&.id, "expected trio to be activated in workspace"
+    assert AutomationRule.where(ai_agent_id: workspace.trio_user&.id).exists?
   end
 
   # Self-hosted (non-billing) tenants have no tier model. A free-tier
@@ -62,7 +62,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_not_nil workspace.trio_user_id, "self-hosted: trio should activate on free workspace"
+    assert_not_nil workspace.trio_user&.id, "self-hosted: trio should activate on free workspace"
   end
 
   test "workspace owner can disable Trio in their private workspace" do
@@ -71,7 +71,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     upgrade_collective_to_paid!(workspace, owner: @user)
     workspace.set_feature_flag!("trio", true)
     TrioActivator.activate!(workspace)
-    trio_id = T.must(workspace.reload.trio_user_id)
+    trio_id = T.must(workspace.reload.trio_user&.id)
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
@@ -79,7 +79,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_nil workspace.trio_user_id, "expected trio to be deactivated in workspace"
+    assert_nil workspace.trio_user&.id, "expected trio to be deactivated in workspace"
     assert AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? }
   end
 
@@ -95,7 +95,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     # No handle in the route: the toggle applies to other_user's own workspace,
     # so @user's workspace is structurally untouchable here.
-    assert_nil T.must(@user.private_workspace).reload.trio_user_id
+    assert_nil T.must(@user.private_workspace).reload.trio_user&.id
   end
 
   # === Workspace Trio paid-tier gate ===
@@ -112,7 +112,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_nil workspace.trio_user_id, "trio should not be activated on a free workspace"
+    assert_nil workspace.trio_user&.id, "trio should not be activated on a free workspace"
     assert flash[:error].to_s.downcase.include?("paid")
   end
 
@@ -129,7 +129,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_not_nil workspace.trio_user_id, "trio should activate when workspace is paid"
+    assert_not_nil workspace.trio_user&.id, "trio should activate when workspace is paid"
   end
 
   test "workspace owner can always disable Trio (no paid-tier requirement on disable)" do
@@ -146,7 +146,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_nil workspace.trio_user_id
+    assert_nil workspace.trio_user&.id
   end
 
   private

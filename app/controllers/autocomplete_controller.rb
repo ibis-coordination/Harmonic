@@ -47,7 +47,7 @@ class AutocompleteController < ApplicationController
     # collectives to avoid the tenant-wide handle collision). The mention
     # parser resolves "@trio" back to this collective's trio via the
     # collective.trio_user link.
-    trio_user_id = @current_collective.trio_user_id
+    trio_user_id = @current_collective.trio_user&.id
 
     results = tenant_users.map do |tu|
       display_handle = tu.user_id == trio_user_id ? MentionParser::TRIO_HANDLE : tu.handle

@@ -15,9 +15,10 @@
 # mention tag resolves collective-locally via the trio persona role
 # (MentionParser); no user holds the literal handle "trio".
 #
-# Idempotent. Safe to call multiple times — returns the existing trio_user
-# without modification on the second call (other than clearing any stale
-# cached identity_prompt in agent_configuration).
+# Idempotent. Safe to call multiple times — returns the collective's existing
+# trio without modification on the second call (other than clearing any stale
+# cached identity_prompt in agent_configuration). Activation state (the trio
+# persona role) is TrioActivator's job, not the seeder's.
 class TrioSeeder
   extend T::Sig
 
@@ -37,7 +38,7 @@ class TrioSeeder
   sig { returns(User) }
   def ensure
     ActiveRecord::Base.transaction do
-      existing = @collective.trio_user
+      existing = @collective.seeded_persona_user("trio")
       existing ? refresh(existing) : create
     end
   end
@@ -67,7 +68,6 @@ class TrioSeeder
     )
     tenant.add_user!(trio, handle: pick_handle)
     @collective.add_user!(trio)
-    @collective.update!(trio_user: trio)
     trio
   end
 

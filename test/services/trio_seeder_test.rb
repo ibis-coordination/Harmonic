@@ -49,10 +49,12 @@ class TrioSeederTest < ActiveSupport::TestCase
     assert_equal first.id, second.id
   end
 
-  test "ensure_for assigns collective.trio_user" do
+  test "ensure_for seeds the trio without activating it" do
     trio = TrioSeeder.ensure_for(@main)
 
-    assert_equal trio.id, @main.reload.trio_user_id
+    # Activation state (the persona role) is TrioActivator's job.
+    assert_equal trio.id, @main.reload.seeded_persona_user("trio")&.id
+    assert_nil @main.trio_user
   end
 
   test "trio is a CollectiveMember of its collective" do
@@ -168,8 +170,8 @@ class TrioSeederTest < ActiveSupport::TestCase
     trio_other = TrioSeeder.ensure_for(other)
 
     assert_not_equal trio_main.id, trio_other.id
-    assert_equal trio_main.id, @main.reload.trio_user_id
-    assert_equal trio_other.id, other.reload.trio_user_id
+    assert_equal trio_main.id, @main.reload.seeded_persona_user("trio")&.id
+    assert_equal trio_other.id, other.reload.seeded_persona_user("trio")&.id
   end
 
   test "TrioSeeder is the only production source creating system_role: 'trio' users" do

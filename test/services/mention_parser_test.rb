@@ -66,7 +66,6 @@ class MentionParserTest < ActiveSupport::TestCase
     tenant.add_user!(trio, handle: handle) unless trio.tenant_users.exists?(tenant_id: tenant.id)
     collective.add_user!(trio) unless collective.user_is_member?(trio)
     collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
-    collective.update!(trio_user: trio)
   end
 
   test "parse resolves @trio to the collective's trio when collective is provided" do

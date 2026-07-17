@@ -6,14 +6,15 @@
 # Activation either bootstraps fresh state (TrioSeeder creates the user
 # and joins it as a CollectiveMember; default automation rules are seeded)
 # or restores previously deactivated state (unarchives the CollectiveMember,
-# re-enables existing rules, re-links collective.trio_user). The restore
+# re-grants the trio persona role, re-enables existing rules). The restore
 # path preserves any user customizations to the default rules across
 # off→on→off→on cycles.
 #
-# Deactivation archives the trio's CollectiveMember in this collective,
-# disables its rules, and nulls out collective.trio_user_id. The trio User
-# row and its AutomationRule rows are kept so that a subsequent activation
-# can restore them.
+# Deactivation removes the trio persona role — the activation signal that
+# mention resolution, pool funding, and Collective#trio_user key off —
+# archives the trio's CollectiveMember, and disables its rules. The trio
+# User row and its AutomationRule rows are kept so that a subsequent
+# activation can restore them.
 class TrioActivator
   extend T::Sig
 
@@ -31,13 +32,14 @@ class TrioActivator
   # flag. Idempotent: if the flag is on and trio is already active, no-op;
   # likewise for the off case. Safe to call after every settings save.
   #
-  # Compares desired (`trio_enabled?`) to actual (`trio_user_id.present?`),
-  # not flag-transition deltas — a delta-based check would miss the first
-  # activation when the flag was already true via config default.
+  # Compares desired (`trio_enabled?`) to actual (the persona role being
+  # held — `trio_user.present?`), not flag-transition deltas — a delta-based
+  # check would miss the first activation when the flag was already true via
+  # config default.
   sig { params(collective: Collective).void }
   def self.reconcile!(collective)
     desired = collective.trio_enabled?
-    actual = collective.trio_user_id.present?
+    actual = collective.trio_user.present?
 
     if desired && !actual
       activate!(collective)
@@ -96,16 +98,16 @@ class TrioActivator
     ActiveRecord::Base.transaction do
       ensure_flag!(false)
 
-      trio = @collective.trio_user
+      trio = @collective.seeded_persona_user(ReservedHandles::TRIO)
       next unless trio
 
       member = @collective.collective_members.find_by(user_id: trio.id)
+      # Removing the persona role IS deactivation — mention resolution,
+      # reconcile!, pool funding, and Collective#trio_user all key off it.
       member&.remove_role!(ReservedHandles::TRIO)
       member&.archive!
 
       AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: false)
-
-      @collective.update!(trio_user_id: nil)
     end
   end
 
@@ -122,18 +124,12 @@ class TrioActivator
     @collective.set_feature_flag!("trio", value)
   end
 
-  # Returns the trio User previously linked to this collective, even if its
+  # Returns the trio User previously seeded for this collective, even if its
   # CollectiveMember is currently archived. Returns nil if Trio has never
   # been activated here.
   sig { returns(T.nilable(User)) }
   def find_existing_trio
-    return @collective.trio_user if @collective.trio_user
-
-    member = @collective.collective_members
-      .joins(:user)
-      .where(users: { system_role: "trio" })
-      .first
-    member&.user
+    @collective.seeded_persona_user(ReservedHandles::TRIO)
   end
 
   sig { params(trio: User).returns(User) }
@@ -144,7 +140,6 @@ class TrioActivator
 
     AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: true)
 
-    @collective.update!(trio_user: trio)
     @collective.ensure_trio_funded!
     trio
   end

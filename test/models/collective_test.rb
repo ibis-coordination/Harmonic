@@ -251,14 +251,15 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_equal "bar-team", identity_tu.handle
   end
 
-  test "Collective#trio_user is nil by default and links to a User when set" do
+  test "Collective#trio_user resolves through the persona role" do
     tenant = create_tenant
     user = create_user
+    tenant.add_user!(user)
     collective = Collective.create!(
       tenant: tenant,
       created_by: user,
-      name: "Trio FK Collective",
-      handle: "trio-fk-collective"
+      name: "Trio Role Collective",
+      handle: "trio-role-collective"
     )
     assert_nil collective.trio_user
 
@@ -269,10 +270,23 @@ class CollectiveTest < ActiveSupport::TestCase
       system_role: "trio",
       parent_id: nil
     )
-    collective.update!(trio_user: trio)
+    tenant.add_user!(trio)
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    collective.add_user!(trio)
+    member = collective.collective_members.find_by!(user_id: trio.id)
 
-    assert_equal trio.id, collective.reload.trio_user_id
-    assert_equal trio, collective.trio_user
+    # Seeded but not active: membership alone doesn't resolve.
+    assert_nil collective.trio_user
+    assert_equal trio.id, collective.seeded_persona_user("trio")&.id
+
+    member.add_role!("trio")
+    assert_equal trio.id, collective.trio_user&.id
+
+    # An archived member (deactivated) stops resolving even with the role.
+    member.archive!
+    assert_nil collective.trio_user
+  ensure
+    Tenant.clear_thread_scope
   end
 
   test "Collective.within_file_upload_limit? returns true when usage is below limit" do

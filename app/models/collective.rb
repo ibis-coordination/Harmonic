@@ -11,7 +11,6 @@ class Collective < ApplicationRecord
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
   belongs_to :identity_user, class_name: "User", optional: true
-  belongs_to :trio_user, class_name: "User", optional: true
   before_validation :create_identity_user!
   before_create :set_defaults
   after_update :sync_identity_user_handle!, if: :saved_change_to_handle?
@@ -370,7 +369,7 @@ class Collective < ApplicationRecord
     transaction do
       automation_rules.enabled.update_all(enabled: false)
       PAID_FEATURE_FLAGS.each { |flag| disable_feature_flag!(flag) }
-      TrioActivator.deactivate!(self) if trio_user_id.present?
+      TrioActivator.deactivate!(self) if trio_user.present?
       update!(tier: TIER_FREE)
     end
   end
@@ -478,6 +477,31 @@ class Collective < ApplicationRecord
   sig { params(flag_name: String).returns(T::Boolean) }
   def feature_enabled?(flag_name)
     FeatureFlagService.collective_enabled?(self, flag_name)
+  end
+
+  # The collective's ACTIVE persona agent: the unarchived member holding the
+  # persona role. Role presence IS activation state (the activator grants it
+  # on activate and removes it on deactivate), so this is nil while the
+  # persona is deactivated — the single source of truth; there is no persona
+  # FK column.
+  sig { params(persona_role: String).returns(T.nilable(User)) }
+  def persona_user(persona_role)
+    member = T.unsafe(collective_members.where(archived_at: nil)).where_has_role(persona_role).first
+    member&.user
+  end
+
+  # The persona agent ever seeded for this collective, active or
+  # deactivated — found through membership + the User's system_role, which
+  # outlives activation state. For the active persona use persona_user.
+  sig { params(system_role: String).returns(T.nilable(User)) }
+  def seeded_persona_user(system_role)
+    collective_members.joins(:user).where(users: { system_role: system_role }).first&.user
+  end
+
+  # The collective's active trio, or nil while trio is deactivated.
+  sig { returns(T.nilable(User)) }
+  def trio_user
+    persona_user(ReservedHandles::TRIO)
   end
 
   # Trio is on the pool payroll automatically: whenever an open pool and an
@@ -766,7 +790,7 @@ class Collective < ApplicationRecord
   def sync_trio_handle!
     return if handle.blank?
 
-    trio = collective_members.joins(:user).where(users: { system_role: "trio" }).first&.user
+    trio = seeded_persona_user(ReservedHandles::TRIO)
     return unless trio
 
     tenant_user = TenantUser.tenant_scoped_only(T.must(tenant_id)).find_by(user_id: trio.id)

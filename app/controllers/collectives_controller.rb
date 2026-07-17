@@ -749,7 +749,7 @@ class CollectivesController < ApplicationController
     # Trio's attachment is automatic while the pool is open — detaching it
     # would leave a phantom state (trio active, pool open, every run
     # failing) that the next reconcile would silently undo.
-    if ai_agent.id == @current_collective.trio_user_id
+    if ai_agent.id == @current_collective.trio_user&.id
       return render_funded_agent_error(422, 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead')
     end
 
@@ -1096,7 +1096,7 @@ class CollectivesController < ApplicationController
       })
     end
     # Same guard as the HTML endpoint: trio's attachment is automatic.
-    if ai_agent.id == @current_collective.trio_user_id
+    if ai_agent.id == @current_collective.trio_user&.id
       return render_action_error({
         action_name: 'detach_funded_agent',
         resource: @current_collective,

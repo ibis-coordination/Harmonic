@@ -287,7 +287,6 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     @tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
     @collective.add_user!(trio)
     @collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
-    @collective.update!(trio_user: trio)
 
     note = create_note(text: "Hey @trio, what should we do?")
     event = create_event_for_note(note)
@@ -303,7 +302,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     )
     @tenant.add_user!(other_trio, handle: "trio-#{SecureRandom.hex(4)}")
     other_collective.add_user!(other_trio)
-    other_collective.update!(trio_user: other_trio)
+    other_collective.collective_members.find_by!(user_id: other_trio.id).add_role!("trio")
 
     note = create_note(text: "Hey @trio")
     event = create_event_for_note(note)

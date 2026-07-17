@@ -187,7 +187,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
     @collective.update!(tier: Collective::TIER_PAID)
-    assert_nil @collective.trio_user_id, "precondition: trio should be off"
+    assert_nil @collective.trio_user&.id, "precondition: trio should be off"
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -195,8 +195,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_not_nil @collective.trio_user_id, "expected trio to be activated"
-    assert AutomationRule.where(ai_agent_id: @collective.trio_user_id).exists?, "expected default automations to be seeded"
+    assert_not_nil @collective.trio_user&.id, "expected trio to be activated"
+    assert AutomationRule.where(ai_agent_id: @collective.trio_user&.id).exists?, "expected default automations to be seeded"
   end
 
   test "disabling the trio feature flag deactivates trio for the collective" do
@@ -204,7 +204,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
     TrioActivator.activate!(@collective)
-    trio_id = T.must(@collective.reload.trio_user_id)
+    trio_id = T.must(@collective.reload.trio_user&.id)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -212,7 +212,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_nil @collective.trio_user_id, "expected trio to be deactivated"
+    assert_nil @collective.trio_user&.id, "expected trio to be deactivated"
     rules = AutomationRule.where(ai_agent_id: trio_id)
     assert rules.all? { |r| !r.enabled? }, "expected default automations to be disabled"
   end
