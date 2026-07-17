@@ -69,19 +69,17 @@ class ReservedHandlesTest < ActiveSupport::TestCase
     assert_not ReservedHandles.forbidden_for_user?("triofan", system_role: nil)
   end
 
-  test "collective identity users may sit inside an agent prefix but never on the exact tag" do
-    # A collective named "trio-fans" is legal; its identity mirrors the handle.
-    assert_not ReservedHandles.forbidden_for_user?("trio-fans", system_role: nil, collective_identity: true)
-    # The exact tag stays off-limits even for identities.
-    assert ReservedHandles.forbidden_for_user?("trio", system_role: nil, collective_identity: true)
-  end
 
-  test "forbidden_for_collective? blocks main and group tags but not agent handles" do
+  test "forbidden_for_collective? blocks main, group tags, and the agent namespace" do
     assert ReservedHandles.forbidden_for_collective?("main")
     assert ReservedHandles.forbidden_for_collective?("everyone")
     assert ReservedHandles.forbidden_for_collective?("ADMINS")
-    # Agent handles stay claimable as collective handles (backwards compatible).
-    assert_not ReservedHandles.forbidden_for_collective?("trio")
+    # The agent namespace — exact tags and their prefixes — is reserved
+    # unconditionally: identity users mirror collective handles, and no user
+    # but the matching system agent may hold trio/trio-*.
+    assert ReservedHandles.forbidden_for_collective?("trio")
+    assert ReservedHandles.forbidden_for_collective?("trio-fans")
+    assert_not ReservedHandles.forbidden_for_collective?("triofan")
     assert_not ReservedHandles.forbidden_for_collective?("alice")
   end
 end

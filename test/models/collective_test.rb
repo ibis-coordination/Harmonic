@@ -234,12 +234,17 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_match(/\Afoo-team-[0-9a-f]{4}\z/, identity_tu.handle)
   end
 
-  test "identity user handle is suffixed when the collective handle is reserved for system agents" do
+  test "a collective cannot claim an agent tag or its prefix as a handle" do
     tenant = create_tenant
     user = create_user
-    collective = Collective.create!(tenant: tenant, created_by: user, name: "Trio", handle: "trio")
-    identity_tu = TenantUser.tenant_scoped_only(tenant.id).find_by(user_id: collective.identity_user_id)
-    assert_match(/\Atrio-[0-9a-f]{4}\z/, identity_tu.handle)
+
+    exact = Collective.new(tenant: tenant, created_by: user, name: "Trio", handle: "trio")
+    assert_not exact.valid?
+    assert_includes exact.errors[:handle], "is reserved"
+
+    prefixed = Collective.new(tenant: tenant, created_by: user, name: "Trio Fans", handle: "trio-fans")
+    assert_not prefixed.valid?
+    assert_includes prefixed.errors[:handle], "is reserved"
   end
 
   test "renaming the collective syncs the identity user handle" do
@@ -258,8 +263,8 @@ class CollectiveTest < ActiveSupport::TestCase
     collective = Collective.create!(
       tenant: tenant,
       created_by: user,
-      name: "Trio Role Collective",
-      handle: "trio-role-collective"
+      name: "Persona Role Collective",
+      handle: "persona-role-collective"
     )
     assert_nil collective.trio_user
 

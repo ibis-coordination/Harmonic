@@ -738,7 +738,10 @@ class Collective < ApplicationRecord
     # The identity shares the collective's handle; without one there's nothing
     # to share, so defer to `handle_is_valid` to surface the blank-handle error
     # rather than minting an orphan identity user with a placeholder handle.
+    # A reserved handle defers the same way — handle_is_valid rejects it with
+    # a friendly error instead of this callback raising mid-validation.
     return if handle.blank?
+    return if ReservedHandles.forbidden_for_collective?(handle)
 
     identity = User.create!(
       name: name,

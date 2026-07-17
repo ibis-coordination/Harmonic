@@ -71,11 +71,7 @@ class TenantUser < ApplicationRecord
     # can't slip past. Group tags are forbidden outright; agent handles require
     # the matching system_role.
     return if handle.blank?
-    return unless ReservedHandles.forbidden_for_user?(
-      handle,
-      system_role: T.must(user).system_role,
-      collective_identity: T.must(user).collective_identity?,
-    )
+    return unless ReservedHandles.forbidden_for_user?(handle, system_role: T.must(user).system_role)
 
     errors.add(:handle, "is reserved")
   end
@@ -123,10 +119,9 @@ class TenantUser < ApplicationRecord
     scope = tenant_scoped_only(tenant_id)
     scope = scope.where.not(user_id: except_user_id) if except_user_id.present?
     candidate = root
-    # Identity users can't take a group tag or an exact agent tag; a handle
-    # inside an agent prefix is fine (it mirrors a legitimately-claimed
-    # collective handle), so only the exact cases force a suffix.
-    candidate = "#{root}-#{SecureRandom.hex(2)}" if ReservedHandles.forbidden_for_user?(root, system_role: nil, collective_identity: true)
+    # Identity users never carry a system_role, so any group tag or agent
+    # handle is off-limits (forbidden_for_user? with a nil role rejects both).
+    candidate = "#{root}-#{SecureRandom.hex(2)}" if ReservedHandles.forbidden_for_user?(root, system_role: nil)
     candidate = "#{root}-#{SecureRandom.hex(2)}" while scope.exists?(handle: candidate)
     candidate
   end

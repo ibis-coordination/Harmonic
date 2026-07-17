@@ -99,30 +99,27 @@ module ReservedHandles
 
   # True when `handle` may not be claimed by a user with the given system_role.
   # Group tags are never a real user; an agent handle (exact or prefixed) is
-  # claimable only by the matching system_role. Collective identity users are
-  # a partial exception: their handle mirrors their collective's, and the
-  # collective-handle namespace has its own rules (forbidden_for_collective?
-  # allows agent names for backwards compatibility) — so an identity may sit
-  # inside an agent prefix (a collective named "trio" suffixes to
-  # "trio-xxxx"), but never on the exact agent tag itself.
-  sig { params(handle: T.nilable(String), system_role: T.nilable(String), collective_identity: T::Boolean).returns(T::Boolean) }
-  def self.forbidden_for_user?(handle, system_role: nil, collective_identity: false)
+  # claimable only by the matching system_role — no exceptions. Identity users
+  # carry no system_role, so they are excluded like everyone else; the
+  # collective handles they mirror are barred from the same namespace by
+  # forbidden_for_collective?, so the two reservations never conflict.
+  sig { params(handle: T.nilable(String), system_role: T.nilable(String)).returns(T::Boolean) }
+  def self.forbidden_for_user?(handle, system_role: nil)
     return true if group_tag?(handle)
 
     required = required_system_role(handle)
-    return false if required.nil?
-    return AGENT_ROLES.key?(handle.to_s.downcase) if collective_identity
-
-    system_role != required
+    !required.nil? && system_role != required
   end
 
   # True when no collective may take `handle` as its handle. Group tags are
   # reserved so a collective (via its identity user) can't shadow the tag; the
-  # "main" handle is reserved for the main collective. Agent handles are left
-  # claimable as collective handles for backwards compatibility.
+  # "main" handle is reserved for the main collective. Agent tags and their
+  # prefixes (`trio`, `trio-*`) are reserved unconditionally: a collective's
+  # identity user mirrors its handle, and the persona namespace admits no
+  # user but the matching system agent.
   sig { params(handle: T.nilable(String)).returns(T::Boolean) }
   def self.forbidden_for_collective?(handle)
     h = handle.to_s.downcase
-    COLLECTIVE_ONLY.include?(h) || group_tag?(h)
+    COLLECTIVE_ONLY.include?(h) || group_tag?(h) || !required_system_role(h).nil?
   end
 end

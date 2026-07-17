@@ -10,6 +10,27 @@
 #   3. Drop the column.
 class DropTrioUserIdFromCollectives < ActiveRecord::Migration[7.2]
   def up
+    # The persona namespace (trio, trio-*) is now reserved unconditionally for
+    # users AND collectives. Existing offenders wouldn't fail this migration —
+    # they'd wedge later, failing validation on their next save with no
+    # obvious cause. Fail HERE instead, loudly, so the conflict is resolved
+    # consciously (rename the user / collective) before the deploy completes.
+    offending_users = TenantUser.unscoped_for_system_job
+      .where("handle ILIKE 'trio' OR handle ILIKE 'trio-%'")
+      .joins(:user).where.not(users: { system_role: "trio" })
+      .pluck(:tenant_id, :handle)
+    offending_collectives = Collective.unscoped_for_system_job
+      .where("handle ILIKE 'trio' OR handle ILIKE 'trio-%'")
+      .pluck(:tenant_id, :handle)
+    if offending_users.any? || offending_collectives.any?
+      raise <<~MSG
+        Cannot migrate: the persona handle namespace (trio, trio-*) is reserved,
+        but existing rows hold reserved handles. Rename them, then rerun:
+          users (tenant_id, handle): #{offending_users.inspect}
+          collectives (tenant_id, handle): #{offending_collectives.inspect}
+      MSG
+    end
+
     say_with_time "backfilling trio persona roles" do
       execute(<<~SQL.squish)
         UPDATE collective_members cm
@@ -35,13 +56,17 @@ class DropTrioUserIdFromCollectives < ActiveRecord::Migration[7.2]
         tenant_user = TenantUser.unscoped_for_system_job.find_by(tenant_id: collective.tenant_id, user_id: cm.user_id)
         next unless tenant_user
 
-        desired = "trio-#{collective.handle}"
-        next if tenant_user.handle.to_s.casecmp?(desired)
+        base = "trio-#{collective.handle}"
+        next if tenant_user.handle.to_s.casecmp?(base)
 
-        taken = TenantUser.unscoped_for_system_job
-          .where(tenant_id: collective.tenant_id, handle: desired)
-          .where.not(user_id: cm.user_id)
-        desired = "#{desired}-#{SecureRandom.hex(2)}" if taken.exists?
+        taken = lambda do |candidate|
+          TenantUser.unscoped_for_system_job
+            .where(tenant_id: collective.tenant_id, handle: candidate)
+            .where.not(user_id: cm.user_id)
+            .exists?
+        end
+        desired = base
+        desired = "#{base}-#{SecureRandom.hex(2)}" while taken.call(desired)
         # update_columns: no validations/callbacks — legacy rows must rename
         # unconditionally, and nothing else may fire mid-migration.
         tenant_user.update_columns(handle: desired)
