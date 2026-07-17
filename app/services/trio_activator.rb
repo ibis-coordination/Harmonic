@@ -106,6 +106,7 @@ class TrioActivator
       # reconcile!, pool funding, and Collective#trio_user all key off it.
       member&.remove_role!(ReservedHandles::TRIO)
       member&.archive!
+      @collective.clear_persona_user_cache!
 
       AutomationRule.where(ai_agent_id: trio.id).update_all(enabled: false)
     end
@@ -154,11 +155,15 @@ class TrioActivator
   end
 
   # The persona role is activation state: granted here, removed on
-  # deactivate. Mention resolution (@trio) keys off it.
+  # deactivate. Mention resolution (@trio) keys off it. The memoized
+  # persona lookup on this instance is stale the moment the role changes —
+  # clear it, or a pre-activation nil read (reconcile!) would pin nil and
+  # ensure_trio_funded! would skip funding.
   sig { params(trio: User).void }
   def grant_persona_role!(trio)
     member = @collective.collective_members.find_by(user_id: trio.id)
     member&.add_role!(ReservedHandles::TRIO)
+    @collective.clear_persona_user_cache!
   end
 
   DEFAULT_AUTOMATIONS = T.let(

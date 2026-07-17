@@ -284,12 +284,14 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_nil collective.trio_user
     assert_equal trio.id, collective.seeded_persona_user("trio")&.id
 
+    # Direct role mutation (tests only — production writes go through the
+    # activator, which invalidates the memo): reload for a fresh read.
     member.add_role!("trio")
-    assert_equal trio.id, collective.trio_user&.id
+    assert_equal trio.id, collective.reload.trio_user&.id
 
     # An archived member (deactivated) stops resolving even with the role.
     member.archive!
-    assert_nil collective.trio_user
+    assert_nil collective.reload.trio_user
   ensure
     Tenant.clear_thread_scope
   end
@@ -1710,6 +1712,47 @@ class CollectiveTest < ActiveSupport::TestCase
     collective.update!(tier: Collective::TIER_PAID)
 
     assert_not collective.funding_pools_available?
+  end
+
+  test "persona_user is memoized within an instance" do
+    tenant = create_tenant(subdomain: "memo-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Memo", handle: "memo-#{SecureRandom.hex(2)}")
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+    TrioActivator.activate!(collective)
+    collective = Collective.find(collective.id)
+
+    queries = 0
+    counter = ->(*_args, payload) { queries += 1 unless payload[:name] == "SCHEMA" || payload[:cached] }
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+      collective.trio_user
+      first_pass = queries
+      3.times { collective.trio_user }
+      assert_equal first_pass, queries,
+        "repeated persona_user calls on one instance must not re-query (markdown rendering calls this per text node)"
+    end
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  test "activator role changes invalidate the persona_user memo on the same instance" do
+    tenant = create_tenant(subdomain: "memo2-#{SecureRandom.hex(4)}")
+    user = create_user
+    tenant.add_user!(user)
+    collective = Collective.create!(tenant: tenant, created_by: user, name: "Memo2", handle: "memo2-#{SecureRandom.hex(2)}")
+    Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
+
+    # Read-before-activate on the SAME instance — the reconcile! flow. A
+    # naive memo would pin nil and ensure_trio_funded! would skip funding.
+    assert_nil collective.trio_user
+    TrioActivator.activate!(collective)
+    assert_not_nil collective.trio_user, "activation must invalidate the memoized nil"
+
+    TrioActivator.deactivate!(collective)
+    assert_nil collective.trio_user, "deactivation must invalidate the memoized user"
+  ensure
+    Tenant.clear_thread_scope
   end
 
   test "renaming a collective renames its trio's handle to match" do

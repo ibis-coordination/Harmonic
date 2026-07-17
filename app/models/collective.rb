@@ -484,10 +484,33 @@ class Collective < ApplicationRecord
   # on activate and removes it on deactivate), so this is nil while the
   # persona is deactivated — the single source of truth; there is no persona
   # FK column.
+  #
+  # Memoized per instance (nil results included) — markdown rendering
+  # resolves @trio once per text node against one shared collective, and the
+  # old belongs_to gave that association caching for free. The activator
+  # invalidates via clear_persona_user_cache! when it changes the role;
+  # reload clears too.
   sig { params(persona_role: String).returns(T.nilable(User)) }
   def persona_user(persona_role)
+    @persona_user_cache = T.let(@persona_user_cache, T.nilable(T::Hash[String, T.nilable(User)]))
+    @persona_user_cache ||= {}
+    return @persona_user_cache.fetch(persona_role) if @persona_user_cache.key?(persona_role)
+
     member = T.unsafe(collective_members.where(archived_at: nil)).where_has_role(persona_role).first
-    member&.user
+    @persona_user_cache[persona_role] = member&.user
+  end
+
+  # Drop memoized persona lookups. Called by the persona activator after
+  # granting/removing a persona role on this instance, and on reload.
+  sig { void }
+  def clear_persona_user_cache!
+    @persona_user_cache = nil
+  end
+
+  sig { params(options: T.untyped).returns(Collective) }
+  def reload(options = nil)
+    clear_persona_user_cache!
+    super
   end
 
   # The persona agent ever seeded for this collective, active or
