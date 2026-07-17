@@ -187,7 +187,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
     @collective.update!(tier: Collective::TIER_PAID)
-    assert_nil @collective.trio_user_id, "precondition: trio should be off"
+    assert_nil @collective.trio_user&.id, "precondition: trio should be off"
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -195,8 +195,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_not_nil @collective.trio_user_id, "expected trio to be activated"
-    assert AutomationRule.where(ai_agent_id: @collective.trio_user_id).exists?, "expected default automations to be seeded"
+    assert_not_nil @collective.trio_user&.id, "expected trio to be activated"
+    assert AutomationRule.where(ai_agent_id: @collective.trio_user&.id).exists?, "expected default automations to be seeded"
   end
 
   test "disabling the trio feature flag deactivates trio for the collective" do
@@ -204,7 +204,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
     TrioActivator.activate!(@collective)
-    trio_id = T.must(@collective.reload.trio_user_id)
+    trio_id = T.must(@collective.reload.trio_user&.id)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -212,7 +212,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_nil @collective.trio_user_id, "expected trio to be deactivated"
+    assert_nil @collective.trio_user&.id, "expected trio to be deactivated"
     rules = AutomationRule.where(ai_agent_id: trio_id)
     assert rules.all? { |r| !r.enabled? }, "expected default automations to be disabled"
   end
@@ -1472,6 +1472,28 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     cm = @collective.collective_members.find_by(user: member)
     assert_not cm.has_role?("representative"), "expected the representative role to be revoked"
+  end
+
+  test "persona roles cannot be granted through the role endpoint" do
+    member = add_member(name: "Would-be Trio")
+    sign_in_as(@user, tenant: @tenant)
+
+    post update_roles_path,
+         params: { user_handle: handle_for(member), role: "trio", grant: "true" },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :unprocessable_entity
+    cm = @collective.collective_members.find_by(user: member)
+    assert_not cm.has_role?("trio"), "persona roles are activator-managed, never grantable"
+  end
+
+  test "the members page role menu offers only capability roles" do
+    add_member(name: "Regular Member")
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_no_match(/role trio/, response.body)
   end
 
   test "non-admin cannot update member roles" do

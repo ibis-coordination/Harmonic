@@ -276,17 +276,17 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
 
   # === @trio (per-collective system agent) ===
 
-  test "self filter matches when @trio is mentioned and agent is the collective's trio_user" do
+  test "self filter matches when @trio is mentioned and agent is the collective's trio" do
     trio = User.create!(
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    # Trio's stored handle is intentionally non-"trio" (random hex). The literal
-    # string @trio is resolved by the MentionParser via collective.trio_user, so
+    # Trio's stored handle is intentionally non-"trio". The literal string
+    # @trio is resolved by the MentionParser via the trio persona role, so
     # the handle index never collides across collectives.
     @tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
     @collective.add_user!(trio)
-    @collective.update!(trio_user: trio)
+    @collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
 
     note = create_note(text: "Hey @trio, what should we do?")
     event = create_event_for_note(note)
@@ -302,7 +302,7 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     )
     @tenant.add_user!(other_trio, handle: "trio-#{SecureRandom.hex(4)}")
     other_collective.add_user!(other_trio)
-    other_collective.update!(trio_user: other_trio)
+    other_collective.collective_members.find_by!(user_id: other_trio.id).add_role!("trio")
 
     note = create_note(text: "Hey @trio")
     event = create_event_for_note(note)

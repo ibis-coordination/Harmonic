@@ -32,13 +32,15 @@ module ReservedHandles
   EVERYONE = "everyone"
   # @here (currently-active members) is intentionally deferred to a later pass.
 
-  # Each collective role maps to its pluralized tag (admin → @admins,
+  # Each capability role maps to its pluralized tag (admin → @admins,
   # representative → @representatives, summarizer → @summarizers). Keyed by tag
   # so resolution and reservation can look up the role a tag expands to. Derived
-  # from the role list, so it tracks new/custom roles automatically.
+  # from the capability role list, so it tracks new/custom roles automatically.
+  # Persona roles deliberately get no pluralized group tag — their singular
+  # tag lives in AGENT_ROLES.
   sig { returns(T::Hash[String, String]) }
   def self.role_tags
-    T.unsafe(CollectiveMember).valid_roles.index_by { |role| role.pluralize }
+    T.unsafe(CollectiveMember).capability_roles.index_by { |role| role.pluralize }
   end
 
   # @everyone plus every role tag: the handles a mention expands to a *set* of
@@ -49,9 +51,11 @@ module ReservedHandles
   end
 
   # --- Agent-identity handles ----------------------------------------------
-  # handle => system_role required to claim it. Only the main collective's trio
-  # actually holds the literal handle; per-collective trios carry hex-suffixed
-  # handles and are reached through the collective-local resolution below.
+  # mention tag => persona role it resolves through (and the system_role
+  # required to claim the tag, or any `<tag>-*` handle, as a user handle).
+  # Persona handles follow `<tag>-<collective handle>`; no user holds the
+  # literal tag — @trio reaches the local persona via the collective-local
+  # role resolution.
   AGENT_ROLES = T.let({ "trio" => "trio" }.freeze, T::Hash[String, String])
 
   TRIO = "trio"
@@ -77,16 +81,28 @@ module ReservedHandles
   end
 
   # The system_role required to claim `handle` as a user, or nil when the handle
-  # carries no role gate.
+  # carries no role gate. Agent handles are reserved both as exact names and as
+  # prefixes: `<tag>-<collective handle>` is the persona handle pattern, so
+  # `trio-*` is claimable only by the matching system agent — otherwise a user
+  # could squat (and impersonate) a collective's future trio.
   sig { params(handle: T.nilable(String)).returns(T.nilable(String)) }
   def self.required_system_role(handle)
-    AGENT_ROLES[handle.to_s.downcase]
+    h = handle.to_s.downcase
+    exact = AGENT_ROLES[h]
+    return exact if exact
+
+    AGENT_ROLES.each do |tag, role|
+      return role if h.start_with?("#{tag}-")
+    end
+    nil
   end
 
   # True when `handle` may not be claimed by a user with the given system_role.
-  # Group tags are never a real user; an agent handle is claimable only by the
-  # matching system_role (identity users, which carry no system_role, are thus
-  # excluded from agent handles too).
+  # Group tags are never a real user; an agent handle (exact or prefixed) is
+  # claimable only by the matching system_role — no exceptions. Identity users
+  # carry no system_role, so they are excluded like everyone else; the
+  # collective handles they mirror are barred from the same namespace by
+  # forbidden_for_collective?, so the two reservations never conflict.
   sig { params(handle: T.nilable(String), system_role: T.nilable(String)).returns(T::Boolean) }
   def self.forbidden_for_user?(handle, system_role: nil)
     return true if group_tag?(handle)
@@ -97,11 +113,13 @@ module ReservedHandles
 
   # True when no collective may take `handle` as its handle. Group tags are
   # reserved so a collective (via its identity user) can't shadow the tag; the
-  # "main" handle is reserved for the main collective. Agent handles are left
-  # claimable as collective handles for backwards compatibility.
+  # "main" handle is reserved for the main collective. Agent tags and their
+  # prefixes (`trio`, `trio-*`) are reserved unconditionally: a collective's
+  # identity user mirrors its handle, and the persona namespace admits no
+  # user but the matching system agent.
   sig { params(handle: T.nilable(String)).returns(T::Boolean) }
   def self.forbidden_for_collective?(handle)
     h = handle.to_s.downcase
-    COLLECTIVE_ONLY.include?(h) || group_tag?(h)
+    COLLECTIVE_ONLY.include?(h) || group_tag?(h) || !required_system_role(h).nil?
   end
 end

@@ -11,10 +11,10 @@ class Collective < ApplicationRecord
   belongs_to :created_by, class_name: "User"
   belongs_to :updated_by, class_name: "User"
   belongs_to :identity_user, class_name: "User", optional: true
-  belongs_to :trio_user, class_name: "User", optional: true
   before_validation :create_identity_user!
   before_create :set_defaults
   after_update :sync_identity_user_handle!, if: :saved_change_to_handle?
+  after_update :sync_trio_handle!, if: :saved_change_to_handle?
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
     "collectives", "api_tokens", "oauth_identities",
@@ -369,7 +369,7 @@ class Collective < ApplicationRecord
     transaction do
       automation_rules.enabled.update_all(enabled: false)
       PAID_FEATURE_FLAGS.each { |flag| disable_feature_flag!(flag) }
-      TrioActivator.deactivate!(self) if trio_user_id.present?
+      TrioActivator.deactivate!(self) if trio_user.present?
       update!(tier: TIER_FREE)
     end
   end
@@ -477,6 +477,54 @@ class Collective < ApplicationRecord
   sig { params(flag_name: String).returns(T::Boolean) }
   def feature_enabled?(flag_name)
     FeatureFlagService.collective_enabled?(self, flag_name)
+  end
+
+  # The collective's ACTIVE persona agent: the unarchived member holding the
+  # persona role. Role presence IS activation state (the activator grants it
+  # on activate and removes it on deactivate), so this is nil while the
+  # persona is deactivated — the single source of truth; there is no persona
+  # FK column.
+  #
+  # Memoized per instance (nil results included) — markdown rendering
+  # resolves @trio once per text node against one shared collective, and the
+  # old belongs_to gave that association caching for free. The activator
+  # invalidates via clear_persona_user_cache! when it changes the role;
+  # reload clears too.
+  sig { params(persona_role: String).returns(T.nilable(User)) }
+  def persona_user(persona_role)
+    @persona_user_cache = T.let(@persona_user_cache, T.nilable(T::Hash[String, T.nilable(User)]))
+    @persona_user_cache ||= {}
+    return @persona_user_cache.fetch(persona_role) if @persona_user_cache.key?(persona_role)
+
+    member = T.unsafe(collective_members.where(archived_at: nil)).where_has_role(persona_role).first
+    @persona_user_cache[persona_role] = member&.user
+  end
+
+  # Drop memoized persona lookups. Called by the persona activator after
+  # granting/removing a persona role on this instance, and on reload.
+  sig { void }
+  def clear_persona_user_cache!
+    @persona_user_cache = nil
+  end
+
+  sig { params(options: T.untyped).returns(Collective) }
+  def reload(options = nil)
+    clear_persona_user_cache!
+    super
+  end
+
+  # The persona agent ever seeded for this collective, active or
+  # deactivated — found through membership + the User's system_role, which
+  # outlives activation state. For the active persona use persona_user.
+  sig { params(system_role: String).returns(T.nilable(User)) }
+  def seeded_persona_user(system_role)
+    collective_members.joins(:user).where(users: { system_role: system_role }).first&.user
+  end
+
+  # The collective's active trio, or nil while trio is deactivated.
+  sig { returns(T.nilable(User)) }
+  def trio_user
+    persona_user(ReservedHandles::TRIO)
   end
 
   # Trio is on the pool payroll automatically: whenever an open pool and an
@@ -713,7 +761,10 @@ class Collective < ApplicationRecord
     # The identity shares the collective's handle; without one there's nothing
     # to share, so defer to `handle_is_valid` to surface the blank-handle error
     # rather than minting an orphan identity user with a placeholder handle.
+    # A reserved handle defers the same way — handle_is_valid rejects it with
+    # a friendly error instead of this callback raising mid-validation.
     return if handle.blank?
+    return if ReservedHandles.forbidden_for_collective?(handle)
 
     identity = User.create!(
       name: name,
@@ -754,6 +805,28 @@ class Collective < ApplicationRecord
       tenant_id: T.must(tenant_id),
       base: T.must(handle),
       except_user_id: identity_user_id,
+    )
+    tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
+  end
+
+  # Trio's handle embeds the collective's (`trio-<collective handle>`), so a
+  # collective rename renames its trio too. Found through membership +
+  # system_role so a deactivated trio (archived member) also follows renames.
+  sig { void }
+  def sync_trio_handle!
+    return if handle.blank?
+
+    trio = seeded_persona_user(ReservedHandles::TRIO)
+    return unless trio
+
+    tenant_user = TenantUser.tenant_scoped_only(T.must(tenant_id)).find_by(user_id: trio.id)
+    return unless tenant_user
+
+    desired = TenantUser.persona_handle_for(
+      tenant_id: T.must(tenant_id),
+      tag: "trio",
+      collective_handle: T.must(handle),
+      except_user_id: trio.id,
     )
     tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
   end

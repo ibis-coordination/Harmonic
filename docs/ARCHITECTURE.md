@@ -392,11 +392,14 @@ created with `mention_filter: "self"`). For private workspaces, the opt-in
 toggle lives on the user-settings page; the same `TrioActivator` runs.
 
 `@trio` mentions resolve via `MentionParser.parse(..., collective:)`: the
-parser checks `collective.trio_user` when the text contains `@trio`. The
-main collective's trio claims the literal handle `"trio"` so its profile
-lives at `/u/trio` via the normal handle index; non-main collective trios
-get hex-suffixed handles to avoid the tenant-wide `(tenant_id, handle)`
-uniqueness collision.
+tag maps to the **trio persona role** (`ReservedHandles::AGENT_ROLES`), a
+reserved CollectiveMember role the activator grants on activation and
+removes on deactivation — the single source of truth for the collective's
+active trio (`Collective#persona_user`; there is no FK column). Trio
+handles follow `trio-<collective handle>` (unique per tenant, renamed in
+sync when the collective renames), each linking to the trio's own
+profile; no user holds the literal handle `"trio"`, and the `trio-*`
+prefix is reserved against squatting.
 
 ### Key Components
 

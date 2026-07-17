@@ -211,6 +211,21 @@ class CollectiveMemberTest < ActiveSupport::TestCase
     assert_not @collective_member.is_moderator?
   end
 
+  # === persona roles ===
+
+  test "trio is a valid role but not a capability role" do
+    assert_includes CollectiveMember.valid_roles, "trio"
+    assert_not_includes CollectiveMember.capability_roles, "trio"
+    # The activator manages persona roles through the normal role machinery.
+    @collective_member.add_role!("trio")
+    assert @collective_member.has_role?("trio")
+  end
+
+  test "capability roles are exactly the grantable ones" do
+    assert_equal ["admin", "representative", "summarizer", "automator", "moderator"],
+                 CollectiveMember.capability_roles
+  end
+
   test "can_manage_automations? is true for admins and automators only" do
     assert_not @collective_member.can_manage_automations?
 

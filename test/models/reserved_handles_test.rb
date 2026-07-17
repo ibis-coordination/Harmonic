@@ -9,14 +9,24 @@ class ReservedHandlesTest < ActiveSupport::TestCase
     assert_not ReservedHandles.group_tag?(nil)
   end
 
-  test "role_tags and group_tags are derived from the collective role list" do
-    # One pluralized tag per role, so new/custom roles reserve automatically.
-    expected = CollectiveMember.valid_roles.index_by(&:pluralize)
+  test "role_tags and group_tags are derived from the capability role list" do
+    # One pluralized tag per capability role, so new/custom roles reserve
+    # automatically. Persona roles (trio) deliberately don't get a pluralized
+    # group tag — their singular tag comes from AGENT_ROLES.
+    expected = CollectiveMember.capability_roles.index_by(&:pluralize)
     assert_equal expected, ReservedHandles.role_tags
-    # Every role's tag is a group tag, plus @everyone.
+    # Every capability role's tag is a group tag, plus @everyone.
     assert ReservedHandles.group_tag?("representatives")
     assert ReservedHandles.group_tag?("summarizers")
+    assert_not ReservedHandles.group_tag?("trios")
     assert_equal(["everyone"] + expected.keys, ReservedHandles.group_tags)
+  end
+
+  test "every agent tag maps to a valid persona role" do
+    ReservedHandles::AGENT_ROLES.each_value do |persona_role|
+      assert_includes CollectiveMember.valid_roles, persona_role
+      assert_not_includes CollectiveMember.capability_roles, persona_role
+    end
   end
 
   test "collective_local? covers group tags and agent handles" do
@@ -50,12 +60,26 @@ class ReservedHandlesTest < ActiveSupport::TestCase
     assert_not ReservedHandles.forbidden_for_user?("alice", system_role: nil)
   end
 
-  test "forbidden_for_collective? blocks main and group tags but not agent handles" do
+  test "forbidden_for_user? reserves persona handle prefixes for matching system agents" do
+    assert ReservedHandles.forbidden_for_user?("trio-engineering", system_role: nil)
+    assert ReservedHandles.forbidden_for_user?("TRIO-Engineering", system_role: nil)
+    assert ReservedHandles.forbidden_for_user?("trio-engineering", system_role: "something-else")
+    assert_not ReservedHandles.forbidden_for_user?("trio-engineering", system_role: "trio")
+    # No dash, no reservation — only the prefix pattern is claimed.
+    assert_not ReservedHandles.forbidden_for_user?("triofan", system_role: nil)
+  end
+
+
+  test "forbidden_for_collective? blocks main, group tags, and the agent namespace" do
     assert ReservedHandles.forbidden_for_collective?("main")
     assert ReservedHandles.forbidden_for_collective?("everyone")
     assert ReservedHandles.forbidden_for_collective?("ADMINS")
-    # Agent handles stay claimable as collective handles (backwards compatible).
-    assert_not ReservedHandles.forbidden_for_collective?("trio")
+    # The agent namespace — exact tags and their prefixes — is reserved
+    # unconditionally: identity users mirror collective handles, and no user
+    # but the matching system agent may hold trio/trio-*.
+    assert ReservedHandles.forbidden_for_collective?("trio")
+    assert ReservedHandles.forbidden_for_collective?("trio-fans")
+    assert_not ReservedHandles.forbidden_for_collective?("triofan")
     assert_not ReservedHandles.forbidden_for_collective?("alice")
   end
 end

@@ -425,7 +425,6 @@ CREATE TABLE public.collectives (
     billing_exempt boolean DEFAULT false NOT NULL,
     pending_billing_setup boolean DEFAULT false NOT NULL,
     collective_type character varying DEFAULT 'standard'::character varying NOT NULL,
-    trio_user_id uuid,
     tier character varying DEFAULT 'free'::character varying NOT NULL,
     archived_by_id uuid
 );
@@ -10613,6 +10612,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260717090000'),
 ('20260716120000'),
 ('20260716074003'),
 ('20260712120000'),

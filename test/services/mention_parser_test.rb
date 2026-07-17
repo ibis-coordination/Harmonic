@@ -60,7 +60,15 @@ class MentionParserTest < ActiveSupport::TestCase
 
   # === @trio special case ===
 
-  test "parse resolves @trio to the collective's trio_user when collective is provided" do
+  # Mirrors TrioActivator's activation state: tenant handle, membership, and
+  # the trio persona role — which @trio resolution keys off.
+  def activate_trio!(tenant, collective, trio, handle: "trio-#{SecureRandom.hex(4)}")
+    tenant.add_user!(trio, handle: handle) unless trio.tenant_users.exists?(tenant_id: tenant.id)
+    collective.add_user!(trio) unless collective.user_is_member?(trio)
+    collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
+  end
+
+  test "parse resolves @trio to the collective's trio when collective is provided" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
@@ -71,7 +79,7 @@ class MentionParserTest < ActiveSupport::TestCase
       system_role: "trio",
       parent_id: nil,
     )
-    collective.update!(trio_user: trio)
+    activate_trio!(tenant, collective, trio)
 
     result = MentionParser.parse("hi @trio please help", tenant_id: tenant.id, collective: collective)
 
@@ -79,10 +87,28 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_not_includes result.map(&:id), user.id  # @trio in text doesn't grab any other user
   end
 
-  test "parse returns nothing for @trio when collective has no trio_user" do
+  test "@trio resolves through the persona role, not the trio_user link" do
     tenant, collective, _user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-    assert_nil collective.trio_user, "precondition"
+    trio = User.create!(
+      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    )
+    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
+    collective.add_user!(trio)
+    # Membership WITHOUT the persona role — a deactivated trio's state.
+    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective)
+    assert_equal [], result, "a member without the persona role must not resolve"
+
+    collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
+    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective)
+    assert_equal [trio.id], result.map(&:id), "the persona role alone must resolve"
+  end
+
+  test "parse returns nothing for @trio when collective has no active trio" do
+    tenant, collective, _user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    assert_empty collective.users_with_role("trio"), "precondition"
 
     result = MentionParser.parse("hi @trio please help", tenant_id: tenant.id, collective: collective)
 
@@ -96,7 +122,7 @@ class MentionParserTest < ActiveSupport::TestCase
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    collective.update!(trio_user: trio)
+    activate_trio!(tenant, collective, trio)
 
     # No collective kwarg → @trio just looks for a user with handle "trio"
     # (and trio's stored handle is random hex, not "trio"), so resolves to nothing.
@@ -119,16 +145,14 @@ class MentionParserTest < ActiveSupport::TestCase
       email: "main_trio_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Main Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    tenant.add_user!(main_trio, handle: "trio")  # claims the literal handle
-    main_collective.update!(trio_user: main_trio)
+    activate_trio!(tenant, main_collective, main_trio, handle: "trio")  # claims the literal handle
 
     other_collective = create_collective(tenant: tenant, created_by: user, handle: "other-#{SecureRandom.hex(4)}")
     other_trio = User.create!(
       email: "other_trio_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Other Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    tenant.add_user!(other_trio, handle: "trio-#{SecureRandom.hex(4)}")
-    other_collective.update!(trio_user: other_trio)
+    activate_trio!(tenant, other_collective, other_trio)
 
     result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: other_collective)
 
@@ -149,8 +173,8 @@ class MentionParserTest < ActiveSupport::TestCase
       email: "trio_b_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Trio B", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    collective_a.update!(trio_user: trio_a)
-    collective_b.update!(trio_user: trio_b)
+    activate_trio!(tenant, collective_a, trio_a)
+    activate_trio!(tenant, collective_b, trio_b)
 
     result_a = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective_a)
     result_b = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective_b)
@@ -159,7 +183,7 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal [trio_b.id], result_b.map(&:id)
   end
 
-  test "parse_for_notification resolves @trio to the collective's trio_user" do
+  test "parse_for_notification resolves @trio to the collective's trio" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
@@ -167,9 +191,7 @@ class MentionParserTest < ActiveSupport::TestCase
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
-    collective.add_user!(trio)
-    collective.update!(trio_user: trio)
+    activate_trio!(tenant, collective, trio)
 
     result = MentionParser.parse_for_notification(
       "@trio help us out", tenant_id: tenant.id, collective: collective, exclude_user: user,
@@ -450,12 +472,14 @@ class MentionParserTest < ActiveSupport::TestCase
       email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
       name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
     )
-    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
-    collective.update!(trio_user: trio)
+    activate_trio!(tenant, collective, trio)
 
     result = MentionParser.resolve_paths("hi @trio", tenant_id: tenant.id, collective: collective)
 
-    assert_equal({ "trio" => "/u/trio" }, result)
+    # The @trio tag links to the local trio's own profile (its real handle),
+    # not to a shared /u/trio.
+    assert_equal({ "trio" => trio.reload.path }, result)
+    assert_match(%r{\A/u/trio-}, result["trio"])
   end
 
   # === extract_handles tests ===

@@ -62,12 +62,26 @@ module HasRoles # TenantUser, CollectiveMember, ...
       where("settings->'roles' ? :role", role: role)
     end
 
-    # `automator` grants automation management (see
+    # Grantable through the role endpoints and pickers, by admins, to any
+    # member. `automator` grants automation management (see
     # CollectiveMember#can_manage_automations?); `moderator` is a named role
     # that grants no capabilities yet — the moderation controls it will gate
     # are a separate feature.
-    def valid_roles
+    def capability_roles
       ['admin', 'representative', 'summarizer', 'automator', 'moderator']
+    end
+
+    # Reserved identity roles for the built-in agent personas. Managed only
+    # by the persona activator (granted on activation, removed on
+    # deactivation) — never grantable through the role endpoints. Mentions
+    # resolve through them: @trio → the member holding the trio role
+    # (ReservedHandles::AGENT_ROLES maps tag → persona role).
+    def persona_roles
+      ['trio']
+    end
+
+    def valid_roles
+      capability_roles + persona_roles
     end
   end
 end

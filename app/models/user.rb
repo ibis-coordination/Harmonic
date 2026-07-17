@@ -554,14 +554,6 @@ class User < ApplicationRecord
     if collective_identity?
       collective = Collective.where(identity_user: self).first
       collective ? "collectives/" + T.must(collective.handle) : nil
-    elsif system_role == "trio"
-      # Trio's stored TenantUser handle is hex-suffixed for non-main
-      # collectives to avoid the tenant-wide handle collision, but the
-      # public-facing handle is always "trio" so mentions and profile
-      # links render consistently regardless of which collective the
-      # trio belongs to. UsersController#show makes /u/trio
-      # context-aware so the link resolves to the local trio.
-      MentionParser::TRIO_HANDLE
     else
       tenant_user&.handle
     end
@@ -571,8 +563,6 @@ class User < ApplicationRecord
   def path
     if collective_identity?
       Collective.where(identity_user: self).first&.path
-    elsif system_role == "trio"
-      "/u/#{MentionParser::TRIO_HANDLE}"
     else
       tenant_user&.path
     end

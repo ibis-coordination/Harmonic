@@ -109,10 +109,12 @@ class MentionParser
   end
 
   # Expand collective-local tags to the users they name, within `collective`:
-  #   @trio             → this collective's trio user
+  #   @trio             → the member holding the trio persona role (granted by
+  #                       the activator while trio is active — see
+  #                       ReservedHandles::AGENT_ROLES for the tag → role map).
   #   @admins /         → members holding that role (any member may use a role
   #   @representatives /   tag). The tags come from ReservedHandles.role_tags,
-  #   @summarizers / …     which is derived from the collective role list, so a
+  #   @summarizers / …     which is derived from the capability role list, so a
   #                        new/custom role's tag resolves here with no change.
   #   @everyone         → all members, but only when `author` is an admin.
   #                       Without a known admin author the tag expands to nobody,
@@ -130,9 +132,8 @@ class MentionParser
     wanted = handles.map(&:downcase)
     result = T.let([], T::Array[User])
 
-    if wanted.include?(TRIO_HANDLE)
-      trio = collective.trio_user
-      result << trio if trio
+    ReservedHandles::AGENT_ROLES.each do |tag, persona_role|
+      result.concat(collective.users_with_role(persona_role)) if wanted.include?(tag)
     end
 
     ReservedHandles.role_tags.each do |tag, role|
@@ -191,9 +192,9 @@ class MentionParser
       collective_path = collective.path
       handles.each do |handle|
         down = handle.downcase
-        if down == TRIO_HANDLE
-          trio_path = collective.trio_user&.path
-          paths[handle] = trio_path if trio_path
+        if (persona_role = ReservedHandles::AGENT_ROLES[down])
+          persona_path = collective.users_with_role(persona_role).first&.path
+          paths[handle] = persona_path if persona_path
         elsif ReservedHandles.group_tag?(down)
           # @everyone / @admins render as a link to the collective. Rendering is
           # display only — the admin-only gate on @everyone lives on the

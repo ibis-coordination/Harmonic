@@ -119,10 +119,23 @@ class TenantUser < ApplicationRecord
     scope = tenant_scoped_only(tenant_id)
     scope = scope.where.not(user_id: except_user_id) if except_user_id.present?
     candidate = root
-    # Identity users never carry a system_role, so any group tag or agent handle
-    # is off-limits (forbidden_for_user? with a nil role rejects both).
+    # Identity users never carry a system_role, so any group tag or agent
+    # handle is off-limits (forbidden_for_user? with a nil role rejects both).
     candidate = "#{root}-#{SecureRandom.hex(2)}" if ReservedHandles.forbidden_for_user?(root, system_role: nil)
     candidate = "#{root}-#{SecureRandom.hex(2)}" while scope.exists?(handle: candidate)
+    candidate
+  end
+
+  # The handle for a collective's persona agent: `<tag>-<collective handle>`,
+  # hex-suffixed only if a legacy squatter already holds the pattern (new
+  # claims of `<tag>-*` are reserved to matching system agents).
+  sig { params(tenant_id: String, tag: String, collective_handle: String, except_user_id: T.nilable(String)).returns(String) }
+  def self.persona_handle_for(tenant_id:, tag:, collective_handle:, except_user_id: nil)
+    base = "#{tag}-#{collective_handle}"
+    scope = tenant_scoped_only(tenant_id)
+    scope = scope.where.not(user_id: except_user_id) if except_user_id.present?
+    candidate = base
+    candidate = "#{base}-#{SecureRandom.hex(2)}" while scope.exists?(handle: candidate)
     candidate
   end
 

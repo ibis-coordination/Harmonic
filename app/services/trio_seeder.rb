@@ -10,15 +10,15 @@
 #     principal — no human owner, no TrusteeGrant)
 #   - no StripeCustomer or ApiToken
 #
-# The main collective's trio claims the literal handle "trio" so its profile
-# lives at /u/trio via the normal handle index. Non-main collective trios
-# get hex-suffixed handles to avoid the tenant-wide (tenant_id, handle)
-# uniqueness collision; mention resolution for "@trio" inside those
-# collectives is handled by MentionParser via collective context.
+# Trio handles follow `trio-<collective handle>` — unique per tenant
+# (collective handles are) and pointing at the trio's own profile. The @trio
+# mention tag resolves collective-locally via the trio persona role
+# (MentionParser); no user holds the literal handle "trio".
 #
-# Idempotent. Safe to call multiple times — returns the existing trio_user
-# without modification on the second call (other than clearing any stale
-# cached identity_prompt in agent_configuration).
+# Idempotent. Safe to call multiple times — returns the collective's existing
+# trio without modification on the second call (other than clearing any stale
+# cached identity_prompt in agent_configuration). Activation state (the trio
+# persona role) is TrioActivator's job, not the seeder's.
 class TrioSeeder
   extend T::Sig
 
@@ -38,7 +38,7 @@ class TrioSeeder
   sig { returns(User) }
   def ensure
     ActiveRecord::Base.transaction do
-      existing = @collective.trio_user
+      existing = @collective.seeded_persona_user("trio")
       existing ? refresh(existing) : create
     end
   end
@@ -68,7 +68,6 @@ class TrioSeeder
     )
     tenant.add_user!(trio, handle: pick_handle)
     @collective.add_user!(trio)
-    @collective.update!(trio_user: trio)
     trio
   end
 
@@ -100,6 +99,10 @@ class TrioSeeder
 
   sig { returns(String) }
   def pick_handle
-    @collective.is_main_collective? ? HANDLE : "#{HANDLE}-#{SecureRandom.hex(4)}"
+    TenantUser.persona_handle_for(
+      tenant_id: T.must(@collective.tenant_id),
+      tag: HANDLE,
+      collective_handle: T.must(@collective.handle),
+    )
   end
 end

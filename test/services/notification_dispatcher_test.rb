@@ -90,7 +90,7 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     )
     tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
     collective.add_user!(trio)
-    collective.update!(trio_user: trio)
+    collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
 
     create_note(
       tenant: tenant,

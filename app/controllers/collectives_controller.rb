@@ -749,7 +749,7 @@ class CollectivesController < ApplicationController
     # Trio's attachment is automatic while the pool is open — detaching it
     # would leave a phantom state (trio active, pool open, every run
     # failing) that the next reconcile would silently undo.
-    if ai_agent.id == @current_collective.trio_user_id
+    if ai_agent.id == @current_collective.trio_user&.id
       return render_funded_agent_error(422, 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead')
     end
 
@@ -1096,7 +1096,7 @@ class CollectivesController < ApplicationController
       })
     end
     # Same guard as the HTML endpoint: trio's attachment is automatic.
-    if ai_agent.id == @current_collective.trio_user_id
+    if ai_agent.id == @current_collective.trio_user&.id
       return render_action_error({
         action_name: 'detach_funded_agent',
         resource: @current_collective,
@@ -1148,7 +1148,9 @@ class CollectivesController < ApplicationController
     @can_manage_members = @current_user&.collective_member&.is_admin? &&
       !@current_collective.private_workspace? &&
       !@current_collective.is_main_collective?
-    @manageable_roles = CollectiveMember.valid_roles
+    # Capability roles only: persona roles (trio) are activator-managed and
+    # never offered or accepted through the role-management surfaces.
+    @manageable_roles = CollectiveMember.capability_roles
   end
 
   def actions_index_members
@@ -1168,7 +1170,8 @@ class CollectivesController < ApplicationController
     return if member == :handled
 
     role = params[:role].to_s
-    unless CollectiveMember.valid_roles.include?(role)
+    # Capability roles only — persona roles are activator-managed.
+    unless CollectiveMember.capability_roles.include?(role)
       return render_action_error({ action_name: 'update_member_roles', resource: @current_collective, error: "Invalid role: #{role}." })
     end
 

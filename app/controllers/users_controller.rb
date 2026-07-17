@@ -329,7 +329,7 @@ class UsersController < ApplicationController
     workspace.set_feature_flag!("trio", will_be_trio)
     TrioActivator.reconcile!(workspace)
 
-    flash[:notice] = "Workspace Trio is now #{workspace.trio_user_id.present? ? "enabled" : "disabled"}."
+    flash[:notice] = "Workspace Trio is now #{workspace.trio_user.present? ? "enabled" : "disabled"}."
     redirect_to "/settings"
   end
 
