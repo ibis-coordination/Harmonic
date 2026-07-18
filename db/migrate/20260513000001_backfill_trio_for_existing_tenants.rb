@@ -16,27 +16,16 @@ class BackfillTrioForExistingTenants < ActiveRecord::Migration[7.2]
   HANDLE = "trio".freeze
   NAME = "Trio".freeze
 
+  # Frozen after the trio→cadence persona rename: system_role "trio" no
+  # longer passes User validation, so the original seeding cannot replay.
+  # No-ops on a clean chain (no tenants exist at this point); fails fast on
+  # a restored pre-2026-05 backup, where the operator should complete the
+  # chain and then activate personas via PersonaActivator instead.
   def up
-    Tenant.find_each do |tenant|
-      main = tenant.main_collective
-      next unless main
-      next if existing_trio?(tenant)
+    needs_seeding = Tenant.find_each.any? { |tenant| tenant.main_collective && !existing_trio?(tenant) }
+    return unless needs_seeding
 
-      with_tenant_scope(tenant) do
-        ActiveRecord::Base.transaction do
-          trio = User.create!(
-            name: NAME,
-            email: "trio-#{tenant.subdomain}-#{SecureRandom.hex(4)}@system.harmonic.local",
-            user_type: "ai_agent",
-            system_role: "trio",
-            parent_id: nil,
-            agent_configuration: { "mode" => "internal" }
-          )
-          tenant.add_user!(trio, handle: pick_handle(tenant))
-          main.add_user!(trio)
-        end
-      end
-    end
+    raise "BackfillTrioForExistingTenants cannot replay after the trio→cadence rename. "           "Finish the migration chain, then activate personas via PersonaActivator.reconcile! "           "for the collectives that need them."
   end
 
   def down
