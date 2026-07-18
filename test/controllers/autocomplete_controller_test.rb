@@ -47,6 +47,78 @@ class AutocompleteControllerTest < ActionDispatch::IntegrationTest
     assert_equal "trio", trio_entry["handle"]
   end
 
+  # === Role / Group Tag Autocomplete (#465) ===
+
+  test "role tag surfaces in autocomplete when a member holds the role" do
+    rep = create_user(email: "rep@example.com", name: "Rep Person")
+    @tenant.add_user!(rep)
+    @collective.add_user!(rep)
+    @collective.collective_members.find_by(user: rep).add_role!("representative")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+      params: { q: "rep" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    tag = json.find { |e| e["handle"] == "representatives" }
+    assert tag, "expected @representatives to appear for query 'rep'"
+    assert_equal true, tag["group"], "role tag should be flagged as a group"
+    assert_nil tag["avatar_url"]
+  end
+
+  test "role tag is absent when no member holds the role" do
+    # No summarizers in the collective, so @summarizers would notify nobody.
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+      params: { q: "sum" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_nil json.find { |e| e["handle"] == "summarizers" },
+      "should not suggest a role tag that expands to nobody"
+  end
+
+  test "everyone tag is offered to admins" do
+    @collective.collective_members.find_by(user: @user).add_role!("admin")
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+      params: { q: "every" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    tag = json.find { |e| e["handle"] == "everyone" }
+    assert tag, "admins should be offered @everyone"
+    assert_equal true, tag["group"]
+  end
+
+  test "everyone tag is hidden from non-admins" do
+    # @user is a plain member here (no admin role granted).
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+      params: { q: "every" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_nil json.find { |e| e["handle"] == "everyone" },
+      "non-admins can't fan out @everyone, so it shouldn't be suggested"
+  end
+
+  test "role tag only prefix-matches the query" do
+    @collective.collective_members.find_by(user: @user).add_role!("admin")
+
+    sign_in_as(@user, tenant: @tenant)
+    # "min" is a substring of "admins" but not a prefix — should not match.
+    get "/collectives/#{@collective.handle}/autocomplete/users",
+      params: { q: "min" }, headers: { "Accept" => "application/json" }
+    assert_response :success
+
+    json = JSON.parse(response.body)
+    assert_nil json.find { |e| e["handle"] == "admins" },
+      "role tag should match on prefix, not arbitrary substring"
+  end
+
   # === Unauthenticated Access Tests ===
 
   test "unauthenticated user gets 401 for users autocomplete" do

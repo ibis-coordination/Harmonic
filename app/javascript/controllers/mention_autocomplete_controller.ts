@@ -5,6 +5,9 @@ interface UserResult {
   handle: string
   display_name: string
   avatar_url: string | null
+  // True for group tags (@everyone, @admins, @representatives, …) — a mention
+  // that expands to a set of users rather than naming one person (#465).
+  group?: boolean
 }
 
 /**
@@ -127,7 +130,7 @@ export default class MentionAutocompleteController extends Controller<HTMLElemen
 
     // If no query, return first 10 users sorted alphabetically
     if (!query) {
-      return [...this.cachedUsers].sort((a, b) => a.handle.localeCompare(b.handle)).slice(0, 10)
+      return [...this.cachedUsers].sort(this.compareResults).slice(0, 10)
     }
 
     const lowerQuery = query.toLowerCase()
@@ -136,8 +139,21 @@ export default class MentionAutocompleteController extends Controller<HTMLElemen
         (user) =>
           user.handle.toLowerCase().includes(lowerQuery) || user.display_name.toLowerCase().includes(lowerQuery)
       )
-      .sort((a, b) => a.handle.localeCompare(b.handle))
+      .sort(this.compareResults)
       .slice(0, 10)
+  }
+
+  /**
+   * Sort group tags (@everyone, @representatives, …) ahead of people, then
+   * alphabetically by handle within each. Group tags are high-value, broadcast
+   * mentions, so surfacing them first keeps them from being pushed out of the
+   * top-10 slice by a long list of members.
+   */
+  private compareResults = (a: UserResult, b: UserResult): number => {
+    if (!!a.group !== !!b.group) {
+      return a.group ? -1 : 1
+    }
+    return a.handle.localeCompare(b.handle)
   }
 
   private handleKeydown(event: KeyboardEvent): void {
@@ -280,11 +296,17 @@ export default class MentionAutocompleteController extends Controller<HTMLElemen
     this.dropdownTarget.innerHTML = this.results
       .map(
         (user, index) => `
-        <div class="mention-item ${index === this.selectedIndex ? "mention-item-selected" : ""}"
+        <div class="mention-item ${index === this.selectedIndex ? "mention-item-selected" : ""} ${user.group ? "mention-item-group" : ""}"
              data-index="${index}"
              data-action="click->mention-autocomplete#clickResult">
-          <span class="mention-avatar">
-            ${user.avatar_url ? `<img src="${user.avatar_url}" alt="" />` : this.getInitials(user.display_name)}
+          <span class="mention-avatar ${user.group ? "mention-avatar-group" : ""}">
+            ${
+              user.group
+                ? this.groupIcon()
+                : user.avatar_url
+                  ? `<img src="${user.avatar_url}" alt="" />`
+                  : this.getInitials(user.display_name)
+            }
           </span>
           <span class="mention-info">
             <span class="mention-display-name">${this.escapeHtml(user.display_name)}</span>
@@ -493,6 +515,17 @@ export default class MentionAutocompleteController extends Controller<HTMLElemen
     const div = document.createElement("div")
     div.textContent = text
     return div.innerHTML
+  }
+
+  /**
+   * A small "group of people" glyph shown in place of an avatar for group tags,
+   * so a broadcast mention reads as a set rather than a person (#465).
+   */
+  private groupIcon(): string {
+    return `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+      <path d="M5.5 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM1 12.5C1 10.6 2.9 9.5 5.5 9.5S10 10.6 10 12.5V13H1v-.5Z"/>
+      <path d="M11 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm-.6 1.51c.2-.01.4-.01.6-.01 2.4 0 4 1 4 2.75V13h-3.5v-.5c0-1.2-.5-2.2-1.1-2.99Z"/>
+    </svg>`
   }
 
   private getInitials(name: string): string {

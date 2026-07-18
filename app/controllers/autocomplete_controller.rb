@@ -7,10 +7,30 @@ class AutocompleteController < ApplicationController
   # Returns JSON list of users matching the search query for @mention autocomplete
   # Scoped to members of the current collective
   # If query is blank, returns 10 collective members sorted alphabetically by handle
+  #
+  # Group tags (@everyone and the role tags @admins/@representatives/…) are not
+  # users, so the member search below never surfaces them; they're injected
+  # separately so typing "@rep" discovers "@representatives" the same way it
+  # finds a person (#465).
   def users
     query = params[:q].to_s.strip.downcase
     return render json: [] if @current_collective.blank?
 
+    # Group tags surface regardless of the member-search early-returns below
+    # (which fire when the collective has no other/searchable members), so a
+    # role tag is still discoverable in a collective where you're the only one
+    # composing.
+    tag_results = group_tag_suggestions(query)
+
+    render json: (tag_results + member_suggestions(query)).first(10)
+  end
+
+  private
+
+  # The user half of the autocomplete: collective members matching `query`,
+  # plus the @trio magic handle. Returns [] (not a rendered response) so #users
+  # can merge it with the group-tag suggestions.
+  def member_suggestions(query)
     # Get user IDs who are members of the current collective (excluding current user)
     collective_member_ids = CollectiveMember
       .where(tenant_id: @current_tenant.id, collective_id: @current_collective.id, archived_at: nil)
@@ -24,7 +44,7 @@ class AutocompleteController < ApplicationController
       .flatten.uniq - [@current_user.id]
     collective_member_ids -= block_ids if block_ids.any?
 
-    return render json: [] if collective_member_ids.empty?
+    return [] if collective_member_ids.empty?
 
     # Search tenant users by handle or display_name, limited to collective members
     tenant_users = TenantUser
@@ -77,10 +97,47 @@ class AutocompleteController < ApplicationController
       end
     end
 
-    render json: results
+    results
   end
 
-  private
+  # Group-tag suggestions matching `query`: the role tags (@admins,
+  # @representatives, @summarizers, …) and @everyone. A role tag is offered only
+  # when someone in the collective actually holds that role, so we never suggest
+  # a mention that would expand to nobody. @everyone is offered only to admins,
+  # mirroring its admin-only delivery gate (MentionParser.resolve_collective_local)
+  # so a non-admin isn't shown a tag they can't fan out. Handles come straight
+  # from ReservedHandles, so a new/custom role's tag surfaces here with no change.
+  def group_tag_suggestions(query)
+    suggestions = ReservedHandles.role_tags.filter_map do |tag, role|
+      next unless tag_matches?(tag, query)
+      next if @current_collective.users_with_role(role).empty?
+
+      group_tag_result(tag)
+    end
+
+    everyone = ReservedHandles::EVERYONE
+    if tag_matches?(everyone, query) && @current_collective.admin?(@current_user)
+      suggestions << group_tag_result(everyone)
+    end
+
+    suggestions
+  end
+
+  # A tag matches when the typed query is a prefix of it (so "@rep" offers
+  # "@representatives"), or when nothing's been typed yet.
+  def tag_matches?(tag, query)
+    query.empty? || tag.start_with?(query)
+  end
+
+  def group_tag_result(tag)
+    {
+      id: "group:#{tag}",
+      handle: tag,
+      display_name: tag.titleize,
+      avatar_url: nil,
+      group: true,
+    }
+  end
 
   def require_user
     return if current_user
