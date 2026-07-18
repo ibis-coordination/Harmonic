@@ -164,7 +164,12 @@ class SystemAdminController < ApplicationController
   def show_task_run
     @page_title = "Task Run"
     @task_run = AiAgentTaskRun.unscoped_for_admin(@current_user).find(params[:id])
-    @task_run.agent_session_steps.load
+    # AgentSessionStep is tenant-scoped, and this dashboard only runs on the
+    # primary tenant while the run may belong to any tenant — loading steps
+    # through the association would silently filter them to empty.
+    @steps = AgentSessionStep.unscoped_for_admin(@current_user)
+      .where(ai_agent_task_run_id: @task_run.id)
+      .order(:position)
 
     respond_to do |format|
       format.html
