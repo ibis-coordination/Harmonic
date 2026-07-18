@@ -305,10 +305,11 @@ class UsersController < ApplicationController
   end
 
   # POST /u/:handle/settings/workspace_trio
-  # Toggles Trio on/off in the user's private workspace. Only the workspace
-  # owner can toggle. The collective-settings UI rejects writes against
-  # workspaces (CollectivesController#update_settings returns 403), so this
-  # endpoint is the user-facing entry point.
+  # Toggles Trio — the built-in persona ensemble — on/off in the user's
+  # private workspace via the shared trio flag. Only the workspace owner can
+  # toggle. The collective-settings UI rejects writes against workspaces
+  # (CollectivesController#update_settings returns 403), so this endpoint is
+  # the user-facing entry point.
   def update_workspace_trio
     tu = current_tenant.tenant_users.find_by(handle: params[:handle])
     return render "404", status: :not_found if tu.nil?
@@ -320,16 +321,16 @@ class UsersController < ApplicationController
     workspace = settings_user.private_workspace
     return render "404", status: :not_found if workspace.nil?
 
-    will_be_trio = params[:feature_trio].to_s == "true"
-    if will_be_trio && !workspace.tier_unlocks_paid_features?
+    will_be_enabled = params[:feature_trio].to_s == "true"
+    if will_be_enabled && !workspace.tier_unlocks_paid_features?
       flash[:error] = "Trio requires the paid plan. Upgrade the workspace first."
       return redirect_to "/settings"
     end
 
-    workspace.set_feature_flag!("trio", will_be_trio)
-    TrioActivator.reconcile!(workspace)
+    workspace.set_feature_flag!(Personas::ENSEMBLE_ROLE, will_be_enabled)
+    PersonaActivator.reconcile!(workspace)
 
-    flash[:notice] = "Workspace Trio is now #{workspace.trio_user.present? ? "enabled" : "disabled"}."
+    flash[:notice] = "Trio is now #{workspace.persona_users.any? ? "enabled" : "disabled"} in your workspace."
     redirect_to "/settings"
   end
 

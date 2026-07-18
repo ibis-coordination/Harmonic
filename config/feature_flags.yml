@@ -30,8 +30,8 @@ feature_flags:
     collective_level: true
 
   trio:
-    name: "Trio AI Assistant"
-    description: "Enables the Trio AI assistant for this collective. When on, @trio mentions in this collective route to the collective's Trio agent and default automations are seeded. Where billing is enabled, Trio's LLM usage is funded by the collective's funding pool — open one in settings to make Trio run."
+    name: "Trio (Built-in Agents)"
+    description: "Enables the three built-in agents for this collective — known together as Trio: Melody (focuses on doing), Counterpoint (verifying), and Cadence (learning)."
     app_enabled: true
     default_tenant: false
     default_collective: false
@@ -39,7 +39,7 @@ feature_flags:
 
   internal_ai_agents:
     name: "Internal AI Agents (Task Runner)"
-    description: "Enables the Harmonic-managed Task Runner for executing internal AI agent runs (the agent-runner service, automation rule dispatch, and Trio's runtime path)."
+    description: "Enables the Harmonic-managed Task Runner for executing internal AI agent runs (the agent-runner service, automation rule dispatch, and the built-in personas' runtime path)."
     app_enabled: true
     default_tenant: false
     default_collective: false
@@ -124,7 +124,7 @@ feature_flags:
 
   funding_pools:
     name: "Funding Pools"
-    description: "Funding pools: enrolled members' prepaid balances fund the collective's agents, one random member billed per call. The tenant-level flag is the operator's rollout lever — with it on, paid-tier collectives open pools self-serve (funding trio only). The collective-level flag is operator-managed and additionally allows pools regardless of tier and attaching agents beyond trio. Requires stripe_billing on the tenant to do anything."
+    description: "Funding pools: enrolled members' prepaid balances fund the collective's agents, one random member billed per call. The tenant-level flag is the operator's rollout lever — with it on, paid-tier collectives open pools self-serve (funding the built-in agents only). The collective-level flag is operator-managed and additionally allows pools regardless of tier and attaching agents beyond the built-in ones. Requires stripe_billing on the tenant to do anything."
     app_enabled: true
     default_tenant: false
     default_collective: false

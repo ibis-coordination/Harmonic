@@ -256,7 +256,7 @@ class CollectiveTest < ActiveSupport::TestCase
     assert_equal "bar-team", identity_tu.handle
   end
 
-  test "Collective#trio_user resolves through the persona role" do
+  test "Collective#persona_user resolves through the persona role" do
     tenant = create_tenant
     user = create_user
     tenant.add_user!(user)
@@ -266,13 +266,13 @@ class CollectiveTest < ActiveSupport::TestCase
       name: "Persona Role Collective",
       handle: "persona-role-collective"
     )
-    assert_nil collective.trio_user
+    assert_nil collective.persona_user("cadence")
 
     trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio",
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence",
       user_type: "ai_agent",
-      system_role: "trio",
+      system_role: "cadence",
       parent_id: nil
     )
     tenant.add_user!(trio)
@@ -281,17 +281,17 @@ class CollectiveTest < ActiveSupport::TestCase
     member = collective.collective_members.find_by!(user_id: trio.id)
 
     # Seeded but not active: membership alone doesn't resolve.
-    assert_nil collective.trio_user
-    assert_equal trio.id, collective.seeded_persona_user("trio")&.id
+    assert_nil collective.persona_user("cadence")
+    assert_equal trio.id, collective.seeded_persona_user("cadence")&.id
 
     # Direct role mutation (tests only — production writes go through the
     # activator, which invalidates the memo): reload for a fresh read.
-    member.add_role!("trio")
-    assert_equal trio.id, collective.reload.trio_user&.id
+    member.add_role!("cadence")
+    assert_equal trio.id, collective.reload.persona_user("cadence")&.id
 
     # An archived member (deactivated) stops resolving even with the role.
     member.archive!
-    assert_nil collective.reload.trio_user
+    assert_nil collective.reload.persona_user("cadence")
   ensure
     Tenant.clear_thread_scope
   end
@@ -1720,15 +1720,15 @@ class CollectiveTest < ActiveSupport::TestCase
     tenant.add_user!(user)
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Memo", handle: "memo-#{SecureRandom.hex(2)}")
     Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
-    TrioActivator.activate!(collective)
+    PersonaActivator.activate!(collective)
     collective = Collective.find(collective.id)
 
     queries = 0
     counter = ->(*_args, payload) { queries += 1 unless payload[:name] == "SCHEMA" || payload[:cached] }
     ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
-      collective.trio_user
+      collective.persona_user("cadence")
       first_pass = queries
-      3.times { collective.trio_user }
+      3.times { collective.persona_user("cadence") }
       assert_equal first_pass, queries,
         "repeated persona_user calls on one instance must not re-query (markdown rendering calls this per text node)"
     end
@@ -1744,28 +1744,28 @@ class CollectiveTest < ActiveSupport::TestCase
     Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
 
     # Read-before-activate on the SAME instance — the reconcile! flow. A
-    # naive memo would pin nil and ensure_trio_funded! would skip funding.
-    assert_nil collective.trio_user
-    TrioActivator.activate!(collective)
-    assert_not_nil collective.trio_user, "activation must invalidate the memoized nil"
+    # naive memo would pin nil and ensure_personas_funded! would skip funding.
+    assert_nil collective.persona_user("cadence")
+    PersonaActivator.activate!(collective)
+    assert_not_nil collective.persona_user("cadence"), "activation must invalidate the memoized nil"
 
-    TrioActivator.deactivate!(collective)
-    assert_nil collective.trio_user, "deactivation must invalidate the memoized user"
+    PersonaActivator.deactivate!(collective)
+    assert_nil collective.persona_user("cadence"), "deactivation must invalidate the memoized user"
   ensure
     Tenant.clear_thread_scope
   end
 
-  test "renaming a collective renames its trio's handle to match" do
+  test "renaming a collective renames its personas' handles to match" do
     tenant = create_tenant(subdomain: "rn-#{SecureRandom.hex(4)}")
     user = create_user
     tenant.add_user!(user)
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Band", handle: "band-#{SecureRandom.hex(2)}")
     Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
-    trio = TrioActivator.activate!(collective)
+    trio = T.must(PersonaActivator.activate!(collective).find { |a| a.system_role == "cadence" })
 
     collective.update!(handle: "orchestra-#{SecureRandom.hex(2)}")
 
-    assert_equal "trio-#{collective.handle}", trio.tenant_users.find_by(tenant_id: tenant.id).handle
+    assert_equal "cadence-#{collective.handle}", trio.tenant_users.find_by(tenant_id: tenant.id).handle
   ensure
     Tenant.clear_thread_scope
   end

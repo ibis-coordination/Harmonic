@@ -288,9 +288,12 @@ class Tenant < ApplicationRecord
     end
   end
 
+  # Whether Trio — the built-in persona ensemble — is enabled at the
+  # tenant level: the operator's rollout lever; collectives opt in
+  # underneath it via the same flag.
   sig { returns(T::Boolean) }
   def trio_enabled?
-    FeatureFlagService.tenant_enabled?(self, "trio")
+    FeatureFlagService.tenant_enabled?(self, Personas::ENSEMBLE_ROLE)
   end
 
   sig { returns(T::Boolean) }

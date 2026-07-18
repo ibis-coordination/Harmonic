@@ -161,7 +161,7 @@ class NotificationDispatcher
       )
     end
 
-    maybe_send_trio_unavailable_hint(event, note.text, note.collective)
+    maybe_send_persona_unavailable_hints(event, note.text, note.collective)
   end
 
   # Handle reply notifications when a note is a comment on another piece of content.
@@ -334,7 +334,7 @@ class NotificationDispatcher
       )
     end
 
-    maybe_send_trio_unavailable_hint(event, text_to_parse, decision.collective)
+    maybe_send_persona_unavailable_hints(event, text_to_parse, decision.collective)
   end
 
   sig { params(event: Event).void }
@@ -367,7 +367,7 @@ class NotificationDispatcher
       )
     end
 
-    maybe_send_trio_unavailable_hint(event, text_to_parse, commitment.collective)
+    maybe_send_persona_unavailable_hints(event, text_to_parse, commitment.collective)
   end
 
   sig { params(event: Event).void }
@@ -401,7 +401,7 @@ class NotificationDispatcher
       )
     end
 
-    maybe_send_trio_unavailable_hint(event, text_to_parse, option.collective)
+    maybe_send_persona_unavailable_hints(event, text_to_parse, option.collective)
   end
 
   # Helper method to create notifications with preference-based channel selection
@@ -415,7 +415,6 @@ class NotificationDispatcher
       url: T.nilable(String)
     ).void
   end
-  # rubocop:disable Metrics/ParameterLists
   def self.notify_user(event:, recipient:, notification_type:, title:, body: nil, url: nil)
     # rubocop:enable Metrics/ParameterLists
     # Suppress notifications when recipient has blocked the actor
@@ -444,12 +443,15 @@ class NotificationDispatcher
     tenant_user.notification_channels_for(notification_type)
   end
 
-  # If @trio appears in mention-bearing content and the collective hasn't
-  # enabled trio, send a one-shot hint notification to the actor so they know
-  # why nothing happened. Agents receive this just like humans do — an agent
-  # whose automation posts @trio still needs to know the mention went nowhere
-  # so its owner can fix it. The trio-as-actor case is naturally excluded by
-  # the trio_user check above: if trio is the actor, trio_user is set.
+  # If a persona tag (@cadence, @melody, @counterpoint) or the @trio
+  # ensemble tag appears in mention-bearing content and no matching active
+  # persona exists in the collective, send a one-shot hint notification to
+  # the actor so they know why nothing happened. @trio counts as unavailable
+  # only when NO persona is active — with any persona on, the mention
+  # reached someone. Agents receive this just like humans do — an agent
+  # whose automation posts @cadence still needs to know the mention went
+  # nowhere so its owner can fix it. The persona-as-actor case is naturally
+  # excluded: an active persona never counts as missing.
   sig do
     params(
       event: Event,
@@ -457,35 +459,46 @@ class NotificationDispatcher
       collective: T.nilable(Collective)
     ).void
   end
-  def self.maybe_send_trio_unavailable_hint(event, text, collective)
+  def self.maybe_send_persona_unavailable_hints(event, text, collective)
     return if text.blank?
     return unless collective
-    return unless MentionParser.extract_handles(text).include?(MentionParser::TRIO_HANDLE)
-    return if collective.trio_user
+
+    handles = MentionParser.extract_handles(text)
+    return if handles.empty?
+
+    missing_tags = Personas.system_roles.select do |tag|
+      handles.include?(tag) && collective.persona_user(tag).nil?
+    end
+    missing_tags += ReservedHandles::ENSEMBLE_TAGS.keys if handles.intersect?(ReservedHandles::ENSEMBLE_TAGS.keys) && collective.persona_users.empty?
+    return if missing_tags.empty?
 
     actor = event.actor
     return unless actor
 
-    # In a private workspace there's no collective settings page — the trio
-    # opt-in lives in user settings. For other collectives we use the model's
-    # path helper, which returns nil for the main collective (intentional —
-    # main collective settings live in tenant admin, not under /collectives/);
-    # in that edge case the notification carries no link.
+    subject = missing_tags.map { |tag| "@#{tag}" }.to_sentence
+    singular = missing_tags.size == 1
+
+    # In a private workspace there's no collective settings page — the
+    # built-in agent opt-in lives in user settings. For other collectives we
+    # use the model's path helper, which returns nil for the main collective
+    # (intentional — main collective settings live in tenant admin, not
+    # under /collectives/); in that edge case the notification carries no
+    # link.
     if collective.private_workspace?
       settings_url = "/settings"
-      body = "You mentioned @trio in your workspace, but Trio isn't enabled there. " \
-             "Enable it in your user settings."
+      body = "You mentioned #{subject} in your workspace, but no matching built-in agent " \
+             "is enabled there. Manage your workspace assistant in your user settings."
     else
       settings_url = collective.path ? "#{collective.path}/settings" : nil
-      body = "You mentioned @trio, but Trio isn't enabled in this collective. " \
-             "Ask an admin to enable it in collective settings."
+      body = "You mentioned #{subject}, but they aren't enabled " \
+             "in this collective. Ask an admin to enable Trio in collective settings."
     end
 
     notify_user(
       event: event,
       recipient: actor,
-      notification_type: "trio_unavailable",
-      title: "Trio isn't enabled in #{collective.name}",
+      notification_type: "persona_unavailable",
+      title: "#{subject} #{singular ? "isn't" : "aren't"} enabled in #{collective.name}",
       body: body,
       url: settings_url
     )

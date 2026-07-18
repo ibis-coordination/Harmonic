@@ -300,7 +300,7 @@ class CollectivesController < ApplicationController
     @current_collective.updated_by = @current_user if @current_collective.changed?
     @current_collective.save!
 
-    TrioActivator.reconcile!(@current_collective)
+    PersonaActivator.reconcile!(@current_collective)
 
     flash[:notice] = "Settings successfully updated. [Return to collective homepage.](#{@current_collective.url})"
     redirect_to request.referrer
@@ -370,7 +370,7 @@ class CollectivesController < ApplicationController
   # POST /collectives/:handle/downgrade
   # Moves a paid or lapsed collective back to free. Owner-only. Actively
   # disables enabled automations, clears paid feature flags, and deactivates
-  # the trio agent.
+  # the built-in persona agents.
   def downgrade
     return render status: 403, plain: "Only the collective owner can downgrade." unless @current_user.id == @current_collective.created_by_id
 
@@ -583,7 +583,7 @@ class CollectivesController < ApplicationController
       FundingPool.create!(collective: @current_collective, created_by: @current_user,
                           member_draw_cap_cents: cap_cents, member_draw_cap_period: period || "day")
     end
-    @current_collective.reload.ensure_trio_funded!
+    @current_collective.reload.ensure_personas_funded!
 
     flash[:notice] = "Funding pool is open. Members can now enroll."
     redirect_to "#{@current_collective.path}/settings"
@@ -695,7 +695,7 @@ class CollectivesController < ApplicationController
   # requires the agent's principal to be actively enrolled. Deliberately
   # gated on the operator-managed collective flag, NOT on self-serve pool
   # availability: a self-serve (paid tier) pool funds only the collective's
-  # own trio, never arbitrary agents.
+  # own built-in personas, never arbitrary agents.
   def add_funded_agent
     unless @current_collective.feature_enabled?("funding_pools")
       return render_funded_agent_error(403, 'Attaching agents to the funding pool requires operator enablement for this collective')
@@ -746,11 +746,11 @@ class CollectivesController < ApplicationController
     if pool.nil? || ai_agent.nil? || ai_agent.funding_pool_id != pool.id
       return render_funded_agent_error(404, 'AI Agent is not funded by this collective')
     end
-    # Trio's attachment is automatic while the pool is open — detaching it
-    # would leave a phantom state (trio active, pool open, every run
+    # Persona attachment is automatic while the pool is open — detaching one
+    # would leave a phantom state (persona active, pool open, every run
     # failing) that the next reconcile would silently undo.
-    if ai_agent.id == @current_collective.trio_user&.id
-      return render_funded_agent_error(422, 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead')
+    if @current_collective.persona_users.map(&:id).include?(ai_agent.id)
+      return render_funded_agent_error(422, "#{ai_agent.display_name} is funded automatically while the pool is open — disable it in collective settings or close the pool instead")
     end
 
     ai_agent.update!(funding_pool_id: nil)
@@ -779,7 +779,7 @@ class CollectivesController < ApplicationController
     return render_action_error({ action_name: 'update_collective_settings', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
 
     # Gate paid-feature toggle. ApiHelper only changes file_attachments (via
-    # the `file_uploads` param); trio is browser-UI-only. Enabling requires
+    # the `file_uploads` param); the personas are browser-UI-only. Enabling requires
     # the paid plan; disabling is always allowed (idempotent on free).
     if params.has_key?(:file_uploads)
       files_after = [true, "true", "1"].include?(params[:file_uploads])
@@ -1027,7 +1027,7 @@ class CollectivesController < ApplicationController
     return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
     return render_action_error({ action_name: 'attach_funded_agent', resource: @current_collective, error: 'Only collective admins can attach funded agents.', status: :forbidden }) unless current_user.collective_member&.is_admin?
     # Operator flag, not self-serve availability: a self-serve pool funds
-    # only the collective's own trio, never arbitrary agents.
+    # only the collective's own built-in personas, never arbitrary agents.
     unless @current_collective.feature_enabled?("funding_pools")
       return render_action_error({
         action_name: 'attach_funded_agent',
@@ -1095,12 +1095,12 @@ class CollectivesController < ApplicationController
         status: :not_found,
       })
     end
-    # Same guard as the HTML endpoint: trio's attachment is automatic.
-    if ai_agent.id == @current_collective.trio_user&.id
+    # Same guard as the HTML endpoint: persona attachment is automatic.
+    if @current_collective.persona_users.map(&:id).include?(ai_agent.id)
       return render_action_error({
         action_name: 'detach_funded_agent',
         resource: @current_collective,
-        error: 'Trio is funded automatically while the pool is open — disable Trio or close the pool instead.',
+        error: "#{ai_agent.display_name} is funded automatically while the pool is open — disable it in collective settings or close the pool instead.",
         status: :unprocessable_entity,
       })
     end
@@ -1148,8 +1148,9 @@ class CollectivesController < ApplicationController
     @can_manage_members = @current_user&.collective_member&.is_admin? &&
       !@current_collective.private_workspace? &&
       !@current_collective.is_main_collective?
-    # Capability roles only: persona roles (trio) are activator-managed and
-    # never offered or accepted through the role-management surfaces.
+    # Capability roles only: persona/ensemble roles (cadence, trio, …) are
+    # activator-managed and never offered or accepted through the
+    # role-management surfaces.
     @manageable_roles = CollectiveMember.capability_roles
   end
 

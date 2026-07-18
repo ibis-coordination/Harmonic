@@ -60,12 +60,13 @@ class AgentRunnerDispatchService
     # picks a funded member per call, and the relayed Stripe 402 is the
     # balance gate.
     #
-    # System agents (e.g., Trio) hold no individual billing either; on a
-    # billing tenant their only funding source is their collective's pool.
+    # System agents (the built-in personas) hold no individual billing
+    # either; on a billing tenant their only funding source is their
+    # collective's pool.
     billing_customer = ai_agent.resolved_billing_customer
     pool_funded = ai_agent.funding_pool_id.present?
     if tenant.feature_enabled?("stripe_billing") && ai_agent.system? && !pool_funded
-      fail_task!("Trio runs on the collective's funding pool. A collective admin can open one in collective settings.")
+      fail_task!("This agent runs on the collective's funding pool. A collective admin can open one in collective settings.")
       return
     end
     if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !pool_funded

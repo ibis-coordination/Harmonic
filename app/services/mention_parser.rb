@@ -6,9 +6,6 @@ class MentionParser
   extend T::Sig
 
   MENTION_PATTERN = /@([a-zA-Z0-9_-]+)/
-  # Kept as an alias so existing references (User, autocomplete, dispatcher)
-  # keep working; the canonical value now lives in the reserved-handle registry.
-  TRIO_HANDLE = ReservedHandles::TRIO
 
   # A Redcarpet plain-text renderer that drops code while keeping every other
   # kind of text. It subclasses StripDown — which already extracts the text
@@ -60,11 +57,11 @@ class MentionParser
     handles = extract_handles(text)
     return [] if handles.empty?
 
-    # Collective-local handles (@trio, @everyone, @admins) ALWAYS mean this
-    # collective's trio/members/admins. The tenant-wide handle index would
-    # otherwise resolve, say, "@trio" to the main collective's trio (which
-    # claims the literal handle) even when written in some other collective,
-    # fanning out the mention to a set that isn't local to the conversation.
+    # Collective-local handles (@cadence, @trio, @everyone, @admins) ALWAYS
+    # mean this collective's personas/members/admins. The tenant-wide handle
+    # index would otherwise resolve them to whoever holds the literal handle
+    # elsewhere in the tenant, fanning out the mention to a set that isn't
+    # local to the conversation.
     index_handles = if collective
       handles.reject { |h| ReservedHandles.collective_local?(h) }
     else
@@ -109,9 +106,11 @@ class MentionParser
   end
 
   # Expand collective-local tags to the users they name, within `collective`:
-  #   @trio             → the member holding the trio persona role (granted by
-  #                       the activator while trio is active — see
-  #                       ReservedHandles::AGENT_ROLES for the tag → role map).
+  #   @cadence /        → the member holding that persona role (granted by
+  #   @melody / …          the activator while the persona is active — see
+  #                        ReservedHandles::AGENT_ROLES for the tag → role map).
+  #   @trio             → ALL members holding the shared ensemble role, i.e.
+  #                       every active built-in persona at once.
   #   @admins /         → members holding that role (any member may use a role
   #   @representatives /   tag). The tags come from ReservedHandles.role_tags,
   #   @summarizers / …     which is derived from the capability role list, so a
@@ -134,6 +133,10 @@ class MentionParser
 
     ReservedHandles::AGENT_ROLES.each do |tag, persona_role|
       result.concat(collective.users_with_role(persona_role)) if wanted.include?(tag)
+    end
+
+    ReservedHandles::ENSEMBLE_TAGS.each do |tag, ensemble_role|
+      result.concat(collective.users_with_role(ensemble_role)) if wanted.include?(tag)
     end
 
     ReservedHandles.role_tags.each do |tag, role|
@@ -167,8 +170,9 @@ class MentionParser
     handles = extract_handles(text, strip: false)
     return {} if handles.empty?
 
-    # Same collective-local handling as .parse: within a collective, @trio and
-    # the group tags resolve locally, not through the tenant-wide handle index.
+    # Same collective-local handling as .parse: within a collective, the
+    # persona tags, @trio, and the group tags resolve locally, not through
+    # the tenant-wide handle index.
     index_handles = if collective
       handles.reject { |h| ReservedHandles.collective_local?(h) }
     else
@@ -195,10 +199,11 @@ class MentionParser
         if (persona_role = ReservedHandles::AGENT_ROLES[down])
           persona_path = collective.users_with_role(persona_role).first&.path
           paths[handle] = persona_path if persona_path
-        elsif ReservedHandles.group_tag?(down)
-          # @everyone / @admins render as a link to the collective. Rendering is
-          # display only — the admin-only gate on @everyone lives on the
-          # notification path, so the tag is shown regardless of who wrote it.
+        elsif ReservedHandles.group_tag?(down) || ReservedHandles.ensemble_tag?(down)
+          # @everyone / @admins / @trio render as a link to the collective —
+          # they name a set, not a profile. Rendering is display only — the
+          # admin-only gate on @everyone lives on the notification path, so
+          # the tag is shown regardless of who wrote it.
           paths[handle] = collective_path
         end
       end

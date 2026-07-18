@@ -449,10 +449,10 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     @ai_agent.update!(stripe_customer_id: billing_customer.id)
   end
 
-  # === System agents (Trio) ===
+  # === System agents (the built-in personas) ===
 
   def create_trio_task_run!
-    trio = TrioSeeder.ensure_for(@collective)
+    trio = PersonaSeeder.ensure_for(@collective, Personas::CADENCE)
     AiAgentTaskRun.create!(
       tenant: @tenant, ai_agent: trio, initiated_by: @user,
       task: "Where are my decisions?", max_steps: 10, status: "queued",

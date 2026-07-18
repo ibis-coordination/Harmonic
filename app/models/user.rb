@@ -133,7 +133,7 @@ class User < ApplicationRecord
   # Auto-create TrusteeGrant when an AI agent is created
   after_create :create_parent_trustee_grant!, if: :ai_agent?
 
-  SYSTEM_ROLES = T.let(["trio"].freeze, T::Array[String])
+  SYSTEM_ROLES = T.let(["melody", "counterpoint", "cadence"].freeze, T::Array[String])
 
   validates :user_type, inclusion: { in: ["human", "ai_agent", "collective_identity", "imported_placeholder"] }
   validates :email, presence: true
@@ -305,10 +305,7 @@ class User < ApplicationRecord
   # For ordinary user-created agents the prompt lives on the User row.
   sig { returns(T.nilable(String)) }
   def effective_identity_prompt
-    case system_role
-    when "trio" then Trio::SystemPrompt.text
-    else agent_configuration&.dig("identity_prompt")
-    end
+    Personas.fetch(system_role)&.prompt || agent_configuration&.dig("identity_prompt")
   end
 
   sig { returns(T::Boolean) }
@@ -323,7 +320,7 @@ class User < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def internal_ai_agent?
-    # System agents (e.g., Trio) run on the deployment account and are
+    # System agents (the built-in personas) run on the deployment account and are
     # inherently internal-mode regardless of agent_configuration.
     return true if ai_agent? && system?
 

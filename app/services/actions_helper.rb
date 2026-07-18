@@ -691,7 +691,7 @@ class ActionsHelper
       params: [
         { name: "notifications", type: "object",
           description: "Nested object { \"<type>\": { \"in_app\": true|false, \"email\": true|false } }. " \
-                       "Types: mention, comment, participation, system, reminder, chat_message, trio_unavailable, tune_in, trustee_authorization. " \
+                       "Types: mention, comment, participation, system, reminder, chat_message, persona_unavailable, tune_in, trustee_authorization. " \
                        "Channels: in_app, email. Example: { \"comment\": { \"email\": true }, \"mention\": { \"email\": false } }.", },
       ],
       authorization: [:self, :representative],

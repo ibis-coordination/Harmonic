@@ -108,7 +108,7 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show allows any tenant member to chat with a system agent" do
-    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
+    trio = PersonaSeeder.ensure_for(T.must(@tenant.main_collective), Personas::CADENCE)
     trio_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: trio).handle
 
     get "/chat/#{trio_handle}"

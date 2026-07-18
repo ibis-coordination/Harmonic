@@ -14,7 +14,7 @@ class Collective < ApplicationRecord
   before_validation :create_identity_user!
   before_create :set_defaults
   after_update :sync_identity_user_handle!, if: :saved_change_to_handle?
-  after_update :sync_trio_handle!, if: :saved_change_to_handle?
+  after_update :sync_persona_handles!, if: :saved_change_to_handle?
   tables = ActiveRecord::Base.connection.tables - [
     "tenants", "users", "tenant_users",
     "collectives", "api_tokens", "oauth_identities",
@@ -356,9 +356,9 @@ class Collective < ApplicationRecord
   end
 
   # Owner-initiated downgrade. Actively disables paid features (disables
-  # enabled automations, clears trio + file_attachments flags, deactivates
-  # the trio agent) — the user opted out, so we leave a clean slate for any
-  # future re-upgrade rather than preserving state.
+  # enabled automations, clears the persona + file_attachments flags,
+  # deactivates the persona agents) — the user opted out, so we leave a
+  # clean slate for any future re-upgrade rather than preserving state.
   sig { params(actor: User).void }
   def downgrade!(actor:)
     raise NotOwner unless actor == T.must(created_by)
@@ -369,7 +369,7 @@ class Collective < ApplicationRecord
     transaction do
       automation_rules.enabled.update_all(enabled: false)
       PAID_FEATURE_FLAGS.each { |flag| disable_feature_flag!(flag) }
-      TrioActivator.deactivate!(self) if trio_user.present?
+      PersonaActivator.deactivate!(self) if persona_users.any?
       update!(tier: TIER_FREE)
     end
   end
@@ -461,11 +461,13 @@ class Collective < ApplicationRecord
     FeatureFlagService.collective_enabled?(self, "api")
   end
 
+  # Whether Trio — the built-in persona ensemble — is enabled here. One
+  # flag covers all three personas. A paid-tier feature.
   sig { returns(T::Boolean) }
   def trio_enabled?
     return false unless tier_unlocks_paid_features?
 
-    FeatureFlagService.collective_enabled?(self, "trio")
+    FeatureFlagService.collective_enabled?(self, Personas::ENSEMBLE_ROLE)
   end
 
   sig { void }
@@ -486,7 +488,7 @@ class Collective < ApplicationRecord
   # FK column.
   #
   # Memoized per instance (nil results included) — markdown rendering
-  # resolves @trio once per text node against one shared collective, and the
+  # resolves persona tags once per text node against one shared collective, and the
   # old belongs_to gave that association caching for free. The activator
   # invalidates via clear_persona_user_cache! when it changes the role;
   # reload clears too.
@@ -521,24 +523,26 @@ class Collective < ApplicationRecord
     collective_members.joins(:user).where(users: { system_role: system_role }).first&.user
   end
 
-  # The collective's active trio, or nil while trio is deactivated.
-  sig { returns(T.nilable(User)) }
-  def trio_user
-    persona_user(ReservedHandles::TRIO)
+  # All ACTIVE persona agents, in registry order. Empty while no persona is
+  # enabled.
+  sig { returns(T::Array[User]) }
+  def persona_users
+    Personas.system_roles.filter_map { |role| persona_user(role) }
   end
 
-  # Trio is on the pool payroll automatically: whenever an open pool and an
-  # active trio both exist, attach. Idempotent — called from pool
-  # open/reopen and from trio activation, whichever happens second.
+  # Active personas are on the pool payroll automatically: whenever an open
+  # pool and an active persona both exist, attach. Idempotent — called from
+  # pool open/reopen and from persona activation, whichever happens second.
   sig { void }
-  def ensure_trio_funded!
+  def ensure_personas_funded!
     pool = funding_pool
     return if pool.nil? || pool.archived?
 
-    trio = trio_user
-    return if trio.nil? || trio.funding_pool_id == pool.id
+    persona_users.each do |agent|
+      next if agent.funding_pool_id == pool.id
 
-    trio.update!(funding_pool: pool)
+      agent.update!(funding_pool: pool)
+    end
   end
 
   # Whether this collective may operate a funding pool. Two doors: the paid
@@ -809,26 +813,29 @@ class Collective < ApplicationRecord
     tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
   end
 
-  # Trio's handle embeds the collective's (`trio-<collective handle>`), so a
-  # collective rename renames its trio too. Found through membership +
-  # system_role so a deactivated trio (archived member) also follows renames.
+  # Persona handles embed the collective's (`cadence-<collective handle>`),
+  # so a collective rename renames its personas too. Found through
+  # membership + system_role so a deactivated persona (archived member) also
+  # follows renames.
   sig { void }
-  def sync_trio_handle!
+  def sync_persona_handles!
     return if handle.blank?
 
-    trio = seeded_persona_user(ReservedHandles::TRIO)
-    return unless trio
+    Personas.system_roles.each do |system_role|
+      agent = seeded_persona_user(system_role)
+      next unless agent
 
-    tenant_user = TenantUser.tenant_scoped_only(T.must(tenant_id)).find_by(user_id: trio.id)
-    return unless tenant_user
+      tenant_user = TenantUser.tenant_scoped_only(T.must(tenant_id)).find_by(user_id: agent.id)
+      next unless tenant_user
 
-    desired = TenantUser.persona_handle_for(
-      tenant_id: T.must(tenant_id),
-      tag: "trio",
-      collective_handle: T.must(handle),
-      except_user_id: trio.id,
-    )
-    tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
+      desired = TenantUser.persona_handle_for(
+        tenant_id: T.must(tenant_id),
+        tag: system_role,
+        collective_handle: T.must(handle),
+        except_user_id: agent.id,
+      )
+      tenant_user.update!(handle: desired) unless tenant_user.handle.to_s.casecmp?(desired)
+    end
   end
 
   sig { params(time_window: ActiveSupport::Duration).returns(ActiveRecord::Relation) }
@@ -896,8 +903,8 @@ class Collective < ApplicationRecord
 
   sig { params(user: User, roles: T::Array[String]).returns(CollectiveMember) }
   def add_user!(user, roles: [])
-    # Workspaces are private to their owner — but the trio system agent is
-    # added by the owner opt-in flow (TrioSeeder), not as a normal member.
+    # Workspaces are private to their owner — but persona system agents are
+    # added by the owner opt-in flow (PersonaSeeder), not as normal members.
     raise "Cannot add other users to a private workspace" if private_workspace? && user != created_by && !user.system?
 
     if chat? && collective_members.where(archived_at: nil).count >= 2 && !collective_members.exists?(user: user)

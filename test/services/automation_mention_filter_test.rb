@@ -274,40 +274,55 @@ class AutomationMentionFilterTest < ActiveSupport::TestCase
     assert AutomationMentionFilter.matches?(event, @ai_agent, "self")
   end
 
-  # === @trio (per-collective system agent) ===
+  # === persona tags (per-collective system agents) ===
 
-  test "self filter matches when @trio is mentioned and agent is the collective's trio" do
+  test "self filter matches when @cadence is mentioned and agent is the collective's cadence" do
     trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence", parent_id: nil,
     )
-    # Trio's stored handle is intentionally non-"trio". The literal string
-    # @trio is resolved by the MentionParser via the trio persona role, so
-    # the handle index never collides across collectives.
-    @tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
+    # The persona's stored handle is intentionally non-"cadence". The literal
+    # string @cadence is resolved by the MentionParser via the persona role,
+    # so the handle index never collides across collectives.
+    @tenant.add_user!(trio, handle: "cadence-#{SecureRandom.hex(4)}")
     @collective.add_user!(trio)
-    @collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
+    @collective.collective_members.find_by!(user_id: trio.id).add_roles!(["cadence", "trio"])
 
-    note = create_note(text: "Hey @trio, what should we do?")
+    note = create_note(text: "Hey @cadence, what should we do?")
     event = create_event_for_note(note)
 
     assert AutomationMentionFilter.matches?(event, trio, "self")
   end
 
-  test "self filter does not match @trio when agent is a different collective's trio" do
-    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
-    other_trio = User.create!(
-      email: "trio_other_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+  test "self filter matches when @trio is mentioned — the ensemble fans out to the persona" do
+    cadence = User.create!(
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence", parent_id: nil,
     )
-    @tenant.add_user!(other_trio, handle: "trio-#{SecureRandom.hex(4)}")
-    other_collective.add_user!(other_trio)
-    other_collective.collective_members.find_by!(user_id: other_trio.id).add_role!("trio")
+    @tenant.add_user!(cadence, handle: "cadence-#{SecureRandom.hex(4)}")
+    @collective.add_user!(cadence)
+    @collective.collective_members.find_by!(user_id: cadence.id).add_roles!(["cadence", "trio"])
 
-    note = create_note(text: "Hey @trio")
+    note = create_note(text: "Hey @trio, thoughts?")
     event = create_event_for_note(note)
 
-    # Event is in @collective, not other_collective — so other_collective's trio
+    assert AutomationMentionFilter.matches?(event, cadence, "self")
+  end
+
+  test "self filter does not match @cadence when agent is a different collective's persona" do
+    other_collective = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
+    other_trio = User.create!(
+      email: "cadence_other_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence", parent_id: nil,
+    )
+    @tenant.add_user!(other_trio, handle: "cadence-#{SecureRandom.hex(4)}")
+    other_collective.add_user!(other_trio)
+    other_collective.collective_members.find_by!(user_id: other_trio.id).add_roles!(["cadence", "trio"])
+
+    note = create_note(text: "Hey @cadence")
+    event = create_event_for_note(note)
+
+    # Event is in @collective, not other_collective — so other_collective's persona
     # is not in scope here.
     assert_not AutomationMentionFilter.matches?(event, other_trio, "self")
   end
