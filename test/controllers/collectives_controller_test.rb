@@ -181,13 +181,13 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  # === Trio Flag Wiring ===
+  # === Trio (Ensemble) Flag Wiring ===
 
-  test "enabling the trio feature flag activates trio for the collective" do
+  test "enabling the trio feature flag activates the ensemble for the collective" do
     @tenant.enable_feature_flag!("trio")
     @collective.set_feature_flag!("trio", false)
     @collective.update!(tier: Collective::TIER_PAID)
-    assert_nil @collective.trio_user&.id, "precondition: trio should be off"
+    assert_nil @collective.persona_user("cadence")&.id, "precondition: cadence should be off"
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -195,16 +195,16 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_not_nil @collective.trio_user&.id, "expected trio to be activated"
-    assert AutomationRule.where(ai_agent_id: @collective.trio_user&.id).exists?, "expected default automations to be seeded"
+    assert_not_nil @collective.persona_user("cadence")&.id, "expected cadence to be activated"
+    assert AutomationRule.where(ai_agent_id: @collective.persona_user("cadence")&.id).exists?, "expected default automations to be seeded"
   end
 
-  test "disabling the trio feature flag deactivates trio for the collective" do
+  test "disabling the trio feature flag deactivates the ensemble for the collective" do
     @tenant.enable_feature_flag!("trio")
     @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
-    TrioActivator.activate!(@collective)
-    trio_id = T.must(@collective.reload.trio_user&.id)
+    PersonaActivator.activate!(@collective)
+    trio_id = T.must(@collective.reload.persona_user("cadence")&.id)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -212,7 +212,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
          headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/collectives/#{@collective.handle}/settings" }
 
     @collective.reload
-    assert_nil @collective.trio_user&.id, "expected trio to be deactivated"
+    assert_nil @collective.persona_user("cadence")&.id, "expected cadence to be deactivated"
     rules = AutomationRule.where(ai_agent_id: trio_id)
     assert rules.all? { |r| !r.enabled? }, "expected default automations to be disabled"
   end
@@ -424,7 +424,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Deactivate Collective"
   end
 
-  test "free-tier upgrade copy omits Trio when tenant has trio disabled" do
+  test "free-tier upgrade copy omits the built-in agents when tenant has them disabled" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.set_feature_flag!("trio", false)
     @tenant.set_feature_flag!("file_attachments", false)
@@ -438,11 +438,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # Banner lists paid features mid-sentence (lowercase common nouns); when the
     # tenant has only Automations available, the copy says "unlock automations".
     assert_includes response.body, "unlock automations on this collective"
-    assert_not_includes response.body, "Trio AI assistant"
+    assert_not_includes response.body, "built-in agents"
     assert_not_includes response.body, "file attachments"
   end
 
-  test "paid-tier downgrade copy omits Trio when tenant has trio disabled" do
+  test "paid-tier downgrade copy omits the built-in agents when tenant has them disabled" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.set_feature_flag!("trio", false)
     @tenant.set_feature_flag!("file_attachments", false)
@@ -455,11 +455,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "Downgrade to Free"
-    assert_not_includes response.body, "turn off Trio"
-    assert_not_includes response.body, "Trio / file attachments"
+    assert_not_includes response.body, "turn off Cadence"
+    assert_not_includes response.body, "Cadence / file attachments"
   end
 
-  test "free-tier upgrade copy includes Trio and file attachments when tenant has them enabled" do
+  test "free-tier upgrade copy includes the built-in agents and file attachments when tenant has them enabled" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.enable_feature_flag!("trio")
     @tenant.enable_feature_flag!("file_attachments")
@@ -469,7 +469,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{test_collective.handle}/settings"
 
     assert_response :success
-    assert_includes response.body, "the Trio AI assistant"
+    assert_includes response.body, "the built-in agents (Melody, Counterpoint, and Cadence)"
     assert_includes response.body, "file attachments"
   end
 
@@ -555,7 +555,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @tenant.enable_feature_flag!("trio")
     @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
-    TrioActivator.activate!(@collective)
+    PersonaActivator.activate!(@collective)
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/settings",
@@ -645,7 +645,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Upgrade to Paid/i, response.body)
   end
 
-  test "settings page shows Paid Plan Features even when trio/file_attachments off at tenant level" do
+  test "settings page shows Paid Plan Features even when personas/file_attachments off at tenant level" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.set_feature_flag!("trio", false)
     @tenant.set_feature_flag!("file_attachments", false)
@@ -1475,16 +1475,16 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "persona roles cannot be granted through the role endpoint" do
-    member = add_member(name: "Would-be Trio")
+    member = add_member(name: "Would-be Cadence")
     sign_in_as(@user, tenant: @tenant)
 
     post update_roles_path,
-         params: { user_handle: handle_for(member), role: "trio", grant: "true" },
+         params: { user_handle: handle_for(member), role: "cadence", grant: "true" },
          headers: MEMBER_MGMT_MD
 
     assert_response :unprocessable_entity
     cm = @collective.collective_members.find_by(user: member)
-    assert_not cm.has_role?("trio"), "persona roles are activator-managed, never grantable"
+    assert_not cm.has_role?("cadence"), "persona roles are activator-managed, never grantable"
   end
 
   test "the members page role menu offers only capability roles" do
@@ -1493,7 +1493,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/members"
     assert_response :success
-    assert_no_match(/role trio/, response.body)
+    assert_no_match(/role cadence/, response.body)
   end
 
   test "non-admin cannot update member roles" do
@@ -2044,15 +2044,15 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     post "#{collective.path}/settings/add_funded_agent", params: { ai_agent_id: agent.id }
 
-    assert flash[:alert].present?, "expected non-trio agent attach to stay operator-gated"
+    assert flash[:alert].present?, "expected non-persona agent attach to stay operator-gated"
     assert_nil agent.reload.funding_pool_id
   end
 
-  test "opening a pool automatically funds the collective's trio" do
+  test "opening a pool automatically funds the collective's personas" do
     collective = create_test_collective
     enable_self_serve_pools!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    trio = TrioActivator.activate!(collective)
+    trio = T.must(PersonaActivator.activate!(collective).find { |a| a.system_role == "cadence" })
     Tenant.clear_thread_scope
     sign_in_as(@user, tenant: @tenant)
 
@@ -2060,14 +2060,14 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     pool = FundingPool.tenant_scoped_only(@tenant.id).find_by(collective_id: collective.id)
     assert pool.present?
-    assert_equal pool.id, trio.reload.funding_pool_id, "expected trio to be auto-attached to the new pool"
+    assert_equal pool.id, trio.reload.funding_pool_id, "expected the persona to be auto-attached to the new pool"
   end
 
-  test "trio cannot be detached from the pool" do
+  test "a persona cannot be detached from the pool" do
     collective = create_test_collective
     enable_self_serve_pools!(collective)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    trio = TrioActivator.activate!(collective)
+    trio = T.must(PersonaActivator.activate!(collective).find { |a| a.system_role == "cadence" })
     Tenant.clear_thread_scope
     sign_in_as(@user, tenant: @tenant)
     post "#{collective.path}/settings/create_funding_pool", params: { member_daily_draw_cap: "5.00" }
@@ -2076,8 +2076,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     delete "#{collective.path}/settings/remove_funded_agent", params: { ai_agent_id: trio.id }
 
-    assert flash[:alert].present?, "expected detaching trio to be refused"
-    assert_equal pool.id, trio.reload.funding_pool_id, "trio must stay on the pool payroll"
+    assert flash[:alert].present?, "expected detaching the persona to be refused"
+    assert_equal pool.id, trio.reload.funding_pool_id, "the persona must stay on the pool payroll"
   end
 
   test "creating a pool requires the stripe_billing feature" do

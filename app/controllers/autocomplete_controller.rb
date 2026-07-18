@@ -42,15 +42,17 @@ class AutocompleteController < ApplicationController
       .order(:handle)
       .limit(10)
 
-    # Display the collective's trio with the magic handle "trio" rather
-    # than its stored TenantUser handle (which is hex-suffixed for non-main
-    # collectives to avoid the tenant-wide handle collision). The mention
-    # parser resolves "@trio" back to this collective's trio via the
-    # collective.trio_user link.
-    trio_user_id = @current_collective.trio_user&.id
+    # Display active personas with their short mention tags (@cadence, …)
+    # rather than their stored TenantUser handles (cadence-<collective
+    # handle>). The mention parser resolves the tags back to this
+    # collective's personas via their persona roles.
+    persona_tags_by_user_id = {}
+    @current_collective.persona_users.each do |agent|
+      persona_tags_by_user_id[agent.id] = agent.system_role
+    end
 
     results = tenant_users.map do |tu|
-      display_handle = tu.user_id == trio_user_id ? MentionParser::TRIO_HANDLE : tu.handle
+      display_handle = persona_tags_by_user_id[tu.user_id] || tu.handle
       {
         id: tu.user_id,
         handle: display_handle,
@@ -59,23 +61,25 @@ class AutocompleteController < ApplicationController
       }
     end
 
-    # If the query is a prefix of "trio" (e.g., "", "t", "tr", "tri", "trio")
-    # and chariot's trio didn't surface via the substring search above
+    # If the query is a prefix of an active persona's tag (e.g., "", "c",
+    # "cad") and that persona didn't surface via the substring search above
     # (e.g., the alphabetical top-10 with no query didn't include it),
-    # inject it so "@trio" autocomplete always works.
-    query_is_trio_prefix = query.empty? || MentionParser::TRIO_HANDLE.start_with?(query)
-    if trio_user_id && query_is_trio_prefix && results.none? { |r| r[:id] == trio_user_id }
-      trio_tu = TenantUser.where(tenant_id: @current_tenant.id, user_id: trio_user_id).includes(:user).first
-      if trio_tu
-        results.unshift(
-          id: trio_tu.user_id,
-          handle: MentionParser::TRIO_HANDLE,
-          display_name: trio_tu.display_name,
-          avatar_url: trio_tu.user.image_url(variant: :icon),
-        )
-        results = results.first(10)
-      end
+    # inject it so persona-tag autocomplete always works.
+    persona_tags_by_user_id.each do |user_id, tag|
+      next unless query.empty? || tag.start_with?(query)
+      next if results.any? { |r| r[:id] == user_id }
+
+      persona_tu = TenantUser.where(tenant_id: @current_tenant.id, user_id: user_id).includes(:user).first
+      next unless persona_tu
+
+      results.unshift(
+        id: persona_tu.user_id,
+        handle: tag,
+        display_name: persona_tu.display_name,
+        avatar_url: persona_tu.user.image_url(variant: :icon),
+      )
     end
+    results = results.first(10)
 
     render json: results
   end

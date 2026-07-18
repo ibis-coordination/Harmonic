@@ -496,17 +496,17 @@ class UserTest < ActiveSupport::TestCase
 
   test "system ai_agent can be created with nil parent_id" do
     agent = User.new(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio",
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence",
       user_type: "ai_agent",
-      system_role: "trio",
+      system_role: "cadence",
       parent_id: nil,
     )
     assert agent.valid?, agent.errors.full_messages.to_sentence
   end
 
   test "system? returns true when system_role is set" do
-    agent = User.new(user_type: "ai_agent", system_role: "trio", parent_id: nil)
+    agent = User.new(user_type: "ai_agent", system_role: "cadence", parent_id: nil)
     assert agent.system?
   end
 
@@ -540,41 +540,41 @@ class UserTest < ActiveSupport::TestCase
     assert_nil agent.system_role
   end
 
-  test "trio reports its real stored handle and links to its own profile" do
+  test "a persona reports its real stored handle and links to its own profile" do
     trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio",
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence",
     )
-    @tenant.add_user!(trio, handle: "trio-abc12345")
+    @tenant.add_user!(trio, handle: "cadence-abc12345")
 
-    assert_equal "trio-abc12345", trio.handle,
-      "system agents have no magic handle — the @trio mention tag resolves via the persona role instead"
-    assert_equal "/u/trio-abc12345", trio.path
+    assert_equal "cadence-abc12345", trio.handle,
+      "system agents have no magic handle — the @cadence mention tag resolves via the persona role instead"
+    assert_equal "/u/cadence-abc12345", trio.path
   end
 
   test "creating a system ai_agent does not create a TrusteeGrant" do
     assert_difference -> { TrusteeGrant.count }, 0 do
       User.create!(
-        email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-        name: "Trio",
+        email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+        name: "Cadence",
         user_type: "ai_agent",
-        system_role: "trio",
+        system_role: "cadence",
         parent_id: nil,
       )
     end
   end
 
-  test "effective_identity_prompt returns the static Trio prompt for trio users, ignoring stale agent_configuration" do
+  test "effective_identity_prompt returns the static persona prompt for system agents, ignoring stale agent_configuration" do
     trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio",
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence",
       user_type: "ai_agent",
-      system_role: "trio",
+      system_role: "cadence",
       parent_id: nil,
       agent_configuration: { "identity_prompt" => "stale cached prompt" },
     )
 
-    assert_equal Trio::SystemPrompt.text, trio.effective_identity_prompt
+    assert_equal Personas.fetch("cadence").prompt, trio.effective_identity_prompt
   end
 
   test "effective_identity_prompt returns agent_configuration value for ordinary ai_agents" do
@@ -635,10 +635,10 @@ class UserTest < ActiveSupport::TestCase
 
   test "system_agents scope returns only users with system_role set" do
     trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio",
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence",
       user_type: "ai_agent",
-      system_role: "trio",
+      system_role: "cadence",
       parent_id: nil,
     )
     user_agent = User.create!(
@@ -1671,7 +1671,7 @@ class UserTest < ActiveSupport::TestCase
     @tenant.enable_feature_flag!("trio")
     extra.enable_feature_flag!("trio")
     assert_equal 1, @user.active_billable_collective_count,
-                 "paid collective with automation + trio is still 1"
+                 "paid collective with automation + cadence is still 1"
   end
 
   test "active_billable_collective_count excludes main collective even on paid tier" do
@@ -2084,18 +2084,18 @@ class UserTest < ActiveSupport::TestCase
     assert agent.errors[:funding_pool_id].join(" ").include?("enrolled")
   end
 
-  test "a collective's trio attaches to its own collective's pool without an enrolled principal" do
+  test "a collective's persona attaches to its own collective's pool without an enrolled principal" do
     pool = create_funding_pool!(enroll: [])
-    trio = TrioSeeder.ensure_for(@collective)
+    trio = PersonaSeeder.ensure_for(@collective, Personas::CADENCE)
 
     trio.funding_pool = pool
     assert trio.valid?, trio.errors.full_messages.to_sentence
   end
 
-  test "a trio principaled by another collective cannot attach to this pool" do
+  test "a persona principaled by another collective cannot attach to this pool" do
     pool = create_funding_pool!(enroll: [])
     other = create_collective(tenant: @tenant, created_by: @user)
-    other_trio = TrioSeeder.ensure_for(other)
+    other_trio = PersonaSeeder.ensure_for(other, Personas::CADENCE)
 
     other_trio.funding_pool = pool
     assert_not other_trio.valid?
@@ -2104,7 +2104,7 @@ class UserTest < ActiveSupport::TestCase
 
   test "a system agent with no principal cannot attach to a pool" do
     pool = create_funding_pool!(enroll: [])
-    trio = TrioSeeder.ensure_for(@collective)
+    trio = PersonaSeeder.ensure_for(@collective, Personas::CADENCE)
     trio.update!(parent_id: nil)
 
     trio.funding_pool = pool

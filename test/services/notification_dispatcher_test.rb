@@ -36,33 +36,67 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal mentioned_user.id, recipient.user_id
   end
 
-  test "handle_note_event notifies the actor when @trio is mentioned but trio is not enabled in the collective" do
+  test "handle_note_event notifies the actor when @cadence is mentioned but cadence is not enabled in the collective" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
     user.tenant_user.update!(handle: "alice")
-    assert_nil collective.trio_user, "precondition: trio not enabled"
+    assert_nil collective.persona_user("cadence"), "precondition: cadence not enabled"
 
     create_note(
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hey @trio, can you help with this?"
+      text: "Hey @cadence, can you help with this?"
     )
 
-    hint = Notification.where(notification_type: "trio_unavailable").last
-    assert_not_nil hint, "Expected a trio_unavailable hint notification for the actor"
+    hint = Notification.where(notification_type: "persona_unavailable").last
+    assert_not_nil hint, "Expected a persona_unavailable hint notification for the actor"
     recipient = hint.notification_recipients.first
     assert_equal user.id, recipient&.user_id
-    assert_includes hint.title, "Trio"
+    assert_includes hint.title, "@cadence"
     assert_equal "#{collective.path}/settings", hint.url
   end
 
-  test "handle_note_event sends a workspace-flavored trio_unavailable hint in a private workspace" do
+  test "handle_note_event hints on @trio only when NO persona is enabled" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    user.tenant_user.update!(handle: "alice")
+
+    create_note(
+      tenant: tenant, collective: collective, created_by: user,
+      text: "Hey @trio, anyone home?"
+    )
+
+    hint = Notification.where(notification_type: "persona_unavailable").last
+    assert_not_nil hint, "with no personas enabled, @trio should hint"
+    assert_includes hint.title, "@trio"
+
+    # With any persona active, @trio reached someone — no hint.
+    melody = User.create!(
+      email: "melody_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Melody", user_type: "ai_agent", system_role: "melody", parent_id: nil
+    )
+    tenant.add_user!(melody, handle: "melody-#{SecureRandom.hex(4)}")
+    collective.add_user!(melody)
+    collective.collective_members.find_by!(user_id: melody.id).add_roles!(["melody", "trio"])
+    collective.clear_persona_user_cache!
+    before = Notification.where(notification_type: "persona_unavailable").count
+
+    create_note(
+      tenant: tenant, collective: collective, created_by: user,
+      text: "Hey @trio, second try"
+    )
+
+    assert_equal before, Notification.where(notification_type: "persona_unavailable").count,
+      "no hint when at least one persona holds the ensemble role"
+  end
+
+  test "handle_note_event sends a workspace-flavored persona_unavailable hint in a private workspace" do
     tenant, _collective, user = create_tenant_collective_user
     Tenant.scope_thread_to_tenant(subdomain: tenant.subdomain)
     workspace = user.private_workspace
     assert workspace.present?, "precondition: user has a private workspace"
-    assert_nil workspace.trio_user, "precondition: trio not enabled in workspace"
+    assert_nil workspace.persona_user("cadence"), "precondition: cadence not enabled in workspace"
 
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: workspace.handle)
 
@@ -70,37 +104,38 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
       tenant: tenant,
       collective: workspace,
       created_by: user,
-      text: "Hey @trio, help me organize this."
+      text: "Hey @cadence, help me organize this."
     )
 
-    hint = Notification.where(notification_type: "trio_unavailable").last
-    assert_not_nil hint, "Expected a trio_unavailable hint in workspace"
+    hint = Notification.where(notification_type: "persona_unavailable").last
+    assert_not_nil hint, "Expected a persona_unavailable hint in workspace"
     assert_equal "/settings", hint.url
     assert_includes hint.body, "your workspace"
   end
 
-  test "handle_note_event does NOT send a trio_unavailable hint when trio is enabled" do
+  test "handle_note_event does NOT send a persona_unavailable hint when the persona is enabled" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
     user.tenant_user.update!(handle: "alice")
 
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil
+    cadence = User.create!(
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence", parent_id: nil
     )
-    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
-    collective.add_user!(trio)
-    collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
+    tenant.add_user!(cadence, handle: "cadence-#{SecureRandom.hex(4)}")
+    collective.add_user!(cadence)
+    collective.collective_members.find_by!(user_id: cadence.id).add_roles!(["cadence", "trio"])
+    collective.clear_persona_user_cache!
 
     create_note(
       tenant: tenant,
       collective: collective,
       created_by: user,
-      text: "Hey @trio, can you help?"
+      text: "Hey @cadence, can you help?"
     )
 
-    hint = Notification.where(notification_type: "trio_unavailable").last
-    assert_nil hint, "No hint should be sent when trio is enabled"
+    hint = Notification.where(notification_type: "persona_unavailable").last
+    assert_nil hint, "No hint should be sent when the persona is enabled"
   end
 
   test "handle_note_event does not notify the actor" do

@@ -725,10 +725,10 @@ module LLMGateway
       assert_equal :forbidden, error.http_status
     end
 
-    # === Collective-principaled system agents (trio) ===
+    # === Collective-principaled system agents (personas) ===
 
     def create_pool_funded_trio!(pool)
-      trio = TrioSeeder.ensure_for(@collective)
+      trio = PersonaSeeder.ensure_for(@collective, Personas::CADENCE)
       trio.update!(funding_pool: pool)
       AiAgentTaskRun.create!(
         tenant: @tenant,
@@ -806,7 +806,7 @@ module LLMGateway
     test "a system agent principaled by a different collective still requires an enrolled principal" do
       pool = create_funding_pool!
       other = create_collective(tenant: @tenant, created_by: @user, handle: "other-#{SecureRandom.hex(4)}")
-      other_trio = TrioSeeder.ensure_for(other)
+      other_trio = PersonaSeeder.ensure_for(other, Personas::CADENCE)
       other_trio.update_column(:funding_pool_id, pool.id)
       run = AiAgentTaskRun.create!(
         tenant: @tenant,

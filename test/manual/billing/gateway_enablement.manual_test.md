@@ -96,4 +96,4 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 
 - [ ] Task completes via LiteLLM (`"gateway_mode":"litellm"` in `llm_request` lines)
 - [ ] No Stripe balance change for any customer
-- [ ] System agent (Trio) tasks on Tenant A also log `"gateway_mode":"litellm"`
+- [ ] System agent (built-in persona) tasks on Tenant A also log `"gateway_mode":"litellm"`

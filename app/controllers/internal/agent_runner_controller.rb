@@ -284,7 +284,7 @@ module Internal
         return
       end
 
-      # System agents (e.g. Trio) have no billing_customer and are never
+      # System agents (the built-in personas) have no billing_customer and are never
       # charged; pool-funded agents draw from enrolled members per call, not
       # a personal billing customer. Skip all billing-related preflight
       # checks for both. Mirrors the parallel skips in

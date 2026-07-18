@@ -149,7 +149,7 @@ Notes, comments, decisions, commitments, options, votes, chat messages, and list
 
 `notifications.delivered` and `reminders.delivered` are special-cased for [notification webhooks](#notification-webhooks) and are not intended for general rules.
 
-Rules store a single `event_type` in YAML. Internally, system-managed rules may use the `event_types` array form to match several types with one rule (e.g. Trio's mentions-and-replies rule matches both `note.created` and `comment.created`); the matching scope (`AutomationRule.for_event_type`) understands both forms.
+Rules store a single `event_type` in YAML. Internally, system-managed rules may use the `event_types` array form to match several types with one rule (e.g. the built-in personas' mentions-and-replies rules match both `note.created` and `comment.created`); the matching scope (`AutomationRule.for_event_type`) understands both forms.
 
 #### Mention Filters
 

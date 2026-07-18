@@ -83,7 +83,7 @@ class HonorSystemSessionsControllerTest < ActionDispatch::IntegrationTest
     skip "Honor system routes not loaded" unless honor_system_routes_available?
 
     new_email = "newuser_#{SecureRandom.hex(4)}@example.com"
-    post "/login", params: { email: new_email, name: "New User", system_role: "trio" }
+    post "/login", params: { email: new_email, name: "New User", system_role: "cadence" }
 
     new_user = User.find_by(email: new_email)
     assert_not_nil new_user

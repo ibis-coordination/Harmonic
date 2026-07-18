@@ -76,18 +76,18 @@ class ApplicationHelperTest < ActionView::TestCase
 
   # === paid_feature_labels ===
 
-  test "paid_feature_labels includes only Automations when tenant has neither trio nor file_attachments" do
+  test "paid_feature_labels includes only Automations when tenant has no personas nor file_attachments" do
     @tenant.set_feature_flag!("trio", false)
     @tenant.set_feature_flag!("file_attachments", false)
 
     assert_equal ["automations"], paid_feature_labels(@tenant)
   end
 
-  test "paid_feature_labels adds Trio when tenant has trio enabled" do
+  test "paid_feature_labels adds the built-in agents when a persona is tenant-enabled" do
     @tenant.enable_feature_flag!("trio")
     @tenant.set_feature_flag!("file_attachments", false)
 
-    assert_equal ["automations", "the Trio AI assistant"], paid_feature_labels(@tenant)
+    assert_equal ["automations", "the built-in agents (Melody, Counterpoint, and Cadence)"], paid_feature_labels(@tenant)
   end
 
   test "paid_feature_labels adds file attachments when tenant has it enabled" do
@@ -101,7 +101,7 @@ class ApplicationHelperTest < ActionView::TestCase
     @tenant.enable_feature_flag!("trio")
     @tenant.enable_feature_flag!("file_attachments")
 
-    assert_equal ["automations", "the Trio AI assistant", "file attachments"], paid_feature_labels(@tenant)
+    assert_equal ["automations", "the built-in agents (Melody, Counterpoint, and Cadence)", "file attachments"], paid_feature_labels(@tenant)
   end
 
   # === paid_features_to_disable_on_downgrade ===
@@ -110,12 +110,12 @@ class ApplicationHelperTest < ActionView::TestCase
     assert_equal [], paid_features_to_disable_on_downgrade(@collective)
   end
 
-  test "paid_features_to_disable_on_downgrade lists Trio when collective has trio active" do
+  test "paid_features_to_disable_on_downgrade lists personas the collective has active" do
     @tenant.enable_feature_flag!("trio")
     @collective.update!(tier: Collective::TIER_PAID)
     @collective.set_feature_flag!("trio", true)
 
-    assert_equal ["Trio"], paid_features_to_disable_on_downgrade(@collective)
+    assert_equal ["the built-in agents"], paid_features_to_disable_on_downgrade(@collective)
   end
 
   test "paid_features_to_disable_on_downgrade lists file attachments when collective has them active" do
@@ -146,8 +146,8 @@ class ApplicationHelperTest < ActionView::TestCase
   end
 
   test "paid_features_to_disable_on_downgrade excludes features the tenant has disabled even if locally set" do
-    # Tenant has trio off, so even if the collective's local flag says true,
-    # Collective#trio_enabled? returns false via the cascade. The helper must
+    # Tenant has trio off, so even if the collective's local flag says
+    # true, Collective#trio_enabled? returns false via the cascade. The helper must
     # match — we shouldn't tell the user we'll turn off something the tenant
     # never supported.
     @tenant.set_feature_flag!("trio", false)

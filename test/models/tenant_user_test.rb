@@ -308,35 +308,36 @@ class TenantUserTest < ActiveSupport::TestCase
 
   # === Reserved handles ===
 
-  test "handle 'trio' is allowed for an ai_agent with system_role 'trio'" do
+  test "handle 'cadence' is allowed for an ai_agent with system_role 'cadence'" do
     tenant = create_tenant
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+    cadence = User.create!(
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence", parent_id: nil,
     )
-    tu = TenantUser.new(tenant: tenant, user: trio, handle: "trio", display_name: "Trio")
+    tu = TenantUser.new(tenant: tenant, user: cadence, handle: "cadence", display_name: "Cadence")
     assert tu.valid?, tu.errors.full_messages.to_sentence
   end
 
-  test "handle 'trio' is rejected for a human user" do
+  test "handle 'cadence' is rejected for a human user" do
     tenant = create_tenant
     user = create_user
-    tu = TenantUser.new(tenant: tenant, user: user, handle: "trio", display_name: user.name)
+    tu = TenantUser.new(tenant: tenant, user: user, handle: "cadence", display_name: user.name)
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
 
   test "a cased variant of a reserved handle is still rejected for a human user" do
-    # Case preservation must not let "Trio"/"TRIO" slip past the reserved-handle
-    # gate, since the citext column treats them as the same handle anyway.
+    # Case preservation must not let "Cadence"/"CADENCE" slip past the
+    # reserved-handle gate, since the citext column treats them as the same
+    # handle anyway.
     tenant = create_tenant
     user = create_user
-    tu = TenantUser.new(tenant: tenant, user: user, handle: "Trio", display_name: user.name)
+    tu = TenantUser.new(tenant: tenant, user: user, handle: "Cadence", display_name: user.name)
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
 
-  test "handle 'trio' is rejected for a non-trio ai_agent" do
+  test "handle 'cadence' is rejected for a non-cadence ai_agent" do
     tenant = create_tenant
     parent = create_user
     tenant.add_user!(parent)
@@ -345,9 +346,24 @@ class TenantUserTest < ActiveSupport::TestCase
       email: "agent_#{SecureRandom.hex(4)}@example.com",
       name: "Other Agent", user_type: "ai_agent", parent_id: parent.id,
     )
-    tu = TenantUser.new(tenant: tenant, user: other_agent, handle: "trio", display_name: "Trio")
+    tu = TenantUser.new(tenant: tenant, user: other_agent, handle: "cadence", display_name: "Cadence")
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
+  end
+
+  test "the ensemble handle 'trio' is rejected even for a system agent" do
+    # @trio names the ensemble, not any single user — no system_role
+    # entitles a record to claim it or its prefix.
+    tenant = create_tenant
+    cadence = User.create!(
+      email: "cadence_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence", user_type: "ai_agent", system_role: "cadence", parent_id: nil,
+    )
+    ["trio", "trio-engineering"].each do |handle|
+      tu = TenantUser.new(tenant: tenant, user: cadence, handle: handle, display_name: "Cadence")
+      assert_not tu.valid?, "#{handle} should be reserved even for system agents"
+      assert_includes tu.errors[:handle].to_s.downcase, "reserved"
+    end
   end
 
   test "group tag handles are rejected for a human user" do
@@ -361,29 +377,29 @@ class TenantUserTest < ActiveSupport::TestCase
   end
 
   test "a group tag handle is rejected even for a system agent" do
-    # Unlike @trio, group tags never name a real user, so no system_role
+    # Unlike @cadence, group tags never name a real user, so no system_role
     # entitles a record to claim them.
     tenant = create_tenant
     agent = User.create!(
       email: "sys_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Everyone", user_type: "ai_agent", system_role: "trio", parent_id: nil,
+      name: "Everyone", user_type: "ai_agent", system_role: "cadence", parent_id: nil,
     )
     tu = TenantUser.new(tenant: tenant, user: agent, handle: "everyone", display_name: "Everyone")
     assert_not tu.valid?
     assert_includes tu.errors[:handle].to_s.downcase, "reserved"
   end
 
-  test "handle 'trio' is rejected when set via update! on an existing TenantUser" do
+  test "handle 'cadence' is rejected when set via update! on an existing TenantUser" do
     # Defense in depth: even if a caller bypasses the controller layer and
-    # calls update! directly, the reserved-handle validation rejects "trio"
-    # for a non-trio user.
+    # calls update! directly, the reserved-handle validation rejects
+    # "cadence" for a non-cadence user.
     tenant = create_tenant(subdomain: "rh-update-#{SecureRandom.hex(4)}")
     user = create_user(email: "regular-#{SecureRandom.hex(4)}@example.com")
     tu = tenant.add_user!(user)
-    assert_not_equal "trio", tu.handle
+    assert_not_equal "cadence", tu.handle
 
     assert_raises(ActiveRecord::RecordInvalid) do
-      tu.update!(handle: "trio")
+      tu.update!(handle: "cadence")
     end
   end
 

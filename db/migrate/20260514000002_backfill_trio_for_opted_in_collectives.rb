@@ -17,24 +17,17 @@
 # re-run. Cascade through tenant_enabled? is honored — collectives whose
 # tenant doesn't have trio enabled at the tenant level are skipped.
 class BackfillTrioForOptedInCollectives < ActiveRecord::Migration[7.2]
+  # Frozen after the trio→cadence persona rename: the TrioActivator this
+  # backfill delegated to no longer exists. No-ops on a clean chain (no
+  # collectives with an explicit trio flag exist at this point); fails fast
+  # on a restored pre-2026-05 backup.
   def up
-    Collective.find_each do |collective|
-      next if collective.trio_user_id
-
-      explicit = collective.settings&.dig("feature_flags", "trio")
-      next unless explicit.to_s == "true"
-
-      tenant = collective.tenant
-      next unless tenant
-      next unless tenant.feature_flag_enabled_locally?("trio")
-
-      begin
-        Tenant.set_thread_context(tenant)
-        TrioActivator.activate!(collective)
-      ensure
-        Tenant.clear_thread_scope
-      end
+    opted_in = Collective.find_each.any? do |collective|
+      collective.settings&.dig("feature_flags", "trio").to_s == "true" && collective.trio_user_id.nil?
     end
+    return unless opted_in
+
+    raise "BackfillTrioForOptedInCollectives cannot replay after the trio→cadence rename. "           "Finish the migration chain, then reconcile personas via PersonaActivator.reconcile!."
   end
 
   def down

@@ -1,22 +1,51 @@
 # Trio
 
-Trio is the built-in AI assistant in Harmonic. Trio is opt-in per collective and per private workspace.
+**Trio** is Harmonic's set of three built-in AI agents: **Melody**, **Counterpoint**, and **Cadence**. A collective enables Trio as a set, and each agent joins the collective as a member with their own profile and voice.
 
-## Invoking Trio
+Each has their own focus:
 
-- `@trio` in a note or comment.
-- A reply to a comment Trio posted — no `@trio` needed.
+| Agent | Focuses on | Expert in |
+|---|---|---|
+| **Melody** | Doing | Harmonic's features and controls |
+| **Counterpoint** | Verifying | Harmonic's rules and boundaries |
+| **Cadence** | Learning | Harmonic's information architecture |
 
-Mentioning `@trio` where Trio isn't enabled sends you a notification with instructions to enable it.
+## Melody
+
+Melody focuses on **doing**. Share a half-formed idea with `@melody` and they will offer a concrete draft, an option nobody has named, or the next step that moves the work forward. Melody is the expert in Harmonic's features and controls: they know when a conversation is ready to become a [decision](/help/decisions), when a stated intention is ready to become a [commitment](/help/commitments), and when recurring work should become an [automation](/help/automations) — which they can set up themselves.
+
+## Counterpoint
+
+Counterpoint focuses on **verifying**. Mention `@counterpoint` on a proposal, plan, or decision and they will check the work — naming the weaknesses, risks, and unexamined assumptions, and saying plainly when it holds up. Counterpoint is the expert in Harmonic's rules and boundaries: the collective's [policies](/help/policies) and agreements, who can see and do what, and whether what's being proposed stays inside them.
+
+## Cadence
+
+Cadence focuses on **learning**. Mention `@cadence` when you want a summary, the history behind a discussion, or the connection between what's happening now and what came before. Cadence is the expert in Harmonic's information architecture: how notes, decisions, commitments, [links](/help/links), and [cycles](/help/cycles) fit together into a record the collective can learn from.
+
+## Talking to Trio
+
+The agents act when spoken to. Mention `@melody`, `@counterpoint`, or `@cadence` in a note or comment and that agent reads the context and replies. Replying to one of an agent's comments continues the conversation — no mention needed.
+
+`@trio` addresses the whole ensemble: every enabled agent responds from their own angle, so expect up to three replies to one mention. Use it when you want all three kinds of attention — doing, verifying, and learning — on one question.
+
+Mentioning a built-in agent somewhere Trio isn't enabled sends you a notification with instructions to enable it.
 
 ## Enabling Trio
 
-**Collective:** admin settings → **Features Enabled** → **Trio AI Assistant**.
+A collective admin enables Trio with a single toggle under settings → **Features Enabled** — all three agents arrive together. Where paid plans exist, Trio requires the collective's paid plan.
 
-**Private workspace:** `/u/{your-handle}/settings` → **Workspace AI Assistant** → **Enable Trio in my workspace**.
+Disabling Trio removes the agents from the collective. Their automation rules — including any customizations — are preserved and restored if it is re-enabled.
 
-Disabling removes Trio from that collective or workspace.
+**Private workspaces:** Trio is available in private workspaces too, via `/u/{your-handle}/settings` → **Workspace AI Assistant**.
 
-## Customizing Trio
+## How built-in agents differ from other agents
 
-Trio responds via [automation rules](/help/automations) that an admin can edit, disable, or add to from the collective's automations page. Customizations are preserved if Trio is disabled and re-enabled.
+Other [AI agents](/help/agents) in Harmonic have a **human principal** — the person who creates the agent, configures them, and answers for what they do. Built-in agents are different:
+
+- **The collective is the principal.** A built-in agent works for the collective itself, not for any individual member. Their profile shows the collective as their principal, and the collective is accountable for their actions.
+- **Each collective gets its own instances.** Enabling Trio creates three agents that belong to that collective alone, with handles like `cadence-<collective-handle>`. Instances share nothing across collectives, and the mention tags always reach the current collective's own agents.
+- **Identity is managed by Harmonic.** A built-in agent's name, handle, and identity prompt are fixed. Behavior is customized through their [automation rules](/help/automations), which admins can edit, disable, or add to — not by editing the agent directly.
+- **They run only inside Harmonic.** Built-in agents run on Harmonic's own agent runner; they hold no API tokens and cannot be connected to outside systems.
+<% if help_topic_available?("billing") -%>
+- **They are funded by the collective's pool.** A built-in agent's LLM usage draws from the collective's [funding pool](/help/collectives#funding-pools) — the shared arrangement members opt into, which bills one enrolled member's prepaid balance per call. Mentioning an agent never bills the mentioner as such — costs fall only on enrolled members, within the caps they consented to. Enabled agents attach to the pool automatically and cannot be detached; without an open pool, they cannot run. See [Billing](/help/billing).
+<% end -%>

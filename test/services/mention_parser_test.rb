@@ -58,146 +58,165 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal user.id, result.first.id
   end
 
-  # === @trio special case ===
+  # === persona tags (@cadence) and the ensemble tag (@trio) ===
 
-  # Mirrors TrioActivator's activation state: tenant handle, membership, and
-  # the trio persona role — which @trio resolution keys off.
-  def activate_trio!(tenant, collective, trio, handle: "trio-#{SecureRandom.hex(4)}")
-    tenant.add_user!(trio, handle: handle) unless trio.tenant_users.exists?(tenant_id: tenant.id)
-    collective.add_user!(trio) unless collective.user_is_member?(trio)
-    collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
+  # Mirrors PersonaActivator's activation state: tenant handle, membership,
+  # and the activation roles — which @cadence / @trio resolution key off.
+  def activate_persona!(tenant, collective, agent, role: "cadence", handle: nil)
+    handle ||= "#{role}-#{SecureRandom.hex(4)}"
+    tenant.add_user!(agent, handle: handle) unless agent.tenant_users.exists?(tenant_id: tenant.id)
+    collective.add_user!(agent) unless collective.user_is_member?(agent)
+    collective.collective_members.find_by!(user_id: agent.id).add_roles!([role, "trio"])
+    collective.clear_persona_user_cache!
   end
 
-  test "parse resolves @trio to the collective's trio when collective is provided" do
+  def create_persona_user!(role: "cadence", name: "Cadence")
+    User.create!(
+      email: "#{role}_#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: name, user_type: "ai_agent", system_role: role, parent_id: nil,
+    )
+  end
+
+  test "parse resolves @cadence to the collective's cadence when collective is provided" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio",
-      user_type: "ai_agent",
-      system_role: "trio",
-      parent_id: nil,
-    )
-    activate_trio!(tenant, collective, trio)
+    cadence = create_persona_user!
+    activate_persona!(tenant, collective, cadence)
 
-    result = MentionParser.parse("hi @trio please help", tenant_id: tenant.id, collective: collective)
+    result = MentionParser.parse("hi @cadence please help", tenant_id: tenant.id, collective: collective)
 
-    assert_includes result.map(&:id), trio.id
-    assert_not_includes result.map(&:id), user.id  # @trio in text doesn't grab any other user
+    assert_includes result.map(&:id), cadence.id
+    assert_not_includes result.map(&:id), user.id  # @cadence in text doesn't grab any other user
   end
 
-  test "@trio resolves through the persona role, not the trio_user link" do
+  test "@cadence resolves through the persona role, not membership alone" do
     tenant, collective, _user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    tenant.add_user!(trio, handle: "trio-#{SecureRandom.hex(4)}")
-    collective.add_user!(trio)
-    # Membership WITHOUT the persona role — a deactivated trio's state.
-    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective)
-    assert_equal [], result, "a member without the persona role must not resolve"
+    cadence = create_persona_user!
+    tenant.add_user!(cadence, handle: "cadence-#{SecureRandom.hex(4)}")
+    collective.add_user!(cadence)
+    # Membership WITHOUT the persona role — a deactivated persona's state.
+    result = MentionParser.parse("@cadence", tenant_id: tenant.id, collective: collective)
+    assert_equal [], result.map(&:id), "membership without the role must not resolve"
 
-    collective.collective_members.find_by!(user_id: trio.id).add_role!("trio")
-    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective)
-    assert_equal [trio.id], result.map(&:id), "the persona role alone must resolve"
+    collective.collective_members.find_by!(user_id: cadence.id).add_role!("cadence")
+    result = MentionParser.parse("@cadence", tenant_id: tenant.id, collective: collective)
+    assert_equal [cadence.id], result.map(&:id), "the persona role alone must resolve"
   end
 
-  test "parse returns nothing for @trio when collective has no active trio" do
+  test "parse returns nothing for @cadence when collective has no active persona" do
     tenant, collective, _user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-    assert_empty collective.users_with_role("trio"), "precondition"
+    assert_empty collective.users_with_role("cadence"), "precondition"
 
-    result = MentionParser.parse("hi @trio please help", tenant_id: tenant.id, collective: collective)
+    result = MentionParser.parse("hi @cadence please help", tenant_id: tenant.id, collective: collective)
 
     assert_equal [], result
   end
 
-  test "parse ignores @trio when no collective is provided" do
+  test "parse ignores @cadence when no collective is provided" do
     tenant, collective, _user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    activate_trio!(tenant, collective, trio)
+    cadence = create_persona_user!
+    activate_persona!(tenant, collective, cadence)
 
-    # No collective kwarg → @trio just looks for a user with handle "trio"
-    # (and trio's stored handle is random hex, not "trio"), so resolves to nothing.
-    result = MentionParser.parse("hi @trio please help", tenant_id: tenant.id)
+    # No collective kwarg → @cadence just looks for a user with handle
+    # "cadence" (and the persona's stored handle is prefixed), so resolves
+    # to nothing.
+    result = MentionParser.parse("hi @cadence please help", tenant_id: tenant.id)
 
     assert_equal [], result
   end
 
-  # The main-collective trio claims the literal TenantUser handle "trio" so its
-  # /u/trio profile resolves via the normal handle index. Without this guard,
-  # mentioning @trio in a non-main collective would resolve to BOTH the
-  # non-main collective's trio (via the magic) AND the main collective's trio
-  # (via the index) — fanning the mention out to a trio that isn't part of
-  # the conversation.
-  test "parse with collective context does not also resolve @trio to the index user with handle 'trio'" do
+  # A legacy squatter holding the literal tag handle must not receive the
+  # mention: within a collective, persona tags resolve locally, never through
+  # the tenant-wide handle index.
+  test "parse with collective context does not also resolve @cadence to an index user with handle 'cadence'" do
     tenant, main_collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: main_collective.handle)
 
-    main_trio = User.create!(
-      email: "main_trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Main Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    activate_trio!(tenant, main_collective, main_trio, handle: "trio")  # claims the literal handle
+    squatter = create_user(email: "sq_#{SecureRandom.hex(4)}@example.com")
+    squatter_tu = tenant.add_user!(squatter)
+    # Bypass validation the way a pre-reservation row would exist.
+    squatter_tu.update_column(:handle, "cadence")
 
     other_collective = create_collective(tenant: tenant, created_by: user, handle: "other-#{SecureRandom.hex(4)}")
-    other_trio = User.create!(
-      email: "other_trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Other Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    activate_trio!(tenant, other_collective, other_trio)
+    other_cadence = create_persona_user!
+    activate_persona!(tenant, other_collective, other_cadence)
 
-    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: other_collective)
+    result = MentionParser.parse("@cadence", tenant_id: tenant.id, collective: other_collective)
 
-    assert_equal [other_trio.id], result.map(&:id),
-      "expected only the other collective's trio, got #{result.map { |u| [u.id, u.name] }.inspect}"
+    assert_equal [other_cadence.id], result.map(&:id),
+      "expected only the collective's own persona, got #{result.map { |u| [u.id, u.name] }.inspect}"
   end
 
-  test "parse resolves @trio in one collective to that collective's trio, not another" do
+  test "parse resolves @cadence in one collective to that collective's persona, not another" do
     tenant, collective_a, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective_a.handle)
 
     collective_b = create_collective(tenant: tenant, created_by: user, handle: "second-collective-#{SecureRandom.hex(4)}")
-    trio_a = User.create!(
-      email: "trio_a_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio A", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    trio_b = User.create!(
-      email: "trio_b_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio B", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    activate_trio!(tenant, collective_a, trio_a)
-    activate_trio!(tenant, collective_b, trio_b)
+    cadence_a = create_persona_user!(name: "Cadence A")
+    cadence_b = create_persona_user!(name: "Cadence B")
+    activate_persona!(tenant, collective_a, cadence_a)
+    activate_persona!(tenant, collective_b, cadence_b)
 
-    result_a = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective_a)
-    result_b = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective_b)
+    result_a = MentionParser.parse("@cadence", tenant_id: tenant.id, collective: collective_a)
+    result_b = MentionParser.parse("@cadence", tenant_id: tenant.id, collective: collective_b)
 
-    assert_equal [trio_a.id], result_a.map(&:id)
-    assert_equal [trio_b.id], result_b.map(&:id)
+    assert_equal [cadence_a.id], result_a.map(&:id)
+    assert_equal [cadence_b.id], result_b.map(&:id)
   end
 
-  test "parse_for_notification resolves @trio to the collective's trio" do
+  test "parse_for_notification resolves @cadence to the collective's persona" do
     tenant, collective, user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    activate_trio!(tenant, collective, trio)
+    cadence = create_persona_user!
+    activate_persona!(tenant, collective, cadence)
 
     result = MentionParser.parse_for_notification(
-      "@trio help us out", tenant_id: tenant.id, collective: collective, exclude_user: user,
+      "@cadence help us out", tenant_id: tenant.id, collective: collective, exclude_user: user,
     )
 
-    assert_includes result.map(&:id), trio.id
+    assert_includes result.map(&:id), cadence.id
+  end
+
+  test "@trio fans out to every active persona via the ensemble role" do
+    tenant, collective, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    cadence = create_persona_user!
+    melody = create_persona_user!(role: "melody", name: "Melody")
+    activate_persona!(tenant, collective, cadence)
+    activate_persona!(tenant, collective, melody, role: "melody")
+
+    result = MentionParser.parse("@trio status check", tenant_id: tenant.id, collective: collective)
+
+    assert_equal [cadence.id, melody.id].sort, result.map(&:id).sort
+    assert_not_includes result.map(&:id), user.id
+  end
+
+  test "@trio resolves to nothing when no persona is active" do
+    tenant, collective, _user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    result = MentionParser.parse("@trio anyone?", tenant_id: tenant.id, collective: collective)
+
+    assert_equal [], result
+  end
+
+  test "@trio is collective-local — one collective's mention never reaches another's personas" do
+    tenant, collective_a, user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective_a.handle)
+
+    collective_b = create_collective(tenant: tenant, created_by: user, handle: "ens-b-#{SecureRandom.hex(4)}")
+    cadence_b = create_persona_user!
+    activate_persona!(tenant, collective_b, cadence_b)
+
+    result = MentionParser.parse("@trio", tenant_id: tenant.id, collective: collective_a)
+
+    assert_equal [], result, "collective A has no personas; B's must not leak in"
   end
 
   # === group tags: @everyone / @admins ===
@@ -465,21 +484,29 @@ class MentionParserTest < ActiveSupport::TestCase
     assert_equal({ "alice" => "/u/alice" }, result)
   end
 
-  test "resolve_paths maps @trio to the collective trio profile when collective is provided" do
+  test "resolve_paths maps @cadence to the persona's own profile when collective is provided" do
     tenant, collective, _user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
-    trio = User.create!(
-      email: "trio_#{SecureRandom.hex(4)}@system.harmonic.local",
-      name: "Trio", user_type: "ai_agent", system_role: "trio", parent_id: nil,
-    )
-    activate_trio!(tenant, collective, trio)
+    cadence = create_persona_user!
+    activate_persona!(tenant, collective, cadence)
+
+    result = MentionParser.resolve_paths("hi @cadence", tenant_id: tenant.id, collective: collective)
+
+    # The @cadence tag links to the local persona's own profile (its real
+    # handle), not to a shared /u/cadence.
+    assert_equal({ "cadence" => cadence.reload.path }, result)
+    assert_match(%r{\A/u/cadence-}, result["cadence"])
+  end
+
+  test "resolve_paths maps @trio to the collective — the ensemble names a set, not a profile" do
+    tenant, collective, _user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    cadence = create_persona_user!
+    activate_persona!(tenant, collective, cadence)
 
     result = MentionParser.resolve_paths("hi @trio", tenant_id: tenant.id, collective: collective)
 
-    # The @trio tag links to the local trio's own profile (its real handle),
-    # not to a shared /u/trio.
-    assert_equal({ "trio" => trio.reload.path }, result)
-    assert_match(%r{\A/u/trio-}, result["trio"])
+    assert_equal({ "trio" => collective.path }, result)
   end
 
   # === extract_handles tests ===

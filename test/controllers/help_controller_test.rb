@@ -12,6 +12,31 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
   end
 
+  test "/help/trio renders when the trio flag is enabled" do
+    @tenant.set_feature_flag!("trio", true)
+    get "/help/trio"
+    assert_response :success
+    assert_match(/Trio/, response.body)
+    # All three personas and the differences section
+    assert_match(/Melody/, response.body)
+    assert_match(/Counterpoint/, response.body)
+    assert_match(/Cadence/, response.body)
+    assert_match(/collective is the principal/i, response.body)
+  end
+
+  test "/help/trio renders in markdown too" do
+    @tenant.set_feature_flag!("trio", true)
+    get "/help/trio", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/Trio/, response.body)
+  end
+
+  test "/help/trio 404s when the trio flag is disabled on the tenant" do
+    @tenant.set_feature_flag!("trio", false)
+    get "/help/trio"
+    assert_response :not_found
+  end
+
   test "/help/self-hosting-agents leads with user-facing guidance" do
     get "/help/self-hosting-agents"
     assert_response :success

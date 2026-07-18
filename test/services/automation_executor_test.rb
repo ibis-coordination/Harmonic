@@ -631,16 +631,16 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     assert_includes result["error"], "illing"
   end
 
-  test "system agent (e.g., Trio) skips billing gate even when stripe_billing is enabled" do
+  test "system agent (a built-in persona) skips billing gate even when stripe_billing is enabled" do
     enable_stripe_billing_flag!(@tenant)
 
-    # Build a Trio-shaped system agent: ai_agent with system_role: "trio" and
+    # Build a persona-shaped system agent: ai_agent with a system_role and
     # no billing_customer. The executor's billing gate must skip it.
     system_agent = User.create!(
-      name: "Trio",
-      email: "trio-test-#{SecureRandom.hex(4)}@system.harmonic.local",
+      name: "Cadence",
+      email: "cadence-test-#{SecureRandom.hex(4)}@system.harmonic.local",
       user_type: "ai_agent",
-      system_role: "trio",
+      system_role: "cadence",
     )
     @tenant.add_user!(system_agent)
     @collective.add_user!(system_agent)

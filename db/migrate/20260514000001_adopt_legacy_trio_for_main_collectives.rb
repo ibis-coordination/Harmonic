@@ -14,24 +14,15 @@
 # set, and skips automation rules whose (ai_agent_id, event_type) already
 # exists.
 class AdoptLegacyTrioForMainCollectives < ActiveRecord::Migration[7.2]
+  # Frozen after the trio→cadence persona rename: the TrioActivator this
+  # adoption delegated to no longer exists. No-ops on a clean chain (no
+  # legacy trio users exist at this point); fails fast on a restored
+  # pre-2026-05 backup.
   def up
-    Tenant.find_each do |tenant|
-      next unless tenant.main_collective_id
+    legacy_exists = User.where(system_role: "trio").exists?
+    return unless legacy_exists
 
-      main = tenant.main_collective
-      next if main.trio_user_id
-
-      legacy_trio = User.where(system_role: "trio")
-        .joins(:tenant_users)
-        .where(tenant_users: { tenant_id: tenant.id })
-        .first
-      next unless legacy_trio
-
-      main.set_feature_flag!("trio", true)
-      main.update!(trio_user_id: legacy_trio.id)
-
-      TrioActivator.seed_default_automations!(legacy_trio, tenant.id)
-    end
+    raise "AdoptLegacyTrioForMainCollectives cannot replay after the trio→cadence rename. "           "Finish the migration chain (the rename migration converts legacy trio users), "           "then reconcile personas via PersonaActivator.reconcile!."
   end
 
   def down

@@ -327,8 +327,8 @@
             A funding pool lets members fund this collective's agents together: each LLM call
             an attached agent makes is billed to one enrolled member's own prepaid balance,
             chosen at random per call. The pool never holds money — enrollment is each
-            member's own choice. Opening a pool puts Trio on its payroll automatically
-            (when Trio is enabled here); Trio needs the pool to run.
+            member's own choice. Opening a pool puts the enabled built-in agents on
+            its payroll automatically; they need the pool to run.
           </p>
           <% if @funding_pools_enabled %>
             <p class="pulse-section-description">
@@ -458,7 +458,7 @@
           <% end %>
 
           <%# Operator flag, not self-serve availability: a self-serve pool
-              funds only the collective's own trio, never arbitrary agents. %>
+              funds only the collective's own built-in agents, never arbitrary agents. %>
           <% if @current_collective.feature_enabled?("funding_pools") && @attachable_agents.any? %>
             <h3 class="pulse-subsection-title">Attach an enrolled member's agent</h3>
             <form action="<%= @current_collective.path %>/settings/add_funded_agent" method="post" class="pulse-inline-form">

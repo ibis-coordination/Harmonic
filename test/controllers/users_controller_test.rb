@@ -8,7 +8,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
-  # === Workspace Trio Settings View ===
+  # === Workspace Cadence Settings View ===
 
   test "user settings page shows Workspace AI Assistant section when tenant has trio enabled" do
     @tenant.enable_feature_flag!("trio")
@@ -29,7 +29,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Workspace AI Assistant"
   end
 
-  # === Workspace Trio Toggle ===
+  # === Workspace Cadence Toggle ===
 
   test "workspace owner can enable Trio in their private workspace" do
     @tenant.enable_feature_flag!("trio")
@@ -43,12 +43,12 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_not_nil workspace.trio_user&.id, "expected trio to be activated in workspace"
-    assert AutomationRule.where(ai_agent_id: workspace.trio_user&.id).exists?
+    assert_not_nil workspace.persona_user("cadence")&.id, "expected cadence to be activated in workspace"
+    assert AutomationRule.where(ai_agent_id: workspace.persona_user("cadence")&.id).exists?
   end
 
   # Self-hosted (non-billing) tenants have no tier model. A free-tier
-  # workspace on such a tenant must still allow trio enablement — the
+  # workspace on such a tenant must still allow cadence enablement — the
   # controller gate should use tier_unlocks_paid_features?, not paid_tier?.
   test "workspace owner can enable Trio on non-billing tenant without upgrading" do
     @tenant.enable_feature_flag!("trio")
@@ -62,7 +62,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_not_nil workspace.trio_user&.id, "self-hosted: trio should activate on free workspace"
+    assert_not_nil workspace.persona_user("cadence")&.id, "self-hosted: cadence should activate on free workspace"
   end
 
   test "workspace owner can disable Trio in their private workspace" do
@@ -70,8 +70,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     workspace = T.must(@user.private_workspace)
     upgrade_collective_to_paid!(workspace, owner: @user)
     workspace.set_feature_flag!("trio", true)
-    TrioActivator.activate!(workspace)
-    trio_id = T.must(workspace.reload.trio_user&.id)
+    PersonaActivator.activate!(workspace)
+    trio_id = T.must(workspace.reload.persona_user("cadence")&.id)
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
@@ -79,7 +79,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_nil workspace.trio_user&.id, "expected trio to be deactivated in workspace"
+    assert_nil workspace.persona_user("cadence")&.id, "expected cadence to be deactivated in workspace"
     assert AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? }
   end
 
@@ -95,10 +95,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     # No handle in the route: the toggle applies to other_user's own workspace,
     # so @user's workspace is structurally untouchable here.
-    assert_nil T.must(@user.private_workspace).reload.trio_user&.id
+    assert_nil T.must(@user.private_workspace).reload.persona_user("cadence")&.id
   end
 
-  # === Workspace Trio paid-tier gate ===
+  # === Workspace Cadence paid-tier gate ===
 
   test "workspace owner is blocked from enabling Trio on a free workspace" do
     enable_stripe_billing_flag!(@tenant)
@@ -112,7 +112,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_nil workspace.trio_user&.id, "trio should not be activated on a free workspace"
+    assert_nil workspace.persona_user("cadence")&.id, "cadence should not be activated on a free workspace"
     assert flash[:error].to_s.downcase.include?("paid")
   end
 
@@ -129,7 +129,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_not_nil workspace.trio_user&.id, "trio should activate when workspace is paid"
+    assert_not_nil workspace.persona_user("cadence")&.id, "cadence should activate when workspace is paid"
   end
 
   test "workspace owner can always disable Trio (no paid-tier requirement on disable)" do
@@ -138,7 +138,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     workspace = T.must(@user.private_workspace)
     upgrade_collective_to_paid!(workspace, owner: @user)
     workspace.set_feature_flag!("trio", true)
-    TrioActivator.activate!(workspace)
+    PersonaActivator.activate!(workspace)
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
@@ -146,7 +146,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
 
     workspace.reload
-    assert_nil workspace.trio_user&.id
+    assert_nil workspace.persona_user("cadence")&.id
   end
 
   private
@@ -162,29 +162,29 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   # === Profile Updates ===
 
   test "update_profile ignores system_role param" do
-    # `system_role: "trio"` would grant the user system-agent privileges
+    # `system_role: "cadence"` would grant the user system-agent privileges
     # (billing exemption, workspace membership exception, reserved handle).
     # update_profile does not accept this attribute.
     sign_in_as(@user, tenant: @tenant)
     refute @user.system?
 
     post "/settings/profile",
-      params: { name: "Renamed", system_role: "trio" }
+      params: { name: "Renamed", system_role: "cadence" }
 
     @user.reload
     assert_nil @user.system_role
     refute @user.system?
   end
 
-  test "update_profile cannot rename a non-trio user's handle to 'trio'" do
+  test "update_profile cannot rename a non-persona user's handle to 'cadence'" do
     sign_in_as(@user, tenant: @tenant)
     original_handle = @user.tenant_user.handle
 
     # TenantUser's reserved-handle validation raises ActiveRecord::RecordInvalid
     # at the update! call site. What matters for security is that the handle
-    # is not persisted as "trio".
+    # is not persisted as "cadence".
     begin
-      post "/settings/profile", params: { new_handle: "trio" }
+      post "/settings/profile", params: { new_handle: "cadence" }
     rescue ActiveRecord::RecordInvalid
       # Expected — validation rejected the change.
     end

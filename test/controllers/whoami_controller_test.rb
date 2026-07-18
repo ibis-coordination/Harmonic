@@ -181,9 +181,9 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "You are a helpful assistant for scheduling meetings."
   end
 
-  test "whoami shows the Trio identity prompt for the system agent (no parent)" do
+  test "whoami shows the persona identity prompt for the system agent (no parent)" do
     @tenant.enable_api!
-    trio = TrioSeeder.ensure_for(T.must(@tenant.main_collective))
+    trio = PersonaSeeder.ensure_for(T.must(@tenant.main_collective), Personas::CADENCE)
 
     # System agents can't hold user-issued keys; they act via system-minted
     # internal tokens (this mirrors the automation path).
@@ -207,8 +207,8 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "## Identity Prompt"
     # Lead sentence should be the system-agent variant, not the parent-name one.
     assert_includes response.body, "built-in Harmonic system agent"
-    # Actual prompt content (a stable fragment of Trio::SystemPrompt.text).
-    assert_includes response.body, "You are Trio"
+    # Actual prompt content (a stable fragment of cadence's persona prompt).
+    assert_includes response.body, "You are Cadence"
   end
 
   test "whoami does not show identity prompt section when not set" do

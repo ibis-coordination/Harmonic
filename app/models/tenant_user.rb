@@ -198,7 +198,7 @@ class TenantUser < ApplicationRecord
     "system" => { "in_app" => true, "email" => true, "web_push" => true },
     "reminder" => { "in_app" => true, "email" => false, "web_push" => true },
     "chat_message" => { "in_app" => true, "email" => false, "web_push" => true },
-    "trio_unavailable" => { "in_app" => true, "email" => false, "web_push" => true },
+    "persona_unavailable" => { "in_app" => true, "email" => false, "web_push" => true },
     "tune_in" => { "in_app" => true, "email" => false, "web_push" => true },
     # Trustee authorization lifecycle (offered/accepted/declined/revoked).
     # In-app by default, matching most types; users can opt into email.
@@ -219,7 +219,7 @@ class TenantUser < ApplicationRecord
     "system" => "System & account",
     "reminder" => "Reminders",
     "chat_message" => "Chat messages",
-    "trio_unavailable" => "Trio unavailable",
+    "persona_unavailable" => "Built-in agent unavailable",
     "tune_in" => "Tune-ins",
     "trustee_authorization" => "Trustee authorizations",
     "role_change" => "Role changes",
