@@ -382,33 +382,38 @@ Harmonic includes optional LLM-powered features. These run as separate Docker se
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-User-created AI agents and the built-in **Trio** assistant (a system ai_agent
-User with `system_role: "trio"`) all flow through the same path. Trio is
-provisioned **per collective** that opted in: a collective admin enables the
-`trio` feature flag in collective settings, which calls `TrioActivator` to
-seed a trio User (via `TrioSeeder`), add it as a `CollectiveMember`, and
-seed three default mention-driven automation rules (note/decision/commitment
-created with `mention_filter: "self"`). For private workspaces, the opt-in
-toggle lives on the user-settings page; the same `TrioActivator` runs.
+User-created AI agents and the built-in **personas** (system ai_agent
+Users with a `system_role` — melody, counterpoint, cadence; see
+`Personas`) all flow through the same path. Each persona is provisioned
+**per collective** that opted in: a collective admin enables its feature
+flag (named by its system_role) in collective settings, which calls
+`PersonaActivator` to seed the persona User (via `PersonaSeeder`), add it
+as a `CollectiveMember`, and seed its default mention-driven automation
+rules (`mention_filter: "self"` forms). For private workspaces, the
+opt-in toggle lives on the user-settings page and the same
+`PersonaActivator` runs.
 
-`@trio` mentions resolve via `MentionParser.parse(..., collective:)`: the
-tag maps to the **trio persona role** (`ReservedHandles::AGENT_ROLES`), a
-reserved CollectiveMember role the activator grants on activation and
-removes on deactivation — the single source of truth for the collective's
-active trio (`Collective#persona_user`; there is no FK column). Trio
-handles follow `trio-<collective handle>` (unique per tenant, renamed in
-sync when the collective renames), each linking to the trio's own
-profile; no user holds the literal handle `"trio"`, and the `trio-*`
-prefix is reserved against squatting.
+Persona mentions (`@cadence`, `@melody`, `@counterpoint`) resolve via
+`MentionParser.parse(..., collective:)`: each tag maps to its **persona
+role** (`ReservedHandles::AGENT_ROLES`), a reserved CollectiveMember role
+the activator grants on activation and removes on deactivation — the
+single source of truth for the collective's active persona
+(`Collective#persona_user`; there is no FK column). Every active persona
+also holds the shared **ensemble role** `trio`, so `@trio` fans out to all
+enabled personas at once, and its capability role (automator / moderator /
+summarizer). Persona handles follow `<tag>-<collective handle>` (unique
+per tenant, renamed in sync when the collective renames), each linking to
+the persona's own profile; nobody holds the literal tags, and the
+`<tag>-*` prefixes (plus `trio`/`trio-*`) are reserved against squatting.
 
 ### Key Components
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | `AgentRunnerDispatchService` | `app/services/agent_runner_dispatch_service.rb` | Publishes tasks to Redis Stream |
-| `TrioActivator` | `app/services/trio_activator.rb` | Turns Trio on/off for one collective; seeds defaults or restores prior state |
-| `TrioSeeder` | `app/services/trio_seeder.rb` | Creates the per-collective Trio User and CollectiveMember |
-| `Trio::SystemPrompt` | `app/services/trio/system_prompt.rb` | Static identity prompt for trio (resolved dynamically per request) |
+| `Personas` | `app/services/personas.rb` | Registry of the built-in personas: roles, prompts, defaults |
+| `PersonaActivator` | `app/services/persona_activator.rb` | Turns a persona on/off for one collective; seeds defaults or restores prior state |
+| `PersonaSeeder` | `app/services/persona_seeder.rb` | Creates the per-collective persona User and CollectiveMember |
 | agent-runner | `agent-runner/` | Node.js consumer that executes tasks |
 | LiteLLM config | `config/litellm_config.yaml` | Model routing configuration |
 

@@ -121,7 +121,7 @@ Verifies that users can view, manage, and interact with notifications through bo
 
 - Notifications are created asynchronously via `NotificationDeliveryJob`
 - The notification system supports multiple channels (in_app, email) but only in_app is currently displayed
-- Notification types include: mention, comment, participation, system, reminder, chat_message, trio_unavailable, tune_in
+- Notification types include: mention, comment, participation, system, reminder, chat_message, persona_unavailable, tune_in
 - Read state lifecycle: unread → read (badge quiets, row stays) → dismissed (row removed). Dismissing implies reading.
 - When using the MCP server, always navigate to the resource page (e.g., `/notifications`) before executing actions. The MCP constructs action URLs from the current path.
 - Scheduled reminders appear in a separate "Scheduled Reminders" section and are not counted in the unread count until they become due
