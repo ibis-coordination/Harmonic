@@ -1,4 +1,4 @@
-<% steps_data = task_run.agent_session_steps.map(&:to_step_hash) %>
+<% steps_data = (local_assigns[:steps] || task_run.agent_session_steps).map(&:to_step_hash) %>
 <% show_debug = defined?(debug) && debug %>
 <% is_redacted = defined?(redacted) && redacted %>
 

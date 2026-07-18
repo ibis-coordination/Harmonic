@@ -302,6 +302,47 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/SENSITIVE_SCRATCHPAD/, response.body)
   end
 
+  test "sys_admin sees steps for a task run on another tenant" do
+    @primary_tenant.add_user!(@sys_admin_user)
+
+    # Agent, run, and steps all live on the OTHER tenant while the dashboard
+    # is only reachable on the primary tenant. AgentSessionStep is
+    # tenant-scoped, so loading steps through the run's association would
+    # silently filter them to empty.
+    Collective.scope_thread_to_collective(subdomain: @other_tenant.subdomain, handle: nil)
+    ai_agent = User.create!(
+      name: "Melody",
+      email: "melody-#{SecureRandom.hex(4)}@system.harmonic.local",
+      user_type: "ai_agent",
+      system_role: "melody",
+    )
+    @other_tenant.add_user!(ai_agent)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @other_tenant,
+      ai_agent: ai_agent,
+      initiated_by: @sys_admin_user,
+      task: "Cross-tenant task",
+      max_steps: 10,
+      status: "completed",
+      success: true,
+      steps_count: 2,
+      completed_at: Time.current,
+    )
+    task_run.agent_session_steps.create!(position: 0, step_type: "fetch_page", detail: { "path" => "/n/some-note" })
+    task_run.agent_session_steps.create!(position: 1, step_type: "done", detail: { "message" => "CROSS_TENANT_DONE_MESSAGE" })
+
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+    sign_in_as_admin(@sys_admin_user, tenant: @primary_tenant)
+
+    get system_admin_task_run_path(task_run.id)
+    assert_response :success
+
+    assert_no_match(/No step data recorded/, response.body)
+    assert_match "FETCH PAGE", response.body
+    # System agent → steps render unredacted, including on another tenant
+    assert_match "CROSS_TENANT_DONE_MESSAGE", response.body
+  end
+
   test "sys_admin can filter task runs by status" do
     @primary_tenant.add_user!(@sys_admin_user)
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
