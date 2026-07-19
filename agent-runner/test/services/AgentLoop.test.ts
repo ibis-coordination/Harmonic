@@ -1060,6 +1060,28 @@ describe("AgentLoop", () => {
     expect(outcome).toEqual({ outcome: "cancelled" });
   });
 
+  // --- scratchpad handling in the system prompt ---
+
+  it("includes the scratchpad exactly once in the system prompt", async () => {
+    // Uses the REAL Rails whoami heading ("## Your Scratchpad") — the page is
+    // passed through whole as identity content, and the runner must not add
+    // a second copy of the scratchpad (nor parse the page to try).
+    const state = createMockState();
+    const whoamiWithScratchpad =
+      "# About You\n\nYou are Test Agent.\n\n## Your Scratchpad\n\nYour scratchpad contains information that you chose to retain from previous sessions.\n\n<scratchpad>\nUNIQUE_SCRATCHPAD_NOTE\n</scratchpad>\n\n## Available Actions\n- update_scratchpad";
+    await runWithMocks(
+      makeTask(),
+      state,
+      [makeLLMResponse()],
+      { "/whoami": { content: whoamiWithScratchpad, availableActions: ["update_scratchpad"] } },
+    );
+
+    const systemPrompt = state.llmMessages[0]?.[0]?.content ?? "";
+    expect(systemPrompt.split("UNIQUE_SCRATCHPAD_NOTE").length - 1).toBe(1);
+    expect(systemPrompt).toContain("You are Test Agent.");
+    expect(systemPrompt).toContain("## Available Actions");
+  });
+
   // --- stale page content eliding ---
 
   it("elides stale page fetches from later LLM calls but keeps recent ones full", async () => {

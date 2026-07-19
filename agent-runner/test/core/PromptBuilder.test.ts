@@ -22,7 +22,7 @@ describe("buildInitialMessages", () => {
   };
 
   it("builds system + user messages", () => {
-    const messages = buildInitialMessages(task, "I am Agent Smith", undefined);
+    const messages = buildInitialMessages(task, "I am Agent Smith");
     expect(messages.length).toBe(2);
     expect(messages[0]?.role).toBe("system");
     expect(messages[1]?.role).toBe("user");
@@ -30,15 +30,10 @@ describe("buildInitialMessages", () => {
   });
 
   it("includes identity content in system prompt", () => {
-    const messages = buildInitialMessages(task, "I am Agent Smith", undefined);
+    const messages = buildInitialMessages(task, "I am Agent Smith");
     expect(messages[0]?.content).toContain("Agent Smith");
   });
 
-  it("includes scratchpad when provided", () => {
-    const messages = buildInitialMessages(task, "Identity", "Previous context here");
-    expect(messages[0]?.content).toContain("Previous context here");
-    expect(messages[0]?.content).toContain("Scratchpad");
-  });
 });
 
 describe("buildToolResultMessages", () => {

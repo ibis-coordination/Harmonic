@@ -257,9 +257,6 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       const whoamiResult = yield* fetchPage("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
 
-      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
-      const scratchpad = scratchpadMatch?.[1]?.trim();
-
       // Compute time since last message
       let timeSinceLastMessage: string | undefined;
       if (history.length > 0) {
@@ -272,7 +269,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         }
       }
 
-      const chatSystemPrompt = buildChatSystemPrompt(whoamiResult.content, scratchpad, timeSinceLastMessage);
+      const chatSystemPrompt = buildChatSystemPrompt(whoamiResult.content, timeSinceLastMessage);
       const chatMessages: Message[] = [systemMessage(chatSystemPrompt)];
 
       for (const msg of history) {
@@ -301,10 +298,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       const whoamiResult = yield* fetchPage("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
 
-      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
-      const scratchpad = scratchpadMatch?.[1]?.trim();
-
-      messages = buildInitialMessages(task, whoamiResult.content, scratchpad);
+      messages = buildInitialMessages(task, whoamiResult.content);
     }
 
     // Step 5: Main agent loop

@@ -41,10 +41,9 @@ export interface TaskPayload {
 export function buildInitialMessages(
   task: TaskPayload,
   identityContent: string,
-  scratchpad: string | undefined,
 ): readonly Message[] {
   return [
-    systemMessage(buildSystemPrompt(identityContent, scratchpad)),
+    systemMessage(buildSystemPrompt(identityContent)),
     userMessage(task.task),
   ];
 }

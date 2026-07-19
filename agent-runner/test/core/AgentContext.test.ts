@@ -3,13 +3,13 @@ import { buildSystemPrompt, buildChatSystemPrompt, AGENT_TOOLS } from "../../src
 
 describe("buildSystemPrompt", () => {
   it("includes what Harmonic is", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("group coordination application");
     expect(prompt).toContain("reading pages");
   });
 
   it("includes domain quick reference table", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("Harmonic Quick Reference");
     expect(prompt).toContain("Collective");
     expect(prompt).toContain("Note");
@@ -23,7 +23,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("points to /help pages for details", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("/help/collectives");
     expect(prompt).toContain("/help/notes");
     expect(prompt).toContain("/help/decisions");
@@ -33,7 +33,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("includes navigation section with key paths", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("## Navigation");
     expect(prompt).toContain("/whoami");
     expect(prompt).toContain("/workspace");
@@ -44,13 +44,13 @@ describe("buildSystemPrompt", () => {
   });
 
   it("includes discovery strategy", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("Start at `/whoami`");
     expect(prompt).toContain("fetch_page");
   });
 
   it("includes tool instructions", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("fetch_page");
     expect(prompt).toContain("execute_action");
     expect(prompt).toContain("search");
@@ -59,7 +59,7 @@ describe("buildSystemPrompt", () => {
   });
 
   it("includes boundaries with hierarchy", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).toContain("## Boundaries");
     expect(prompt).toContain("Ethical foundations");
     expect(prompt).toContain("Platform rules");
@@ -67,31 +67,26 @@ describe("buildSystemPrompt", () => {
   });
 
   it("includes identity when provided", () => {
-    const prompt = buildSystemPrompt("I am a friendly bot", undefined);
+    const prompt = buildSystemPrompt("I am a friendly bot");
     expect(prompt).toContain("Your Identity");
     expect(prompt).toContain("friendly bot");
   });
 
   it("excludes identity section when empty", () => {
-    const prompt = buildSystemPrompt("", undefined);
+    const prompt = buildSystemPrompt("");
     expect(prompt).not.toContain("Your Identity");
   });
 
-  it("includes scratchpad when provided", () => {
-    const prompt = buildSystemPrompt("", "Previous notes here");
-    expect(prompt).toContain("Scratchpad");
-    expect(prompt).toContain("Previous notes here");
-  });
-
-  it("excludes scratchpad section when empty", () => {
-    const prompt = buildSystemPrompt("", undefined);
-    expect(prompt).not.toContain("Scratchpad");
+  it("does not add its own scratchpad section — the whoami identity content already carries one", () => {
+    const identity = "# About You\n\n## Your Scratchpad\n\nMy notes";
+    const prompt = buildSystemPrompt(identity);
+    expect(prompt.split("My notes").length - 1).toBe(1);
   });
 });
 
 describe("buildChatSystemPrompt", () => {
   it("includes working patterns for chat", () => {
-    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    const prompt = buildChatSystemPrompt("", undefined);
     expect(prompt).toContain("Working Patterns");
     expect(prompt).toContain("respond_to_human");
     expect(prompt).toContain("searching your private workspace");
@@ -102,32 +97,32 @@ describe("buildChatSystemPrompt", () => {
     // Only the assistant's text crosses turn boundaries — tool calls and
     // their results don't. The agent has to put identifying context in its
     // reply for follow-up turns to make sense.
-    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    const prompt = buildChatSystemPrompt("", undefined);
     expect(prompt).toMatch(/path|link/i);
     expect(prompt).toMatch(/tool calls.*(don't|do not)|text persists/i);
   });
 
   it("includes domain quick reference", () => {
-    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    const prompt = buildChatSystemPrompt("", undefined);
     expect(prompt).toContain("Harmonic Quick Reference");
     expect(prompt).toContain("Private Workspace");
     expect(prompt).toContain("/workspace");
   });
 
   it("includes chat tools with respond_to_human", () => {
-    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    const prompt = buildChatSystemPrompt("", undefined);
     expect(prompt).toContain("respond_to_human");
     expect(prompt).toContain("five tools");
   });
 
   it("includes time context when provided", () => {
-    const prompt = buildChatSystemPrompt("", undefined, "5 minutes");
+    const prompt = buildChatSystemPrompt("", "5 minutes");
     expect(prompt).toContain("Time Context");
     expect(prompt).toContain("5 minutes ago");
   });
 
   it("excludes time context when not provided", () => {
-    const prompt = buildChatSystemPrompt("", undefined, undefined);
+    const prompt = buildChatSystemPrompt("", undefined);
     expect(prompt).not.toContain("Time Context");
   });
 });
