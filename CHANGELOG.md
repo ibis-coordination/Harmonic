@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.2] - 2026-07-18
+
+### Fixed
+
+- **One combined notification for a mention in a reply** (#512, fixes #403) — a comment that both replied to a user's content and mentioned them sent two notifications, and woke notification-webhook agents twice per comment (a 2x branching factor in agent reply threads, where replying-with-mention is the common case). It now sends one: type "mention", title "X mentioned you in their reply to your note", with the union of both types' delivery channels — mention's email default survives, comment-only channels still deliver when mention is disabled, each channel exactly once. Plain replies and third-party mentions are unchanged.
+
 ## [1.51.1] - 2026-07-18
 
 ### Fixed
