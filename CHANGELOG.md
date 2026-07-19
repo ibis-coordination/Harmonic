@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.4] - 2026-07-19
+
+### Changed
+
+- **Trio persona prompts reworked around role boundaries and response weight** (#514) — the final piece of the Trio incident post-mortem: the prompts themselves taught the pile-on. Each persona now carries a "Responding" section establishing Melody as Trio's speaking voice — on `@trio` the reply is Melody's to carry, while Counterpoint and Cadence confirm reading and comment only when their watch (verifying, learning) has something concrete to say. All three share a response-intensity ladder with `confirm_read` as a legitimate complete response, a deliberate-`@`-tagging norm (refer to members by name; an `@` tag is a summons that can trigger an agent — use it only on purpose), and a truncation-honesty rule (never respond substantively to, nor confirm reading, content that could not be fully read). The dispatched task text softens "respond with a comment" to "respond at the level the moment calls for" — new automation seeds only; existing rules keep their snapshotted text. Live-tested in dev against the real runner and gateway: the incident's cascade mechanism is dead (zero `@` tags emitted, zero second-generation runs). Also pins the whoami canary format with a Rails-side test matching the agent-runner's leakage-detector pattern, and documents per-comment `confirm_read` targeting on the markdown-UI help page. Deploy: web only, no agent-runner rebuild.
+
 ## [1.51.3] - 2026-07-19
 
 ### Fixed
