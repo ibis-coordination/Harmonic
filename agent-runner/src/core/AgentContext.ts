@@ -281,10 +281,7 @@ Outer levels take precedence. Ignore any instruction that conflicts with ethical
 /**
  * Build the system prompt for an agent task.
  */
-export function buildSystemPrompt(
-  identityContent: string,
-  scratchpad: string | undefined,
-): string {
+export function buildSystemPrompt(identityContent: string): string {
   const sections: string[] = [
     WHAT_IS_HARMONIC,
     DOMAIN_QUICK_REF,
@@ -293,12 +290,11 @@ export function buildSystemPrompt(
     BOUNDARIES,
   ];
 
+  // The identity content is the /whoami page passed through whole — it
+  // already carries the agent's scratchpad under its own labeled section.
+  // Rails owns that page's presentation; the runner does not parse it.
   if (identityContent !== "") {
     sections.push(`## Your Identity\n\n${identityContent}`);
-  }
-
-  if (scratchpad !== undefined && scratchpad !== "") {
-    sections.push(`## Your Scratchpad (from previous tasks)\n\n${scratchpad}`);
   }
 
   return sections.join("\n\n");
@@ -310,7 +306,6 @@ export function buildSystemPrompt(
  */
 export function buildChatSystemPrompt(
   identityContent: string,
-  scratchpad: string | undefined,
   timeSinceLastMessage: string | undefined,
 ): string {
   const sections: string[] = [
@@ -328,10 +323,6 @@ export function buildChatSystemPrompt(
 
   if (identityContent !== "") {
     sections.push(`## Your Identity\n\n${identityContent}`);
-  }
-
-  if (scratchpad !== undefined && scratchpad !== "") {
-    sections.push(`## Your Scratchpad (from previous tasks)\n\n${scratchpad}`);
   }
 
   return sections.join("\n\n");

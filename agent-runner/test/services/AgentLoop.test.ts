@@ -1060,6 +1060,63 @@ describe("AgentLoop", () => {
     expect(outcome).toEqual({ outcome: "cancelled" });
   });
 
+  // --- scratchpad handling in the system prompt ---
+
+  it("includes the scratchpad exactly once in the system prompt", async () => {
+    // Uses the REAL Rails whoami heading ("## Your Scratchpad") — the page is
+    // passed through whole as identity content, and the runner must not add
+    // a second copy of the scratchpad (nor parse the page to try).
+    const state = createMockState();
+    const whoamiWithScratchpad =
+      "# About You\n\nYou are Test Agent.\n\n## Your Scratchpad\n\nYour scratchpad contains information that you chose to retain from previous sessions.\n\n<scratchpad>\nUNIQUE_SCRATCHPAD_NOTE\n</scratchpad>\n\n## Available Actions\n- update_scratchpad";
+    await runWithMocks(
+      makeTask(),
+      state,
+      [makeLLMResponse()],
+      { "/whoami": { content: whoamiWithScratchpad, availableActions: ["update_scratchpad"] } },
+    );
+
+    const systemPrompt = state.llmMessages[0]?.[0]?.content ?? "";
+    expect(systemPrompt.split("UNIQUE_SCRATCHPAD_NOTE").length - 1).toBe(1);
+    expect(systemPrompt).toContain("You are Test Agent.");
+    expect(systemPrompt).toContain("## Available Actions");
+  });
+
+  // --- stale page content eliding ---
+
+  it("elides stale page fetches from later LLM calls but keeps recent ones full", async () => {
+    const state = createMockState();
+    const bigPage = (label: string) => `# Page ${label}\n${"x".repeat(1000)}`;
+    await runWithMocks(
+      makeTask(),
+      state,
+      [
+        makeLLMResponse({ content: null, toolCalls: [makeNavigateToolCall("/n/aaa", "call_a")], finishReason: "tool_calls" }),
+        makeLLMResponse({ content: null, toolCalls: [makeNavigateToolCall("/n/bbb", "call_b")], finishReason: "tool_calls" }),
+        makeLLMResponse({ content: null, toolCalls: [makeNavigateToolCall("/n/ccc", "call_c")], finishReason: "tool_calls" }),
+        makeLLMResponse({ content: "All done", toolCalls: [], finishReason: "stop" }),
+      ],
+      {
+        "/whoami": { content: WHOAMI_CONTENT, availableActions: ["update_scratchpad"] },
+        "/n/aaa": { content: bigPage("A"), availableActions: [] },
+        "/n/bbb": { content: bigPage("B"), availableActions: [] },
+        "/n/ccc": { content: bigPage("C"), availableActions: [] },
+      },
+    );
+
+    // Third call: two page fetches so far, both within the keep window — full
+    const thirdCallTools = state.llmMessages[2]?.filter((m) => m.role === "tool") ?? [];
+    expect(thirdCallTools[0]?.content).toBe(bigPage("A"));
+    expect(thirdCallTools[1]?.content).toBe(bigPage("B"));
+
+    // Fourth call: three page fetches — the oldest is elided, last two stay full
+    const fourthCallTools = state.llmMessages[3]?.filter((m) => m.role === "tool") ?? [];
+    expect(fourthCallTools[0]?.content).toContain("elided");
+    expect(fourthCallTools[0]?.content).toContain("/n/aaa");
+    expect(fourthCallTools[1]?.content).toBe(bigPage("B"));
+    expect(fourthCallTools[2]?.content).toBe(bigPage("C"));
+  });
+
   // --- chat_turn mode ---
 
   describe("chat_turn mode", () => {

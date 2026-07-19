@@ -27,6 +27,8 @@ import {
   systemMessage,
   userMessage,
   getToolDefinitions,
+  truncatePageContent,
+  elideStalePageContent,
 } from "../core/PromptBuilder.js";
 import { parseToolCalls } from "../core/ActionParser.js";
 import { RESPOND_TO_HUMAN_TOOL, buildChatSystemPrompt } from "../core/AgentContext.js";
@@ -61,7 +63,11 @@ type AgentLoopError =
   | TaskCancelledError
   | TokenDecryptError;
 
-const PAGE_CONTENT_MAX_LENGTH = 4000;
+// Cap on page content handed to the LLM per fetch. Generous by default —
+// typical note threads should fit whole; the truncation marker covers the
+// rest. Override with the PAGE_CONTENT_MAX_LENGTH env var.
+const PAGE_CONTENT_MAX_LENGTH =
+  parseInt(process.env["PAGE_CONTENT_MAX_LENGTH"] ?? "", 10) || 24_000;
 
 /** Outcome of a task execution, for stats tracking in the main loop. */
 export type TaskOutcome = { readonly outcome: "completed" | "failed" | "cancelled" };
@@ -251,9 +257,6 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       const whoamiResult = yield* fetchPage("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
 
-      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
-      const scratchpad = scratchpadMatch?.[1]?.trim();
-
       // Compute time since last message
       let timeSinceLastMessage: string | undefined;
       if (history.length > 0) {
@@ -266,7 +269,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         }
       }
 
-      const chatSystemPrompt = buildChatSystemPrompt(whoamiResult.content, scratchpad, timeSinceLastMessage);
+      const chatSystemPrompt = buildChatSystemPrompt(whoamiResult.content, timeSinceLastMessage);
       const chatMessages: Message[] = [systemMessage(chatSystemPrompt)];
 
       for (const msg of history) {
@@ -295,10 +298,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
       const whoamiResult = yield* fetchPage("/whoami");
       leakageDetector = extractCanary(whoamiResult.content);
 
-      const scratchpadMatch = /## Scratchpad\s*\n([\s\S]*?)(?:\n##|$)/.exec(whoamiResult.content);
-      const scratchpad = scratchpadMatch?.[1]?.trim();
-
-      messages = buildInitialMessages(task, whoamiResult.content, scratchpad);
+      messages = buildInitialMessages(task, whoamiResult.content);
     }
 
     // Step 5: Main agent loop
@@ -324,8 +324,10 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
         // Call LLM (matches Ruby think())
         // Ruby's LLMClient.chat never raises — it catches all errors and returns Result with error field.
         // We do the same: catch LLMError, record think step with llm_error, treat as error action.
+        // Stale page fetches ride along on every call otherwise — see
+        // elideStalePageContent. `messages` itself stays complete.
         const llmResult = yield* llm.chat(
-          messages,
+          elideStalePageContent(messages),
           task.model,
           tools,
           { taskRunId: task.taskRunId, subdomain: task.tenantSubdomain },
@@ -560,10 +562,7 @@ export const runTask = (task: TaskPayload): Effect.Effect<TaskOutcome, never, LL
  * Truncate page content to match Ruby's 4000-char limit.
  */
 function truncateContent(content: string): string {
-  if (content.length > PAGE_CONTENT_MAX_LENGTH) {
-    return content.slice(0, PAGE_CONTENT_MAX_LENGTH);
-  }
-  return content;
+  return truncatePageContent(content, PAGE_CONTENT_MAX_LENGTH);
 }
 
 interface ScratchpadResult {

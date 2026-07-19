@@ -120,6 +120,7 @@ Visible at `/system-admin/agent-runner` (requires sys_admin role). Shows runner 
 | `LLM_BASE_URL` | No | — | Legacy override for the LiteLLM route only (billed calls always go to `LLM_GATEWAY_URL`) |
 | `LLM_GATEWAY_MODE` | No | `litellm` | Fallback route for tasks whose payload predates the per-task `llm_gateway_mode` stream field. Rails decides routing per task; this only covers old queued payloads. |
 | `MAX_CONCURRENT_TASKS` | No | `100` | Maximum concurrent task fibers |
+| `PAGE_CONTENT_MAX_LENGTH` | No | `24000` | Character cap on page content handed to the LLM per fetch; over-cap pages get a visible truncation marker telling the agent how to read the rest |
 | `STREAM_MAX_LEN` | No | `10000` | Redis stream approximate max length |
 | `AGENT_TASKS_STREAM` | No | `agent_tasks` | Redis stream name |
 | `AGENT_TASKS_CONSUMER_GROUP` | No | `agent_runner` | Consumer group name |
