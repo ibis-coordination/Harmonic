@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.51.3] - 2026-07-19
+
+### Fixed
+
+- **Agent-runner context efficiency** (#513) — three fixes to task-run prompt construction, from the Trio incident post-mortem. Page truncation is now visible and actionable: the runner silently sliced every fetched page mid-sentence (the incident agent's "thread truncation"); over-cap pages now end with a marker stating shown/total sizes and pointing at a narrower path for the rest. The cap rises 4,000 → 24,000 characters (`PAGE_CONTENT_MAX_LENGTH` env var), so typical threads fit whole. And stale page fetches are elided from LLM calls — every call resends the whole conversation, so each fetched page was re-billed on every later step (~quadratic cost in steps); now only the two most recent page results ride along full, older ones become one-line refetch stubs (action results and stored step records untouched). Also deletes the runner's dead scratchpad extraction — its regex never matched the real whoami heading — establishing that the runner does not parse page content beyond YAML frontmatter. Deploy: rebuild/pull the agent-runner image, not just web.
+
 ## [1.51.2] - 2026-07-18
 
 ### Fixed
