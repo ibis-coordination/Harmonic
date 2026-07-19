@@ -146,7 +146,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users],
+      scopes: ["read:users"],
     )
 
     get "/whoami", headers: {
@@ -169,7 +169,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users],
+      scopes: ["read:users"],
     )
 
     get "/whoami", headers: {
@@ -211,6 +211,38 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "You are Cadence"
   end
 
+  test "whoami canary tags match the agent-runner leakage detector pattern" do
+    # The runner's LeakageDetector extracts the identity prompt with
+    # CANARY_PATTERN (agent-runner/src/core/LeakageDetector.ts) and fails
+    # OPEN when nothing matches — a format drift on this page would silently
+    # disable leakage detection. This pins the rendered markup to the
+    # runner's exact pattern.
+    @tenant.enable_api!
+    persona = PersonaSeeder.ensure_for(T.must(@tenant.main_collective), Personas::MELODY)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: persona, initiated_by: @user,
+      task: "canary format test", max_steps: 5, status: "queued"
+    )
+    api_token = ApiToken.create_internal_token(user: persona, tenant: @tenant, context: task_run)
+
+    get "/whoami", headers: {
+      "Accept" => "text/markdown",
+      "Authorization" => "Bearer #{api_token.plaintext_token}",
+    }
+    assert_response :success
+
+    # Ruby transliteration of the runner's CANARY_PATTERN:
+    #   /<canary:([a-zA-Z0-9]+)>([\s\S]*?)<\/canary:\1>/
+    canary_pattern = %r{<canary:([a-zA-Z0-9]+)>(.*?)</canary:\1>}m
+    match = canary_pattern.match(response.body)
+    assert match, "whoami markdown must contain a <canary:TOKEN>…</canary:TOKEN> block the runner can extract"
+    token = T.must(match)[1].to_s
+    identity_prompt = T.must(match)[2].to_s
+    # The runner rejects empty captures; the token is SecureRandom.hex(8).
+    assert_match(/\A[0-9a-f]{16}\z/, token)
+    assert_includes identity_prompt, "You are Melody"
+  end
+
   test "whoami does not show identity prompt section when not set" do
     @tenant.enable_api!
 
@@ -221,7 +253,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users],
+      scopes: ["read:users"],
     )
 
     get "/whoami", headers: {
@@ -316,7 +348,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users],
+      scopes: ["read:users"],
     )
 
     get "/whoami", headers: {
@@ -338,7 +370,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users],
+      scopes: ["read:users"],
     )
 
     get "/whoami", headers: {
@@ -359,7 +391,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users],
+      scopes: ["read:users"],
     )
 
     get "/whoami", headers: {
@@ -390,7 +422,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users create:all],
+      scopes: ["read:users", "create:all"],
     )
 
     get "/whoami/actions", headers: {
@@ -411,7 +443,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users create:all],
+      scopes: ["read:users", "create:all"],
     )
 
     post "/whoami/actions/update_scratchpad",
@@ -446,7 +478,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users create:all],
+      scopes: ["read:users", "create:all"],
     )
 
     long_content = "x" * 10_001
@@ -472,7 +504,7 @@ class WhoamiControllerTest < ActionDispatch::IntegrationTest
       user: ai_agent,
       tenant: @tenant,
       name: "Test Token",
-      scopes: %w[read:users create:all],
+      scopes: ["read:users", "create:all"],
     )
 
     post "/whoami/actions/update_scratchpad",

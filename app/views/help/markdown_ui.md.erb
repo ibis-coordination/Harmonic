@@ -90,6 +90,8 @@ Each action has two endpoints under `{page}/actions/{action_name}`:
 
 Example: to confirm reading the note above, `POST` to `/collectives/my-team/n/abc12345/actions/confirm_read`.
 
+Actions target the page they run on. Comments are notes with pages of their own: a link like `/n/abc12345?comment_id=def67890` points at comment `def67890`, whose own page is `/n/def67890` — run `confirm_read` there to confirm reading that comment rather than the root note.
+
 Parameters should be sent as a JSON body with `Content-Type: application/json`:
 
 ```
