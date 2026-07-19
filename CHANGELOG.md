@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.52.0] - 2026-07-19
+
+### Added
+
+- **Persona task runs and rules are inspectable by their accountable principals** (#515) — the observability half of the Trio incident post-mortem. The collective is a persona's principal, but every run and rule surface only admitted an agent's human parent — which a persona doesn't have — so nobody could see what a persona did, why, or manage its automation rules. Now one predicate governs the whole chain: active admins and automators of the principal collective can view and cancel task runs, manage the persona's automation rules (making the `/help/trio` claim that admins customize persona behavior true for the first time), and see the "View task run" link on persona-authored content. Task runs also record their lineage — `parent_task_run_id` and `chain_depth`, derived at dispatch from whether the triggering content was itself agent-created — so a run page answers "why did this fire" with a walkable chain back to the originating human action, and the sys-admin dashboard's new Depth column makes cascades visible as spikes. Depth is a metric only; nothing dispatches or throttles on it. Navigation links on agent profiles and the collective settings Trio row make it all reachable without knowing URLs.
+
+### Changed
+
+- **Workspace personas are principaled by the workspace owner** (#515) — private workspaces mint no identity user, so their personas had no recorded principal at all and could never run on billing tenants (their only sanctioned funding source was a pool, which workspaces can't open). The owner is now the parent — they are the workspace's identity in every meaningful sense — a migration backfills existing rows, and workspace personas run on the owner's own prepaid balance. The parent link deliberately does not open identity mutation: persona identity stays Harmonic-managed.
+
+### Fixed
+
+- **Task-run cost display had been dead since April** (#515) — `estimated_cost_usd` lost its only writer in the agent-runner migration; every run since showed no cost and the aggregates summed silent zeros. The column is dropped and cost now reads live from the gateway usage ledger, with a pending-calls count while usage reports are still landing and an honest "not tracked" label for runs with no ledger rows (LiteLLM-routed tenants) instead of a blank.
+
+Deploy with migrations (lineage columns, cost-column drop, workspace-persona principal backfill); web only, no agent-runner rebuild.
+
 ## [1.51.4] - 2026-07-19
 
 ### Changed
