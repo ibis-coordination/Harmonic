@@ -84,8 +84,9 @@ module Personas
           max_steps: 20,
           task: <<~TASK,
             You were mentioned (or replied to) by {{event.actor.name}} in {{subject.path}}.
-            Navigate there, read the context — including the parent thread if this
-            is a reply — and respond appropriately with a comment.
+            Navigate there and read the context — including the parent thread if
+            this is a reply — then respond at the level the moment calls for: a
+            comment if you have something to add, or a read confirmation if not.
           TASK
         },
       ],
@@ -108,8 +109,9 @@ module Personas
           max_steps: 20,
           task: <<~TASK,
             You were mentioned (or replied to) by {{event.actor.name}} in {{subject.path}}.
-            Navigate there, read the context — including the parent thread if this
-            is a reply — and respond appropriately with a comment.
+            Navigate there and read the context — including the parent thread if
+            this is a reply — then respond at the level the moment calls for: a
+            comment if you have something to add, or a read confirmation if not.
           TASK
         },
       ],
@@ -132,8 +134,9 @@ module Personas
           max_steps: 20,
           task: <<~TASK,
             You were mentioned (or replied to) by {{event.actor.name}} in {{subject.path}}.
-            Navigate there, read the context — including the parent thread if this
-            is a reply — and respond appropriately with a comment.
+            Navigate there and read the context — including the parent thread if
+            this is a reply — then respond at the level the moment calls for: a
+            comment if you have something to add, or a read confirmation if not.
           TASK
         },
       ],
