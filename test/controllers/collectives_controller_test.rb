@@ -371,7 +371,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{test_collective.handle}/join", params: { code: invite.code }
 
     assert_response :redirect
-    assert_match(%r{#{Regexp.escape(test_collective.path)}}, response.location,
+    assert_match(/#{Regexp.escape(test_collective.path)}/, response.location,
                  "a member double-submitting join should just land on the collective")
   end
 
@@ -726,7 +726,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
   test "upgrade: owner without billing is redirected to Stripe Checkout" do
     enable_stripe_billing_flag!(@tenant)
-    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    @original_price_id = ENV.fetch("STRIPE_PRICE_ID", nil)
     ENV["STRIPE_PRICE_ID"] = "price_test_collective_upgrade"
 
     stub_request(:post, "https://api.stripe.com/v1/customers")
@@ -735,7 +735,10 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     captured_body = nil
     stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
-      .with { |req| captured_body = req.body; true }
+      .with do |req|
+      captured_body = req.body
+      true
+    end
       .to_return(status: 200, body: {
         id: "cs_upgrade_test",
         object: "checkout.session",
@@ -746,7 +749,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/upgrade"
 
     assert_response :redirect
-    assert_match %r{checkout\.stripe\.com}, response.location
+    assert_match(/checkout\.stripe\.com/, response.location)
     # Collective stays free until checkout.session.completed webhook fires.
     assert_equal Collective::TIER_FREE, @collective.reload.tier
     assert_match(/collective_id/, captured_body.to_s,
@@ -764,11 +767,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{@collective.handle}/upgrade"
 
     assert_response :success
-    assert_match(/\$3\/month/, response.body)
+    assert_match(%r{\$3/month}, response.body)
     # Confirmation form must POST to /upgrade with Turbo opted out
     # (controller may redirect cross-origin to Stripe Checkout).
     assert_match %r{<form[^>]*action="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*method="post"[^>]*>}, response.body
-    assert_match %r{data-turbo="false"}, response.body
+    assert_match(/data-turbo="false"/, response.body)
   end
 
   test "upgrade preview: owner with active billing sees prorated charge amount" do
@@ -845,7 +848,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # plan" flash should appear on this path.
   test "upgrade repro: owner with no StripeCustomer must hit Stripe Checkout, not get success flash" do
     enable_stripe_billing_flag!(@tenant)
-    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    @original_price_id = ENV.fetch("STRIPE_PRICE_ID", nil)
     ENV["STRIPE_PRICE_ID"] = "price_test_repro"
 
     stub_request(:post, "https://api.stripe.com/v1/customers")
@@ -869,8 +872,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/upgrade"
 
     assert_response :redirect
-    assert_match %r{checkout\.stripe\.com}, response.location,
-      "expected redirect to Stripe Checkout; got #{response.location}"
+    assert_match(/checkout\.stripe\.com/, response.location,
+                 "expected redirect to Stripe Checkout; got #{response.location}")
     assert_nil flash[:notice], "no success flash should fire on the BillingRequired path; got: #{flash[:notice].inspect}"
     assert_equal Collective::TIER_FREE, @collective.reload.tier, "tier must remain free pending checkout"
   ensure
@@ -882,7 +885,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # BillingRequired → Stripe Checkout, no success flash, tier stays free.
   test "upgrade repro: owner with inactive StripeCustomer still hits Stripe Checkout" do
     enable_stripe_billing_flag!(@tenant)
-    @original_price_id = ENV["STRIPE_PRICE_ID"]
+    @original_price_id = ENV.fetch("STRIPE_PRICE_ID", nil)
     ENV["STRIPE_PRICE_ID"] = "price_test_repro2"
     StripeCustomer.create!(billable: @user, stripe_id: "cus_inactive_test", active: false)
 
@@ -896,7 +899,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/upgrade"
 
     assert_response :redirect
-    assert_match %r{checkout\.stripe\.com}, response.location
+    assert_match(/checkout\.stripe\.com/, response.location)
     assert_nil flash[:notice]
     assert_equal Collective::TIER_FREE, @collective.reload.tier
   ensure
@@ -927,7 +930,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_match %r{<a[^>]*href="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*>[^<]*Upgrade}, response.body,
-      "settings page should link (not POST) to the upgrade preview"
+                 "settings page should link (not POST) to the upgrade preview"
   end
 
   # The upgrade preview's confirm form must opt out of Turbo because the
@@ -944,8 +947,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
       %r{<form[^>]*action="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*method="post"[^>]*>}
     )
     assert form_match, "preview must contain a POST form to /upgrade"
-    assert_match %r{data-turbo="false"}, form_match[0],
-      "preview form must opt out of Turbo for the cross-origin Stripe Checkout redirect"
+    assert_match(/data-turbo="false"/, form_match[0],
+                 "preview form must opt out of Turbo for the cross-origin Stripe Checkout redirect")
   end
 
   # Diagnostic variant: tenant has stripe_billing OFF. The Upgrade button
@@ -958,7 +961,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     # no tier model in effect — tier_unlocks_paid_features? already returns
     # true — so "upgrade" must not flip the tier or imply a charge; it just
     # redirects back to settings.
-    refute @tenant.feature_enabled?("stripe_billing"), "precondition: stripe_billing off"
+    assert_not @tenant.feature_enabled?("stripe_billing"), "precondition: stripe_billing off"
 
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/upgrade"
@@ -966,7 +969,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     assert_match %r{/settings}, response.location
     assert_equal Collective::TIER_FREE, @collective.reload.tier,
-      "non-billing-tenant upgrade must NOT flip tier; got #{@collective.tier.inspect}"
+                 "non-billing-tenant upgrade must NOT flip tier; got #{@collective.tier.inspect}"
     assert_nil flash[:notice], "no 'now on the paid plan' flash on a no-op upgrade"
   end
 
@@ -982,7 +985,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match %r{/settings}, response.location
     assert_equal Collective::TIER_FREE, main.reload.tier, "main collective must stay free"
     assert_nil flash[:notice],
-      "main-collective upgrade must NOT flash a misleading 'now on the paid plan'"
+               "main-collective upgrade must NOT flash a misleading 'now on the paid plan'"
   end
 
   # Diagnostic variant: actor is app_admin. The billing requirement is
@@ -997,7 +1000,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     @collective.reload
     assert_equal Collective::TIER_PAID, @collective.tier,
-      "tier must flip to paid for app_admin actor; got #{@collective.tier.inspect}"
+                 "tier must flip to paid for app_admin actor; got #{@collective.tier.inspect}"
   end
 
   # Diagnostic variant: collective is billing_exempt. Upgrade succeeds
@@ -1012,7 +1015,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     @collective.reload
     assert_equal Collective::TIER_PAID, @collective.tier,
-      "tier must flip to paid for billing_exempt collective; got #{@collective.tier.inspect}"
+                 "tier must flip to paid for billing_exempt collective; got #{@collective.tier.inspect}"
   end
 
   test "upgrade: is idempotent on an already-paid collective" do
@@ -2998,6 +3001,33 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/enrolled/i, response.body)
   end
 
+  # === Persona navigation links ===
+
+  test "the settings trio section links each persona's task runs and automations" do
+    collective = create_test_collective
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    FeatureFlagService.config["trio"] ||= {}
+    FeatureFlagService.config["trio"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("trio")
+    collective.enable_feature_flag!("trio")
+    PersonaActivator.activate!(collective)
+    melody_handle = collective.persona_user("melody").tenant_users.find_by(tenant: @tenant).handle
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/settings"
+
+    assert_response :success
+    assert_includes response.body, "/ai-agents/#{melody_handle}/runs"
+    assert_includes response.body, "/ai-agents/#{melody_handle}/automations"
+
+    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_includes response.body, "/ai-agents/#{melody_handle}/runs"
+    assert_includes response.body, "/ai-agents/#{melody_handle}/automations"
+  end
+
   # === Member-facing pool page ===
 
   def record_pool_spend!(pool, stripe_id:, cents:, agent:)
@@ -3057,10 +3087,10 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/pool"
 
     assert_response :success
-    assert_match(%r{<th[^>]*>\s*Ceiling}, response.body)
-    assert_match(%r{<th[^>]*>\s*Enrolled}, response.body)
-    assert_match(%r{<th[^>]*>\s*Max possible per 30 days}, response.body)
-    assert_match(%r{<th[^>]*>\s*Principal}, response.body)
+    assert_match(/<th[^>]*>\s*Ceiling/, response.body)
+    assert_match(/<th[^>]*>\s*Enrolled/, response.body)
+    assert_match(/<th[^>]*>\s*Max possible per 30 days/, response.body)
+    assert_match(/<th[^>]*>\s*Principal/, response.body)
     # The current user is highlighted both as an enrolled member and as the
     # principal of a funded agent.
     assert response.body.scan("pulse-row-you").size >= 2,
@@ -3121,7 +3151,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Last 30 days \(actual\)/, response.body)
     # Only the actual-spend column is totaled; the max-possible column is not,
     # to avoid drawing the eye to a hypothetical sum.
-    refute_match(/\$180\.00/, response.body)
+    assert_no_match(/\$180\.00/, response.body)
   end
 
   test "the markdown pool page shows spend figures" do

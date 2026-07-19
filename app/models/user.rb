@@ -368,6 +368,22 @@ class User < ApplicationRecord
     Collective.find_by(identity_user_id: parent_id)
   end
 
+  # Whether `viewer` may see this agent's task runs: the parent, or an active
+  # admin/automator of the principal collective. The single predicate behind
+  # every "view task run" link; mirrors the authorization on the run pages
+  # (AiAgentsController#find_ai_agent_for_run_views).
+  sig { params(viewer: T.nilable(User)).returns(T::Boolean) }
+  def task_runs_viewable_by?(viewer)
+    return false unless ai_agent? && viewer&.human?
+    return true if parent_id.present? && parent_id == viewer.id
+
+    collective = principal_collective
+    return false unless collective
+
+    member = collective.collective_members.find_by(user: viewer)
+    !!member&.can_manage_automations?
+  end
+
   # Check if this user is authorized to use the given identity user.
   # Used to validate that an identity_user_id in the session is legitimate.
   #

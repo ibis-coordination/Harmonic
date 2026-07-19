@@ -198,6 +198,20 @@
               <% end %>
             </p>
           <% end %>
+          <% if flag_name == 'trio' && collective_enabled_locally %>
+            <% personas = @current_collective.persona_users %>
+            <% if personas.any? %>
+              <p class="pulse-feature-usage">
+                <% personas.each do |agent| %>
+                  <span style="margin-right: 12px;">
+                    <strong><%= agent.name %></strong>:
+                    <a href="/ai-agents/<%= agent.handle %>/runs">task runs</a>
+                    · <a href="/ai-agents/<%= agent.handle %>/automations">automations</a>
+                  </span>
+                <% end %>
+              </p>
+            <% end %>
+          <% end %>
         </div>
       <% } %>
 

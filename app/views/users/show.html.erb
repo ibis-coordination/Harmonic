@@ -141,6 +141,20 @@
     </div>
   <% end %>
 
+  <% if @showing_user.ai_agent? && @showing_user.task_runs_viewable_by?(@current_user) %>
+    <div class="pulse-user-parent-info">
+      <a href="/ai-agents/<%= @showing_user.handle %>/runs" class="pulse-user-parent-link">
+        <%= octicon 'history', height: 14 %>
+        <strong>Task runs</strong>
+      </a>
+      <span style="color: var(--color-fg-muted);">&middot;</span>
+      <a href="/ai-agents/<%= @showing_user.handle %>/automations" class="pulse-user-parent-link">
+        <%= octicon 'zap', height: 14 %>
+        <strong>Automations</strong>
+      </a>
+    </div>
+  <% end %>
+
   <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
     <div class="pulse-user-ai_agent-count">
       <%= octicon 'people', height: 14 %>

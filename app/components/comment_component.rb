@@ -53,22 +53,9 @@ class CommentComponent < ViewComponent::Base
     representation? ? representative : author
   end
 
-  # The agent's parent sees the link; for collective-principaled agents (the
-  # personas, whose parent is the collective's identity user) the principal
-  # collective's automation managers — active admins and automators — see it
-  # instead. Mirrors the authorization on the run page itself
-  # (AiAgentsController#find_ai_agent_for_run_views).
   sig { returns(T::Boolean) }
   def show_task_run_link?
-    a = author
-    return false unless a.present? && a.ai_agent? && @current_user.present?
-    return true if a.parent == @current_user
-
-    collective = a.principal_collective
-    return false unless collective
-
-    member = collective.collective_members.find_by(user: @current_user)
-    !!member&.can_manage_automations?
+    !!author&.task_runs_viewable_by?(@current_user)
   end
 
   sig { returns(T.nilable(AiAgentTaskRun)) }

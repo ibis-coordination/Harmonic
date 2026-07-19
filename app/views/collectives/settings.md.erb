@@ -74,6 +74,10 @@ To move this collective back to the free plan, POST to `<%= @current_collective.
 Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only).
 <% end %>
 <% end %>
+<% if @current_collective.feature_flag_enabled_locally?("trio") && (trio_personas = @current_collective.persona_users).any? %>
+
+Trio agents: <%= trio_personas.map { |a| "[#{a.name}](#{a.path}) ([task runs](/ai-agents/#{a.handle}/runs), [automations](/ai-agents/#{a.handle}/automations))" }.join(" · ") %>
+<% end %>
 <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? && @collective_ai_agents.present? %>
 
 ## AI Agents in this Collective

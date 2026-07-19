@@ -39,8 +39,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     workspace.reload
     assert_not_nil workspace.persona_user("cadence")&.id, "expected cadence to be activated in workspace"
@@ -58,8 +58,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     workspace.reload
     assert_not_nil workspace.persona_user("cadence")&.id, "self-hosted: cadence should activate on free workspace"
@@ -75,12 +75,12 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "false" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "false" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     workspace.reload
     assert_nil workspace.persona_user("cadence")&.id, "expected cadence to be deactivated in workspace"
-    assert AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? }
+    assert(AutomationRule.where(ai_agent_id: trio_id).none? { |r| r.enabled? })
   end
 
   test "the handle-free workspace-trio route only toggles the signed-in user's workspace" do
@@ -90,8 +90,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(other_user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     # No handle in the route: the toggle applies to other_user's own workspace,
     # so @user's workspace is structurally untouchable here.
@@ -108,8 +108,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     workspace.reload
     assert_nil workspace.persona_user("cadence")&.id, "cadence should not be activated on a free workspace"
@@ -125,8 +125,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "true" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "true" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     workspace.reload
     assert_not_nil workspace.persona_user("cadence")&.id, "cadence should activate when workspace is paid"
@@ -142,8 +142,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@user, tenant: @tenant)
     post "/settings/workspace_trio",
-      params: { feature_trio: "false" },
-      headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV['HOSTNAME']}/settings" }
+         params: { feature_trio: "false" },
+         headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/settings" }
 
     workspace.reload
     assert_nil workspace.persona_user("cadence")&.id
@@ -166,14 +166,14 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     # (billing exemption, workspace membership exception, reserved handle).
     # update_profile does not accept this attribute.
     sign_in_as(@user, tenant: @tenant)
-    refute @user.system?
+    assert_not @user.system?
 
     post "/settings/profile",
-      params: { name: "Renamed", system_role: "cadence" }
+         params: { name: "Renamed", system_role: "cadence" }
 
     @user.reload
     assert_nil @user.system_role
-    refute @user.system?
+    assert_not @user.system?
   end
 
   test "update_profile cannot rename a non-persona user's handle to 'cadence'" do
@@ -256,8 +256,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Posts tab shows only post-subtype notes" do
-    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post", subtype: "post")
-    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder", subtype: "reminder")
+    create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post", subtype: "post")
+    create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder", subtype: "reminder")
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}?tab=posts"
     assert_response :success
@@ -267,8 +267,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "Activity tab excludes post-subtype notes; surfaces non-post notes" do
-    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post", subtype: "post")
-    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder", subtype: "reminder")
+    create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Post", subtype: "post")
+    create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "A Reminder", subtype: "reminder")
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}?tab=activity"
     assert_response :success
@@ -329,8 +329,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "markdown profile renders both Posts and Activity sections inline" do
-    post_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost", subtype: "post")
-    reminder_note = create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdReminder", subtype: "reminder")
+    create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdPost", subtype: "post")
+    create_note(tenant: @tenant, collective: @tenant.main_collective, created_by: @user, title: "MdReminder", subtype: "reminder")
     sign_in_as(@user, tenant: @tenant)
     get "/u/#{@user.handle}", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -524,10 +524,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
   def add_to_primary_list(list:, member:, added_by:)
     list.user_list_members.create!(
-      tenant:     list.tenant,
+      tenant: list.tenant,
       collective: list.collective,
-      added_by:   added_by,
-      user:       member,
+      added_by: added_by,
+      user: member,
     )
   end
 
@@ -535,9 +535,11 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     main = @tenant.main_collective
     main.add_user!(@user) unless main.user_is_member?(@user)
     other = create_user(email: "tu-mutuals-other@example.com", name: "Other")
-    @tenant.add_user!(other); main.add_user!(other)
+    @tenant.add_user!(other)
+    main.add_user!(other)
     third = create_user(email: "tu-mutuals-third@example.com", name: "Third Person")
-    @tenant.add_user!(third); main.add_user!(third)
+    @tenant.add_user!(third)
+    main.add_user!(third)
     # @other ↔ third are mutuals.
     add_to_primary_list(list: other.primary_user_list_in!(@tenant), member: third, added_by: other)
     add_to_primary_list(list: third.primary_user_list_in!(@tenant), member: other, added_by: third)
@@ -553,7 +555,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     main = @tenant.main_collective
     main.add_user!(@user) unless main.user_is_member?(@user)
     other = create_user(email: "own-mutuals-other@example.com", name: "Other")
-    @tenant.add_user!(other); main.add_user!(other)
+    @tenant.add_user!(other)
+    main.add_user!(other)
     # @user ↔ other are mutuals.
     add_to_primary_list(list: @user.primary_user_list_in!(@tenant), member: other, added_by: @user)
     add_to_primary_list(list: other.primary_user_list_in!(@tenant), member: @user, added_by: other)
@@ -717,10 +720,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
       scopes: ApiToken.read_scopes,
     )
     get "/u/#{handle}/settings",
-      headers: {
-        "Accept" => "text/markdown",
-        "Authorization" => "Bearer #{api_token.plaintext_token}",
-      }
+        headers: {
+          "Accept" => "text/markdown",
+          "Authorization" => "Bearer #{api_token.plaintext_token}",
+        }
     assert_response :redirect
     assert_match %r{/ai-agents/#{handle}/settings}, response.headers["Location"]
   end
@@ -740,7 +743,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     get "/ai-agents/#{handle}/settings"
     assert_response :success
     assert_match(/Profile Image/i, response.body,
-      "agent settings should include profile image upload — the only thing previously unique to /u/<agent>/settings")
+                 "agent settings should include profile image upload — the only thing previously unique to /u/<agent>/settings")
   end
 
   test "POST /u/<agent>/settings/profile redirects to the canonical agent settings and mutates nothing" do
@@ -776,7 +779,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "ai_agent count only includes ai_agents in current tenant" do
     # Create two ai_agents
     ai_agent1 = create_ai_agent(parent: @user, name: "AiAgent In Tenant")
-    ai_agent2 = create_ai_agent(parent: @user, name: "AiAgent Not In Tenant")
+    create_ai_agent(parent: @user, name: "AiAgent Not In Tenant")
 
     # Only add ai_agent1 to the current tenant
     @tenant.add_user!(ai_agent1)
@@ -808,13 +811,13 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     # Submit only two boxes checked. mention/email defaults to true and is now
     # absent from the payload, so the complete-matrix write must turn it off.
     post "/settings/notifications",
-      params: { notifications: { comment: { email: "true" }, mention: { in_app: "true" } } }
+         params: { notifications: { comment: { email: "true" }, mention: { in_app: "true" } } }
 
     assert_response :redirect
     tu = @user.tenant_users.find_by(tenant: @tenant)
     assert tu.notification_enabled?("comment", "email")
-    refute tu.notification_enabled?("comment", "in_app"), "unchecked box recorded as off"
-    refute tu.notification_enabled?("mention", "email"), "omitted box recorded as off"
+    assert_not tu.notification_enabled?("comment", "in_app"), "unchecked box recorded as off"
+    assert_not tu.notification_enabled?("mention", "email"), "omitted box recorded as off"
     assert tu.notification_enabled?("mention", "in_app")
   end
 
@@ -826,13 +829,13 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/settings/notifications",
-      params: { notifications: { mention: { in_app: "true", email: "true" } } }
+         params: { notifications: { mention: { in_app: "true", email: "true" } } }
 
     assert_response :redirect
     tu = @user.tenant_users.find_by(tenant: @tenant)
     stored = tu.settings["notification_preferences"]
-    refute stored.values.any? { |channels| channels.key?("web_push") },
-           "web_push must not be written while the column isn't rendered"
+    assert_not stored.values.any? { |channels| channels.key?("web_push") },
+               "web_push must not be written while the column isn't rendered"
 
     # Once push becomes available and a device is registered, the default
     # (on) must still apply.
@@ -852,11 +855,11 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
 
     # Full form submit with the Push column rendered but mention/web_push unchecked.
     post "/settings/notifications",
-      params: { notifications: { mention: { in_app: "true", email: "true" } } }
+         params: { notifications: { mention: { in_app: "true", email: "true" } } }
 
     tu = @user.tenant_users.find_by(tenant: @tenant)
-    refute_includes tu.notification_channels_for("mention"), "web_push",
-                    "an unchecked Push box on a push-enabled tenant is a real opt-out"
+    assert_not_includes tu.notification_channels_for("mention"), "web_push",
+                        "an unchecked Push box on a push-enabled tenant is a real opt-out"
   end
 
   test "markdown settings shows the Push column when push is available" do
@@ -884,8 +887,8 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/settings/actions/update_notification_preferences",
-      params: { notifications: { comment: { email: "true" } } },
-      headers: { "Accept" => "text/markdown" }
+         params: { notifications: { comment: { email: "true" } } },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     tu = @user.tenant_users.find_by(tenant: @tenant)
@@ -896,10 +899,42 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "the handle-free notification-preferences route updates the signed-in user's own prefs" do
     sign_in_as(@user, tenant: @tenant)
     post "/settings/notifications",
-      params: { notifications: { comment: { email: "true" } } }
+         params: { notifications: { comment: { email: "true" } } }
 
     # No handle to target: the update lands on @user's own preferences.
     tu = @user.tenant_users.find_by(tenant: @tenant)
     assert tu.notification_enabled?("comment", "email")
+  end
+
+  # === Persona profile navigation ===
+
+  test "persona profile shows task runs and automations links to collective managers only" do
+    admin = create_user(email: "prof-admin-#{SecureRandom.hex(4)}@example.com", name: "Profile Admin")
+    member = create_user(email: "prof-member-#{SecureRandom.hex(4)}@example.com", name: "Profile Member")
+    @tenant.add_user!(admin)
+    @tenant.add_user!(member)
+    collective = create_collective(
+      tenant: @tenant, created_by: admin,
+      name: "Profile Nav Collective", handle: "profile-nav-#{SecureRandom.hex(4)}"
+    )
+    collective.add_user!(admin, roles: ["admin"])
+    collective.add_user!(member)
+    persona = PersonaSeeder.ensure_for(collective, Personas::MELODY)
+    handle = persona.tenant_users.find_by(tenant: @tenant).handle
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/u/#{handle}"
+    assert_response :success
+    assert_includes response.body, "/ai-agents/#{handle}/runs"
+    assert_includes response.body, "/ai-agents/#{handle}/automations"
+
+    get "/u/#{handle}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "/ai-agents/#{handle}/runs"
+
+    sign_in_as(member, tenant: @tenant)
+    get "/u/#{handle}"
+    assert_response :success
+    assert_not_includes response.body, "/ai-agents/#{handle}/runs"
   end
 end
