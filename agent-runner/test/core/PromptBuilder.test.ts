@@ -103,7 +103,11 @@ describe("truncatePageContent", () => {
     expect(result).toContain("[page truncated");
     expect(result).toContain("4000");
     expect(result).toContain("5000");
-    expect(result).toContain("full_text=true");
+    expect(result).toContain("more specific path");
+    // The runner truncates regardless of query params, so it must not
+    // suggest ?full_text=true — that's the Rails layer's advice, and it
+    // makes the page BIGGER (circular for anything thread-shaped)
+    expect(result).not.toContain("full_text");
   });
 });
 

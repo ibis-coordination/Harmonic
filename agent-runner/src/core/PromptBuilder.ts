@@ -109,8 +109,12 @@ export function truncatePageContent(content: string, limit: number): string {
   if (content.length <= limit) {
     return content;
   }
+  // Advice must be honorable from THIS layer: the runner truncates every
+  // fetch regardless of query params, so never suggest ?full_text=true here
+  // (that expands the note body at the Rails layer — making the page bigger).
+  // A narrower page is the one thing that reliably fits under the cap.
   return `${content.slice(0, limit)}\n\n[page truncated: showing ${limit} of ${content.length} characters. ` +
-    `Refetch with ?full_text=true for a full note body, or fetch a specific comment's path to read the rest of a thread.]`;
+    `Fetch a more specific path — e.g. a single comment's page — to read content that was cut off.]`;
 }
 
 /**
