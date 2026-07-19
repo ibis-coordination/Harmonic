@@ -1060,6 +1060,41 @@ describe("AgentLoop", () => {
     expect(outcome).toEqual({ outcome: "cancelled" });
   });
 
+  // --- stale page content eliding ---
+
+  it("elides stale page fetches from later LLM calls but keeps recent ones full", async () => {
+    const state = createMockState();
+    const bigPage = (label: string) => `# Page ${label}\n${"x".repeat(1000)}`;
+    await runWithMocks(
+      makeTask(),
+      state,
+      [
+        makeLLMResponse({ content: null, toolCalls: [makeNavigateToolCall("/n/aaa", "call_a")], finishReason: "tool_calls" }),
+        makeLLMResponse({ content: null, toolCalls: [makeNavigateToolCall("/n/bbb", "call_b")], finishReason: "tool_calls" }),
+        makeLLMResponse({ content: null, toolCalls: [makeNavigateToolCall("/n/ccc", "call_c")], finishReason: "tool_calls" }),
+        makeLLMResponse({ content: "All done", toolCalls: [], finishReason: "stop" }),
+      ],
+      {
+        "/whoami": { content: WHOAMI_CONTENT, availableActions: ["update_scratchpad"] },
+        "/n/aaa": { content: bigPage("A"), availableActions: [] },
+        "/n/bbb": { content: bigPage("B"), availableActions: [] },
+        "/n/ccc": { content: bigPage("C"), availableActions: [] },
+      },
+    );
+
+    // Third call: two page fetches so far, both within the keep window — full
+    const thirdCallTools = state.llmMessages[2]?.filter((m) => m.role === "tool") ?? [];
+    expect(thirdCallTools[0]?.content).toBe(bigPage("A"));
+    expect(thirdCallTools[1]?.content).toBe(bigPage("B"));
+
+    // Fourth call: three page fetches — the oldest is elided, last two stay full
+    const fourthCallTools = state.llmMessages[3]?.filter((m) => m.role === "tool") ?? [];
+    expect(fourthCallTools[0]?.content).toContain("elided");
+    expect(fourthCallTools[0]?.content).toContain("/n/aaa");
+    expect(fourthCallTools[1]?.content).toBe(bigPage("B"));
+    expect(fourthCallTools[2]?.content).toBe(bigPage("C"));
+  });
+
   // --- chat_turn mode ---
 
   describe("chat_turn mode", () => {
