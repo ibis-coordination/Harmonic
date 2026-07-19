@@ -136,9 +136,6 @@ class NotificationDispatcher
 
     note = T.let(subject, Note)
 
-    # If this note is a comment/reply, notify the parent content owner
-    handle_reply_notification(event, note) if note.is_comment?
-
     # Find mentioned users from the note text
     mentioned_users = MentionParser.parse(note.text, tenant_id: event.tenant_id, collective: note.collective, author: event.actor)
 
@@ -147,6 +144,16 @@ class NotificationDispatcher
 
     # Only notify users who have access to the collective
     mentioned_users = mentioned_users.select { |u| user_can_access_collective?(event, u) }
+
+    # If this note is a comment/reply, notify the parent content owner. A
+    # reply that ALSO mentions the owner is one social act — it sends one
+    # combined notification instead of two (#403), so the owner drops out of
+    # the mention loop below.
+    if note.is_comment? && (reply_owner = reply_owner_for(event, note))
+      owner_mentioned = mentioned_users.any? { |u| u.id == reply_owner.id }
+      mentioned_users = mentioned_users.reject { |u| u.id == reply_owner.id }
+      notify_reply(event, note, reply_owner, mentioned: owner_mentioned)
+    end
 
     mentioned_users.each do |user|
       actor_name = event.actor&.display_name || "Someone"
@@ -164,30 +171,54 @@ class NotificationDispatcher
     maybe_send_persona_unavailable_hints(event, note.text, note.collective)
   end
 
-  # Handle reply notifications when a note is a comment on another piece of content.
-  # This is called from handle_note_event when the note has a commentable.
-  sig { params(event: Event, comment: Note).void }
-  def self.handle_reply_notification(event, comment)
+  # The user who should receive a reply notification for this comment:
+  # the parent content's creator, unless they're the actor or lack access.
+  sig { params(event: Event, comment: Note).returns(T.nilable(User)) }
+  def self.reply_owner_for(event, comment)
     commentable = comment.commentable
-    return unless commentable
+    return nil unless commentable
 
     owner = get_created_by(commentable)
-    return if owner.nil? || owner.id == event.actor_id
-    return unless user_can_access_collective?(event, owner)
+    return nil if owner.nil? || owner.id == event.actor_id
+    return nil unless user_can_access_collective?(event, owner)
 
+    owner
+  end
+
+  # Notify the parent content owner about a reply. When the reply also
+  # mentions them (`mentioned:`), send a single combined notification: mention
+  # semantics with the union of both types' delivery channels, so neither
+  # type's preferred channel (e.g. mention's email) is lost and each channel
+  # delivers exactly once.
+  sig { params(event: Event, comment: Note, owner: User, mentioned: T::Boolean).void }
+  def self.notify_reply(event, comment, owner, mentioned:)
     actor_name = event.actor&.display_name || "Someone"
-    content_type = commentable.class.name.underscore.humanize.downcase
+    content_type = T.must(comment.commentable).class.name.underscore.humanize.downcase
 
-    notify_user(
-      event: event,
-      recipient: owner,
-      notification_type: "comment",
-      title: "#{actor_name} replied to your #{content_type}",
-      body: comment.text.to_s.truncate(200),
-      # Link to the reply itself (so `?comment_id=` highlights the new reply),
-      # not the comment being replied to.
-      url: get_path(comment)
-    )
+    if mentioned
+      notify_user(
+        event: event,
+        recipient: owner,
+        notification_type: "mention",
+        title: "#{actor_name} mentioned you in their reply to your #{content_type}",
+        body: comment.text.to_s.truncate(200),
+        # Link to the reply itself (so `?comment_id=` highlights the new reply),
+        # not the comment being replied to.
+        url: get_path(comment),
+        channels: (channels_for_user(owner, "mention") + channels_for_user(owner, "comment")).uniq
+      )
+    else
+      notify_user(
+        event: event,
+        recipient: owner,
+        notification_type: "comment",
+        title: "#{actor_name} replied to your #{content_type}",
+        body: comment.text.to_s.truncate(200),
+        # Link to the reply itself (so `?comment_id=` highlights the new reply),
+        # not the comment being replied to.
+        url: get_path(comment)
+      )
+    end
   end
 
   sig { params(event: Event).void }
@@ -404,7 +435,9 @@ class NotificationDispatcher
     maybe_send_persona_unavailable_hints(event, text_to_parse, option.collective)
   end
 
-  # Helper method to create notifications with preference-based channel selection
+  # Helper method to create notifications with preference-based channel
+  # selection. `channels` overrides the per-type preference lookup — used when
+  # one notification covers more than one type (union of their channels).
   sig do
     params(
       event: Event,
@@ -412,15 +445,16 @@ class NotificationDispatcher
       notification_type: String,
       title: String,
       body: T.nilable(String),
-      url: T.nilable(String)
+      url: T.nilable(String),
+      channels: T.nilable(T::Array[String])
     ).void
   end
-  def self.notify_user(event:, recipient:, notification_type:, title:, body: nil, url: nil)
+  def self.notify_user(event:, recipient:, notification_type:, title:, body: nil, url: nil, channels: nil)
     # rubocop:enable Metrics/ParameterLists
     # Suppress notifications when recipient has blocked the actor
     return if event.actor_id && T.unsafe(event).actor && UserBlock.between?(recipient, T.unsafe(event).actor)
 
-    channels = channels_for_user(recipient, notification_type)
+    channels ||= channels_for_user(recipient, notification_type)
     return if channels.empty?
 
     NotificationService.create_and_deliver!(

@@ -717,6 +717,98 @@ class NotificationDispatcherTest < ActiveSupport::TestCase
     assert_equal [mentioned_user.id], notification.notification_recipients.map(&:user_id).uniq
   end
 
+  test "a reply that also mentions the parent author sends one notification, not two" do
+    tenant, collective, owner = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    owner.tenant_user.update!(handle: "alice")
+
+    replier = create_user(email: "replier-#{SecureRandom.hex(4)}@example.com", name: "Replier")
+    tenant.add_user!(replier)
+    collective.add_user!(replier)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: owner)
+    comment = note.add_comment(text: "@alice great point!", created_by: replier)
+
+    event = Event.where(subject: comment).last
+    # distinct: a notification has one recipient row per channel; count
+    # notifications, not channel rows
+    owner_notifications = Notification.where(event: event)
+      .joins(:notification_recipients)
+      .where(notification_recipients: { user_id: owner.id })
+      .distinct.to_a
+
+    assert_equal 1, owner_notifications.size,
+      "A reply mentioning the parent author should produce exactly one combined notification, not a reply + a mention"
+    notification = owner_notifications.first
+    assert_equal "mention", notification.notification_type
+    assert_match(/mentioned you in their reply to your note/, notification.title)
+    # Channel union: mention's default (in_app + email) ∪ comment's default
+    # (in_app) — each channel delivers exactly once
+    channels = notification.notification_recipients.where(user_id: owner.id).pluck(:channel)
+    assert_equal ["email", "in_app"], channels.sort
+  end
+
+  test "the combined reply-mention notification honors the channel union when mention is disabled" do
+    tenant, collective, owner = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    owner.tenant_user.update!(handle: "alice")
+    # Mention notifications fully off; comment keeps its default (in_app).
+    # The combined notification should still arrive, via comment's channel.
+    tu = owner.tenant_user
+    tu.update!(settings: (tu.settings || {}).merge(
+      "notification_preferences" => { "mention" => { "in_app" => false, "email" => false, "web_push" => false } },
+    ))
+
+    replier = create_user(email: "replier-#{SecureRandom.hex(4)}@example.com", name: "Replier")
+    tenant.add_user!(replier)
+    collective.add_user!(replier)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: owner)
+    comment = note.add_comment(text: "@alice great point!", created_by: replier)
+
+    event = Event.where(subject: comment).last
+    owner_notifications = Notification.where(event: event)
+      .joins(:notification_recipients)
+      .where(notification_recipients: { user_id: owner.id })
+      .distinct.to_a
+
+    assert_equal 1, owner_notifications.size
+    channels = owner_notifications.first.notification_recipients.where(user_id: owner.id).pluck(:channel)
+    assert_equal ["in_app"], channels
+  end
+
+  test "a reply mentioning a third party still notifies owner and mentioned user separately" do
+    tenant, collective, owner = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    replier = create_user(email: "replier-#{SecureRandom.hex(4)}@example.com", name: "Replier")
+    tenant.add_user!(replier)
+    collective.add_user!(replier)
+
+    third_party = create_user(email: "third-#{SecureRandom.hex(4)}@example.com", name: "Third Party")
+    tenant.add_user!(third_party, handle: "carol")
+    collective.add_user!(third_party)
+
+    note = create_note(tenant: tenant, collective: collective, created_by: owner)
+    comment = note.add_comment(text: "@carol should see this", created_by: replier)
+
+    event = Event.where(subject: comment).last
+
+    # distinct: a notification has one recipient row per channel; count
+    # notifications, not channel rows
+    owner_types = Notification.where(event: event)
+      .joins(:notification_recipients)
+      .where(notification_recipients: { user_id: owner.id })
+      .distinct.map(&:notification_type)
+    third_party_types = Notification.where(event: event)
+      .joins(:notification_recipients)
+      .where(notification_recipients: { user_id: third_party.id })
+      .distinct.map(&:notification_type)
+
+    assert_equal ["comment"], owner_types
+    assert_equal ["mention"], third_party_types
+  end
+
   # ---- commitment join / critical mass notifications ----
 
   def setup_commitment_with_joiner(critical_mass:)
