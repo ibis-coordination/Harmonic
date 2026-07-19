@@ -55,8 +55,7 @@ class CommentComponent < ViewComponent::Base
 
   sig { returns(T::Boolean) }
   def show_task_run_link?
-    a = author
-    a.present? && a.ai_agent? && a.parent == @current_user
+    !!author&.task_runs_viewable_by?(@current_user)
   end
 
   sig { returns(T.nilable(AiAgentTaskRun)) }

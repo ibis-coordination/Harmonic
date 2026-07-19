@@ -60,16 +60,20 @@ class AgentRunnerDispatchService
     # picks a funded member per call, and the relayed Stripe 402 is the
     # balance gate.
     #
-    # System agents (the built-in personas) hold no individual billing
-    # either; on a billing tenant their only funding source is their
-    # collective's pool.
+    # Collective-principaled personas (parent = the collective's identity
+    # user) hold no individual billing; on a billing tenant their only
+    # funding source is their collective's pool. Workspace personas are
+    # principaled by the workspace owner instead — workspaces can never open
+    # a pool — so they take the individual path below and the owner's
+    # billing pays.
     billing_customer = ai_agent.resolved_billing_customer
     pool_funded = ai_agent.funding_pool_id.present?
-    if tenant.feature_enabled?("stripe_billing") && ai_agent.system? && !pool_funded
+    collective_principaled = ai_agent.system? && ai_agent.parent&.collective_identity?
+    if tenant.feature_enabled?("stripe_billing") && collective_principaled && !pool_funded
       fail_task!("This agent runs on the collective's funding pool. A collective admin can open one in collective settings.")
       return
     end
-    if tenant.feature_enabled?("stripe_billing") && !ai_agent.system? && !pool_funded
+    if tenant.feature_enabled?("stripe_billing") && !collective_principaled && !pool_funded
       # (a) The agent's identity must be paid for before we run a task — the
       # norm, unchanged. An agent's billing_customer is its principal's Stripe
       # customer (see AiAgentsController#assign_billing_customer!), so an active

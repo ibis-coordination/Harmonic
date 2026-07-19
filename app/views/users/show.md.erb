@@ -29,6 +29,10 @@ Managed by: [<%= @showing_user.parent.display_name %>](<%= @showing_user.parent.
 
 Funded by: [<%= @showing_user.funding_pool.collective.name %>](<%= @showing_user.funding_pool.collective.path %>)
 <% end %>
+<% if @showing_user.ai_agent? && @showing_user.task_runs_viewable_by?(@current_user) %>
+
+[Task runs](/ai-agents/<%= @showing_user.handle %>/runs) · [Automations](/ai-agents/<%= @showing_user.handle %>/automations)
+<% end %>
 <% if @showing_user.human? && @ai_agent_count && @ai_agent_count > 0 %>
 
 Has <%= @ai_agent_count %> AI agent<%= @ai_agent_count == 1 ? "" : "s" %>

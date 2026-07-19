@@ -486,11 +486,11 @@ class AutomationExecutorTest < ActiveSupport::TestCase
 
     stub_request(:post, "https://example.com/webhook")
       .to_return(status: 200, body: '{"ok": true}')
-      .with { |req|
+      .with do |req|
         captured_headers = req.headers
         captured_body = req.body
         true
-      }
+      end
 
     rule = AutomationRule.create!(
       tenant: @tenant,
@@ -782,8 +782,8 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     # The webhook execute path returns "failed" only on actual network errors;
     # in test it produces a delivery. Either way, the run must not be blocked
     # by the internal flag.
-    refute_match(/Internal AI Agents are not enabled/, run.error_message.to_s,
-      "webhook automations must not be gated by internal_ai_agents flag")
+    assert_no_match(/Internal AI Agents are not enabled/, run.error_message.to_s,
+                    "webhook automations must not be gated by internal_ai_agents flag")
   end
 
   test "agent rule runs normally when stripe_billing flag disabled" do
@@ -986,6 +986,87 @@ class AutomationExecutorTest < ActiveSupport::TestCase
     run.reload
     assert run.failed?
     assert_match(/no longer active/i, run.error_message)
+  end
+
+  # === Task-run lineage ===
+
+  test "a run triggered by human-authored content has no parent and depth 0" do
+    rule = create_agent_rule(task: "Respond.")
+    event = create_test_event
+    run = create_automation_run(rule, event)
+
+    AgentRunnerDispatchService.stub :dispatch, ->(_) {} do
+      AutomationExecutor.execute(run)
+    end
+
+    task_run = run.reload.ai_agent_task_run
+    assert_nil task_run.parent_task_run_id
+    assert_equal 0, task_run.chain_depth
+  end
+
+  test "a run triggered by task-run-created content records that run as parent" do
+    prior_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Earlier task", max_steps: 10, status: "completed"
+    )
+    agent_note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @ai_agent,
+      text: "Posted by the agent during the earlier run"
+    )
+    AiAgentTaskRunResource.create!(
+      tenant: @tenant, ai_agent_task_run: prior_run, resource: agent_note,
+      resource_collective: @collective, action_type: "create"
+    )
+
+    rule = create_agent_rule(task: "Respond.")
+    event = Event.create!(
+      tenant: @tenant, collective: @collective, event_type: "note.created",
+      actor: @ai_agent, subject: agent_note
+    )
+    run = create_automation_run(rule, event)
+
+    AgentRunnerDispatchService.stub :dispatch, ->(_) {} do
+      AutomationExecutor.execute(run)
+    end
+
+    task_run = run.reload.ai_agent_task_run
+    assert_equal prior_run.id, task_run.parent_task_run_id
+    assert_equal 1, task_run.chain_depth
+  end
+
+  test "chain depth accumulates across generations" do
+    grandparent = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Gen 0", max_steps: 10, status: "completed"
+    )
+    parent = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Gen 1", max_steps: 10, status: "completed",
+      parent_task_run: grandparent, chain_depth: 1
+    )
+    agent_note = Note.create!(
+      tenant: @tenant, collective: @collective, created_by: @ai_agent,
+      text: "Posted during the gen-1 run"
+    )
+    AiAgentTaskRunResource.create!(
+      tenant: @tenant, ai_agent_task_run: parent, resource: agent_note,
+      resource_collective: @collective, action_type: "create"
+    )
+
+    rule = create_agent_rule(task: "Respond.")
+    event = Event.create!(
+      tenant: @tenant, collective: @collective, event_type: "note.created",
+      actor: @ai_agent, subject: agent_note
+    )
+    run = create_automation_run(rule, event)
+
+    AgentRunnerDispatchService.stub :dispatch, ->(_) {} do
+      AutomationExecutor.execute(run)
+    end
+
+    task_run = run.reload.ai_agent_task_run
+    assert_equal parent.id, task_run.parent_task_run_id
+    assert_equal 2, task_run.chain_depth
   end
 
   def create_agent_rule(task:, max_steps: nil)

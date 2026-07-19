@@ -28,6 +28,15 @@ class AgentAutomationsController < ApplicationController
       .order(created_at: :desc)
   end
 
+  # GET /ai-agents/:handle/automations/:automation_id
+  def show
+    @page_title = "#{@automation_rule.name} - #{@ai_agent.display_name}"
+    @recent_runs = AutomationRuleRun.tenant_scoped_only
+      .where(automation_rule_id: @automation_rule.id)
+      .order(created_at: :desc)
+      .limit(20)
+  end
+
   # GET /ai-agents/:handle/automations/new
   def new
     @page_title = "New Automation - #{@ai_agent.display_name}"
@@ -38,15 +47,6 @@ class AgentAutomationsController < ApplicationController
   def templates
     @page_title = "Automation Templates - #{@ai_agent.display_name}"
     @templates = AutomationTemplateGallery.all
-  end
-
-  # GET /ai-agents/:handle/automations/:automation_id
-  def show
-    @page_title = "#{@automation_rule.name} - #{@ai_agent.display_name}"
-    @recent_runs = AutomationRuleRun.tenant_scoped_only
-      .where(automation_rule_id: @automation_rule.id)
-      .order(created_at: :desc)
-      .limit(20)
   end
 
   # GET /ai-agents/:handle/automations/:automation_id/edit
@@ -111,11 +111,13 @@ class AgentAutomationsController < ApplicationController
     end
 
     attributes = result.attributes
-    return render_action_error({
-      action_name: "create_automation_rule",
-      resource: @ai_agent,
-      error: "Failed to parse YAML",
-    }) if attributes.nil?
+    if attributes.nil?
+      return render_action_error({
+        action_name: "create_automation_rule",
+        resource: @ai_agent,
+        error: "Failed to parse YAML",
+      })
+    end
 
     automation_rule = AutomationRule.new(
       tenant: @current_tenant,
@@ -168,11 +170,13 @@ class AgentAutomationsController < ApplicationController
     end
 
     attributes = result.attributes
-    return render_action_error({
-      action_name: "update_automation_rule",
-      resource: @automation_rule,
-      error: "Failed to parse YAML",
-    }) if attributes.nil?
+    if attributes.nil?
+      return render_action_error({
+        action_name: "update_automation_rule",
+        resource: @automation_rule,
+        error: "Failed to parse YAML",
+      })
+    end
 
     if @automation_rule.update(yaml_source: yaml_source, updated_by: @current_user, **attributes)
       render_action_success({
@@ -219,7 +223,7 @@ class AgentAutomationsController < ApplicationController
     render_action_success({
       action_name: "toggle_automation_rule",
       resource: @automation_rule,
-      result: "Automation rule '#{@automation_rule.name}' #{new_state ? 'enabled' : 'disabled'}",
+      result: "Automation rule '#{@automation_rule.name}' #{new_state ? "enabled" : "disabled"}",
       redirect_to: automation_path(@automation_rule),
     })
   end
@@ -257,7 +261,9 @@ class AgentAutomationsController < ApplicationController
     respond_to do |format|
       format.html { redirect_to target, notice: "This agent doesn't have automations. Manage its notification webhook here on the settings page." }
       format.json { render json: { error: "Not available for this agent" }, status: :forbidden }
-      format.md { render plain: "# Error\n\nNot available for this agent. The notification webhook is on the agent settings page.", status: :forbidden }
+      format.md do
+        render plain: "# Error\n\nNot available for this agent. The notification webhook is on the agent settings page.", status: :forbidden
+      end
     end
   end
 
@@ -272,14 +278,27 @@ class AgentAutomationsController < ApplicationController
   end
 
   def authorize_parent_user
-    # Only parent user can manage their AI agent's automations
+    # The parent manages their AI agent's automations. Collective-principaled
+    # agents (the personas — parent is the collective's identity user) have
+    # no human parent, so the collective's own automation managers — active
+    # admins and automators — manage their rules instead. Human-parented
+    # agents stay parent-only regardless of collective membership.
     return if @ai_agent.parent_id == @current_user.id
+    return if principal_collective_manager?
 
     respond_to do |format|
       format.html { redirect_to "/", alert: "You don't have permission to manage automations for this AI agent" }
       format.json { render json: { error: "Forbidden" }, status: :forbidden }
       format.md { render plain: "# Error\n\nYou don't have permission to manage automations for this AI agent.", status: :forbidden }
     end
+  end
+
+  def principal_collective_manager?
+    collective = @ai_agent.principal_collective
+    return false unless collective
+
+    member = collective.collective_members.find_by(user: @current_user)
+    member.present? && member.can_manage_automations?
   end
 
   def set_automation_rule

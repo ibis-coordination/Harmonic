@@ -12,6 +12,14 @@ class AiAgentTaskRun < ApplicationRecord
   belongs_to :chat_session, optional: true
   # Immutable billing attribution — stamped at run creation, never changed
   belongs_to :billing_customer, class_name: "StripeCustomer", foreign_key: "stripe_customer_id", optional: true
+  # Lineage: the run whose created content triggered this one, when the
+  # triggering content was agent-made. chain_depth counts automated causation
+  # steps since the last human action (human-authored content has no creating
+  # run, so human participation resets the chain to 0). Observability only —
+  # nothing dispatches or throttles on these.
+  belongs_to :parent_task_run, class_name: "AiAgentTaskRun", optional: true
+  has_many :child_task_runs, class_name: "AiAgentTaskRun", foreign_key: "parent_task_run_id",
+                             inverse_of: :parent_task_run, dependent: :nullify
 
   has_many :agent_session_steps, -> { order(:position) }, dependent: :destroy
   has_many :ai_agent_task_run_resources, dependent: :destroy
@@ -20,18 +28,13 @@ class AiAgentTaskRun < ApplicationRecord
   validates :task, presence: true
   validates :max_steps, presence: true, numericality: { greater_than: 0, less_than_or_equal_to: 50 }
   validates :status, presence: true, inclusion: { in: ["queued", "pending", "running", "completed", "failed", "cancelled"] }
-  validates :mode, presence: true, inclusion: { in: %w[task chat_turn] }
+  validates :mode, presence: true, inclusion: { in: ["task", "chat_turn"] }
 
   scope :recent, -> { order(created_at: :desc) }
   scope :for_ai_agent, ->(ai_agent) { where(ai_agent: ai_agent) }
   scope :completed, -> { where(status: "completed") }
   scope :with_usage, -> { where.not(total_tokens: 0) }
   scope :in_period, ->(start_date, end_date) { where(completed_at: start_date..end_date) }
-
-  sig { params(start_date: T.any(Date, Time, ActiveSupport::TimeWithZone), end_date: T.any(Date, Time, ActiveSupport::TimeWithZone)).returns(T.any(Integer, Float, BigDecimal)) }
-  def self.total_cost_for_period(start_date, end_date)
-    completed.in_period(start_date, end_date).sum(:estimated_cost_usd)
-  end
 
   # Thread-local context management for tracking which task run is currently executing
   class << self
@@ -60,9 +63,10 @@ class AiAgentTaskRun < ApplicationRecord
         task: String,
         max_steps: T.nilable(Integer),
         automation_rule: T.nilable(AutomationRule),
+        parent_task_run: T.nilable(AiAgentTaskRun),
       ).returns(AiAgentTaskRun)
     end
-    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil, automation_rule: nil)
+    def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil, automation_rule: nil, parent_task_run: nil)
       model = ai_agent.agent_configuration&.dig("model") || "default"
 
       create!(
@@ -74,6 +78,8 @@ class AiAgentTaskRun < ApplicationRecord
         model: model,
         status: "queued",
         automation_rule: automation_rule,
+        parent_task_run: parent_task_run,
+        chain_depth: parent_task_run ? parent_task_run.chain_depth + 1 : 0,
       )
     end
   end
@@ -147,15 +153,42 @@ class AiAgentTaskRun < ApplicationRecord
     format_seconds(duration)
   end
 
-  sig { returns(T.nilable(String)) }
-  def formatted_cost
-    return nil unless estimated_cost_usd&.positive?
+  # Cost from the gateway usage ledger — the source of truth for run cost
+  # (the runner reports token counts only; per-call costs land on
+  # LLMUsageRecord rows stamped with this run's id). A live join, since
+  # record-usage can land after the run completes. nil means unknown, not
+  # zero: LiteLLM-routed runs (non-billing tenants) and runs that failed
+  # before any call produce no ledger rows.
+  sig { returns(T.nilable(Numeric)) }
+  def ledger_cost_cents
+    return @ledger_cost_cents if defined?(@ledger_cost_cents)
 
-    if T.must(estimated_cost_usd) < 0.01
+    rows = LLMUsageRecord.completed.where(ai_agent_task_run_id: id)
+    @ledger_cost_cents = rows.exists? ? rows.sum(:estimated_cost_cents) : nil
+  end
+
+  # Ledger rows still awaiting their usage report; their cost is not yet in
+  # ledger_cost_cents.
+  sig { returns(Integer) }
+  def ledger_pending_calls
+    LLMUsageRecord.where(ai_agent_task_run_id: id, status: "pending").count
+  end
+
+  sig { params(cents: T.nilable(Numeric)).returns(T.nilable(String)) }
+  def self.format_cost_cents(cents)
+    return nil if cents.nil?
+
+    dollars = cents.to_f / 100
+    if dollars < 0.01
       "< $0.01"
     else
-      "$#{format("%.4f", estimated_cost_usd)}"
+      "$#{format("%.4f", dollars)}"
     end
+  end
+
+  sig { returns(T.nilable(String)) }
+  def formatted_cost
+    self.class.format_cost_cents(ledger_cost_cents)
   end
 
   sig { returns(T.nilable(String)) }

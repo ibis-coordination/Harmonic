@@ -27,9 +27,8 @@
           <div class="pulse-ai-agent-name">
             <a href="<%= @ai_agent.path %>"><%= @ai_agent.name %></a>
           </div>
-          <% total_cost = @task_runs.sum { |r| r.estimated_cost_usd || 0 } %>
-          <% if total_cost&.positive? %>
-            <span class="pulse-ai-agent-meta">Total Est. Cost: $<%= format("%.2f", total_cost) %></span>
+          <% if @total_cost_cents.positive? %>
+            <span class="pulse-ai-agent-meta">Total Cost: <%= number_to_currency(@total_cost_cents / 100.0) %></span>
           <% end %>
         </div>
       </div>
@@ -60,9 +59,10 @@
                   <span>&middot;</span>
                   <span><%= task_run.formatted_duration %></span>
                 <% end %>
-                <% if task_run.formatted_cost %>
+                <% row_cost = AiAgentTaskRun.format_cost_cents(@run_costs_cents[task_run.id]) %>
+                <% if row_cost %>
                   <span>&middot;</span>
-                  <span><%= task_run.formatted_cost %></span>
+                  <span><%= row_cost %></span>
                 <% end %>
                 <span>&middot;</span>
                 <span><%= timeago(task_run.created_at) %></span>

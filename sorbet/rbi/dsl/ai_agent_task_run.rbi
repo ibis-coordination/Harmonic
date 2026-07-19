@@ -181,6 +181,7 @@ class AiAgentTaskRun
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: ::AiAgentTaskRun).void
       ).void
@@ -191,10 +192,11 @@ class AiAgentTaskRun
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[::AiAgentTaskRun])
     end
-    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_each(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -202,6 +204,7 @@ class AiAgentTaskRun
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         block: T.proc.params(object: T::Array[::AiAgentTaskRun]).void
       ).void
@@ -212,10 +215,11 @@ class AiAgentTaskRun
         finish: T.untyped,
         batch_size: Integer,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol
       ).returns(T::Enumerator[T::Enumerator[::AiAgentTaskRun]])
     end
-    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, order: :asc, &block); end
+    def find_in_batches(start: nil, finish: nil, batch_size: 1000, error_on_ignore: nil, cursor: primary_key, order: :asc, &block); end
 
     sig do
       params(
@@ -297,6 +301,7 @@ class AiAgentTaskRun
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped,
         block: T.proc.params(object: PrivateRelation).void
@@ -309,11 +314,12 @@ class AiAgentTaskRun
         finish: T.untyped,
         load: T.untyped,
         error_on_ignore: T.untyped,
+        cursor: T.untyped,
         order: Symbol,
         use_ranges: T.untyped
       ).returns(::ActiveRecord::Batches::BatchEnumerator)
     end
-    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, order: :asc, use_ranges: nil, &block); end
+    def in_batches(of: 1000, start: nil, finish: nil, load: false, error_on_ignore: nil, cursor: primary_key, order: :asc, use_ranges: nil, &block); end
 
     sig { params(record: T.untyped).returns(T::Boolean) }
     def include?(record); end
@@ -503,6 +509,9 @@ class AiAgentTaskRun
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_initiated_by(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
+    def build_parent_task_run(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -517,6 +526,20 @@ class AiAgentTaskRun
 
     sig { returns(T::Boolean) }
     def chat_session_previously_changed?; end
+
+    sig { returns(T::Array[T.untyped]) }
+    def child_task_run_ids; end
+
+    sig { params(ids: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+    def child_task_run_ids=(ids); end
+
+    # This method is created by ActiveRecord on the `AiAgentTaskRun` class because it declared `has_many :child_task_runs`.
+    # 🔗 [Rails guide for `has_many` association](https://guides.rubyonrails.org/association_basics.html#the-has-many-association)
+    sig { returns(::AiAgentTaskRun::PrivateCollectionProxy) }
+    def child_task_runs; end
+
+    sig { params(value: T::Enumerable[::AiAgentTaskRun]).void }
+    def child_task_runs=(value); end
 
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_ai_agent(*args, &blk); end
@@ -548,6 +571,12 @@ class AiAgentTaskRun
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_initiated_by!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
+    def create_parent_task_run(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::AiAgentTaskRun) }
+    def create_parent_task_run!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
 
@@ -566,6 +595,18 @@ class AiAgentTaskRun
     sig { returns(T::Boolean) }
     def initiated_by_previously_changed?; end
 
+    sig { returns(T.nilable(::AiAgentTaskRun)) }
+    def parent_task_run; end
+
+    sig { params(value: T.nilable(::AiAgentTaskRun)).void }
+    def parent_task_run=(value); end
+
+    sig { returns(T::Boolean) }
+    def parent_task_run_changed?; end
+
+    sig { returns(T::Boolean) }
+    def parent_task_run_previously_changed?; end
+
     sig { returns(T.nilable(::User)) }
     def reload_ai_agent; end
 
@@ -580,6 +621,9 @@ class AiAgentTaskRun
 
     sig { returns(T.nilable(::User)) }
     def reload_initiated_by; end
+
+    sig { returns(T.nilable(::AiAgentTaskRun)) }
+    def reload_parent_task_run; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -598,6 +642,9 @@ class AiAgentTaskRun
 
     sig { void }
     def reset_initiated_by; end
+
+    sig { void }
+    def reset_parent_task_run; end
 
     sig { void }
     def reset_tenant; end
@@ -870,6 +917,51 @@ class AiAgentTaskRun
     sig { void }
     def automation_rule_id_will_change!; end
 
+    sig { returns(::Integer) }
+    def chain_depth; end
+
+    sig { params(value: ::Integer).returns(::Integer) }
+    def chain_depth=(value); end
+
+    sig { returns(T::Boolean) }
+    def chain_depth?; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def chain_depth_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def chain_depth_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def chain_depth_came_from_user?; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def chain_depth_change; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def chain_depth_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def chain_depth_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def chain_depth_in_database; end
+
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def chain_depth_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def chain_depth_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::Integer)) }
+    def chain_depth_previously_was; end
+
+    sig { returns(T.nilable(::Integer)) }
+    def chain_depth_was; end
+
+    sig { void }
+    def chain_depth_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def chat_session_id; end
 
@@ -1049,51 +1141,6 @@ class AiAgentTaskRun
 
     sig { void }
     def error_will_change!; end
-
-    sig { returns(T.nilable(::BigDecimal)) }
-    def estimated_cost_usd; end
-
-    sig { params(value: T.nilable(::BigDecimal)).returns(T.nilable(::BigDecimal)) }
-    def estimated_cost_usd=(value); end
-
-    sig { returns(T::Boolean) }
-    def estimated_cost_usd?; end
-
-    sig { returns(T.nilable(::BigDecimal)) }
-    def estimated_cost_usd_before_last_save; end
-
-    sig { returns(T.untyped) }
-    def estimated_cost_usd_before_type_cast; end
-
-    sig { returns(T::Boolean) }
-    def estimated_cost_usd_came_from_user?; end
-
-    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
-    def estimated_cost_usd_change; end
-
-    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
-    def estimated_cost_usd_change_to_be_saved; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def estimated_cost_usd_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::BigDecimal)) }
-    def estimated_cost_usd_in_database; end
-
-    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
-    def estimated_cost_usd_previous_change; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def estimated_cost_usd_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable(::BigDecimal)) }
-    def estimated_cost_usd_previously_was; end
-
-    sig { returns(T.nilable(::BigDecimal)) }
-    def estimated_cost_usd_was; end
-
-    sig { void }
-    def estimated_cost_usd_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def final_message; end
@@ -1500,11 +1547,59 @@ class AiAgentTaskRun
     sig { void }
     def output_tokens_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def parent_task_run_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def parent_task_run_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def parent_task_run_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def parent_task_run_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def parent_task_run_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def parent_task_run_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def parent_task_run_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def parent_task_run_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def parent_task_run_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def parent_task_run_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def parent_task_run_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def parent_task_run_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def parent_task_run_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def parent_task_run_id_was; end
+
+    sig { void }
+    def parent_task_run_id_will_change!; end
+
     sig { void }
     def restore_ai_agent_id!; end
 
     sig { void }
     def restore_automation_rule_id!; end
+
+    sig { void }
+    def restore_chain_depth!; end
 
     sig { void }
     def restore_chat_session_id!; end
@@ -1517,9 +1612,6 @@ class AiAgentTaskRun
 
     sig { void }
     def restore_error!; end
-
-    sig { void }
-    def restore_estimated_cost_usd!; end
 
     sig { void }
     def restore_final_message!; end
@@ -1547,6 +1639,9 @@ class AiAgentTaskRun
 
     sig { void }
     def restore_output_tokens!; end
+
+    sig { void }
+    def restore_parent_task_run_id!; end
 
     sig { void }
     def restore_started_at!; end
@@ -1587,6 +1682,12 @@ class AiAgentTaskRun
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_automation_rule_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([::Integer, ::Integer])) }
+    def saved_change_to_chain_depth; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_chain_depth?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_chat_session_id; end
 
@@ -1610,12 +1711,6 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_error?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { returns(T.nilable([T.nilable(::BigDecimal), T.nilable(::BigDecimal)])) }
-    def saved_change_to_estimated_cost_usd; end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def saved_change_to_estimated_cost_usd?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_final_message; end
@@ -1670,6 +1765,12 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_output_tokens?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_parent_task_run_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_parent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::ActiveSupport::TimeWithZone), T.nilable(::ActiveSupport::TimeWithZone)])) }
     def saved_change_to_started_at; end
@@ -2137,6 +2238,9 @@ class AiAgentTaskRun
     def will_save_change_to_automation_rule_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_chain_depth?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_chat_session_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2147,9 +2251,6 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_error?(from: T.unsafe(nil), to: T.unsafe(nil)); end
-
-    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
-    def will_save_change_to_estimated_cost_usd?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_final_message?(from: T.unsafe(nil), to: T.unsafe(nil)); end
@@ -2177,6 +2278,9 @@ class AiAgentTaskRun
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_output_tokens?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_parent_task_run_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_started_at?(from: T.unsafe(nil), to: T.unsafe(nil)); end

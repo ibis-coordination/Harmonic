@@ -17,78 +17,6 @@ class AiAgentTaskRunTest < ActiveSupport::TestCase
     @collective.add_user!(@ai_agent)
   end
 
-  # === formatted_cost Tests ===
-
-  test "formatted_cost returns nil when estimated_cost_usd is nil" do
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Test task",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: nil
-    )
-
-    assert_nil task_run.formatted_cost
-  end
-
-  test "formatted_cost returns nil when estimated_cost_usd is zero" do
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Test task",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 0
-    )
-
-    assert_nil task_run.formatted_cost
-  end
-
-  test "formatted_cost returns '< $0.01' for costs under a cent" do
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Test task",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 0.005
-    )
-
-    assert_equal "< $0.01", task_run.formatted_cost
-  end
-
-  test "formatted_cost formats costs at or above a cent" do
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Test task",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 0.0123
-    )
-
-    assert_equal "$0.0123", task_run.formatted_cost
-  end
-
-  test "formatted_cost handles larger costs" do
-    task_run = AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Test task",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 1.2345
-    )
-
-    assert_equal "$1.2345", task_run.formatted_cost
-  end
-
   # === formatted_tokens Tests ===
 
   test "formatted_tokens returns nil when total_tokens is nil" do
@@ -222,69 +150,59 @@ class AiAgentTaskRunTest < ActiveSupport::TestCase
     assert_equal 1, results.count
   end
 
-  # === total_cost_for_period Tests ===
+  # === Ledger cost Tests ===
+  #
+  # The gateway usage ledger (LLMUsageRecord.ai_agent_task_run_id) is the
+  # source of truth for run cost — the runner reports token counts only.
+  # Runs with no ledger rows (LiteLLM-routed, or failed before any call)
+  # have unknown cost, not zero.
 
-  test "total_cost_for_period sums costs for completed runs in date range" do
-    start_date = 1.week.ago
-    end_date = Time.current
-
-    # Create completed runs with costs in the period
-    AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Task 1",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 0.50,
-      completed_at: 3.days.ago
+  def create_ledger_row(task_run, cents:, status: "completed")
+    LLMUsageRecord.create!(
+      selection_id: "sel_#{SecureRandom.uuid}",
+      status: status,
+      ai_agent_id: task_run.ai_agent_id,
+      ai_agent_task_run_id: task_run.id,
+      payer_stripe_customer_id: "cus_test",
+      origin_tenant_id: @tenant.id,
+      estimated_cost_cents: status == "completed" ? cents : nil,
+      occurred_at: Time.current,
+      completed_at: status == "completed" ? Time.current : nil,
     )
-
-    AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Task 2",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 0.25,
-      completed_at: 2.days.ago
-    )
-
-    # Create a failed run (should not be included)
-    AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Failed task",
-      max_steps: 10,
-      status: "failed",
-      estimated_cost_usd: 1.00,
-      completed_at: 1.day.ago
-    )
-
-    # Create a completed run outside the period
-    AiAgentTaskRun.create!(
-      tenant: @tenant,
-      ai_agent: @ai_agent,
-      initiated_by: @user,
-      task: "Old task",
-      max_steps: 10,
-      status: "completed",
-      estimated_cost_usd: 2.00,
-      completed_at: 2.weeks.ago
-    )
-
-    total_cost = AiAgentTaskRun.total_cost_for_period(start_date, end_date)
-    assert_in_delta 0.75, total_cost.to_f, 0.0001
   end
 
-  test "total_cost_for_period returns 0 when no matching runs" do
-    start_date = 1.week.ago
-    end_date = Time.current
+  test "ledger_cost_cents sums completed ledger rows and ignores others" do
+    task_run = create_task_run
+    create_ledger_row(task_run, cents: 30)
+    create_ledger_row(task_run, cents: 12.5)
+    create_ledger_row(task_run, cents: nil, status: "pending")
 
-    total_cost = AiAgentTaskRun.total_cost_for_period(start_date, end_date)
-    assert_equal 0, total_cost.to_f
+    assert_in_delta 42.5, task_run.ledger_cost_cents, 0.0001
+    assert_equal 1, task_run.ledger_pending_calls
+  end
+
+  test "ledger_cost_cents is nil for a run with no ledger rows" do
+    task_run = create_task_run
+
+    assert_nil task_run.ledger_cost_cents
+    assert_nil task_run.formatted_cost
+  end
+
+  test "formatted_cost renders from the ledger" do
+    task_run = create_task_run
+    create_ledger_row(task_run, cents: 42)
+    assert_equal "$0.4200", task_run.formatted_cost
+
+    tiny_run = create_task_run
+    create_ledger_row(tiny_run, cents: 0.5)
+    assert_equal "< $0.01", tiny_run.formatted_cost
+  end
+
+  def create_task_run(status: "completed")
+    AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Test task", max_steps: 10, status: status
+    )
   end
 
   # === Automation Rule Tracking Tests ===

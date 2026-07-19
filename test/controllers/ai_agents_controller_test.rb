@@ -255,6 +255,54 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "completed", json_response["status"]
   end
 
+  # === Run Detail Lineage and Cost Tests ===
+
+  test "run detail shows lineage and ledger cost" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    parent_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Parent task", max_steps: 10, status: "completed"
+    )
+    child_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Child task", max_steps: 10, status: "completed",
+      parent_task_run: parent_run, chain_depth: 1
+    )
+    LLMUsageRecord.create!(
+      selection_id: "sel_#{SecureRandom.uuid}", status: "completed",
+      ai_agent_id: @ai_agent.id, ai_agent_task_run_id: child_run.id,
+      payer_stripe_customer_id: "cus_test", origin_tenant_id: @tenant.id,
+      estimated_cost_cents: 42, occurred_at: Time.current, completed_at: Time.current
+    )
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{child_run.id}"
+    assert_response :success
+    assert_includes response.body, "Triggered from"
+    assert_includes response.body, "chain depth 1"
+    assert_includes response.body, "$0.4200"
+
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{child_run.id}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Triggered from"
+    assert_includes response.body, "$0.4200"
+  end
+
+  test "run detail labels cost as not tracked when the ledger has no rows" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "LiteLLM task", max_steps: 10, status: "completed", total_tokens: 500
+    )
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{task_run.id}"
+    assert_response :success
+    assert_includes response.body, "not tracked"
+  end
+
   # === Cancel Run Tests ===
 
   test "authenticated human user can cancel a queued run" do
@@ -423,6 +471,224 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match @ai_agent.name, response.body
   end
 
+  # === Collective Admin Run Visibility Tests ===
+  #
+  # Collective-principaled agents (parent = the collective's identity user,
+  # e.g. the Trio personas) have no human parent, so the parent-scoped lookup
+  # can never authorize anyone. Active admins of the principal collective are
+  # the humans who answer for the collective, so runs/show_run/cancel_run
+  # resolve for them too. Everything else on /ai-agents stays parent-only.
+
+  test "collective admin can view a collective-principaled agent's runs list" do
+    _, persona, admin, _member = create_persona_collective_with_members
+    create_persona_task_run(persona, initiated_by: admin)
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :success
+    assert_match persona.name, response.body
+  end
+
+  test "collective admin can view a collective-principaled agent's run detail" do
+    _collective, persona, admin, _member = create_persona_collective_with_members
+    task_run = create_persona_task_run(persona, initiated_by: admin)
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}"
+    assert_response :success
+  end
+
+  test "collective admin gets the runs list and run detail in markdown" do
+    _collective, persona, admin, _member = create_persona_collective_with_members
+    task_run = create_persona_task_run(persona, initiated_by: admin)
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+
+    get "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+  end
+
+  test "collective admin can cancel a collective-principaled agent's queued run" do
+    _collective, persona, admin, _member = create_persona_collective_with_members
+    task_run = create_persona_task_run(persona, initiated_by: admin, status: "queued")
+
+    sign_in_as(admin, tenant: @tenant)
+    post "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}/cancel"
+
+    task_run.reload
+    assert_equal "cancelled", task_run.status
+  end
+
+  test "collective automator can view and cancel a collective-principaled agent's runs" do
+    collective, persona, admin, _member = create_persona_collective_with_members
+    task_run = create_persona_task_run(persona, initiated_by: admin, status: "queued")
+    automator = create_user(email: "automator-#{SecureRandom.hex(4)}@example.com", name: "Automator")
+    @tenant.add_user!(automator)
+    collective.add_user!(automator, roles: ["automator"])
+
+    sign_in_as(automator, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :success
+
+    get "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}"
+    assert_response :success
+
+    post "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}/cancel"
+    assert_equal "cancelled", task_run.reload.status
+  end
+
+  test "plain member cannot view a collective-principaled agent's runs" do
+    _collective, persona, admin, member = create_persona_collective_with_members
+    task_run = create_persona_task_run(persona, initiated_by: admin)
+
+    sign_in_as(member, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :not_found
+
+    get "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}"
+    assert_response :not_found
+
+    get "/ai-agents/#{persona_handle(persona)}/runs", headers: { "Accept" => "text/markdown" }
+    assert_response :not_found
+  end
+
+  test "plain member cannot cancel a collective-principaled agent's run" do
+    _collective, persona, admin, member = create_persona_collective_with_members
+    task_run = create_persona_task_run(persona, initiated_by: admin, status: "queued")
+
+    sign_in_as(member, tenant: @tenant)
+    post "/ai-agents/#{persona_handle(persona)}/runs/#{task_run.id}/cancel"
+    assert_response :not_found
+
+    task_run.reload
+    assert_equal "queued", task_run.status
+  end
+
+  test "admin with archived membership cannot view a collective-principaled agent's runs" do
+    collective, persona, admin, _member = create_persona_collective_with_members
+    create_persona_task_run(persona, initiated_by: admin)
+    collective.collective_members.find_by(user: admin).archive!
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :not_found
+  end
+
+  test "admin of a different collective cannot view another collective's persona runs" do
+    _collective_a, persona_a, admin_a, _member = create_persona_collective_with_members
+    create_persona_task_run(persona_a, initiated_by: admin_a)
+
+    admin_b = create_user(email: "admin-b-#{SecureRandom.hex(4)}@example.com", name: "Admin B")
+    @tenant.add_user!(admin_b)
+    collective_b = create_collective(
+      tenant: @tenant, created_by: admin_b,
+      name: "Other Collective", handle: "other-col-#{SecureRandom.hex(4)}"
+    )
+    collective_b.add_user!(admin_b, roles: ["admin"])
+
+    sign_in_as(admin_b, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona_a)}/runs"
+    assert_response :not_found
+  end
+
+  test "collective membership without principalship does not grant run visibility" do
+    # @ai_agent is human-principaled (parent: @user) and a member of
+    # @global_collective. An admin of that collective is not the principal —
+    # membership must not open the runs surface.
+    create_task_run_for_global_agent = lambda do
+      Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+        task: "Test task", max_steps: 10, status: "completed"
+      )
+      Tenant.clear_thread_scope
+      run
+    end
+    task_run = create_task_run_for_global_agent.call
+
+    collective_admin = create_user(email: "col-admin-#{SecureRandom.hex(4)}@example.com", name: "Collective Admin")
+    @tenant.add_user!(collective_admin)
+    @collective.add_user!(collective_admin, roles: ["admin"])
+
+    sign_in_as(collective_admin, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs"
+    assert_response :not_found
+
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{task_run.id}"
+    assert_response :not_found
+  end
+
+  test "collective admin in a representation session cannot view persona runs" do
+    collective, persona, admin, _member = create_persona_collective_with_members
+    create_persona_task_run(persona, initiated_by: admin)
+    collective.collective_members.find_by(user: admin).add_role!("representative")
+
+    sign_in_with_reverification(admin, tenant: @tenant, path: "#{collective.path}/represent")
+    post "#{collective.path}/represent", params: { understand: "1" }
+    assert_redirected_to "/representing"
+
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :forbidden
+  end
+
+  test "workspace owner can view their workspace persona's runs" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace = @user.private_workspace
+    persona = PersonaSeeder.ensure_for(workspace, Personas::MELODY)
+    Tenant.clear_thread_scope
+    create_persona_task_run(persona, initiated_by: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :success
+  end
+
+  test "persona runs stay admin-visible after the persona's membership is archived" do
+    # A retired persona keeps its parent link to the collective's identity
+    # user; its history stays inspectable by the collective's admins.
+    collective, persona, admin, _member = create_persona_collective_with_members
+    create_persona_task_run(persona, initiated_by: admin)
+    collective.collective_members.find_by(user: persona).archive!
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/runs"
+    assert_response :success
+  end
+
+  test "workspace owner cannot edit their workspace persona's identity" do
+    # The owner is the persona's parent (workspaces mint no identity user),
+    # which opens the run surfaces — but persona identity stays managed by
+    # Harmonic: the parent-gated mutation surfaces must refuse system agents.
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace = @user.private_workspace
+    persona = PersonaSeeder.ensure_for(workspace, Personas::MELODY)
+    Tenant.clear_thread_scope
+    handle = persona_handle(persona)
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/ai-agents/#{handle}/settings", params: { name: "Renamed" }
+    assert_response :forbidden
+
+    post "/ai-agents/#{handle}/settings/actions/update_ai_agent", params: { name: "Renamed" }
+    assert_response :forbidden
+
+    assert_equal "Melody", persona.reload.name
+  end
+
+  test "persona handle from another tenant is not found" do
+    other_tenant, other_collective, other_user = create_tenant_collective_user
+    other_collective.add_user!(other_user, roles: ["admin"])
+    other_persona = PersonaSeeder.ensure_for(other_collective, Personas::MELODY)
+    other_handle = other_persona.tenant_users.find_by(tenant: other_tenant).handle
+
+    _collective, _persona, admin, _member = create_persona_collective_with_members
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{other_handle}/runs"
+    assert_response :not_found
+  end
+
   # === New AI Agent Tests ===
 
   test "authenticated human user can access new AI agent form" do
@@ -477,14 +743,14 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     post "/ai-agents/new/actions/create_ai_agent",
          params: { name: "Notif Agent", mode: "internal", notifications_present: "1",
-                   notifications: { comment: { in_app: "true" } } }
+                   notifications: { comment: { in_app: "true" } }, }
 
     assert_response :redirect
     agent = @user.ai_agents.find_by!(name: "Notif Agent")
     tu = agent.tenant_users.find_by(tenant: @tenant)
     assert tu.notification_enabled?("comment", "in_app"), "checked toggle on"
-    refute tu.notification_enabled?("mention", "in_app"), "unchecked toggle off"
-    refute tu.notification_enabled?("comment", "email"), "agents never get email"
+    assert_not tu.notification_enabled?("mention", "in_app"), "unchecked toggle off"
+    assert_not tu.notification_enabled?("comment", "email"), "agents never get email"
   end
 
   test "AI agent user cannot access new AI agent form" do
@@ -829,22 +1095,22 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # Main form submit: notifications_present marks the matrix; comment is
     # checked (in_app), mention is unchecked (box omitted by the browser).
     post "/ai-agents/#{@ai_agent_handle}/settings",
-      params: { name: "Test AI Agent", notifications_present: "1",
-                notifications: { comment: { in_app: "true" } } }
+         params: { name: "Test AI Agent", notifications_present: "1",
+                   notifications: { comment: { in_app: "true" } }, }
 
     assert_response :redirect
     tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
     assert tu.notification_enabled?("comment", "in_app"), "checked toggle stays on"
-    refute tu.notification_enabled?("mention", "in_app"), "unchecked toggle recorded as off"
-    refute tu.notification_enabled?("comment", "email"), "agents never get email — recorded off"
+    assert_not tu.notification_enabled?("mention", "in_app"), "unchecked toggle recorded as off"
+    assert_not tu.notification_enabled?("comment", "email"), "agents never get email — recorded off"
   end
 
   test "update_settings stores unchecked channels as false, not nil" do
     sign_in_as(@user, tenant: @tenant)
 
     post "/ai-agents/#{@ai_agent_handle}/settings",
-      params: { name: "Test AI Agent", notifications_present: "1",
-                notifications: { comment: { in_app: "true" } } }
+         params: { name: "Test AI Agent", notifications_present: "1",
+                   notifications: { comment: { in_app: "true" } }, }
 
     assert_response :redirect
     tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
@@ -854,7 +1120,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # with == false (not !value) so a nil regression fails here.
     assert_equal false, tu.notification_preferences.dig("comment", "email")
     assert_equal false, tu.notification_preferences.dig("mention", "in_app"),
-      "unchecked in_app box stored as false, not nil"
+                 "unchecked in_app box stored as false, not nil"
   end
 
   test "update_settings rolls back notification preferences when the agent save fails" do
@@ -866,13 +1132,13 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # @ai_agent.save. The notification toggles (comment unchecked) must NOT be
     # committed — no partial write.
     post "/ai-agents/#{@ai_agent_handle}/settings",
-      params: { name: "Test AI Agent", mode: "external", notifications_present: "1",
-                notifications: { mention: { in_app: "true" } } }
+         params: { name: "Test AI Agent", mode: "external", notifications_present: "1",
+                   notifications: { mention: { in_app: "true" } }, }
 
     assert_response :redirect
     tu.reload
     assert tu.notification_enabled?("comment", "in_app"),
-      "prefs unchanged because the agent save failed"
+           "prefs unchanged because the agent save failed"
   end
 
   test "update_settings leaves notification preferences untouched when the marker is absent" do
@@ -893,12 +1159,12 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/ai-agents/#{@ai_agent_handle}/settings/actions/update_notification_preferences",
-      params: { notifications: { mention: { email: "false" } } },
-      headers: { "Accept" => "text/markdown" }
+         params: { notifications: { mention: { email: "false" } } },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     tu = @ai_agent.tenant_users.find_by(tenant: @tenant)
-    refute tu.notification_enabled?("mention", "email"), "supplied toggle applied"
+    assert_not tu.notification_enabled?("mention", "email"), "supplied toggle applied"
     assert tu.notification_enabled?("comment", "in_app"), "untouched type keeps its default"
   end
 
@@ -1613,7 +1879,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
     get "/ai-agents/#{@ai_agent_handle}/mcp-tool-calls/#{log.id}"
     assert_response :success
-    assert_match %r{<a[^>]+href="#{Regexp.escape(safe_path)}"}, response.body
+    assert_match(/<a[^>]+href="#{Regexp.escape(safe_path)}"/, response.body)
   end
 
   # Regression guard for the show_mcp_tool_call.html.erb review finding
@@ -1630,7 +1896,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # The value is still shown to the human operator ...
     assert_match "javascript:alert(document.cookie)", response.body
     # ... but never as a clickable link that would execute it.
-    assert_no_match %r{href=["']\s*javascript:}i, response.body
+    assert_no_match(/href=["']\s*javascript:/i, response.body)
   end
 
   test "MCP tool call detail returns 404 for an unknown log id" do
@@ -1654,5 +1920,37 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     FeatureFlagService.config["stripe_billing"] ||= {}
     FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
+  end
+
+  # Builds a collective with a seeded persona agent (collective-principaled:
+  # the persona's parent is the collective's identity user), an active admin,
+  # and a plain member.
+  def create_persona_collective_with_members
+    admin = create_user(email: "persona-admin-#{SecureRandom.hex(4)}@example.com", name: "Persona Admin")
+    member = create_user(email: "persona-member-#{SecureRandom.hex(4)}@example.com", name: "Persona Member")
+    @tenant.add_user!(admin)
+    @tenant.add_user!(member)
+    collective = create_collective(
+      tenant: @tenant, created_by: admin,
+      name: "Persona Collective", handle: "persona-col-#{SecureRandom.hex(4)}"
+    )
+    collective.add_user!(admin, roles: ["admin"])
+    collective.add_user!(member)
+    persona = PersonaSeeder.ensure_for(collective, Personas::MELODY)
+    [collective, persona, admin, member]
+  end
+
+  def persona_handle(persona)
+    persona.tenant_users.find_by(tenant: @tenant).handle
+  end
+
+  def create_persona_task_run(persona, initiated_by:, status: "completed")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: persona, initiated_by: initiated_by,
+      task: "Persona task", max_steps: 10, status: status
+    )
+  ensure
+    Tenant.clear_thread_scope
   end
 end

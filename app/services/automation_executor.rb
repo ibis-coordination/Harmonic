@@ -112,7 +112,8 @@ class AutomationExecutor
       initiated_by: initiated_by,
       task: task_prompt,
       max_steps: @rule.max_steps,
-      automation_rule: @rule
+      automation_rule: @rule,
+      parent_task_run: parent_task_run
     )
 
     # Link the automation run to the task run
@@ -380,12 +381,33 @@ class AutomationExecutor
       initiated_by: initiated_by,
       task: task_prompt,
       max_steps: action["max_steps"]&.to_i,
-      automation_rule: @rule
+      automation_rule: @rule,
+      parent_task_run: parent_task_run
     )
 
     AgentRunnerDispatchService.dispatch(task_run)
 
     { "status" => "success", "task_run_id" => task_run.id }
+  end
+
+  # Lineage: when the content that triggered this rule was itself created by a
+  # task run, that run is the new run's parent — chain_depth then reads as
+  # "automated causation steps since the last human action" (human-authored
+  # content has no creating run, so human participation resets the chain).
+  # Derived from data at creation, not threaded through the runner boundary.
+  # Schedule/webhook triggers have no event and get no parent.
+  sig { returns(T.nilable(AiAgentTaskRun)) }
+  def parent_task_run
+    subject = @event&.subject
+    return nil unless subject
+
+    # Scoped from the rule's tenant rather than the thread-local default so
+    # the derivation holds wherever the executor runs.
+    AiAgentTaskRunResource.tenant_scoped_only(T.must(@rule.tenant_id)).find_by(
+      resource_type: subject.class.name,
+      resource_id: subject.id,
+      action_type: "create"
+    )&.ai_agent_task_run
   end
 
   sig { params(params: T::Hash[String, T.untyped]).returns(T::Hash[String, T.untyped]) }

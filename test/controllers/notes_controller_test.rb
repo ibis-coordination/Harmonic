@@ -5,7 +5,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     @tenant = @global_tenant
     @collective = @global_collective
     @user = @global_user
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
   # === Unauthenticated Access Tests ===
@@ -126,8 +126,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       post "/collectives/#{@collective.handle}/note", params: {
         note: {
           title: "Test Note Title",
-          text: "This is the note content"
-        }
+          text: "This is the note content",
+        },
       }
     end
 
@@ -152,7 +152,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -164,7 +164,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
   test "returns 404 for non-existent note" do
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/n/nonexist",
-        headers: { "HTTP_HOST" => "#{@tenant.subdomain}.#{ENV['HOSTNAME']}" }
+        headers: { "HTTP_HOST" => "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}" }
     assert_response :not_found
   end
 
@@ -181,7 +181,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -200,10 +200,10 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = Note.create!(
       tenant: @tenant,
       collective: @collective,
-      created_by: @user,  # Created by @user
+      created_by: @user, # Created by @user
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -226,7 +226,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Original Title",
       text: "Original content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -235,8 +235,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit", params: {
       note: {
         title: "Updated Title",
-        text: "Updated content"
-      }
+        text: "Updated content",
+      },
     }
 
     note.reload
@@ -258,7 +258,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Original Title",
       text: "Original content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -266,8 +266,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(other_user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit", params: {
       note: {
-        title: "Hacked Title"
-      }
+        title: "Hacked Title",
+      },
     }
 
     assert_response :forbidden
@@ -288,7 +288,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -310,15 +310,15 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
     initial_count = Note.unscoped.count
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments",
-      params: { text: "This is a test comment" },
-      headers: { "Accept" => "application/json" }
+         params: { text: "This is a test comment" },
+         headers: { "Accept" => "application/json" }
 
     assert_response :success, "Expected success but got #{response.status}: #{response.body}"
     json_response = JSON.parse(response.body)
@@ -352,14 +352,14 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       # Limit is 5 per minute per (user, item)
       5.times do |i|
         post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments",
-          params: { text: "Comment #{i}" },
-          headers: { "Accept" => "application/json" }
+             params: { text: "Comment #{i}" },
+             headers: { "Accept" => "application/json" }
         assert_response :success, "Comment #{i + 1} should succeed: #{response.status} #{response.body}"
       end
 
       post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/comments",
-        params: { text: "Over limit" },
-        headers: { "Accept" => "application/json" }
+           params: { text: "Over limit" },
+           headers: { "Accept" => "application/json" }
       assert_response :too_many_requests
     ensure
       Sidekiq.redis do |conn|
@@ -380,7 +380,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
 
     # Create a comment on the note
@@ -414,13 +414,13 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
-      headers: { "Accept" => "application/json" }
+         headers: { "Accept" => "application/json" }
 
     assert_response :success
     json_response = JSON.parse(response.body)
@@ -441,7 +441,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
       created_by: @user,
       title: "Test Note",
       text: "Test content",
-      deadline: Time.current + 1.week
+      deadline: 1.week.from_now
     )
     Collective.clear_thread_scope
     Tenant.clear_thread_scope
@@ -449,7 +449,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     # First user confirms
     sign_in_as(@user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
-      headers: { "Accept" => "application/json" }
+         headers: { "Accept" => "application/json" }
 
     assert_response :success
     json_response = JSON.parse(response.body)
@@ -458,7 +458,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     # Second user confirms
     sign_in_as(other_user, tenant: @tenant)
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/confirm_read",
-      headers: { "Accept" => "application/json" }
+         headers: { "Accept" => "application/json" }
 
     assert_response :success
     json_response = JSON.parse(response.body)
@@ -494,7 +494,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/settings",
-      params: { note: { title: "Updated Title" }, table_description: "New description", edit_access: "members" }
+         params: { note: { title: "Updated Title" }, table_description: "New description", edit_access: "members" }
 
     assert_response :redirect
     note.reload
@@ -511,7 +511,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     original_text = note.text
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/settings",
-      params: { note: { title: "New Title", text: "hacked text" } }
+         params: { note: { title: "New Title", text: "hacked text" } }
 
     assert_response :redirect
     note.reload
@@ -525,16 +525,16 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note/actions/create_table_note",
-      params: {
-        title: "Agent Table",
-        columns: [
-          { name: "Status", type: "text" },
-          { name: "Due", type: "date" },
-        ],
-        description: "Created by agent",
-        edit_access: "members",
-      },
-      headers: { "Accept" => "text/markdown" }
+         params: {
+           title: "Agent Table",
+           columns: [
+             { name: "Status", type: "text" },
+             { name: "Due", type: "date" },
+           ],
+           description: "Created by agent",
+           edit_access: "members",
+         },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note = Note.last
@@ -549,14 +549,14 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference -> { Note.count } do
       post "/collectives/#{@collective.handle}/note/actions/create_table_note",
-        params: {
-          title: "Sneaky Table",
-          columns: [
-            { name: "Status", type: "text" },
-            { name: "_harmonic_row_id", type: "text" },
-          ],
-        },
-        headers: { "Accept" => "text/markdown" }
+           params: {
+             title: "Sneaky Table",
+             columns: [
+               { name: "Status", type: "text" },
+               { name: "_harmonic_row_id", type: "text" },
+             ],
+           },
+           headers: { "Accept" => "text/markdown" }
     end
 
     assert_response :unprocessable_entity
@@ -567,7 +567,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     get "/collectives/#{@collective.handle}/note",
-      headers: { "Accept" => "text/markdown" }
+        headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "create_table_note"
@@ -579,15 +579,15 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note",
-      params: {
-        subtype: "table",
-        title: "My Table",
-        table_description: "Tracks tasks",
-        columns: {
-          "0" => { name: "Status", type: "text" },
-          "1" => { name: "Due", type: "date" },
-        },
-      }
+         params: {
+           subtype: "table",
+           title: "My Table",
+           table_description: "Tracks tasks",
+           columns: {
+             "0" => { name: "Status", type: "text" },
+             "1" => { name: "Due", type: "date" },
+           },
+         }
 
     assert_response :redirect
     note = Note.last
@@ -602,14 +602,14 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note",
-      params: {
-        subtype: "table",
-        title: "Sparse Table",
-        columns: {
-          "0" => { name: "Keep", type: "text" },
-          "1" => { name: "", type: "text" },
-        },
-      }
+         params: {
+           subtype: "table",
+           title: "Sparse Table",
+           columns: {
+             "0" => { name: "Keep", type: "text" },
+             "1" => { name: "", type: "text" },
+           },
+         }
 
     assert_response :redirect
     note = Note.last
@@ -626,15 +626,15 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     ]
 
     post "/collectives/#{@collective.handle}/note",
-      params: {
-        subtype: "table",
-        title: "Imported Table",
-        columns: {
-          "0" => { name: "Status", type: "text" },
-          "1" => { name: "Due", type: "date" },
-        },
-        initial_rows: initial_rows.to_json,
-      }
+         params: {
+           subtype: "table",
+           title: "Imported Table",
+           columns: {
+             "0" => { name: "Status", type: "text" },
+             "1" => { name: "Due", type: "date" },
+           },
+           initial_rows: initial_rows.to_json,
+         }
 
     assert_response :redirect
     note = Note.last
@@ -688,7 +688,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_row",
-      params: { values: { "Status" => "done", "Due" => "2026-05-01" } }
+         params: { values: { "Status" => "done", "Due" => "2026-05-01" } }
 
     assert_response :redirect
     assert_redirected_to note.path
@@ -703,7 +703,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/delete_row",
-      params: { row_id: row["_harmonic_row_id"] }
+         params: { row_id: row["_harmonic_row_id"] }
 
     assert_response :redirect
     assert_redirected_to note.path
@@ -716,8 +716,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_row",
-      params: { values: { "Status" => "done", "Due" => "2026-05-01" } },
-      headers: { "Accept" => "text/markdown" }
+         params: { values: { "Status" => "done", "Due" => "2026-05-01" } },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note.reload
@@ -732,8 +732,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "pending", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_row",
-      params: { row_id: row["_harmonic_row_id"], values: { "Status" => "done" } },
-      headers: { "Accept" => "text/markdown" }
+         params: { row_id: row["_harmonic_row_id"], values: { "Status" => "done" } },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note.reload
@@ -747,8 +747,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/delete_row",
-      params: { row_id: row["_harmonic_row_id"] },
-      headers: { "Accept" => "text/markdown" }
+         params: { row_id: row["_harmonic_row_id"] },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note.reload
@@ -763,13 +763,13 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     table.add_row!({ "Status" => "pending", "Due" => "2026-05-02" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/query_rows",
-      params: { where: { "Status" => "done" } },
-      headers: { "Accept" => "text/markdown" }
+         params: { where: { "Status" => "done" } },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "1 rows match"
     assert_includes response.body, "done"
-    refute_includes response.body, "pending"
+    assert_not_includes response.body, "pending"
   end
 
   test "query_rows action exposes each row's _harmonic_row_id so it can be updated or deleted" do
@@ -779,8 +779,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     row = table.add_row!({ "Status" => "done", "Due" => "2026-05-01" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/query_rows",
-      params: {},
-      headers: { "Accept" => "text/markdown" }
+         params: {},
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "| _harmonic_row_id | Status | Due |"
@@ -799,8 +799,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     table.add_row!({ "Amount" => "20" }, created_by: @user)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/summarize",
-      params: { operation: "sum", column: "Amount" },
-      headers: { "Accept" => "text/markdown" }
+         params: { operation: "sum", column: "Amount" },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "30.0"
@@ -811,8 +811,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_table_column",
-      params: { name: "Priority", type: "text" },
-      headers: { "Accept" => "text/markdown" }
+         params: { name: "Priority", type: "text" },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note.reload
@@ -824,8 +824,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/remove_table_column",
-      params: { name: "Due" },
-      headers: { "Accept" => "text/markdown" }
+         params: { name: "Due" },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note.reload
@@ -837,8 +837,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/update_table_description",
-      params: { description: "New description" },
-      headers: { "Accept" => "text/markdown" }
+         params: { description: "New description" },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     note.reload
@@ -850,14 +850,14 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/batch_table_update",
-      params: {
-        operations: [
-          { action: "add_row", values: { "Status" => "a", "Due" => "2026-05-01" } },
-          { action: "add_row", values: { "Status" => "b", "Due" => "2026-05-02" } },
-          { action: "add_row", values: { "Status" => "c", "Due" => "2026-05-03" } },
-        ],
-      },
-      headers: { "Accept" => "text/markdown" }
+         params: {
+           operations: [
+             { action: "add_row", values: { "Status" => "a", "Due" => "2026-05-01" } },
+             { action: "add_row", values: { "Status" => "b", "Due" => "2026-05-02" } },
+             { action: "add_row", values: { "Status" => "c", "Due" => "2026-05-03" } },
+           ],
+         },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "3 operations applied"
@@ -872,7 +872,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     note = create_table_note
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
-      headers: { "Accept" => "text/markdown" }
+        headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "add_row"
@@ -891,12 +891,12 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
-      headers: { "Accept" => "text/markdown" }
+        headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    refute_includes response.body, "add_row"
-    refute_includes response.body, "query_rows"
-    refute_includes response.body, "batch_table_update"
+    assert_not_includes response.body, "add_row"
+    assert_not_includes response.body, "query_rows"
+    assert_not_includes response.body, "batch_table_update"
     # Should still have standard note actions
     assert_includes response.body, "confirm_read"
   end
@@ -909,8 +909,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_row",
-      params: { values: { "Col" => "val" } },
-      headers: { "Accept" => "text/markdown" }
+         params: { values: { "Col" => "val" } },
+         headers: { "Accept" => "text/markdown" }
 
     # add_row is denied on non-table notes — the execute-time authorization gate
     # rejects it (TABLE_CONTENT_EDIT_AUTHORIZATION requires a table note),
@@ -941,11 +941,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: {
-          subtype: "reminder",
-          text: "Remember to review PR",
-          scheduled_for: scheduled_time,
-        }
+           params: {
+             subtype: "reminder",
+             text: "Remember to review PR",
+             scheduled_for: scheduled_time,
+           }
     end
 
     note = Note.last
@@ -967,11 +967,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     scheduled_time = 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
 
     post "/collectives/#{@collective.handle}/note",
-      params: {
-        subtype: "reminder",
-        text: "Hey @mentioned-person don't forget the meeting",
-        scheduled_for: scheduled_time,
-      }
+         params: {
+           subtype: "reminder",
+           text: "Hey @mentioned-person don't forget the meeting",
+           scheduled_for: scheduled_time,
+         }
 
     note = Note.last
     notification = note.reminder_notification
@@ -986,10 +986,10 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: {
-          subtype: "reminder",
-          text: "No time specified",
-        }
+           params: {
+             subtype: "reminder",
+             text: "No time specified",
+           }
     end
 
     note = Note.last
@@ -1025,7 +1025,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Acknowledge Reminder"
     assert_includes response.body, "acknowledge.html"
-    refute_includes response.body, "Confirm Read"
+    assert_not_includes response.body, "Confirm Read"
   end
 
   test "delivered reminder show page shows Acknowledgments in history after acknowledging" do
@@ -1056,7 +1056,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "Acknowledgments"
-    refute_includes response.body, "Confirmed Readers"
+    assert_not_includes response.body, "Confirmed Readers"
   end
 
   test "pending reminder show page shows confirm read not acknowledge" do
@@ -1087,7 +1087,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "Confirm Read"
-    refute_includes response.body, "Acknowledge Reminder"
+    assert_not_includes response.body, "Acknowledge Reminder"
   end
 
   test "reminder note show page displays reminder status" do
@@ -1116,7 +1116,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "data-controller=\"countdown\""
     assert_includes response.body, "countdown:completed->note#countdownCompleted"
     # Cancel button should NOT be on the show page
-    refute_includes response.body, "cancel_reminder"
+    assert_not_includes response.body, "cancel_reminder"
   end
 
   test "edit page shows cancel reminder checkbox for pending reminders" do
@@ -1205,7 +1205,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "can no longer be edited"
     assert_includes response.body, "delete_note"
-    refute_includes response.body, "Save Note"
+    assert_not_includes response.body, "Save Note"
   end
 
   test "edit page for cancelled reminder shows delete but no edit form" do
@@ -1235,7 +1235,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "can no longer be edited"
     assert_includes response.body, "delete_note"
-    refute_includes response.body, "Save Note"
+    assert_not_includes response.body, "Save Note"
   end
 
   test "show page still shows edit button for delivered reminder notes" do
@@ -1289,7 +1289,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit",
-      params: { text: "Reminder content", cancel_reminder: "1" }
+         params: { text: "Reminder content", cancel_reminder: "1" }
 
     assert_response :redirect
     note.reload
@@ -1319,7 +1319,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
-      headers: { "Accept" => "text/markdown" }
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "Reminder cancelled"
@@ -1355,7 +1355,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
-      headers: { "Accept" => "text/markdown" }
+         headers: { "Accept" => "text/markdown" }
 
     # A non-author admin cannot edit the note, so cancel_reminder is denied by
     # the execute-time authorization gate before the reminder is touched.
@@ -1390,7 +1390,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/cancel_reminder",
-      headers: { "Accept" => "text/markdown" }
+         headers: { "Accept" => "text/markdown" }
 
     # Should fail — not authorized to edit the note (enforced by the
     # execute-time authorization gate before the reminder is touched)
@@ -1421,7 +1421,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
-      headers: { "Accept" => "text/markdown" }
+        headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "reminder_status"
@@ -1434,11 +1434,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
-      params: {
-        text: "Don't forget the standup",
-        scheduled_for: 1.day.from_now.iso8601,
-      },
-      headers: { "Accept" => "text/markdown" }
+         params: {
+           text: "Don't forget the standup",
+           scheduled_for: 1.day.from_now.iso8601,
+         },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "Reminder note created"
@@ -1455,11 +1455,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
-        params: {
-          text: "Should be cleaned up",
-          scheduled_for: 1.day.ago.iso8601, # Past time triggers ReminderSchedulingError
-        },
-        headers: { "Accept" => "text/markdown" }
+           params: {
+             text: "Should be cleaned up",
+             scheduled_for: 1.day.ago.iso8601, # Past time triggers ReminderSchedulingError
+           },
+           headers: { "Accept" => "text/markdown" }
     end
 
     assert_includes response.body, "scheduling failed"
@@ -1469,8 +1469,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
-      params: { scheduled_for: 1.day.from_now.iso8601 },
-      headers: { "Accept" => "text/markdown" }
+         params: { scheduled_for: 1.day.from_now.iso8601 },
+         headers: { "Accept" => "text/markdown" }
 
     assert_includes response.body, "text is required"
   end
@@ -1479,8 +1479,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
-      params: { text: "Reminder" },
-      headers: { "Accept" => "text/markdown" }
+         params: { text: "Reminder" },
+         headers: { "Accept" => "text/markdown" }
 
     assert_includes response.body, "scheduled_for is required"
   end
@@ -1489,8 +1489,8 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/note/actions/create_reminder_note",
-      params: { text: "Check on deploy", scheduled_for: "2h" },
-      headers: { "Accept" => "text/markdown" }
+         params: { text: "Check on deploy", scheduled_for: "2h" },
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "Reminder note created"
@@ -1508,11 +1508,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: {
-          subtype: "reminder",
-          text: "This should not be created",
-          scheduled_for: past_time,
-        }
+           params: {
+             subtype: "reminder",
+             text: "This should not be created",
+             scheduled_for: past_time,
+           }
     end
 
     # Re-renders the form with an error. 422 (not 200) so Turbo's form-error
@@ -1547,11 +1547,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     notification.notification_recipients.each(&:mark_delivered!)
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
-      headers: { "Accept" => "text/markdown" }
+        headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "acknowledge_reminder"
-    refute_includes response.body, "confirm_read"
+    assert_not_includes response.body, "confirm_read"
   end
 
   test "markdown UI shows confirm_read and hides acknowledge_reminder for pending reminders" do
@@ -1576,11 +1576,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}",
-      headers: { "Accept" => "text/markdown" }
+        headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "confirm_read"
-    refute_includes response.body, "acknowledge_reminder"
+    assert_not_includes response.body, "acknowledge_reminder"
   end
 
   test "acknowledge_reminder rejects non-reminder notes" do
@@ -1595,7 +1595,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/acknowledge_reminder",
-      headers: { "Accept" => "text/markdown" }
+         headers: { "Accept" => "text/markdown" }
 
     assert_includes response.body, "Not a reminder note"
   end
@@ -1622,7 +1622,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     )
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/acknowledge_reminder",
-      headers: { "Accept" => "text/markdown" }
+         headers: { "Accept" => "text/markdown" }
 
     assert_includes response.body, "Reminder has not fired yet"
   end
@@ -1651,7 +1651,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     notification.notification_recipients.each(&:mark_delivered!)
 
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/acknowledge_reminder",
-      headers: { "Accept" => "text/markdown" }
+         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_includes response.body, "acknowledged"
@@ -1710,7 +1710,7 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: { text: "", subtype: "post" }
+           params: { text: "", subtype: "post" }
     end
   end
 
@@ -1719,12 +1719,12 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: {
-          text: "",
-          subtype: "reminder",
-          scheduled_for: 1.day.from_now.strftime("%Y-%m-%dT%H:%M"),
-          timezone: "UTC",
-        }
+           params: {
+             text: "",
+             subtype: "reminder",
+             scheduled_for: 1.day.from_now.strftime("%Y-%m-%dT%H:%M"),
+             timezone: "UTC",
+           }
     end
   end
 
@@ -1812,11 +1812,11 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     new_time = 2.days.from_now.in_time_zone("UTC")
     post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/edit",
-      params: {
-        text: "Updated reminder content",
-        scheduled_for: new_time.strftime("%Y-%m-%dT%H:%M"),
-        timezone: "UTC",
-      }
+         params: {
+           text: "Updated reminder content",
+           scheduled_for: new_time.strftime("%Y-%m-%dT%H:%M"),
+           timezone: "UTC",
+         }
 
     assert_response :redirect
     note.reload
@@ -1835,12 +1835,12 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference "Note.count" do
       post "/collectives/#{@collective.handle}/note",
-        params: {
-          subtype: "reminder",
-          text: "Timezone reminder",
-          scheduled_for: datetime_local,
-          timezone: "Pacific Time (US & Canada)",
-        }
+           params: {
+             subtype: "reminder",
+             text: "Timezone reminder",
+             scheduled_for: datetime_local,
+             timezone: "Pacific Time (US & Canada)",
+           }
     end
 
     note = Note.last
@@ -1872,7 +1872,65 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # The cell value should be rendered as a clickable link, not raw markdown text
-    assert_match(/<a [^>]*href="https:\/\/example\.com"/, response.body)
+    assert_match(%r{<a [^>]*href="https://example\.com"}, response.body)
     assert_not_includes response.body, "[Example](https://example.com)"
+  end
+
+  # === Persona task-run link visibility ===
+
+  test "persona comment shows its task-run link to admins and automators, not plain members" do
+    admin = create_user(email: "tr-admin-#{SecureRandom.hex(4)}@example.com", name: "TR Admin")
+    automator = create_user(email: "tr-auto-#{SecureRandom.hex(4)}@example.com", name: "TR Automator")
+    member = create_user(email: "tr-member-#{SecureRandom.hex(4)}@example.com", name: "TR Member")
+    [admin, automator, member].each { |u| @tenant.add_user!(u) }
+    collective = create_collective(
+      tenant: @tenant, created_by: admin,
+      name: "Run Link Collective", handle: "run-link-#{SecureRandom.hex(4)}"
+    )
+    collective.add_user!(admin, roles: ["admin"])
+    collective.add_user!(automator, roles: ["automator"])
+    collective.add_user!(member)
+    persona = PersonaSeeder.ensure_for(collective, Personas::MELODY)
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: collective.handle)
+    note = create_note(tenant: @tenant, collective: collective, created_by: admin, title: "Run link note")
+    comment = create_note(
+      tenant: @tenant, collective: collective, created_by: persona,
+      title: nil, text: "A persona reply.", commentable: note
+    )
+    run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: persona, initiated_by: admin,
+      task: "Reply to the note", max_steps: 10, status: "completed"
+    )
+    AiAgentTaskRunResource.create!(
+      tenant: @tenant, ai_agent_task_run: run, resource: comment,
+      resource_collective: collective, action_type: "create"
+    )
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    note_path = "/collectives/#{collective.handle}/n/#{note.truncated_id}"
+
+    sign_in_as(admin, tenant: @tenant)
+    get note_path
+    assert_response :success
+    assert_includes response.body, "View task run"
+
+    # Comments render only after the viewer confirms reading the note (the
+    # author counts as read), so non-author viewers confirm first.
+    sign_in_as(automator, tenant: @tenant)
+    post "#{note_path}/actions/confirm_read"
+    get note_path
+    assert_response :success
+    assert_includes response.body, "A persona reply.", "persona comment should render"
+    assert_includes response.body, "View task run"
+
+    sign_in_as(member, tenant: @tenant)
+    post "#{note_path}/actions/confirm_read"
+    get note_path
+    assert_response :success
+    assert_includes response.body, "A persona reply.", "persona comment should render"
+    assert_not_includes response.body, "View task run"
   end
 end

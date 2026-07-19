@@ -355,6 +355,35 @@ class User < ApplicationRecord
     @private_workspace = Collective.find_by(created_by_id: id, collective_type: "private_workspace")
   end
 
+  # The collective this agent answers to when collective-principaled (its
+  # parent is a collective's identity user); nil for every other user,
+  # including workspace personas (principaled by the workspace owner, a
+  # human). Authorization surfaces resolve the collective from the agent
+  # through this link — never from params — so principalship survives an
+  # archived membership and mere membership confers nothing.
+  sig { returns(T.nilable(Collective)) }
+  def principal_collective
+    return nil unless ai_agent? && parent_id
+
+    Collective.find_by(identity_user_id: parent_id)
+  end
+
+  # Whether `viewer` may see this agent's task runs: the parent, or an active
+  # admin/automator of the principal collective. The single predicate behind
+  # every "view task run" link; mirrors the authorization on the run pages
+  # (AiAgentsController#find_ai_agent_for_run_views).
+  sig { params(viewer: T.nilable(User)).returns(T::Boolean) }
+  def task_runs_viewable_by?(viewer)
+    return false unless ai_agent? && viewer&.human?
+    return true if parent_id.present? && parent_id == viewer.id
+
+    collective = principal_collective
+    return false unless collective
+
+    member = collective.collective_members.find_by(user: viewer)
+    !!member&.can_manage_automations?
+  end
+
   # Check if this user is authorized to use the given identity user.
   # Used to validate that an identity_user_id in the session is legitimate.
   #
@@ -716,10 +745,10 @@ class User < ApplicationRecord
     end
 
     # Sync subscription quantity once after all suspensions complete
-    unless skip_billing_sync
-      billing_user = ai_agent? ? User.find_by(id: parent_id) : self
-      StripeService.sync_subscription_quantity!(billing_user) if billing_user
-    end
+    return if skip_billing_sync
+
+    billing_user = ai_agent? ? User.find_by(id: parent_id) : self
+    StripeService.sync_subscription_quantity!(billing_user) if billing_user
   end
 
   sig { void }

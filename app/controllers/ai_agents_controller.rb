@@ -72,12 +72,13 @@ class AiAgentsController < ApplicationController
         runs.first
     end
 
-    # Calculate total estimated costs per agent (all time)
-    @total_costs_by_ai_agent = AiAgentTaskRun
+    # Total ledger cost per agent (all time), in cents. The gateway usage
+    # ledger is the source of truth for cost; LiteLLM-routed runs produce no
+    # ledger rows and so show no cost.
+    @total_costs_by_ai_agent = LLMUsageRecord.completed
       .where(ai_agent_id: ai_agent_ids)
-      .completed
       .group(:ai_agent_id)
-      .sum(:estimated_cost_usd)
+      .sum(:estimated_cost_cents)
 
     # Sort AI agents by most recent run first, then by created_at for those without runs
     @ai_agents = ai_agents.sort_by do |s|
@@ -289,18 +290,25 @@ class AiAgentsController < ApplicationController
   def runs
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can view task runs" unless current_user&.human?
 
-    @ai_agent = find_ai_agent_by_handle
+    @ai_agent = find_ai_agent_for_run_views
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
 
     @page_title = "Task Runs - #{@ai_agent.display_name}"
     @task_runs = AiAgentTaskRun.where(ai_agent: @ai_agent).recent
+    # One grouped ledger query for the whole list — per-row ledger_cost_cents
+    # would be N+1.
+    @run_costs_cents = LLMUsageRecord.completed
+      .where(ai_agent_task_run_id: @task_runs.map(&:id))
+      .group(:ai_agent_task_run_id)
+      .sum(:estimated_cost_cents)
+    @total_cost_cents = @run_costs_cents.values.sum
   end
 
   # GET /ai-agents/:handle/runs/:run_id - Show a specific task run
   def show_run
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can view task runs" unless current_user&.human?
 
-    @ai_agent = find_ai_agent_by_handle
+    @ai_agent = find_ai_agent_for_run_views
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
 
     @task_run = AiAgentTaskRun.find_by(id: params[:run_id], ai_agent: @ai_agent)
@@ -339,7 +347,7 @@ class AiAgentsController < ApplicationController
   def cancel_run
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can cancel task runs" unless current_user&.human?
 
-    @ai_agent = find_ai_agent_by_handle
+    @ai_agent = find_ai_agent_for_run_views
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
 
     @task_run = AiAgentTaskRun.find_by(id: params[:run_id], ai_agent: @ai_agent)
@@ -448,21 +456,21 @@ class AiAgentsController < ApplicationController
   def execute_create_ai_agent
     unless current_user&.human?
       return render_action_error({
-                                   action_name: "create_ai_agent",
-                                   resource: @current_user,
-                                   error: "Only human accounts can create AI agents.",
-                                   status: :forbidden,
-                                 })
+        action_name: "create_ai_agent",
+        resource: @current_user,
+        error: "Only human accounts can create AI agents.",
+        status: :forbidden,
+      })
     end
 
     if current_user.requires_stripe_billing?(current_tenant)
       respond_to do |format|
         format.md do
           return render_action_error({
-                                       action_name: "create_ai_agent",
-                                       resource: @current_user,
-                                       error: "Billing is not set up. Please set up billing at /billing before creating AI agents.",
-                                     })
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "Billing is not set up. Please set up billing at /billing before creating AI agents.",
+          })
         end
         format.any do
           session[:billing_return_to] = new_ai_agent_path
@@ -482,10 +490,10 @@ class AiAgentsController < ApplicationController
       respond_to do |format|
         format.md do
           return render_action_error({
-                                       action_name: "create_ai_agent",
-                                       resource: @current_user,
-                                       error: "You must confirm that you understand each AI agent costs $3/month added to your subscription.",
-                                     })
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "You must confirm that you understand each AI agent costs $3/month added to your subscription.",
+          })
         end
         format.any do
           flash[:alert] = "You must confirm the billing charge to create an AI agent."
@@ -508,10 +516,10 @@ class AiAgentsController < ApplicationController
       respond_to do |format|
         format.md do
           return render_action_error({
-                                       action_name: "create_ai_agent",
-                                       resource: @current_user,
-                                       error: msg,
-                                     })
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: msg,
+          })
         end
         format.any do
           flash[:alert] = msg
@@ -590,11 +598,11 @@ class AiAgentsController < ApplicationController
     respond_to do |format|
       format.md do
         render_action_success({
-                                action_name: "create_ai_agent",
-                                resource: @ai_agent,
-                                result: notice,
-                                redirect_to: redirect_path,
-                              })
+          action_name: "create_ai_agent",
+          resource: @ai_agent,
+          result: notice,
+          redirect_to: redirect_path,
+        })
       end
       format.html { redirect_to redirect_path }
     end
@@ -633,17 +641,17 @@ class AiAgentsController < ApplicationController
 
     if @ai_agent.save
       render_action_success({
-                              action_name: "update_profile",
-                              resource: @ai_agent,
-                              result: "AI Agent settings updated successfully",
-                              redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
-                            })
+        action_name: "update_profile",
+        resource: @ai_agent,
+        result: "AI Agent settings updated successfully",
+        redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
+      })
     else
       render_action_error({
-                            action_name: "update_profile",
-                            resource: @ai_agent,
-                            error: @ai_agent.errors.full_messages.join(", "),
-                          })
+        action_name: "update_profile",
+        resource: @ai_agent,
+        error: @ai_agent.errors.full_messages.join(", "),
+      })
     end
   end
 
@@ -660,11 +668,11 @@ class AiAgentsController < ApplicationController
     @ai_agent.tenant_user.update_notification_preferences!(notification_preferences_from_params(complete: false))
 
     render_action_success({
-                            action_name: "update_notification_preferences",
-                            resource: @ai_agent,
-                            result: "Notification preferences updated",
-                            redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
-                          })
+      action_name: "update_notification_preferences",
+      resource: @ai_agent,
+      result: "Notification preferences updated",
+      redirect_to: "/ai-agents/#{@ai_agent.handle}/settings",
+    })
   end
 
   def current_resource_model
@@ -745,6 +753,12 @@ class AiAgentsController < ApplicationController
   end
 
   def authorize_parent
+    # Built-in personas keep a Harmonic-managed identity even where a human
+    # is the parent (workspace personas are principaled by the workspace
+    # owner): the parent link grants run visibility and dispatch, never
+    # identity mutation. Behavior is customized through automation rules.
+    return render status: :forbidden, plain: "403 Unauthorized - Built-in agents are managed by Harmonic" if @ai_agent.system?
+
     render status: :forbidden, plain: "403 Unauthorized" unless @ai_agent.parent_id == current_user&.id
   end
 
@@ -760,6 +774,39 @@ class AiAgentsController < ApplicationController
       .joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant.id, handle: params[:handle] })
       .first
+  end
+
+  # The task-run surfaces (runs / show_run / cancel_run) resolve the agent
+  # for its parent as usual, and additionally for the principal collective's
+  # automation managers — active admins and automators — when the agent is
+  # collective-principaled (its parent is the collective's identity user,
+  # e.g. the Trio personas). The collective is the accountable principal, so
+  # the humans who answer for it and manage its automations must be able to
+  # inspect what its agents did; a task run is an automation's execution
+  # detail. Everything else on /ai-agents stays parent-only.
+  def find_ai_agent_for_run_views
+    find_ai_agent_by_handle || find_collective_principaled_agent_for_manager
+  end
+
+  def find_collective_principaled_agent_for_manager
+    agent = User.where(user_type: "ai_agent")
+      .joins(:tenant_users)
+      .where(tenant_users: { tenant_id: current_tenant.id, handle: params[:handle] })
+      .first
+    return nil unless agent
+
+    # Resolve the collective from the agent, never from params, so an admin of
+    # one collective can't reach another collective's agent by handle.
+    # Workspace personas never resolve here: they are principaled by the
+    # workspace owner and reach the run surfaces through the ordinary
+    # parent-scoped lookup.
+    collective = agent.principal_collective
+    return nil unless collective
+
+    member = collective.collective_members.find_by(user: current_user)
+    return nil unless member&.can_manage_automations?
+
+    agent
   end
 
   def assign_billing_customer!(ai_agent)

@@ -1,4 +1,5 @@
 # typed: false
+
 require "test_helper"
 
 class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
@@ -22,7 +23,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
 
     # Save the default set by test_helper so we can restore it; any test that
     # overrides AGENT_RUNNER_SECRET must restore this value, not delete the key.
-    @previous_agent_runner_secret = ENV["AGENT_RUNNER_SECRET"]
+    @previous_agent_runner_secret = ENV.fetch("AGENT_RUNNER_SECRET", nil)
   end
 
   teardown do
@@ -34,7 +35,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   end
 
   test "dispatches task to Redis Stream" do
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     AgentRunnerDispatchService.dispatch(@task_run)
 
     # Don't assume an empty stream — other tests may share this Redis instance.
@@ -62,7 +63,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "encrypted token in stream can be decrypted" do
     ENV["AGENT_RUNNER_SECRET"] = "test-secret-for-crypto"
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     AgentRunnerDispatchService.dispatch(@task_run)
 
     # Find the specific entry for this task_run (the stream may carry entries
@@ -188,13 +189,13 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     )
     @ai_agent.update!(stripe_customer_id: billing_customer.id)
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
       AgentRunnerDispatchService.dispatch(@task_run)
     end
 
     @task_run.reload
-    refute_equal "failed", @task_run.status, "free account with credits should dispatch: #{@task_run.error}"
+    assert_not_equal "failed", @task_run.status, "free account with credits should dispatch: #{@task_run.error}"
     assert_equal billing_customer.id, @task_run.stripe_customer_id
     entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
     assert_not_nil entry, "free account with credits should reach the stream"
@@ -222,7 +223,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     end
 
     @task_run.reload
-    refute_equal "failed", @task_run.status, "unstamped agent of a funded principal should dispatch: #{@task_run.error}"
+    assert_not_equal "failed", @task_run.status, "unstamped agent of a funded principal should dispatch: #{@task_run.error}"
     assert_equal parent_customer.id, @task_run.stripe_customer_id
   end
 
@@ -243,7 +244,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     setup_active_billing!
     @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "anthropic/claude-sonnet-4.6" })
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
       AgentRunnerDispatchService.dispatch(@task_run)
     end
@@ -261,7 +262,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "publishes stripe_gateway mode with default model when agent has none configured" do
     setup_active_billing!
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
       AgentRunnerDispatchService.dispatch(@task_run)
     end
@@ -275,7 +276,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "publishes litellm mode with unmapped model when stripe_billing is off" do
     @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "anthropic/claude-sonnet-4.6" })
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     AgentRunnerDispatchService.dispatch(@task_run)
 
     entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
@@ -290,7 +291,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     setup_active_billing!
     @ai_agent.update!(agent_configuration: { "mode" => "internal", "model" => "llama3" })
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
       AgentRunnerDispatchService.dispatch(@task_run)
     end
@@ -306,7 +307,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "fails task when billing customer has no pricing plan subscription" do
     setup_active_billing!(pricing_plan_subscription_id: nil)
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     StripeService.stub :get_credit_balance, ->(_) { 500 } do
       AgentRunnerDispatchService.dispatch(@task_run)
     end
@@ -350,7 +351,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "dispatches task for internal agent" do
     assert @ai_agent.internal_ai_agent?, "precondition: agent should be internal"
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     AgentRunnerDispatchService.dispatch(@task_run)
 
     entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == @task_run.id }
@@ -366,7 +367,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     @task_run.update_columns(ai_agent_id: regular_user.id)
     @task_run.reload
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     redis.del("agent_tasks")
 
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -380,7 +381,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     @tenant.disable_feature_flag!("internal_ai_agents")
     @tenant.disable_feature_flag!("external_ai_agents")
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     redis.del("agent_tasks")
 
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -392,7 +393,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
 
   test "fails task when Redis XADD raises an error" do
     # Point at a bogus Redis to trigger connection failure
-    original_url = ENV["REDIS_URL"]
+    original_url = ENV.fetch("REDIS_URL", nil)
     ENV["REDIS_URL"] = "redis://127.0.0.1:1/0"
 
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -405,7 +406,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   end
 
   test "cleans up token when Redis XADD fails" do
-    original_url = ENV["REDIS_URL"]
+    original_url = ENV.fetch("REDIS_URL", nil)
     ENV["REDIS_URL"] = "redis://127.0.0.1:1/0"
 
     AgentRunnerDispatchService.dispatch(@task_run)
@@ -462,7 +463,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
   test "trio routes through litellm when stripe_billing is off" do
     task_run = create_trio_task_run!
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     AgentRunnerDispatchService.dispatch(task_run)
 
     task_run.reload
@@ -493,7 +494,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     trio.update!(agent_configuration: trio.agent_configuration.merge("model" => "default"))
     attach_funding_pool!(trio)
 
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     # No individual billing exists; the pool funds it per call — a balance
     # preflight here would be a bug.
     StripeService.stub :get_credit_balance, ->(_) { raise "must not fetch balance for a pool-funded task" } do
@@ -508,6 +509,59 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_equal "stripe_gateway", entry[1]["llm_gateway_mode"]
     assert_equal StripeGatewayModelMapper::DEFAULT_MODEL, entry[1]["model"]
     redis.close
+  end
+
+  # === Workspace personas (owner-principaled system agents) ===
+
+  def create_workspace_persona_task_run!
+    workspace = T.must(@user.private_workspace)
+    persona = PersonaSeeder.ensure_for(workspace, Personas::MELODY)
+    # The test env's persona default model is a LiteLLM-only alias; a gateway
+    # run needs a gateway-resolvable model ("default" → DEFAULT_MODEL).
+    persona.update!(agent_configuration: persona.agent_configuration.merge("model" => "default"))
+    AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: persona, initiated_by: @user,
+      task: "Workspace task", max_steps: 10, status: "queued",
+    )
+  end
+
+  test "a workspace persona on a billing tenant runs on the owner's billing" do
+    # Workspaces can never open a funding pool (funding_pools_available?
+    # requires standard?), so the pool fail-fast must not apply: the owner is
+    # the principal and their billing pays, like any human-principaled agent.
+    enable_stripe_billing_flag!(@tenant)
+    task_run = create_workspace_persona_task_run!
+    owner_customer = StripeCustomer.create!(
+      billable: @user,
+      stripe_id: "cus_owner_#{SecureRandom.hex(4)}",
+      active: true,
+      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}",
+    )
+
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
+    StripeService.stub :get_credit_balance, 500 do
+      AgentRunnerDispatchService.dispatch(task_run)
+    end
+
+    task_run.reload
+    assert_equal "queued", task_run.status, "owner-billed workspace persona dispatch should not fail: #{task_run.error}"
+    assert_equal owner_customer.id, task_run.stripe_customer_id
+    entry = redis.xrange("agent_tasks").find { |_id, fields| fields["task_run_id"] == task_run.id }
+    assert_not_nil entry
+    assert_equal "stripe_gateway", entry[1]["llm_gateway_mode"]
+    redis.close
+  end
+
+  test "a workspace persona without owner billing fails with the billing message, not the pool message" do
+    enable_stripe_billing_flag!(@tenant)
+    task_run = create_workspace_persona_task_run!
+
+    AgentRunnerDispatchService.dispatch(task_run)
+
+    task_run.reload
+    assert_equal "failed", task_run.status
+    assert_match(/Billing is not set up/, task_run.error)
+    assert_no_match(/funding pool/, task_run.error)
   end
 
   # === Pool-funded agents ===
@@ -537,7 +591,7 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     # No billing customer, no subscription, no balance — the pool funds it.
     # Neither the identity check nor the balance preflight applies, so a
     # balance fetch here would be a bug.
-    redis = Redis.new(url: ENV["REDIS_URL"])
+    redis = Redis.new(url: ENV.fetch("REDIS_URL", nil))
     StripeService.stub :get_credit_balance, ->(_) { raise "must not fetch balance for a pool-funded task" } do
       AgentRunnerDispatchService.dispatch(@task_run)
     end

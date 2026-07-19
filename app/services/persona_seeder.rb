@@ -62,15 +62,23 @@ class PersonaSeeder
       email: "#{@persona.system_role}-#{tenant.subdomain}-#{SecureRandom.hex(4)}@system.harmonic.local",
       user_type: "ai_agent",
       system_role: @persona.system_role,
-      # The collective itself is the accountable principal: the persona does
-      # the collective's work, and pool draws are authorized against this
-      # link (see LLMGateway::PayerResolver).
-      parent_id: @collective.identity_user_id,
+      parent_id: principal_id,
       agent_configuration: build_agent_configuration,
     )
     tenant.add_user!(agent, handle: pick_handle)
     @collective.add_user!(agent)
     agent
+  end
+
+  # The accountable principal: the collective's own identity user — the
+  # persona does the collective's work, and pool draws are authorized against
+  # this link (see LLMGateway::PayerResolver). Private workspaces mint no
+  # identity user, so the workspace owner is the principal: they are the
+  # workspace's identity in every meaningful sense, and the one whose billing
+  # pays for the agents.
+  sig { returns(String) }
+  def principal_id
+    T.must(@collective.identity_user_id || @collective.created_by_id)
   end
 
   sig { returns(T::Hash[String, T.untyped]) }
