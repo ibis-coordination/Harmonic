@@ -72,12 +72,13 @@ class AiAgentsController < ApplicationController
         runs.first
     end
 
-    # Calculate total estimated costs per agent (all time)
-    @total_costs_by_ai_agent = AiAgentTaskRun
+    # Total ledger cost per agent (all time), in cents. The gateway usage
+    # ledger is the source of truth for cost; LiteLLM-routed runs produce no
+    # ledger rows and so show no cost.
+    @total_costs_by_ai_agent = LLMUsageRecord.completed
       .where(ai_agent_id: ai_agent_ids)
-      .completed
       .group(:ai_agent_id)
-      .sum(:estimated_cost_usd)
+      .sum(:estimated_cost_cents)
 
     # Sort AI agents by most recent run first, then by created_at for those without runs
     @ai_agents = ai_agents.sort_by do |s|
@@ -294,6 +295,13 @@ class AiAgentsController < ApplicationController
 
     @page_title = "Task Runs - #{@ai_agent.display_name}"
     @task_runs = AiAgentTaskRun.where(ai_agent: @ai_agent).recent
+    # One grouped ledger query for the whole list — per-row ledger_cost_cents
+    # would be N+1.
+    @run_costs_cents = LLMUsageRecord.completed
+      .where(ai_agent_task_run_id: @task_runs.map(&:id))
+      .group(:ai_agent_task_run_id)
+      .sum(:estimated_cost_cents)
+    @total_cost_cents = @run_costs_cents.values.sum
   end
 
   # GET /ai-agents/:handle/runs/:run_id - Show a specific task run

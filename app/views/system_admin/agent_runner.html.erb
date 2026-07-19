@@ -115,6 +115,7 @@
             <th>Agent</th>
             <th>Status</th>
             <th>Steps</th>
+            <th title="Automated causation steps since the last human action">Depth</th>
             <th>Tokens</th>
             <th>Started</th>
             <th>Completed</th>
@@ -129,6 +130,7 @@
               <td><%= run.ai_agent&.name %></td>
               <td><span class="pulse-badge <%= run.status_badge_class %>"><%= run.status %></span></td>
               <td><%= run.steps_count %></td>
+              <td><%= run.chain_depth.positive? ? run.chain_depth : "" %></td>
               <td><%= run.total_tokens %></td>
               <td><%= run.started_at&.strftime("%b %-d %H:%M:%S") %></td>
               <td><%= run.completed_at&.strftime("%b %-d %H:%M:%S") %></td>

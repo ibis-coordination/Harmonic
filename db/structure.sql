@@ -216,11 +216,12 @@ CREATE TABLE public.ai_agent_task_runs (
     input_tokens integer DEFAULT 0,
     output_tokens integer DEFAULT 0,
     total_tokens integer DEFAULT 0,
-    estimated_cost_usd numeric(10,6),
     automation_rule_id uuid,
     stripe_customer_id uuid,
     mode character varying DEFAULT 'task'::character varying NOT NULL,
-    chat_session_id uuid
+    chat_session_id uuid,
+    parent_task_run_id uuid,
+    chain_depth integer DEFAULT 0 NOT NULL
 );
 
 
@@ -3728,6 +3729,13 @@ CREATE INDEX index_ai_agent_task_runs_on_chat_session_id ON public.ai_agent_task
 --
 
 CREATE INDEX index_ai_agent_task_runs_on_initiated_by_id ON public.ai_agent_task_runs USING btree (initiated_by_id);
+
+
+--
+-- Name: index_ai_agent_task_runs_on_parent_task_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_ai_agent_task_runs_on_parent_task_run_id ON public.ai_agent_task_runs USING btree (parent_task_run_id);
 
 
 --
@@ -9822,6 +9830,14 @@ ALTER TABLE ONLY public.notifications
 
 
 --
+-- Name: ai_agent_task_runs fk_rails_7d490dc2b6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ai_agent_task_runs
+    ADD CONSTRAINT fk_rails_7d490dc2b6 FOREIGN KEY (parent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
+
+
+--
 -- Name: funding_pool_enrollments fk_rails_7dac780871; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10612,6 +10628,8 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260719130000'),
+('20260719120000'),
 ('20260719090000'),
 ('20260717130000'),
 ('20260717090000'),

@@ -108,9 +108,11 @@
         <% end %>
         <% if @task_run.total_tokens&.positive? %>
           | Tokens: <%= @task_run.formatted_tokens %>
-          <% if @task_run.formatted_cost %>
-            | Est. Cost: <%= @task_run.formatted_cost %>
-          <% end %>
+        <% end %>
+        <% if @task_run.formatted_cost %>
+          | Cost: <%= @task_run.formatted_cost %><% if @task_run.ledger_pending_calls.positive? %> (<%= @task_run.ledger_pending_calls %> call<%= "s" if @task_run.ledger_pending_calls > 1 %> pending)<% end %>
+        <% elsif @task_run.total_tokens&.positive? %>
+          | Cost: not tracked
         <% end %>
         | <%= timeago(@task_run.created_at) %>
       </p>
@@ -123,6 +125,12 @@
     <% if @task_run.triggered_by_automation? %>
       <div>
         Triggered by: <a href="<%= @task_run.automation_rule.path %>"><%= octicon 'zap', height: 12 %> <%= @task_run.automation_rule.name %></a>
+      </div>
+    <% end %>
+    <% if (parent_run = @task_run.parent_task_run) %>
+      <div>
+        Triggered from: <a href="<%= ai_agent_run_path(parent_run.ai_agent.handle, parent_run.id) %>"><%= octicon 'workflow', height: 12 %> run by <%= parent_run.ai_agent.name %></a>
+        <span class="pulse-muted" title="Automated causation steps since the last human action">&middot; chain depth <%= @task_run.chain_depth %></span>
       </div>
     <% end %>
     <% if @task_run.mode == "chat_turn" && @task_run.chat_session_id.present? %>

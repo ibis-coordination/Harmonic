@@ -255,6 +255,54 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "completed", json_response["status"]
   end
 
+  # === Run Detail Lineage and Cost Tests ===
+
+  test "run detail shows lineage and ledger cost" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    parent_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Parent task", max_steps: 10, status: "completed"
+    )
+    child_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Child task", max_steps: 10, status: "completed",
+      parent_task_run: parent_run, chain_depth: 1
+    )
+    LLMUsageRecord.create!(
+      selection_id: "sel_#{SecureRandom.uuid}", status: "completed",
+      ai_agent_id: @ai_agent.id, ai_agent_task_run_id: child_run.id,
+      payer_stripe_customer_id: "cus_test", origin_tenant_id: @tenant.id,
+      estimated_cost_cents: 42, occurred_at: Time.current, completed_at: Time.current
+    )
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{child_run.id}"
+    assert_response :success
+    assert_includes response.body, "Triggered from"
+    assert_includes response.body, "chain depth 1"
+    assert_includes response.body, "$0.4200"
+
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{child_run.id}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Triggered from"
+    assert_includes response.body, "$0.4200"
+  end
+
+  test "run detail labels cost as not tracked when the ledger has no rows" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    task_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "LiteLLM task", max_steps: 10, status: "completed", total_tokens: 500
+    )
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{task_run.id}"
+    assert_response :success
+    assert_includes response.body, "not tracked"
+  end
+
   # === Cancel Run Tests ===
 
   test "authenticated human user can cancel a queued run" do
