@@ -31,6 +31,26 @@ class ActionsHelper
     T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
   )
 
+  # Automation-rule management on an agent's rules: the agent's parent
+  # (self/representative), or — for collective-principaled agents, whose
+  # parent is the collective's identity user and so never a human — an
+  # active admin or automator of the principal collective
+  # (CollectiveMember#can_manage_automations?).
+  AUTOMATION_RULE_AUTHORIZATION = T.let(
+    lambda { |user, context|
+      return true if HUMAN_SELF_OR_REPRESENTATIVE.call(user, context)
+      return false unless user&.user_type == "human"
+
+      target_user = context[:target_user]
+      collective = target_user.is_a?(User) ? target_user.principal_collective : nil
+      return false unless collective
+
+      member = collective.collective_members.find_by(user_id: user.id)
+      member.present? && member.can_manage_automations?
+    },
+    T.proc.params(user: T.untyped, context: T::Hash[Symbol, T.untyped]).returns(T::Boolean)
+  )
+
   # Context-aware webhook authorization.
   # - Collective webhooks require collective_admin
   # - User webhooks require self or representative access
@@ -939,7 +959,7 @@ class ActionsHelper
       params: [
         { name: "yaml_source", type: "string", required: true, description: "The YAML configuration for the automation rule" },
       ],
-      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
+      authorization: AUTOMATION_RULE_AUTHORIZATION,
       visibility: :shared,
     },
     "update_automation_rule" => {
@@ -948,21 +968,21 @@ class ActionsHelper
       params: [
         { name: "yaml_source", type: "string", required: true, description: "The updated YAML configuration for the automation rule" },
       ],
-      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
+      authorization: AUTOMATION_RULE_AUTHORIZATION,
       visibility: :shared,
     },
     "delete_automation_rule" => {
       description: "Delete an automation rule",
       params_string: "()",
       params: [],
-      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
+      authorization: AUTOMATION_RULE_AUTHORIZATION,
       visibility: :shared,
     },
     "toggle_automation_rule" => {
       description: "Enable or disable an automation rule",
       params_string: "()",
       params: [],
-      authorization: HUMAN_SELF_OR_REPRESENTATIVE,
+      authorization: AUTOMATION_RULE_AUTHORIZATION,
       visibility: :shared,
     },
 

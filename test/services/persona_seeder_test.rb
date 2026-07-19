@@ -54,6 +54,16 @@ class PersonaSeederTest < ActiveSupport::TestCase
     assert_not_equal cadence_main.parent_id, cadence_other.parent_id
   end
 
+  test "a workspace persona's principal is the workspace owner" do
+    # Private workspaces mint no identity user, so the owner — the only
+    # member, and the one paying for the agents — is the principal.
+    workspace = T.must(@owner.private_workspace)
+
+    melody = PersonaSeeder.ensure_for(workspace, Personas::MELODY)
+
+    assert_equal @owner.id, melody.parent_id
+  end
+
   test "ensure_for is idempotent per persona" do
     first = PersonaSeeder.ensure_for(@main, Personas::CADENCE)
     second = PersonaSeeder.ensure_for(@main, Personas::CADENCE)

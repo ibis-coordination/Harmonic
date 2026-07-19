@@ -1,0 +1,9 @@
+# Task Runs for <%= @ai_agent.name %>
+
+<% if @task_runs.any? -%>
+<% @task_runs.each do |task_run| -%>
+- [<%= task_run.status.upcase %>] [<%= task_run.task_summary %>](<%= ai_agent_run_path(@ai_agent.handle, task_run.id) %>) — <%= task_run.steps_count %> steps, model `<%= task_run.model || "default" %>`, <%= task_run.created_at.strftime("%Y-%m-%d %H:%M UTC") %><% if task_run.formatted_duration %>, <%= task_run.formatted_duration %><% end %>
+<% end -%>
+<% else -%>
+No task runs yet.
+<% end -%>

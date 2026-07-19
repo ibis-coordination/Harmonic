@@ -26,7 +26,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
       "Accept" => "text/markdown",
       "Content-Type" => "application/json",
     }
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
   def is_markdown?
@@ -132,8 +132,8 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "parent can create automation for ai_agent" do
     assert_difference "AutomationRule.unscoped.count" do
       post "/ai-agents/#{@ai_agent.handle}/automations/new/actions/create_automation_rule",
-        params: { yaml_source: valid_yaml }.to_json,
-        headers: @headers
+           params: { yaml_source: valid_yaml }.to_json,
+           headers: @headers
     end
 
     assert_response :success
@@ -152,8 +152,8 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "create requires yaml_source" do
     assert_no_difference "AutomationRule.unscoped.count" do
       post "/ai-agents/#{@ai_agent.handle}/automations/new/actions/create_automation_rule",
-        params: {}.to_json,
-        headers: @headers
+           params: {}.to_json,
+           headers: @headers
     end
 
     assert_response :unprocessable_entity
@@ -168,8 +168,8 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "AutomationRule.unscoped.count" do
       post "/ai-agents/#{@ai_agent.handle}/automations/new/actions/create_automation_rule",
-        params: { yaml_source: invalid_yaml }.to_json,
-        headers: @headers
+           params: { yaml_source: invalid_yaml }.to_json,
+           headers: @headers
     end
 
     assert_response :unprocessable_entity
@@ -226,8 +226,8 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     YAML
 
     post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/update_automation_rule",
-      params: { yaml_source: updated_yaml }.to_json,
-      headers: @headers
+         params: { yaml_source: updated_yaml }.to_json,
+         headers: @headers
 
     assert_response :success
     assert_includes response.body, "updated successfully"
@@ -245,7 +245,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference "AutomationRule.unscoped.count", -1 do
       post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/delete_automation_rule",
-        headers: @headers
+           headers: @headers
     end
 
     assert_response :success
@@ -258,7 +258,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     rule = create_automation_rule(name: "Toggle Test", enabled: true)
 
     post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
-      headers: @headers
+         headers: @headers
 
     assert_response :success
     assert_includes response.body, "disabled"
@@ -266,7 +266,7 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert_not rule.enabled?
 
     post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
-      headers: @headers
+         headers: @headers
 
     assert_response :success
     assert_includes response.body, "enabled"
@@ -337,8 +337,8 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "AutomationRule.unscoped.count" do
       post "/ai-agents/#{@ai_agent.handle}/automations/new/actions/create_automation_rule",
-        params: { yaml_source: valid_yaml }.to_json,
-        headers: other_headers
+           params: { yaml_source: valid_yaml }.to_json,
+           headers: other_headers
     end
 
     assert_response :forbidden
@@ -365,9 +365,113 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "AutomationRule.unscoped.count" do
       post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/delete_automation_rule",
-        headers: other_headers
+           headers: other_headers
     end
 
+    assert_response :forbidden
+  end
+
+  # === Principal-collective authorization (persona rules) ===
+  #
+  # Persona agents are collective-principaled: their parent is the
+  # collective's identity user, so no human passes the parent gate. The
+  # humans who answer for the collective — its active admins and automators
+  # (can_manage_automations?) — manage persona rules instead. Human-parented
+  # agents stay parent-only regardless of collective membership.
+
+  def create_persona_collective(roles_for_manager: ["admin"])
+    manager = create_user(email: "rule-mgr-#{SecureRandom.hex(4)}@example.com", name: "Rule Manager")
+    @tenant.add_user!(manager)
+    collective = create_collective(
+      tenant: @tenant, created_by: manager,
+      name: "Persona Rules Collective", handle: "persona-rules-#{SecureRandom.hex(4)}"
+    )
+    collective.add_user!(manager, roles: roles_for_manager)
+    persona = PersonaSeeder.ensure_for(collective, Personas::MELODY)
+    PersonaActivator.seed_default_automations!(persona, @tenant.id)
+    [collective, persona, manager]
+  end
+
+  def persona_rule(persona)
+    AutomationRule.tenant_scoped_only(@tenant.id).where(ai_agent_id: persona.id).first
+  end
+
+  def persona_tenant_handle(persona)
+    persona.tenant_users.find_by(tenant: @tenant).handle
+  end
+
+  test "collective admin can view and toggle a persona's automation rules" do
+    _collective, persona, admin = create_persona_collective
+    rule = persona_rule(persona)
+    handle = persona_tenant_handle(persona)
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{handle}/automations"
+    assert_response :success
+
+    get "/ai-agents/#{handle}/automations/#{rule.truncated_id}"
+    assert_response :success
+
+    get "/ai-agents/#{handle}/automations/#{rule.truncated_id}/runs"
+    assert_response :success
+
+    post "/ai-agents/#{handle}/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+    assert_response :redirect, "toggle should succeed: #{response.status} #{response.body.truncate(200)}"
+    assert_not rule.reload.enabled?
+  end
+
+  test "collective automator can view and toggle a persona's automation rules" do
+    _collective, persona, automator = create_persona_collective(roles_for_manager: ["automator"])
+    rule = persona_rule(persona)
+    handle = persona_tenant_handle(persona)
+
+    sign_in_as(automator, tenant: @tenant)
+    get "/ai-agents/#{handle}/automations"
+    assert_response :success
+
+    post "/ai-agents/#{handle}/automations/#{rule.truncated_id}/actions/toggle_automation_rule"
+    assert_not rule.reload.enabled?
+  end
+
+  test "plain member cannot manage a persona's automation rules" do
+    collective, persona, _manager = create_persona_collective
+    member = create_user(email: "plain-#{SecureRandom.hex(4)}@example.com", name: "Plain Member")
+    @tenant.add_user!(member)
+    collective.add_user!(member)
+    rule = persona_rule(persona)
+    handle = persona_tenant_handle(persona)
+
+    sign_in_as(member, tenant: @tenant)
+    get "/ai-agents/#{handle}/automations", headers: { "Accept" => "text/markdown" }
+    assert_response :forbidden
+
+    post "/ai-agents/#{handle}/automations/#{rule.truncated_id}/actions/toggle_automation_rule",
+         headers: { "Accept" => "text/markdown" }
+    assert_response :forbidden
+    assert rule.reload.enabled?
+  end
+
+  test "admin whose membership is archived cannot manage a persona's automation rules" do
+    collective, persona, admin = create_persona_collective
+    collective.collective_members.find_by(user: admin).archive!
+    handle = persona_tenant_handle(persona)
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{handle}/automations", headers: { "Accept" => "text/markdown" }
+    assert_response :forbidden
+  end
+
+  test "collective admin cannot manage a human-parented member agent's rules" do
+    # @ai_agent is parented by @user and a member of @global_collective;
+    # an admin of that collective is not the principal.
+    @collective.add_user!(@ai_agent)
+    collective_admin = create_user(email: "col-adm-#{SecureRandom.hex(4)}@example.com", name: "Collective Admin")
+    @tenant.add_user!(collective_admin)
+    @collective.add_user!(collective_admin, roles: ["admin"])
+    create_automation_rule(name: "Parent Only Rule")
+
+    sign_in_as(collective_admin, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent.handle}/automations", headers: { "Accept" => "text/markdown" }
     assert_response :forbidden
   end
 end
