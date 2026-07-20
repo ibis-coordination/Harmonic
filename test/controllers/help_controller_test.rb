@@ -37,6 +37,46 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "/help/funding-pools states the visibility rule and renders when billing is enabled" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    get "/help/funding-pools"
+    assert_response :success
+    assert_match(/Funding Pools/, response.body)
+    # The baseline rule of pooled funding, stated as a rule users can rely on.
+    assert_match(/activity every pool member can see/i, response.body)
+    # Honest about the operator-enabled exception path.
+    assert_match(/consent/i, response.body)
+  end
+
+  test "/help/funding-pools renders in markdown too" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    get "/help/funding-pools", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/activity every pool member can see/i, response.body)
+  end
+
+  test "/help/funding-pools 404s when billing is disabled on the tenant" do
+    @tenant.set_feature_flag!("stripe_billing", false)
+    get "/help/funding-pools"
+    assert_response :not_found
+  end
+
+  test "help index links funding pools when billing is enabled" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    get "/help"
+    assert_response :success
+    assert_match "/help/funding-pools", response.body
+  end
+
+  test "/help/collectives links to the funding pools page without duplicating it" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    get "/help/collectives"
+    assert_response :success
+    assert_match "/help/funding-pools", response.body
+    # The mechanics live on the dedicated page now.
+    assert_no_match(/Membership and funding are separate/, response.body)
+  end
+
   test "/help/self-hosting-agents leads with user-facing guidance" do
     get "/help/self-hosting-agents"
     assert_response :success

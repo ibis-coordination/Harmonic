@@ -237,7 +237,7 @@ class ChatsController < ApplicationController
     # For human→agent: must be an agent the human is the principal of. This
     # includes workspace personas — the owner is their parent and pays for
     # their runs from their own balance.
-    if current_user.human? && @partner.ai_agent? && !current_user.ai_agents.include?(@partner)
+    if current_user.human? && @partner.ai_agent? && current_user.ai_agents.exclude?(@partner)
       render status: :not_found, plain: "404 Not Found"
       return
     end
