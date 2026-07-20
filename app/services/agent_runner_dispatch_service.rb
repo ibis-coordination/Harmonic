@@ -68,7 +68,17 @@ class AgentRunnerDispatchService
     # billing pays.
     billing_customer = ai_agent.resolved_billing_customer
     pool_funded = ai_agent.funding_pool_id.present?
-    collective_principaled = ai_agent.system? && ai_agent.parent&.collective_identity?
+    collective_principaled = ai_agent.collective_principaled?
+
+    # Pool funding never covers chat: pool money is only spent on activity
+    # every pool member can see, and chat happens outside the collective's
+    # shared space. The gateway's payer resolution refuses these too; failing
+    # here puts a readable error in the chat UI immediately instead of after
+    # the runner spins up.
+    if @task_run.chat_turn? && pool_funded
+      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover private chat. Detach the agent to chat on its own billing.")
+      return
+    end
     if tenant.feature_enabled?("stripe_billing") && collective_principaled && !pool_funded
       fail_task!("This agent runs on the collective's funding pool. A collective admin can open one in collective settings.")
       return

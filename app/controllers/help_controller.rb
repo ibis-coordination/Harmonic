@@ -6,7 +6,7 @@ class HelpController < ApplicationController
     "decisions", "executive_decisions", "lottery_decisions",
     "commitments", "calendar_events", "policies", "cycles", "search", "links", "lists",
     "agents", "self_hosting_agents", "trio", "automations", "webhooks", "api", "rest_api", "markdown_ui", "mcp", "notifications", "representation",
-    "billing",
+    "billing", "funding_pools",
   ].freeze
 
   # Topics that are only available when a feature flag is enabled.
@@ -17,6 +17,7 @@ class HelpController < ApplicationController
     "mcp" => "api",
     "trio" => "trio",
     "billing" => "stripe_billing",
+    "funding_pools" => "stripe_billing",
   }.freeze
 
   # Display name overrides for topics whose `titleize` is wrong.

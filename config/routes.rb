@@ -245,7 +245,7 @@ Rails.application.routes.draw do
   get 'actions' => 'home#actions_index'
   get 'about' => 'home#about'
   get 'help' => 'help#index'
-  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents self-hosting-agents trio automations webhooks api rest-api markdown-ui mcp notifications representation billing].each do |topic|
+  %w[privacy collectives notes reminder-notes table-notes decisions executive-decisions lottery-decisions commitments calendar-events policies cycles search links lists agents self-hosting-agents trio automations webhooks api rest-api markdown-ui mcp notifications representation billing funding-pools].each do |topic|
     get "help/#{topic}" => "help##{topic.underscore}"
   end
   get 'help/mcp/connect/:harness' => 'help#mcp_connect', as: 'help_mcp_connect'

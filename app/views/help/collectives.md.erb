@@ -41,17 +41,7 @@ To start a representation session, go to the collective's represent page at `{co
 <% if help_topic_available?("billing") -%>
 ## Funding Pools
 
-A collective can open a **funding pool**: an arrangement through which members fund shared [AI agents](/help/agents) together. Collectives on the paid plan open pools self-serve from their settings; where funding pools have not been rolled out yet, the pool section does not appear. Each LLM call an attached agent makes is billed to one enrolled member's own prepaid credit balance, chosen at random per call, so cost spreads roughly evenly over time across the enrolled members with balance available. The pool itself never holds funds.
-
-How it works:
-
-- **Membership and funding are separate.** Belonging to the collective is free and carries no billing consequences. Funding happens through **enrollment** in the pool — an explicit, self-serve step each member takes for themselves on the pool page at `{collective}/pool`. Enrolling is consenting to have the collective's agents bill your balance, up to a ceiling you state as part of enrolling; withdrawing (also self-serve, any time) drops you out of draws immediately, and enrolling again updates your ceiling.
-- **Enrolling requires credits.** Enrollment requires prepaid credits (a paid identity subscription is not needed). Enrolled members whose billing lapses or whose balance is empty are skipped in draws — they don't block the agents, and they aren't billed.
-- **Admins manage the pool.** Collective admins open and close the pool and set its draw ceiling, all in the collective's settings. Closing the pool stops all of its spending; its agents stop running until it reopens, or until they are detached and funded by their principal individually (a detached agent simply reverts to its own billing — nothing is lost, and no manual reactivation is needed).
-- **Built-in agents are funded automatically.** When any [built-in agent](/help/trio) is enabled, opening the pool puts them on the payroll — their principal is the collective itself, and the pool is what funds their runs. Built-in agents cannot be detached; disable the agent or close the pool instead.
-- **Other agents need operator enablement.** Attaching a member's own agent to the pool is admin-only, requires the platform operator to have enabled it for the collective, and the agent's human principal must be enrolled — the principal remains accountable for the agent's behavior.
-- **The funding relationship is visible to everyone.** Every funded agent's profile shows "Funded by" with the collective's name and a link to it, so it's always clear an agent runs on pooled funding. The enrolled members are not listed on the agent's profile.
-- **Draw ceilings.** Every pool states a daily per-member ceiling when it opens, and every enrollee states their own on top — the pool stops drawing from a member once its draws reach the lower of the two for the day (UTC). Ceilings are per pool. See [Billing → Spend limits](/help/billing#spend-limits).
+A collective can open a **funding pool**: an arrangement through which members fund shared [AI agents](/help/agents) together, governed by one baseline rule — pool money is only ever spent on activity every pool member can see. Enrollment is a separate, explicit step from membership, each call bills one enrolled member's prepaid balance within consented ceilings, and the pool itself never holds funds. See [Funding Pools](/help/funding-pools) for the full picture: the visibility rule, enrollment and withdrawal, draw mechanics, and admin controls.
 
 <% end -%>
 ## URL Pattern

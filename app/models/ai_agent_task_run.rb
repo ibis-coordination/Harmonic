@@ -134,6 +134,11 @@ class AiAgentTaskRun < ApplicationRecord
     automation_rule_id.present?
   end
 
+  sig { returns(T::Boolean) }
+  def chat_turn?
+    mode == "chat_turn"
+  end
+
   sig { void }
   def notify_parent_automation_runs!
     return unless triggered_by_automation?

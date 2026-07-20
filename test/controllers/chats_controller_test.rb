@@ -45,6 +45,37 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Seeds a persona principaled by a collective's identity user, with @user
+  # as a member of that collective (optionally with a role). Membership —
+  # any role — must grant nothing for chat.
+  def seed_collective_persona(role: nil)
+    owner = create_user(email: "col-owner-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(owner)
+    collective = with_tenant_scope do
+      create_collective(tenant: @tenant, created_by: owner, handle: "dm-col-#{SecureRandom.hex(4)}")
+    end
+    if role
+      collective.add_user!(@user, roles: [role])
+    else
+      collective.add_user!(@user)
+    end
+    persona = PersonaSeeder.ensure_for(collective, Personas::CADENCE)
+    [persona, TenantUser.tenant_scoped_only(@tenant.id).find_by(user: persona).handle]
+  end
+
+  # Seeds a persona in the given user's private workspace: owner-principaled.
+  def seed_workspace_persona(owner)
+    persona = with_tenant_scope do
+      PersonaSeeder.ensure_for(T.must(owner.private_workspace), Personas::MELODY)
+    end
+    [persona, TenantUser.tenant_scoped_only(@tenant.id).find_by(user: persona).handle]
+  end
+
+  def persona_chat_session(persona)
+    one, two = [@user.id, persona.id].sort
+    ChatSession.tenant_scoped_only(@tenant.id).find_by(user_one_id: one, user_two_id: two)
+  end
+
   # Token-holding agents must be external-mode. These tests exercise the
   # agent-as-API-sender path, where the agent's mode doesn't otherwise matter.
   def agent_api_token
@@ -107,12 +138,117 @@ class ChatsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "show allows any tenant member to chat with a system agent" do
-    trio = PersonaSeeder.ensure_for(T.must(@tenant.main_collective), Personas::CADENCE)
-    trio_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: trio).handle
+  # --- collective personas: direct messages disabled entirely ---
+  #
+  # A chat turn is a task run: its content is readable by the principal
+  # collective's automation managers, so a "private" DM with a collective
+  # persona is a fiction. And chat sessions live in their own private chat
+  # collective, outside the persona's principal collective — pool money must
+  # only be spent on activity every pool member can see. Members interact
+  # with collective personas in shared collective space instead. Workspace
+  # personas are unaffected: the owner is their principal and sole viewer.
 
-    get "/chat/#{trio_handle}"
+  test "chat with a collective persona is disabled even for members of the collective" do
+    persona, handle = seed_collective_persona
+
+    get "/chat/#{handle}"
+    assert_response :not_found
+
+    assert_no_difference ["ChatMessage.count", "AiAgentTaskRun.count"] do
+      post "/chat/#{handle}/message", params: { message: "hello" }
+    end
+    assert_response :not_found
+
+    assert_no_difference "ChatMessage.count" do
+      post "/chat/#{handle}/actions/send_message", params: { message: "hello" }
+    end
+    assert_response :not_found
+
+    assert_nil persona_chat_session(persona)
+  end
+
+  test "chat with a collective persona is disabled for admins of the principal collective" do
+    _persona, handle = seed_collective_persona(role: "admin")
+
+    get "/chat/#{handle}"
+    assert_response :not_found
+  end
+
+  test "chat with another collective's persona returns 404 and creates nothing" do
+    other_owner = create_user(email: "other-col-owner-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_owner)
+    other_collective = with_tenant_scope do
+      create_collective(tenant: @tenant, created_by: other_owner, handle: "other-dm-#{SecureRandom.hex(4)}")
+    end
+    persona = PersonaSeeder.ensure_for(other_collective, Personas::MELODY)
+    handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: persona).handle
+
+    assert_no_difference ["ChatSession.count", "ChatMessage.count", "AiAgentTaskRun.count"] do
+      get "/chat/#{handle}"
+      assert_response :not_found
+
+      post "/chat/#{handle}/message", params: { message: "hello" }
+      assert_response :not_found
+    end
+  end
+
+  test "workspace owner chats with their workspace persona and a turn dispatches" do
+    persona, handle = seed_workspace_persona(@user)
+
+    get "/chat/#{handle}"
     assert_response :success
+
+    assert_difference ["ChatMessage.count", "AiAgentTaskRun.count"] do
+      post "/chat/#{handle}/message", params: { message: "hello melody" }
+    end
+    assert_response :success
+
+    turn = AiAgentTaskRun.order(created_at: :desc).first
+    assert_equal "chat_turn", turn.mode
+    assert_equal persona.id, turn.ai_agent_id
+  end
+
+  test "non-owner cannot chat with someone else's workspace persona" do
+    other_user = create_user(email: "ws-owner-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_user)
+    _persona, handle = seed_workspace_persona(other_user)
+
+    get "/chat/#{handle}"
+    assert_response :not_found
+
+    post "/chat/#{handle}/message", params: { message: "hello" }
+    assert_response :not_found
+  end
+
+  test "historical collective persona chat session still 404s" do
+    persona, handle = seed_collective_persona
+    with_tenant_scope do
+      ChatSession.find_or_create_between(user_a: @user, user_b: persona, tenant: @tenant)
+    end
+
+    get "/chat/#{handle}"
+    assert_response :not_found
+  end
+
+  test "a collective persona cannot send chat messages" do
+    @tenant.enable_api!
+    @collective.enable_api!
+    persona, _handle = seed_collective_persona
+    token = with_tenant_scope do
+      run = AiAgentTaskRun.create!(
+        tenant: @tenant, ai_agent: persona, initiated_by: @user,
+        task: "Test task", max_steps: 5, status: "running",
+      )
+      ApiToken.create_internal_token(user: persona, tenant: @tenant, context: run)
+    end
+    user_handle = TenantUser.tenant_scoped_only(@tenant.id).find_by(user: @user).handle
+
+    assert_no_difference ["ChatSession.count", "ChatMessage.count"] do
+      post "/chat/#{user_handle}/actions/send_message",
+        params: { message: "persona calling" }.to_json,
+        headers: { "Authorization" => "Bearer #{token.plaintext_token}", "Accept" => "text/markdown", "Content-Type" => "application/json" }
+    end
+    assert_response :not_found
   end
 
   test "show paginates messages to last 50" do

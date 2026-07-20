@@ -585,6 +585,20 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     pool
   end
 
+  test "a chat turn for a pool-funded agent fails fast at dispatch" do
+    # Pool funding doesn't cover private chat; failing here (not at the
+    # first LLM call) puts a readable error in the chat UI immediately.
+    enable_stripe_billing_flag!(@tenant)
+    attach_funding_pool!(@ai_agent)
+    @task_run.update!(mode: "chat_turn")
+
+    AgentRunnerDispatchService.dispatch(@task_run)
+
+    @task_run.reload
+    assert_equal "failed", @task_run.status
+    assert_match(/pool funding doesn't cover private chat/i, @task_run.error)
+  end
+
   test "dispatches a pool-funded agent with no individual billing through the gateway" do
     enable_stripe_billing_flag!(@tenant)
     attach_funding_pool!(@ai_agent)

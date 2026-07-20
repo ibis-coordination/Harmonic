@@ -937,4 +937,62 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_not_includes response.body, "/ai-agents/#{handle}/runs"
   end
+
+  test "collective persona profile shows no Message item to members or admins" do
+    admin = create_user(email: "msg-admin-#{SecureRandom.hex(4)}@example.com")
+    member = create_user(email: "msg-member-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(admin)
+    @tenant.add_user!(member)
+    collective = create_collective(
+      tenant: @tenant, created_by: admin,
+      name: "Msg Collective", handle: "msg-col-#{SecureRandom.hex(4)}"
+    )
+    collective.add_user!(admin, roles: ["admin"])
+    collective.add_user!(member)
+    persona = PersonaSeeder.ensure_for(collective, Personas::MELODY)
+    handle = persona.tenant_users.find_by(tenant: @tenant).handle
+
+    [admin, member].each do |viewer|
+      sign_in_as(viewer, tenant: @tenant)
+      get "/u/#{handle}"
+      assert_response :success
+      assert_not_includes response.body, "/chat/#{handle}",
+                          "expected no Message link for #{viewer.email}"
+    end
+  end
+
+  test "workspace persona profile shows Message to its owner only" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    persona = PersonaSeeder.ensure_for(T.must(@user.private_workspace), Personas::MELODY)
+    Tenant.clear_thread_scope
+    handle = persona.tenant_users.find_by(tenant: @tenant).handle
+    other = create_user(email: "msg-other-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other)
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{handle}"
+    assert_response :success
+    assert_includes response.body, "/chat/#{handle}"
+
+    sign_in_as(other, tenant: @tenant)
+    get "/u/#{handle}"
+    assert_response :success
+    assert_not_includes response.body, "/chat/#{handle}"
+  end
+
+  test "agent profile shows Message to its parent, and human profiles to other humans" do
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    agent_handle = agent.tenant_users.find_by(tenant: @tenant).handle
+    other_human = create_user(email: "msg-human-#{SecureRandom.hex(4)}@example.com")
+    @tenant.add_user!(other_human)
+    human_handle = other_human.tenant_users.find_by(tenant: @tenant).handle
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/u/#{agent_handle}"
+    assert_includes response.body, "/chat/#{agent_handle}"
+
+    get "/u/#{human_handle}"
+    assert_includes response.body, "/chat/#{human_handle}"
+  end
 end

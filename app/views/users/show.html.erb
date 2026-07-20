@@ -88,7 +88,7 @@
           </summary>
           <div class="top-menu" style="position: absolute; top: 100%; right: 0; z-index: 100;">
             <ul>
-              <% if !@showing_user.collective_identity? && !@viewer_blocks_target && !@viewer_blocked_by_target %>
+              <% if @showing_user.chattable_by?(@current_user) && !@viewer_blocks_target && !@viewer_blocked_by_target %>
                 <li>
                   <a href="<%= chat_path(@showing_user.handle) %>">
                     <%= octicon 'comment', height: 14 %> Message

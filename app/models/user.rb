@@ -368,6 +368,31 @@ class User < ApplicationRecord
     Collective.find_by(identity_user_id: parent_id)
   end
 
+  # Whether this agent is principaled by a collective (its parent is the
+  # collective's identity user) rather than by a human. Cheaper than
+  # principal_collective when only the fact matters, and — unlike it —
+  # tenant-independent.
+  sig { returns(T::Boolean) }
+  def collective_principaled?
+    ai_agent? && system? && !!parent&.collective_identity?
+  end
+
+  # Whether `viewer` may hold a direct chat with this user. Mirrors the
+  # authorization in ChatsController#find_partner_and_session: humans chat
+  # with humans and with agents they are the principal of; collective-
+  # principaled agents never chat (their activity belongs in the principal
+  # collective's shared space, where every pool member can see it). Blocks
+  # are a separate concern, checked where chats are rendered.
+  sig { params(viewer: T.nilable(User)).returns(T::Boolean) }
+  def chattable_by?(viewer)
+    return false if viewer.nil? || viewer.id == id
+    return false if collective_identity? || viewer.collective_identity?
+    return false if collective_principaled? || viewer.collective_principaled?
+    return true unless ai_agent?
+
+    parent_id.present? && parent_id == viewer.id
+  end
+
   # Whether `viewer` may see this agent's task runs: the parent, or an active
   # admin/automator of the principal collective. The single predicate behind
   # every "view task run" link; mirrors the authorization on the run pages
