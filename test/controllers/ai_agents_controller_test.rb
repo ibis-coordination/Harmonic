@@ -566,6 +566,81 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "queued", task_run.status
   end
 
+  test "collective admin can open the run-new-task page for a collective-principaled agent" do
+    _collective, persona, admin, _member = create_persona_collective_with_members
+
+    sign_in_as(admin, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/run"
+    assert_response :success
+    assert_match persona.name, response.body
+  end
+
+  test "collective automator can dispatch a task run for a collective-principaled agent" do
+    collective, persona, _admin, _member = create_persona_collective_with_members
+    automator = create_user(email: "automator-#{SecureRandom.hex(4)}@example.com", name: "Automator")
+    @tenant.add_user!(automator)
+    collective.add_user!(automator, roles: ["automator"])
+
+    sign_in_as(automator, tenant: @tenant)
+    assert_difference -> { AiAgentTaskRun.count }, 1 do
+      post "/ai-agents/#{persona_handle(persona)}/run", params: { task: "Manual persona task" }
+    end
+    assert_response :redirect
+
+    task_run = AiAgentTaskRun.order(created_at: :desc).first
+    assert_equal automator.id, task_run.initiated_by_id
+    assert_equal 0, task_run.chain_depth
+  end
+
+  test "pool-funded persona dispatch by an admin skips the individual billing gate" do
+    collective, persona, admin, _member = create_persona_collective_with_members
+    enable_stripe_billing_flag!(@tenant)
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    collective.enable_feature_flag!("funding_pools")
+    pool = FundingPool.create!(tenant: @tenant, collective: collective, created_by: admin, member_draw_cap_cents: 500)
+    persona.update!(funding_pool: pool)
+
+    sign_in_as(admin, tenant: @tenant)
+    assert_difference -> { AiAgentTaskRun.count }, 1 do
+      post "/ai-agents/#{persona_handle(persona)}/run", params: { task: "Pool-funded task" }
+    end
+
+    assert_response :redirect
+    assert_no_match %r{/billing}, response.headers["Location"]
+  end
+
+  test "plain member cannot open or dispatch run-new-task for a collective-principaled agent" do
+    _collective, persona, _admin, member = create_persona_collective_with_members
+
+    sign_in_as(member, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/run"
+    assert_response :not_found
+
+    assert_no_difference -> { AiAgentTaskRun.count } do
+      post "/ai-agents/#{persona_handle(persona)}/run", params: { task: "Nope" }
+    end
+    assert_response :not_found
+  end
+
+  test "workspace persona dispatch stays owner-only" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace = @user.private_workspace
+    persona = PersonaSeeder.ensure_for(workspace, Personas::MELODY)
+    Tenant.clear_thread_scope
+    other = create_user(email: "not-owner-#{SecureRandom.hex(4)}@example.com", name: "Not Owner")
+    @tenant.add_user!(other)
+
+    sign_in_as(other, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/run"
+    assert_response :not_found
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{persona_handle(persona)}/run"
+    assert_response :success
+  end
+
   test "admin with archived membership cannot view a collective-principaled agent's runs" do
     collective, persona, admin, _member = create_persona_collective_with_members
     create_persona_task_run(persona, initiated_by: admin)
