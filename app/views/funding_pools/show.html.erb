@@ -30,16 +30,67 @@
       never holds money.
     </p>
 
+    <% if @funding_pool.nil? %>
+      <p class="pulse-body-text">
+        This collective has no funding pool open yet. Opening a pool puts the
+        enabled built-in agents on its payroll automatically; they need the
+        pool to run.
+      </p>
+      <% if @is_pool_admin && @funding_pools_enabled %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Open a Funding Pool</h2>
+          <p class="pulse-section-description">
+            Every pool has an explicit ceiling on what it may draw from any one
+            enrolled member within a window — day, week, or month (UTC) — set it
+            to open the pool.
+          </p>
+          <form action="<%= @current_collective.path %>/pool/create_funding_pool" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <label for="new_pool_draw_cap" class="pulse-label">Ceiling per member (USD)</label>
+            <input type="number" id="new_pool_draw_cap" name="member_daily_draw_cap" min="0.01" step="0.01" required
+                   class="pulse-form-input">
+            <select name="member_draw_cap_period" class="pulse-form-select">
+              <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                <option value="<%= period %>" <%= "selected" if period == "day" %>>per <%= period %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Create Funding Pool</button>
+          </form>
+        </section>
+      <% else %>
+        <p class="pulse-body-text">A collective admin can open one here.</p>
+      <% end %>
+    <% else %>
+
     <% if @funding_pool.archived? %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
         This pool is closed. Its agents stop running and no balances are being drawn on;
         everything resumes automatically if it reopens. Enrollments are kept in case it
         does; you can still withdraw below.
       </div>
+      <% if @is_pool_admin && @funding_pools_enabled %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Reopen the Pool</h2>
+          <form action="<%= @current_collective.path %>/pool/create_funding_pool" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <label for="new_pool_draw_cap" class="pulse-label">Ceiling per member (USD)</label>
+            <input type="number" id="new_pool_draw_cap" name="member_daily_draw_cap" min="0.01" step="0.01" required
+                   value="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
+                   class="pulse-form-input">
+            <select name="member_draw_cap_period" class="pulse-form-select">
+              <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                <option value="<%= period %>" <%= "selected" if @funding_pool.member_draw_cap_period == period %>>per <%= period %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Reopen Funding Pool</button>
+          </form>
+        </section>
+      <% end %>
     <% elsif !@funding_pools_enabled %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
         Funding pools are currently not available for this collective. No balances are
-        being drawn on; enrollment is paused. You can still withdraw below.
+        being drawn on; enrollment is paused. You can still withdraw below<% if @is_pool_admin %>,
+        agents can be detached, and the pool can be closed<% end %>.
       </div>
     <% end %>
 
@@ -158,6 +209,7 @@
               <th>Agent</th>
               <th>Principal</th>
               <th style="text-align: right;">Last 30 days</th>
+              <% if @is_pool_admin %><th></th><% end %>
             </tr>
           </thead>
           <tbody>
@@ -184,6 +236,16 @@
                     <span class="pulse-muted">—</span>
                   <% end %>
                 </td>
+                <% if @is_pool_admin %>
+                  <td>
+                    <% if agent.collective_pool_agent?(@funding_pool) %>
+                      <span class="pulse-muted">Automatic</span>
+                    <% else %>
+                      <%= button_to "Detach", "#{@current_collective.path}/pool/remove_funded_agent",
+                                    method: :delete, params: { ai_agent_id: agent.id }, class: 'pulse-action-btn-danger' %>
+                    <% end %>
+                  </td>
+                <% end %>
               </tr>
             <% end %>
           </tbody>
@@ -192,6 +254,7 @@
               <td><strong>Total</strong></td>
               <td></td>
               <td style="text-align: right;"><strong><%= number_to_currency(@funded_agents.sum { |a| agent_spend_by_id[a.id] || 0 }.to_f / 100) %></strong></td>
+              <% if @is_pool_admin %><td></td><% end %>
             </tr>
           </tfoot>
         </table>
@@ -213,7 +276,7 @@
         <% if @funding_pools_enabled %>
           <% matches_pool = @current_user_enrollment.draw_cap_cents == @funding_pool.member_draw_cap_cents &&
                             @current_user_enrollment.draw_cap_period == @funding_pool.member_draw_cap_period %>
-          <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-form">
+          <form action="<%= @current_collective.path %>/pool/enroll_in_funding_pool" method="post" class="pulse-form">
             <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
             <fieldset class="pulse-radio-group">
               <legend class="pulse-fieldset-legend">Your ceiling</legend>
@@ -237,7 +300,7 @@
             <button type="submit" class="pulse-action-btn">Update Ceiling</button>
           </form>
         <% end %>
-        <%= button_to "Withdraw from Pool", "#{@current_collective.path}/settings/withdraw_from_funding_pool",
+        <%= button_to "Withdraw from Pool", "#{@current_collective.path}/pool/withdraw_from_funding_pool",
                       method: :delete, class: "pulse-action-btn-danger",
                       data: { turbo_confirm: "Withdraw from the funding pool? You drop out of draws immediately. Your agents funded by this pool stay attached (still listed as funded agents) but their calls are refused until you re-enroll or they are detached." } %>
       <% elsif @funding_pools_enabled && !@funding_pool.archived? %>
@@ -249,7 +312,7 @@
           you can change it or withdraw at any time.
           Enrollment requires prepaid credits.
         </p>
-        <form action="<%= @current_collective.path %>/settings/enroll_in_funding_pool" method="post" class="pulse-form">
+        <form action="<%= @current_collective.path %>/pool/enroll_in_funding_pool" method="post" class="pulse-form">
           <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
           <fieldset class="pulse-radio-group">
             <legend class="pulse-fieldset-legend">Your ceiling</legend>
@@ -275,5 +338,72 @@
         <p class="pulse-body-text">You are not enrolled.</p>
       <% end %>
     </section>
+
+    <% if @is_pool_admin %>
+      <% if @funding_pools_enabled && !@funding_pool.archived? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Pool Draw Ceiling</h2>
+          <p class="pulse-section-description">
+            The most this pool may bill any one enrolled member within its window (UTC);
+            a member at the ceiling rejoins the draw when the window rolls over. Members
+            may also set themselves a personal ceiling when they enroll — the lower of
+            the two applies. Every pool must have a ceiling; lowering it binds everyone
+            immediately, and raising it never takes any member past the ceiling they
+            stated for themselves.
+          </p>
+          <form action="<%= @current_collective.path %>/pool/update_ceiling" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <label for="member_daily_draw_cap" class="pulse-label">Ceiling per member (USD)</label>
+            <input type="number" id="member_daily_draw_cap" name="member_daily_draw_cap" min="0.01" step="0.01" required
+                   value="<%= @funding_pool.member_draw_cap_cents / 100.0 %>"
+                   class="pulse-form-input">
+            <select name="member_draw_cap_period" class="pulse-form-select">
+              <% FundingPool::DRAW_CAP_PERIODS.each do |period| %>
+                <option value="<%= period %>" <%= "selected" if @funding_pool.member_draw_cap_period == period %>>per <%= period %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Save Ceiling</button>
+          </form>
+        </section>
+      <% end %>
+
+      <%# Operator flag, not self-serve availability: a self-serve pool funds
+          only the collective's own built-in agents, never arbitrary agents. %>
+      <% if @attachable_agents&.any? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Attach an Enrolled Member's Agent</h2>
+          <p class="pulse-section-description">
+            Funding is separate from membership: attaching an agent here does not
+            add it to the collective. The agent's principal must be enrolled.
+          </p>
+          <form action="<%= @current_collective.path %>/pool/add_funded_agent" method="post" class="pulse-inline-form">
+            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+            <select name="ai_agent_id" class="pulse-form-select">
+              <option value="">Select an agent...</option>
+              <% @attachable_agents.each do |agent| %>
+                <option value="<%= agent.id %>"><%= agent.display_name %></option>
+              <% end %>
+            </select>
+            <button type="submit" class="pulse-action-btn">Attach</button>
+          </form>
+        </section>
+      <% end %>
+
+      <% unless @funding_pool.archived? %>
+        <section class="pulse-settings-section">
+          <h2 class="pulse-section-title">Close the Pool</h2>
+          <p class="pulse-section-description">
+            Closing the pool stops all of its spending: attached agents stop running from
+            their next call, and resume automatically if the pool reopens (or once they are
+            detached and funded individually). Enrollments are kept as the consent record
+            for past draws.
+          </p>
+          <%= button_to "Close Funding Pool", "#{@current_collective.path}/pool/close_funding_pool",
+                        method: :post, class: "pulse-action-btn-danger",
+                        data: { turbo_confirm: "Close the funding pool? Attached agents stop running until it reopens or they are detached and funded individually." } %>
+        </section>
+      <% end %>
+    <% end %>
+    <% end %>
   </div>
 </article>

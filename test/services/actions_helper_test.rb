@@ -354,15 +354,19 @@ class ActionsHelperTest < ActiveSupport::TestCase
     assert_equal collectives_result, workspace_result
   end
 
-  test "update_collective_settings documents every param its execute path accepts" do
+  test "update_collective_settings does not document pool params" do
     definition = ActionsHelper::ACTION_DEFINITIONS["update_collective_settings"]
     documented = definition[:params].map { |p| p[:name] }
-    # The draw ceiling is settable through this action; leaving it out of the
-    # docs makes it undiscoverable on the markdown surface.
-    assert_includes documented, "member_daily_draw_cap"
-    assert_includes definition[:params_string], "member_daily_draw_cap"
-    assert_includes documented, "member_draw_cap_period"
-    assert_includes definition[:params_string], "member_draw_cap_period"
+    # The draw ceiling is pool responsibility (the set_pool_ceiling action);
+    # documenting it here would advertise a param the execute path ignores.
+    assert_not_includes documented, "member_daily_draw_cap"
+    assert_not_includes definition[:params_string], "member_daily_draw_cap"
+  end
+
+  test "set_pool_ceiling documents its ceiling params" do
+    definition = ActionsHelper::ACTION_DEFINITIONS["set_pool_ceiling"]
+    assert_equal(["member_daily_draw_cap", "member_draw_cap_period"], definition[:params].map { |p| p[:name] })
+    assert_match(/required/i, definition[:params].first[:description])
   end
 
   test "enroll_in_funding_pool documents its required ceiling param" do

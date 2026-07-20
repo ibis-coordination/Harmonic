@@ -80,7 +80,7 @@ class AgentRunnerDispatchService
       return
     end
     if tenant.feature_enabled?("stripe_billing") && collective_principaled && !pool_funded
-      fail_task!("This agent runs on the collective's funding pool. A collective admin can open one in collective settings.")
+      fail_task!("This agent runs on the collective's funding pool. A collective admin can open one on the collective's pool page.")
       return
     end
     if tenant.feature_enabled?("stripe_billing") && !collective_principaled && !pool_funded
