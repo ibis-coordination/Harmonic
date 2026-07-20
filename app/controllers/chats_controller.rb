@@ -118,6 +118,14 @@ class ChatsController < ApplicationController
   # Sorted by most recent message (descending), then contacts without
   # messages last (alphabetically).
   def load_chat_partners
+    # Collective-principaled agents never chat; show them nothing rather
+    # than historical sessions they can no longer open.
+    if current_user&.collective_principaled?
+      @chat_partners = []
+      @unread_chat_handles = Set.new
+      return
+    end
+
     if current_user&.ai_agent?
       partners = ChatSession.unscope_collective
         .where("user_one_id = ? OR user_two_id = ?", current_user.id, current_user.id)
