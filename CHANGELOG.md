@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.52.1] - 2026-07-19
+
+### Fixed
+
+- **Persona managers can dispatch manual task runs** (#516) — the visibility bundle let a persona's accountable principals (active admins and automators of the principal collective) view, inspect, and cancel its task runs, but "Run new task" 404ed: the run-task page and its POST still resolved the agent through the parent-only lookup, while the links to them render unconditionally. Both now use the same admin-or-automator resolution as the other run surfaces. Rule authorship already lets these managers make the agent run on triggers, so manual dispatch grants nothing beyond what they held; a manual run records the dispatching human as its initiator at chain depth 0. Workspace personas stay owner-only. Deploy: web only, no migrations.
+
 ## [1.52.0] - 2026-07-19
 
 ### Added
