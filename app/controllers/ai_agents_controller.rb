@@ -218,7 +218,7 @@ class AiAgentsController < ApplicationController
   def run_task
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can run AI agent tasks" unless current_user&.human?
 
-    @ai_agent = find_ai_agent_by_handle
+    @ai_agent = find_ai_agent_for_run_views
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent.internal_ai_agent?
 
@@ -230,7 +230,7 @@ class AiAgentsController < ApplicationController
   def execute_task
     return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can run AI agent tasks" unless current_user&.human?
 
-    @ai_agent = find_ai_agent_by_handle
+    @ai_agent = find_ai_agent_for_run_views
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent
     return render status: :not_found, plain: "404 Not Found" unless @ai_agent.internal_ai_agent?
 
@@ -776,14 +776,16 @@ class AiAgentsController < ApplicationController
       .first
   end
 
-  # The task-run surfaces (runs / show_run / cancel_run) resolve the agent
-  # for its parent as usual, and additionally for the principal collective's
-  # automation managers — active admins and automators — when the agent is
-  # collective-principaled (its parent is the collective's identity user,
-  # e.g. the Trio personas). The collective is the accountable principal, so
-  # the humans who answer for it and manage its automations must be able to
-  # inspect what its agents did; a task run is an automation's execution
-  # detail. Everything else on /ai-agents stays parent-only.
+  # The task-run surfaces (runs / show_run / cancel_run / run_task /
+  # execute_task) resolve the agent for its parent as usual, and additionally
+  # for the principal collective's automation managers — active admins and
+  # automators — when the agent is collective-principaled (its parent is the
+  # collective's identity user, e.g. the Trio personas). The collective is
+  # the accountable principal, so the humans who answer for it and manage its
+  # automations must be able to inspect what its agents did and dispatch runs
+  # themselves — rule authorship already lets them make the agent run on
+  # triggers, so manual dispatch grants nothing beyond what they hold.
+  # Everything else on /ai-agents stays parent-only.
   def find_ai_agent_for_run_views
     find_ai_agent_by_handle || find_collective_principaled_agent_for_manager
   end
