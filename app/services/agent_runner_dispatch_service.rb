@@ -68,7 +68,7 @@ class AgentRunnerDispatchService
     # billing pays.
     billing_customer = ai_agent.resolved_billing_customer
     pool_funded = ai_agent.funding_pool_id.present?
-    collective_principaled = ai_agent.system? && ai_agent.parent&.collective_identity?
+    collective_principaled = ai_agent.collective_principaled?
     if tenant.feature_enabled?("stripe_billing") && collective_principaled && !pool_funded
       fail_task!("This agent runs on the collective's funding pool. A collective admin can open one in collective settings.")
       return

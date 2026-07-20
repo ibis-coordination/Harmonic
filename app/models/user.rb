@@ -368,6 +368,15 @@ class User < ApplicationRecord
     Collective.find_by(identity_user_id: parent_id)
   end
 
+  # Whether this agent is principaled by a collective (its parent is the
+  # collective's identity user) rather than by a human. Cheaper than
+  # principal_collective when only the fact matters, and — unlike it —
+  # tenant-independent.
+  sig { returns(T::Boolean) }
+  def collective_principaled?
+    ai_agent? && system? && !!parent&.collective_identity?
+  end
+
   # Whether `viewer` may see this agent's task runs: the parent, or an active
   # admin/automator of the principal collective. The single predicate behind
   # every "view task run" link; mirrors the authorization on the run pages

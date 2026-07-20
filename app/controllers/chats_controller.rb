@@ -212,10 +212,24 @@ class ChatsController < ApplicationController
       return
     end
 
-    # Authorization: must be on same tenant (handled by query above)
-    # For human→agent: must be the user's own agent, OR a system agent (a built-in persona)
-    # which is visible to every member of the tenant.
-    if current_user.human? && @partner.ai_agent? && !@partner.system? && !current_user.ai_agents.include?(@partner)
+    # Authorization: must be on same tenant (handled by query above).
+    #
+    # Collective-principaled agents never participate in chat, either
+    # direction. A chat turn is a task run whose content is readable by the
+    # principal collective's automation managers, so the chat is not private;
+    # and chat sessions live in their own chat collective, outside the
+    # persona's principal collective — pool money is only ever spent on
+    # activity every pool member can see. Members interact with these agents
+    # in shared collective space instead.
+    if @partner.collective_principaled? || current_user.collective_principaled?
+      render status: :not_found, plain: "404 Not Found"
+      return
+    end
+
+    # For human→agent: must be an agent the human is the principal of. This
+    # includes workspace personas — the owner is their parent and pays for
+    # their runs from their own balance.
+    if current_user.human? && @partner.ai_agent? && !current_user.ai_agents.include?(@partner)
       render status: :not_found, plain: "404 Not Found"
       return
     end
