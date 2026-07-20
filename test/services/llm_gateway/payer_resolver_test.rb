@@ -106,6 +106,59 @@ module LLMGateway
       end
     end
 
+    # === Chat turns are never pool-funded ===
+    #
+    # Pool money is only ever spent on activity every pool member can see.
+    # Chat sessions live in their own chat collective, outside the pool
+    # collective's shared space, so a pool draw for a chat turn would be
+    # invisible spending — refused here regardless of how the run was
+    # created, independently of the controller-level chat restrictions.
+
+    test "a chat turn for a pool-funded agent is refused, not charged to the pool" do
+      pool = create_funding_pool!
+      @ai_agent.update!(funding_pool: pool)
+      @task_run.update!(mode: "chat_turn")
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "pool_cannot_fund_chat", error.code
+    end
+
+    test "a pool-funded agent's chat turn is refused even with a stamped billing customer" do
+      # No silent fallback to personal billing: nobody pays for a
+      # pool-funded agent's chat turn, because the call doesn't happen.
+      # Detaching the agent (reverting it to its own billing) is the
+      # sanctioned way to chat with it.
+      create_stamped_billing_customer!
+      pool = create_funding_pool!(primary_stripe_id: "cus_pool_a")
+      @ai_agent.update!(funding_pool: pool)
+      @task_run.update!(mode: "chat_turn")
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "pool_cannot_fund_chat", error.code
+    end
+
+    test "a chat turn for an agent with no pool resolves against individual billing" do
+      create_stamped_billing_customer!
+      @task_run.update!(mode: "chat_turn")
+
+      result = PayerResolver.resolve(@task_run)
+      assert_equal "cus_individual", result.payer_customer_id
+      assert_nil result.funding_pool_id
+    end
+
+    test "a chat turn with no pool and no billing customer fails as not_a_billed_task" do
+      @task_run.update!(mode: "chat_turn")
+
+      error = assert_raises(PayerResolver::ResolutionError) do
+        PayerResolver.resolve(@task_run)
+      end
+      assert_equal "not_a_billed_task", error.code
+    end
+
     test "the funding pool takes precedence over a stamped billing customer" do
       create_stamped_billing_customer!
       pool = create_funding_pool!(primary_stripe_id: "cus_pool_a")

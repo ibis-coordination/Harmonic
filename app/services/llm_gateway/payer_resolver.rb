@@ -300,8 +300,27 @@ module LLMGateway
     def resolve
       agent = T.must(@task_run.ai_agent)
       self.class.ensure_within_daily_cap!(agent)
-      pool = self.class.pool_result(agent, context: "task_run=#{@task_run.id}")
-      return pool if pool
+
+      # A pool-funded agent's chat turn is refused outright — no fallback to
+      # personal billing, so nobody is silently charged for what looks
+      # pool-funded. Pool money is only ever spent on activity every pool
+      # member can see, and chat sessions live in their own chat collective,
+      # outside the pool collective's shared space. Enforced here regardless
+      # of how the run was created — independent of the controller-level chat
+      # restrictions. Detaching the agent (reverting it to its own billing)
+      # is the sanctioned way to chat with it.
+      if @task_run.chat_turn?
+        if agent.funding_pool_id.present?
+          raise ResolutionError.new(
+            "pool_cannot_fund_chat",
+            :forbidden,
+            "Funding pools never pay for chat conversations; pool spending is limited to activity in the collective's shared space."
+          )
+        end
+      else
+        pool = self.class.pool_result(agent, context: "task_run=#{@task_run.id}")
+        return pool if pool
+      end
 
       billing_customer = @task_run.billing_customer
       if billing_customer.nil?
