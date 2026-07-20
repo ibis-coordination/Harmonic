@@ -15,11 +15,16 @@ class BillingController < ApplicationController
 
       # PRG: redirect to clean URL to avoid re-processing on refresh
       return_to = params[:return_to]
-      if @stripe_customer&.active? && safe_return_path?(return_to)
+      if (@stripe_customer&.active? || @topup_processed) && safe_return_path?(return_to)
         return redirect_to return_to
       end
       return redirect_to billing_show_path
     end
+
+    # A page that sent the user here to top up (e.g. the pool page) passes
+    # return_to; the top-up form threads it through to checkout so the user
+    # lands back where they started.
+    @topup_return_to = params[:return_to] if safe_return_path?(params[:return_to])
 
     load_billing_inventory
     load_credit_balance
@@ -111,6 +116,8 @@ class BillingController < ApplicationController
     stripe_customer = StripeService.find_or_create_customer(current_user)
     billing_url = billing_show_url
     success_url = "#{billing_url}?checkout_session_id={CHECKOUT_SESSION_ID}"
+    return_to = params[:return_to]
+    success_url += "&return_to=#{CGI.escape(return_to)}" if safe_return_path?(return_to)
 
     checkout_url = StripeService.create_credit_topup_checkout(
       stripe_customer: stripe_customer,
@@ -294,6 +301,7 @@ class BillingController < ApplicationController
   end
 
   def handle_topup_session(session_obj, stripe_customer)
+    @topup_processed = true
     amount_cents = session_obj.amount_total
     if amount_cents && amount_cents > 0
       # Create the credit grant synchronously (webhook is a backup for reliability).

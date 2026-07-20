@@ -312,6 +312,13 @@
           you can change it or withdraw at any time.
           Enrollment requires prepaid credits.
         </p>
+        <% unless @current_user.funded_billing? %>
+          <p class="pulse-body-text">
+            You don't have prepaid credits yet —
+            <a href="/billing?return_to=<%= CGI.escape("#{@current_collective.path}/pool") %>" class="pulse-link">top up on the billing page</a>
+            and you'll land back here to enroll.
+          </p>
+        <% end %>
         <form action="<%= @current_collective.path %>/pool/enroll_in_funding_pool" method="post" class="pulse-form">
           <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
           <fieldset class="pulse-radio-group">

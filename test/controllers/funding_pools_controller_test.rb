@@ -292,6 +292,37 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Renamed", collective.reload.name
   end
 
+  test "an un-enrolled member without credits gets a top-up link that returns to the pool" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    member = create_user(name: "Broke Member")
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_select "a[href=?]", "/billing?return_to=#{CGI.escape("#{collective.path}/pool")}"
+  end
+
+  test "a member with funded billing sees no top-up prompt" do
+    collective = create_test_collective
+    enable_funding_pools!(collective)
+    create_pool!(collective)
+    member = create_user(name: "Funded Member")
+    @tenant.add_user!(member)
+    add_member!(collective, member)
+    fund_user!(member)
+    sign_in_as(member, tenant: @tenant)
+
+    get "#{collective.path}/pool"
+
+    assert_response :success
+    assert_select "a[href^=?]", "/billing?return_to=", count: 0
+  end
+
   # === The pool page without a pool ===
 
   test "an admin without a pool sees the open-pool form on the pool page" do

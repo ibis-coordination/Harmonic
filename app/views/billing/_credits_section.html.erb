@@ -22,6 +22,9 @@
   <%# Opt out of Turbo: server redirects to Stripe Checkout (cross-origin),
       which Turbo cannot follow under our CSP connect-src. Full-page nav. %>
   <%= form_tag billing_topup_path, method: :post, style: "display: flex; align-items: center; gap: 8px;", data: { turbo: false } do %>
+    <% if @topup_return_to %>
+      <input type="hidden" name="return_to" value="<%= @topup_return_to %>">
+    <% end %>
     <label for="topup_amount" class="pulse-muted" style="white-space: nowrap;">Add funds:</label>
     <select name="amount_cents" id="topup_amount" class="pulse-input" style="width: auto;">
       <option value="500">$5.00</option>
