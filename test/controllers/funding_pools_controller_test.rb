@@ -321,6 +321,8 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "a[href^=?]", "/billing?return_to=", count: 0
+    # The pool page distinguishes prepaid usage credits from the $3/month plan.
+    assert_match(/separate from the collective's \$3\/month plan/i, response.body)
   end
 
   # === The pool page without a pool ===
@@ -409,7 +411,7 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
 
   # === Settings page hands the pool off ===
 
-  test "the settings page points at the pool page instead of hosting pool controls" do
+  test "the settings page hosts no pool controls" do
     collective = create_test_collective
     enable_funding_pools!(collective)
     create_pool!(collective)
@@ -418,7 +420,8 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/settings"
 
     assert_response :success
-    assert_select "a[href=?]", "#{collective.path}/pool"
+    # The pool has its own page (linked from the sidebar menu); settings hosts
+    # neither its controls nor a pointer to it.
     assert_select "form[action=?]", "#{collective.path}/pool/create_funding_pool", count: 0
     assert_select "form[action=?]", "#{collective.path}/pool/update_ceiling", count: 0
     assert_select "form[action=?]", "#{collective.path}/pool/close_funding_pool", count: 0

@@ -4,7 +4,7 @@
     power internal agents. See BillingController#topup / #load_credit_balance. %>
 <section class="pulse-section" style="margin-bottom: 24px;">
   <h2 class="pulse-section-title">AI Agent Credits</h2>
-  <p class="pulse-muted" style="margin-bottom: 12px;">Prepaid credits for AI agent LLM usage. Agents draw down from this balance as they run.</p>
+  <p class="pulse-muted" style="margin-bottom: 12px;">Prepaid credits for AI agent LLM usage. Agents draw down from this balance as they run. Separate from the $3/month collective plan — the plan turns paid features on; these credits pay for usage.</p>
 
   <div style="margin-bottom: 16px;">
     <% if @credit_balance_cents.nil? %>

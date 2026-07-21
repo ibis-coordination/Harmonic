@@ -1,4 +1,7 @@
 <%= render 'pulse/heartbeat_banner' %>
+<% if @agent_setup_step %>
+  <%= render 'collectives/agent_setup_pointer' %>
+<% end %>
 <article class="pulse-resource-detail">
   <%# Same heartbeat blur ritual as the dashboard: presence before content.
       The blur wraps the whole content column — filter bar and feed chrome

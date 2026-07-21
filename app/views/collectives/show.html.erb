@@ -1,5 +1,9 @@
 <%= render 'collective_title' %>
 
+<% if @agent_setup_step %>
+  <%= render 'agent_setup_pointer' %>
+<% end %>
+
 <%= render 'heartbeat_section' %>
 
 <div class="blur-if-no-heartbeat <%= @current_heartbeat.nil? ? 'no-heartbeat' : 'has-heartbeat' %>">

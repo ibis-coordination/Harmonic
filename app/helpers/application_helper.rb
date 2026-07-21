@@ -354,9 +354,13 @@ module ApplicationHelper
   # (lowercase for common nouns; product names stay cased) so callers can
   # splice them into prose. Combine with `to_sentence` for natural-language
   # output.
-  def paid_feature_labels(tenant)
+  # `trio_label` overrides how the built-in-agents item reads. The default
+  # descriptive form suits newcomer-facing surfaces (settings, upgrade preview)
+  # where "Trio" would be opaque; callers whose surrounding context already
+  # names Trio (the Agents page) can pass "Trio" for a shorter, parallel list.
+  def paid_feature_labels(tenant, trio_label: nil)
     labels = ["automations"]
-    labels << "the built-in agents (#{Personas.all.map(&:name).to_sentence})" if tenant.trio_enabled?
+    labels << (trio_label || "the built-in agents (#{Personas.all.map(&:name).to_sentence})") if tenant.trio_enabled?
     labels << "file attachments" if tenant.file_attachments_enabled?
     labels
   end

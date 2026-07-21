@@ -260,6 +260,8 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     # Free account: nothing to pay, but the credits section is still offered.
     assert_match(/nothing to pay/i, response.body)
     assert_match(/AI Agent Credits/, response.body)
+    # The credits section distinguishes prepaid usage credits from the $3/month plan.
+    assert_match(/separate from the \$3\/month collective plan/i, response.body)
     assert_select "form[action=?]", "/billing/topup"
   end
 

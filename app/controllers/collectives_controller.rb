@@ -70,6 +70,10 @@ class CollectivesController < ApplicationController
     @prev_commitments = @previous_cycle.commitments_closed_within_cycle
     @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle) - [current_heartbeat]
+    # Steer admins toward finishing agent setup while the funnel is
+    # incomplete. Computed only for admins who haven't dismissed it, so the
+    # pool/enrollment lookups stay off the common member path.
+    @agent_setup_step = agent_setup_pointer_step
     unless @current_user.collective_member.dismissed_notices.include?('collective-welcome')
       @current_user.collective_member.dismiss_notice!('collective-welcome')
       if @current_collective.created_by == @current_user
@@ -78,6 +82,14 @@ class CollectivesController < ApplicationController
         flash[:notice] = "Welcome to #{@current_collective.name}! You can start creating notes, decisions, and commitments by clicking the plus icon to the right of the page header."
       end
     end
+  end
+
+  # Permanently dismiss the post-creation agent-setup pointer for this
+  # admin in this collective. Once dismissed it stays gone even if the funnel
+  # later regresses — the Agents page remains the resting-state checklist.
+  def dismiss_agent_setup
+    @current_user.collective_member&.dismiss_notice!(ApplicationController::AGENT_SETUP_NOTICE_ID)
+    redirect_to @current_collective.path
   end
 
   def new
@@ -172,14 +184,6 @@ class CollectivesController < ApplicationController
     if can_manage_own_collective_settings?
       @page_title = 'Collective Settings'
 
-      # Proration preview no longer needed here — reactivation is managed on /billing
-
-      # Pool state is only needed to decide whether to point at the pool
-      # page — the pool itself is managed there.
-      if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing")
-        @funding_pools_enabled = @current_collective.funding_pools_available?
-        @funding_pool = @current_collective.funding_pool
-      end
       # Automation counts for display
       @enabled_automations_count = @current_collective.automation_rules.where(enabled: true).count
       # If the owner started a Stripe Checkout for this collective and

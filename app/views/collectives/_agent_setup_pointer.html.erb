@@ -1,0 +1,32 @@
+<%# Post-creation funnel pointer: steers an admin toward finishing built-in
+    agent setup while it's incomplete. Rendered only when
+    @agent_setup_step is set (see CollectivesController#agent_setup_pointer_step),
+    which already gates on admin standing and prior dismissal. Every step
+    links the Agents page — the resting-state checklist — rather than jumping
+    straight to the pool, so there's one place to see what's left. %>
+<%
+  headline, detail = case @agent_setup_step
+    when :enable_trio
+      ["Finish setting up your agents",
+       "This collective is on the paid plan. Turn on the built-in agents to get started."]
+    when :open_pool
+      ["One step left to turn on your agents",
+       "The built-in agents need an open funding pool before they can run. Open one to finish."]
+    when :enroll_members
+      ["Your agents can't run yet",
+       "The funding pool is open — members need to enroll before the agents can run."]
+    end
+%>
+<div class="pulse-notice" id="agent-setup-pointer"
+     style="border: 1px solid var(--color-border-default); border-radius: 6px; margin-bottom: 16px; gap: 12px; align-items: flex-start;">
+  <div style="flex: 1;">
+    <strong><%= octicon 'command-palette', height: 14 %> <%= headline %></strong>
+    <div class="pulse-form-hint" style="margin-top: 2px;"><%= detail %></div>
+  </div>
+  <a href="<%= @current_collective.path %>/agents" class="pulse-action-btn">Set up agents</a>
+  <%= button_to "×", "#{@current_collective.path}/dismiss-agent-setup",
+        method: :post,
+        class: "pulse-dismiss-btn",
+        "aria-label": "Dismiss",
+        title: "Dismiss" %>
+</div>

@@ -572,6 +572,28 @@ class Collective < ApplicationRecord
     funding_pools_available? || funding_pool.present?
   end
 
+  # The next incomplete step in the built-in-agent setup funnel, or nil when
+  # the funnel is complete or doesn't apply. Drives the post-creation pointer
+  # that steers admins toward the Agents page. Only meaningful on billing
+  # tenants that offer Trio; the funnel begins once paid features are unlocked
+  # (a free collective hasn't entered it, so it gets no pointer).
+  sig { returns(T.nilable(Symbol)) }
+  def agent_setup_step
+    return nil unless standard?
+
+    tenant_record = T.must(tenant)
+    return nil unless tenant_record.feature_enabled?("stripe_billing")
+    return nil unless FeatureFlagService.tenant_enabled?(tenant_record, "trio")
+    return nil unless tier_unlocks_paid_features?
+    return :enable_trio unless trio_enabled?
+
+    pool = funding_pool
+    return :open_pool unless pool.present? && !pool.archived?
+    return :enroll_members if pool.enrollments.active.none?
+
+    nil
+  end
+
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
     return unless value.present?

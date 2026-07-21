@@ -16,6 +16,11 @@
   <div class="pulse-resource-body">
     <p>The paid plan unlocks <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. <strong>$3/month</strong>, billed to your account.</p>
 
+    <p class="pulse-muted" style="font-size: 13px;">
+      <%= octicon 'info', height: 12 %>
+      This is the collective's monthly plan — separate from the prepaid usage credits that fund agent activity, which members top up as needed.
+    </p>
+
     <% if @has_active_billing %>
       <section class="pulse-settings-section">
         <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 16px;">
