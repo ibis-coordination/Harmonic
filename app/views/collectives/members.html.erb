@@ -10,6 +10,11 @@
         <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
         Members
       </span>
+      <% if @current_collective.pool_page_available? %>
+        <a href="<%= @current_collective.path %>/pool" class="pulse-link">
+          <%= octicon 'credit-card', height: 14 %> Funding Pool
+        </a>
+      <% end %>
     </div>
     <h1 class="pulse-resource-title">Members</h1>
   </header>
@@ -37,8 +42,13 @@
                 <% end %>
               <% end %>
             </div>
-            <% if @can_manage_members %>
-              <% is_owner = u.id == @current_collective.created_by_id %>
+            <% is_owner = u.id == @current_collective.created_by_id %>
+            <%# Agents are members whose membership their human principal
+                controls: a non-admin gets a menu for their own agents (remove
+                only), matching the server-side carve-out on remove_member. %>
+            <% own_agent = @member_ops_available && u.ai_agent? && u.parent_id == @current_user&.id %>
+            <% can_remove = (@can_manage_members && !is_owner && u.id != @current_user&.id) || own_agent %>
+            <% if @can_manage_members || own_agent %>
               <div class="pulse-member-controls">
                 <details class="pulse-member-menu" data-controller="kebab-menu">
                   <summary class="pulse-action-btn-secondary pulse-member-menu-toggle" title="Manage member">
@@ -46,26 +56,30 @@
                   </summary>
                   <div class="top-menu pulse-member-menu-list">
                     <ul>
-                      <% @manageable_roles.each do |role| %>
-                        <%# Owner's admin is permanent (the action rejects revoking it), so don't offer a toggle that can only fail — it shows as a pill above instead. The model also forbids the representative role for collective-identity users. %>
-                        <% next if role == 'admin' && is_owner %>
-                        <% next if role == 'representative' && u.collective_identity? %>
-                        <% active = u.collective_member.has_role?(role) %>
-                        <% role_label = active ? "Remove role #{role}" : "Add role #{role}" %>
-                        <%# Each item is a real action POST — capability-checked and
-                            authorized server-side. On success the action redirects
-                            back to this page, so the pills and menu refresh. %>
-                        <li>
-                          <%= button_to role_label,
-                                "#{@current_collective.path}/members/actions/update_member_roles",
-                                method: :post,
-                                params: { user_handle: u.handle, role: role, grant: (active ? "false" : "true") },
-                                class: "pulse-member-menu-item",
-                                form: { class: "pulse-member-menu-form", data: { member_id: u.id, role: role } } %>
-                        </li>
+                      <% if @can_manage_members %>
+                        <% @manageable_roles.each do |role| %>
+                          <%# Owner's admin is permanent (the action rejects revoking it), so don't offer a toggle that can only fail — it shows as a pill above instead. The model also forbids the representative role for collective-identity users. %>
+                          <% next if role == 'admin' && is_owner %>
+                          <% next if role == 'representative' && u.collective_identity? %>
+                          <% active = u.collective_member.has_role?(role) %>
+                          <% role_label = active ? "Remove role #{role}" : "Add role #{role}" %>
+                          <%# Each item is a real action POST — capability-checked and
+                              authorized server-side. On success the action redirects
+                              back to this page, so the pills and menu refresh. %>
+                          <li>
+                            <%= button_to role_label,
+                                  "#{@current_collective.path}/members/actions/update_member_roles",
+                                  method: :post,
+                                  params: { user_handle: u.handle, role: role, grant: (active ? "false" : "true") },
+                                  class: "pulse-member-menu-item",
+                                  form: { class: "pulse-member-menu-form", data: { member_id: u.id, role: role } } %>
+                          </li>
+                        <% end %>
                       <% end %>
-                      <% unless is_owner || u.id == @current_user&.id %>
-                        <li class="pulse-member-menu-divider"><hr></li>
+                      <% if can_remove %>
+                        <% if @can_manage_members %>
+                          <li class="pulse-member-menu-divider"><hr></li>
+                        <% end %>
                         <li>
                           <%= button_to "Remove from collective",
                                 "#{@current_collective.path}/members/actions/remove_member",
@@ -92,6 +106,22 @@
           <%= octicon 'person-add', height: 16 %>
           Invite Members
         </a>
+      </div>
+    <% end %>
+
+    <% if @addable_ai_agents.present? %>
+      <div class="pulse-invite-section">
+        <h3 class="pulse-subsection-title">Add your agents</h3>
+        <form action="<%= @current_collective.path %>/members/add_ai_agent" method="post" class="pulse-inline-form">
+          <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+          <select name="ai_agent_id" class="pulse-form-select">
+            <option value="">Select an agent...</option>
+            <% @addable_ai_agents.each do |agent| %>
+              <option value="<%= agent.id %>"><%= agent.display_name %></option>
+            <% end %>
+          </select>
+          <button type="submit" class="pulse-action-btn">Add to collective</button>
+        </form>
       </div>
     <% end %>
   </div>

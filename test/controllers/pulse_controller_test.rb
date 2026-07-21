@@ -310,6 +310,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
       assert_select "a[href=?]", "#{@collective.path}/dashboard"
       assert_select "a[href=?]", "#{@collective.path}/cycles"
       assert_select "a[href=?]", "#{@collective.path}/backlinks"
+      assert_select "a[href=?]", "#{@collective.path}/members"
     end
   end
 
@@ -345,5 +346,54 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
     # any feed chrome included, not just the items.
     assert_select ".pulse-blur-if-no-heartbeat .pulse-feed-bar"
     assert_select ".pulse-blur-if-no-heartbeat .pulse-feed"
+  end
+
+  test "the collective menu links the funding pool when one is relevant" do
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("stripe_billing")
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    @collective.enable_feature_flag!("funding_pools")
+    sign_in_as(@user, tenant: @tenant)
+
+    get @collective.path.to_s
+    assert_response :success
+    assert_select ".pulse-sidebar-menu a[href=?]", "#{@collective.path}/pool"
+  end
+
+  test "the collective menu omits the funding pool link when pools are irrelevant" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get @collective.path.to_s
+    assert_response :success
+    assert_select ".pulse-sidebar-menu a[href=?]", "#{@collective.path}/pool", count: 0
+  end
+
+  test "the collective menu links the agents page" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get @collective.path.to_s
+    assert_response :success
+    assert_select ".pulse-sidebar-menu a[href=?]", "#{@collective.path}/agents"
+  end
+
+  test "a private workspace menu has no agents link" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    workspace = Collective.create!(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Agents Link Workspace",
+      handle: "agents-link-workspace-#{SecureRandom.hex(4)}",
+      collective_type: "private_workspace",
+    )
+    workspace.add_user!(@user)
+    Tenant.clear_thread_scope
+    sign_in_as(@user, tenant: @tenant)
+
+    get workspace.path.to_s
+    assert_response :success
+    assert_select ".pulse-sidebar-menu a[href=?]", "#{workspace.path}/agents", count: 0
   end
 end

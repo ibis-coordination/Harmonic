@@ -51,7 +51,26 @@
             <% unless @current_collective.private_workspace? %>
             <li>
               <a href="<%= @current_collective.path %>/representation">
-                <%= octicon 'people', height: 14 %> Representation
+                <%= octicon 'person', height: 14 %> Representation
+              </a>
+            </li>
+            <% end %>
+            <li>
+              <a href="<%= @current_collective.path %>/members">
+                <%= octicon 'people', height: 14 %> Members
+              </a>
+            </li>
+            <% unless @current_collective.private_workspace? %>
+            <li>
+              <a href="<%= @current_collective.path %>/agents">
+                <%= octicon 'command-palette', height: 14 %> Agents
+              </a>
+            </li>
+            <% end %>
+            <% if !@current_collective.private_workspace? && @current_collective.pool_page_available? %>
+            <li>
+              <a href="<%= @current_collective.path %>/pool">
+                <%= octicon 'credit-card', height: 14 %> Funding Pool
               </a>
             </li>
             <% end %>

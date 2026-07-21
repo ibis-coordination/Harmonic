@@ -131,28 +131,27 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
   end
 
   # ====================
-  # Collective Settings Page - AiAgent Management
+  # Members Page - AiAgent Membership Ops
   # ====================
 
-  test "collective settings page shows ai_agents in that collective" do
+  test "members page shows ai_agent members" do
     # Add ai_agent to collective first
     @collective.add_user!(@ai_agent)
 
     sign_in_as(@parent, tenant: @tenant)
-    get "/collectives/#{@collective.handle}/settings"
+    get "/collectives/#{@collective.handle}/members"
 
     assert_response :success
     assert_match @ai_agent.display_name, response.body
-    assert_match "AI Agents in this Collective", response.body
   end
 
-  test "admin can add own ai_agent to collective via settings JSON endpoint" do
+  test "parent can add own ai_agent via members JSON endpoint" do
     sign_in_as(@parent, tenant: @tenant)
 
     # Verify ai_agent is not in collective initially
     assert_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
 
-    post "/collectives/#{@collective.handle}/settings/add_ai_agent",
+    post "/collectives/#{@collective.handle}/members/add_ai_agent",
          params: { ai_agent_id: @ai_agent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json
@@ -166,7 +165,7 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
     assert_not_nil CollectiveMember.find_by(collective: @collective, user: @ai_agent)
   end
 
-  test "admin cannot add another user's ai_agent to collective via settings" do
+  test "cannot add another user's ai_agent via members endpoint" do
     other_parent = create_user(name: "Other Parent")
     @tenant.add_user!(other_parent)
     other_ai_agent = create_ai_agent(parent: other_parent, name: "Other AiAgent")
@@ -174,7 +173,7 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/settings/add_ai_agent",
+    post "/collectives/#{@collective.handle}/members/add_ai_agent",
          params: { ai_agent_id: other_ai_agent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json
@@ -183,7 +182,7 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
     assert_nil CollectiveMember.find_by(collective: @collective, user: other_ai_agent)
   end
 
-  test "admin can remove ai_agent from collective via settings JSON endpoint" do
+  test "parent can remove own ai_agent via the members remove_member action" do
     # First add ai_agent to collective
     @collective.add_user!(@ai_agent)
     collective_member = CollectiveMember.find_by(collective: @collective, user: @ai_agent)
@@ -192,28 +191,25 @@ class AiAgentCollectiveMembershipTest < ActionDispatch::IntegrationTest
 
     sign_in_as(@parent, tenant: @tenant)
 
-    delete "/collectives/#{@collective.handle}/settings/remove_ai_agent",
-           params: { ai_agent_id: @ai_agent.id },
-           headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
-           as: :json
+    agent_handle = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+    post "/collectives/#{@collective.handle}/members/actions/remove_member",
+         params: { user_handle: agent_handle }.to_json,
+         headers: { "Accept" => "text/markdown", "Content-Type" => "application/json" }
 
     assert_response :success
-    json_response = JSON.parse(response.body)
-    assert_equal @ai_agent.id, json_response["ai_agent_id"]
-    assert_equal true, json_response["can_readd"]
 
     # Verify ai_agent membership is archived (not deleted)
     collective_member.reload
     assert collective_member.archived?
   end
 
-  test "non-admin cannot add ai_agent to collective via settings" do
-    # Remove admin role from parent
+  test "a member without invite permission cannot add their ai_agent" do
+    # Remove admin role from parent; invitations stay admin-only by default
     @parent.collective_members.find_by(collective: @collective)&.remove_role!('admin')
 
     sign_in_as(@parent, tenant: @tenant)
 
-    post "/collectives/#{@collective.handle}/settings/add_ai_agent",
+    post "/collectives/#{@collective.handle}/members/add_ai_agent",
          params: { ai_agent_id: @ai_agent.id },
          headers: { "Accept" => "application/json", "Content-Type" => "application/json" },
          as: :json

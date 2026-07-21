@@ -171,8 +171,7 @@ class ActionsHelper
     },
     "update_collective_settings" => {
       description: "Update collective settings",
-      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled, " \
-                     "member_daily_draw_cap, member_draw_cap_period)",
+      params_string: "(name, description, timezone, tempo, synchronization_mode, invitations, representation, file_uploads, api_enabled)",
       params: [
         { name: "name", type: "string", description: "The name of the collective" },
         { name: "description", type: "string", description: "A description of the collective" },
@@ -183,11 +182,19 @@ class ActionsHelper
         { name: "representation", type: "string", description: 'Who can represent the collective: "any_member" or "only_representatives"' },
         { name: "file_uploads", type: "boolean", description: "Whether file attachments are allowed" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is allowed (not changeable via API - use HTML UI to modify)" },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
+    "set_pool_ceiling" => {
+      description: "Set the funding pool's draw ceiling — the most it may bill any one enrolled member within its window (UTC). " \
+                   "Every pool must have a ceiling, so it cannot be blanked. Requires a pool.",
+      params_string: "(member_daily_draw_cap, member_draw_cap_period)",
+      params: [
         { name: "member_daily_draw_cap", type: "string",
-          description: "The funding pool's draw ceiling — the most it may bill any one enrolled member within its window (UTC), " \
-                       'in dollars, e.g. "5.00". Requires an open pool; mandatory, so it cannot be blanked.', },
+          description: 'Required. The ceiling in dollars, e.g. "5.00".', },
         { name: "member_draw_cap_period", type: "string",
-          description: 'The window the pool ceiling covers: "day", "week", or "month". Optional; applies together with member_daily_draw_cap.', },
+          description: 'Optional. The window the ceiling covers: "day", "week", or "month".', },
       ],
       authorization: :collective_admin,
       visibility: :by_collective,
@@ -236,22 +243,26 @@ class ActionsHelper
       authorization: :collective_admin,
       visibility: :by_collective,
     },
+    "set_trio_enabled" => {
+      description: "Enable or disable Trio, the collective's built-in persona ensemble. Enabling adds its personas as collective members; " \
+                   "disabling deactivates them (their history stays, and re-enabling brings them back). On billing accounts Trio " \
+                   "requires the paid plan and needs an open funding pool to actually run.",
+      params_string: "(enabled)",
+      params: [
+        { name: "enabled", type: "string", description: 'Required. "true" to enable Trio, "false" to disable it.' },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
     "add_ai_agent_to_collective" => {
       description: "Add one of your AI agents to this collective",
       params_string: "(ai_agent_id)",
       params: [
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to add" },
       ],
-      authorization: :collective_admin,
-      visibility: :by_collective,
-    },
-    "remove_ai_agent_from_collective" => {
-      description: "Remove an AI agent from this collective",
-      params_string: "(ai_agent_id)",
-      params: [
-        { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to remove" },
-      ],
-      authorization: :collective_admin,
+      # Any member who can invite may add their own agents — the executor
+      # enforces ownership plus the collective's invite policy.
+      authorization: :collective_member,
       visibility: :by_collective,
     },
     "send_heartbeat" => {
@@ -278,7 +289,9 @@ class ActionsHelper
       params: [
         { name: "user_handle", type: "string", required: true, description: "Handle of the member to remove (e.g. @alice)" },
       ],
-      authorization: :collective_admin,
+      # Member-level so a non-admin can reach the executor, which enforces
+      # admin standing — or, for ai_agent targets, being the agent's principal.
+      authorization: :collective_member,
       visibility: :by_collective,
     },
 
@@ -1304,44 +1317,24 @@ class ActionsHelper
       actions: [
         { name: "update_collective_settings", params_string: ACTION_DEFINITIONS["update_collective_settings"][:params_string],
           description: ACTION_DEFINITIONS["update_collective_settings"][:description], },
-        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string],
-          description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description], },
-        { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string],
-          description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
-      # Funding pool actions require a pool. Enrollment and attachment
-      # additionally need an OPEN pool and the operator-managed funding_pools
-      # flag; withdrawal and detachment are exits and stay available on a
-      # closed pool or after the flag is turned off.
-      conditional_actions: [
-        ["enroll_in_funding_pool", true], ["withdraw_from_funding_pool", false],
-        ["attach_funded_agent", true], ["detach_funded_agent", false],
-      ].map do |name, entrance|
-        {
-          name: name,
-          condition: lambda { |context|
-            collective = context[:collective]
-            pool = collective&.funding_pool
-            pool.present? &&
-              (!entrance || (!pool.archived? && collective.feature_enabled?("funding_pools")))
-          },
-        }
-      end,
     },
     "/collectives/:collective_handle/pool" => {
-      controller_actions: ["collectives#pool"],
+      controller_actions: ["funding_pools#show"],
       actions: [],
-      # The member-facing pair only: the page offers each viewer what applies
-      # to them right now. Enroll stays offered to enrolled members too — the
-      # same action restates their ceiling. Admin roster actions stay on the
-      # settings route.
+      # The pool page owns every pool action. Each viewer is offered what
+      # applies to them right now: enroll stays offered to enrolled members
+      # too (the same action restates their ceiling); admin actions require
+      # collective admin. Entrances (enroll, attach) and ceiling changes need
+      # an OPEN pool with pools available; exits (withdraw, detach) stay
+      # available on a closed pool or after availability lapses.
       conditional_actions: [
         {
           name: "enroll_in_funding_pool",
           condition: lambda { |context|
             collective = context[:collective]
             pool = collective&.funding_pool
-            pool.present? && !pool.archived? && collective.feature_enabled?("funding_pools") &&
+            pool.present? && !pool.archived? && collective.funding_pools_available? &&
               context[:user].present?
           },
         },
@@ -1351,6 +1344,52 @@ class ActionsHelper
             pool = context[:collective]&.funding_pool
             user = context[:user]
             pool.present? && user.present? && pool.enrollments.active.exists?(user_id: user.id)
+          },
+        },
+        {
+          name: "set_pool_ceiling",
+          condition: lambda { |context|
+            collective = context[:collective]
+            pool = collective&.funding_pool
+            pool.present? && !pool.archived? && collective.funding_pools_available? &&
+              collective_admin?(context)
+          },
+        },
+        {
+          name: "attach_funded_agent",
+          # Operator flag, not self-serve availability: a self-serve pool
+          # funds only the collective's own built-in agents.
+          condition: lambda { |context|
+            collective = context[:collective]
+            pool = collective&.funding_pool
+            pool.present? && !pool.archived? && collective.feature_enabled?("funding_pools") &&
+              collective_admin?(context)
+          },
+        },
+        {
+          name: "detach_funded_agent",
+          condition: lambda { |context|
+            pool = context[:collective]&.funding_pool
+            pool.present? && collective_admin?(context)
+          },
+        },
+      ],
+    },
+    "/collectives/:collective_handle/agents" => {
+      controller_actions: ["collective_agents#show"],
+      actions: [],
+      conditional_actions: [
+        {
+          name: "set_trio_enabled",
+          # Offered while the toggle can do something: admins where the
+          # tenant offers Trio, and either the tier unlocks it or it is
+          # already on (so it can still be turned off after a lapse).
+          condition: lambda { |context|
+            collective = context[:collective]
+            tenant = context[:tenant]
+            collective.present? && !collective.private_workspace? && tenant.present? &&
+              FeatureFlagService.tenant_enabled?(tenant, "trio") && collective_admin?(context) &&
+              (collective.tier_unlocks_paid_features? || collective.feature_flag_enabled_locally?("trio"))
           },
         },
       ],
@@ -1380,6 +1419,8 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["update_member_roles"][:description], },
         { name: "remove_member", params_string: ACTION_DEFINITIONS["remove_member"][:params_string],
           description: ACTION_DEFINITIONS["remove_member"][:description], },
+        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string],
+          description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description], },
       ],
     },
     "/collectives/:collective_handle/represent" => {
@@ -2024,6 +2065,19 @@ class ActionsHelper
       end
       { route: route_info[:route], actions: filtered_actions }
     end.reject { |ri| ri[:actions].empty? }
+  end
+
+  # True when the context's user is an active admin member of the context's
+  # collective. Used by conditional_actions lambdas for admin-only actions on
+  # member-visible pages.
+  sig { params(context: T::Hash[Symbol, T.untyped]).returns(T::Boolean) }
+  def self.collective_admin?(context)
+    user = context[:user]
+    collective = context[:collective]
+    return false unless user && collective
+
+    member = collective.collective_members.find_by(user_id: user.id)
+    member&.is_admin? || false
   end
 
   sig { params(route: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }

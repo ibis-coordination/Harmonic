@@ -76,11 +76,13 @@ class AgentRunnerDispatchService
     # here puts a readable error in the chat UI immediately instead of after
     # the runner spins up.
     if @task_run.chat_turn? && pool_funded
-      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover private chat. Detach the agent to chat on its own billing.")
+      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover private chat. " \
+                 "Detach the agent to chat on its own billing.")
       return
     end
     if tenant.feature_enabled?("stripe_billing") && collective_principaled && !pool_funded
-      fail_task!("This agent runs on the collective's funding pool. A collective admin can open one in collective settings.")
+      fail_task!("This agent runs on the collective's funding pool. A collective admin can open one on the collective's pool page.")
+      notify_unfunded_mention!
       return
     end
     if tenant.feature_enabled?("stripe_billing") && !collective_principaled && !pool_funded
@@ -190,6 +192,59 @@ class AgentRunnerDispatchService
     )
     broadcast_chat_error(error)
     @task_run.notify_parent_automation_runs!
+  end
+
+  # The no-pool failure above lands only on the task-run page, which the
+  # person who @mentioned the agent never visits — without this they get
+  # silence. When the failed run came from a mention (an event-triggered
+  # automation), tell the mentioner why nothing happened, with the pool page
+  # as the fix. Same notification type (and preference toggle) as the
+  # not-enabled mention hint; the pool-page URL is what marks this variant,
+  # including for dedup. Sent once per person per collective per unfunded
+  # spell: a prior notification suppresses new ones until a pool has been
+  # opened and later closed or lapsed (the pool's archived_at marks that
+  # transition).
+  sig { void }
+  def notify_unfunded_mention!
+    collective = @task_run.ai_agent&.principal_collective
+    pool_url = collective&.path && "#{collective.path}/pool"
+    return unless collective && pool_url
+
+    rule_run = AutomationRuleRun.tenant_scoped_only(@task_run.tenant_id)
+      .find_by(ai_agent_task_run_id: @task_run.id)
+    event = rule_run&.triggered_by_event
+    recipient = event&.actor
+    return unless event && recipient
+    return if notified_this_unfunded_spell?(recipient, collective, pool_url)
+
+    agent_name = T.must(@task_run.ai_agent).display_name
+    NotificationDispatcher.notify_user(
+      event: event,
+      recipient: recipient,
+      notification_type: "persona_unavailable",
+      title: "#{agent_name} can't run in #{collective.name}: no funding pool",
+      body: "You mentioned #{agent_name}, but this collective has no open funding pool, so its agents cannot run. " \
+            "A collective admin can open one on the pool page.",
+      url: pool_url,
+    )
+  rescue StandardError => e
+    Rails.logger.error("[AgentRunnerDispatchService] Failed to send unfunded notification for task #{@task_run.id}: #{e.message}")
+  end
+
+  sig { params(recipient: User, collective: Collective, pool_url: String).returns(T::Boolean) }
+  def notified_this_unfunded_spell?(recipient, collective, pool_url)
+    # The URL narrows the shared persona_unavailable type to the unfunded
+    # variant — a not-enabled hint (which links settings) must not suppress
+    # this one.
+    scope = Notification.tenant_scoped_only(@task_run.tenant_id)
+      .where(notification_type: "persona_unavailable", url: pool_url)
+      .joins(:notification_recipients).where(notification_recipients: { user_id: recipient.id })
+      .joins(:event).where(events: { collective_id: collective.id })
+    # A pool that was opened and later closed re-arms the notification: only
+    # notifications from the current unfunded spell count.
+    spell_started_at = collective.funding_pool&.archived_at
+    scope = scope.where("notifications.created_at > ?", spell_started_at) if spell_started_at
+    scope.exists?
   end
 
   sig { params(error: String).void }

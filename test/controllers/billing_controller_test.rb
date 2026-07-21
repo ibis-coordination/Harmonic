@@ -286,6 +286,98 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     assert_requested checkout_stub
   end
 
+  test "the billing page threads a safe return_to into the top-up form" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_form_rt", stripe_subscription_id: "sub_form_rt", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing?return_to=/collectives/somewhere/pool"
+
+    assert_response :success
+    assert_select "form[action=?] input[name=return_to][value=?]", "/billing/topup", "/collectives/somewhere/pool"
+  end
+
+  test "the billing page drops an unsafe return_to" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_form_bad_rt", stripe_subscription_id: "sub_form_bad_rt", active: true)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing?return_to=//evil.example.com"
+
+    assert_response :success
+    assert_select "form[action=?]", "/billing/topup"
+    assert_select "form[action=?] input[name=return_to]", "/billing/topup", count: 0
+  end
+
+  test "topup passes a safe return_to into the checkout success_url" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_rt", active: true)
+    stub_request(:post, "https://api.stripe.com/v1/prices")
+      .to_return(status: 200, body: { id: "price_rt", object: "price" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .with { |req| captured_body = req.body; true }
+      .to_return(status: 200,
+                 body: { id: "cs_topup_rt", object: "checkout.session",
+                         url: "https://checkout.stripe.com/session/cs_topup_rt" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/billing/topup", params: { amount_cents: "2500", return_to: "/collectives/somewhere/pool" }
+
+    assert_response :redirect
+    success_url = Rack::Utils.parse_nested_query(captured_body)["success_url"]
+    assert_includes success_url, "return_to=#{CGI.escape("/collectives/somewhere/pool")}"
+  end
+
+  test "topup ignores an unsafe return_to" do
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_topup_bad_rt", active: true)
+    stub_request(:post, "https://api.stripe.com/v1/prices")
+      .to_return(status: 200, body: { id: "price_badrt", object: "price" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    captured_body = nil
+    stub_request(:post, "https://api.stripe.com/v1/checkout/sessions")
+      .with { |req| captured_body = req.body; true }
+      .to_return(status: 200,
+                 body: { id: "cs_topup_badrt", object: "checkout.session",
+                         url: "https://checkout.stripe.com/session/cs_topup_badrt" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/billing/topup", params: { amount_cents: "2500", return_to: "https://evil.example.com/pool" }
+
+    assert_response :redirect
+    success_url = Rack::Utils.parse_nested_query(captured_body)["success_url"]
+    assert_not_includes success_url, "return_to"
+  end
+
+  test "show redirects to return_to after a completed credit top-up" do
+    StripeCustomer.create!(
+      billable: @user, stripe_id: "cus_topup_ret", active: false,
+      pricing_plan_subscription_id: "bpps_existing",
+    )
+    stub_request(:get, %r{https://api.stripe.com/v1/checkout/sessions/cs_topup_ret})
+      .to_return(
+        status: 200,
+        body: {
+          id: "cs_topup_ret",
+          object: "checkout.session",
+          customer: "cus_topup_ret",
+          status: "complete",
+          mode: "payment",
+          amount_total: 2500,
+          metadata: { type: "credit_topup" },
+        }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    stub_request(:post, "https://api.stripe.com/v1/billing/credit_grants")
+      .to_return(status: 200, body: { id: "credgr_ret", object: "billing.credit_grant" }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/billing?checkout_session_id=cs_topup_ret&return_to=/collectives/somewhere/pool"
+
+    assert_redirected_to "/collectives/somewhere/pool"
+  end
+
   test "topup is rejected when billing is not enabled" do
     plain_tenant = create_tenant(subdomain: "billing-off-#{SecureRandom.hex(4)}")
     plain_user = create_user(email: "billing-off-#{SecureRandom.hex(4)}@example.com", name: "No Billing")

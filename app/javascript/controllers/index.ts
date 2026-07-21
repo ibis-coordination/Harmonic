@@ -66,9 +66,7 @@ import ScratchpadLinksController from "./scratchpad_links_controller"
 import SecretRevealController from "./secret_reveal_controller"
 import AgentChatController from "./agent_chat_controller"
 import ChatSearchController from "./chat_search_controller"
-import AiAgentManagerController from "./ai_agent_manager_controller"
 import AiAgentModeController from "./ai_agent_mode_controller"
-import AiAgentCollectiveAdderController from "./ai_agent_collective_adder_controller"
 import TaskRunStatusController from "./task_run_status_controller"
 import TimeagoController from "./timeago_controller"
 import TooltipController from "./tooltip_controller"
@@ -147,9 +145,7 @@ application.register("scratchpad-links", ScratchpadLinksController)
 application.register("secret-reveal", SecretRevealController)
 application.register("agent-chat", AgentChatController)
 application.register("chat-search", ChatSearchController)
-application.register("ai_agent-manager", AiAgentManagerController)
 application.register("ai_agent-mode", AiAgentModeController)
-application.register("ai_agent-collective-adder", AiAgentCollectiveAdderController)
 application.register("task-run-status", TaskRunStatusController)
 application.register("timeago", TimeagoController)
 application.register("tooltip", TooltipController)

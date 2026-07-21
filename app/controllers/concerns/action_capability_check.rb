@@ -97,7 +97,6 @@ module ActionCapabilityCheck
     "collectives#update_settings" => "update_collective_settings",
     "collectives#update_image" => "update_collective_settings",
     "collectives#add_ai_agent" => "add_ai_agent_to_collective",
-    "collectives#remove_ai_agent" => "remove_ai_agent_from_collective",
     "collectives#accept_invite" => "join_collective",
 
     # Collectives - API v1 routes
@@ -109,7 +108,9 @@ module ActionCapabilityCheck
     "users#update_profile" => "update_profile",
     "users#update_image" => "update_profile",
     "users#add_ai_agent_to_collective" => "add_ai_agent_to_collective",
-    "users#remove_ai_agent_from_collective" => "remove_ai_agent_from_collective",
+    # Removing an agent archives its membership — same capability surface as
+    # the members-page remove_member action.
+    "users#remove_ai_agent_from_collective" => "remove_member",
     "users#represent" => "start_representation",
 
     # Users - API v1 routes

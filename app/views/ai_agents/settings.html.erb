@@ -192,7 +192,7 @@
             <% @available_collectives.each do |collective| %>
               <li class="pulse-list-item" style="display: flex; align-items: center; justify-content: space-between;">
                 <a href="<%= collective.path %>" class="pulse-link"><%= collective.name %></a>
-                <%= form_with url: "#{collective.path}/settings/add_ai_agent", method: :post, local: true, style: "margin: 0;" do %>
+                <%= form_with url: "#{collective.path}/members/add_ai_agent", method: :post, local: true, style: "margin: 0;" do %>
                   <%= hidden_field_tag :ai_agent_id, @ai_agent.id %>
                   <%= hidden_field_tag :return_to, "/ai-agents/#{@ai_agent.handle}/settings" %>
                   <%= submit_tag "Add", class: "pulse-action-btn-small" %>

@@ -893,36 +893,6 @@ class ApiHelper
       current_collective.timezone = params[:timezone] if params[:timezone].present?
       current_collective.tempo = params[:tempo] if params[:tempo].present?
       current_collective.synchronization_mode = params[:synchronization_mode] if params[:synchronization_mode].present?
-      # Per-member daily draw ceiling (lives on the collective's funding
-      # pool). Dollars in, cents stored. Mandatory — a blank value is a
-      # refused attempt to clear it. The action wrapper renders whatever
-      # message is raised, so re-raise the parse failure in words the caller
-      # can act on.
-      if params[:member_draw_cap_period].present? && params[:member_daily_draw_cap].blank?
-        raise "member_draw_cap_period applies together with member_daily_draw_cap — restate the ceiling to change its window."
-      end
-
-      if params.has_key?(:member_daily_draw_cap)
-        pool = current_collective.funding_pool
-        raise "This collective has no funding pool, so it has no draw ceiling to set." if pool.nil?
-        unless current_collective.feature_enabled?("funding_pools")
-          raise "Funding pools are not enabled for this collective, so the draw ceiling is paused and cannot be changed."
-        end
-
-        period = params[:member_draw_cap_period].presence
-        raise 'member_draw_cap_period must be one of "day", "week", or "month".' if period && FundingPool::DRAW_CAP_PERIODS.exclude?(period)
-
-        begin
-          cap_cents = MoneyParam.dollars_to_cents(params[:member_daily_draw_cap])
-          raise ArgumentError, "ceiling required" if cap_cents.nil?
-
-          pool.member_draw_cap_cents = cap_cents
-          pool.member_draw_cap_period = period if period
-          pool.save!
-        rescue ArgumentError
-          raise ArgumentError, "The pool draw ceiling must be a dollar amount, e.g. 5.00 — every pool must have one, so it cannot be cleared."
-        end
-      end
 
       # Handle settings stored in JSON column (skip for private workspaces — enforced settings)
       unless current_collective.private_workspace?

@@ -42,9 +42,12 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "withdraw_from_funding_pool",
     "attach_funded_agent",
     "detach_funded_agent",
+    "set_pool_ceiling",
+    # Enabling Trio commits the collective to paid-feature spend and adds
+    # members; like the other collective-configuration actions, humans only.
+    "set_trio_enabled",
     "create_ai_agent",
     "add_ai_agent_to_collective",
-    "remove_ai_agent_from_collective",
     "create_api_token",
     "update_profile",
     # Notification preferences govern which events reach the agent — its

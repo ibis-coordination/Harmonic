@@ -1,6 +1,10 @@
 # <%= @current_collective.name %>'s Funding Pool
 
 Each LLM call an attached agent makes is billed to one enrolled member's own prepaid balance, chosen at random per call, so cost spreads roughly evenly over time across the enrolled members who have balance available. The pool never holds money.
+<% if @funding_pool.nil? %>
+
+This collective has no funding pool open yet. Opening a pool puts the enabled built-in agents on its payroll automatically; they need the pool to run. A collective admin can open one here (`create_funding_pool` with `member_daily_draw_cap`, the pool's per-member draw ceiling).
+<% else %>
 <% if @funding_pool.archived? %>
 
 **This pool is closed.** Its agents stop running and no balances are being drawn on; everything resumes automatically if it reopens. Enrollments are kept in case it does; withdrawal is still available.
@@ -39,4 +43,5 @@ Agent spend (last 30 days):
 
 The pool stops drawing from a member once its draws from them reach the ceiling for the <%= @funding_pool.member_draw_cap_period %>; each member also sets their own ceiling when enrolling, and the lower of the two applies. Ceilings are per pool — draws by other pools count against those pools' ceilings, not this one's.
 
-Enrolling is consenting to fund this collective's agents from your own prepaid balance, up to a ceiling you state yourself over a day, week, or month; it requires prepaid credits, and you can withdraw at any time. Withdrawal drops you out of draws immediately. To change your ceiling, enroll again with the new value. Admins manage the pool itself (lifecycle, pool ceiling, attached agents) from the collective's settings.
+Enrolling is consenting to fund this collective's agents from your own prepaid balance, up to a ceiling you state yourself over a day, week, or month; it requires prepaid credits, and you can withdraw at any time. Withdrawal drops you out of draws immediately. To change your ceiling, enroll again with the new value. Admins manage the pool itself here too: lifecycle (`create_funding_pool` / `close_funding_pool`), the pool ceiling (`set_pool_ceiling`), and attached agents (`attach_funded_agent` / `detach_funded_agent`).
+<% end %>

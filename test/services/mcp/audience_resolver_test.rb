@@ -124,6 +124,8 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     # :shared — a specific group/relationship, not a public audience
     "join_collective" => :shared,
     "send_message" => :shared,
+    "set_pool_ceiling" => :by_collective,
+    "set_trio_enabled" => :by_collective,
     "report_content" => :shared,
     "suspend_user" => :shared,
     "unsuspend_user" => :shared,
@@ -153,7 +155,6 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "detach_funded_agent" => :by_collective,
     "enroll_in_funding_pool" => :by_collective,
     "withdraw_from_funding_pool" => :by_collective,
-    "remove_ai_agent_from_collective" => :by_collective,
     "update_member_roles" => :by_collective,
     "remove_member" => :by_collective,
     "send_heartbeat" => :by_collective,
