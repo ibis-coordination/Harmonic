@@ -10,6 +10,11 @@
         <%= octicon 'people', height: 14, class: 'pulse-resource-icon' %>
         Members
       </span>
+      <% if @current_collective.pool_page_available? %>
+        <a href="<%= @current_collective.path %>/pool" class="pulse-link">
+          <%= octicon 'credit-card', height: 14 %> Funding Pool
+        </a>
+      <% end %>
     </div>
     <h1 class="pulse-resource-title">Members</h1>
   </header>

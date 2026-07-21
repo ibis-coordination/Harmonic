@@ -564,6 +564,14 @@ class Collective < ApplicationRecord
     paid_tier? || feature_enabled?("funding_pools")
   end
 
+  # True when the pool page is worth linking to: pools are available for
+  # this collective, or a pool exists (possibly closed or lapsed) that
+  # members may still need to reach for wind-down.
+  sig { returns(T::Boolean) }
+  def pool_page_available?
+    funding_pools_available? || funding_pool.present?
+  end
+
   sig { params(value: T.nilable(String)).void }
   def timezone=(value)
     return unless value.present?

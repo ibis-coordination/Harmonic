@@ -55,6 +55,13 @@
               </a>
             </li>
             <% end %>
+            <% if !@current_collective.private_workspace? && @current_collective.pool_page_available? %>
+            <li>
+              <a href="<%= @current_collective.path %>/pool">
+                <%= octicon 'credit-card', height: 14 %> Funding Pool
+              </a>
+            </li>
+            <% end %>
             <% if !@current_collective.private_workspace? && @current_user&.collective_member&.can_edit_settings? %>
             <li>
               <a href="<%= @current_collective.path %>/settings">

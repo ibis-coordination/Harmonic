@@ -1451,6 +1451,30 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_select "form.pulse-member-menu-form", count: 0
   end
 
+  test "members page links the funding pool when one is relevant" do
+    FeatureFlagService.config["stripe_billing"] ||= {}
+    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("stripe_billing")
+    FeatureFlagService.config["funding_pools"] ||= {}
+    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("funding_pools")
+    @collective.enable_feature_flag!("funding_pools")
+    member = add_member(name: "Plain Member")
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_select "a[href=?]", "#{@collective.path}/pool"
+  end
+
+  test "members page omits the funding pool link when pools are irrelevant" do
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_select "a[href=?]", "#{@collective.path}/pool", count: 0
+  end
+
   test "admin can grant a role to a member" do
     member = add_member(name: "Future Rep")
     sign_in_as(@user, tenant: @tenant)
