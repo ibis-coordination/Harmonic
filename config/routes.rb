@@ -602,6 +602,13 @@ Rails.application.routes.draw do
     post "#{prefix}/pool/add_funded_agent" => 'funding_pools#add_funded_agent'
     delete "#{prefix}/pool/remove_funded_agent" => 'funding_pools#remove_funded_agent'
     post "#{prefix}/pool/update_ceiling" => 'funding_pools#update_ceiling'
+    # The agents page: what runs in this collective, who pays for it, and
+    # whether it's healthy. It owns the explicit Trio toggle.
+    get "#{prefix}/agents" => 'collective_agents#show'
+    get "#{prefix}/agents/actions" => 'collective_agents#actions_index'
+    get "#{prefix}/agents/actions/set_trio_enabled" => 'collective_agents#describe_set_trio_enabled'
+    post "#{prefix}/agents/actions/set_trio_enabled" => 'collective_agents#execute_set_trio_enabled'
+    post "#{prefix}/agents/set_trio_enabled" => 'collective_agents#set_trio_enabled'
     get "#{prefix}/settings/actions" => 'collectives#actions_index_settings'
     get "#{prefix}/settings/actions/update_collective_settings" => 'collectives#describe_update_collective_settings'
     post "#{prefix}/settings/actions/update_collective_settings" => 'collectives#update_collective_settings_action'

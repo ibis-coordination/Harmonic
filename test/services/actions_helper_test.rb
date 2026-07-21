@@ -374,4 +374,12 @@ class ActionsHelperTest < ActiveSupport::TestCase
     assert_equal(["daily_draw_cap", "draw_cap_period"], definition[:params].map { |p| p[:name] })
     assert_match(/required/i, definition[:params].first[:description])
   end
+
+  test "set_trio_enabled is an admin-only action with a required enabled param" do
+    definition = ActionsHelper::ACTION_DEFINITIONS["set_trio_enabled"]
+    assert_equal ["enabled"], definition[:params].map { |p| p[:name] }
+    assert_match(/required/i, definition[:params].first[:description])
+    assert_equal :collective_admin, definition[:authorization]
+    assert_equal :by_collective, definition[:visibility]
+  end
 end

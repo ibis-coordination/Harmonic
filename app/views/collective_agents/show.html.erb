@@ -1,0 +1,125 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, @current_tenant.path],
+  [@current_collective.name, @current_collective.path],
+  'Agents'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Agents
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">Agents in <%= @current_collective.name %></h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if flash[:notice] %>
+      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;"><%= flash[:notice] %></div>
+    <% end %>
+    <% if flash[:alert] %>
+      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;"><%= flash[:alert] %></div>
+    <% end %>
+
+    <% if @plan_gated %>
+      <div class="pulse-notice" style="margin-bottom: 20px;">
+        This collective is on the free plan. The paid plan unlocks Trio, automations, file attachments, and more.
+        <% if @current_user&.id == @current_collective.created_by_id %>
+          <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn pulse-action-btn-sm">Upgrade</a>
+        <% else %>
+          The collective owner can upgrade on the settings page.
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if @trio_offered %>
+      <section class="pulse-settings-section" id="trio-card">
+        <h2 class="pulse-section-title">Trio</h2>
+        <% if @trio_enabled %>
+          <p>
+            Trio is enabled<% if @personas.any? %> —
+              <%= safe_join(@personas.map { |agent| link_to(agent.name, agent.path) }, " · ") %><% end %>.
+          </p>
+          <% if @trio_cannot_run %>
+            <div class="pulse-notice pulse-notice-danger">
+              Trio can't run: this collective has no open funding pool.
+              <a href="<%= @current_collective.path %>/pool">Open one on the pool page</a>.
+            </div>
+          <% end %>
+        <% else %>
+          <p>Trio is not enabled.</p>
+        <% end %>
+        <% if @is_agents_admin && !@plan_gated %>
+          <% if @trio_enabled %>
+            <%= button_to "Disable Trio", "#{@current_collective.path}/agents/set_trio_enabled",
+                          params: { enabled: "false" }, class: "pulse-action-btn pulse-action-btn-danger",
+                          form: { data: { turbo_confirm: "Disable Trio? Its personas will be deactivated. Their history stays, and re-enabling brings them back." } } %>
+          <% else %>
+            <%= button_to "Enable Trio", "#{@current_collective.path}/agents/set_trio_enabled",
+                          params: { enabled: "true" }, class: "pulse-action-btn" %>
+          <% end %>
+        <% end %>
+      </section>
+    <% end %>
+
+    <% if @pool_page_available %>
+      <section class="pulse-settings-section" id="pool-summary">
+        <h2 class="pulse-section-title">Funding</h2>
+        <p>
+          <% if @pool_open %>
+            The <a href="<%= @current_collective.path %>/pool">funding pool</a> is open —
+            <%= pluralize(@pool_enrolled_count, "member") %> enrolled,
+            ceiling <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %>
+            per member per <%= @funding_pool.member_draw_cap_period %>.
+          <% elsif @funding_pool %>
+            The <a href="<%= @current_collective.path %>/pool">funding pool</a> is closed, so agents on its payroll cannot run.
+          <% else %>
+            No <a href="<%= @current_collective.path %>/pool">funding pool</a> is open yet.
+          <% end %>
+        </p>
+      </section>
+    <% end %>
+
+    <section class="pulse-settings-section" id="agent-members">
+      <h2 class="pulse-section-title">Agent members</h2>
+      <% if @member_agents.any? %>
+        <table class="pulse-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Principal</th>
+              <% if @billing_tenant %><th>Funded by</th><% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <% @member_agents.each do |agent| %>
+              <tr>
+                <td><%= link_to agent.display_name, agent.path %></td>
+                <td>
+                  <% if agent.parent %>
+                    <%= link_to agent.parent.display_name, agent.parent.path %>
+                  <% end %>
+                </td>
+                <% if @billing_tenant %>
+                  <td>
+                    <% if agent.funding_pool_id.present? %>
+                      Funding pool
+                    <% elsif agent.collective_principaled? %>
+                      None — needs the funding pool
+                    <% else %>
+                      Own billing
+                    <% end %>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="pulse-empty-message"><em>No agent members yet.</em></p>
+      <% end %>
+    </section>
+  </div>
+</article>

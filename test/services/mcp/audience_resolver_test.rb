@@ -125,6 +125,7 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "join_collective" => :shared,
     "send_message" => :shared,
     "set_pool_ceiling" => :by_collective,
+    "set_trio_enabled" => :by_collective,
     "report_content" => :shared,
     "suspend_user" => :shared,
     "unsuspend_user" => :shared,

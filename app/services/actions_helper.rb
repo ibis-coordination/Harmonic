@@ -243,6 +243,17 @@ class ActionsHelper
       authorization: :collective_admin,
       visibility: :by_collective,
     },
+    "set_trio_enabled" => {
+      description: "Enable or disable Trio, the collective's built-in persona ensemble. Enabling adds its personas as collective members; " \
+                   "disabling deactivates them (their history stays, and re-enabling brings them back). On billing accounts Trio " \
+                   "requires the paid plan and needs an open funding pool to actually run.",
+      params_string: "(enabled)",
+      params: [
+        { name: "enabled", type: "string", description: 'Required. "true" to enable Trio, "false" to disable it.' },
+      ],
+      authorization: :collective_admin,
+      visibility: :by_collective,
+    },
     "add_ai_agent_to_collective" => {
       description: "Add one of your AI agents to this collective",
       params_string: "(ai_agent_id)",
@@ -1369,6 +1380,25 @@ class ActionsHelper
           condition: lambda { |context|
             pool = context[:collective]&.funding_pool
             pool.present? && collective_admin?(context)
+          },
+        },
+      ],
+    },
+    "/collectives/:collective_handle/agents" => {
+      controller_actions: ["collective_agents#show"],
+      actions: [],
+      conditional_actions: [
+        {
+          name: "set_trio_enabled",
+          # Offered while the toggle can do something: admins where the
+          # tenant offers Trio, and either the tier unlocks it or it is
+          # already on (so it can still be turned off after a lapse).
+          condition: lambda { |context|
+            collective = context[:collective]
+            tenant = context[:tenant]
+            collective.present? && !collective.private_workspace? && tenant.present? &&
+              FeatureFlagService.tenant_enabled?(tenant, "trio") && collective_admin?(context) &&
+              (collective.tier_unlocks_paid_features? || collective.feature_flag_enabled_locally?("trio"))
           },
         },
       ],

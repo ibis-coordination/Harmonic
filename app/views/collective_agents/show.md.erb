@@ -1,0 +1,47 @@
+# Agents
+
+Agents in <%= @current_collective.name %>: what runs here and who pays for it.
+<% if @plan_gated %>
+
+This collective is on the free plan. The paid plan unlocks Trio, automations, file attachments, and more. The collective owner can upgrade at `<%= @current_collective.path %>/upgrade`.
+<% end %>
+<% if @trio_offered %>
+
+## Trio
+
+<% if @trio_enabled -%>
+Trio is enabled<% if @personas.any? %> — <%= @personas.map { |agent| "[#{agent.name}](#{agent.path})" }.join(" · ") %><% end %>.
+<% if @trio_cannot_run -%>
+
+**Trio can't run: this collective has no open funding pool.** A collective admin can open one on the [pool page](<%= @current_collective.path %>/pool).
+<% end -%>
+<% else -%>
+Trio is not enabled.
+<% end -%>
+<% end %>
+<% if @pool_page_available %>
+
+## Funding
+
+<% if @pool_open -%>
+The [funding pool](<%= @current_collective.path %>/pool) is open — <%= pluralize(@pool_enrolled_count, "member") %> enrolled, ceiling <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per member per <%= @funding_pool.member_draw_cap_period %>.
+<% elsif @funding_pool -%>
+The [funding pool](<%= @current_collective.path %>/pool) is closed, so agents on its payroll cannot run.
+<% else -%>
+No [funding pool](<%= @current_collective.path %>/pool) is open yet.
+<% end -%>
+<% end %>
+
+## Agent members
+
+<% if @member_agents.any? -%>
+<% @member_agents.each do |agent| -%>
+- [<%= agent.display_name %>](<%= agent.path %>)<%= " — principal: [#{agent.parent.display_name}](#{agent.parent.path})" if agent.parent %><%= @billing_tenant ? ", funded by: #{if agent.funding_pool_id.present? then "funding pool" elsif agent.collective_principaled? then "none — needs the funding pool" else "own billing" end}" : "" %>
+<% end -%>
+<% else -%>
+No agent members yet.
+<% end -%>
+
+---
+
+Actions available at `<%= @current_collective.path %>/agents/actions`.
