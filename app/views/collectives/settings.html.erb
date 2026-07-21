@@ -215,18 +215,37 @@
         </div>
       <% } %>
 
+      <% render_automations_item = -> {
+        %>
+        <div class="pulse-feature-flag-item">
+          <strong>Automations</strong>
+          <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
+            Event-triggered actions, webhooks, and schedules.
+            <%= @enabled_automations_count.to_i %> enabled.
+          </p>
+          <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn pulse-action-btn-sm">
+            <%= octicon 'zap', height: 12 %> Manage automations
+          </a>
+        </div>
+      <% } %>
+
       <% show_paid_section = tier_in_effect && !@current_collective.is_main_collective? %>
-      <% if free_flags.any? || show_paid_section %>
+      <% automations_available = @current_tenant.automations_enabled? %>
+      <%# Automations group with the paid features. Where there is no paid
+          section (non-billing tenants, main collectives), they group with the
+          plain features instead — never a standalone section of their own. %>
+      <% automations_with_free = automations_available && !show_paid_section %>
+      <% if free_flags.any? || show_paid_section || automations_with_free %>
         <%# Suppress border-bottom; the sticky Save Settings form-actions below %>
         <%# has its own border-top, so keeping both produces two visible lines. %>
         <section class="pulse-settings-section" style="border-bottom: none;">
-          <% if free_flags.any? %>
+          <% if free_flags.any? || automations_with_free %>
             <h2 class="pulse-section-title"><%= tier_in_effect ? "Features" : "Features Enabled" %></h2>
             <% free_flags.each { |f| render_flag_item.call(f) } %>
+            <% render_automations_item.call if automations_with_free %>
           <% end %>
 
           <% if show_paid_section %>
-            <% enabled_automation_count = @current_collective.automation_rules.enabled.count %>
             <h3 class="pulse-section-title" style="<%= free_flags.any? ? 'margin-top: 24px;' : '' %> font-size: 16px;">
               Paid Plan Features
             </h3>
@@ -237,17 +256,7 @@
                 This collective is on the paid plan ($3/month).
               </p>
 
-              <div class="pulse-feature-flag-item">
-                <strong>Automations</strong>
-                <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
-                  Event-triggered actions, webhooks, and schedules.
-                  <%= enabled_automation_count %> enabled.
-                </p>
-                <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn pulse-action-btn-sm">
-                  <%= octicon 'zap', height: 12 %> Manage automations
-                </a>
-              </div>
-
+              <% render_automations_item.call if automations_available %>
               <% paid_flags.each { |f| render_flag_item.call(f) } %>
             <% elsif @current_collective.requires_stripe_billing? %>
               <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
@@ -399,19 +408,6 @@
             <button type="submit" class="pulse-action-btn">Add to Collective</button>
           </form>
         <% end %>
-      </section>
-
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title"><%= octicon 'zap', height: 16 %> Automations</h2>
-        <p class="pulse-section-description">
-          Automations run actions (webhooks, internal actions) in response to events or on a schedule.
-          <% if @total_automations_count > 0 %>
-            <br><%= @enabled_automations_count %> automation<%= @enabled_automations_count == 1 ? '' : 's' %> currently enabled.
-          <% end %>
-        </p>
-        <a href="<%= @current_collective.path %>/settings/automations" class="pulse-action-btn">
-          <%= octicon 'gear', height: 14 %> Manage Automations
-        </a>
       </section>
 
     <% end %>

@@ -194,7 +194,6 @@ class CollectivesController < ApplicationController
       end
       # Automation counts for display
       @enabled_automations_count = @current_collective.automation_rules.where(enabled: true).count
-      @total_automations_count = @current_collective.automation_rules.count
       # If the owner started a Stripe Checkout for this collective and
       # navigated back without completing, surface a "Resume checkout"
       # affordance instead of a fresh Upgrade button. Clear the stash once

@@ -616,6 +616,32 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Paid plan"
   end
 
+  test "settings page has exactly one automations section on the paid tier" do
+    enable_stripe_billing_flag!(@tenant)
+    @tenant.set_feature_flag!("automations", true)
+    @tenant.enable_api!
+    @collective.enable_api!
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_select "a[href=?]", "/collectives/#{@collective.handle}/settings/automations", count: 1
+  end
+
+  test "settings automations section follows the automations flag, not the api flag" do
+    @tenant.set_feature_flag!("automations", true)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_select "a[href=?]", "/collectives/#{@collective.handle}/settings/automations", count: 1
+
+    @tenant.set_feature_flag!("automations", false)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_select "a[href=?]", "/collectives/#{@collective.handle}/settings/automations", count: 0
+  end
+
   test "settings page renders Billing lapsed badge when collective is lapsed" do
     enable_stripe_billing_flag!(@tenant)
     @collective.update!(tier: Collective::TIER_PAID)

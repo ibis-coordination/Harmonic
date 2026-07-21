@@ -56,7 +56,9 @@ This collective is on the paid plan ($3/month).
 
 | Feature | Enabled |
 |---------|---------|
+<% if @current_tenant.automations_enabled? -%>
 | Automations | <%= @current_collective.automation_rules.enabled.count %> enabled — [Manage](<%= @current_collective.path %>/settings/automations) |
+<% end -%>
 <% paid_flags.each do |flag_name| %>
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
 | <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
@@ -102,10 +104,12 @@ Billing-exempt by an admin. [View billing](/billing)
 <% end %>
 <% end %>
 
-<% unless tier_in_effect && !@current_collective.is_main_collective? %>
+<%# Automations group with the paid features; where there is no paid section
+    (non-billing tenants, main collectives) they get their own line instead. %>
+<% if @current_tenant.automations_enabled? && !(tier_in_effect && !@current_collective.is_main_collective?) %>
 
-## Additional Settings
+## Automations
 
-* [Manage Automations](<%= @current_collective.path %>/settings/automations) - Configure event-triggered actions, webhooks, and schedules
+<%= @current_collective.automation_rules.enabled.count %> enabled — [Manage](<%= @current_collective.path %>/settings/automations). Automations run actions (webhooks, internal actions) in response to events or on a schedule.
 <% end %>
 <% end %>
