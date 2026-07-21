@@ -29,14 +29,18 @@ Current settings for **<%= @current_collective.name %>**:
     FeatureFlagService.tenant_enabled?(@current_tenant, f) &&
       FeatureFlagService.flag_metadata(f).fetch("collective_level", false)
   }
+  # Trio is managed on the Agents page, not through settings.
+  trio_available = available_flags.include?("trio")
+  available_flags -= ["trio"]
   tier_in_effect = @current_tenant.feature_enabled?("stripe_billing")
   if tier_in_effect
     paid_flags, free_flags = available_flags.partition { |f| Collective::PAID_FEATURE_FLAGS.include?(f) }
   else
     paid_flags, free_flags = [], available_flags
   end
+  trio_pointer_row = "| Trio | #{@current_collective.feature_flag_enabled_locally?('trio') ? 'Enabled' : 'Not enabled'} — managed on the [Agents page](#{@current_collective.path}/agents) |"
 %>
-<% if free_flags.any? %>
+<% if free_flags.any? || (trio_available && !tier_in_effect) %>
 
 ## <%= tier_in_effect ? "Features" : "Features Enabled" %>
 
@@ -46,6 +50,9 @@ Current settings for **<%= @current_collective.name %>**:
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
 | <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
 <% end %>
+<% if trio_available && !tier_in_effect -%>
+<%= trio_pointer_row %>
+<% end -%>
 <% end %>
 <% if tier_in_effect && !@current_collective.is_main_collective? %>
 
@@ -63,6 +70,9 @@ This collective is on the paid plan ($3/month).
 <% metadata = FeatureFlagService.flag_metadata(flag_name) %>
 | <%= metadata['name'] %> | <%= @current_collective.feature_flag_enabled_locally?(flag_name) ? 'Yes' : 'No' %> |
 <% end %>
+<% if trio_available -%>
+<%= trio_pointer_row %>
+<% end -%>
 
 <%
   md_downgrade_disables = paid_features_to_disable_on_downgrade(@current_collective)
@@ -76,17 +86,9 @@ To move this collective back to the free plan, POST to `<%= @current_collective.
 Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only).
 <% end %>
 <% end %>
-<% if @current_collective.feature_flag_enabled_locally?("trio") && (trio_personas = @current_collective.persona_users).any? %>
+<% unless @current_collective.private_workspace? %>
 
-Trio agents: <%= trio_personas.map { |a| "[#{a.name}](#{a.path}) ([task runs](/ai-agents/#{a.handle}/runs), [automations](/ai-agents/#{a.handle}/automations))" }.join(" · ") %>
-<% end %>
-<% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? && @collective_ai_agents.present? %>
-
-## AI Agents in this Collective
-
-<% @collective_ai_agents.each do |ai_agent| %>
-* [<%= ai_agent.display_name %>](<%= ai_agent.path %>) - managed by <%= ai_agent.parent ? "[#{ai_agent.parent.display_name}](#{ai_agent.parent.path})" : "Unknown" %>
-<% end %>
+Agents are members. The roster of agent members is on the [Agents page](<%= @current_collective.path %>/agents); add or remove agents on the [Members page](<%= @current_collective.path %>/members).
 <% end %>
 
 <% if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing") && (@funding_pools_enabled || @funding_pool) %>

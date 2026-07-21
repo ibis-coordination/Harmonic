@@ -260,16 +260,9 @@ class ActionsHelper
       params: [
         { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to add" },
       ],
-      authorization: :collective_admin,
-      visibility: :by_collective,
-    },
-    "remove_ai_agent_from_collective" => {
-      description: "Remove an AI agent from this collective",
-      params_string: "(ai_agent_id)",
-      params: [
-        { name: "ai_agent_id", type: "integer", description: "ID of the AI agent to remove" },
-      ],
-      authorization: :collective_admin,
+      # Any member who can invite may add their own agents — the executor
+      # enforces ownership plus the collective's invite policy.
+      authorization: :collective_member,
       visibility: :by_collective,
     },
     "send_heartbeat" => {
@@ -296,7 +289,9 @@ class ActionsHelper
       params: [
         { name: "user_handle", type: "string", required: true, description: "Handle of the member to remove (e.g. @alice)" },
       ],
-      authorization: :collective_admin,
+      # Member-level so a non-admin can reach the executor, which enforces
+      # admin standing — or, for ai_agent targets, being the agent's principal.
+      authorization: :collective_member,
       visibility: :by_collective,
     },
 
@@ -1322,10 +1317,6 @@ class ActionsHelper
       actions: [
         { name: "update_collective_settings", params_string: ACTION_DEFINITIONS["update_collective_settings"][:params_string],
           description: ACTION_DEFINITIONS["update_collective_settings"][:description], },
-        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string],
-          description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description], },
-        { name: "remove_ai_agent_from_collective", params_string: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:params_string],
-          description: ACTION_DEFINITIONS["remove_ai_agent_from_collective"][:description], },
       ],
     },
     "/collectives/:collective_handle/pool" => {
@@ -1428,6 +1419,8 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["update_member_roles"][:description], },
         { name: "remove_member", params_string: ACTION_DEFINITIONS["remove_member"][:params_string],
           description: ACTION_DEFINITIONS["remove_member"][:description], },
+        { name: "add_ai_agent_to_collective", params_string: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:params_string],
+          description: ACTION_DEFINITIONS["add_ai_agent_to_collective"][:description], },
       ],
     },
     "/collectives/:collective_handle/represent" => {

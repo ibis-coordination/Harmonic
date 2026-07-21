@@ -310,6 +310,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
       assert_select "a[href=?]", "#{@collective.path}/dashboard"
       assert_select "a[href=?]", "#{@collective.path}/cycles"
       assert_select "a[href=?]", "#{@collective.path}/backlinks"
+      assert_select "a[href=?]", "#{@collective.path}/members"
     end
   end
 

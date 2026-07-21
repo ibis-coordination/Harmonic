@@ -71,7 +71,14 @@ class CollectiveAgentsController < ApplicationController
     @current_collective.set_feature_flag!("trio", enabled)
     PersonaActivator.reconcile!(@current_collective)
     flash[:notice] = if enabled
-                       "Trio is enabled — its personas have joined #{@current_collective.name}."
+                       pool = @current_collective.funding_pool
+                       pool_open = pool.present? && !pool.archived?
+                       if @current_tenant.feature_enabled?("stripe_billing") && !pool_open
+                         "Trio is enabled — its personas have joined #{@current_collective.name}. " \
+                           "They can't run until the funding pool is open: [open it on the pool page](#{@current_collective.path}/pool)."
+                       else
+                         "Trio is enabled — its personas have joined #{@current_collective.name}."
+                       end
                      else
                        "Trio is disabled — its personas have been deactivated."
                      end

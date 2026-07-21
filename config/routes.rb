@@ -572,6 +572,10 @@ Rails.application.routes.draw do
     post "#{prefix}/members/actions/update_member_roles" => 'collectives#execute_update_member_roles'
     get "#{prefix}/members/actions/remove_member" => 'collectives#describe_remove_member'
     post "#{prefix}/members/actions/remove_member" => 'collectives#execute_remove_member'
+    # Agents are members, so agent membership ops live with the roster.
+    post "#{prefix}/members/add_ai_agent" => 'collectives#add_ai_agent'
+    get "#{prefix}/members/actions/add_ai_agent_to_collective" => 'collectives#describe_add_ai_agent_to_collective'
+    post "#{prefix}/members/actions/add_ai_agent_to_collective" => 'collectives#execute_add_ai_agent_to_collective'
     get "#{prefix}/settings" => 'collectives#settings'
     post "#{prefix}/settings" => 'collectives#update_settings'
     get "#{prefix}/upgrade" => 'collectives#upgrade_preview'
@@ -579,8 +583,6 @@ Rails.application.routes.draw do
     post "#{prefix}/downgrade" => 'collectives#downgrade'
     post "#{prefix}/archive" => 'collectives#archive'
     post "#{prefix}/unarchive" => 'collectives#unarchive'
-    post "#{prefix}/settings/add_ai_agent" => 'collectives#add_ai_agent'
-    delete "#{prefix}/settings/remove_ai_agent" => 'collectives#remove_ai_agent'
     # The pool page owns every pool operation — page, form endpoints, and
     # described actions all live under the pool prefix.
     get "#{prefix}/pool" => 'funding_pools#show'
@@ -612,10 +614,6 @@ Rails.application.routes.draw do
     get "#{prefix}/settings/actions" => 'collectives#actions_index_settings'
     get "#{prefix}/settings/actions/update_collective_settings" => 'collectives#describe_update_collective_settings'
     post "#{prefix}/settings/actions/update_collective_settings" => 'collectives#update_collective_settings_action'
-    get "#{prefix}/settings/actions/add_ai_agent_to_collective" => 'collectives#describe_add_ai_agent_to_collective'
-    post "#{prefix}/settings/actions/add_ai_agent_to_collective" => 'collectives#execute_add_ai_agent_to_collective'
-    get "#{prefix}/settings/actions/remove_ai_agent_from_collective" => 'collectives#describe_remove_ai_agent_from_collective'
-    post "#{prefix}/settings/actions/remove_ai_agent_from_collective" => 'collectives#execute_remove_ai_agent_from_collective'
     # Automations
     get "#{prefix}/settings/automations" => 'collective_automations#index'
     get "#{prefix}/settings/automations/new" => 'collective_automations#new'

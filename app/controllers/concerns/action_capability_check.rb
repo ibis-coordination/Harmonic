@@ -97,7 +97,6 @@ module ActionCapabilityCheck
     "collectives#update_settings" => "update_collective_settings",
     "collectives#update_image" => "update_collective_settings",
     "collectives#add_ai_agent" => "add_ai_agent_to_collective",
-    "collectives#remove_ai_agent" => "remove_ai_agent_from_collective",
     "collectives#accept_invite" => "join_collective",
 
     # Collectives - API v1 routes

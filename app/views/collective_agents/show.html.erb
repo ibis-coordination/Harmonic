@@ -84,6 +84,10 @@
 
     <section class="pulse-settings-section" id="agent-members">
       <h2 class="pulse-section-title">Agent members</h2>
+      <p class="pulse-section-description">
+        Agents join and leave like any member — manage agent membership on the
+        <a href="<%= @current_collective.path %>/members" class="pulse-link">Members page</a>.
+      </p>
       <% if @member_agents.any? %>
         <table class="pulse-table">
           <thead>

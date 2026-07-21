@@ -155,7 +155,6 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "detach_funded_agent" => :by_collective,
     "enroll_in_funding_pool" => :by_collective,
     "withdraw_from_funding_pool" => :by_collective,
-    "remove_ai_agent_from_collective" => :by_collective,
     "update_member_roles" => :by_collective,
     "remove_member" => :by_collective,
     "send_heartbeat" => :by_collective,

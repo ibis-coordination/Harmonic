@@ -44,7 +44,6 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "detach_funded_agent",
     "create_ai_agent",
     "add_ai_agent_to_collective",
-    "remove_ai_agent_from_collective",
     "create_api_token",
     "update_profile",
     # Notification preferences govern which events reach the agent — its

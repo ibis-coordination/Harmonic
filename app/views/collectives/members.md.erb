@@ -1,0 +1,18 @@
+# Members
+
+<% if @team.empty? %>
+*No members yet.*
+<% else %>
+| Member | Type | Roles |
+|--------|------|-------|
+<% @team.each do |u| -%>
+<% roles = @manageable_roles.select { |role| u.collective_member.has_role?(role) } -%>
+| [<%= u.display_name %>](<%= u.path %>) | <%= u.ai_agent? ? "ai_agent" : u.user_type %> | <%= roles.any? ? roles.join(", ") : "—" %> |
+<% end -%>
+<% end %>
+<% if @addable_ai_agents.present? %>
+
+Your agents not yet in this collective: <%= @addable_ai_agents.map { |a| "#{a.display_name} (id: #{a.id})" }.join(", ") %>. Add one with the `add_ai_agent_to_collective` action.
+<% end %>
+
+Actions available at `<%= @current_collective.path %>/members/actions`.

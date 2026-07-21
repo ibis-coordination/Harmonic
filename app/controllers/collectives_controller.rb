@@ -174,18 +174,6 @@ class CollectivesController < ApplicationController
 
       # Proration preview no longer needed here — reactivation is managed on /billing
 
-      # AI agents in this collective (for display) - exclude archived memberships
-      @collective_ai_agents = @current_collective.users
-        .includes(:tenant_users)
-        .joins(:collective_members)
-        .where(user_type: 'ai_agent')
-        .where(collective_members: { collective_id: @current_collective.id, archived_at: nil })
-        .distinct
-      # Current user's AI agents that are NOT active members of this collective (for adding)
-      user_ai_agent_ids = @current_user.ai_agents.pluck(:id)
-      active_collective_ai_agent_ids = @collective_ai_agents.pluck(:id)
-      addable_ids = user_ai_agent_ids - active_collective_ai_agent_ids
-      @addable_ai_agents = User.where(id: addable_ids).includes(:tenant_users).where(tenant_users: { tenant_id: @current_tenant.id })
       # Pool state is only needed to decide whether to point at the pool
       # page — the pool itself is managed there.
       if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing")
@@ -320,10 +308,18 @@ class CollectivesController < ApplicationController
     sync_result = if @current_tenant.feature_enabled?("stripe_billing")
       StripeService.sync_subscription_quantity!(@current_user)
     end
-    flash[:notice] = if sync_result && !sync_result.success
-      "#{@current_collective.name} is now on the paid plan. Your next invoice will reflect this within 24 hours."
+    # Chain the setup funnel: the paid plan unlocks Trio, and Trio lives on
+    # the Agents page — point there while it's still switched off.
+    trio_next_step = if FeatureFlagService.tenant_enabled?(@current_tenant, "trio") &&
+                        !@current_collective.feature_flag_enabled_locally?("trio")
+      " Next: [enable Trio on the Agents page](#{@current_collective.path}/agents)."
     else
-      "#{@current_collective.name} is now on the paid plan."
+      ""
+    end
+    flash[:notice] = if sync_result && !sync_result.success
+      "#{@current_collective.name} is now on the paid plan. Your next invoice will reflect this within 24 hours.#{trio_next_step}"
+    else
+      "#{@current_collective.name} is now on the paid plan.#{trio_next_step}"
     end
     redirect_to settings_path
   end
@@ -409,12 +405,12 @@ class CollectivesController < ApplicationController
     if @current_collective.private_workspace?
       return render status: 403, json: { error: 'Cannot add agents to a private workspace' }
     end
-    unless @current_user.collective_member&.is_admin?
-      return render status: 403, json: { error: 'Unauthorized' }
-    end
     ai_agent = User.find_by(id: params[:ai_agent_id])
     if ai_agent.nil? || !ai_agent.ai_agent? || ai_agent.parent_id != @current_user.id
       return render status: 403, json: { error: 'You can only add your own AI agents' }
+    end
+    unless @current_user.can_add_ai_agent_to_collective?(ai_agent, @current_collective)
+      return render status: 403, json: { error: 'You do not have permission to add AI agents to this collective' }
     end
     @current_collective.add_user!(ai_agent)
 
@@ -432,40 +428,8 @@ class CollectivesController < ApplicationController
         flash[:notice] = "#{ai_agent.display_name} has been added to #{@current_collective.name}"
         # Only allow local redirects (paths starting with /)
         return_path = params[:return_to]
-        redirect_path = return_path&.start_with?("/") ? return_path : "#{@current_collective.path}/settings"
+        redirect_path = return_path&.start_with?("/") ? return_path : "#{@current_collective.path}/members"
         redirect_to redirect_path
-      end
-    end
-  end
-
-  def remove_ai_agent
-    unless @current_user.collective_member&.is_admin?
-      return render status: 403, json: { error: 'Unauthorized' }
-    end
-    ai_agent = User.find_by(id: params[:ai_agent_id])
-    if ai_agent.nil? || !ai_agent.ai_agent?
-      return render status: 404, json: { error: 'AI Agent not found' }
-    end
-
-    collective_member = CollectiveMember.find_by(collective: @current_collective, user: ai_agent)
-    if collective_member.nil? || collective_member.archived?
-      return render status: 404, json: { error: 'AI Agent not in this collective' }
-    end
-
-    collective_member.archive!
-    can_readd = ai_agent.parent_id == @current_user.id
-
-    respond_to do |format|
-      format.json do
-        render json: {
-          ai_agent_id: ai_agent.id,
-          ai_agent_name: ai_agent.display_name,
-          can_readd: can_readd,
-        }
-      end
-      format.html do
-        flash[:notice] = "#{ai_agent.display_name} has been removed from #{@current_collective.name}"
-        redirect_to "#{@current_collective.path}/settings"
       end
     end
   end
@@ -568,65 +532,6 @@ class CollectivesController < ApplicationController
     end
   end
 
-  def describe_remove_ai_agent_from_collective
-    return render status: 403, plain: '403 Unauthorized - Only human accounts can manage AI agents' unless current_user&.human?
-    # Get list of removable AI agents for context
-    collective_ai_agents = @current_collective.collective_members.includes(:user)
-      .reject(&:archived?)
-      .map(&:user)
-      .select { |u| u.ai_agent? && u.parent_id == current_user.id }
-
-    # Use dynamic params to include removable AI agent IDs
-    dynamic_params = [
-      { name: 'ai_agent_id', type: 'integer', description: "ID of the AI agent to remove. Your AI agents in this collective: #{collective_ai_agents.map { |s| "#{s.id} (#{s.name})" }.join(', ')}" },
-    ]
-    render_action_description(ActionsHelper.action_description("remove_ai_agent_from_collective", resource: @current_collective, params_override: dynamic_params))
-  end
-
-  def execute_remove_ai_agent_from_collective
-    return render_action_error({ action_name: 'remove_ai_agent_from_collective', resource: @current_collective, error: 'You must be logged in.', status: :unauthorized }) unless current_user
-    return render_action_error({ action_name: 'remove_ai_agent_from_collective', resource: @current_collective, error: 'Only human accounts can manage AI agents.', status: :forbidden }) unless current_user.human?
-
-    begin
-      ai_agent = User.find(params[:ai_agent_id])
-      unless ai_agent.ai_agent? && ai_agent.parent_id == current_user.id
-        return render_action_error({
-          action_name: 'remove_ai_agent_from_collective',
-          resource: @current_collective,
-          error: 'You can only remove your own AI agents.',
-        })
-      end
-
-      collective_member = CollectiveMember.find_by(collective: @current_collective, user: ai_agent)
-      if collective_member.nil? || collective_member.archived?
-        return render_action_error({
-          action_name: 'remove_ai_agent_from_collective',
-          resource: @current_collective,
-          error: 'AI Agent is not a member of this collective.',
-        })
-      end
-
-      collective_member.archive!
-      render_action_success({
-        action_name: 'remove_ai_agent_from_collective',
-        resource: @current_collective,
-        result: "#{ai_agent.display_name} has been removed from #{@current_collective.name}.",
-      })
-    rescue ActiveRecord::RecordNotFound
-      render_action_error({
-        action_name: 'remove_ai_agent_from_collective',
-        resource: @current_collective,
-        error: 'AI Agent not found.',
-      })
-    rescue StandardError => e
-      render_action_error({
-        action_name: 'remove_ai_agent_from_collective',
-        resource: @current_collective,
-        error: e.message,
-      })
-    end
-  end
-
   def actions_index_join
     @page_title = "Actions | Join Collective"
     render_actions_index(ActionsHelper.actions_for_route('/collectives/:collective_handle/join'))
@@ -659,13 +564,25 @@ class CollectivesController < ApplicationController
 
   def members
     @page_title = 'Members'
-    @can_manage_members = @current_user&.collective_member&.is_admin? &&
-      !@current_collective.private_workspace? &&
+    @member_ops_available = !@current_collective.private_workspace? &&
       !@current_collective.is_main_collective?
+    @can_manage_members = @member_ops_available &&
+      @current_user&.collective_member&.is_admin?
     # Capability roles only: persona/ensemble roles (cadence, trio, …) are
     # activator-managed and never offered or accepted through the
     # role-management surfaces.
     @manageable_roles = CollectiveMember.capability_roles
+    # Agents are members: anyone who can invite may add their own agents to
+    # the roster here, so offer the agents of theirs that aren't members yet.
+    @addable_ai_agents = User.none
+    if @member_ops_available && @current_collective.feature_enabled?('api') &&
+       @current_user&.collective_member&.can_invite?
+      member_ids = @current_collective.collective_members.where(archived_at: nil).pluck(:user_id)
+      @addable_ai_agents = @current_user.ai_agents
+        .includes(:tenant_users)
+        .where(tenant_users: { tenant_id: @current_tenant.id })
+        .where.not(id: member_ids)
+    end
   end
 
   def actions_index_members
@@ -738,10 +655,11 @@ class CollectivesController < ApplicationController
   end
 
   # POST /collectives/:handle/members/actions/remove_member
-  # Admin-only. Archives a member's collective membership, removing them from
-  # the collective. The owner and the acting admin cannot be removed this way.
+  # Archives a member's collective membership, removing them from the
+  # collective. Admins can remove anyone removable; a non-admin can remove
+  # their own agents. The owner and the acting admin cannot be removed this way.
   def execute_remove_member
-    member = authorize_member_management("remove_member")
+    member = authorize_member_management("remove_member", allow_agent_parent: true)
     return if member == :handled
 
     if member.user_id == @current_collective.created_by_id
@@ -926,8 +844,17 @@ class CollectivesController < ApplicationController
       @current_collective.identity_user_id == @current_user.id
   end
 
-  def authorize_member_management(action_name)
-    unless @current_user&.collective_member&.is_admin?
+  def authorize_member_management(action_name, allow_agent_parent: false)
+    # Members are identified by handle (the stable, human-meaningful id the
+    # markdown/agent interface exposes), not the internal numeric user id.
+    # Handles are tenant-scoped via TenantUser; accept an optional leading "@".
+    handle = params[:user_handle].to_s.delete_prefix("@")
+    target_user = @current_tenant.tenant_users.find_by(handle: handle)&.user
+    # Agents are members whose membership their human principal controls, so
+    # for actions that opt in, a non-admin acting on their own agent passes.
+    parent_of_target = allow_agent_parent && target_user&.ai_agent? &&
+      target_user.parent_id == @current_user&.id
+    unless @current_user&.collective_member&.is_admin? || parent_of_target
       render_action_error({ action_name: action_name, resource: @current_collective, error: 'You must be an admin to manage members.', status: :forbidden })
       return :handled
     end
@@ -935,11 +862,6 @@ class CollectivesController < ApplicationController
       render_action_error({ action_name: action_name, resource: @current_collective, error: 'Members cannot be managed for this collective.', status: :forbidden })
       return :handled
     end
-    # Members are identified by handle (the stable, human-meaningful id the
-    # markdown/agent interface exposes), not the internal numeric user id.
-    # Handles are tenant-scoped via TenantUser; accept an optional leading "@".
-    handle = params[:user_handle].to_s.delete_prefix("@")
-    target_user = @current_tenant.tenant_users.find_by(handle: handle)&.user
     member = target_user && CollectiveMember.find_by(
       collective: @current_collective,
       user_id: target_user.id,

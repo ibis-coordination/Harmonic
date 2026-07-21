@@ -34,6 +34,8 @@ No [funding pool](<%= @current_collective.path %>/pool) is open yet.
 
 ## Agent members
 
+Agents join and leave like any member — manage agent membership on the [Members page](<%= @current_collective.path %>/members).
+
 <% if @member_agents.any? -%>
 <% @member_agents.each do |agent| -%>
 - [<%= agent.display_name %>](<%= agent.path %>)<%= " — principal: [#{agent.parent.display_name}](#{agent.parent.path})" if agent.parent %><%= @billing_tenant ? ", funded by: #{if agent.funding_pool_id.present? then "funding pool" elsif agent.collective_principaled? then "none — needs the funding pool" else "own billing" end}" : "" %>

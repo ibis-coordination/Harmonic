@@ -1371,7 +1371,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     refute ai_agent.collectives.include?(second_collective), "AiAgent should not be in collective initially"
 
     # Add ai_agent to collective via API
-    post "/collectives/#{second_collective.handle}/settings/actions/add_ai_agent_to_collective",
+    post "/collectives/#{second_collective.handle}/members/actions/add_ai_agent_to_collective",
       params: { ai_agent_id: ai_agent.id }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -1385,7 +1385,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     destroy_user!(ai_agent)
   end
 
-  test "POST remove_ai_agent_from_collective action removes ai_agent from collective" do
+  test "POST remove_member action removes an ai_agent member" do
     # Create a ai_agent and add to collective
     ai_agent_name = "Remove AiAgent #{SecureRandom.hex(4)}"
     ai_agent = User.create!(
@@ -1410,9 +1410,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # AiAgent should be in the collective initially
     assert ai_agent.collectives.include?(second_collective), "AiAgent should be in collective initially"
 
-    # Remove ai_agent from collective via API
-    post "/collectives/#{second_collective.handle}/settings/actions/remove_ai_agent_from_collective",
-      params: { ai_agent_id: ai_agent.id }.to_json,
+    # Remove ai_agent from collective via the members remove_member action —
+    # agents are members, and a parent may remove their own agent.
+    agent_handle = ai_agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+    post "/collectives/#{second_collective.handle}/members/actions/remove_member",
+      params: { user_handle: agent_handle }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
@@ -1427,7 +1429,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     destroy_user!(ai_agent)
   end
 
-  test "Collective settings markdown shows add_ai_agent_to_collective action when ai_agents exist" do
+  test "Collective members actions index shows add_ai_agent_to_collective" do
     collective_member = @user.collective_members.find_by(collective: @collective)
     collective_member.add_role!('admin')
 
@@ -1440,10 +1442,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     )
     @tenant.add_user!(ai_agent)
 
-    get "/collectives/#{@collective.handle}/settings", headers: @headers
+    get "/collectives/#{@collective.handle}/members/actions", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/add_ai_agent_to_collective/, response.body, "Should show add_ai_agent_to_collective action")
+
+    get "/collectives/#{@collective.handle}/settings", headers: @headers
+    assert_equal 200, response.status
+    assert_no_match(/add_ai_agent_to_collective/, response.body, "settings must no longer advertise agent membership actions")
   ensure
     collective_member&.remove_role!('admin')
     destroy_user!(ai_agent)
@@ -1644,7 +1650,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Try to add another ai_agent to collective - should be blocked by capability check
-    post "/collectives/#{@collective.handle}/settings/actions/add_ai_agent_to_collective",
+    post "/collectives/#{@collective.handle}/members/actions/add_ai_agent_to_collective",
       params: { ai_agent_id: other_ai_agent.id }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
@@ -1655,7 +1661,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     destroy_user!(other_ai_agent)
   end
 
-  test "AiAgents cannot execute remove_ai_agent_from_collective via API token - returns 403" do
+  test "AiAgents cannot execute remove_member via API token - returns 403" do
     # Create two ai_agents - one with API token, one already in collective
     acting_ai_agent = User.create!(
       name: "Acting AiAgent",
@@ -1687,12 +1693,16 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       'Authorization' => "Bearer #{token.plaintext_token}",
     }
 
-    # Try to remove another ai_agent from collective - should be blocked by capability check
-    post "/collectives/#{@collective.handle}/settings/actions/remove_ai_agent_from_collective",
-      params: { ai_agent_id: other_ai_agent.id }.to_json,
+    # Try to remove another ai_agent from the collective. remove_member is a
+    # two-key control: even with the capability granted, a non-admin agent is
+    # stopped by the admin-standing check (and an agent is never a principal,
+    # so the own-agent carve-out can't apply either).
+    other_handle = other_ai_agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+    post "/collectives/#{@collective.handle}/members/actions/remove_member",
+      params: { user_handle: other_handle }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
-    assert_match(/capabilities do not include.*remove_ai_agent_from_collective/, response.body)
+    assert_match(/You must be an admin to manage members/, response.body)
   ensure
     token&.destroy
     destroy_user!(acting_ai_agent)

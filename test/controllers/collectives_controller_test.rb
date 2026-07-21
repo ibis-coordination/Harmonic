@@ -736,6 +736,21 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_match(/paid plan/i, flash[:notice].to_s)
   end
 
+  test "upgrade flash points at the agents page when trio is offered but not yet enabled" do
+    enable_stripe_billing_flag!(@tenant)
+    offer_trio!
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    stub_request(:get, %r{https://api.stripe.com/v1/subscriptions/.*})
+      .to_return(status: 200, body: { id: "sub_x", status: "active", items: { data: [] } }.to_json,
+                 headers: { "Content-Type" => "application/json" })
+
+    sign_in_as(@user, tenant: @tenant)
+    post "/collectives/#{@collective.handle}/upgrade"
+
+    assert_response :redirect
+    assert_includes flash[:notice].to_s, "#{@collective.path}/agents"
+  end
+
   test "upgrade: non-owner is rejected with 403" do
     other = create_user
     @tenant.add_user!(other)
@@ -1920,22 +1935,6 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not cm.has_role?("representative"), "a non-admin agent must not grant roles"
   end
 
-  test "the agents section does not reference the pool section when it is hidden" do
-    collective = create_test_collective
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    @tenant.enable_feature_flag!("api")
-    collective.enable_feature_flag!("api")
-    Tenant.clear_thread_scope
-    sign_in_as(@user, tenant: @tenant)
-
-    get "#{collective.path}/settings"
-
-    assert_response :success
-    assert_match(/AI Agents in this Collective/, response.body, "the agents section itself should render")
-    assert_no_match(/Agent Funding Pool\s+section above/, response.body,
-                    "must not point at a section that is not rendered")
-  end
-
   test "the markdown settings page points at the pool page without pool state" do
     collective = create_test_collective
     enable_stripe_billing_flag!(@tenant)
@@ -1957,33 +1956,6 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/Funded agents/, response.body)
   end
 
-  # === Persona navigation links ===
-
-  test "the settings trio section links each persona's task runs and automations" do
-    collective = create_test_collective
-    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    FeatureFlagService.config["trio"] ||= {}
-    FeatureFlagService.config["trio"]["app_enabled"] = true
-    @tenant.enable_feature_flag!("trio")
-    collective.enable_feature_flag!("trio")
-    PersonaActivator.activate!(collective)
-    melody_handle = collective.persona_user("melody").tenant_users.find_by(tenant: @tenant).handle
-    Tenant.clear_thread_scope
-    sign_in_as(@user, tenant: @tenant)
-
-    get "#{collective.path}/settings"
-
-    assert_response :success
-    assert_includes response.body, "/ai-agents/#{melody_handle}/runs"
-    assert_includes response.body, "/ai-agents/#{melody_handle}/automations"
-
-    get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
-
-    assert_response :success
-    assert_includes response.body, "/ai-agents/#{melody_handle}/runs"
-    assert_includes response.body, "/ai-agents/#{melody_handle}/automations"
-  end
-
   test "internal-only collective types cannot be created through the public path" do
     sign_in_as(@user, tenant: @tenant)
 
@@ -1993,6 +1965,214 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
       assert_nil Collective.tenant_scoped_only(@tenant.id).find_by(handle: handle),
                  "expected #{requested_type} to be rejected on the public create path"
     end
+  end
+
+  # === Agent membership ops (agents are members; ops live on the Members page) ===
+
+  def offer_trio!
+    FeatureFlagService.config["trio"] ||= {}
+    FeatureFlagService.config["trio"]["app_enabled"] = true
+    @tenant.enable_feature_flag!("trio")
+  end
+
+  def create_ai_agent!(parent:, name: "Helper Agent")
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent = User.create!(
+      name: name,
+      email: "test-agent-#{SecureRandom.hex(6)}@not-real.com",
+      user_type: "ai_agent",
+      parent_id: parent.id,
+    )
+    @tenant.add_user!(agent)
+    agent
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def add_agent_to_collective!(agent)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    CollectiveMember.create!(collective: @collective, user: agent)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def allow_member_invites!(allowed)
+    @collective.settings["all_members_can_invite"] = allowed
+    @collective.save!
+  end
+
+  test "settings page has no trio checkbox and points at the agents page instead" do
+    offer_trio!
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_select "input#feature_trio", count: 0
+    assert_select "a[href=?]", "#{@collective.path}/agents", minimum: 1
+  end
+
+  test "settings markdown points trio at the agents page" do
+    offer_trio!
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "#{@collective.path}/agents"
+  end
+
+  test "settings page no longer renders the agent membership section" do
+    @tenant.enable_api!
+    @collective.enable_api!
+    agent = create_ai_agent!(parent: @user)
+    add_agent_to_collective!(agent)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings"
+    assert_response :success
+    assert_not_includes response.body, "AI Agents in this Collective"
+    assert_select "form[action$=?]", "/settings/add_ai_agent", count: 0
+  end
+
+  test "settings agent membership routes are retired" do
+    sign_in_as(@user, tenant: @tenant)
+    base = "/collectives/#{@collective.handle}/settings"
+    assert_raises(ActionController::RoutingError) { post "#{base}/add_ai_agent", params: { ai_agent_id: 1 } }
+    assert_raises(ActionController::RoutingError) { delete "#{base}/remove_ai_agent", params: { ai_agent_id: 1 } }
+    # Unknown action names fall through to the actions catch-all, which 404s
+    # with the list of actions that ARE defined at the prefix.
+    post "#{base}/actions/remove_ai_agent_from_collective", params: { ai_agent_id: 1 }
+    assert_response :not_found
+  end
+
+  test "members page offers the add-agent form to a member who can invite" do
+    @tenant.enable_api!
+    @collective.enable_api!
+    allow_member_invites!(true)
+    member = add_member(name: "Agent Parent")
+    agent = create_ai_agent!(parent: member)
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_select "form[action=?]", "#{@collective.path}/members/add_ai_agent"
+    assert_select "option", text: agent.name
+  end
+
+  test "members page hides the add-agent form from members who cannot invite" do
+    @tenant.enable_api!
+    @collective.enable_api!
+    allow_member_invites!(false)
+    member = add_member(name: "Agent Parent")
+    create_ai_agent!(parent: member)
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_select "form[action=?]", "#{@collective.path}/members/add_ai_agent", count: 0
+  end
+
+  test "a member who can invite adds their own agent via members/add_ai_agent" do
+    allow_member_invites!(true)
+    member = add_member(name: "Agent Parent")
+    agent = create_ai_agent!(parent: member)
+    sign_in_as(member, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/add_ai_agent", params: { ai_agent_id: agent.id }
+
+    assert_redirected_to "#{@collective.path}/members"
+    cm = CollectiveMember.find_by(collective_id: @collective.id, user_id: agent.id)
+    assert cm.present? && cm.archived_at.nil?, "expected the agent to become an unarchived member"
+  end
+
+  test "members/add_ai_agent refuses an agent that is not yours" do
+    allow_member_invites!(true)
+    member = add_member(name: "Agent Parent")
+    other = add_member(name: "Other Parent")
+    agent = create_ai_agent!(parent: other)
+    sign_in_as(member, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/add_ai_agent", params: { ai_agent_id: agent.id }
+
+    assert_response :forbidden
+    assert_nil CollectiveMember.find_by(collective_id: @collective.id, user_id: agent.id)
+  end
+
+  test "members/add_ai_agent refuses a member who cannot invite" do
+    allow_member_invites!(false)
+    member = add_member(name: "Agent Parent")
+    agent = create_ai_agent!(parent: member)
+    sign_in_as(member, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/members/add_ai_agent", params: { ai_agent_id: agent.id }
+
+    assert_response :forbidden
+    assert_nil CollectiveMember.find_by(collective_id: @collective.id, user_id: agent.id)
+  end
+
+  test "a parent can remove their own agent through remove_member without being admin" do
+    member = add_member(name: "Agent Parent")
+    agent = create_ai_agent!(parent: member)
+    add_agent_to_collective!(agent)
+    sign_in_as(member, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(agent) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :success
+    cm = CollectiveMember.find_by(collective_id: @collective.id, user_id: agent.id)
+    assert cm.archived_at.present?, "expected the parent to be able to remove their own agent"
+  end
+
+  test "a non-admin still cannot remove members who are not their own agents" do
+    member = add_member(name: "Plain Member")
+    target = add_member(name: "Target Member")
+    sign_in_as(member, tenant: @tenant)
+
+    post remove_member_path,
+         params: { user_handle: handle_for(target) },
+         headers: MEMBER_MGMT_MD
+
+    assert_response :forbidden
+    cm = CollectiveMember.find_by(collective_id: @collective.id, user_id: target.id)
+    assert_nil cm.archived_at, "a non-admin must not remove other members"
+  end
+
+  test "members page shows a remove control for a parent's own agent" do
+    member = add_member(name: "Agent Parent")
+    agent = create_ai_agent!(parent: member)
+    add_agent_to_collective!(agent)
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members"
+    assert_response :success
+    assert_select "form.pulse-member-menu-form[action$=?]", "/members/actions/remove_member", minimum: 1
+  end
+
+  test "add_ai_agent_to_collective action lives at members/actions, not settings/actions" do
+    allow_member_invites!(true)
+    member = add_member(name: "Agent Parent")
+    create_ai_agent!(parent: member)
+    sign_in_as(member, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members/actions", headers: MEMBER_MGMT_MD
+    assert_response :success
+    assert_includes response.body, "add_ai_agent_to_collective"
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/settings/actions", headers: MEMBER_MGMT_MD
+    assert_response :success
+    assert_not_includes response.body, "add_ai_agent_to_collective"
+    assert_not_includes response.body, "remove_ai_agent_from_collective"
+  end
+
+  test "members markdown view renders the roster" do
+    member = add_member(name: "Markdown Member")
+    agent = create_ai_agent!(parent: member)
+    add_agent_to_collective!(agent)
+    sign_in_as(@user, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/members", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Markdown Member"
+    assert_includes response.body, agent.name
   end
 
   private

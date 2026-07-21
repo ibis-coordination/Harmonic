@@ -51,10 +51,15 @@
             <% unless @current_collective.private_workspace? %>
             <li>
               <a href="<%= @current_collective.path %>/representation">
-                <%= octicon 'people', height: 14 %> Representation
+                <%= octicon 'person', height: 14 %> Representation
               </a>
             </li>
             <% end %>
+            <li>
+              <a href="<%= @current_collective.path %>/members">
+                <%= octicon 'people', height: 14 %> Members
+              </a>
+            </li>
             <% unless @current_collective.private_workspace? %>
             <li>
               <a href="<%= @current_collective.path %>/agents">

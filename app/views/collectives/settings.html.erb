@@ -169,6 +169,11 @@
             FeatureFlagService.flag_metadata(f).fetch("collective_level", false) &&
             !FeatureFlagService.operator_managed?(f)
         }
+        # Trio is managed on the Agents page, not by a checkbox here — settings
+        # only points there. (The update endpoint still accepts the flag, so
+        # saving this form never silently disables Trio.)
+        trio_available = available_flags.include?("trio")
+        available_flags -= ["trio"]
         tier_in_effect = @current_tenant.feature_enabled?("stripe_billing")
         if tier_in_effect
           paid_flags, free_flags = available_flags.partition { |f| Collective::PAID_FEATURE_FLAGS.include?(f) }
@@ -198,20 +203,20 @@
               <% end %>
             </p>
           <% end %>
-          <% if flag_name == 'trio' && collective_enabled_locally %>
-            <% personas = @current_collective.persona_users %>
-            <% if personas.any? %>
-              <p class="pulse-feature-usage">
-                <% personas.each do |agent| %>
-                  <span style="margin-right: 12px;">
-                    <strong><%= agent.name %></strong>:
-                    <a href="/ai-agents/<%= agent.handle %>/runs">task runs</a>
-                    · <a href="/ai-agents/<%= agent.handle %>/automations">automations</a>
-                  </span>
-                <% end %>
-              </p>
-            <% end %>
-          <% end %>
+        </div>
+      <% } %>
+
+      <% render_trio_pointer = -> {
+        %>
+        <div class="pulse-feature-flag-item">
+          <strong>Trio</strong>
+          <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
+            <%= @current_collective.feature_flag_enabled_locally?("trio") ? "Enabled" : "Not enabled" %> —
+            the built-in agents are managed on the Agents page.
+          </p>
+          <a href="<%= @current_collective.path %>/agents" class="pulse-action-btn pulse-action-btn-sm">
+            <%= octicon 'command-palette', height: 12 %> Manage agents
+          </a>
         </div>
       <% } %>
 
@@ -235,14 +240,16 @@
           section (non-billing tenants, main collectives), they group with the
           plain features instead — never a standalone section of their own. %>
       <% automations_with_free = automations_available && !show_paid_section %>
-      <% if free_flags.any? || show_paid_section || automations_with_free %>
+      <% trio_with_free = trio_available && !show_paid_section %>
+      <% if free_flags.any? || show_paid_section || automations_with_free || trio_with_free %>
         <%# Suppress border-bottom; the sticky Save Settings form-actions below %>
         <%# has its own border-top, so keeping both produces two visible lines. %>
         <section class="pulse-settings-section" style="border-bottom: none;">
-          <% if free_flags.any? || automations_with_free %>
+          <% if free_flags.any? || automations_with_free || trio_with_free %>
             <h2 class="pulse-section-title"><%= tier_in_effect ? "Features" : "Features Enabled" %></h2>
             <% free_flags.each { |f| render_flag_item.call(f) } %>
             <% render_automations_item.call if automations_with_free %>
+            <% render_trio_pointer.call if trio_with_free %>
           <% end %>
 
           <% if show_paid_section %>
@@ -258,6 +265,7 @@
 
               <% render_automations_item.call if automations_available %>
               <% paid_flags.each { |f| render_flag_item.call(f) } %>
+              <% render_trio_pointer.call if trio_available %>
             <% elsif @current_collective.requires_stripe_billing? %>
               <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
                 <%= octicon 'alert', height: 12 %>
@@ -345,71 +353,16 @@
       </section>
     <% end %>
 
-    <% if @current_collective.feature_enabled?('api') && !@current_collective.private_workspace? %>
-      <section class="pulse-settings-section" data-controller="ai_agent-manager" data-ai_agent-manager-remove-url-value="<%= @current_collective.path %>/settings/remove_ai_agent">
-        <h2 class="pulse-section-title">AI Agents in this Collective</h2>
+    <% unless @current_collective.private_workspace? %>
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">Agent Members</h2>
         <p class="pulse-section-description">
-          AI Agents are virtual identities managed by their parent user.
-          Actions taken by ai_agents are the responsibility of their parent.
-          <% if @funding_pools_enabled || @funding_pool %>
-            Membership controls where an agent can act; it does not affect how its
-            usage is billed — pooled funding is managed in the Agent Funding Pool
-            section above.
-          <% end %>
+          Agents are members. See who runs here on the
+          <a href="<%= @current_collective.path %>/agents" class="pulse-link">Agents page</a>;
+          add or remove agents on the
+          <a href="<%= @current_collective.path %>/members" class="pulse-link">Members page</a>.
         </p>
-        <div data-ai_agent-manager-target="list">
-          <table class="pulse-table"<%= @collective_ai_agents.empty? ? ' style="display:none;"'.html_safe : '' %>>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Managed by</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <% @collective_ai_agents.each do |ai_agent| %>
-                <tr data-ai_agent-id="<%= ai_agent.id %>">
-                  <td><%= link_to ai_agent.display_name, ai_agent.path %></td>
-                  <td>
-                    <% if ai_agent.parent %>
-                      <%= link_to ai_agent.parent.display_name, ai_agent.parent.path %>
-                    <% else %>
-                      <em>Unknown</em>
-                    <% end %>
-                  </td>
-                  <td>
-                    <button type="button" class="pulse-action-btn-danger"
-                            data-action="ai_agent-manager#remove"
-                            data-ai_agent-id="<%= ai_agent.id %>"
-                            data-ai_agent-name="<%= ai_agent.display_name %>"
-                            data-remove-url="<%= @current_collective.path %>/settings/remove_ai_agent">
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-          <% if @collective_ai_agents.empty? %>
-            <p class="pulse-empty-message"><em>No ai_agents in this collective.</em></p>
-          <% end %>
-        </div>
-
-        <% if @addable_ai_agents.any? %>
-          <h3 class="pulse-subsection-title">Add your ai_agents to this collective</h3>
-          <form data-ai_agent-manager-target="addForm" data-action="submit->ai_agent-manager#add" action="<%= @current_collective.path %>/settings/add_ai_agent" method="post" class="pulse-inline-form">
-            <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
-            <select name="ai_agent_id" data-ai_agent-manager-target="select" class="pulse-form-select">
-              <option value="">Select a ai_agent...</option>
-              <% @addable_ai_agents.each do |s| %>
-                <option value="<%= s.id %>"><%= s.display_name %></option>
-              <% end %>
-            </select>
-            <button type="submit" class="pulse-action-btn">Add to Collective</button>
-          </form>
-        <% end %>
       </section>
-
     <% end %>
 
 

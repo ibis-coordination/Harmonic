@@ -6,7 +6,7 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
     @collective = @global_collective
     @user = @global_user
     collective_member = @collective.collective_members.find_by(user: @user)
-    collective_member.add_role!("admin") if collective_member
+    collective_member&.add_role!("admin")
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
@@ -266,6 +266,20 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
 
   # === The trio toggle endpoint ===
 
+  test "the agents page points at the members page for membership ops" do
+    collective = create_test_collective
+    sign_in_as(@user, tenant: @tenant)
+
+    get "#{collective.path}/agents"
+    assert_response :success
+    assert_select "a[href=?]", "#{collective.path}/members"
+    assert_match(/manage agent membership on the/i, response.body)
+
+    get "#{collective.path}/agents", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "#{collective.path}/members"
+  end
+
   test "an admin enables trio and the personas activate" do
     collective = create_test_collective
     offer_trio!(@tenant)
@@ -276,6 +290,22 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{collective.path}/agents"
     assert_equal true, trio_flag(collective)
     assert_equal 3, persona_count(collective)
+  end
+
+  test "enabling trio without an open pool flashes a pool-page pointer" do
+    collective = create_test_collective
+    offer_trio!(@tenant)
+    enable_self_serve_pools!(collective)
+    sign_in_as(@user, tenant: @tenant)
+
+    post "#{collective.path}/agents/set_trio_enabled", params: { enabled: "true" }
+
+    assert_redirected_to "#{collective.path}/agents"
+    assert_includes flash[:notice].to_s, "#{collective.path}/pool"
+
+    create_pool!(collective)
+    post "#{collective.path}/agents/set_trio_enabled", params: { enabled: "true" }
+    assert_not_includes flash[:notice].to_s, "#{collective.path}/pool"
   end
 
   test "an admin disables trio and the personas deactivate" do
